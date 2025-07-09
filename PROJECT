@@ -9,4 +9,14 @@ plugins:
   helm.kubebuilder.io/v1-alpha: {}
 projectName: network-operator
 repo: github.com/ironcore-dev/network-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: ironcore.dev
+  group: network
+  kind: Interface
+  path: github.com/ironcore-dev/network-operator/api/v1alpha1
+  version: v1alpha1
 version: "3"

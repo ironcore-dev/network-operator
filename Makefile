@@ -42,7 +42,7 @@ install-kustomize: FORCE
 
 fmt: FORCE install-gofumpt
 	@printf "\e[1;36m>> gofumpt -l -w .\e[0m\n"
-	@gofumpt -l -w .
+	@gofumpt -l -w $(shell git ls-files '*.go' | grep -v '^internal/provider/openconfig')
 
 # Run the e2e tests against a k8s cluster.
 test-e2e: FORCE
@@ -84,17 +84,13 @@ undeploy: FORCE install-kustomize
 
 # Install CRDs into the k8s cluster
 deploy-crds: FORCE generate install-kustomize
-	@if [ -d config/crd ]; then \
-	  @printf "\e[1;36m>> kustomize build config/crd | kubectl apply -f -\e[0m\n"; \
-	  @kustomize build config/crd | kubectl apply -f -; \
-	fi
+	@printf "\e[1;36m>> kustomize build config/crd | kubectl apply -f -\e[0m\n"
+	@kustomize build config/crd | kubectl apply -f -
 
 # Uninstall CRDs from the k8s cluster
 undeploy-crds: FORCE install-kustomize
-	@if [ -d config/crd ]; then \
-	  @printf "\e[1;36m>> kustomize build config/crd | kubectl delete -f -\e[0m\n"; \
-	  @kustomize build config/crd | kubectl delete --ignore-not-found=true -f -; \
-	fi
+	@printf "\e[1;36m>> kustomize build config/crd | kubectl delete -f -\e[0m\n"
+	@kustomize build config/crd | kubectl delete --ignore-not-found=true -f -
 
 # Create a Kind cluster for local development and testing.
 kind-create: FORCE
@@ -173,7 +169,7 @@ BININFO_BUILD_DATE  ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 build-all: build/network-operator
 
 build/network-operator: FORCE generate
-	env $(GO_BUILDENV) go build $(GO_BUILDFLAGS) -ldflags '-s -w -X github.com/sapcc/go-api-declarations/bininfo.binName=network-operator -X github.com/sapcc/go-api-declarations/bininfo.version=$(BININFO_VERSION) -X github.com/sapcc/go-api-declarations/bininfo.commit=$(BININFO_COMMIT_HASH) -X github.com/sapcc/go-api-declarations/bininfo.buildDate=$(BININFO_BUILD_DATE) $(GO_LDFLAGS)' -o build/network-operator ./cmd/manager
+	env $(GO_BUILDENV) go build $(GO_BUILDFLAGS) -ldflags '-s -w -X github.com/sapcc/go-api-declarations/bininfo.binName=network-operator -X github.com/sapcc/go-api-declarations/bininfo.version=$(BININFO_VERSION) -X github.com/sapcc/go-api-declarations/bininfo.commit=$(BININFO_COMMIT_HASH) -X github.com/sapcc/go-api-declarations/bininfo.buildDate=$(BININFO_BUILD_DATE) $(GO_LDFLAGS)' -o build/network-operator ./cmd
 
 DESTDIR =
 ifeq ($(shell uname -s),Darwin)
@@ -192,7 +188,7 @@ ifeq ($(GO_TESTPKGS),)
 GO_TESTPKGS := ./...
 endif
 # which packages to measure coverage for
-GO_COVERPKGS := $(shell go list ./... | grep -E '/internal')
+GO_COVERPKGS := $(shell go list ./... | grep -E '/internal' | grep -Ev '/internal/provider/openconfig')
 # to get around weird Makefile syntax restrictions, we need variables containing nothing, a space and comma
 null :=
 space := $(null) $(null)

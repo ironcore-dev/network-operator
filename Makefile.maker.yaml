@@ -5,7 +5,7 @@ metadata:
 
 binaries:
   - name: network-operator
-    fromPackage: ./cmd/manager
+    fromPackage: ./cmd
     installTo: bin/
 
 controllerGen:
@@ -16,6 +16,7 @@ controllerGen:
 
 coverageTest:
   only: "/internal"
+  except: "/internal/provider/openconfig"
 
 dockerfile:
   enabled: false
@@ -25,6 +26,9 @@ golang:
 
 golangciLint:
   createConfig: true
+  skipDirs:
+    - internal/provider/openconfig
+  timeout: 10m
 
 goReleaser:
   createConfig: true
@@ -76,7 +80,7 @@ verbatim: |
 
   fmt: FORCE install-gofumpt
     @printf "\e[1;36m>> gofumpt -l -w .\e[0m\n"
-    @gofumpt -l -w .
+    @gofumpt -l -w $(shell git ls-files '*.go' | grep -v '^internal/provider/openconfig')
 
   # Run the e2e tests against a k8s cluster.
   test-e2e: FORCE
@@ -118,17 +122,13 @@ verbatim: |
 
   # Install CRDs into the k8s cluster
   deploy-crds: FORCE generate install-kustomize
-    @if [ -d config/crd ]; then \
-      @printf "\e[1;36m>> kustomize build config/crd | kubectl apply -f -\e[0m\n"; \
-      @kustomize build config/crd | kubectl apply -f -; \
-    fi
+    @printf "\e[1;36m>> kustomize build config/crd | kubectl apply -f -\e[0m\n"
+    @kustomize build config/crd | kubectl apply -f -
 
   # Uninstall CRDs from the k8s cluster
   undeploy-crds: FORCE install-kustomize
-    @if [ -d config/crd ]; then \
-      @printf "\e[1;36m>> kustomize build config/crd | kubectl delete -f -\e[0m\n"; \
-      @kustomize build config/crd | kubectl delete --ignore-not-found=true -f -; \
-    fi
+    @printf "\e[1;36m>> kustomize build config/crd | kubectl delete -f -\e[0m\n"
+    @kustomize build config/crd | kubectl delete --ignore-not-found=true -f -
 
   # Create a Kind cluster for local development and testing.
   kind-create: FORCE

@@ -11,10 +11,22 @@ docker_build('controller:latest', '.', ignore=['*/*/zz_generated.deepcopy.go', '
     'api/', 'cmd/', 'hack/', 'internal/', 'go.mod', 'go.sum', 'Makefile',
 ])
 
+local_resource('controller-gen', 'make generate', ignore=['*/*/zz_generated.deepcopy.go', 'config/crd/bases/*'], deps=[
+    'api/', 'cmd/', 'hack/', 'internal/', 'go.mod', 'go.sum', 'Makefile',
+])
+
 k8s_yaml(kustomize('config/default'))
-k8s_resource('network-operator-controller-manager')
+k8s_resource('network-operator-controller-manager', resource_deps=['controller-gen'])
+
+# Sample resources with manual trigger mode
+k8s_yaml('./config/samples/v1alpha1_interface.yaml')
+k8s_resource(new_name='lo0', objects=['lo0:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='lo1', objects=['lo1:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='eth1-1', objects=['eth1-1:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='eth1-2', objects=['eth1-2:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='eth1-10', objects=['eth1-10:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 print('🚀 network-operator development environment')
-print('👉 Edit the controller code inside the api/, cmd/, or internal/ directories')
+print('👉 Edit the code inside the api/, cmd/, or internal/ directories')
 print('👉 Tilt will automatically rebuild and redeploy when changes are detected')
 # vim: ft=tiltfile syn=python

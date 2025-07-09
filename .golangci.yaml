@@ -9,7 +9,7 @@
 version: "2"
 run:
   modules-download-mode: readonly
-  timeout: 3m0s # none by default in v2
+  timeout: 10m0s # none by default in v2
 
 formatters:
   enable:
@@ -126,6 +126,8 @@ linters:
         - github.com/mdlayher/arp
         # for github.com/sapcc/vpa_butler
         - k8s.io/client-go
+        # until https://github.com/openconfig/ygnmi/pull/157 is merged
+        - github.com/openconfig/ygnmi
       toolchain-forbidden: true
       go-version-pattern: 1\.\d+(\.0)?$
     gosec:
@@ -183,6 +185,7 @@ linters:
       - third_party$
       - builtin$
       - examples$
+      - internal/provider/openconfig
 
 output:
   formats:
