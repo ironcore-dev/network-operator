@@ -19,6 +19,9 @@ k8s_yaml(kustomize('config/default'))
 k8s_resource('network-operator-controller-manager', resource_deps=['controller-gen'])
 
 # Sample resources with manual trigger mode
+k8s_yaml('./config/samples/v1alpha1_device.yaml')
+k8s_resource(new_name='leaf1', objects=['leaf1:device'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+
 k8s_yaml('./config/samples/v1alpha1_interface.yaml')
 k8s_resource(new_name='lo0', objects=['lo0:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='lo1', objects=['lo1:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)

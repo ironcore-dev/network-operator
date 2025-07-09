@@ -14,6 +14,7 @@ rules:
 - apiGroups:
   - networking.cloud.sap
   resources:
+  - devices
   - interfaces
   verbs:
   - create
@@ -26,12 +27,14 @@ rules:
 - apiGroups:
   - networking.cloud.sap
   resources:
+  - devices/finalizers
   - interfaces/finalizers
   verbs:
   - update
 - apiGroups:
   - networking.cloud.sap
   resources:
+  - devices/status
   - interfaces/status
   verbs:
   - get
