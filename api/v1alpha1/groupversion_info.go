@@ -34,6 +34,14 @@ const WatchLabel = "networking.cloud.sap/watch-filter"
 // (e.g., deleting external dependencies) before Kubernetes finalizes the deletion.
 const FinalizerName = "networking.cloud.sap/finalizer"
 
+// DeviceLabel is a label applied to any Network API object to indicate the device
+// it is associated with. This label is used by controllers to filter and manage resources
+// based on the device they are intended for.
+const DeviceLabel = "networking.cloud.sap/device-name"
+
+// DeviceKind represents the Kind of Device.
+const DeviceKind = "Device"
+
 // Condition types that are used across different objects.
 const (
 	// Ready is the top-level status condition that reports if an object is ready.
@@ -52,4 +60,10 @@ const (
 
 	// ReconcilePendingReason indicates that the controller is waiting for resources to be reconciled.
 	ReconcilePendingReason = "ReconcilePending"
+
+	// ProvisioningReason indicates that the resource is being provisioned.
+	ProvisioningReason = "Provisioning"
+
+	// AllResourcesReadyReason indicates that all resources owned by the resource are ready.
+	AllResourcesReadyReason = "AllResourcesReady"
 )

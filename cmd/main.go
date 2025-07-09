@@ -203,9 +203,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	setupLog.Info("Using provider", "provider", providerName)
 	prov, err := provider.Get(providerName)
 	if err != nil {
 		setupLog.Error(err, "failed to get provider", "provider", providerName)
+		os.Exit(1)
+	}
+
+	if err = (&controller.DeviceReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("device-controller"),
+		WatchFilterValue: watchFilterValue,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Device")
 		os.Exit(1)
 	}
 

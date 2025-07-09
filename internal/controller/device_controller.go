@@ -1,0 +1,308 @@
+// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-License-Identifier: Apache-2.0
+
+package controller
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/tools/record"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	"github.com/ironcore-dev/network-operator/api/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/clientutil"
+)
+
+const DefaultRequeueAfter = 30 * time.Second
+
+// DeviceReconciler reconciles a Device object
+type DeviceReconciler struct {
+	client.Client
+	Scheme *runtime.Scheme
+
+	// WatchFilterValue is the label value used to filter events prior to reconciliation.
+	WatchFilterValue string
+
+	// Recorder is used to record events for the controller.
+	// More info: https://book.kubebuilder.io/reference/raising-events
+	Recorder record.EventRecorder
+}
+
+// +kubebuilder:rbac:groups=networking.cloud.sap,resources=devices,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.cloud.sap,resources=devices/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=networking.cloud.sap,resources=devices/finalizers,verbs=update
+
+// Reconcile is part of the main kubernetes reconciliation loop which aims to
+// move the current state of the cluster closer to the desired state.
+//
+// For more details, check Reconcile and its Result here:
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.2/pkg/reconcile
+//
+// For more details about the method shape, read up here:
+// - https://ahmet.im/blog/controller-pitfalls/#reconcile-method-shape
+func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
+	log := ctrl.LoggerFrom(ctx)
+	log.Info("Reconciling resource")
+
+	obj := new(v1alpha1.Device)
+	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
+		if apierrors.IsNotFound(err) {
+			// If the custom resource is not found then it usually means that it was deleted or not created
+			// In this way, we will stop the reconciliation
+			log.Info("Resource not found. Ignoring since object must be deleted")
+			return ctrl.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		log.Error(err, "Failed to get resource")
+		return ctrl.Result{}, err
+	}
+
+	if !obj.DeletionTimestamp.IsZero() {
+		if controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
+			if err := r.finalize(ctx, obj); err != nil {
+				log.Error(err, "Failed to finalize resource")
+				return ctrl.Result{}, err
+			}
+			controllerutil.RemoveFinalizer(obj, v1alpha1.FinalizerName)
+			if err := r.Update(ctx, obj); err != nil {
+				log.Error(err, "Failed to remove finalizer from resource")
+				return ctrl.Result{}, err
+			}
+		}
+		log.Info("Resource is being deleted, skipping reconciliation")
+		return ctrl.Result{}, nil
+	}
+
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
+	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
+		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
+		if err := r.Update(ctx, obj); err != nil {
+			log.Error(err, "Failed to add finalizer to resource")
+			return ctrl.Result{}, err
+		}
+		log.Info("Added finalizer to resource")
+		return ctrl.Result{}, nil
+	}
+
+	orig := obj.DeepCopy()
+	if len(obj.Status.Conditions) == 0 {
+		log.Info("Initializing status conditions")
+		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
+			Type:    v1alpha1.ReadyCondition,
+			Status:  metav1.ConditionUnknown,
+			Reason:  v1alpha1.ReconcilePendingReason,
+			Message: "Starting reconciliation",
+		})
+		return ctrl.Result{}, r.Status().Update(ctx, obj)
+	}
+
+	// Always attempt to update the status after reconciliation
+	defer func() {
+		if !equality.Semantic.DeepEqual(orig.Status, obj.Status) {
+			if err := r.Status().Patch(ctx, obj, client.MergeFrom(orig)); err != nil {
+				log.Error(err, "Failed to update status")
+				reterr = errors.NewAggregate([]error{reterr, err})
+			}
+		}
+	}()
+
+	c := clientutil.NewClient(r.Client, req.Namespace)
+
+	switch obj.Status.Phase {
+	case v1alpha1.DevicePhasePending:
+		if obj.Spec.Bootstrap == nil {
+			// Skip provisioning if no bootstrap configuration is provided.
+			obj.Status.Phase = v1alpha1.DevicePhaseActive
+			return ctrl.Result{}, nil
+		}
+
+		log.Info("Device is in pending phase, starting provisioning")
+		tmpl, err := c.Template(ctx, obj.Spec.Bootstrap.Template)
+		if err != nil {
+			log.Error(err, "Failed to get template for device provisioning")
+			meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
+				Type:               v1alpha1.ReadyCondition,
+				Status:             metav1.ConditionFalse,
+				Reason:             v1alpha1.NotReadyReason,
+				Message:            fmt.Sprintf("Failed to get template for device provisioning: %v", err),
+				ObservedGeneration: obj.Generation,
+			})
+			obj.Status.Phase = v1alpha1.DevicePhaseFailed
+			r.Recorder.Event(obj, "Warning", "ProvisioningFailed", "Device provisioning failed due to template retrieval error")
+			return ctrl.Result{}, err
+		}
+		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
+			Type:               v1alpha1.ReadyCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             v1alpha1.ProvisioningReason,
+			Message:            "Device is being provisioned",
+			ObservedGeneration: obj.Generation,
+		})
+		obj.Status.Phase = v1alpha1.DevicePhaseProvisioning
+		r.Recorder.Event(obj, "Normal", "ProvisioningStarted", "Device provisioning has started")
+		// TODO(swagner-de): Start POAP Process.
+		_ = tmpl // <-- Use the template.
+		return ctrl.Result{RequeueAfter: DefaultRequeueAfter}, nil
+
+	case v1alpha1.DevicePhaseProvisioning:
+		log.Info("Device is in provisioning phase, checking completion")
+		// TODO(swagner-de): Check if POAP Process is complete.
+		ready := true // <-- This should be replaced with actual readiness check logic.
+		if !ready {
+			// If the device is not ready yet, we requeue the request to check again later.
+			return ctrl.Result{RequeueAfter: DefaultRequeueAfter}, nil
+		}
+		log.Info("Device provisioning is complete, updating status")
+		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
+			Type:               v1alpha1.ReadyCondition,
+			Status:             metav1.ConditionTrue,
+			Reason:             v1alpha1.ReadyReason,
+			Message:            "Device is ready for use",
+			ObservedGeneration: obj.Generation,
+		})
+		obj.Status.Phase = v1alpha1.DevicePhaseActive
+		r.Recorder.Event(obj, "Normal", "ProvisioningComplete", "Device provisioning has completed successfully")
+		// Trigger a status update and let the controller requeue the request
+		return ctrl.Result{}, nil
+
+	case v1alpha1.DevicePhaseActive:
+		if err := r.reconcile(ctx, obj); err != nil {
+			log.Error(err, "Failed to reconcile resource")
+			return ctrl.Result{}, err
+		}
+
+	case v1alpha1.DevicePhaseFailed:
+		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
+			Type:               v1alpha1.ReadyCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             v1alpha1.NotReadyReason,
+			Message:            "Device provisioning has failed",
+			ObservedGeneration: obj.Generation,
+		})
+
+	default:
+		log.Info("Device is in an unknown phase, resetting to active")
+		obj.Status.Phase = v1alpha1.DevicePhaseActive
+	}
+
+	return ctrl.Result{}, nil
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	labelSelector := metav1.LabelSelector{}
+	if r.WatchFilterValue != "" {
+		labelSelector.MatchLabels = map[string]string{v1alpha1.WatchLabel: r.WatchFilterValue}
+	}
+
+	filter, err := predicate.LabelSelectorPredicate(labelSelector)
+	if err != nil {
+		return fmt.Errorf("failed to create label selector predicate: %w", err)
+	}
+
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&v1alpha1.Device{}).
+		Named("device").
+		Owns(&v1alpha1.Interface{}).
+		Watches(&v1alpha1.Interface{}, handler.EnqueueRequestsFromMapFunc(r.interfaceToDevice)).
+		WithEventFilter(filter).
+		Complete(r)
+}
+
+func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Device) error {
+	if err := r.setOwnerReferencesOnInterfaces(ctx, device); err != nil {
+		meta.SetStatusCondition(&device.Status.Conditions, metav1.Condition{
+			Type:               v1alpha1.ReadyCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             v1alpha1.NotReadyReason,
+			Message:            fmt.Sprintf("Failed to reconcile interfaces: %v", err),
+			ObservedGeneration: device.Generation,
+		})
+		return err
+	}
+
+	// TODO(felix-kaestner): Implement basic configuration reconciliation logic.
+
+	meta.SetStatusCondition(&device.Status.Conditions, metav1.Condition{
+		Type:               v1alpha1.ReadyCondition,
+		Status:             metav1.ConditionTrue,
+		Reason:             v1alpha1.AllResourcesReadyReason,
+		Message:            "All owned resources are ready",
+		ObservedGeneration: device.Generation,
+	})
+	return nil
+}
+
+func (r *DeviceReconciler) finalize(_ context.Context, _ *v1alpha1.Device) error {
+	// TODO(felix-kaestner): Implement finalization logic for devices.
+	return nil
+}
+
+// setOwnerReferencesOnInterfaces sets the owner reference on all Interfaces owned by the Device if they do not already have one.
+func (r *DeviceReconciler) setOwnerReferencesOnInterfaces(ctx context.Context, device *v1alpha1.Device) error {
+	log := ctrl.LoggerFrom(ctx)
+
+	var list v1alpha1.InterfaceList
+	labelSelector := client.MatchingLabels{v1alpha1.DeviceLabel: device.Name}
+	if err := r.List(ctx, &list, client.InNamespace(device.Namespace), labelSelector); err != nil {
+		return fmt.Errorf("failed to list interfaces for device %q: %w", device.Name, err)
+	}
+
+	for _, iface := range list.Items {
+		hasOwnerRef, err := controllerutil.HasOwnerReference(iface.GetOwnerReferences(), device, r.Scheme)
+		if err != nil {
+			return fmt.Errorf("failed to check owner reference for interface %q: %w", iface.Name, err)
+		}
+
+		if !hasOwnerRef {
+			err := controllerutil.SetOwnerReference(device, &iface, r.Scheme, controllerutil.WithBlockOwnerDeletion(true))
+			if err != nil {
+				return fmt.Errorf("failed to set owner reference for interface %q: %w", iface.Name, err)
+			}
+
+			if err := r.Update(ctx, &iface); err != nil {
+				if apierrors.IsNotFound(err) {
+					log.Info("Interface not found, skipping update", "interface", iface.Name)
+					continue
+				}
+				return fmt.Errorf("failed to update interface %q with owner reference: %w", iface.Name, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// interfaceToDevice is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for a Device to update when one of its own Interfaces gets updated.
+func (r *DeviceReconciler) interfaceToDevice(_ context.Context, obj client.Object) []ctrl.Request {
+	iface, ok := obj.(*v1alpha1.Interface)
+	if !ok {
+		panic(fmt.Sprintf("Expected Interface but got %T", obj))
+	}
+
+	name, exists := iface.Labels[v1alpha1.DeviceLabel]
+	if !exists {
+		return nil
+	}
+
+	return []ctrl.Request{{
+		NamespacedName: types.NamespacedName{
+			Namespace: iface.Namespace,
+			Name:      name,
+		},
+	}}
+}

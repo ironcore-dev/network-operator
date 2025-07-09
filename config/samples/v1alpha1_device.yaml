@@ -1,0 +1,41 @@
+apiVersion: networking.cloud.sap/v1alpha1
+kind: Device
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.cloud.sap/role: leaf
+    networking.cloud.sap/site: test
+    networking.cloud.sap/rack: lab
+  name: leaf1
+spec:
+  endpoint: 192.168.5.2:9339
+  secretRef:
+    name: secret-basic-auth
+  bootstrap:
+    # The bootstrap configuration can also be defined in a ConfigMap or Secret as follows:
+    # template:
+    #   secretRef:
+    #     name: leaf1-bootstrap
+    #     key: setup.cfg
+    # --- or ---
+    # template:
+    #   configMapRef:
+    #     name: leaf1-bootstrap
+    #     key: setup.cfg
+    template:
+      inline: |
+        feature grpc
+        grpc port 9339
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: secret-basic-auth
+type: kubernetes.io/basic-auth
+stringData:
+  username: admin
+  password: admin

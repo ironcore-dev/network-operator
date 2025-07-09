@@ -90,6 +90,13 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	err = (&DeviceReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&InterfaceReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
