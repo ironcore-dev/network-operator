@@ -186,6 +186,7 @@ linters:
       - builtin$
       - examples$
       - internal/provider/openconfig
+      - internal/provider/cisco/nxos/genyang
 
 output:
   formats:
