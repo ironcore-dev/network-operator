@@ -5,6 +5,8 @@ go 1.24
 require (
 	github.com/onsi/ginkgo/v2 v2.22.0
 	github.com/onsi/gomega v1.36.1
+	github.com/openconfig/goyang v1.6.0
+	github.com/openconfig/ygot v0.32.0
 	github.com/sapcc/go-api-declarations v1.16.0
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/zap v1.27.0
@@ -55,8 +57,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/openconfig/gnmi v0.13.0 // indirect
-	github.com/openconfig/goyang v1.6.0 // indirect
-	github.com/openconfig/ygot v0.32.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.19.1 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
