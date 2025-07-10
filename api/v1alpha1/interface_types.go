@@ -38,7 +38,7 @@ type InterfaceSpec struct {
 	// +kubebuilder:validation:Minimum=576
 	// +kubebuilder:validation:Maximum=9216
 	// +optional
-	MTU uint16 `json:"mtu,omitempty"`
+	MTU int32 `json:"mtu,omitempty"`
 
 	// Switchport defines the switchport configuration for the interface.
 	// This is only applicable for interfaces that are switchports (e.g., Ethernet interfaces).
@@ -96,7 +96,7 @@ type Switchport struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=4094
 	// +optional
-	AccessVlan uint16 `json:"accessVlan,omitempty"`
+	AccessVlan int32 `json:"accessVlan,omitempty"`
 
 	// NativeVlan specifies the native VLAN ID for trunk mode switchports.
 	// Only applicable when Mode is set to "Trunk".
@@ -104,7 +104,7 @@ type Switchport struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=4094
 	// +optional
-	NativeVlan uint16 `json:"nativeVlan,omitempty"`
+	NativeVlan int32 `json:"nativeVlan,omitempty"`
 
 	// AllowedVlans is a list of VLAN IDs that are allowed on the trunk port.
 	// Only applicable when Mode is set to "Trunk".
@@ -113,7 +113,7 @@ type Switchport struct {
 	// +kubebuilder:validation:items:Minimum=1
 	// +kubebuilder:validation:items:Maximum=4094
 	// +optional
-	AllowedVlans []uint16 `json:"allowedVlans,omitempty"`
+	AllowedVlans []int32 `json:"allowedVlans,omitempty"`
 }
 
 // SwitchportMode represents the switchport mode of an interface.

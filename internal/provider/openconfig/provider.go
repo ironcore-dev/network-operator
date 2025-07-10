@@ -45,7 +45,7 @@ func (p *Provider) CreateInterface(ctx context.Context, iface *v1alpha1.Interfac
 	default:
 		return fmt.Errorf("unsupported interface type: %s", iface.Spec.Type)
 	}
-	i.Mtu = ygot.Uint16(iface.Spec.MTU)
+	i.Mtu = ygot.Uint16(uint16(iface.Spec.MTU))
 	for idx, addr := range iface.Spec.IPv4Addresses {
 		switch {
 		case addr == "":
@@ -67,10 +67,10 @@ func (p *Provider) CreateInterface(ctx context.Context, iface *v1alpha1.Interfac
 		switch iface.Spec.Switchport.Mode {
 		case v1alpha1.SwitchportModeAccess:
 			port.InterfaceMode = VlanTypes_VlanModeType_ACCESS
-			port.AccessVlan = ygot.Uint16(iface.Spec.Switchport.AccessVlan)
+			port.AccessVlan = ygot.Uint16(uint16(iface.Spec.Switchport.AccessVlan))
 		case v1alpha1.SwitchportModeTrunk:
 			port.InterfaceMode = VlanTypes_VlanModeType_TRUNK
-			port.NativeVlan = ygot.Uint16(iface.Spec.Switchport.NativeVlan)
+			port.NativeVlan = ygot.Uint16(uint16(iface.Spec.Switchport.NativeVlan))
 			for _, vlan := range iface.Spec.Switchport.AllowedVlans {
 				var union Interface_Ethernet_SwitchedVlan_TrunkVlans_Union
 				if union, err = port.To_Interface_Ethernet_SwitchedVlan_TrunkVlans_Union(vlan); err != nil {

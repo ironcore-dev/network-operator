@@ -83,6 +83,7 @@ spec:
               mtu:
                 description: MTU (Maximum Transmission Unit) specifies the size of
                   the largest packet that can be sent over the interface.
+                format: int32
                 maximum: 9216
                 minimum: 576
                 type: integer
@@ -99,6 +100,7 @@ spec:
                     description: |-
                       AccessVlan specifies the VLAN ID for access mode switchports.
                       Only applicable when Mode is set to "Access".
+                    format: int32
                     maximum: 4094
                     minimum: 1
                     type: integer
@@ -107,6 +109,7 @@ spec:
                       AllowedVlans is a list of VLAN IDs that are allowed on the trunk port.
                       Only applicable when Mode is set to "Trunk".
                     items:
+                      format: int32
                       maximum: 4094
                       minimum: 1
                       type: integer
@@ -123,6 +126,7 @@ spec:
                     description: |-
                       NativeVlan specifies the native VLAN ID for trunk mode switchports.
                       Only applicable when Mode is set to "Trunk".
+                    format: int32
                     maximum: 4094
                     minimum: 1
                     type: integer
