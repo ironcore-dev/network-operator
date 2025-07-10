@@ -16,7 +16,7 @@ controllerGen:
 
 coverageTest:
   only: "/internal"
-  except: "/internal/provider/openconfig"
+  except: "/internal/provider/openconfig|internal/provider/cisco/nxos/genyang"
 
 dockerfile:
   enabled: false
@@ -28,6 +28,7 @@ golangciLint:
   createConfig: true
   skipDirs:
     - internal/provider/openconfig
+    - internal/provider/cisco/nxos/genyang
   timeout: 10m
 
 goReleaser:
@@ -80,7 +81,7 @@ verbatim: |
 
   fmt: FORCE install-gofumpt
     @printf "\e[1;36m>> gofumpt -l -w .\e[0m\n"
-    @gofumpt -l -w $(shell git ls-files '*.go' | grep -v '^internal/provider/openconfig')
+    @gofumpt -l -w $(shell git ls-files '*.go' | grep -v '^internal/provider/openconfig|internal/provider/cisco/nxos/genyang')
 
   # Run the e2e tests against a k8s cluster.
   test-e2e: FORCE

@@ -42,7 +42,7 @@ install-kustomize: FORCE
 
 fmt: FORCE install-gofumpt
 	@printf "\e[1;36m>> gofumpt -l -w .\e[0m\n"
-	@gofumpt -l -w $(shell git ls-files '*.go' | grep -v '^internal/provider/openconfig')
+	@gofumpt -l -w $(shell git ls-files '*.go' | grep -v '^internal/provider/openconfig|internal/provider/cisco/nxos/genyang')
 
 # Run the e2e tests against a k8s cluster.
 test-e2e: FORCE
@@ -188,7 +188,7 @@ ifeq ($(GO_TESTPKGS),)
 GO_TESTPKGS := ./...
 endif
 # which packages to measure coverage for
-GO_COVERPKGS := $(shell go list ./... | grep -E '/internal' | grep -Ev '/internal/provider/openconfig')
+GO_COVERPKGS := $(shell go list ./... | grep -E '/internal' | grep -Ev '/internal/provider/openconfig|internal/provider/cisco/nxos/genyang')
 # to get around weird Makefile syntax restrictions, we need variables containing nothing, a space and comma
 null :=
 space := $(null) $(null)
