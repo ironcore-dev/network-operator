@@ -18,6 +18,10 @@ type Provider interface {
 	CreateInterface(context.Context, *v1alpha1.Interface) error
 	// DeleteInterface call is responsible for Interface deletion on the provider.
 	DeleteInterface(context.Context, *v1alpha1.Interface) error
+	// CreateIGP call is responsible for IGP creation on the provider
+	CreateIGP(context.Context, *v1alpha1.IGP) error
+	// DeleteIGP call is responsible for IGP deletion on the provider.
+	DeleteIGP(context.Context, *v1alpha1.IGP) error
 }
 
 var mu sync.RWMutex

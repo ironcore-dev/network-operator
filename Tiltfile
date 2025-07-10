@@ -8,7 +8,7 @@ analytics_settings(False)
 allow_k8s_contexts(['minikube', 'kind-network'])
 
 docker_build('controller:latest', '.', ignore=['*/*/zz_generated.deepcopy.go', 'config/crd/bases/*'], only=[
-    'api/', 'cmd/', 'hack/', 'internal/', 'go.mod', 'go.sum', 'Makefile',
+    'api/', 'cmd/', 'hack/', 'internal/', 'go.mod', 'go.sum', 'Makefile', 'vendor/', ".force-rebuild"
 ])
 
 local_resource('controller-gen', 'make generate', ignore=['*/*/zz_generated.deepcopy.go', 'config/crd/bases/*'], deps=[
@@ -25,6 +25,8 @@ k8s_resource(new_name='lo1', objects=['lo1:interface'], trigger_mode=TRIGGER_MOD
 k8s_resource(new_name='eth1-1', objects=['eth1-1:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='eth1-2', objects=['eth1-2:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='eth1-10', objects=['eth1-10:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_yaml('./config/samples/v1alpha1_igp.yaml')
+k8s_resource(new_name='underlay-isis-area-0', objects=['underlay-isis-area-0:igp'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')

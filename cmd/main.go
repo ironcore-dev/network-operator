@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	// Import all supported provider implementations.
+	_ "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos"
 	_ "github.com/ironcore-dev/network-operator/internal/provider/openconfig"
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
@@ -79,8 +80,8 @@ func main() {
 	flag.StringVar(&metricsCertName, "metrics-cert-name", "tls.crt", "The name of the metrics server certificate file.")
 	flag.StringVar(&metricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false, "If set, HTTP/2 will be enabled for the metrics and webhook servers")
-	flag.StringVar(&watchFilterValue, "watch-filter", "", fmt.Sprintf("Label value that the controller watches to reconcile api objects. Label key is always %q. If unspecified, the controller watches for all api objects.", v1alpha1.WatchLabel))
-	flag.StringVar(&providerName, "provider", "openconfig", "The provider to use for the controller. If not specified, the default provider is used. Available providers: "+strings.Join(provider.Providers(), ", "))
+	flag.StringVar(&watchFilterValue, "watch-filter", "", fmt.Sprintf("Label value that the controllers watch to reconcile api objects. Label key is always %q. If unspecified, the controller watches for all api objects.", v1alpha1.WatchLabel))
+	flag.StringVar(&providerName, "provider", "openconfig", "The provider to use for the controllers. If not specified, the default provider is used. Available providers: "+strings.Join(provider.Providers(), ", "))
 	opts := zap.Options{
 		Development: true,
 		TimeEncoder: zapcore.ISO8601TimeEncoder,
@@ -217,6 +218,23 @@ func main() {
 		Provider:         prov,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Interface")
+		os.Exit(1)
+	}
+
+	prov, err = provider.Get("cisco-nxos-gnmi")
+	if err != nil {
+		setupLog.Error(err, "failed to get provider", "provider", providerName)
+		os.Exit(1)
+	}
+
+	if err = (&controller.IGPReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("igp-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "IGP")
 		os.Exit(1)
 	}
 

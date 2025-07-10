@@ -1,4 +1,5 @@
 ## Append samples of your project ##
 resources:
 - v1alpha1_interface.yaml
+- v1alpha1_igp.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

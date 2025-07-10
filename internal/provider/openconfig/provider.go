@@ -122,6 +122,14 @@ func (p *Provider) DeleteInterface(ctx context.Context, iface *v1alpha1.Interfac
 	return fmt.Errorf("unsupported interface type: %s", iface.Spec.Type)
 }
 
+func (p *Provider) CreateIGP(ctx context.Context, igp *v1alpha1.IGP) error {
+	panic("not implemented")
+}
+
+func (p *Provider) DeleteIGP(ctx context.Context, igp *v1alpha1.IGP) error {
+	panic("not implemented")
+}
+
 func init() {
 	provider.Register("openconfig", &Provider{})
 }

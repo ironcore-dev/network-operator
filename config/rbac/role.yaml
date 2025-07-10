@@ -14,6 +14,7 @@ rules:
 - apiGroups:
   - network.ironcore.dev
   resources:
+  - igps
   - interfaces
   verbs:
   - create
@@ -26,12 +27,14 @@ rules:
 - apiGroups:
   - network.ironcore.dev
   resources:
+  - igps/finalizers
   - interfaces/finalizers
   verbs:
   - update
 - apiGroups:
   - network.ironcore.dev
   resources:
+  - igps/status
   - interfaces/status
   verbs:
   - get

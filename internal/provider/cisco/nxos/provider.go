@@ -19,6 +19,14 @@ func (p *Provider) DeleteInterface(context.Context, *v1alpha1.Interface) error {
 	panic("unimplemented")
 }
 
+func (p *Provider) CreateIGP(context.Context, *v1alpha1.IGP) error {
+	panic("unimplemented")
+}
+
+func (p *Provider) DeleteIGP(context.Context, *v1alpha1.IGP) error {
+	panic("unimplemented")
+}
+
 func init() {
 	provider.Register("cisco-nxos-gnmi", &Provider{})
 }

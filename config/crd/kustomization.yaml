@@ -3,9 +3,10 @@
 # It should be run by config/default
 resources:
 - bases/network.ironcore.dev_interfaces.yaml
+- bases/network.ironcore.dev_igps.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
-patches:
+patches: []
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
 # patches here are for enabling the conversion webhook for each CRD
 # +kubebuilder:scaffold:crdkustomizewebhookpatch

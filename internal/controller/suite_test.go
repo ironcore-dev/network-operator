@@ -162,3 +162,17 @@ func (p *Provider) DeleteInterface(_ context.Context, iface *v1alpha1.Interface)
 	delete(p.Items, iface.Name)
 	return nil
 }
+
+func (p *Provider) CreateIGP(_ context.Context, igp *v1alpha1.IGP) error {
+	p.Lock()
+	defer p.Unlock()
+	p.Items[igp.Name] = igp
+	return nil
+}
+
+func (p *Provider) DeleteIGP(_ context.Context, igp *v1alpha1.IGP) error {
+	p.Lock()
+	defer p.Unlock()
+	delete(p.Items, igp.Name)
+	return nil
+}
