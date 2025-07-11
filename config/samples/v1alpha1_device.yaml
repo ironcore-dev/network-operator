@@ -7,6 +7,13 @@ metadata:
     networking.cloud.sap/role: leaf
     networking.cloud.sap/site: test
     networking.cloud.sap/rack: lab
+    nxos.cisco.networking.cloud.sap/dry-run: true
+    nxos.cisco.networking.cloud.sap/log-default-severity: Debug
+    nxos.cisco.networking.cloud.sap/log-history-severity: Debug
+    nxos.cisco.networking.cloud.sap/log-history-size: 500
+    nxos.cisco.networking.cloud.sap/log-origin-id: leaf1
+    nxos.cisco.networking.cloud.sap/vlan-long-name: true
+    nxos.cisco.networking.cloud.sap/copp-profile: strict
   name: leaf1
 spec:
   endpoint: 192.168.5.2:9339
@@ -23,10 +30,71 @@ spec:
     #   configMapRef:
     #     name: leaf1-bootstrap
     #     key: setup.cfg
+    # --- or ---
     template:
       inline: |
+        hostname leaf1
         feature grpc
         grpc port 9339
+  dns:
+    srcIf: mgmt0
+    domain: net.cloud.sap
+    servers:
+      - address: 8.8.8.8
+        networkInstance: mgmt
+  ntp:
+    srcIf: mgmt0
+    servers:
+      - address: de.pool.ntp.org
+        prefer: true
+        networkInstance: mgmt
+      - address: pool.ntp.org
+        prefer: false
+        networkInstance: mgmt
+  acl:
+    - name: mgmt-acl
+      entries:
+        - sequence: 10
+          action: Permit
+          sourceAddress: 10.0.0.0/8
+          destinationAddress: 0.0.0.0/0
+  pki:
+    certificates:
+      - name: trustpoint
+        source:
+          secretRef:
+            name: leaf1-trustpoint
+  logging:
+    servers:
+      - address: 192.168.55.55 # udp/514
+        severity: Info
+        networkInstance: mgmt
+    facilities:
+      - name: user
+        severity: Warning
+  users:
+    - name: admin
+      password:
+        secretKeyRef:
+          name: secret-basic-auth
+          key: password
+      role: network-admin
+  grpc:
+    port: 9339
+    certificateId: trustpoint
+    networkInstance: mgmt
+    gnmi:
+      maxConcurrentCall: 16
+      keepAliveTimeout: 600
+      minSampleInterval: 10
+  banner:
+    inline: |
+      #################################################################
+      #                                                               #
+      #        WARNING: Unauthorized access is prohibited.            #
+      #        All connections are logged and monitored.              #
+      #                                                               #
+      #################################################################
 ---
 apiVersion: v1
 kind: Secret

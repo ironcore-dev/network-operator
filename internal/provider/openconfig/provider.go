@@ -122,6 +122,14 @@ func (p *Provider) DeleteInterface(ctx context.Context, iface *v1alpha1.Interfac
 	return fmt.Errorf("unsupported interface type: %s", iface.Spec.Type)
 }
 
+func (p *Provider) CreateDevice(context.Context, *v1alpha1.Device) error {
+	return provider.ErrUnimplemented
+}
+
+func (p *Provider) DeleteDevice(context.Context, *v1alpha1.Device) error {
+	return provider.ErrUnimplemented
+}
+
 func init() {
 	provider.Register("openconfig", &Provider{})
 }

@@ -20,10 +20,69 @@ type DeviceSpec struct {
 	// +optional
 	SecretRef *corev1.SecretReference `json:"secretRef,omitempty"`
 
+	// Transport credentials for grpc connection to the switch.
+	// +optional
+	TLS *TLS `json:"tls,omitempty"`
+
 	// Bootstrap is an optional configuration for the device bootstrap process.
 	// It can be used to provide initial configuration templates or scripts that are applied during the device provisioning.
-	// +optional
+	// +required
 	Bootstrap *Bootstrap `json:"bootstrap,omitempty"`
+
+	// Top-level configuration for DNS / resolver.
+	// +optional
+	DNS *DNS `json:"dns,omitempty"`
+
+	// Configuration data for system-wide NTP process.
+	// +optional
+	NTP *NTP `json:"ntp,omitempty"`
+
+	// Access Control Lists (ACLs) configuration.
+	// +optional
+	ACL []*ACL `json:"acl,omitempty"`
+
+	// PKI configuration for managing certificates on the device.
+	// +optional
+	PKI *PKI `json:"pki,omitempty"`
+
+	// Top-level logging configuration for the device.
+	// +optional
+	Logging *Logging `json:"logging,omitempty"`
+
+	// SNMP global configuration.
+	// +optional
+	SNMP *SNMP `json:"snmp,omitempty"`
+
+	// List of local users on the switch.
+	// +optional
+	User []*User `json:"users,omitempty"`
+
+	// Configuration for the gRPC server on the device.
+	// Currently, only a single "default" gRPC server is supported.
+	// +optional
+	GRPC *GRPC `json:"grpc,omitempty"`
+
+	// MOTD banner to display on login.
+	// +optional
+	Banner *TemplateSource `json:"banner,omitempty"`
+}
+
+type TLS struct {
+	// The CA certificate to verify the server's identity.
+	// +required
+	CA *CertificateAuthority `json:"ca"`
+
+	// The client certificate and private key to use for mutual TLS authentication.
+	// Leave empty if mTLS is not desired.
+	// +optional
+	Certificate *CertificateSource `json:"certificate,omitempty"`
+}
+
+// CertificateAuthority represents a source for the value of a certificate authority.
+type CertificateAuthority struct {
+	// The secret must contain the following key: 'ca.crt'.
+	// +required
+	SecretRef *corev1.SecretReference `json:"secretRef,omitempty"`
 }
 
 // Bootstrap defines the configuration for device bootstrap.
@@ -31,6 +90,320 @@ type Bootstrap struct {
 	// Template defines the multiline string template that contains the initial configuration for the device.
 	// +required
 	Template *TemplateSource `json:"template"`
+}
+
+type DNS struct {
+	// Default domain name that the switch uses to complete unqualified hostnames.
+	// +kubebuilder:validation:Format=hostname
+	// +required
+	Domain string `json:"domain"`
+
+	// A list of DNS servers to use for address resolution.
+	// +kubebuilder:validation:MaxItems=6
+	// +optional
+	Servers []*NameServer `json:"servers,omitempty"`
+
+	// Source interface for all DNS traffic.
+	// +optional
+	SrcIf string `json:"srcIf"`
+}
+
+type NameServer struct {
+	// The Hostname or IP address of the DNS server.
+	// +required
+	Address string `json:"address"`
+
+	// The network instance used to communicate with the DNS server.
+	// +optional
+	NetworkInstance string `json:"networkInstance,omitempty"`
+}
+
+type NTP struct {
+	// Source interface for all NTP traffic.
+	// +required
+	SrcIf string `json:"srcIf"`
+
+	// NTP servers.
+	// +kubebuilder:validation:MinItems=1
+	// +required
+	Servers []*NTPServer `json:"servers"`
+}
+
+type NTPServer struct {
+	// Hostname/IP address of the NTP server.
+	// +required
+	Address string `json:"address"`
+
+	// Indicates whether this server should be preferred or not.
+	// +kubebuilder:default=false
+	// +optional
+	Prefer bool `json:"prefer,omitempty"`
+
+	// The network instance used to communicate with the NTP server.
+	// +optional
+	NetworkInstance string `json:"networkInstance,omitempty"`
+}
+
+type ACL struct {
+	// The name of the access control list.
+	// +required
+	Name string `json:"name"`
+
+	// A list of rules/entries to apply.
+	// +kubebuilder:validation:MinItems=1
+	// +required
+	Entries []*ACLEntry `json:"entries"`
+}
+
+type ACLEntry struct {
+	// The sequence number of the ACL entry.
+	// +required
+	Sequence int `json:"sequence,omitempty"`
+
+	// The forwarding action of the ACL entry.
+	// +required
+	Action ACLAction `json:"action"`
+
+	// Source IPv4 address prefix. Use 0.0.0.0/0 to represent 'any'.
+	// +kubebuilder:validation:Pattern=`^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$`
+	// +required
+	SourceAddress string `json:"sourceAddress"`
+
+	// Destination IPv4 address prefix. Use 0.0.0.0/0 to represent 'any'.
+	// +kubebuilder:validation:Pattern=`^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$`
+	// +required
+	DestinationAddress string `json:"destinationAddress"`
+}
+
+// ACLAction represents the type of action that can be taken by an ACL rule.
+// +kubebuilder:validation:Enum=Permit;Deny
+type ACLAction string
+
+const (
+	// ActionPermit allows traffic that matches the rule.
+	ActionPermit ACLAction = "Permit"
+	// ActionDeny blocks traffic that matches the rule.
+	ActionDeny ACLAction = "Deny"
+)
+
+type PKI struct {
+	// Certificates is a list of certificates to be managed by the PKI.
+	// +kubebuilder:validation:MinItems=1
+	// +required
+	Certificates []*Certificate `json:"certificates,omitempty"`
+}
+
+type Certificate struct {
+	// The name of the certificate.
+	// +required
+	Name string `json:"name"`
+
+	// The source of the certificate content.
+	// +required
+	Source *CertificateSource `json:"source,omitempty"`
+}
+
+type Logging struct {
+	// Servers is a list of remote log servers to which the device will send logs.
+	// +kubebuilder:validation:MinItems=1
+	// +required
+	Servers []*LogServer `json:"servers"`
+
+	// Facilities is a list of log facilities to configure on the device.
+	// +kubebuilder:validation:MinItems=1
+	// +required
+	Facilities []*LogFacility `json:"facilities"`
+}
+
+type LogServer struct {
+	// IP address or hostname of the remote log server
+	// +required
+	Address string `json:"address"`
+
+	// The servity level of the log messages sent to the server.
+	// +required
+	Severity Severity `json:"severity"`
+
+	// The network instance used to reach the log server.
+	// +required
+	NetworkInstance string `json:"networkInstance,omitempty"`
+
+	// The destination port number for syslog UDP messages to
+	// the server. The default is 514.
+	// +kubebuilder:validation:Default=514
+	// +optional
+	Port int64 `json:"port"`
+}
+
+type LogFacility struct {
+	// The name of the log facility.
+	// +required
+	Name string `json:"name"`
+
+	// The severity level of the log messages for this facility.
+	// +required
+	Severity Severity `json:"severity"`
+}
+
+// Severity represents the severity level of a log message.
+// +kubebuilder:validation:Enum=Debug;Info;Notice;Warning;Error;Critical;Alert;Emergency
+type Severity string
+
+const (
+	SeverityDebug     Severity = "Debug"
+	SeverityInfo      Severity = "Info"
+	SeverityNotice    Severity = "Notice"
+	SeverityWarning   Severity = "Warning"
+	SeverityError     Severity = "Error"
+	SeverityCritical  Severity = "Critical"
+	SeverityAlert     Severity = "Alert"
+	SeverityEmergency Severity = "Emergency"
+)
+
+type SNMP struct {
+	// The contact information for the SNMP server.
+	// +required
+	Contact string `json:"contact"`
+
+	// The location information for the SNMP server.
+	// +required
+	Location string `json:"location"`
+
+	// The SNMP engine ID for the SNMP server.
+	// +required
+	EngineID string `json:"engineId,omitempty"`
+
+	// Source interface to be used for sending out SNMP Trap/Inform notifications.
+	// +required
+	SrcIf string `json:"srcIf"`
+
+	// SNMP communities for SNMPv1 or SNMPv2c.
+	// +optional
+	Communities []*SNMPCommunity `json:"communities"`
+
+	// SNMP destinations for SNMP traps or informs.
+	// +kubebuilder:validation:MinItems=1
+	// +required
+	Destinations []*SNMPDestination `json:"destinations"`
+
+	// The list of trap groups to enable.
+	// +optional
+	Traps []string `json:"traps"`
+}
+
+type SNMPDestination struct {
+	// The Hostname or IP address of the SNMP host to send notifications to.
+	// +required
+	Address string `json:"address"`
+
+	// Type of message to send to host. Default is traps.
+	// +kubebuilder:validation:Enum=Traps;Inform
+	// +kubebuilder:default=Traps
+	// +optional
+	Type string `json:"type"`
+
+	// SNMP version. Default is v2c.
+	// +kubebuilder:validation:Enum=v1;v2c;v3
+	// +kubebuilder:default=v2c
+	// +optional
+	Version string `json:"version"`
+
+	// SNMP community or user name.
+	// +optional
+	Target string `json:"target,omitempty"`
+
+	// The network instance to use to source traffic.
+	// +optional
+	NetworkInstance string `json:"networkInstance,omitempty"`
+}
+
+type SNMPCommunity struct {
+	// Name of the community.
+	// +optional
+	Name string `json:"name"`
+
+	// Group to which the community belongs.
+	// +optional
+	Group string `json:"group,omitempty"`
+
+	// ACL name to filter snmp requests.
+	// +optional
+	ACL string `json:"acl,omitempty"`
+}
+
+type User struct {
+	// Assigned username for this user.
+	// +required
+	Name string `json:"name"`
+
+	// TODO(felix-kaestner): Allow to supply the password in hashed form.
+
+	// The user password, supplied as cleartext.
+	// +required
+	Password *PasswordSource `json:"password"`
+
+	// TODO(felix-kaestner): Add support for SSH keys.
+
+	// Role which the user is to be assigned to.
+	// +required
+	Role string `json:"role,omitempty"`
+}
+
+type GRPC struct {
+	// The TCP port on which the gRPC server should listen.
+	// The range of port-id is from 1024 to 65535.
+	// Port 9339 is the default.
+	// +kubebuilder:validation:Minimum=1024
+	// +kubebuilder:validation:Maximum=65535
+	// +kubebuilder:validation:ExclusiveMaximum=false
+	// +kubebuilder:default=9339
+	// +optional
+	Port int32 `json:"port"`
+
+	// Name of the certificate that is associated with the gRPC service.
+	// The certificate is provisioned through other interfaces on the device,
+	// such as e.g. the gNOI certificate management service.
+	// +optional
+	CertificateID string `json:"certificateId,omitempty"`
+
+	// Enable the gRPC agent to accept incoming (dial-in) RPC requests from a given network instance.
+	// +optional
+	NetworkInstance string `json:"networkInstance,omitempty"`
+
+	// Additional gNMI configuration for the gRPC server.
+	// This may not be supported by all devices.
+	// +optional
+	GNMI *GNMI `json:"gnmi,omitempty"`
+}
+
+type GNMI struct {
+	// The maximum number of concurrent gNMI calls that can be made to the gRPC server on the switch for each VRF.
+	// Configure a limit from 1 through 16. The default limit is 8.
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=16
+	// +kubebuilder:validation:ExclusiveMaximum=false
+	// +kubebuilder:default=8
+	// +optional
+	MaxConcurrentCall int8 `json:"maxConcurrentCall"`
+
+	// Configure the keepalive timeout for inactive or unauthorized connections.
+	// The gRPC agent is expected to periodically send an empty response to the client, on which the client is expected to respond with an empty request.
+	// If the client does not respond within the keepalive timeout, the gRPC agent should close the connection.
+	// The default interval value is 10 minutes.
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+	// +kubebuilder:default="10m"
+	// +optional
+	KeepAliveTimeout metav1.Duration `json:"keepAliveTimeout"`
+
+	// Configure the minimum sample interval for the gNMI telemetry stream.
+	// Once per stream sample interval, the switch sends the current values for all specified paths.
+	// The default value is 10 seconds.
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+	// +kubebuilder:default="10s"
+	// +optional
+	MinSampleInterval metav1.Duration `json:"minSampleInterval"`
 }
 
 // TemplateSource defines a source for template content.
@@ -49,6 +422,21 @@ type TemplateSource struct {
 	// Reference to a ConfigMap containing the template
 	// +optional
 	ConfigMapRef *corev1.ConfigMapKeySelector `json:"configMapRef,omitempty"`
+}
+
+// CertificateSource represents a source for the value of a certificate.
+type CertificateSource struct {
+	// Secret containing the certificate.
+	// The secret must be of type kubernetes.io/tls and as such contain the following keys: 'tls.crt' and 'tls.key'.
+	// +required
+	SecretRef *corev1.SecretReference `json:"secretRef,omitempty"`
+}
+
+// PasswordSource represents a source for the value of a password.
+type PasswordSource struct {
+	// Selects a key of a secret.
+	// +required
+	SecretKeyRef *corev1.SecretReference `json:"secretKeyRef,omitempty"`
 }
 
 // DeviceStatus defines the observed state of Device.

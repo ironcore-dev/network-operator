@@ -24,6 +24,7 @@ import (
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/clientutil"
+	"github.com/ironcore-dev/network-operator/internal/provider"
 )
 
 const DefaultRequeueAfter = 30 * time.Second
@@ -39,6 +40,9 @@ type DeviceReconciler struct {
 	// Recorder is used to record events for the controller.
 	// More info: https://book.kubebuilder.io/reference/raising-events
 	Recorder record.EventRecorder
+
+	// Provider is the provider that will be used to create & delete the interface.
+	Provider provider.Provider
 }
 
 // +kubebuilder:rbac:groups=networking.cloud.sap,resources=devices,verbs=get;list;watch;create;update;patch;delete
@@ -234,7 +238,16 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 		return err
 	}
 
-	// TODO(felix-kaestner): Implement basic configuration reconciliation logic.
+	if err := r.Provider.CreateDevice(ctx, device); err != nil {
+		meta.SetStatusCondition(&device.Status.Conditions, metav1.Condition{
+			Type:               v1alpha1.ReadyCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             v1alpha1.NotReadyReason,
+			Message:            fmt.Sprintf("Failed to configured device configuration: %v", err),
+			ObservedGeneration: device.Generation,
+		})
+		return err
+	}
 
 	meta.SetStatusCondition(&device.Status.Conditions, metav1.Condition{
 		Type:               v1alpha1.ReadyCondition,

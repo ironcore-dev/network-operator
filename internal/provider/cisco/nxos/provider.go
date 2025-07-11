@@ -12,11 +12,19 @@ import (
 type Provider struct{}
 
 func (p *Provider) CreateInterface(context.Context, *v1alpha1.Interface) error {
-	panic("unimplemented")
+	return provider.ErrUnimplemented
 }
 
 func (p *Provider) DeleteInterface(context.Context, *v1alpha1.Interface) error {
-	panic("unimplemented")
+	return provider.ErrUnimplemented
+}
+
+func (p *Provider) CreateDevice(context.Context, *v1alpha1.Device) error {
+	return provider.ErrUnimplemented
+}
+
+func (p *Provider) DeleteDevice(context.Context, *v1alpha1.Device) error {
+	return provider.ErrUnimplemented
 }
 
 func init() {
