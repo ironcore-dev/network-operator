@@ -1,50 +1,38 @@
-# SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
-# SPDX-License-Identifier: Apache-2.0
+name: E2E Tests
 
-name: Test
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - '**.md'
   pull_request:
-    branches:
-      - '*'
+    types: [ assigned, opened, synchronize, reopened ]
     paths-ignore:
-      - '**.md'
-  workflow_dispatch: {}
-permissions:
-  contents: read
+      - 'docs/**'
+      - '**/*.md'
+
 jobs:
   test-e2e:
-    name: E2E
+    name: Run on Ubuntu
     runs-on: ubuntu-latest
     steps:
-      - name: Check out code
+      - name: Clone the code
         uses: actions/checkout@v4
-      - name: Set up Go
+
+      - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          check-latest: true
-          go-version: 1.24.4
-      - name: Fetch latest kubectl version
-        id: kubectl
+          go-version-file: go.mod
+
+      - name: Install the latest version of kind
         run: |
-          KUBECTL_VERSION=$(curl -sL https://dl.k8s.io/release/stable.txt)
-          echo "version=$KUBECTL_VERSION" >> $GITHUB_OUTPUT
-      - name: Fetch latest kind version
-        id: kind
-        run: |
-          KIND_VERSION=$(curl -s https://api.github.com/repos/kubernetes-sigs/kind/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
-          echo "version=$KIND_VERSION" >> $GITHUB_OUTPUT
-      - name: Create k8s kind cluster
-        uses: helm/kind-action@v1
-        with:
-          version: ${{ steps.kind.outputs.version }}
-          cluster_name: kind
-          kubectl_version: ${{ steps.kubectl.outputs.version }}
-      - name: Running E2E Tests
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      - name: Verify kind installation
+        run: kind version
+
+      - name: Create kind cluster
+        run: kind create cluster
+
+      - name: Running Test e2e
         run: |
           go mod tidy
           make test-e2e
