@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -32,7 +33,14 @@ var _ = Describe("Device Controller", func() {
 						Name:      name,
 						Namespace: metav1.NamespaceDefault,
 					},
-					Spec: v1alpha1.DeviceSpec{},
+					Spec: v1alpha1.DeviceSpec{
+						Endpoint: "192.168.10.2:9339",
+						Bootstrap: &v1alpha1.Bootstrap{
+							Template: &v1alpha1.TemplateSource{
+								Inline: ptr.To("device-template"),
+							},
+						},
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}

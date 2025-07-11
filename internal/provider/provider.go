@@ -4,6 +4,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -12,9 +13,15 @@ import (
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
 )
 
+var ErrUnimplemented = errors.New("provider method not implemented")
+
 // Provider is the common interface for creation/deletion of the objects over different drivers.
 type Provider interface {
-	// CreateInterface call is responsible for Interface creation on the provider
+	// CreateDevice call is responsible for Device creation on the provider.
+	CreateDevice(context.Context, *v1alpha1.Device) error
+	// DeleteDevice call is responsible for Device deletion on the provider.
+	DeleteDevice(context.Context, *v1alpha1.Device) error
+	// CreateInterface call is responsible for Interface creation on the provider.
 	CreateInterface(context.Context, *v1alpha1.Interface) error
 	// DeleteInterface call is responsible for Interface deletion on the provider.
 	DeleteInterface(context.Context, *v1alpha1.Interface) error

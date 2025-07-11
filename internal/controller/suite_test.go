@@ -94,6 +94,7 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
+		Provider: testProvider,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -167,5 +168,19 @@ func (p *Provider) DeleteInterface(_ context.Context, iface *v1alpha1.Interface)
 	p.Lock()
 	defer p.Unlock()
 	delete(p.Items, iface.Name)
+	return nil
+}
+
+func (p *Provider) CreateDevice(_ context.Context, dev *v1alpha1.Device) error {
+	p.Lock()
+	defer p.Unlock()
+	p.Items[dev.Name] = dev
+	return nil
+}
+
+func (p *Provider) DeleteDevice(_ context.Context, dev *v1alpha1.Device) error {
+	p.Lock()
+	defer p.Unlock()
+	delete(p.Items, dev.Name)
 	return nil
 }
