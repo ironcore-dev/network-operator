@@ -25,9 +25,9 @@ func Test_Trustpoint(t *testing.T) {
 		t.Errorf("expected 1 key, got %d", len(got))
 	}
 
-	update, ok := got[0].(gnmiext.EditingUpdate)
+	update, ok := got[0].(gnmiext.ReplacingUpdate)
 	if !ok {
-		t.Errorf("expected value to be of type EditingUpdate")
+		t.Errorf("expected value to be of type ReplacingUpdate")
 	}
 
 	if update.XPath != "System/userext-items/pkiext-items/tp-items" {
@@ -43,7 +43,6 @@ func Test_Trustpoint(t *testing.T) {
 		TPList: map[string]*nxos.Cisco_NX_OSDevice_System_UserextItems_PkiextItems_TpItems_TPList{
 			"mytrustpoint": {
 				Name:            ygot.String("mytrustpoint"),
-				KeyLabel:        ygot.String("mytrustpoint"),
 				KeyType:         nxos.Cisco_NX_OSDevice_Pki_KeyType_Type_RSA,
 				RevokeCheckConf: nxos.Cisco_NX_OSDevice_Pki_CertRevokeCheck_crl,
 				EnrollmentType:  nxos.Cisco_NX_OSDevice_Pki_CertEnrollType_none,

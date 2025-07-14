@@ -22,8 +22,7 @@ func (t Trustpoints) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 	items := &nxos.Cisco_NX_OSDevice_System_UserextItems_PkiextItems_TpItems{TPList: make(map[string]*nxos.Cisco_NX_OSDevice_System_UserextItems_PkiextItems_TpItems_TPList, len(t))}
 	for _, tp := range t {
 		list := &nxos.Cisco_NX_OSDevice_System_UserextItems_PkiextItems_TpItems_TPList{
-			Name:     ygot.String(tp.ID),
-			KeyLabel: ygot.String(tp.ID),
+			Name: ygot.String(tp.ID),
 		}
 		list.PopulateDefaults()
 
@@ -33,7 +32,7 @@ func (t Trustpoints) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 	}
 
 	return []gnmiext.Update{
-		gnmiext.EditingUpdate{
+		gnmiext.ReplacingUpdate{
 			XPath: "System/userext-items/pkiext-items/tp-items",
 			Value: items,
 		},
@@ -44,7 +43,7 @@ func (t Trustpoints) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
 	items := &nxos.Cisco_NX_OSDevice_System_UserextItems_PkiextItems_TpItems{}
 	items.PopulateDefaults()
 	return []gnmiext.Update{
-		gnmiext.EditingUpdate{
+		gnmiext.ReplacingUpdate{
 			XPath: "System/userext-items/pkiext-items/tp-items",
 			Value: items,
 		},

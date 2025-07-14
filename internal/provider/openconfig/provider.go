@@ -5,6 +5,7 @@ package openconfig
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/netip"
 
@@ -14,18 +15,31 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/clientutil"
+	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 )
 
 type Provider struct{}
 
 func (p *Provider) CreateInterface(ctx context.Context, iface *v1alpha1.Interface) error {
-	// Only for testing purposes, this should be replaced with a real API client.
-	client, conn, err := NewClient(ctx, "host.docker.internal:9339", "admin", "admin")
+	c, ok := clientutil.FromContext(ctx)
+	if !ok {
+		return errors.New("failed to get controller client from context")
+	}
+	d, err := deviceutil.GetDeviceFromMetadata(ctx, c, iface)
 	if err != nil {
-		return fmt.Errorf("failed to create gnmi client: %w", err)
+		return fmt.Errorf("failed to get device from metadata: %w", err)
+	}
+	conn, err := deviceutil.GetDeviceGrpcClient(ctx, c, d)
+	if err != nil {
+		return fmt.Errorf("failed to create grpc connection: %w", err)
 	}
 	defer conn.Close()
+	client, err := ygnmi.NewClient(gpb.NewGNMIClient(conn), ygnmi.WithRequestLogLevel(6))
+	if err != nil {
+		return fmt.Errorf("failed to create ygnmi client: %w", err)
+	}
 
 	i := &Interface{Name: ygot.String(iface.Spec.Name)}
 	switch iface.Spec.AdminState {
@@ -95,12 +109,23 @@ func (p *Provider) CreateInterface(ctx context.Context, iface *v1alpha1.Interfac
 }
 
 func (p *Provider) DeleteInterface(ctx context.Context, iface *v1alpha1.Interface) error {
-	// Only for testing purposes, this should be replaced with a real API client.
-	client, conn, err := NewClient(ctx, "host.docker.internal:9339", "admin", "admin")
+	c, ok := clientutil.FromContext(ctx)
+	if !ok {
+		return errors.New("failed to get controller client from context")
+	}
+	d, err := deviceutil.GetDeviceFromMetadata(ctx, c, iface)
 	if err != nil {
-		return fmt.Errorf("failed to create gnmi client: %w", err)
+		return fmt.Errorf("failed to get device from metadata: %w", err)
+	}
+	conn, err := deviceutil.GetDeviceGrpcClient(ctx, c, d)
+	if err != nil {
+		return fmt.Errorf("failed to create grpc connection: %w", err)
 	}
 	defer conn.Close()
+	client, err := ygnmi.NewClient(gpb.NewGNMIClient(conn), ygnmi.WithRequestLogLevel(6))
+	if err != nil {
+		return fmt.Errorf("failed to create ygnmi client: %w", err)
+	}
 
 	switch iface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
@@ -122,12 +147,16 @@ func (p *Provider) DeleteInterface(ctx context.Context, iface *v1alpha1.Interfac
 	return fmt.Errorf("unsupported interface type: %s", iface.Spec.Type)
 }
 
-func (p *Provider) CreateDevice(context.Context, *v1alpha1.Device) error {
-	return provider.ErrUnimplemented
+func (p *Provider) CreateDevice(ctx context.Context, _ *v1alpha1.Device) error {
+	log := ctrl.LoggerFrom(ctx)
+	log.Error(provider.ErrUnimplemented, "CreateDevice not implemented")
+	return nil
 }
 
-func (p *Provider) DeleteDevice(context.Context, *v1alpha1.Device) error {
-	return provider.ErrUnimplemented
+func (p *Provider) DeleteDevice(ctx context.Context, _ *v1alpha1.Device) error {
+	log := ctrl.LoggerFrom(ctx)
+	log.Error(provider.ErrUnimplemented, "DeleteDevice not implemented")
+	return nil
 }
 
 func init() {

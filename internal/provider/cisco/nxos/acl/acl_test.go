@@ -4,6 +4,7 @@
 package acl
 
 import (
+	"net/netip"
 	"testing"
 
 	nxos "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/genyang"
@@ -17,9 +18,10 @@ func Test_ACL(t *testing.T) {
 				Name: "ACL-SNMP-VTY",
 				Rules: []*Rule{
 					{
-						Seq:    10,
-						Action: Permit,
-						Source: "10.0.0.0/8",
+						Seq:         10,
+						Action:      Permit,
+						Source:      netip.MustParsePrefix("10.0.0.0/8"),
+						Destination: netip.MustParsePrefix("0.0.0.0/0"),
 					},
 				},
 			},

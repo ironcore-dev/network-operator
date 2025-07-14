@@ -55,7 +55,7 @@ type VTY struct {
 }
 
 func (v *VTY) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
-	return []gnmiext.Update{
+	u := []gnmiext.Update{
 		gnmiext.EditingUpdate{
 			XPath: "System/terml-items/ln-items/vty-items",
 			Value: &nxos.Cisco_NX_OSDevice_System_TermlItems_LnItems_VtyItems{
@@ -67,11 +67,16 @@ func (v *VTY) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 				"/lgoutWarning-items",
 			},
 		},
-		gnmiext.EditingUpdate{
+	}
+
+	if v.ACL != "" {
+		u = append(u, gnmiext.EditingUpdate{
 			XPath: "System/acl-items/ipv4-items/policy-items/ingress-items/vty-items/acl-items",
 			Value: &nxos.Cisco_NX_OSDevice_System_AclItems_Ipv4Items_PolicyItems_IngressItems_VtyItems_AclItems{Name: ygot.String(v.ACL)},
-		},
-	}, nil
+		})
+	}
+
+	return u, nil
 }
 
 func (v *VTY) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {

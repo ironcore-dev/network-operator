@@ -305,7 +305,7 @@ func (s *SNMP) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
 	}, nil
 }
 
-//go:generate go tool stringer -type=AuthType
+//go:generate go run golang.org/x/tools/cmd/stringer@v0.35.0 -type=AuthType
 
 type AuthType uint8
 
@@ -331,7 +331,7 @@ func (a AuthType) toAuthType() (nxos.E_Cisco_NX_OSDevice_Snmp_AuthTypeT, error) 
 	}
 }
 
-//go:generate go tool stringer -type=Version
+//go:generate go run golang.org/x/tools/cmd/stringer@v0.35.0 -type=Version
 
 type Version uint8
 
@@ -354,7 +354,7 @@ func (v Version) toVersion() (nxos.E_Cisco_NX_OSDevice_Snmp_Version, error) {
 	}
 }
 
-//go:generate go tool stringer -type=Sec
+//go:generate go run golang.org/x/tools/cmd/stringer@v0.35.0 -type=Sec
 
 type Sec uint8
 

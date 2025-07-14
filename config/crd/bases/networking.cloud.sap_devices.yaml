@@ -70,6 +70,26 @@ spec:
                               to represent 'any'.
                             pattern: ^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$
                             type: string
+                          protocol:
+                            default: ip
+                            description: The protocol to match. If not specified,
+                              defaults to "ip" (IPv4).
+                            enum:
+                            - ahp
+                            - eigrp
+                            - esp
+                            - gre
+                            - icmp
+                            - igmp
+                            - ip
+                            - nos
+                            - ospf
+                            - pcp
+                            - pim
+                            - tcp
+                            - udf
+                            - udp
+                            type: string
                           sequence:
                             description: The sequence number of the ACL entry.
                             type: integer
@@ -356,6 +376,7 @@ spec:
                             server.
                           type: string
                         port:
+                          default: 514
                           description: |-
                             The destination port number for syslog UDP messages to
                             the server. The default is 514.
@@ -556,22 +577,27 @@ spec:
                   ca:
                     description: The CA certificate to verify the server's identity.
                     properties:
-                      secretRef:
-                        description: 'The secret must contain the following key: ''ca.crt''.'
-                        properties:
-                          name:
-                            description: name is unique within a namespace to reference
-                              a secret resource.
-                            type: string
-                          namespace:
-                            description: namespace defines the space within which
-                              the secret name must be unique.
-                            type: string
-                        type: object
-                        x-kubernetes-map-type: atomic
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
                     required:
-                    - secretRef
+                    - key
                     type: object
+                    x-kubernetes-map-type: atomic
                   certificate:
                     description: |-
                       The client certificate and private key to use for mutual TLS authentication.
@@ -611,14 +637,25 @@ spec:
                         secretKeyRef:
                           description: Selects a key of a secret.
                           properties:
+                            key:
+                              description: The key of the secret to select from.  Must
+                                be a valid secret key.
+                              type: string
                             name:
-                              description: name is unique within a namespace to reference
-                                a secret resource.
+                              default: ""
+                              description: |-
+                                Name of the referent.
+                                This field is effectively required, but due to backwards compatibility is
+                                allowed to be empty. Instances of this type with an empty value here are
+                                almost certainly wrong.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                               type: string
-                            namespace:
-                              description: namespace defines the space within which
-                                the secret name must be unique.
-                              type: string
+                            optional:
+                              description: Specify whether the Secret or its key must
+                                be defined
+                              type: boolean
+                          required:
+                          - key
                           type: object
                           x-kubernetes-map-type: atomic
                       required:

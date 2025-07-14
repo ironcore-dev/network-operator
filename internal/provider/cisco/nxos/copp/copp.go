@@ -21,7 +21,7 @@ type COPP struct {
 	Profile Profile
 }
 
-//go:generate go tool stringer -type=Profile
+//go:generate go run golang.org/x/tools/cmd/stringer@v0.35.0 -type=Profile
 
 type Profile int64
 

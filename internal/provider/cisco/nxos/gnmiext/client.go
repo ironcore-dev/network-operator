@@ -25,7 +25,7 @@ import (
 	nxos "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/genyang"
 )
 
-//go:generate go tool moq -out mock.go . GNMIClient Client
+//go:generate go run github.com/matryer/moq@v0.5.3 -out mock.go . GNMIClient Client
 type GNMIClient = gpb.GNMIClient
 
 type Client interface {

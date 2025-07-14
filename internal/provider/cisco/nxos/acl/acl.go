@@ -34,12 +34,12 @@ type Rule struct {
 	// The action type of ACL Rule. Either 'permit' or 'deny'.
 	Action Action
 	// Source IP address or network. Use 'any' to match any source.
-	Source string
+	Source netip.Prefix
 	// Destination IP address or network. Use 'any' to match any target.
-	Destination string
+	Destination netip.Prefix
 }
 
-//go:generate go tool stringer -type=Action
+//go:generate go run golang.org/x/tools/cmd/stringer@v0.35.0 -type=Action
 type Action uint8
 
 const (
@@ -74,23 +74,10 @@ func (a *ACL) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 				return nil, fmt.Errorf("acl: invalid action type: %s", r.Action)
 			}
 			aceList.Action = action
-			// src
-			src, err := parse(r.Source)
-			if err != nil {
-				return nil, err
-			}
-			aceList.SrcPrefix = ygot.String(src.Addr().String())
-			aceList.SrcPrefixLength = ygot.Uint8(uint8(src.Bits())) //nolint:gosec
-			// dst
-			if r.Destination == "" {
-				r.Destination = "any"
-			}
-			dst, err := parse(r.Destination)
-			if err != nil {
-				return nil, err
-			}
-			aceList.DstPrefix = ygot.String(dst.Addr().String())
-			aceList.DstPrefixLength = ygot.Uint8(uint8(dst.Bits())) //nolint:gosec
+			aceList.SrcPrefix = ygot.String(r.Source.Addr().String())
+			aceList.SrcPrefixLength = ygot.Uint8(uint8(r.Source.Bits())) //nolint:gosec
+			aceList.DstPrefix = ygot.String(r.Destination.Addr().String())
+			aceList.DstPrefixLength = ygot.Uint8(uint8(r.Destination.Bits())) //nolint:gosec
 		}
 	}
 	return []gnmiext.Update{
@@ -99,19 +86,6 @@ func (a *ACL) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 			Value: items,
 		},
 	}, nil
-}
-
-// parse a CIDR string and returns it's [netip.Prefix].
-// If the CIDR is "any", it returns '0.0.0.0/0' as the default.
-func parse(cidr string) (p netip.Prefix, err error) {
-	p = netip.PrefixFrom(netip.AddrFrom4([4]byte{0, 0, 0, 0}), 0)
-	if cidr != "any" {
-		p, err = netip.ParsePrefix(cidr)
-		if err == nil && !p.IsValid() {
-			err = fmt.Errorf("acl: invalid network CIDR: %s", cidr)
-		}
-	}
-	return
 }
 
 func (v *ACL) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
