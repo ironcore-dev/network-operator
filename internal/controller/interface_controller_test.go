@@ -82,7 +82,7 @@ var _ = Describe("Interface Controller", func() {
 				g.Expect(ok).To(BeTrue(), "Resource should exist in the provider")
 				resource, ok := item.(*v1alpha1.Interface)
 				g.Expect(ok).To(BeTrue(), "Resource should be of type Interface")
-				g.Expect(resource.Spec.Name).To(Equal(name))
+				g.Expect(resource.Name).To(Equal(name))
 			}).Should(Succeed())
 		})
 	})

@@ -6,8 +6,10 @@ package controller
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -16,7 +18,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -48,6 +52,9 @@ type DeviceReconciler struct {
 // +kubebuilder:rbac:groups=networking.cloud.sap,resources=devices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.cloud.sap,resources=devices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.cloud.sap,resources=devices/finalizers,verbs=update
+// +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -73,6 +80,9 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		log.Error(err, "Failed to get resource")
 		return ctrl.Result{}, err
 	}
+
+	c := clientutil.NewClient(r.Client, req.Namespace)
+	ctx = clientutil.NewContext(ctx, c)
 
 	if !obj.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
@@ -122,8 +132,6 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 			}
 		}
 	}()
-
-	c := clientutil.NewClient(r.Client, req.Namespace)
 
 	switch obj.Status.Phase {
 	case v1alpha1.DevicePhasePending:
@@ -220,47 +228,72 @@ func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Device{}).
 		Named("device").
-		Owns(&v1alpha1.Interface{}).
-		Watches(&v1alpha1.Interface{}, handler.EnqueueRequestsFromMapFunc(r.interfaceToDevice)).
 		WithEventFilter(filter).
+		Owns(&v1alpha1.Interface{}).
+		Watches(
+			&v1alpha1.Interface{},
+			handler.EnqueueRequestsFromMapFunc(r.interfaceToDevice),
+		).
+		// Watches enqueues Devices for referenced Secret resources.
+		Watches(
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.secretToDevices),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		).
+		// Watches enqueues Devices for referenced ConfigMap resources.
+		Watches(
+			&corev1.ConfigMap{},
+			handler.EnqueueRequestsFromMapFunc(r.configMapToDevices),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		).
 		Complete(r)
 }
 
-func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Device) error {
-	if err := r.setOwnerReferencesOnInterfaces(ctx, device); err != nil {
-		meta.SetStatusCondition(&device.Status.Conditions, metav1.Condition{
+func (r *DeviceReconciler) reconcile(ctx context.Context, obj *v1alpha1.Device) error {
+	log := ctrl.LoggerFrom(ctx)
+
+	if err := obj.Spec.Validate(); err != nil {
+		log.Error(err, "Invalid Device spec")
+		return err
+	}
+
+	if err := r.setOwnerReferencesOnInterfaces(ctx, obj); err != nil {
+		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
 			Type:               v1alpha1.ReadyCondition,
 			Status:             metav1.ConditionFalse,
 			Reason:             v1alpha1.NotReadyReason,
 			Message:            fmt.Sprintf("Failed to reconcile interfaces: %v", err),
-			ObservedGeneration: device.Generation,
+			ObservedGeneration: obj.Generation,
 		})
 		return err
 	}
 
-	if err := r.Provider.CreateDevice(ctx, device); err != nil {
-		meta.SetStatusCondition(&device.Status.Conditions, metav1.Condition{
+	if err := r.Provider.CreateDevice(ctx, obj); err != nil {
+		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
 			Type:               v1alpha1.ReadyCondition,
 			Status:             metav1.ConditionFalse,
 			Reason:             v1alpha1.NotReadyReason,
 			Message:            fmt.Sprintf("Failed to configured device configuration: %v", err),
-			ObservedGeneration: device.Generation,
+			ObservedGeneration: obj.Generation,
 		})
 		return err
 	}
 
-	meta.SetStatusCondition(&device.Status.Conditions, metav1.Condition{
+	meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
 		Type:               v1alpha1.ReadyCondition,
 		Status:             metav1.ConditionTrue,
 		Reason:             v1alpha1.AllResourcesReadyReason,
 		Message:            "All owned resources are ready",
-		ObservedGeneration: device.Generation,
+		ObservedGeneration: obj.Generation,
 	})
 	return nil
 }
 
-func (r *DeviceReconciler) finalize(_ context.Context, _ *v1alpha1.Device) error {
-	// TODO(felix-kaestner): Implement finalization logic for devices.
+func (r *DeviceReconciler) finalize(ctx context.Context, device *v1alpha1.Device) error {
+	if err := r.Provider.DeleteDevice(ctx, device); err != nil {
+		r.Recorder.Event(device, "Warning", "FinalizeFailed", err.Error())
+		return err
+	}
 	return nil
 }
 
@@ -301,14 +334,17 @@ func (r *DeviceReconciler) setOwnerReferencesOnInterfaces(ctx context.Context, d
 
 // interfaceToDevice is a [handler.MapFunc] to be used to enqueue requests for reconciliation
 // for a Device to update when one of its own Interfaces gets updated.
-func (r *DeviceReconciler) interfaceToDevice(_ context.Context, obj client.Object) []ctrl.Request {
+func (r *DeviceReconciler) interfaceToDevice(ctx context.Context, obj client.Object) []ctrl.Request {
 	iface, ok := obj.(*v1alpha1.Interface)
 	if !ok {
-		panic(fmt.Sprintf("Expected Interface but got %T", obj))
+		panic(fmt.Sprintf("Expected Interface but got a %T", obj))
 	}
+
+	log := ctrl.LoggerFrom(ctx, "Interface", klog.KObj(iface))
 
 	name, exists := iface.Labels[v1alpha1.DeviceLabel]
 	if !exists {
+		log.Info("Interface does not have a device label, skipping reconciliation")
 		return nil
 	}
 
@@ -318,4 +354,72 @@ func (r *DeviceReconciler) interfaceToDevice(_ context.Context, obj client.Objec
 			Name:      name,
 		},
 	}}
+}
+
+// secretToDevices is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for a Device to update when one of its referenced Secrets gets updated.
+func (r *DeviceReconciler) secretToDevices(ctx context.Context, obj client.Object) []ctrl.Request {
+	secret, ok := obj.(*corev1.Secret)
+	if !ok {
+		panic(fmt.Sprintf("Expected a Secret but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "Secret", klog.KObj(secret))
+
+	devices := new(v1alpha1.DeviceList)
+	if err := r.List(ctx, devices); err != nil {
+		log.Error(err, "Failed to list Devices")
+		return nil
+	}
+
+	requests := []ctrl.Request{}
+	for _, dev := range devices.Items {
+		if slices.ContainsFunc(dev.GetSecretRefs(), func(ref corev1.SecretReference) bool {
+			return ref.Name == secret.Name && ref.Namespace == secret.Namespace
+		}) {
+			log.Info("Enqueuing Device for reconciliation", "Device", klog.KObj(&dev))
+			requests = append(requests, ctrl.Request{
+				NamespacedName: client.ObjectKey{
+					Name:      dev.Name,
+					Namespace: dev.Namespace,
+				},
+			})
+		}
+	}
+
+	return requests
+}
+
+// configMapToDevices is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for a Device to update when one of its referenced ConfigMaps gets updated.
+func (r *DeviceReconciler) configMapToDevices(ctx context.Context, obj client.Object) []ctrl.Request {
+	cm, ok := obj.(*corev1.ConfigMap)
+	if !ok {
+		panic(fmt.Sprintf("Expected a ConfigMap but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "ConfigMap", klog.KObj(cm))
+
+	devices := new(v1alpha1.DeviceList)
+	if err := r.List(ctx, devices); err != nil {
+		log.Error(err, "Failed to list Devices")
+		return nil
+	}
+
+	requests := []ctrl.Request{}
+	for _, dev := range devices.Items {
+		if slices.ContainsFunc(dev.GetConfigMapRefs(), func(ref corev1.ObjectReference) bool {
+			return ref.Name == cm.Name && ref.Namespace == cm.Namespace
+		}) {
+			log.Info("Enqueuing Device for reconciliation", "Device", klog.KObj(&dev))
+			requests = append(requests, ctrl.Request{
+				NamespacedName: client.ObjectKey{
+					Name:      dev.Name,
+					Namespace: dev.Namespace,
+				},
+			})
+		}
+	}
+
+	return requests
 }

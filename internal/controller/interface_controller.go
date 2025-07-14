@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/errors"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/clientutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 )
 
@@ -69,6 +70,8 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
+	ctx = clientutil.IntoContext(ctx, r.Client, obj.Namespace)
+
 	if !obj.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 			if err := r.finalize(ctx, obj); err != nil {
@@ -113,7 +116,7 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if !equality.Semantic.DeepEqual(orig.Status, obj.Status) {
 			if err := r.Status().Patch(ctx, obj, client.MergeFrom(orig)); err != nil {
 				log.Error(err, "Failed to update status")
-				reterr = errors.NewAggregate([]error{reterr, err})
+				reterr = kerrors.NewAggregate([]error{reterr, err})
 			}
 		}
 	}()
@@ -156,6 +159,7 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, obj *v1alpha1.Inter
 		})
 		return err
 	}
+
 	meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
 		Type:               v1alpha1.ReadyCondition,
 		Status:             metav1.ConditionTrue,

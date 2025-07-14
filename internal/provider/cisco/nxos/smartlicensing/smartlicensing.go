@@ -28,7 +28,7 @@ type Licensing struct {
 	Vrf string
 }
 
-//go:generate go tool stringer -type=TransportMode
+//go:generate go run golang.org/x/tools/cmd/stringer@v0.35.0 -type=TransportMode
 
 type TransportMode uint8
 

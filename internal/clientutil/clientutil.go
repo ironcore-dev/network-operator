@@ -1,7 +1,10 @@
+// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-License-Identifier: Apache-2.0
 package clientutil
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 
@@ -10,6 +13,8 @@ import (
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
 )
+
+var _ client.Reader = (*Client)(nil)
 
 // Client is a wrapper around the controller-runtime client that allows
 // to set a default namespace for all operations.
@@ -38,6 +43,15 @@ func (c *Client) Get(ctx context.Context, key client.ObjectKey, obj client.Objec
 	}
 
 	return c.r.Get(ctx, key, obj, opts...)
+}
+
+// List retrieves list of objects for a given namespace and list options. On a
+// successful call, Items field in the list will be populated with the result
+// returned from the Server. It will automatically restrict the request to the
+// namespace that is set in the Client.
+func (c *Client) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	opts = append(opts, client.InNamespace(c.DefaultNamespace))
+	return c.r.List(ctx, list, opts...)
 }
 
 // Secret loads the referenced secret resource and returns the value of the specified key.
@@ -111,6 +125,38 @@ func (c *Client) BasicAuth(ctx context.Context, ref *corev1.SecretReference) (us
 	return user, pass, nil
 }
 
+// Certificate loads a [tls.Certificate] from the referenced secret resource.
+// The secret must by of type 'kubernetes.io/tls' and contain the fields 'tls.crt' and 'tls.key'.
+func (c *Client) Certificate(ctx context.Context, ref *corev1.SecretReference) (*tls.Certificate, error) {
+	name := client.ObjectKey{Namespace: ref.Namespace, Name: ref.Name}
+
+	var secret corev1.Secret
+	if err := c.Get(ctx, name, &secret); err != nil {
+		return nil, fmt.Errorf("failed to get secret %q: %w", name.String(), err)
+	}
+
+	if secret.Type != corev1.SecretTypeTLS {
+		return nil, fmt.Errorf("unsupported secret type: want %q, got %q", corev1.SecretTypeTLS, secret.Type)
+	}
+
+	cert, ok := secret.Data[corev1.TLSCertKey]
+	if !ok || len(cert) == 0 {
+		return nil, fmt.Errorf("missing field 'tls.crt' in secret %q", name.String())
+	}
+
+	key, ok := secret.Data[corev1.TLSPrivateKeyKey]
+	if !ok || len(key) == 0 {
+		return nil, fmt.Errorf("missing field 'tls.key' in secret %q", name.String())
+	}
+
+	certificate, err := tls.X509KeyPair(cert, key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load x509 key pair: %w", err)
+	}
+
+	return &certificate, nil
+}
+
 // Template retrieves the template source and returns the raw template content as a byte slice.
 // It supports inline templates, template references from a Secret, or template references from a ConfigMap.
 func (c *Client) Template(ctx context.Context, src *v1alpha1.TemplateSource) (raw []byte, err error) {
@@ -135,4 +181,36 @@ func (c *Client) Template(ctx context.Context, src *v1alpha1.TemplateSource) (ra
 	}
 
 	return nil, errors.New("no template source specified")
+}
+
+// ListResourceVersions returns the resource versions of the given secrets.
+// The returned resource versions are in the same order as the keys provided.
+func (c *Client) ListResourceVersions(ctx context.Context, key ...client.ObjectKey) ([]string, error) {
+	rv := make([]string, 0, len(key))
+	for _, k := range key {
+		var secret corev1.Secret
+		if err := c.Get(ctx, k, &secret); err != nil {
+			return nil, fmt.Errorf("failed to get secret %q: %w", k.String(), err)
+		}
+		rv = append(rv, secret.ResourceVersion)
+	}
+	return rv, nil
+}
+
+type key struct{}
+
+// FromContext returns the [Client] value stored in ctx, if any.
+func FromContext(ctx context.Context) (c *Client, ok bool) {
+	c, ok = ctx.Value(key{}).(*Client)
+	return
+}
+
+// NewContext returns a new [context.Context] that carries the provided [Client] value.
+func NewContext(ctx context.Context, c *Client) context.Context {
+	return context.WithValue(ctx, key{}, c)
+}
+
+// IntoContext is a convenience function to add a newly create [Client] to a context.
+func IntoContext(ctx context.Context, r client.Reader, ns string) context.Context {
+	return NewContext(ctx, NewClient(r, ns))
 }

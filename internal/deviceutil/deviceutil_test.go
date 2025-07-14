@@ -34,7 +34,23 @@ func TestGetDeviceFromMetadata(t *testing.T) {
 		Namespace: metav1.NamespaceDefault,
 	}
 
-	d, err := GetDeviceFromMetadata(t.Context(), client, obj)
+	d, err := GetDeviceFromMetadata(t.Context(), client, &obj)
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(d).NotTo(BeNil())
+
+	obj = metav1.ObjectMeta{
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				Kind:       v1alpha1.DeviceKind,
+				APIVersion: v1alpha1.GroupVersion.String(),
+				Name:       "test-device",
+			},
+		},
+		Namespace: metav1.NamespaceDefault,
+		Name:      "resource-owned-by-device",
+	}
+
+	d, err = GetOwnerDevice(t.Context(), client, &obj)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(d).NotTo(BeNil())
 }
@@ -66,12 +82,12 @@ func TestGetOwnerDevice(t *testing.T) {
 		Name:      "resource-owned-by-device",
 	}
 
-	d, err := GetOwnerDevice(t.Context(), client, obj)
+	d, err := GetOwnerDevice(t.Context(), client, &obj)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(d).NotTo(BeNil())
 
 	obj.OwnerReferences[0].APIVersion = "networking.cloud.sap/v1alpha1234"
-	d, err = GetOwnerDevice(t.Context(), client, obj)
+	d, err = GetOwnerDevice(t.Context(), client, &obj)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(d).NotTo(BeNil())
 }

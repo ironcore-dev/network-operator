@@ -7,6 +7,7 @@ metadata:
     networking.cloud.sap/role: leaf
     networking.cloud.sap/site: test
     networking.cloud.sap/rack: lab
+  annotations:
     nxos.cisco.networking.cloud.sap/dry-run: true
     nxos.cisco.networking.cloud.sap/log-default-severity: Debug
     nxos.cisco.networking.cloud.sap/log-history-severity: Debug
@@ -16,9 +17,10 @@ metadata:
     nxos.cisco.networking.cloud.sap/copp-profile: strict
   name: leaf1
 spec:
-  endpoint: 192.168.5.2:9339
-  secretRef:
-    name: secret-basic-auth
+  endpoint:
+    address: 192.168.5.2:9339
+    secretRef:
+      name: secret-basic-auth
   bootstrap:
     # The bootstrap configuration can also be defined in a ConfigMap or Secret as follows:
     # template:
@@ -41,16 +43,16 @@ spec:
     domain: net.cloud.sap
     servers:
       - address: 8.8.8.8
-        networkInstance: mgmt
+        networkInstance: management
   ntp:
     srcIf: mgmt0
     servers:
       - address: de.pool.ntp.org
         prefer: true
-        networkInstance: mgmt
+        networkInstance: management
       - address: pool.ntp.org
         prefer: false
-        networkInstance: mgmt
+        networkInstance: management
   acl:
     - name: mgmt-acl
       entries:
@@ -63,17 +65,17 @@ spec:
       - name: trustpoint
         source:
           secretRef:
-            name: leaf1-trustpoint
+            name: network-operator-ca
   logging:
     servers:
       - address: 192.168.55.55 # udp/514
         severity: Info
-        networkInstance: mgmt
+        networkInstance: management
     facilities:
       - name: user
         severity: Warning
   users:
-    - name: admin
+    - name: user
       password:
         secretKeyRef:
           name: secret-basic-auth
@@ -85,8 +87,8 @@ spec:
     networkInstance: mgmt
     gnmi:
       maxConcurrentCall: 16
-      keepAliveTimeout: 600
-      minSampleInterval: 10
+      keepAliveTimeout: 600s
+      minSampleInterval: 10s
   banner:
     inline: |
       #################################################################
@@ -107,3 +109,27 @@ type: kubernetes.io/basic-auth
 stringData:
   username: admin
   password: admin
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: network-operator
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: network-operator-ca
+spec:
+  isCA: true
+  subject:
+    organizations:
+      - SAP SE
+  dnsNames:
+    - net.cloud.sap
+  issuerRef:
+    kind: Issuer
+    name: network-operator
+    group: cert-manager.io
+  secretName: network-operator-ca

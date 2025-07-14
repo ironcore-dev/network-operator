@@ -41,7 +41,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
 )
 
-//go:generate go tool stringer -type=SeverityLevel
+//go:generate go run golang.org/x/tools/cmd/stringer@v0.35.0 -type=SeverityLevel
 type SeverityLevel int
 
 const (
@@ -55,7 +55,7 @@ const (
 	Debug
 )
 
-//go:generate go tool stringer -type=SyslogProto
+//go:generate go run golang.org/x/tools/cmd/stringer@v0.35.0 -type=SyslogProto
 type SyslogProto int
 
 const (

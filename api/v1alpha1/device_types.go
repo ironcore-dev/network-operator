@@ -4,29 +4,21 @@
 package v1alpha1
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // DeviceSpec defines the desired state of Device.
 type DeviceSpec struct {
-	// Endpoint is the management address of the device provided as <ip:port>.
-	// +kubebuilder:validation:Pattern=`^(\d{1,3}\.){3}\d{1,3}:\d{1,5}$`
+	// Endpoint contains the connection information for the device.
 	// +required
-	Endpoint string `json:"endpoint"`
-
-	// SecretRef is name of the authentication secret for the device containing the username and password.
-	// The secret must be of type kubernetes.io/basic-auth and as such contain the following keys: 'username' and 'password'.
-	// +optional
-	SecretRef *corev1.SecretReference `json:"secretRef,omitempty"`
-
-	// Transport credentials for grpc connection to the switch.
-	// +optional
-	TLS *TLS `json:"tls,omitempty"`
+	Endpoint *Endpoint `json:"endpoint"`
 
 	// Bootstrap is an optional configuration for the device bootstrap process.
 	// It can be used to provide initial configuration templates or scripts that are applied during the device provisioning.
-	// +required
+	// +optional
 	Bootstrap *Bootstrap `json:"bootstrap,omitempty"`
 
 	// Top-level configuration for DNS / resolver.
@@ -67,22 +59,40 @@ type DeviceSpec struct {
 	Banner *TemplateSource `json:"banner,omitempty"`
 }
 
+func (d *DeviceSpec) Validate() error {
+	for _, acl := range d.ACL {
+		if err := acl.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type Endpoint struct {
+	// Address is the management address of the device provided as <ip:port>.
+	// +kubebuilder:validation:Pattern=`^(\d{1,3}\.){3}\d{1,3}:\d{1,5}$`
+	// +required
+	Address string `json:"address"`
+
+	// SecretRef is name of the authentication secret for the device containing the username and password.
+	// The secret must be of type kubernetes.io/basic-auth and as such contain the following keys: 'username' and 'password'.
+	// +optional
+	SecretRef *corev1.SecretReference `json:"secretRef,omitempty"`
+
+	// Transport credentials for grpc connection to the switch.
+	// +optional
+	TLS *TLS `json:"tls,omitempty"`
+}
+
 type TLS struct {
 	// The CA certificate to verify the server's identity.
 	// +required
-	CA *CertificateAuthority `json:"ca"`
+	CA *corev1.SecretKeySelector `json:"ca"`
 
 	// The client certificate and private key to use for mutual TLS authentication.
 	// Leave empty if mTLS is not desired.
 	// +optional
 	Certificate *CertificateSource `json:"certificate,omitempty"`
-}
-
-// CertificateAuthority represents a source for the value of a certificate authority.
-type CertificateAuthority struct {
-	// The secret must contain the following key: 'ca.crt'.
-	// +required
-	SecretRef *corev1.SecretReference `json:"secretRef,omitempty"`
 }
 
 // Bootstrap defines the configuration for device bootstrap.
@@ -155,6 +165,20 @@ type ACL struct {
 	Entries []*ACLEntry `json:"entries"`
 }
 
+func (acl *ACL) Validate() error {
+	set := map[int]struct{}{}
+	for _, entry := range acl.Entries {
+		if _, exists := set[entry.Sequence]; exists {
+			return fmt.Errorf("duplicate sequence number %d in ACL %q", entry.Sequence, acl.Name)
+		}
+		set[entry.Sequence] = struct{}{}
+		if err := entry.Validate(); err != nil {
+			return fmt.Errorf("invalid entry in acl %q: %w", acl.Name, err)
+		}
+	}
+	return nil
+}
+
 type ACLEntry struct {
 	// The sequence number of the ACL entry.
 	// +required
@@ -164,15 +188,35 @@ type ACLEntry struct {
 	// +required
 	Action ACLAction `json:"action"`
 
+	// The protocol to match. If not specified, defaults to "ip" (IPv4).
+	// +kubebuilder:validation:Enum=ahp;eigrp;esp;gre;icmp;igmp;ip;nos;ospf;pcp;pim;tcp;udf;udp
+	// +kubebuilder:default=ip
+	// +optional
+	Protocol string `json:"protocol,omitempty"`
+
 	// Source IPv4 address prefix. Use 0.0.0.0/0 to represent 'any'.
-	// +kubebuilder:validation:Pattern=`^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$`
 	// +required
-	SourceAddress string `json:"sourceAddress"`
+	SourceAddress IPPrefix `json:"sourceAddress"`
 
 	// Destination IPv4 address prefix. Use 0.0.0.0/0 to represent 'any'.
-	// +kubebuilder:validation:Pattern=`^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$`
 	// +required
-	DestinationAddress string `json:"destinationAddress"`
+	DestinationAddress IPPrefix `json:"destinationAddress"`
+}
+
+func (e *ACLEntry) Validate() error {
+	if !e.SourceAddress.IsValid() {
+		return fmt.Errorf("invalid IP prefix: %s", e.SourceAddress.String())
+	}
+	if !e.SourceAddress.Addr().Is4() {
+		return fmt.Errorf("source address must be an IPv4 address: %s", e.SourceAddress.String())
+	}
+	if !e.DestinationAddress.IsValid() {
+		return fmt.Errorf("invalid IP prefix: %s", e.SourceAddress.String())
+	}
+	if !e.DestinationAddress.Addr().Is4() {
+		return fmt.Errorf("destination address must be an IPv4 address: %s", e.DestinationAddress.String())
+	}
+	return nil
 }
 
 // ACLAction represents the type of action that can be taken by an ACL rule.
@@ -230,7 +274,7 @@ type LogServer struct {
 
 	// The destination port number for syslog UDP messages to
 	// the server. The default is 514.
-	// +kubebuilder:validation:Default=514
+	// +kubebuilder:default=514
 	// +optional
 	Port int64 `json:"port"`
 }
@@ -436,7 +480,7 @@ type CertificateSource struct {
 type PasswordSource struct {
 	// Selects a key of a secret.
 	// +required
-	SecretKeyRef *corev1.SecretReference `json:"secretKeyRef,omitempty"`
+	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
 // DeviceStatus defines the observed state of Device.
@@ -492,6 +536,57 @@ type Device struct {
 	// Read-only.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
 	Status DeviceStatus `json:"status,omitempty"`
+}
+
+// GetSecretRefs returns the list of secrets referenced in the [Device] resource.
+func (d *Device) GetSecretRefs() []corev1.SecretReference {
+	refs := []corev1.SecretReference{}
+	if d.Spec.Endpoint.SecretRef != nil {
+		refs = append(refs, *d.Spec.Endpoint.SecretRef)
+	}
+	if d.Spec.Endpoint.TLS != nil {
+		refs = append(refs, corev1.SecretReference{Name: d.Spec.Endpoint.TLS.CA.Name})
+		if d.Spec.Endpoint.TLS.Certificate != nil {
+			refs = append(refs, *d.Spec.Endpoint.TLS.Certificate.SecretRef)
+		}
+	}
+	if d.Spec.Bootstrap != nil && d.Spec.Bootstrap.Template != nil {
+		if d.Spec.Bootstrap.Template.SecretRef != nil {
+			refs = append(refs, corev1.SecretReference{Name: d.Spec.Bootstrap.Template.SecretRef.Name})
+		}
+	}
+	if d.Spec.PKI != nil {
+		for _, cert := range d.Spec.PKI.Certificates {
+			if cert.Source != nil && cert.Source.SecretRef != nil {
+				refs = append(refs, *cert.Source.SecretRef)
+			}
+		}
+	}
+	for _, user := range d.Spec.User {
+		refs = append(refs, corev1.SecretReference{Name: user.Password.SecretKeyRef.Name})
+	}
+	for i := range refs {
+		if refs[i].Namespace == "" {
+			refs[i].Namespace = d.Namespace
+		}
+	}
+	return refs
+}
+
+// GetConfigMapRefs returns the list of configmaps referenced in the [Device] resource.
+func (d *Device) GetConfigMapRefs() []corev1.ObjectReference {
+	refs := []corev1.ObjectReference{}
+	if d.Spec.Bootstrap != nil && d.Spec.Bootstrap.Template != nil {
+		if d.Spec.Bootstrap.Template.ConfigMapRef != nil {
+			refs = append(refs, corev1.ObjectReference{Name: d.Spec.Bootstrap.Template.ConfigMapRef.Name})
+		}
+	}
+	for i := range refs {
+		if refs[i].Namespace == "" {
+			refs[i].Namespace = d.Namespace
+		}
+	}
+	return refs
 }
 
 // +kubebuilder:object:root=true

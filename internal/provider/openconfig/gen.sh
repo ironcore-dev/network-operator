@@ -7,7 +7,7 @@ set -e
 
 cd "$(dirname "$0")" || exit 1
 
-find . ! -name "gen.go" ! -name "gen.sh" ! -name "client.go" ! -name "provider.go" ! -name ".gitignore" -delete
+find . ! -name "gen.go" ! -name "gen.sh" ! -name "provider.go" ! -name ".gitignore" -delete
 
 mkdir -p yang
 curl -fsSL https://github.com/openconfig/public/archive/refs/tags/v$VERSION.tar.gz | tar -C yang --strip-components=1 -xf - public-$VERSION

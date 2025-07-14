@@ -49,7 +49,7 @@ type User struct {
 	UserdomainItems []UserDomain
 }
 
-//go:generate go tool stringer -type=PasswordType
+//go:generate go run golang.org/x/tools/cmd/stringer@v0.35.0 -type=PasswordType
 type PasswordType int
 
 const (
@@ -58,7 +58,7 @@ const (
 	PasswdTypeScrypt
 )
 
-//go:generate go tool stringer -type=ShellType
+//go:generate go run golang.org/x/tools/cmd/stringer@v0.35.0 -type=ShellType
 type ShellType int
 
 const (
@@ -66,7 +66,7 @@ const (
 	Bash
 )
 
-//go:generate go tool stringer -type=PrivType
+//go:generate go run golang.org/x/tools/cmd/stringer@v0.35.0 -type=PrivType
 type PrivType int64
 
 const (
