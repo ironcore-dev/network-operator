@@ -30,11 +30,8 @@ mv structs-0.go structs.go
 sed 's/oc\.//g; s/oc\ "github.com\/ironcore-dev\/network-operator\/internal\/provider\/openconfig"//' openconfig/openconfig.go >path.go
 rm -rf openconfig
 
-go install golang.org/x/tools/cmd/goimports@latest
-goimports -w .
-
-go install github.com/google/addlicense@latest
-addlicense -c "SAP SE or an SAP affiliate company and IronCore contributors" -s=only -y "$(date +%Y)" .
+go run golang.org/x/tools/cmd/goimports@v0.35.0 -w .
+go run github.com/google/addlicense@v1.1.1 -c "SAP SE or an SAP affiliate company and IronCore contributors" -s=only -y "$(date +%Y)" .
 
 find . -type f -name "*.go" -exec sed -i.bak '1s|// Copyright|// SPDX-FileCopyrightText:|' {} \;
 find . -type f -name "*.bak" -delete
