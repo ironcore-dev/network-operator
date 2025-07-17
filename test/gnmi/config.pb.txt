@@ -1,0 +1,13 @@
+target: "targetclient"
+seed: 12345
+values: {
+  path: "openconfig"
+  path: "parent"
+  path: "child"
+  path: "state"
+  repeat: 3
+  string_value: {
+    value: "value1"
+  }
+}
+client_type: GRPC_GNMI
