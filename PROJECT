@@ -2,7 +2,7 @@
 # This file is used to track the info used to scaffold your project
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
-domain: ironcore.dev
+domain: cloud.sap
 layout:
 - go.kubebuilder.io/v4
 plugins:
@@ -14,8 +14,8 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: ironcore.dev
-  group: network
+  domain: cloud.sap
+  group: networking
   kind: Interface
   path: github.com/ironcore-dev/network-operator/api/v1alpha1
   version: v1alpha1

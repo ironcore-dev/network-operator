@@ -1,10 +1,10 @@
-apiVersion: network.ironcore.dev/v1alpha1
+apiVersion: networking.cloud.sap/v1alpha1
 kind: Interface
 metadata:
   labels:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
-    network.ironcore.dev/device-name: leaf1
+    networking.cloud.sap/device-name: leaf1
   name: lo0
 spec:
   name: lo0
@@ -15,13 +15,13 @@ spec:
   ipv4Addresses:
     - 10.0.0.10/32
 ---
-apiVersion: network.ironcore.dev/v1alpha1
+apiVersion: networking.cloud.sap/v1alpha1
 kind: Interface
 metadata:
   labels:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
-    network.ironcore.dev/device-name: leaf1
+    networking.cloud.sap/device-name: leaf1
   name: lo1
 spec:
   name: lo1
@@ -32,13 +32,13 @@ spec:
   ipv4Addresses:
     - 10.0.1.10/32
 ---
-apiVersion: network.ironcore.dev/v1alpha1
+apiVersion: networking.cloud.sap/v1alpha1
 kind: Interface
 metadata:
   labels:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
-    network.ironcore.dev/device-name: leaf1
+    networking.cloud.sap/device-name: leaf1
   name: eth1-1
 spec:
   name: eth1/1
@@ -49,13 +49,13 @@ spec:
   ipv4Addresses:
     - unnumbered:lo0
 ---
-apiVersion: network.ironcore.dev/v1alpha1
+apiVersion: networking.cloud.sap/v1alpha1
 kind: Interface
 metadata:
   labels:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
-    network.ironcore.dev/device-name: leaf1
+    networking.cloud.sap/device-name: leaf1
   name: eth1-2
 spec:
   name: eth1/2
@@ -66,13 +66,13 @@ spec:
   ipv4Addresses:
     - unnumbered:lo0
 ---
-apiVersion: network.ironcore.dev/v1alpha1
+apiVersion: networking.cloud.sap/v1alpha1
 kind: Interface
 metadata:
   labels:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
-    network.ironcore.dev/device-name: leaf1
+    networking.cloud.sap/device-name: leaf1
   name: eth1-10
 spec:
   name: eth1/10

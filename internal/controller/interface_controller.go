@@ -39,9 +39,9 @@ type InterfaceReconciler struct {
 	Provider provider.Provider
 }
 
-// +kubebuilder:rbac:groups=network.ironcore.dev,resources=interfaces,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=network.ironcore.dev,resources=interfaces/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=network.ironcore.dev,resources=interfaces/finalizers,verbs=update
+// +kubebuilder:rbac:groups=networking.cloud.sap,resources=interfaces,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.cloud.sap,resources=interfaces/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=networking.cloud.sap,resources=interfaces/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to

@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
-  name: interfaces.network.ironcore.dev
+  name: interfaces.networking.cloud.sap
 spec:
-  group: network.ironcore.dev
+  group: networking.cloud.sap
   names:
     kind: Interface
     listKind: InterfaceList
