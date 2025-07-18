@@ -147,7 +147,7 @@ func (p *Provider) DeleteInterface(ctx context.Context, iface *v1alpha1.Interfac
 	return fmt.Errorf("unsupported interface type: %s", iface.Spec.Type)
 }
 
-func (p *Provider) CreateDevice(ctx context.Context, _ *v1alpha1.Device) error {
+func (p *Provider) CreateDevice(ctx context.Context, _ *v1alpha1.Device, _ *v1alpha1.ProviderConfig) error {
 	log := ctrl.LoggerFrom(ctx)
 	log.Error(provider.ErrUnimplemented, "CreateDevice not implemented")
 	return nil

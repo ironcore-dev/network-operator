@@ -49,3 +49,11 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - networking.cloud.sap
+  resources:
+  - providerconfigs
+  verbs:
+  - get
+  - list
+  - watch

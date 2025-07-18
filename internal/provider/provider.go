@@ -10,6 +10,9 @@ import (
 	"slices"
 	"sync"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
 )
 
@@ -18,7 +21,7 @@ var ErrUnimplemented = errors.New("provider method not implemented")
 // Provider is the common interface for creation/deletion of the objects over different drivers.
 type Provider interface {
 	// CreateDevice call is responsible for Device creation on the provider.
-	CreateDevice(context.Context, *v1alpha1.Device) error
+	CreateDevice(context.Context, *v1alpha1.Device, *v1alpha1.ProviderConfig) error
 	// DeleteDevice call is responsible for Device deletion on the provider.
 	DeleteDevice(context.Context, *v1alpha1.Device) error
 	// CreateInterface call is responsible for Interface creation on the provider.
@@ -64,4 +67,28 @@ func Providers() []string {
 	mu.RLock()
 	defer mu.RUnlock()
 	return slices.Sorted(maps.Keys(providers))
+}
+
+// HasProviderConfig checks if the given object has a provider configuration annotation that matches the provided ProviderConfig.
+func HasProviderConfig(ctx context.Context, prov *v1alpha1.ProviderConfig, obj metav1.Object) bool {
+	name, ok := obj.GetAnnotations()[v1alpha1.ProviderConfigAnnotationName]
+	return ok && name != "" && name == prov.Name && prov.GetNamespace() == obj.GetNamespace()
+}
+
+// GetProviderConfigFromMetadata retrieves the provider configuration from the metadata annotations of the given object.
+func GetProviderConfigFromMetadata(ctx context.Context, r client.Reader, obj metav1.Object) (*v1alpha1.ProviderConfig, error) {
+	name, ok := obj.GetAnnotations()[v1alpha1.ProviderConfigAnnotationName]
+	if !ok || name == "" {
+		return nil, nil
+	}
+	return GetProviderConfigByName(ctx, r, obj.GetNamespace(), name)
+}
+
+// GetProviderConfigByName finds and returns a [v1alpha1.Provider] object using the specified selector.
+func GetProviderConfigByName(ctx context.Context, r client.Reader, namespace, name string) (*v1alpha1.ProviderConfig, error) {
+	obj := new(v1alpha1.ProviderConfig)
+	if err := r.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, obj); err != nil {
+		return nil, fmt.Errorf("failed to get %s/%s", v1alpha1.GroupVersion.WithKind("Provider").String(), name)
+	}
+	return obj, nil
 }

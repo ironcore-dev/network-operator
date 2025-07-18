@@ -1,0 +1,58 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: providerconfigs.networking.cloud.sap
+spec:
+  group: networking.cloud.sap
+  names:
+    kind: ProviderConfig
+    listKind: ProviderConfigList
+    plural: providerconfigs
+    shortNames:
+    - config
+    singular: providerconfig
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ProviderConfig is the Schema for the providerconfigs API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              Specification of the desired state of the resource.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              parameters:
+                description: |-
+                  Parameters is a raw block of JSON that contains the provider-specific
+                  configuration. The schema of this block is not validated by Kubernetes
+                  and remains responsibility of the provider implementation.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+            required:
+            - parameters
+            type: object
+        type: object
+    served: true
+    storage: true

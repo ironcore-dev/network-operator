@@ -52,6 +52,7 @@ type DeviceReconciler struct {
 // +kubebuilder:rbac:groups=networking.cloud.sap,resources=devices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.cloud.sap,resources=devices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.cloud.sap,resources=devices/finalizers,verbs=update
+// +kubebuilder:rbac:groups=networking.cloud.sap,resources=providerconfigs,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
@@ -234,6 +235,12 @@ func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&v1alpha1.Interface{},
 			handler.EnqueueRequestsFromMapFunc(r.interfaceToDevice),
 		).
+		// Watches enqueues Devices for referenced ProviderConfig resources.
+		Watches(
+			&v1alpha1.ProviderConfig{},
+			handler.EnqueueRequestsFromMapFunc(r.providerConfigToDevices),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		).
 		// Watches enqueues Devices for referenced Secret resources.
 		Watches(
 			&corev1.Secret{},
@@ -268,7 +275,19 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, obj *v1alpha1.Device) 
 		return err
 	}
 
-	if err := r.Provider.CreateDevice(ctx, obj); err != nil {
+	prov, err := provider.GetProviderConfigFromMetadata(ctx, r.Client, obj)
+	if err != nil {
+		log.Error(err, "Failed to get provider configuration from metadata")
+		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
+			Type:               v1alpha1.ReadyCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             v1alpha1.NotReadyReason,
+			Message:            fmt.Sprintf("Failed to get provider configuration: %v", err),
+			ObservedGeneration: obj.Generation,
+		})
+	}
+
+	if err := r.Provider.CreateDevice(ctx, obj, prov); err != nil {
 		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
 			Type:               v1alpha1.ReadyCondition,
 			Status:             metav1.ConditionFalse,
@@ -354,6 +373,36 @@ func (r *DeviceReconciler) interfaceToDevice(ctx context.Context, obj client.Obj
 			Name:      name,
 		},
 	}}
+}
+
+func (r *DeviceReconciler) providerConfigToDevices(ctx context.Context, obj client.Object) []ctrl.Request {
+	prov, ok := obj.(*v1alpha1.ProviderConfig)
+	if !ok {
+		panic(fmt.Sprintf("Expected a ProviderConfig but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "ProviderConfig", klog.KObj(prov))
+
+	devices := new(v1alpha1.DeviceList)
+	if err := r.List(ctx, devices); err != nil {
+		log.Error(err, "Failed to list Devices")
+		return nil
+	}
+
+	requests := []ctrl.Request{}
+	for _, dev := range devices.Items {
+		if provider.HasProviderConfig(ctx, prov, &dev) {
+			log.Info("Enqueuing Device for reconciliation", "Device", klog.KObj(&dev))
+			requests = append(requests, ctrl.Request{
+				NamespacedName: client.ObjectKey{
+					Name:      dev.Name,
+					Namespace: dev.Namespace,
+				},
+			})
+		}
+	}
+
+	return requests
 }
 
 // secretToDevices is a [handler.MapFunc] to be used to enqueue requests for reconciliation

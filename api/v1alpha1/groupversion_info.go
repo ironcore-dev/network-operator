@@ -34,6 +34,10 @@ const WatchLabel = "networking.cloud.sap/watch-filter"
 // (e.g., deleting external dependencies) before Kubernetes finalizes the deletion.
 const FinalizerName = "networking.cloud.sap/finalizer"
 
+// ProviderConfigAnnotationName is the annotation key used to specify the provider configuration for a given object.
+// The value of this annotation is expected to the name of the [ProviderConfig] resource referenced by the object.
+const ProviderConfigAnnotationName = "networking.cloud.sap/provider-config"
+
 // DeviceLabel is a label applied to any Network API object to indicate the device
 // it is associated with. This label is used by controllers to filter and manage resources
 // based on the device they are intended for.

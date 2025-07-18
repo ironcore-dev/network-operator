@@ -1,0 +1,17 @@
+apiVersion: networking.cloud.sap/v1alpha1
+kind: ProviderConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: cisco-nxos
+spec:
+  parameters:
+    dryRun: true
+    logDefaultSeverity: Info
+    logHistorySeverity: Info
+    logHistorySize: 500
+    logOriginID: hostnam
+    logSrcIf: mgmt0
+    vlanLongName: true
+    coppProfile: strict

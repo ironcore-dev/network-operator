@@ -28,4 +28,12 @@ resources:
   kind: Device
   path: github.com/ironcore-dev/network-operator/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: cloud.sap
+  group: networking
+  kind: ProviderConfig
+  path: github.com/ironcore-dev/network-operator/api/v1alpha1
+  version: v1alpha1
 version: "3"

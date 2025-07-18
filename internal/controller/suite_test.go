@@ -171,7 +171,7 @@ func (p *Provider) DeleteInterface(_ context.Context, iface *v1alpha1.Interface)
 	return nil
 }
 
-func (p *Provider) CreateDevice(_ context.Context, dev *v1alpha1.Device) error {
+func (p *Provider) CreateDevice(_ context.Context, dev *v1alpha1.Device, _ *v1alpha1.ProviderConfig) error {
 	p.Lock()
 	defer p.Unlock()
 	p.Items[dev.Name] = dev

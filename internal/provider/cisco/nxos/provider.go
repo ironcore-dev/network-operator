@@ -5,6 +5,7 @@ package nxos
 import (
 	"context"
 	"crypto/rsa"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -79,7 +80,7 @@ func (p *Provider) DeleteInterface(ctx context.Context, _ *v1alpha1.Interface) e
 	return nil
 }
 
-func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) error {
+func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device, config *v1alpha1.ProviderConfig) error {
 	log := ctrl.LoggerFrom(ctx)
 
 	c, ok := clientutil.FromContext(ctx)
@@ -93,12 +94,16 @@ func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) er
 	}
 	defer conn.Close()
 
+	params := DefaultParameters()
+	if config != nil && len(config.Spec.Parameters.Raw) > 0 {
+		if err = json.Unmarshal(config.Spec.Parameters.Raw, &params); err != nil {
+			return fmt.Errorf("failed to unmarshal provider config: %w", err)
+		}
+	}
+
 	var opts []gnmiext.Option
-	var isDryRun bool
-	v, ok := device.Annotations[DryRunAnnotation]
-	if ok && v == "true" {
+	if params.DryRun {
 		opts = append(opts, gnmiext.WithDryRun())
-		isDryRun = true
 	}
 	opts = append(opts, gnmiext.WithLogger(slog.New(logr.ToSlogHandler(log))))
 
@@ -162,20 +167,20 @@ func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) er
 		&DNS{Spec: device.Spec.DNS},
 		&NTP{Spec: device.Spec.NTP},
 		&ACL{Spec: device.Spec.ACL},
-		&Trustpoints{Spec: device.Spec.PKI, DryRun: isDryRun},
+		&Trustpoints{Spec: device.Spec.PKI, DryRun: params.DryRun},
 		&SNMP{Spec: device.Spec.SNMP},
 		&User{Spec: device.Spec.User},
 		&GRPC{Spec: device.Spec.GRPC},
 		&Banner{Spec: device.Spec.Banner},
-		&VLAN{LongName: device.Annotations[VlanLongNameAnnotation] == "true"},
-		&Copp{Profile: device.Annotations[CoppProfileAnnotation]},
+		&VLAN{LongName: params.VlanLongName},
+		&Copp{Profile: params.CoppProfile},
 		&Logging{
 			Spec:            device.Spec.Logging,
-			DefaultSeverity: device.Annotations[LogDefaultSeverityAnnotation],
-			HistoryLevel:    device.Annotations[LogHistorySeverityAnnotation],
-			HistorySize:     device.Annotations[LogHistorySizeAnnotation],
-			OriginID:        device.Annotations[LogOriginIDAnnotation],
-			SrcIf:           device.Annotations[LogSrcIfAnnotation],
+			DefaultSeverity: params.LogDefaultSeverity,
+			HistorySeverity: params.LogHistorySeverity,
+			HistorySize:     params.LogHistorySize,
+			OriginID:        params.LogOriginID,
+			SrcIf:           params.LogSrcIf,
 		},
 		// Static steps that are always executed
 		&NXAPI{},
@@ -528,9 +533,9 @@ type Logging struct {
 	Spec            *v1alpha1.Logging
 	OriginID        string
 	SrcIf           string
-	HistorySize     string
-	HistoryLevel    string
-	DefaultSeverity string
+	HistorySize     int
+	HistorySeverity v1alpha1.Severity
+	DefaultSeverity v1alpha1.Severity
 }
 
 func (step *Logging) Name() string             { return "Logging" }
@@ -559,12 +564,6 @@ func (step *Logging) Exec(ctx context.Context, s *Scope) error {
 		}
 	}
 
-	historySize, err := strconv.Atoi(step.HistorySize)
-	if err != nil {
-		ctrl.LoggerFrom(ctx).Error(err, "Failed to parse history size", "HistorySize", step.HistorySize)
-		historySize = 500
-	}
-
 	l := &logging.Logging{Enable: false}
 	if step.Spec != nil {
 		l = &logging.Logging{
@@ -572,8 +571,8 @@ func (step *Logging) Exec(ctx context.Context, s *Scope) error {
 			OriginID:        step.OriginID,
 			SrcIf:           step.SrcIf,
 			Servers:         make([]*logging.SyslogServer, len(step.Spec.Servers)),
-			History:         logging.History{Size: uint32(historySize), Severity: severity(v1alpha1.Severity(step.HistoryLevel))}, //nolint:gosec
-			DefaultSeverity: severity(v1alpha1.Severity(step.DefaultSeverity)),
+			History:         logging.History{Size: uint32(step.HistorySize), Severity: severity(step.HistorySeverity)}, //nolint:gosec
+			DefaultSeverity: severity(step.DefaultSeverity),
 			Facilities:      make([]*logging.Facility, len(step.Spec.Facilities)),
 		}
 
