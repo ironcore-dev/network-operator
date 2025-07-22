@@ -14,6 +14,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/errors"
@@ -213,6 +214,17 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 	return ctrl.Result{}, nil
 }
 
+// kinds defines the kinds of resources that the Device owns.
+// Resources of these Kinds that contain a Device Label, will
+// be watched, as setup by [DeviceReconciler.SetupWithManager].
+// Additionally, the [DeviceReconciler] will make sure, those
+// resources with a device label will be updated to contain a
+// valid OwnerReference to the device in [DeviceReconciler.setOwnerReferences].
+var kinds = []string{
+	"Interface",
+	"Banner",
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	labelSelector := metav1.LabelSelector{}
@@ -225,26 +237,46 @@ func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to create label selector predicate: %w", err)
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	deviceLabelSelector := metav1.LabelSelector{}
+	deviceLabelSelector.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: v1alpha1.DeviceLabel, Operator: metav1.LabelSelectorOpExists}}
+
+	deviceLabelPredicate, err := predicate.LabelSelectorPredicate(deviceLabelSelector)
+	if err != nil {
+		return fmt.Errorf("failed to create device label selector predicate: %w", err)
+	}
+
+	bldr := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Device{}).
 		Named("device").
 		WithEventFilter(filter).
-		Owns(&v1alpha1.Interface{}).
-		Watches(
-			&v1alpha1.Interface{},
-			handler.EnqueueRequestsFromMapFunc(r.interfaceToDevice),
-		).
+		Owns(&v1alpha1.Banner{}).
+		Owns(&v1alpha1.Interface{})
+
+	for _, kind := range kinds {
+		obj := &unstructured.Unstructured{}
+		obj.SetGroupVersionKind(v1alpha1.GroupVersion.WithKind(kind))
+
+		bldr = bldr.
+			// Watches enqueues all resources that have a device label.
+			Watches(
+				obj,
+				handler.EnqueueRequestsFromMapFunc(r.unstructuredToDevice),
+				builder.WithPredicates(deviceLabelPredicate),
+			)
+	}
+
+	return bldr.
 		// Watches enqueues Devices for referenced Secret resources.
 		Watches(
 			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.secretToDevices),
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
 		).
 		// Watches enqueues Devices for referenced ConfigMap resources.
 		Watches(
 			&corev1.ConfigMap{},
 			handler.EnqueueRequestsFromMapFunc(r.configMapToDevices),
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
 		).
 		Complete(r)
 }
@@ -257,7 +289,7 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, obj *v1alpha1.Device) 
 		return err
 	}
 
-	if err := r.setOwnerReferencesOnInterfaces(ctx, obj); err != nil {
+	if err := r.setOwnerReferences(ctx, obj); err != nil {
 		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
 			Type:               v1alpha1.ReadyCondition,
 			Status:             metav1.ConditionFalse,
@@ -297,34 +329,39 @@ func (r *DeviceReconciler) finalize(ctx context.Context, device *v1alpha1.Device
 	return nil
 }
 
-// setOwnerReferencesOnInterfaces sets the owner reference on all Interfaces owned by the Device if they do not already have one.
-func (r *DeviceReconciler) setOwnerReferencesOnInterfaces(ctx context.Context, device *v1alpha1.Device) error {
+// setOwnerReferences sets the owner reference on all Objects owned by the Device if they do not already have one.
+func (r *DeviceReconciler) setOwnerReferences(ctx context.Context, device *v1alpha1.Device) error {
 	log := ctrl.LoggerFrom(ctx)
 
-	var list v1alpha1.InterfaceList
-	labelSelector := client.MatchingLabels{v1alpha1.DeviceLabel: device.Name}
-	if err := r.List(ctx, &list, client.InNamespace(device.Namespace), labelSelector); err != nil {
-		return fmt.Errorf("failed to list interfaces for device %q: %w", device.Name, err)
+	var items []unstructured.Unstructured
+	for _, kind := range kinds {
+		var list unstructured.UnstructuredList
+		list.SetGroupVersionKind(v1alpha1.GroupVersion.WithKind(kind))
+		labelSelector := client.MatchingLabels{v1alpha1.DeviceLabel: device.Name}
+		if err := r.List(ctx, &list, client.InNamespace(device.Namespace), labelSelector); err != nil {
+			return fmt.Errorf("failed to list objects for device %q: %w", device.Name, err)
+		}
+		items = append(items, list.Items...)
 	}
 
-	for _, iface := range list.Items {
-		hasOwnerRef, err := controllerutil.HasOwnerReference(iface.GetOwnerReferences(), device, r.Scheme)
+	for _, item := range items {
+		hasOwnerRef, err := controllerutil.HasOwnerReference(item.GetOwnerReferences(), device, r.Scheme)
 		if err != nil {
-			return fmt.Errorf("failed to check owner reference for interface %q: %w", iface.Name, err)
+			return fmt.Errorf("failed to check owner reference for object %q: %w", item.GetName(), err)
 		}
 
 		if !hasOwnerRef {
-			err := controllerutil.SetOwnerReference(device, &iface, r.Scheme, controllerutil.WithBlockOwnerDeletion(true))
+			err := controllerutil.SetOwnerReference(device, &item, r.Scheme, controllerutil.WithBlockOwnerDeletion(true))
 			if err != nil {
-				return fmt.Errorf("failed to set owner reference for interface %q: %w", iface.Name, err)
+				return fmt.Errorf("failed to set owner reference for object %q: %w", item.GetName(), err)
 			}
 
-			if err := r.Update(ctx, &iface); err != nil {
+			if err := r.Update(ctx, &item); err != nil {
 				if apierrors.IsNotFound(err) {
-					log.Info("Interface not found, skipping update", "interface", iface.Name)
+					log.Info(item.GetKind()+" not found, skipping update", item.GetKind(), item.GetName())
 					continue
 				}
-				return fmt.Errorf("failed to update interface %q with owner reference: %w", iface.Name, err)
+				return fmt.Errorf("failed to update object %q with owner reference: %w", item.GetName(), err)
 			}
 		}
 	}
@@ -332,25 +369,20 @@ func (r *DeviceReconciler) setOwnerReferencesOnInterfaces(ctx context.Context, d
 	return nil
 }
 
-// interfaceToDevice is a [handler.MapFunc] to be used to enqueue requests for reconciliation
-// for a Device to update when one of its own Interfaces gets updated.
-func (r *DeviceReconciler) interfaceToDevice(ctx context.Context, obj client.Object) []ctrl.Request {
-	iface, ok := obj.(*v1alpha1.Interface)
-	if !ok {
-		panic(fmt.Sprintf("Expected Interface but got a %T", obj))
-	}
+// unstructuredToDevice is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for a Device to update when one of its owned Resources gets updated.
+func (r *DeviceReconciler) unstructuredToDevice(ctx context.Context, obj client.Object) []ctrl.Request {
+	log := ctrl.LoggerFrom(ctx, obj.GetObjectKind().GroupVersionKind().Kind, klog.KObj(obj))
 
-	log := ctrl.LoggerFrom(ctx, "Interface", klog.KObj(iface))
-
-	name, exists := iface.Labels[v1alpha1.DeviceLabel]
+	name, exists := obj.GetLabels()[v1alpha1.DeviceLabel]
 	if !exists {
-		log.Info("Interface does not have a device label, skipping reconciliation")
+		log.Info("Object does not have a device label, skipping reconciliation")
 		return nil
 	}
 
 	return []ctrl.Request{{
 		NamespacedName: types.NamespacedName{
-			Namespace: iface.Namespace,
+			Namespace: obj.GetNamespace(),
 			Name:      name,
 		},
 	}}

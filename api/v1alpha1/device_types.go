@@ -53,10 +53,6 @@ type DeviceSpec struct {
 	// Currently, only a single "default" gRPC server is supported.
 	// +optional
 	GRPC *GRPC `json:"grpc,omitempty"`
-
-	// MOTD banner to display on login.
-	// +optional
-	Banner *TemplateSource `json:"banner,omitempty"`
 }
 
 func (d *DeviceSpec) Validate() error {
@@ -519,7 +515,7 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=devices
 // +kubebuilder:resource:singular=device
-// +kubebuilder:printcolumn:name="Endpoint",type=string,JSONPath=`.spec.endpoint`
+// +kubebuilder:printcolumn:name="Endpoint",type=string,JSONPath=`.spec.endpoint.address`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
 

@@ -159,6 +159,18 @@ func (p *Provider) DeleteDevice(ctx context.Context, _ *v1alpha1.Device) error {
 	return nil
 }
 
+func (p *Provider) CreateBanner(ctx context.Context, _ *v1alpha1.Banner, _ string) error {
+	log := ctrl.LoggerFrom(ctx)
+	log.Error(provider.ErrUnimplemented, "CreateBanner not implemented")
+	return nil
+}
+
+func (p *Provider) DeleteBanner(ctx context.Context, _ *v1alpha1.Banner) error {
+	log := ctrl.LoggerFrom(ctx)
+	log.Error(provider.ErrUnimplemented, "DeleteBanner not implemented")
+	return nil
+}
+
 func init() {
 	provider.Register("openconfig", &Provider{})
 }

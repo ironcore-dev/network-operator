@@ -79,33 +79,30 @@ func (p *Provider) DeleteInterface(ctx context.Context, _ *v1alpha1.Interface) e
 	return nil
 }
 
+func (p *Provider) CreateBanner(ctx context.Context, obj *v1alpha1.Banner, message string) error {
+	s, err := p.GetScope(ctx, obj)
+	if err != nil {
+		return fmt.Errorf("failed to get scope: %w", err)
+	}
+
+	b := &banner.Banner{Message: message, Delimiter: "^"}
+	return s.GNMI.Update(ctx, b)
+}
+
+func (p *Provider) DeleteBanner(ctx context.Context, obj *v1alpha1.Banner) error {
+	s, err := p.GetScope(ctx, obj)
+	if err != nil {
+		return fmt.Errorf("failed to get scope: %w", err)
+	}
+
+	b := &banner.Banner{}
+	return s.GNMI.Reset(ctx, b)
+}
+
 func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) error {
 	log := ctrl.LoggerFrom(ctx)
 
-	c, ok := clientutil.FromContext(ctx)
-	if !ok {
-		return errors.New("failed to get controller client from context")
-	}
-
-	conn, err := deviceutil.GetDeviceGrpcClient(ctx, c, device)
-	if err != nil {
-		return fmt.Errorf("failed to create grpc connection: %w", err)
-	}
-	defer conn.Close()
-
-	var opts []gnmiext.Option
-	var isDryRun bool
-	v, ok := device.Annotations[DryRunAnnotation]
-	if ok && v == "true" {
-		opts = append(opts, gnmiext.WithDryRun())
-		isDryRun = true
-	}
-	opts = append(opts, gnmiext.WithLogger(slog.New(logr.ToSlogHandler(log))))
-
-	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	gnmi, err := gnmiext.NewClient(cctx, gpb.NewGNMIClient(conn), true, opts...)
+	s, err := p.GetScope(ctx, device)
 	if err != nil {
 		if s, ok := status.FromError(err); ok {
 			log.Error(err, "Failed to connect to device", "Message", s.Message())
@@ -138,10 +135,9 @@ func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) er
 		return nil
 	}
 
-	s := &Scope{
-		Client: c,
-		Conn:   conn,
-		GNMI:   gnmi,
+	var isDryRun bool
+	if v, ok := device.Annotations[DryRunAnnotation]; ok && v == "true" {
+		isDryRun = true
 	}
 
 	steps := []Step{
@@ -166,7 +162,6 @@ func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) er
 		&SNMP{Spec: device.Spec.SNMP},
 		&User{Spec: device.Spec.User},
 		&GRPC{Spec: device.Spec.GRPC},
-		&Banner{Spec: device.Spec.Banner},
 		&VLAN{LongName: device.Annotations[VlanLongNameAnnotation] == "true"},
 		&Copp{Profile: device.Annotations[CoppProfileAnnotation]},
 		&Logging{
@@ -193,7 +188,7 @@ func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) er
 
 		check := strconv.FormatUint(hash, 10)
 		if deps := step.Deps(); len(deps) > 0 {
-			v, err := c.ListResourceVersions(ctx, deps...)
+			v, err := s.Client.ListResourceVersions(ctx, deps...)
 			if err != nil {
 				errs = append(errs, err)
 				continue
@@ -250,20 +245,45 @@ func (p *Provider) DeleteDevice(ctx context.Context, _ *v1alpha1.Device) error {
 	return nil
 }
 
-func (p *Provider) GetGrpcClient(ctx context.Context, obj metav1.Object) (*grpc.ClientConn, error) {
+func (p *Provider) GetScope(ctx context.Context, obj metav1.Object) (_ *Scope, err error) {
+	log := ctrl.LoggerFrom(ctx)
+
 	c, ok := clientutil.FromContext(ctx)
 	if !ok {
 		return nil, errors.New("failed to get controller client from context")
 	}
-	d, err := deviceutil.GetDeviceFromMetadata(ctx, c, obj)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get device from metadata: %w", err)
+
+	d, ok := obj.(*v1alpha1.Device)
+	if !ok {
+		d, err = deviceutil.GetDeviceFromMetadata(ctx, c, obj)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get device from metadata: %w", err)
+		}
 	}
+
 	conn, err := deviceutil.GetDeviceGrpcClient(ctx, c, d)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create grpc connection: %w", err)
 	}
-	return conn, nil
+
+	opts := []gnmiext.Option{gnmiext.WithLogger(slog.New(logr.ToSlogHandler(log)))}
+	if v, ok := d.Annotations[DryRunAnnotation]; ok && v == "true" {
+		opts = append(opts, gnmiext.WithDryRun())
+	}
+
+	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	gnmi, err := gnmiext.NewClient(cctx, gpb.NewGNMIClient(conn), true, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Scope{
+		Client: c,
+		Conn:   conn,
+		GNMI:   gnmi,
+	}, nil
 }
 
 // Scope holds the different objects that are read and used during the reconcile.
@@ -305,7 +325,6 @@ var (
 	_ Step = (*Features)(nil)
 	_ Step = (*DNS)(nil)
 	_ Step = (*Copp)(nil)
-	_ Step = (*Banner)(nil)
 )
 
 type NTP struct{ Spec *v1alpha1.NTP }
@@ -695,36 +714,6 @@ func (step *Copp) Exec(ctx context.Context, s *Scope) error {
 	}
 	c := &copp.COPP{Profile: profile}
 	return s.GNMI.Update(ctx, c)
-}
-
-type Banner struct{ Spec *v1alpha1.TemplateSource }
-
-func (step *Banner) Name() string { return "Banner" }
-func (step *Banner) Deps() []client.ObjectKey {
-	if step.Spec == nil {
-		return nil
-	}
-	if step.Spec.SecretRef != nil {
-		return []client.ObjectKey{
-			{
-				Name: step.Spec.SecretRef.Name,
-			},
-		}
-	}
-	// TODO(felix-kaestner): Support ConfigMap references
-	return nil
-}
-
-func (step *Banner) Exec(ctx context.Context, s *Scope) error {
-	if step.Spec == nil {
-		return nil
-	}
-	message, err := s.Client.Template(ctx, step.Spec)
-	if err != nil {
-		return err
-	}
-	b := &banner.Banner{Message: string(message), Delimiter: "^"}
-	return s.GNMI.Update(ctx, b)
 }
 
 func init() {

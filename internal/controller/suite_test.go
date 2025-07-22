@@ -106,6 +106,14 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&BannerReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: testProvider,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -157,30 +165,40 @@ type Provider struct {
 	Items map[string]client.Object
 }
 
-func (p *Provider) CreateInterface(_ context.Context, iface *v1alpha1.Interface) error {
+func (p *Provider) CreateInterface(_ context.Context, obj *v1alpha1.Interface) error {
+	return p.AddObject(obj)
+}
+
+func (p *Provider) DeleteInterface(_ context.Context, obj *v1alpha1.Interface) error {
+	return p.DelObject(obj)
+}
+
+func (p *Provider) CreateBanner(_ context.Context, obj *v1alpha1.Banner, _ string) error {
+	return p.AddObject(obj)
+}
+
+func (p *Provider) DeleteBanner(_ context.Context, obj *v1alpha1.Banner) error {
+	return p.DelObject(obj)
+}
+
+func (p *Provider) CreateDevice(_ context.Context, obj *v1alpha1.Device) error {
+	return p.AddObject(obj)
+}
+
+func (p *Provider) DeleteDevice(_ context.Context, obj *v1alpha1.Device) error {
+	return p.DelObject(obj)
+}
+
+func (p *Provider) AddObject(obj client.Object) error {
 	p.Lock()
 	defer p.Unlock()
-	p.Items[iface.Name] = iface
+	p.Items[obj.GetName()] = obj
 	return nil
 }
 
-func (p *Provider) DeleteInterface(_ context.Context, iface *v1alpha1.Interface) error {
+func (p *Provider) DelObject(obj client.Object) error {
 	p.Lock()
 	defer p.Unlock()
-	delete(p.Items, iface.Name)
-	return nil
-}
-
-func (p *Provider) CreateDevice(_ context.Context, dev *v1alpha1.Device) error {
-	p.Lock()
-	defer p.Unlock()
-	p.Items[dev.Name] = dev
-	return nil
-}
-
-func (p *Provider) DeleteDevice(_ context.Context, dev *v1alpha1.Device) error {
-	p.Lock()
-	defer p.Unlock()
-	delete(p.Items, dev.Name)
+	delete(p.Items, obj.GetName())
 	return nil
 }

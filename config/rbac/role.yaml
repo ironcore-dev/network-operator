@@ -23,6 +23,7 @@ rules:
 - apiGroups:
   - networking.cloud.sap
   resources:
+  - banners
   - devices
   - interfaces
   verbs:
@@ -36,6 +37,7 @@ rules:
 - apiGroups:
   - networking.cloud.sap
   resources:
+  - banners/finalizers
   - devices/finalizers
   - interfaces/finalizers
   verbs:
@@ -43,6 +45,7 @@ rules:
 - apiGroups:
   - networking.cloud.sap
   resources:
+  - banners/status
   - devices/status
   - interfaces/status
   verbs:
