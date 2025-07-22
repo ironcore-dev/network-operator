@@ -25,6 +25,10 @@ type Provider interface {
 	CreateInterface(context.Context, *v1alpha1.Interface) error
 	// DeleteInterface call is responsible for Interface deletion on the provider.
 	DeleteInterface(context.Context, *v1alpha1.Interface) error
+	// CreateBanner call is responsible for pre-login Banner creation on the provider.
+	CreateBanner(context.Context, *v1alpha1.Banner, string) error
+	// DeleteBanner call is responsible for pre-login Banner deletion on the provider.
+	DeleteBanner(context.Context, *v1alpha1.Banner) error
 }
 
 var mu sync.RWMutex

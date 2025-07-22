@@ -89,14 +89,6 @@ spec:
       maxConcurrentCall: 16
       keepAliveTimeout: 600s
       minSampleInterval: 10s
-  banner:
-    inline: |
-      #################################################################
-      #                                                               #
-      #        WARNING: Unauthorized access is prohibited.            #
-      #        All connections are logged and monitored.              #
-      #                                                               #
-      #################################################################
 ---
 apiVersion: v1
 kind: Secret
