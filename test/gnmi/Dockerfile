@@ -10,23 +10,19 @@ FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:${GO_VERSION}-alpine${ALPIN
 ARG TARGETOS
 ARG TARGETARCH
 
-# Clone the openconfig/gnmi repository containing the fake server
-RUN apk add --no-cache --no-progress git && \
-    git clone --depth=1 --filter=blob:none https://github.com/openconfig/gnmi.git /go/src/github.com/openconfig/gnmi && \
-    apk del --no-cache --no-progress apk-tools alpine-keys alpine-release libc-utils
-
-# Switch into workspace
-WORKDIR /go/src/github.com/openconfig/gnmi
+WORKDIR /workspace
 
 # Install dependencies
 RUN --mount=type=cache,target=/go/pkg/mod \
-    go mod download -x && \
-    go mod tidy
+    --mount=type=bind,source=go.mod,target=go.mod \
+    --mount=type=bind,source=go.sum,target=go.sum \
+    go mod download -x
 
 # Build the application into a static executable while removing the symbol table and debugging information
-RUN --mount=type=cache,target=/go/pkg/mod \
+RUN --mount=type=bind,target=. \
+    --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-s -w" -o ./build/server ./testing/fake/gnmi/cmd/fake_server
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-s -w" -o /usr/bin/server ./main.go
 
 FROM alpine:${ALPINE_VERSION}
 
@@ -34,7 +30,7 @@ FROM alpine:${ALPINE_VERSION}
 WORKDIR /app
 
 # Copy executable from build
-COPY --from=build /go/src/github.com/openconfig/gnmi/build/server  /app/
+COPY --from=build /usr/bin/server  /app/
 
 # Start the server application
-CMD ["/app/server", "--config=/config.pb.txt", "--text", "--port=9339", "--server_crt=/cert.pem", "--server_key=/key.pem", "--allow_no_client_auth", "--logtostderr"]
+CMD ["/app/server", "--port=9339"]
