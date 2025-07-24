@@ -67,16 +67,6 @@ func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, 
 		})
 		s.State.Del(del)
 	}
-	for _, update := range req.GetUpdate() {
-		log.Printf("Updating path: %v with value: %q", update.GetPath(), update.GetVal().GetJsonVal())
-		res = append(res, &gpb.UpdateResult{
-			Timestamp: time.Now().UnixNano(),
-			Path:      update.Path,
-			Op:        gpb.UpdateResult_UPDATE,
-		})
-		// The value will automatically be merged into the existing state.
-		s.State.Set(update.GetPath(), update.GetVal().GetJsonVal())
-	}
 	for _, replace := range req.GetReplace() {
 		log.Printf("Replacing path: %v with value: %q", replace.GetPath(), replace.GetVal().GetJsonVal())
 		res = append(res, &gpb.UpdateResult{
@@ -87,6 +77,16 @@ func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, 
 		// Delete the existing value at the path and set the new value.
 		s.State.Del(replace.GetPath())
 		s.State.Set(replace.GetPath(), replace.GetVal().GetJsonVal())
+	}
+	for _, update := range req.GetUpdate() {
+		log.Printf("Updating path: %v with value: %q", update.GetPath(), update.GetVal().GetJsonVal())
+		res = append(res, &gpb.UpdateResult{
+			Timestamp: time.Now().UnixNano(),
+			Path:      update.Path,
+			Op:        gpb.UpdateResult_UPDATE,
+		})
+		// The value will automatically be merged into the existing state.
+		s.State.Set(update.GetPath(), update.GetVal().GetJsonVal())
 	}
 	// TODO: Handle UnionReplace
 	return &gpb.SetResponse{
