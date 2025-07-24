@@ -132,6 +132,16 @@ netop-provider:
 	@printf "\e[1;36m>> ./build/netop-provider --help\e[0m\n"
 	@./build/netop-provider --help
 
+TEST_SERVER_IMG ?= ghcr.io/ironcore-dev/gnmi-test-server:latest
+
+build-test-gnmi-server: FORCE
+	@printf "\e[1;36m>> $(CONTAINER_TOOL) build --tag=$(TEST_SERVER_IMG) ./test/gnmi\e[0m\n"
+	@$(CONTAINER_TOOL) build --tag=$(TEST_SERVER_IMG) ./test/gnmi
+
+run-test-gnmi-server: FORCE build-test-gnmi-server
+	@printf "\e[1;36m>> $(CONTAINER_TOOL) run -p 9339:9339 $(TEST_SERVER_IMG)\e[0m\n"
+	@$(CONTAINER_TOOL) run --rm -p 9339:9339 $(TEST_SERVER_IMG)
+
 install-goimports: FORCE
 	@if ! hash goimports 2>/dev/null; then printf "\e[1;36m>> Installing goimports (this may take a while)...\e[0m\n"; go install golang.org/x/tools/cmd/goimports@latest; fi
 
