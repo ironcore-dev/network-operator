@@ -5,3 +5,8 @@ type: application
 version: 0.1.0
 appVersion: "0.1.0"
 icon: "https://example.com/icon.png"
+dependencies:
+  # See: https://github.com/sapcc/helm-charts/pkgs/container/helm-charts%2Fowner-info
+  - name: owner-info
+    repository: oci://ghcr.io/sapcc/helm-charts
+    version: 1.0.0
