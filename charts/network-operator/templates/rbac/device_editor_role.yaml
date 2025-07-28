@@ -1,33 +1,22 @@
 {{- if .Values.rbac.enable }}
----
+# This rule is not used by the project network-operator itself.
+# It is provided to allow the cluster admin to help manage permissions for users.
+#
+# Grants permissions to create, update, and delete resources within the networking.cloud.sap.
+# This role is intended for users who need to manage these resources
+# but should not control RBAC or manage permissions for others.
+
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
     {{- include "chart.labels" . | nindent 4 }}
-  name: network-operator-manager-role
+  name: device-editor-role
 rules:
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  - secrets
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - events
-  verbs:
-  - create
-  - patch
 - apiGroups:
   - networking.cloud.sap
   resources:
   - devices
-  - interfaces
   verbs:
   - create
   - delete
@@ -39,17 +28,7 @@ rules:
 - apiGroups:
   - networking.cloud.sap
   resources:
-  - devices/finalizers
-  - interfaces/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - networking.cloud.sap
-  resources:
   - devices/status
-  - interfaces/status
   verbs:
   - get
-  - patch
-  - update
 {{- end -}}

@@ -1,0 +1,238 @@
+{{- if .Values.crd.enable }}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.crd.keep }}
+    "helm.sh/resource-policy": keep
+    {{- end }}
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: interfaces.networking.cloud.sap
+spec:
+  group: networking.cloud.sap
+  names:
+    kind: Interface
+    listKind: InterfaceList
+    plural: interfaces
+    shortNames:
+    - int
+    singular: interface
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.name
+      name: Interface
+      type: string
+    - jsonPath: .spec.adminState
+      name: Admin State
+      type: string
+    - jsonPath: .spec.description
+      name: Description
+      type: string
+    - jsonPath: .spec.mtu
+      name: MTU
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Interface is the Schema for the interfaces API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              Specification of the desired state of the resource.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              adminState:
+                description: AdminState indicates whether the interface is administratively
+                  up or down.
+                enum:
+                - Up
+                - Down
+                type: string
+              description:
+                description: Description provides a human-readable description of
+                  the interface.
+                maxLength: 255
+                type: string
+              ipv4Addresses:
+                description: |-
+                  Ipv4Addresses is the list of IPv4 addresses assigned to the interface.
+                  Each address should be given either in CIDR notation (e.g., "10.0.0.1/32")
+                  or as interface reference in the form of "unnumbered:<source-interface>" (e.g., "unnumbered:lo0").
+                items:
+                  pattern: ^(?:(?:\d{1,3}\.){3}\d{1,3}\/\d{1,2}?|unnumbered:[\w-]+)$
+                  type: string
+                type: array
+              mtu:
+                description: MTU (Maximum Transmission Unit) specifies the size of
+                  the largest packet that can be sent over the interface.
+                format: int32
+                maximum: 9216
+                minimum: 576
+                type: integer
+              name:
+                description: Name is the name of the interface.
+                maxLength: 255
+                type: string
+              switchport:
+                description: |-
+                  Switchport defines the switchport configuration for the interface.
+                  This is only applicable for interfaces that are switchports (e.g., Ethernet interfaces).
+                properties:
+                  accessVlan:
+                    description: |-
+                      AccessVlan specifies the VLAN ID for access mode switchports.
+                      Only applicable when Mode is set to "Access".
+                    format: int32
+                    maximum: 4094
+                    minimum: 1
+                    type: integer
+                  allowedVlans:
+                    description: |-
+                      AllowedVlans is a list of VLAN IDs that are allowed on the trunk port.
+                      Only applicable when Mode is set to "Trunk".
+                    items:
+                      format: int32
+                      maximum: 4094
+                      minimum: 1
+                      type: integer
+                    minItems: 1
+                    type: array
+                  mode:
+                    description: Mode defines the switchport mode, such as access
+                      or trunk.
+                    enum:
+                    - Access
+                    - Trunk
+                    type: string
+                  nativeVlan:
+                    description: |-
+                      NativeVlan specifies the native VLAN ID for trunk mode switchports.
+                      Only applicable when Mode is set to "Trunk".
+                    format: int32
+                    maximum: 4094
+                    minimum: 1
+                    type: integer
+                required:
+                - mode
+                type: object
+                x-kubernetes-validations:
+                - message: accessVlan must be specified when mode is Access
+                  rule: self.mode != 'Access' || has(self.accessVlan)
+                - message: nativeVlan must be specified when mode is Trunk
+                  rule: self.mode != 'Trunk' || has(self.nativeVlan)
+                - message: allowedVlans must be specified when mode is Trunk
+                  rule: self.mode != 'Trunk' || has(self.allowedVlans)
+              type:
+                description: Type indicates the type of the interface.
+                enum:
+                - Physical
+                - Loopback
+                type: string
+            required:
+            - adminState
+            - name
+            - type
+            type: object
+            x-kubernetes-validations:
+            - message: switchport and ipv4Addresses are mutually exclusive
+              rule: '!has(self.switchport) || !has(self.ipv4Addresses)'
+            - message: switchport must not be specified for interfaces of type Loopback
+              rule: self.type != 'Loopback' || !has(self.switchport)
+          status:
+            description: |-
+              Status of the resource. This is set and updated automatically.
+              Read-only.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              conditions:
+                description: The conditions are a list of status objects that describe
+                  the state of the Interface.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+{{- end -}}

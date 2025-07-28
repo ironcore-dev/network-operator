@@ -1,0 +1,767 @@
+{{- if .Values.crd.enable }}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.crd.keep }}
+    "helm.sh/resource-policy": keep
+    {{- end }}
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: devices.networking.cloud.sap
+spec:
+  group: networking.cloud.sap
+  names:
+    kind: Device
+    listKind: DeviceList
+    plural: devices
+    singular: device
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.endpoint
+      name: Endpoint
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Device is the Schema for the devices API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              Specification of the desired state of the resource.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              acl:
+                description: Access Control Lists (ACLs) configuration.
+                items:
+                  properties:
+                    entries:
+                      description: A list of rules/entries to apply.
+                      items:
+                        properties:
+                          action:
+                            description: The forwarding action of the ACL entry.
+                            enum:
+                            - Permit
+                            - Deny
+                            type: string
+                          destinationAddress:
+                            description: Destination IPv4 address prefix. Use 0.0.0.0/0
+                              to represent 'any'.
+                            pattern: ^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$
+                            type: string
+                          protocol:
+                            default: ip
+                            description: The protocol to match. If not specified,
+                              defaults to "ip" (IPv4).
+                            enum:
+                            - ahp
+                            - eigrp
+                            - esp
+                            - gre
+                            - icmp
+                            - igmp
+                            - ip
+                            - nos
+                            - ospf
+                            - pcp
+                            - pim
+                            - tcp
+                            - udf
+                            - udp
+                            type: string
+                          sequence:
+                            description: The sequence number of the ACL entry.
+                            type: integer
+                          sourceAddress:
+                            description: Source IPv4 address prefix. Use 0.0.0.0/0
+                              to represent 'any'.
+                            pattern: ^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$
+                            type: string
+                        required:
+                        - action
+                        - destinationAddress
+                        - sequence
+                        - sourceAddress
+                        type: object
+                      minItems: 1
+                      type: array
+                    name:
+                      description: The name of the access control list.
+                      type: string
+                  required:
+                  - entries
+                  - name
+                  type: object
+                type: array
+              banner:
+                description: MOTD banner to display on login.
+                properties:
+                  configMapRef:
+                    description: Reference to a ConfigMap containing the template
+                    properties:
+                      key:
+                        description: The key to select.
+                        type: string
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                      optional:
+                        description: Specify whether the ConfigMap or its key must
+                          be defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  inline:
+                    description: Inline template content
+                    type: string
+                  secretRef:
+                    description: Reference to a Secret containing the template
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                type: object
+                x-kubernetes-validations:
+                - message: exactly one of 'inline', 'secretRef', or 'configMapRef'
+                    must be specified
+                  rule: '[has(self.inline), has(self.secretRef), has(self.configMapRef)].filter(x,
+                    x).size() == 1'
+              bootstrap:
+                description: |-
+                  Bootstrap is an optional configuration for the device bootstrap process.
+                  It can be used to provide initial configuration templates or scripts that are applied during the device provisioning.
+                properties:
+                  template:
+                    description: Template defines the multiline string template that
+                      contains the initial configuration for the device.
+                    properties:
+                      configMapRef:
+                        description: Reference to a ConfigMap containing the template
+                        properties:
+                          key:
+                            description: The key to select.
+                            type: string
+                          name:
+                            default: ""
+                            description: |-
+                              Name of the referent.
+                              This field is effectively required, but due to backwards compatibility is
+                              allowed to be empty. Instances of this type with an empty value here are
+                              almost certainly wrong.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                          optional:
+                            description: Specify whether the ConfigMap or its key
+                              must be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      inline:
+                        description: Inline template content
+                        type: string
+                      secretRef:
+                        description: Reference to a Secret containing the template
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            default: ""
+                            description: |-
+                              Name of the referent.
+                              This field is effectively required, but due to backwards compatibility is
+                              allowed to be empty. Instances of this type with an empty value here are
+                              almost certainly wrong.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                          optional:
+                            description: Specify whether the Secret or its key must
+                              be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
+                    x-kubernetes-validations:
+                    - message: exactly one of 'inline', 'secretRef', or 'configMapRef'
+                        must be specified
+                      rule: '[has(self.inline), has(self.secretRef), has(self.configMapRef)].filter(x,
+                        x).size() == 1'
+                required:
+                - template
+                type: object
+              dns:
+                description: Top-level configuration for DNS / resolver.
+                properties:
+                  domain:
+                    description: Default domain name that the switch uses to complete
+                      unqualified hostnames.
+                    format: hostname
+                    type: string
+                  servers:
+                    description: A list of DNS servers to use for address resolution.
+                    items:
+                      properties:
+                        address:
+                          description: The Hostname or IP address of the DNS server.
+                          type: string
+                        networkInstance:
+                          description: The network instance used to communicate with
+                            the DNS server.
+                          type: string
+                      required:
+                      - address
+                      type: object
+                    maxItems: 6
+                    type: array
+                  srcIf:
+                    description: Source interface for all DNS traffic.
+                    type: string
+                required:
+                - domain
+                type: object
+              endpoint:
+                description: Endpoint is the management address of the device provided
+                  as <ip:port>.
+                pattern: ^(\d{1,3}\.){3}\d{1,3}:\d{1,5}$
+                type: string
+              grpc:
+                description: |-
+                  Configuration for the gRPC server on the device.
+                  Currently, only a single "default" gRPC server is supported.
+                properties:
+                  certificateId:
+                    description: |-
+                      Name of the certificate that is associated with the gRPC service.
+                      The certificate is provisioned through other interfaces on the device,
+                      such as e.g. the gNOI certificate management service.
+                    type: string
+                  gnmi:
+                    description: |-
+                      Additional gNMI configuration for the gRPC server.
+                      This may not be supported by all devices.
+                    properties:
+                      keepAliveTimeout:
+                        default: 10m
+                        description: |-
+                          Configure the keepalive timeout for inactive or unauthorized connections.
+                          The gRPC agent is expected to periodically send an empty response to the client, on which the client is expected to respond with an empty request.
+                          If the client does not respond within the keepalive timeout, the gRPC agent should close the connection.
+                          The default interval value is 10 minutes.
+                        pattern: ^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$
+                        type: string
+                      maxConcurrentCall:
+                        default: 8
+                        description: |-
+                          The maximum number of concurrent gNMI calls that can be made to the gRPC server on the switch for each VRF.
+                          Configure a limit from 1 through 16. The default limit is 8.
+                        maximum: 16
+                        minimum: 1
+                        type: integer
+                      minSampleInterval:
+                        default: 10s
+                        description: |-
+                          Configure the minimum sample interval for the gNMI telemetry stream.
+                          Once per stream sample interval, the switch sends the current values for all specified paths.
+                          The default value is 10 seconds.
+                        pattern: ^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$
+                        type: string
+                    type: object
+                  networkInstance:
+                    description: Enable the gRPC agent to accept incoming (dial-in)
+                      RPC requests from a given network instance.
+                    type: string
+                  port:
+                    default: 9339
+                    description: |-
+                      The TCP port on which the gRPC server should listen.
+                      The range of port-id is from 1024 to 65535.
+                      Port 9339 is the default.
+                    format: int32
+                    maximum: 65535
+                    minimum: 1024
+                    type: integer
+                type: object
+              logging:
+                description: Top-level logging configuration for the device.
+                properties:
+                  facilities:
+                    description: Facilities is a list of log facilities to configure
+                      on the device.
+                    items:
+                      properties:
+                        name:
+                          description: The name of the log facility.
+                          type: string
+                        severity:
+                          description: The severity level of the log messages for
+                            this facility.
+                          enum:
+                          - Debug
+                          - Info
+                          - Notice
+                          - Warning
+                          - Error
+                          - Critical
+                          - Alert
+                          - Emergency
+                          type: string
+                      required:
+                      - name
+                      - severity
+                      type: object
+                    minItems: 1
+                    type: array
+                  servers:
+                    description: Servers is a list of remote log servers to which
+                      the device will send logs.
+                    items:
+                      properties:
+                        address:
+                          description: IP address or hostname of the remote log server
+                          type: string
+                        networkInstance:
+                          description: The network instance used to reach the log
+                            server.
+                          type: string
+                        port:
+                          default: 514
+                          description: |-
+                            The destination port number for syslog UDP messages to
+                            the server. The default is 514.
+                          format: int64
+                          type: integer
+                        severity:
+                          description: The servity level of the log messages sent
+                            to the server.
+                          enum:
+                          - Debug
+                          - Info
+                          - Notice
+                          - Warning
+                          - Error
+                          - Critical
+                          - Alert
+                          - Emergency
+                          type: string
+                      required:
+                      - address
+                      - networkInstance
+                      - severity
+                      type: object
+                    minItems: 1
+                    type: array
+                required:
+                - facilities
+                - servers
+                type: object
+              ntp:
+                description: Configuration data for system-wide NTP process.
+                properties:
+                  servers:
+                    description: NTP servers.
+                    items:
+                      properties:
+                        address:
+                          description: Hostname/IP address of the NTP server.
+                          type: string
+                        networkInstance:
+                          description: The network instance used to communicate with
+                            the NTP server.
+                          type: string
+                        prefer:
+                          default: false
+                          description: Indicates whether this server should be preferred
+                            or not.
+                          type: boolean
+                      required:
+                      - address
+                      type: object
+                    minItems: 1
+                    type: array
+                  srcIf:
+                    description: Source interface for all NTP traffic.
+                    type: string
+                required:
+                - servers
+                - srcIf
+                type: object
+              pki:
+                description: PKI configuration for managing certificates on the device.
+                properties:
+                  certificates:
+                    description: Certificates is a list of certificates to be managed
+                      by the PKI.
+                    items:
+                      properties:
+                        name:
+                          description: The name of the certificate.
+                          type: string
+                        source:
+                          description: The source of the certificate content.
+                          properties:
+                            secretRef:
+                              description: |-
+                                Secret containing the certificate.
+                                The secret must be of type kubernetes.io/tls and as such contain the following keys: 'tls.crt' and 'tls.key'.
+                              properties:
+                                name:
+                                  description: name is unique within a namespace to
+                                    reference a secret resource.
+                                  type: string
+                                namespace:
+                                  description: namespace defines the space within
+                                    which the secret name must be unique.
+                                  type: string
+                              type: object
+                              x-kubernetes-map-type: atomic
+                          required:
+                          - secretRef
+                          type: object
+                      required:
+                      - name
+                      - source
+                      type: object
+                    minItems: 1
+                    type: array
+                required:
+                - certificates
+                type: object
+              secretRef:
+                description: |-
+                  SecretRef is name of the authentication secret for the device containing the username and password.
+                  The secret must be of type kubernetes.io/basic-auth and as such contain the following keys: 'username' and 'password'.
+                properties:
+                  name:
+                    description: name is unique within a namespace to reference a
+                      secret resource.
+                    type: string
+                  namespace:
+                    description: namespace defines the space within which the secret
+                      name must be unique.
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
+              snmp:
+                description: SNMP global configuration.
+                properties:
+                  communities:
+                    description: SNMP communities for SNMPv1 or SNMPv2c.
+                    items:
+                      properties:
+                        acl:
+                          description: ACL name to filter snmp requests.
+                          type: string
+                        group:
+                          description: Group to which the community belongs.
+                          type: string
+                        name:
+                          description: Name of the community.
+                          type: string
+                      type: object
+                    type: array
+                  contact:
+                    description: The contact information for the SNMP server.
+                    type: string
+                  destinations:
+                    description: SNMP destinations for SNMP traps or informs.
+                    items:
+                      properties:
+                        address:
+                          description: The Hostname or IP address of the SNMP host
+                            to send notifications to.
+                          type: string
+                        networkInstance:
+                          description: The network instance to use to source traffic.
+                          type: string
+                        target:
+                          description: SNMP community or user name.
+                          type: string
+                        type:
+                          default: Traps
+                          description: Type of message to send to host. Default is
+                            traps.
+                          enum:
+                          - Traps
+                          - Inform
+                          type: string
+                        version:
+                          default: v2c
+                          description: SNMP version. Default is v2c.
+                          enum:
+                          - v1
+                          - v2c
+                          - v3
+                          type: string
+                      required:
+                      - address
+                      type: object
+                    minItems: 1
+                    type: array
+                  engineId:
+                    description: The SNMP engine ID for the SNMP server.
+                    type: string
+                  location:
+                    description: The location information for the SNMP server.
+                    type: string
+                  srcIf:
+                    description: Source interface to be used for sending out SNMP
+                      Trap/Inform notifications.
+                    type: string
+                  traps:
+                    description: The list of trap groups to enable.
+                    items:
+                      type: string
+                    type: array
+                required:
+                - contact
+                - destinations
+                - engineId
+                - location
+                - srcIf
+                type: object
+              tls:
+                description: Transport credentials for grpc connection to the switch.
+                properties:
+                  ca:
+                    description: The CA certificate to verify the server's identity.
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  certificate:
+                    description: |-
+                      The client certificate and private key to use for mutual TLS authentication.
+                      Leave empty if mTLS is not desired.
+                    properties:
+                      secretRef:
+                        description: |-
+                          Secret containing the certificate.
+                          The secret must be of type kubernetes.io/tls and as such contain the following keys: 'tls.crt' and 'tls.key'.
+                        properties:
+                          name:
+                            description: name is unique within a namespace to reference
+                              a secret resource.
+                            type: string
+                          namespace:
+                            description: namespace defines the space within which
+                              the secret name must be unique.
+                            type: string
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    required:
+                    - secretRef
+                    type: object
+                required:
+                - ca
+                type: object
+              users:
+                description: List of local users on the switch.
+                items:
+                  properties:
+                    name:
+                      description: Assigned username for this user.
+                      type: string
+                    password:
+                      description: The user password, supplied as cleartext.
+                      properties:
+                        secretKeyRef:
+                          description: Selects a key of a secret.
+                          properties:
+                            key:
+                              description: The key of the secret to select from.  Must
+                                be a valid secret key.
+                              type: string
+                            name:
+                              default: ""
+                              description: |-
+                                Name of the referent.
+                                This field is effectively required, but due to backwards compatibility is
+                                allowed to be empty. Instances of this type with an empty value here are
+                                almost certainly wrong.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              type: string
+                            optional:
+                              description: Specify whether the Secret or its key must
+                                be defined
+                              type: boolean
+                          required:
+                          - key
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      required:
+                      - secretKeyRef
+                      type: object
+                    role:
+                      description: Role which the user is to be assigned to.
+                      type: string
+                  required:
+                  - name
+                  - password
+                  - role
+                  type: object
+                type: array
+            required:
+            - bootstrap
+            - endpoint
+            type: object
+          status:
+            description: |-
+              Status of the resource. This is set and updated automatically.
+              Read-only.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              conditions:
+                description: The conditions are a list of status objects that describe
+                  the state of the Device.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              phase:
+                default: Pending
+                description: Phase represents the current phase of the Device.
+                enum:
+                - Pending
+                - Provisioning
+                - Active
+                - Failed
+                type: string
+            required:
+            - phase
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+{{- end -}}
