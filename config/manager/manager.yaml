@@ -59,7 +59,7 @@ spec:
           type: RuntimeDefault
       containers:
       - command:
-        - /usr/bin/network-operator
+          - /manager
         args:
           - --leader-elect
           - --health-probe-bind-address=:8081

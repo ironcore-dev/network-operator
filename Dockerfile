@@ -23,7 +23,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 RUN --mount=type=bind,target=.,readwrite \
     --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    GOOS=${TARGETOS} GOARCH=${TARGETARCH} GOTOOLCHAIN=local make PREFIX=/pkg install
+    GOOS=${TARGETOS} GOARCH=${TARGETARCH} GOTOOLCHAIN=local make install
 
 FROM gcr.io/distroless/static:nonroot
 
@@ -37,8 +37,8 @@ LABEL source_repository="https://github.com/ironcore-dev/network-operator" \
     org.opencontainers.image.revision=${BININFO_COMMIT_HASH} \
     org.opencontainers.image.version=${BININFO_VERSION}
 
-COPY --from=builder /pkg/ /usr/
+COPY --from=builder /usr/bin/network-operator /manager
 
 USER 65532:65532
 WORKDIR /
-ENTRYPOINT [ "/usr/bin/network-operator" ]
+ENTRYPOINT [ "/manager" ]
