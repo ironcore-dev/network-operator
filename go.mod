@@ -110,3 +110,6 @@ require (
 )
 
 replace github.com/openconfig/ygnmi => github.com/felix-kaestner/ygnmi v0.0.0-20250709083711-68dcb70888a5
+
+// CVE-2025-22868
+replace golang.org/x/oauth2 => golang.org/x/oauth2 v0.27.0

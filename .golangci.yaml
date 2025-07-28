@@ -128,6 +128,8 @@ linters:
         - k8s.io/client-go
         # until https://github.com/openconfig/ygnmi/pull/157 is merged
         - github.com/openconfig/ygnmi
+        # for CVE-2025-22868
+        - golang.org/x/oauth2
       toolchain-forbidden: true
       go-version-pattern: 1\.\d+(\.0)?$
     gosec:
