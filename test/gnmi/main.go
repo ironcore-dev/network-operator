@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -35,6 +36,9 @@ func (s *Server) Capabilities(_ context.Context, req *gpb.CapabilityRequest) (*g
 func (s *Server) Get(_ context.Context, req *gpb.GetRequest) (*gpb.GetResponse, error) {
 	notifications := make([]*gpb.Notification, 0, len(req.GetPath()))
 	for _, path := range req.GetPath() {
+		if len(path.GetElem()) == 0 {
+			return nil, status.Error(codes.InvalidArgument, "root path is not allowed")
+		}
 		log.Printf("Getting path: %v", path)
 		notifications = append(notifications, &gpb.Notification{
 			Timestamp: time.Now().UnixNano(),
@@ -104,31 +108,98 @@ func (s *Server) Subscribe(grpc.BidiStreamingServer[gpb.SubscribeRequest, gpb.Su
 type State struct{ Buf []byte }
 
 func (s State) Get(path *gpb.Path) []byte {
-	res := gjson.GetBytes(s.Buf, xpath(path))
-	if !res.Exists() {
+	var sb strings.Builder
+	for _, elem := range path.GetElem() {
+		if elem.GetName() == "" {
+			continue
+		}
+		if sb.Len() > 0 {
+			sb.WriteByte('|')
+		}
+		sb.WriteString(elem.GetName())
+		if len(elem.GetKey()) == 0 {
+			continue
+		}
+		for k, v := range elem.GetKey() {
+			sb.WriteByte('|')
+			sb.WriteString(`#(`)
+			sb.WriteString(k)
+			sb.WriteString(`=="`)
+			sb.WriteString(v)
+			sb.WriteString(`")#`)
+		}
+	}
+	res := gjson.GetBytes(s.Buf, sb.String())
+	if !res.Exists() || (res.IsArray() && len(res.Array()) == 0) {
 		return []byte("null")
 	}
 	return []byte(res.Raw)
 }
 
 func (s *State) Set(path *gpb.Path, raw []byte) {
-	s.Buf, _ = sjson.SetRawBytes(s.Buf, xpath(path), raw) //nolint:errcheck
+	var sb strings.Builder
+	for _, elem := range path.GetElem() {
+		if elem.GetName() == "" {
+			continue
+		}
+		if sb.Len() > 0 {
+			sb.WriteByte('.')
+		}
+		sb.WriteString(elem.GetName())
+		if len(elem.GetKey()) == 0 {
+			continue
+		}
+		var idx int
+		gjson.GetBytes(s.Buf, sb.String()).ForEach(func(_, r gjson.Result) bool {
+			for k, v := range elem.GetKey() {
+				if r.Get(k).String() != v {
+					idx++
+					return true
+				}
+			}
+			return false
+		})
+		sb.WriteByte('.')
+		sb.WriteString(strconv.Itoa(idx))
+	}
+	s.Buf, _ = sjson.SetRawBytes(s.Buf, sb.String(), raw) //nolint:errcheck
 }
 
 func (s *State) Del(path *gpb.Path) {
-	s.Buf, _ = sjson.DeleteBytes(s.Buf, xpath(path)) //nolint:errcheck
-}
-
-// xpath converts a GNMI Path to a JSON path interpretable by [gjson] and [sjson].
-func xpath(path *gpb.Path) string {
-	parts := make([]string, 0, len(path.GetElem()))
+	var sb strings.Builder
 	for _, elem := range path.GetElem() {
-		if elem.GetName() != "" {
-			parts = append(parts, elem.GetName())
+		if elem.GetName() == "" {
+			continue
 		}
-		// TODO: Handle list keys
+		if sb.Len() > 0 {
+			sb.WriteByte('.')
+		}
+		sb.WriteString(elem.GetName())
+		if len(elem.GetKey()) == 0 {
+			continue
+		}
+		var (
+			idx   int
+			found bool
+		)
+		gjson.GetBytes(s.Buf, sb.String()).ForEach(func(_, r gjson.Result) bool {
+			for k, v := range elem.GetKey() {
+				if r.Get(k).String() != v {
+					idx++
+					return true
+				}
+			}
+			found = true
+			return false
+		})
+		if !found {
+			return
+		}
+		sb.WriteByte('.')
+		sb.WriteString(strconv.Itoa(idx))
 	}
-	return strings.Join(parts, ".")
+
+	s.Buf, _ = sjson.DeleteBytes(s.Buf, sb.String()) //nolint:errcheck
 }
 
 func main() {
