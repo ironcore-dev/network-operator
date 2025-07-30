@@ -27,10 +27,10 @@ RUN --mount=type=bind,target=. \
 FROM alpine:${ALPINE_VERSION}
 
 # Switch into workspace
-WORKDIR /app
+WORKDIR /
 
 # Copy executable from build
-COPY --from=build /usr/bin/server  /app/
+COPY --from=build /usr/bin/server  /
 
 # Start the server application
-CMD ["/app/server", "--port=9339"]
+CMD ["/server", "--port=9339"]
