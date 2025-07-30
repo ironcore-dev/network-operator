@@ -84,10 +84,11 @@ jobs:
 #          kubectl wait --namespace monitoring --for=condition=available --timeout=300s deployment/prometheus-server
       - name: Install Helm chart for project
         run: |
-          helm install my-release ./charts/network-operator --create-namespace --namespace network-operator-system
+          helm dependency build ./charts/network-operator
+          helm install network-operator ./charts/network-operator --create-namespace --namespace network-operator-system
       - name: Check Helm release status
         run: |
-          helm status my-release --namespace network-operator-system
+          helm status network-operator --namespace network-operator-system
 # TODO: Uncomment if prometheus.enabled is set to true to confirm that the ServiceMonitor gets created
 #      - name: Check Presence of ServiceMonitor
 #        run: |

@@ -74,3 +74,13 @@ certmanager:
 # [NETWORK POLICIES]: To enable NetworkPolicies set true
 networkPolicy:
   enable: false
+
+owner-info:
+  helm-chart-url: "https://github.com/ironcore-dev/network-operator/charts/network-operator"
+  maintainers:
+    - "felix.kaestner@sap.com"
+    - "andreas.fritzler@sap.com"
+    - "sebastian.wagner02@sap.com"
+    - "enric.pujol@sap.com"
+  support-group: "network-api"
+  enabled: true
