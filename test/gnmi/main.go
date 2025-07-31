@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"strconv"
@@ -99,9 +100,62 @@ func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, 
 	}, nil
 }
 
-func (s *Server) Subscribe(grpc.BidiStreamingServer[gpb.SubscribeRequest, gpb.SubscribeResponse]) error {
-	log.Printf("Received Subscribe request")
-	return status.Errorf(codes.Unimplemented, "method Subscribe not implemented")
+func (s *Server) Subscribe(stream grpc.BidiStreamingServer[gpb.SubscribeRequest, gpb.SubscribeResponse]) error {
+	req, err := stream.Recv()
+	switch {
+	case err == io.EOF:
+		return nil
+	case err != nil:
+		return err
+	case req.GetSubscribe() == nil:
+		return status.Errorf(codes.InvalidArgument, "the subscribe request must contain a subscription definition")
+	}
+
+	switch req.GetRequest().(type) {
+	case *gpb.SubscribeRequest_Poll:
+		return status.Errorf(codes.InvalidArgument, "invalid request type: %T", req.GetRequest())
+	case *gpb.SubscribeRequest_Subscribe:
+	}
+
+	switch mode := req.GetSubscribe().GetMode(); mode {
+	case gpb.SubscriptionList_ONCE:
+		log.Printf("Received Subscribe request with ONCE mode")
+
+		paths := make([]*gpb.Path, 0, len(req.GetSubscribe().GetSubscription()))
+		for _, r := range req.GetSubscribe().GetSubscription() {
+			paths = append(paths, r.GetPath())
+		}
+
+		res, err := s.Get(stream.Context(), &gpb.GetRequest{
+			Prefix:    req.GetSubscribe().GetPrefix(),
+			Path:      paths,
+			Encoding:  req.GetSubscribe().GetEncoding(),
+			UseModels: req.GetSubscribe().GetUseModels(),
+			Extension: req.GetExtension(),
+		})
+		if err != nil {
+			return err
+		}
+
+		for _, notification := range res.GetNotification() {
+			if err := stream.Send(&gpb.SubscribeResponse{
+				Response: &gpb.SubscribeResponse_Update{
+					Update: notification,
+				},
+			}); err != nil {
+				return status.Errorf(codes.Internal, "failed to send response: %v", err)
+			}
+		}
+
+	case gpb.SubscriptionList_STREAM:
+		return status.Errorf(codes.Unimplemented, "subscribe method Stream not implemented")
+	case gpb.SubscriptionList_POLL:
+		return status.Errorf(codes.Unimplemented, "subscribe method Poll not implemented")
+	default:
+		return status.Errorf(codes.InvalidArgument, "unknown subscribe request mode: %v", mode)
+	}
+
+	return nil
 }
 
 // State represents a JSON body that can be manipulated using [sjson] syntax.
