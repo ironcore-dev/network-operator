@@ -1,0 +1,24 @@
+apiVersion: networking.cloud.sap/v1alpha1
+kind: ResourceSet
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: control-plane
+spec:
+  mode: ApplyOnce
+  selector:
+    matchLabels:
+      networking.cloud.sap/role: leaf
+  resources:
+    - name: banner
+      apiVersion: networking.cloud.sap/v1alpha1
+      kind: Banner
+      template:
+        spec:
+          message:
+            inline: |
+              ######################################################
+              #   WARNING: Unauthorized access is prohibited.      #
+              #   All connections are logged and monitored.        #
+              ######################################################

@@ -39,6 +39,10 @@ const FinalizerName = "networking.cloud.sap/finalizer"
 // based on the device they are intended for.
 const DeviceLabel = "networking.cloud.sap/device-name"
 
+// OwnerLabel is a label that can be applied to any Network API object to indicate the owner of the resource.
+// This label is used by controllers to filter and manage resources based on the owner reference relationship.
+const OwnerLabel = "networking.cloud.sap/owner"
+
 // DeviceKind represents the Kind of Device.
 const DeviceKind = "Device"
 
@@ -63,6 +67,9 @@ const (
 
 	// ProvisioningReason indicates that the resource is being provisioned.
 	ProvisioningReason = "Provisioning"
+
+	// NoDevicesFoundReason indicates that no Device resources were found matching the given selector.
+	NoDevicesFoundReason = "NoDevicesFound"
 
 	// AllResourcesReadyReason indicates that all resources owned by the resource are ready.
 	AllResourcesReadyReason = "AllResourcesReady"

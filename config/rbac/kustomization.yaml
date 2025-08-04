@@ -22,6 +22,9 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the {{ .ProjectName }} itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- resourceset_admin_role.yaml
+- resourceset_editor_role.yaml
+- resourceset_viewer_role.yaml
 - banner_admin_role.yaml
 - banner_editor_role.yaml
 - banner_viewer_role.yaml

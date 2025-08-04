@@ -243,6 +243,16 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Banner")
 		os.Exit(1)
 	}
+
+	if err = (&controller.ResourceSetReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("resourceset-controller"),
+		WatchFilterValue: watchFilterValue,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ResourceSet")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {

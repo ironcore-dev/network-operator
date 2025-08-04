@@ -23,9 +23,11 @@ rules:
 - apiGroups:
   - networking.cloud.sap
   resources:
+  - '*'
   - banners
   - devices
   - interfaces
+  - resourcesets
   verbs:
   - create
   - delete
@@ -40,6 +42,7 @@ rules:
   - banners/finalizers
   - devices/finalizers
   - interfaces/finalizers
+  - resourcesets/finalizers
   verbs:
   - update
 - apiGroups:
@@ -48,6 +51,7 @@ rules:
   - banners/status
   - devices/status
   - interfaces/status
+  - resourcesets/status
   verbs:
   - get
   - patch
