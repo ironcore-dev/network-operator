@@ -33,4 +33,4 @@ WORKDIR /
 COPY --from=build /usr/bin/server  /
 
 # Start the server application
-CMD ["/server", "--port=9339"]
+CMD ["/server", "--port=9339", "--http-port=8000"]

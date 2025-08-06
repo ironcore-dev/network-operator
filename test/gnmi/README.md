@@ -74,3 +74,70 @@ Now, it's possible to connect to the server using a GNMI client such as [gnmic](
   }
 ]
 ```
+
+## HTTP API
+
+In addition to the GNMI gRPC interface, the server also provides an HTTP API for convenient state management and inspection.
+
+### HTTP Server Configuration
+
+The HTTP server runs on port 8000 by default and can be configured using the `--http-port` flag:
+
+```sh
+docker run -d -p 9339:9339 -p 8000:8000 ghcr.io/ironcore-dev/gnmi-test-server --http-port 8000
+```
+
+### Available Endpoints
+
+#### GET /v1/state
+
+Retrieves the current state of the GNMI server as compacted JSON (no whitespace/indentation).
+
+**Example:**
+```sh
+# Get the current state
+curl -s http://127.0.0.1:8000/v1/state
+
+# Response when state is empty:
+{}
+
+# Response after setting some values via GNMI (compacted):
+{"System":{"name":"leaf1"}}
+```
+
+#### DELETE /v1/state
+
+Clears all state from the GNMI server, resetting it to an empty state.
+
+**Example:**
+```sh
+# Clear all state
+curl -X DELETE http://127.0.0.1:8000/v1/state
+
+# Returns HTTP 204 No Content on success
+```
+
+### Usage Examples
+
+1. **Inspect state after GNMI operations:**
+   ```sh
+   # Set a value via GNMI
+   gnmic -a 127.0.0.1 --port 9339 --insecure set --update-path /System/name --update-value "leaf1"
+   
+   # Check the state via HTTP
+   curl http://127.0.0.1:8000/v1/state
+   ```
+
+2. **Reset state for testing:**
+   ```sh
+   # Clear all state
+   curl -X DELETE http://127.0.0.1:8000/v1/state
+   
+   # Verify state is empty
+   curl http://127.0.0.1:8000/v1/state
+   ```
+
+The HTTP API is particularly useful for:
+- Debugging and inspecting the current state
+- Automated testing scenarios where you need to reset state between tests
+- Integration with monitoring tools that can consume JSON over HTTP

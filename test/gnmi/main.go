@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -256,9 +259,36 @@ func (s *State) Del(path *gpb.Path) {
 	s.Buf, _ = sjson.DeleteBytes(s.Buf, sb.String()) //nolint:errcheck
 }
 
+// handleState handles HTTP requests to the /v1/state endpoint
+func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if len(s.State.Buf) == 0 {
+			w.Write([]byte("{}"))
+			return
+		}
+		var buf bytes.Buffer
+		if err := json.Compact(&buf, s.State.Buf); err != nil {
+			log.Printf("Failed to compact JSON: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Internal Server Error"))
+			return
+		}
+		w.Write(buf.Bytes())
+	case http.MethodDelete:
+		s.State.Buf = nil
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
 func main() {
 	// Parse command line flags
-	port := flag.Int("port", 9339, "The server port")
+	port := flag.Int("port", 9339, "The gRPC server port")
+	httpPort := flag.Int("http-port", 8000, "The HTTP server port")
 	flag.Parse()
 
 	// Create a listener on the specified port
@@ -282,9 +312,23 @@ func main() {
 	// Enable reflection for easier testing with tools like grpcurl
 	reflection.Register(grpcServer)
 
+	// Setup HTTP server
+	http.HandleFunc("/v1/state", server.handleState)
+	httpServer := &http.Server{Addr: fmt.Sprintf(":%d", *httpPort)}
+
+	// Start HTTP server in a goroutine
+	go func() {
+		log.Printf("Starting HTTP server on port %d", *httpPort)
+		log.Printf("HTTP endpoint available at: /v1/state")
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Failed to serve HTTP server: %v", err)
+		}
+	}()
+
 	log.Printf("Starting gRPC server on port %d", *port)
 	log.Printf("Server is ready to accept connections...")
-	log.Printf("Use --port flag to specify a different port (default: 9339)")
+	log.Printf("Use --port flag to specify a different gRPC port (default: 9339)")
+	log.Printf("Use --http-port flag to specify a different HTTP port (default: 8000)")
 	log.Printf("Available services: GNMI")
 
 	// Start serving
