@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
@@ -165,10 +166,46 @@ func (s *Server) Subscribe(stream grpc.BidiStreamingServer[gpb.SubscribeRequest,
 	return nil
 }
 
+// handleState handles HTTP requests to the /v1/state endpoint
+func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		s.State.RLock()
+		defer s.State.RUnlock()
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if len(s.State.Buf) == 0 {
+			w.Write([]byte("{}"))
+			return
+		}
+		var buf bytes.Buffer
+		if err := json.Compact(&buf, s.State.Buf); err != nil {
+			log.Printf("Failed to compact JSON: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Internal Server Error"))
+			return
+		}
+		w.Write(buf.Bytes())
+	case http.MethodDelete:
+		s.State.Lock()
+		defer s.State.Unlock()
+		s.State.Buf = nil
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
 // State represents a JSON body that can be manipulated using [sjson] syntax.
-type State struct{ Buf []byte }
+type State struct {
+	sync.RWMutex
+
+	Buf []byte
+}
 
 func (s State) Get(path *gpb.Path) []byte {
+	s.RLock()
+	defer s.RUnlock()
 	var sb strings.Builder
 	for _, elem := range path.GetElem() {
 		if elem.GetName() == "" {
@@ -198,6 +235,8 @@ func (s State) Get(path *gpb.Path) []byte {
 }
 
 func (s *State) Set(path *gpb.Path, raw []byte) {
+	s.Lock()
+	defer s.Unlock()
 	var sb strings.Builder
 	for _, elem := range path.GetElem() {
 		if elem.GetName() == "" {
@@ -227,6 +266,8 @@ func (s *State) Set(path *gpb.Path, raw []byte) {
 }
 
 func (s *State) Del(path *gpb.Path) {
+	s.Lock()
+	defer s.Unlock()
 	var sb strings.Builder
 	for _, elem := range path.GetElem() {
 		if elem.GetName() == "" {
@@ -261,32 +302,6 @@ func (s *State) Del(path *gpb.Path) {
 	}
 
 	s.Buf, _ = sjson.DeleteBytes(s.Buf, sb.String()) //nolint:errcheck
-}
-
-// handleState handles HTTP requests to the /v1/state endpoint
-func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		if len(s.State.Buf) == 0 {
-			w.Write([]byte("{}"))
-			return
-		}
-		var buf bytes.Buffer
-		if err := json.Compact(&buf, s.State.Buf); err != nil {
-			log.Printf("Failed to compact JSON: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Internal Server Error"))
-			return
-		}
-		w.Write(buf.Bytes())
-	case http.MethodDelete:
-		s.State.Buf = nil
-		w.WriteHeader(http.StatusNoContent)
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
-	}
 }
 
 func main() {
