@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -19,8 +20,11 @@ import (
 	"github.com/tidwall/sjson"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
+
+	gtls "github.com/openconfig/gnmi/testing/fake/testing/tls"
 )
 
 var _ gpb.GNMIServer = (*Server)(nil)
@@ -297,11 +301,17 @@ func main() {
 		log.Fatalf("Failed to listen on port %d: %v", *port, err)
 	}
 
-	// TODO: Configure TLS options if needed
-	var opts []grpc.ServerOption
+	// Create a TLS certificate for gRPC server
+	// This is a self-signed certificate for testing purposes.
+	cert, err := gtls.NewCert()
+	if err != nil {
+		log.Fatalf("Failed to create TLS certificate: %v", err)
+	}
 
-	// Create a new gRPC server without TLS
-	grpcServer := grpc.NewServer(opts...)
+	// Create a new gRPC server with TLS
+	grpcServer := grpc.NewServer(grpc.Creds(credentials.NewTLS(&tls.Config{
+		Certificates: []tls.Certificate{cert},
+	})))
 
 	// Create our server implementation
 	server := &Server{State: &State{}}
