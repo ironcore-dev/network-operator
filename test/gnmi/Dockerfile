@@ -26,11 +26,18 @@ RUN --mount=type=bind,target=. \
 
 FROM alpine:${ALPINE_VERSION}
 
+# Create a non-root user
+RUN addgroup -g 65532 -S nonroot && \
+    adduser -u 65532 -S nonroot -G nonroot
+
 # Switch into workspace
 WORKDIR /
 
-# Copy executable from build
-COPY --from=build /usr/bin/server  /
+# Copy executable from build and set ownership to non-root user
+COPY --from=build --chown=nonroot:nonroot /usr/bin/server /server
+
+# Switch to non-root user
+USER nonroot
 
 # Start the server application
 CMD ["/server", "--port=9339", "--http-port=8000"]
