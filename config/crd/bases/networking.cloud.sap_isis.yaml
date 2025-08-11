@@ -55,11 +55,11 @@ spec:
                 description: AddressFamilies is a list of address families for the
                   ISIS instance.
                 items:
-                  description: AddressFamily represents the address family of an ISIS
-                    instance.
                   enum:
-                  - IPv4Unicast
-                  - IPv6Unicast
+                  - ipv4
+                  - ipv6
+                  - ipv4-evpn
+                  - ipv6-evpn
                   type: string
                 maxItems: 2
                 minItems: 1

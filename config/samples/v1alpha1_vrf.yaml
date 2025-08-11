@@ -1,0 +1,60 @@
+apiVersion: networking.cloud.sap/v1alpha1
+kind: VRF
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.cloud.sap/device-name: lab-sonic-01
+  name: lab-sonic-01-vrf001
+spec:
+  deviceName: lab-sonic-01
+  name: vrf001
+  adminState: Down
+  routeDistinguisher: 6500:1234
+  routeTargets:
+  - value: 1.2.3.4:100
+    addressFamilies:
+    - ipv6
+    - ipv4
+    action: import # enum[none, import, export, both]
+---
+apiVersion: networking.cloud.sap/v1alpha1
+kind: VRF
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.cloud.sap/device-name: lab-nxos-01
+  name: lab-nxos-01-vrf002
+spec:
+  deviceName: lab-nxos-01
+  name: vrf002
+  adminState: Up
+  routeDistinguisher: 6500:1234
+  routeTargets:
+  - value: 1.2.3.4:100
+    addressFamilies:
+    - ipv4
+    - ipv6
+    - ipv4-evpn
+    - ipv6-evpn
+    action: import # enum[none, import, export, both]
+  - value: 4231231:100
+    addressFamilies:
+    - ipv4
+    - ipv6
+    action: export
+  - value: 65000:100
+    addressFamilies:
+    - ipv4
+    - ipv6
+    - ipv4-evpn
+    - ipv6-evpn
+    action: both
+#   providerConfigRef:
+#     apiVersion: nxos.cisco.networking.cloud.sap/v1alpha1
+#     kind: VRFConfig
+#     name: vrf-config
+#     evpn:
+#       vni: 1234
+
