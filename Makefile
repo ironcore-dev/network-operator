@@ -31,8 +31,8 @@ IMG ?= controller:latest
 # The default is docker, but it can be overridden to use other tools (i.e. podman or nerdctl).
 CONTAINER_TOOL ?= docker
 
-# KIND_CLUSTER_NAME defines the name of the Kind cluster to be used for the tilt setup.
-KIND_CLUSTER_NAME ?= network
+# KIND_CLUSTER defines the name of the Kind cluster to be used for the tilt setup.
+KIND_CLUSTER ?= network
 
 install-gofumpt: FORCE
 	@if ! hash gofumpt 2>/dev/null; then printf "\e[1;36m>> Installing gofumpt...\e[0m\n"; go install mvdan.cc/gofumpt@latest; fi
@@ -50,12 +50,12 @@ test-e2e: FORCE
 	  echo "Kind is not installed. Please install Kind manually."; \
 	  exit 1; \
 	}
-	@kind get clusters | grep -q 'kind' || { \
+	@kind get clusters | grep -q $(KIND_CLUSTER) || { \
 	  echo "No Kind cluster is running. Please start a Kind cluster before running the e2e tests."; \
 	  exit 1; \
 	}
 	@printf "\e[1;36m>> go test ./test/e2e/ -v -ginkgo.v\e[0m\n"
-	@go test ./test/e2e/ -v -ginkgo.v
+	@KIND_CLUSTER=$(KIND_CLUSTER) go test ./test/e2e/ -v -ginkgo.v
 
 docker-build: FORCE
 	@printf "\e[1;36m>> $(CONTAINER_TOOL) build --tag=$(IMG) .\e[0m\n"
@@ -98,9 +98,9 @@ kind-create: FORCE
 	  echo "Kind is not installed. Please install Kind manually."; \
 	  exit 1; \
 	}
-	@kind get clusters | grep -q $(KIND_CLUSTER_NAME) || { \
-	  printf "\e[1;36m>> kind create cluster --name=$(KIND_CLUSTER_NAME)\e[0m\n"; \
-	  kind create cluster --name=$(KIND_CLUSTER_NAME); \
+	@kind get clusters | grep -q $(KIND_CLUSTER) || { \
+	  printf "\e[1;36m>> kind create cluster --name=$(KIND_CLUSTER)\e[0m\n"; \
+	  kind create cluster --name=$(KIND_CLUSTER); \
 	}
 
 # Delete the Kind cluster created for local development and testing.
@@ -109,16 +109,16 @@ kind-delete: FORCE
 	  echo "Kind is not installed. Please install Kind manually."; \
 	  exit 1; \
 	}
-	@printf "\e[1;36m>> kind delete cluster --name=$(KIND_CLUSTER_NAME)\e[0m\n"
-	@kind delete cluster --name=$(KIND_CLUSTER_NAME)
+	@printf "\e[1;36m>> kind delete cluster --name=$(KIND_CLUSTER)\e[0m\n"
+	@kind delete cluster --name=$(KIND_CLUSTER)
 
 tilt-up: FORCE kind-create
 	@command -v tilt >/dev/null 2>&1 || { \
 	  echo "Tilt is not installed. Please install Tilt manually."; \
 	  exit 1; \
 	}
-	@printf "\e[1;36m>> tilt up --context kind-$(KIND_CLUSTER_NAME)\e[0m\n"
-	@tilt up --context kind-$(KIND_CLUSTER_NAME)
+	@printf "\e[1;36m>> tilt up --context kind-$(KIND_CLUSTER)\e[0m\n"
+	@tilt up --context kind-$(KIND_CLUSTER)
 
 # Generate manifests e.g. CRD, RBAC etc.
 charts: FORCE generate
@@ -134,11 +134,11 @@ netop-provider:
 
 TEST_SERVER_IMG ?= ghcr.io/ironcore-dev/gnmi-test-server:latest
 
-build-test-gnmi-server: FORCE
+docker-build-test-gnmi-server: FORCE
 	@printf "\e[1;36m>> $(CONTAINER_TOOL) build --tag=$(TEST_SERVER_IMG) ./test/gnmi\e[0m\n"
 	@$(CONTAINER_TOOL) build --tag=$(TEST_SERVER_IMG) ./test/gnmi
 
-run-test-gnmi-server: FORCE build-test-gnmi-server
+docker-run-test-gnmi-server: FORCE docker-build-test-gnmi-server
 	@printf "\e[1;36m>> $(CONTAINER_TOOL) run -p 8000:8000 -p 9339:9339 $(TEST_SERVER_IMG)\e[0m\n"
 	@$(CONTAINER_TOOL) run --rm -p 8000:8000 -p 9339:9339 $(TEST_SERVER_IMG)
 
