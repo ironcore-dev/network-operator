@@ -43,7 +43,7 @@ jobs:
         run: |
           # FIXME: Exclude cisco nx-os provider from golangci-lint as it includes
           # a lot of generated code that will exceed the runners's constraints.
-          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.3.1
           go list -f '{{.Dir}}' ./... | grep -v nxos/ | xargs $(go env GOPATH)/bin/golangci-lint run
       - name: Run shellcheck
         uses: ludeeus/action-shellcheck@2.0.0
