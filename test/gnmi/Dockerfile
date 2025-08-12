@@ -30,14 +30,14 @@ FROM alpine:${ALPINE_VERSION}
 RUN addgroup -g 65532 -S nonroot && \
     adduser -u 65532 -S nonroot -G nonroot
 
-# Switch into workspace
-WORKDIR /
-
 # Copy executable from build and set ownership to non-root user
 COPY --from=build --chown=nonroot:nonroot /usr/bin/server /server
 
 # Switch to non-root user
-USER nonroot
+USER 65532:65532
+
+# Switch into workspace
+WORKDIR /
 
 # Start the server application
 CMD ["/server", "--port=9339", "--http-port=8000"]
