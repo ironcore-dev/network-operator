@@ -37,9 +37,8 @@ type Server struct {
 	State *State
 }
 
-func (s *Server) Capabilities(_ context.Context, req *gpb.CapabilityRequest) (*gpb.CapabilityResponse, error) {
-	log.Printf("Received Capabilities request: %v", req)
-	return nil, status.Errorf(codes.Unimplemented, "method Capabilities not implemented")
+func (s *Server) Capabilities(_ context.Context, _ *gpb.CapabilityRequest) (*gpb.CapabilityResponse, error) {
+	return &gpb.CapabilityResponse{SupportedEncodings: []gpb.Encoding{gpb.Encoding_JSON}}, nil
 }
 
 func (s *Server) Get(_ context.Context, req *gpb.GetRequest) (*gpb.GetResponse, error) {
