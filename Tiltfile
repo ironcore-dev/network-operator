@@ -20,7 +20,9 @@ local_resource('controller-gen', 'make generate', ignore=['*/*/zz_generated.deep
     'api/', 'cmd/', 'hack/', 'internal/', 'go.mod', 'go.sum', 'Makefile',
 ])
 
-k8s_yaml(kustomize('config/default'))
+docker_build('ghcr.io/ironcore-dev/gnmi-test-server:latest', './test/gnmi')
+
+k8s_yaml(kustomize('config/develop'))
 k8s_resource('network-operator-controller-manager', resource_deps=['controller-gen'])
 
 # Sample resources with manual trigger mode

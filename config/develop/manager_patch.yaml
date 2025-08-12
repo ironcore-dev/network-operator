@@ -1,0 +1,5 @@
+- op: replace
+  path: /spec/template/spec/containers/0/args
+  value:
+    - --leader-elect=false
+    - --health-probe-bind-address=:8081
