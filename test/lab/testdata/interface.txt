@@ -1,0 +1,23 @@
+apply manifest.yaml
+sleep 10s
+vty show running-config | section "interface loopback0"
+cmp stdout running-config.txt
+
+-- manifest.yaml --
+apiVersion: networking.cloud.sap/v1alpha1
+kind: Interface
+metadata:
+  name: lo0
+spec:
+  name: lo0
+  description: Router-ID Leaf1
+  adminState: Up
+  type: Loopback
+  mtu: 1500
+  ipv4Addresses:
+    - 10.0.0.10/32
+
+-- running-config.txt --
+interface loopback0
+  description Router-ID Leaf1
+  ip address 10.0.0.10/32

@@ -43,7 +43,7 @@ renovate:
     - felix-kaestner
 
 testPackages:
-  except: '/test/e2e'
+  except: '/test'
 
 githubWorkflow:
   global:
@@ -180,3 +180,18 @@ verbatim: |
   docker-run-test-gnmi-server: FORCE docker-build-test-gnmi-server
     @printf "\e[1;36m>> $(CONTAINER_TOOL) run -p 8000:8000 -p 9339:9339 $(TEST_SERVER_IMG)\e[0m\n"
     @$(CONTAINER_TOOL) run --rm -p 8000:8000 -p 9339:9339 $(TEST_SERVER_IMG)
+
+  # TEST_LAB_IMG defines the image to used for packaging the lab tests.
+  TEST_LAB_IMG ?= ghcr.io/ironcore-dev/network-operator-lab-test:latest
+
+  test-lab: FORCE
+    @printf "\e[1;36m>> go test ./test/lab/ -v\e[0m\n"
+    @go test ./test/lab/ -v
+
+  docker-build-test-lab: FORCE
+    @printf "\e[1;36m>> $(CONTAINER_TOOL) build --file=test/lab/Dockerfile --tag=$(TEST_LAB_IMG) .\e[0m\n"
+    @$(CONTAINER_TOOL) build --file=test/lab/Dockerfile --tag=$(TEST_LAB_IMG) .
+
+  docker-push-test-lab: FORCE docker-push-test-lab
+    @printf "\e[1;36m>> $(CONTAINER_TOOL) push $(TEST_LAB_IMG)\e[0m\n"
+    @$(CONTAINER_TOOL) push $(TEST_LAB_IMG)

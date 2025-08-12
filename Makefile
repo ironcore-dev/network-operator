@@ -142,6 +142,21 @@ docker-run-test-gnmi-server: FORCE docker-build-test-gnmi-server
 	@printf "\e[1;36m>> $(CONTAINER_TOOL) run -p 8000:8000 -p 9339:9339 $(TEST_SERVER_IMG)\e[0m\n"
 	@$(CONTAINER_TOOL) run --rm -p 8000:8000 -p 9339:9339 $(TEST_SERVER_IMG)
 
+# TEST_LAB_IMG defines the image to used for packaging the lab tests.
+TEST_LAB_IMG ?= ghcr.io/ironcore-dev/network-operator-lab-test:latest
+
+test-lab: FORCE
+	@printf "\e[1;36m>> go test ./test/lab/ -v\e[0m\n"
+	@go test ./test/lab/ -v
+
+docker-build-test-lab: FORCE
+	@printf "\e[1;36m>> $(CONTAINER_TOOL) build --file=test/lab/Dockerfile --tag=$(TEST_LAB_IMG) .\e[0m\n"
+	@$(CONTAINER_TOOL) build --file=test/lab/Dockerfile --tag=$(TEST_LAB_IMG) .
+
+docker-push-test-lab: FORCE docker-push-test-lab
+	@printf "\e[1;36m>> $(CONTAINER_TOOL) push $(TEST_LAB_IMG)\e[0m\n"
+	@$(CONTAINER_TOOL) push $(TEST_LAB_IMG)
+
 install-goimports: FORCE
 	@if ! hash goimports 2>/dev/null; then printf "\e[1;36m>> Installing goimports (this may take a while)...\e[0m\n"; go install golang.org/x/tools/cmd/goimports@latest; fi
 
@@ -199,7 +214,7 @@ install: FORCE build/network-operator
 	install -m 0755 build/network-operator "$(DESTDIR)$(PREFIX)/bin/network-operator"
 
 # which packages to test with test runner
-GO_TESTPKGS := $(shell go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.Dir}}{{end}}' ./... | grep -Ev '/test/e2e')
+GO_TESTPKGS := $(shell go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.Dir}}{{end}}' ./... | grep -Ev '/test')
 ifeq ($(GO_TESTPKGS),)
 GO_TESTPKGS := ./...
 endif
