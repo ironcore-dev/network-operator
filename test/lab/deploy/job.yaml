@@ -1,0 +1,85 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: network-operator-test
+  namespace: default
+  labels:
+    app.kubernetes.io/name: network-operator-test
+    app.kubernetes.io/instance: network-operator-test
+    app.kubernetes.io/version: v0.0.1
+spec:
+  template:
+    metadata:
+      name: network-operator-test
+      labels:
+        app.kubernetes.io/name: network-operator-test
+        app.kubernetes.io/instance: network-operator-test
+        app.kubernetes.io/version: v0.0.1
+    spec:
+      serviceAccountName: network-operator-test
+      containers:
+      - name: network-operator-test
+        image: ghcr.io/ironcore-dev/network-operator-lab-test:latest
+        imagePullPolicy: IfNotPresent
+        command:
+        - "/net.test"
+        - "-test.v"
+        - "-test.timeout=30s"
+        - "-test.run=TestAll"
+        env:
+        - name: ADDR
+          value: 192.168.5.2
+        - name: USER
+          value: admin
+        - name: PASS
+          value: admin
+      restartPolicy: Never
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: network-operator-test
+  namespace: default
+  labels:
+    app.kubernetes.io/name: network-operator-test
+    app.kubernetes.io/instance: network-operator-test
+    app.kubernetes.io/version: v0.0.1
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: network-operator-test
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+- apiGroups:
+  - networking.cloud.sap
+  resources:
+  - device
+  - interfaces
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - deletecollection
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: network-operator-test
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: network-operator-test
+subjects:
+- kind: ServiceAccount
+  name: network-operator-test
+  namespace: default
