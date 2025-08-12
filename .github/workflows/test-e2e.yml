@@ -42,7 +42,7 @@ jobs:
         uses: helm/kind-action@v1
         with:
           version: ${{ steps.kind.outputs.version }}
-          cluster_name: kind
+          cluster_name: network
           kubectl_version: ${{ steps.kubectl.outputs.version }}
       - name: Running E2E Tests
         run: |

@@ -1,0 +1,59 @@
+# Loopback Interface
+-- interfaces/lo0 --
+apiVersion: networking.cloud.sap/v1alpha1
+kind: Interface
+metadata:
+  name: lo0
+  namespace: default
+  labels:
+    networking.cloud.sap/device-name: device
+spec:
+  deviceRef:
+    name: device
+  name: lo0
+  description: Router-ID Leaf1
+  adminState: Up
+  type: Loopback
+  mtu: 1500
+  ipv4Addresses:
+    - 10.0.0.10/32
+-- state --
+{
+  "interfaces": {
+    "interface": [
+      {
+        "config": {
+          "description": "Router-ID Leaf1",
+          "enabled": true,
+          "mtu": 1500,
+          "name": "lo0",
+          "type": "softwareLoopback"
+        },
+        "name": "lo0",
+        "subinterfaces": {
+          "subinterface": [
+            {
+              "config": {
+                "index": 0
+              },
+              "index": 0,
+              "ipv4": {
+                "addresses": {
+                  "address": [
+                    {
+                      "config": {
+                        "ip": "10.0.0.10",
+                        "prefix-length": 32
+                      },
+                      "ip": "10.0.0.10"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

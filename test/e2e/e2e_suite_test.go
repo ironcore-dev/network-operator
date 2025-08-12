@@ -11,8 +11,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/ironcore-dev/network-operator/test/util"
 )
 
 var (
@@ -32,6 +30,10 @@ var (
 // with the code source changes to be tested.
 const image = "ironcore.dev/network-operator:test"
 
+// serverImage is the name of the image which will be built and loaded
+// with the gNMI test server.
+const serverImage = "ironcore.dev/gnmi-test-server:latest"
+
 // TestE2E runs the end-to-end (e2e) test suite for the project. These tests execute in an isolated,
 // temporary environment to validate project changes with the purposed to be used in CI jobs.
 // The default setup requires Kind, builds/loads the Manager Docker image locally, and installs
@@ -44,20 +46,29 @@ func TestE2E(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	By("Ensure that Prometheus is enabled")
-	cwd, err := util.GetProjectDir()
+	cwd, err := GetProjectDir()
 	Expect(err).NotTo(HaveOccurred(), "Failed to get project directory")
 
-	err = util.UncommentCode(cwd+"/config/default/kustomization.yaml", "#- ../prometheus", "#")
+	err = UncommentCode(cwd+"/config/default/kustomization.yaml", "#- ../prometheus", "#")
 	Expect(err).NotTo(HaveOccurred(), "Failed to enable Prometheus")
 
 	By("building the manager(Operator) image")
 	cmd := exec.Command("make", "docker-build", "IMG="+image)
-	_, err = util.Run(cmd)
+	_, err = Run(cmd)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to build the manager(Operator) image")
 
 	By("loading the manager(Operator) image on Kind")
-	err = util.LoadImageToKindClusterWithName(image)
+	err = LoadImageToKindClusterWithName(image)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the manager(Operator) image into Kind")
+
+	By("building the gnmi-test-server image")
+	cmd = exec.Command("make", "docker-build-test-gnmi-server", "TEST_SERVER_IMG="+serverImage)
+	_, err = Run(cmd)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to build the gnmi-test-server image")
+
+	By("loading the gnmi-test-server image on Kind")
+	err = LoadImageToKindClusterWithName(serverImage)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the gnmi-test-server image into Kind")
 
 	// The tests-e2e are intended to run on a temporary cluster that is created and destroyed for testing.
 	// To prevent errors when tests run in environments with Prometheus or CertManager already installed,
@@ -65,20 +76,20 @@ var _ = BeforeSuite(func() {
 	// Setup Prometheus and CertManager before the suite if not skipped and if not already installed
 	if !skipPrometheusInstall {
 		By("checking if prometheus is installed already")
-		isPrometheusOperatorAlreadyInstalled = util.IsPrometheusCRDsInstalled()
+		isPrometheusOperatorAlreadyInstalled = IsPrometheusCRDsInstalled()
 		if !isPrometheusOperatorAlreadyInstalled {
 			_, _ = fmt.Fprintf(GinkgoWriter, "Installing Prometheus Operator...\n")
-			Expect(util.InstallPrometheusOperator()).To(Succeed(), "Failed to install Prometheus Operator")
+			Expect(InstallPrometheusOperator()).To(Succeed(), "Failed to install Prometheus Operator")
 		} else {
 			_, _ = fmt.Fprintf(GinkgoWriter, "WARNING: Prometheus Operator is already installed. Skipping installation...\n")
 		}
 	}
 	if !skipCertManagerInstall {
 		By("checking if cert manager is installed already")
-		isCertManagerAlreadyInstalled = util.IsCertManagerCRDsInstalled()
+		isCertManagerAlreadyInstalled = IsCertManagerCRDsInstalled()
 		if !isCertManagerAlreadyInstalled {
 			_, _ = fmt.Fprintf(GinkgoWriter, "Installing CertManager...\n")
-			Expect(util.InstallCertManager()).To(Succeed(), "Failed to install CertManager")
+			Expect(InstallCertManager()).To(Succeed(), "Failed to install CertManager")
 		} else {
 			_, _ = fmt.Fprintf(GinkgoWriter, "WARNING: CertManager is already installed. Skipping installation...\n")
 		}
@@ -89,10 +100,10 @@ var _ = AfterSuite(func() {
 	// Teardown Prometheus and CertManager after the suite if not skipped and if they were not already installed
 	if !skipPrometheusInstall && !isPrometheusOperatorAlreadyInstalled {
 		_, _ = fmt.Fprintf(GinkgoWriter, "Uninstalling Prometheus Operator...\n")
-		util.UninstallPrometheusOperator()
+		UninstallPrometheusOperator()
 	}
 	if !skipCertManagerInstall && !isCertManagerAlreadyInstalled {
 		_, _ = fmt.Fprintf(GinkgoWriter, "Uninstalling CertManager...\n")
-		util.UninstallCertManager()
+		UninstallCertManager()
 	}
 })
