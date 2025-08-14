@@ -35,14 +35,14 @@ type Client interface {
 	Reset(ctx context.Context, config DeviceConf) error
 }
 
+// Update is an interface that represents an operation to change the configuration of a device.
 type Update interface {
 	isUpdate()
 }
 
 func (ReplacingUpdate) isUpdate() {}
 
-// replacing updates enforce the replacement of the entire subtree at the given path, effectively
-// deleting all existing nodes and replacing them with the new value.
+// ReplacingUpdate replaces the entire subtree at the given path by using the `replace` mode of a gNMI `SetRequest`.
 type ReplacingUpdate struct {
 	XPath string
 	Value ygot.GoStruct
@@ -50,7 +50,8 @@ type ReplacingUpdate struct {
 
 func (EditingUpdate) isUpdate() {}
 
-// editing updates check the current configuration on a target device, to then compute and apply only
+// EditingUpdate edits the given path by using the `update` mode of a gNMI `SetRequest`.
+// It checks the current configuration on a target device, to then compute and apply only
 // the changes that are required to match the desired/specified configuration.
 type EditingUpdate struct {
 	XPath string
@@ -60,6 +61,13 @@ type EditingUpdate struct {
 	// These paths should not include the content of [XPath] but are considered rooted in the [Value].
 	// This can be used to make a partial update to the configuration.
 	IgnorePaths []string
+}
+
+func (DeletingUpdate) isUpdate() {}
+
+// DeletingUpdate deletes the subtree at the given path by using the `delete` mode of a gNMI `SetRequest`.
+type DeletingUpdate struct {
+	XPath string
 }
 
 // DeviceConf is an interface that must be implemented by all configuration types.
@@ -290,6 +298,11 @@ func (c client) update(ctx context.Context, conf []Update) error {
 			if err != nil {
 				return fmt.Errorf("gnmiext: failed to apply diff update for xpath %s: %w", u.XPath, err)
 			}
+		case DeletingUpdate:
+			err := c.applyDeletingUpdate(ctx, &u)
+			if err != nil {
+				return fmt.Errorf("gnmiext: failed to apply delete update for xpath %s: %w", u.XPath, err)
+			}
 		default:
 			return fmt.Errorf("gnmiext: unsupported update type '%T'", update)
 		}
@@ -361,6 +374,16 @@ func (c *client) applyEditingUpdate(ctx context.Context, update *EditingUpdate) 
 		return err
 	}
 	return nil
+}
+
+// applyDeletingUpdate sends a gNMI Set request to the target device to delete the specified path.
+func (c *client) applyDeletingUpdate(ctx context.Context, update *DeletingUpdate) error {
+	updatePath, err := ygot.StringToStructuredPath(update.XPath)
+	if err != nil {
+		return fmt.Errorf("gnmiext: failed to convert xpath %s to path: %w", update.XPath, err)
+	}
+	_, err = c.c.Set(ctx, &gpb.SetRequest{Delete: []*gpb.Path{updatePath}})
+	return err
 }
 
 // Reset applies the default configuration to the target device by computing the difference
