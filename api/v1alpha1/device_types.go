@@ -519,9 +519,10 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=devices
 // +kubebuilder:resource:singular=device
-// +kubebuilder:printcolumn:name="Endpoint",type=string,JSONPath=`.spec.endpoint`
-// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Endpoint",type=string,JSONPath=`.spec.endpoint.address`
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
+// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // Device is the Schema for the devices API.
 type Device struct {
