@@ -5,6 +5,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -16,7 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/errors"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -53,7 +54,7 @@ type DeviceReconciler struct {
 // +kubebuilder:rbac:groups=networking.cloud.sap,resources=devices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.cloud.sap,resources=devices/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
-// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;update;list;watch
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -128,7 +129,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		if !equality.Semantic.DeepEqual(orig.Status, obj.Status) {
 			if err := r.Status().Patch(ctx, obj, client.MergeFrom(orig)); err != nil {
 				log.Error(err, "Failed to update status")
-				reterr = errors.NewAggregate([]error{reterr, err})
+				reterr = kerrors.NewAggregate([]error{reterr, err})
 			}
 		}
 	}()
@@ -252,9 +253,30 @@ func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *DeviceReconciler) reconcile(ctx context.Context, obj *v1alpha1.Device) error {
 	log := ctrl.LoggerFrom(ctx)
 
+	c, ok := clientutil.FromContext(ctx)
+	if !ok {
+		return errors.New("failed to get controller client from context")
+	}
+
 	if err := obj.Spec.Validate(); err != nil {
 		log.Error(err, "Invalid Device spec")
 		return err
+	}
+
+	if ref := obj.Spec.Endpoint.SecretRef; ref != nil {
+		secret := new(corev1.Secret)
+		if err := c.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: ref.Namespace}, secret); err != nil {
+			log.Error(err, "Failed to get endpoint secret for device")
+			return err
+		}
+		if !controllerutil.ContainsFinalizer(secret, v1alpha1.FinalizerName) {
+			controllerutil.AddFinalizer(secret, v1alpha1.FinalizerName)
+			if err := r.Update(ctx, secret); err != nil {
+				log.Error(err, "Failed to add finalizer to endpoint secret")
+				return err
+			}
+			log.Info("Added finalizer to endpoint secret")
+		}
 	}
 
 	if err := r.setOwnerReferencesOnInterfaces(ctx, obj); err != nil {
@@ -290,10 +312,34 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, obj *v1alpha1.Device) 
 }
 
 func (r *DeviceReconciler) finalize(ctx context.Context, device *v1alpha1.Device) error {
+	log := ctrl.LoggerFrom(ctx)
+
+	c, ok := clientutil.FromContext(ctx)
+	if !ok {
+		return errors.New("failed to get controller client from context")
+	}
+
 	if err := r.Provider.DeleteDevice(ctx, device); err != nil {
 		r.Recorder.Event(device, "Warning", "FinalizeFailed", err.Error())
 		return err
 	}
+
+	if ref := device.Spec.Endpoint.SecretRef; ref != nil {
+		secret := new(corev1.Secret)
+		if err := c.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: ref.Namespace}, secret); err != nil {
+			log.Error(err, "Failed to get endpoint secret for device")
+			return err
+		}
+		if controllerutil.ContainsFinalizer(secret, v1alpha1.FinalizerName) {
+			controllerutil.RemoveFinalizer(secret, v1alpha1.FinalizerName)
+			if err := r.Update(ctx, secret); err != nil {
+				log.Error(err, "Failed to remove finalizer from endpoint secret")
+				return err
+			}
+			log.Info("Removed finalizer from endpoint secret")
+		}
+	}
+
 	return nil
 }
 
