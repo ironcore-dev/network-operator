@@ -25,10 +25,8 @@ k8s_resource('network-operator-controller-manager', resource_deps=['controller-g
 
 # Sample resources with manual trigger mode
 k8s_yaml('./config/samples/v1alpha1_device.yaml')
-k8s_resource(new_name='credentials', objects=['secret-basic-auth:secret'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
-k8s_resource(new_name='leaf1', objects=['leaf1:device'], resource_deps=['credentials'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
-k8s_resource(new_name='issuer', objects=['network-operator:issuer'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
-k8s_resource(new_name='certificate', objects=['network-operator-ca:certificate'], resource_deps=['issuer'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='leaf1', objects=['leaf1:device', 'secret-basic-auth:secret'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='certificate', objects=['network-operator:issuer', 'network-operator-ca:certificate'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 k8s_yaml('./config/samples/v1alpha1_interface.yaml')
 k8s_resource(new_name='lo0', objects=['lo0:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
