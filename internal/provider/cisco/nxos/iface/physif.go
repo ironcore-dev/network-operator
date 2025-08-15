@@ -1,0 +1,260 @@
+// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-License-Identifier: Apache-2.0
+
+package iface
+
+import (
+	"errors"
+	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+
+	"github.com/openconfig/ygot/ygot"
+
+	nxos "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/genyang"
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
+)
+
+// PhysIf represents a physical interface on a Cisco Nexus device and implements the gnmiext.DeviceConf interface
+// to enable configuration via the gnmiext package.
+var _ gnmiext.DeviceConf = (*PhysIf)(nil)
+
+type PhysIf struct {
+	name        string
+	description *string
+	adminSt     bool
+	mtu         *uint32
+	// Layer 2 properties, e.g., switchport mode, spanning tree, etc.
+	l2 *L2Config
+	// Layer 3 properties, e.g., IP address, PIM, ISIS, etc.
+	l3 *L3Config
+	// vrf setting resides on the physical interface yang subtree
+	vrf string
+}
+
+type PhysIfOption func(*PhysIf) error
+
+// NewPhysicalInterface creates a new physical interface with the given name and description.
+//   - Name must follow the NX-OS naming convention, e.g., "Ethernet1/1" or "eth1/1" (case insensitive).
+//   - The interface will be configured admin state set to `up`.
+//   - If both L2 and L3 configurations options are supplied, only the last one will be applied.
+func NewPhysicalInterface(name string, description *string, opts ...PhysIfOption) (*PhysIf, error) {
+	altName, err := getPhysicalInterfaceShortName(name)
+	if err != nil {
+		return nil, fmt.Errorf("physif: not a valid name: %w", err)
+	}
+	p := &PhysIf{
+		name:        altName,
+		description: description,
+		adminSt:     true,
+	}
+	for _, opt := range opts {
+		if err := opt(p); err != nil {
+			return nil, err
+		}
+	}
+	return p, nil
+}
+
+// WithPhysIfMTU sets the MTU for the physical interface.
+func WithPhysIfMTU(mtu uint32) PhysIfOption {
+	return func(p *PhysIf) error {
+		p.mtu = &mtu
+		return nil
+	}
+}
+
+// WithPhysIfL2 sets a Layer 2 configuration for the physical interface.
+func WithPhysIfL2(c *L2Config) PhysIfOption {
+	return func(p *PhysIf) error {
+		if c == nil {
+			return errors.New("physif: l2 configuration cannot be nil")
+		}
+		p.l3 = nil // PhysIf cannot have both L2 and L3 configuration
+		p.vrf = "" // reset VRF for L2 configuration
+		p.l2 = c
+		return nil
+	}
+}
+
+// WithPhysIfL3 sets a Layer 3 configuration for the physical interface.
+func WithPhysIfL3(c *L3Config) PhysIfOption {
+	return func(p *PhysIf) error {
+		if c == nil {
+			return errors.New("physif: l3 configuration cannot be nil")
+		}
+		p.l2 = nil // PhysIf cannot have both L2 and L3 configuration
+		p.l3 = c
+		return nil
+	}
+}
+
+func WithPhysIfVRF(vrf string) PhysIfOption {
+	return func(p *PhysIf) error {
+		if vrf == "" {
+			return errors.New("physif: VRF name cannot be empty")
+		}
+		if p.l2 != nil {
+			return errors.New("physif: cannot set VRF for a physical interface with L2 configuration")
+		}
+		p.vrf = vrf
+		return nil
+	}
+}
+
+func WithPhysIfAdminState(adminSt bool) PhysIfOption {
+	return func(p *PhysIf) error {
+		p.adminSt = adminSt
+		return nil
+	}
+}
+
+var physNameRgx = regexp.MustCompile(`^(?i)(Ethernet|eth)(\d+/\d+)$`)
+
+func getPhysicalInterfaceShortName(name string) (string, error) {
+	matches := physNameRgx.FindStringSubmatch(name)
+	if len(matches) == 3 {
+		return "eth" + matches[2], nil
+	}
+	return "", fmt.Errorf("invalid physical interface name %s", name)
+}
+
+// ToYGOT returns a slice of updates for the physical interface:
+//   - the first update always replaces the entire base configuration of the physical interface (gnmiext.ReplacingUpdate)
+//   - subsequent updates modify the base configuration to add L2 and L3 configurations, if applicable
+//   - the last update attaches the physical interface to a port channel, if applicable
+func (p *PhysIf) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
+	// base
+	pl := &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
+		AdminSt:       nxos.Cisco_NX_OSDevice_L1_AdminSt_up,
+		Descr:         p.description,
+		Mtu:           p.mtu,
+		UserCfgdFlags: ygot.String("admin_state"),
+	}
+	if !p.adminSt {
+		pl.AdminSt = nxos.Cisco_NX_OSDevice_L1_AdminSt_down
+	}
+	if p.mtu != nil {
+		pl.UserCfgdFlags = ygot.String("admin_mtu," + *pl.UserCfgdFlags)
+	}
+	if p.vrf != "" {
+		pl.GetOrCreateRtvrfMbrItems().TDn = ygot.String("System/inst-items/Inst-list[name=" + p.vrf + "]")
+	}
+
+	// l2 (modifies part of the base tree)
+	var l2Updates []gnmiext.Update
+	if p.l2 != nil {
+		l2Updates = p.createL2(pl)
+	}
+	// l3 (modifies part of the base tree)
+	l3Updates, err := p.createL3(pl)
+	if err != nil {
+		return nil, fmt.Errorf("physif: fail to create ygot objects for L3 config %w", err)
+	}
+
+	// base config must to be in the first update
+	updates := []gnmiext.Update{
+		gnmiext.ReplacingUpdate{
+			XPath: "System/intf-items/phys-items/PhysIf-list[id=" + p.name + "]",
+			Value: pl,
+		},
+	}
+	if l2Updates != nil {
+		updates = append(updates, l2Updates...)
+	}
+	if l3Updates != nil {
+		updates = append(updates, l3Updates...)
+	}
+	return updates, nil
+}
+
+// createL2 performs in-place modification of the physical interface to enable the interface as an L2 switchport, and a
+// specific spanning tree mode (if applicable).
+func (p *PhysIf) createL2(pl *nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList) []gnmiext.Update {
+	if p.l2 != nil {
+		pl.Mode = nxos.Cisco_NX_OSDevice_L1_Mode_UNSET
+		if p.l2.switchPort == SwitchPortModeAccess || p.l2.switchPort == SwitchPortModeTrunk {
+			pl.Layer = nxos.Cisco_NX_OSDevice_L1_Layer_Layer2
+			pl.UserCfgdFlags = ygot.String("admin_layer," + *pl.UserCfgdFlags)
+			switch p.l2.switchPort {
+			case SwitchPortModeAccess:
+				pl.Mode = nxos.Cisco_NX_OSDevice_L1_Mode_access
+				if p.l2.accessVlan != nil {
+					pl.AccessVlan = ygot.String(strconv.FormatUint(uint64(*p.l2.accessVlan), 10))
+				}
+			case SwitchPortModeTrunk:
+				pl.Mode = nxos.Cisco_NX_OSDevice_L1_Mode_trunk
+				if p.l2.allowedVlans != nil {
+					pl.TrunkVlans = ygot.String(strings.Trim(strings.ReplaceAll(fmt.Sprint(p.l2.allowedVlans), " ", ","), "[]"))
+				}
+				// configure native VLAN (cisco accepts "vlan-<vlan-id>")
+				if p.l2.nativeVlan != nil {
+					pl.NativeVlan = ygot.String(fmt.Sprintf("vlan-%d", *p.l2.nativeVlan))
+				}
+			}
+		}
+		if p.l2.spanningTree != SpanningTreeModeUnset {
+			il := nxos.Cisco_NX_OSDevice_System_StpItems_InstItems_IfItems_IfList{
+				AdminSt: nxos.Cisco_NX_OSDevice_Nw_IfAdminSt_enabled,
+			}
+			switch p.l2.spanningTree {
+			case SpanningTreeModeEdge:
+				il.Mode = nxos.Cisco_NX_OSDevice_Stp_IfMode_edge
+			case SpanningTreeModeNetwork:
+				il.Mode = nxos.Cisco_NX_OSDevice_Stp_IfMode_network
+			case SpanningTreeModeTrunk:
+				il.Mode = nxos.Cisco_NX_OSDevice_Stp_IfMode_trunk
+			default:
+				il.Mode = nxos.Cisco_NX_OSDevice_Stp_IfMode_UNSET
+			}
+			return []gnmiext.Update{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/stp-items/inst-items/if-items/If-list[id=" + p.name + "]",
+					Value: &il,
+				},
+			}
+		}
+	}
+	return nil
+}
+
+// createL3 performs in-place modification of the physical interface to enable the interface as an L3 interface, and generates
+// the necessary updates related to the L3 configuration of the interface.
+func (p *PhysIf) createL3(pl *nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList) ([]gnmiext.Update, error) {
+	if p.l3 != nil {
+		pl.Layer = nxos.Cisco_NX_OSDevice_L1_Layer_Layer3
+		pl.UserCfgdFlags = ygot.String("admin_layer," + *pl.UserCfgdFlags)
+		switch p.l3.medium {
+		case L3MediumTypeBroadcast:
+			pl.Medium = nxos.Cisco_NX_OSDevice_L1_Medium_broadcast
+		case L3MediumTypeP2P:
+			pl.Medium = nxos.Cisco_NX_OSDevice_L1_Medium_p2p
+		default:
+			pl.Medium = nxos.Cisco_NX_OSDevice_L1_Medium_UNSET
+		}
+		vrfName := p.vrf
+		if vrfName == "" {
+			vrfName = "default"
+		}
+		return p.l3.ToYGOT(p.name, vrfName)
+	}
+	return nil, nil
+}
+
+// Reset clears config of the physical interface as well as L2, L3 options.
+//   - In this Cisco Nexus version devices clean up parts of the  models that are related but in different paths of the YANG tree
+//   - Once the base configuration is reset, the remote device will automatically remove the physical interface in the port-channel.
+//   - The same occurs for the L2 and L3 configurations options, except for the spanning tree configuration, which is not automatically reset.
+func (p *PhysIf) Reset(client gnmiext.Client) ([]gnmiext.Update, error) {
+	updates := []gnmiext.Update{
+		gnmiext.ReplacingUpdate{
+			XPath: "System/intf-items/phys-items/PhysIf-list[id=" + p.name + "]",
+			Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{},
+		},
+		gnmiext.DeletingUpdate{ // reset spanning tree
+			XPath: "System/stp-items/inst-items/if-items/If-list[id=" + p.name + "]",
+		},
+	}
+	return updates, nil
+}
