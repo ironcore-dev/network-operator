@@ -15,7 +15,8 @@ type VPNIPv4Address struct {
 	afType AFTYPE
 	// administrator is the ASN or IP address
 	administrator string
-	// assignedNumber is a 2-byte or 4-byte unsigned integer
+	// assignedNumber is stored as a 4-byte unsigned integer (uint32). While for Type 0 addresses, it is a 4-byte value;
+	// for Type 1 and Type 2 addresses, it is a only a 2-byte value.
 	assignedNumber uint32
 }
 

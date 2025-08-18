@@ -316,5 +316,4 @@ func TestVRF_Reset(t *testing.T) {
 	if update.XPath != "System/inst-items/Inst-list[name=test-vrf]/" {
 		t.Errorf("expected XPath to be 'System/inst-items/Inst-list[name=test-vrf]/', got %s", update.XPath)
 	}
-
 }

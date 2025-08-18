@@ -12,7 +12,7 @@ const (
 )
 
 type RouteTarget struct {
-	// rtValue is the value field of the route target (the VPN-IPv4 address)
+	// addr is the VPN-IPv4 field of the route target (the VPN-IPv4 address)
 	addr VPNIPv4Address
 	// addressFamilyIPv4 indicates if the route target should be applied to IPv4 addresses
 	addressFamilyIPv4 bool
@@ -49,7 +49,7 @@ func WithAction(action RTAction) RTOption {
 	}
 }
 
-// WithAddressFamilyIPv4 sets enables this route target for ipv4 unicast addresses
+// WithAddressFamilyIPv4Unicast sets enables this route target for ipv4 unicast addresses
 func WithAddressFamilyIPv4Unicast(enabled bool) RTOption {
 	return func(rt *RouteTarget) error {
 		rt.addressFamilyIPv4 = enabled
@@ -57,7 +57,7 @@ func WithAddressFamilyIPv4Unicast(enabled bool) RTOption {
 	}
 }
 
-// WithAddressFamilyIPv6 sets enables this route target for ipv6 unicast addresses
+// WithAddressFamilyIPv6Unicast sets enables this route target for ipv6 unicast addresses
 func WithAddressFamilyIPv6Unicast(enabled bool) RTOption {
 	return func(rt *RouteTarget) error {
 		rt.addressFamilyIPv6 = enabled
@@ -65,7 +65,7 @@ func WithAddressFamilyIPv6Unicast(enabled bool) RTOption {
 	}
 }
 
-// WithAddEVPN sets whether this route target should be added to the EVPN context
+// WithEVPN	sets whether this route target should be added to the EVPN context
 func WithEVPN(enabled bool) RTOption {
 	return func(rt *RouteTarget) error {
 		rt.addEVPN = enabled

@@ -130,36 +130,33 @@ func (v *VRF) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 		v6EvpnExportEntries := v6EvpnRTItems.GetOrCreateRttPList(nxos.Cisco_NX_OSDevice_Rtctrl_RttPType_export).GetOrCreateEntItems()
 		// iterate over the route targets and create the entries in the appropriate lists
 		for _, rt := range v.routeTargets {
+			key := "route-target:" + rt.addr.String()
 			if rt.addressFamilyIPv4 {
-				if rt.action == RTImport || rt.action == RTBoth {
-					if rt.addEVPN {
-						v4EvpnImportEntries.GetOrCreateRttEntryList("route-target:" + rt.addr.String())
-					} else {
-						v4ImportEntries.GetOrCreateRttEntryList("route-target:" + rt.addr.String())
-					}
+				if rt.addEVPN && (rt.action == RTImport || rt.action == RTBoth) {
+					v4EvpnImportEntries.GetOrCreateRttEntryList(key)
 				}
-				if rt.action == RTExport || rt.action == RTBoth {
-					if rt.addEVPN {
-						v4EvpnExportEntries.GetOrCreateRttEntryList("route-target:" + rt.addr.String())
-					} else {
-						v4ExportEntries.GetOrCreateRttEntryList("route-target:" + rt.addr.String())
-					}
+				if rt.addEVPN && (rt.action == RTExport || rt.action == RTBoth) {
+					v4EvpnExportEntries.GetOrCreateRttEntryList(key)
+				}
+				if !rt.addEVPN && (rt.action == RTImport || rt.action == RTBoth) {
+					v4ImportEntries.GetOrCreateRttEntryList(key)
+				}
+				if !rt.addEVPN && (rt.action == RTExport || rt.action == RTBoth) {
+					v4ExportEntries.GetOrCreateRttEntryList(key)
 				}
 			}
 			if rt.addressFamilyIPv6 {
-				if rt.action == RTImport || rt.action == RTBoth {
-					if rt.addEVPN {
-						v6EvpnImportEntries.GetOrCreateRttEntryList("route-target:" + rt.addr.String())
-					} else {
-						v6ImportEntries.GetOrCreateRttEntryList("route-target:" + rt.addr.String())
-					}
+				if rt.addEVPN && (rt.action == RTImport || rt.action == RTBoth) {
+					v6EvpnImportEntries.GetOrCreateRttEntryList(key)
 				}
-				if rt.action == RTExport || rt.action == RTBoth {
-					if rt.addEVPN {
-						v6EvpnExportEntries.GetOrCreateRttEntryList("route-target:" + rt.addr.String())
-					} else {
-						v6ExportEntries.GetOrCreateRttEntryList("route-target:" + rt.addr.String())
-					}
+				if rt.addEVPN && (rt.action == RTExport || rt.action == RTBoth) {
+					v6EvpnExportEntries.GetOrCreateRttEntryList(key)
+				}
+				if !rt.addEVPN && (rt.action == RTImport || rt.action == RTBoth) {
+					v6ImportEntries.GetOrCreateRttEntryList(key)
+				}
+				if !rt.addEVPN && (rt.action == RTExport || rt.action == RTBoth) {
+					v6ExportEntries.GetOrCreateRttEntryList(key)
 				}
 			}
 		}
