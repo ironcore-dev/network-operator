@@ -11,6 +11,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -60,7 +61,22 @@ func GetDeviceByName(ctx context.Context, r client.Reader, namespace, name strin
 	return obj, nil
 }
 
-func GetDeviceGrpcClient(ctx context.Context, r client.Reader, obj *v1alpha1.Device) (*grpc.ClientConn, error) {
+// Connection holds the necessary information to connect to a device's API.
+//
+// TODO(felix-kaestner): find a better place for this struct, maybe in a 'connection' package?
+type Connection struct {
+	// Address is the API address of the device, in the format "host:port".
+	Address string
+	// Username for basic authentication. Might be empty if the device does not require authentication.
+	Username string
+	// Password for basic authentication. Might be empty if the device does not require authentication.
+	Password string
+	// TLS configuration for the connection.
+	TLS *tls.Config
+}
+
+// GetDeviceConnection retrieves the connection details for accessing the Device.
+func GetDeviceConnection(ctx context.Context, r client.Reader, obj *v1alpha1.Device) (*Connection, error) {
 	c := clientutil.NewClient(r, obj.Namespace)
 
 	conf := &tls.Config{InsecureSkipVerify: true} //nolint:gosec
@@ -88,20 +104,39 @@ func GetDeviceGrpcClient(ctx context.Context, r client.Reader, obj *v1alpha1.Dev
 		}
 	}
 
-	opts := []grpc.DialOption{grpc.WithTransportCredentials(credentials.NewTLS(conf))}
+	var user, pass []byte
 	if obj.Spec.Endpoint.SecretRef != nil {
-		user, pass, err := c.BasicAuth(ctx, obj.Spec.Endpoint.SecretRef)
+		var err error
+		user, pass, err = c.BasicAuth(ctx, obj.Spec.Endpoint.SecretRef)
 		if err != nil {
 			return nil, err
 		}
+	}
 
+	return &Connection{
+		Address:  obj.Spec.Endpoint.Address,
+		Username: string(user),
+		Password: string(pass),
+		TLS:      conf,
+	}, nil
+}
+
+// NewGrpcClient creates a new gRPC client connection to a specified device using the provided [Connection].
+func NewGrpcClient(ctx context.Context, conn *Connection) (*grpc.ClientConn, error) {
+	creds := insecure.NewCredentials()
+	if conn.TLS != nil {
+		creds = credentials.NewTLS(conn.TLS)
+	}
+
+	opts := []grpc.DialOption{grpc.WithTransportCredentials(creds)}
+	if conn.Username != "" && conn.Password != "" {
 		opts = append(opts, grpc.WithPerRPCCredentials(&auth{
-			Username: string(user),
-			Password: string(pass),
+			Username: conn.Username,
+			Password: conn.Password,
 		}))
 	}
 
-	return grpc.NewClient(obj.Spec.Endpoint.Address, opts...)
+	return grpc.NewClient(conn.Address, opts...)
 }
 
 type auth struct {

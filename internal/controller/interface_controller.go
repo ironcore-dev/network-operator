@@ -20,7 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
-	"github.com/ironcore-dev/network-operator/internal/clientutil"
+	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 )
 
@@ -36,8 +36,8 @@ type InterfaceReconciler struct {
 	// More info: https://book.kubebuilder.io/reference/raising-events
 	Recorder record.EventRecorder
 
-	// Provider is the provider that will be used to create & delete the interface.
-	Provider provider.Provider
+	// Provider is the driver that will be used to create & delete the interface.
+	Provider provider.ProviderFunc
 }
 
 // +kubebuilder:rbac:groups=networking.cloud.sap,resources=interfaces,verbs=get;list;watch;create;update;patch;delete
@@ -70,11 +70,46 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	ctx = clientutil.IntoContext(ctx, r.Client, obj.Namespace)
+	prov, ok := r.Provider().(provider.InterfaceProvider)
+	if !ok {
+		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
+			Type:    v1alpha1.ReadyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.NotImplementedReason,
+			Message: "Provider does not implement provider.InterfaceProvider",
+		})
+		return ctrl.Result{}, r.Status().Update(ctx, obj)
+	}
+
+	device, err := deviceutil.GetDeviceByName(ctx, r, obj.Namespace, obj.Spec.DeviceRef.Name)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	conn, err := deviceutil.GetDeviceConnection(ctx, r, device)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	var cfg *provider.ProviderConfig
+	if obj.Spec.ProviderConfigRef != nil {
+		cfg, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	s := &scope{
+		Device:         device,
+		Interface:      obj,
+		Connection:     conn,
+		ProviderConfig: cfg,
+		Provider:       prov,
+	}
 
 	if !obj.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
-			if err := r.finalize(ctx, obj); err != nil {
+			if err := r.finalize(ctx, s); err != nil {
 				log.Error(err, "Failed to finalize resource")
 				return ctrl.Result{}, err
 			}
@@ -111,8 +146,16 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
 
-	// Always attempt to update the status after reconciliation
+	// Always attempt to update the metadata/status after reconciliation
 	defer func() {
+		if !equality.Semantic.DeepEqual(orig.ObjectMeta, obj.ObjectMeta) {
+			if err := r.Patch(ctx, obj, client.MergeFrom(orig)); err != nil {
+				log.Error(err, "Failed to update resource metadata")
+				reterr = kerrors.NewAggregate([]error{reterr, err})
+			}
+			return
+		}
+
 		if !equality.Semantic.DeepEqual(orig.Status, obj.Status) {
 			if err := r.Status().Patch(ctx, obj, client.MergeFrom(orig)); err != nil {
 				log.Error(err, "Failed to update status")
@@ -121,12 +164,13 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}()
 
-	if err := r.reconcile(ctx, obj); err != nil {
+	res, err := r.reconcile(ctx, s)
+	if err != nil {
 		log.Error(err, "Failed to reconcile resource")
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
+	return res, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -148,37 +192,73 @@ func (r *InterfaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *InterfaceReconciler) reconcile(ctx context.Context, obj *v1alpha1.Interface) error {
-	if err := r.Provider.CreateInterface(ctx, obj); err != nil {
-		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-			Type:               v1alpha1.ReadyCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             v1alpha1.NotReadyReason,
-			Message:            fmt.Sprintf("Failed to configured interface: %v", err),
-			ObservedGeneration: obj.Generation,
-		})
-		return err
+// scope holds the different objects that are read and used during the reconcile.
+type scope struct {
+	Device         *v1alpha1.Device
+	Interface      *v1alpha1.Interface
+	Connection     *deviceutil.Connection
+	ProviderConfig *provider.ProviderConfig
+	Provider       provider.InterfaceProvider
+}
+
+func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.Result, reterr error) {
+	if s.Interface.Labels == nil {
+		s.Interface.Labels = make(map[string]string)
 	}
 
-	meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
+	s.Interface.Labels[v1alpha1.DeviceLabel] = s.Device.Name
+
+	// Ensure the Interface is owned by the Device.
+	if !controllerutil.HasControllerReference(s.Interface) {
+		if err := controllerutil.SetOwnerReference(s.Device, s.Interface, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+	}
+	defer func() {
+		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+	}()
+
+	// Ensure the Interface is realized on the provider.
+	res, err := s.Provider.EnsureInterface(ctx, &provider.InterfaceRequest{
+		Interface:      s.Interface,
+		ProviderConfig: s.ProviderConfig,
+	})
+	for _, c := range res.Conditions {
+		meta.SetStatusCondition(&s.Interface.Status.Conditions, c)
+	}
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	meta.SetStatusCondition(&s.Interface.Status.Conditions, metav1.Condition{
 		Type:               v1alpha1.ReadyCondition,
 		Status:             metav1.ConditionTrue,
 		Reason:             v1alpha1.ReadyReason,
 		Message:            "Interface configured successfully",
-		ObservedGeneration: obj.Generation,
+		ObservedGeneration: s.Interface.Generation,
 	})
-	return nil
+
+	return ctrl.Result{RequeueAfter: res.RequeueAfter}, nil
 }
 
-func (r *InterfaceReconciler) finalize(ctx context.Context, obj *v1alpha1.Interface) error {
-	// NOTE: It is not recommended to use finalizers with the purpose of deleting resources which are
-	// created and managed in the reconciliation. These ones, such as the Deployment created on this reconcile,
-	// are defined as dependent of the custom resource. See that we use the method ctrl.SetControllerReference.
-	// to set the ownerRef which means that the Deployment will be deleted by the Kubernetes API.
-	// More info: https://kubernetes.io/docs/tasks/administer-cluster/use-cascading-deletion/
-	if err := r.Provider.DeleteInterface(ctx, obj); err != nil {
-		r.Recorder.Event(obj, "Warning", "FinalizeFailed", err.Error())
-		return err
+func (r *InterfaceReconciler) finalize(ctx context.Context, s *scope) (reterr error) {
+	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
-	return nil
+	defer func() {
+		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+	}()
+
+	return s.Provider.DeleteInterface(ctx, &provider.InterfaceRequest{
+		Interface:      s.Interface,
+		ProviderConfig: s.ProviderConfig,
+	})
 }

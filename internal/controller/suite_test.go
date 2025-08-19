@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	// +kubebuilder:scaffold:imports
 )
@@ -90,11 +91,12 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	prov := func() provider.Provider { return testProvider }
+
 	err = (&DeviceReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
-		Provider: testProvider,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -102,7 +104,7 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
-		Provider: testProvider,
+		Provider: prov,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -148,7 +150,10 @@ func detectTestBinaryDir() string {
 	return ""
 }
 
-var _ provider.Provider = (*Provider)(nil)
+var (
+	_ provider.Provider          = (*Provider)(nil)
+	_ provider.InterfaceProvider = (*Provider)(nil)
+)
 
 // Provider is a simple in-memory provider for testing purposes only.
 type Provider struct {
@@ -157,30 +162,19 @@ type Provider struct {
 	Items map[string]client.Object
 }
 
-func (p *Provider) CreateInterface(_ context.Context, iface *v1alpha1.Interface) error {
+func (p *Provider) Connect(context.Context, *deviceutil.Connection) error    { return nil }
+func (p *Provider) Disconnect(context.Context, *deviceutil.Connection) error { return nil }
+
+func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) (provider.Result, error) {
 	p.Lock()
 	defer p.Unlock()
-	p.Items[iface.Name] = iface
-	return nil
+	p.Items[req.Interface.Name] = req.Interface
+	return provider.Result{}, nil
 }
 
-func (p *Provider) DeleteInterface(_ context.Context, iface *v1alpha1.Interface) error {
+func (p *Provider) DeleteInterface(_ context.Context, req *provider.InterfaceRequest) error {
 	p.Lock()
 	defer p.Unlock()
-	delete(p.Items, iface.Name)
-	return nil
-}
-
-func (p *Provider) CreateDevice(_ context.Context, dev *v1alpha1.Device) error {
-	p.Lock()
-	defer p.Unlock()
-	p.Items[dev.Name] = dev
-	return nil
-}
-
-func (p *Provider) DeleteDevice(_ context.Context, dev *v1alpha1.Device) error {
-	p.Lock()
-	defer p.Unlock()
-	delete(p.Items, dev.Name)
+	delete(p.Items, req.Interface.Name)
 	return nil
 }

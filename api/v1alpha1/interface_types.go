@@ -8,55 +8,58 @@ import (
 )
 
 // InterfaceSpec defines the desired state of Interface.
-//
 // +kubebuilder:validation:XValidation:rule="!has(self.switchport) || !has(self.ipv4Addresses)", message="switchport and ipv4Addresses are mutually exclusive"
 // +kubebuilder:validation:XValidation:rule="self.type != 'Loopback' || !has(self.switchport)", message="switchport must not be specified for interfaces of type Loopback"
 type InterfaceSpec struct {
-	// Name is the name of the interface.
-	// +kubebuilder:validation:MaxLength=255
+	// DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
+	// Immutable.
 	// +required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="DeviceRef is immutable"
+	DeviceRef LocalObjectReference `json:"deviceRef"`
+
+	// ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
+	// This reference is used to link the Interface to its provider-specific configuration.
+	// +optional
+	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
+
+	// Name is the name of the interface.
+	// +required
+	// +kubebuilder:validation:MaxLength=255
 	Name string `json:"name"`
 
 	// AdminState indicates whether the interface is administratively up or down.
-	//
 	// +required
-	AdminState AdminState `json:"adminState,omitempty"`
+	AdminState AdminState `json:"adminState"`
 
 	// Description provides a human-readable description of the interface.
-	//
-	// +kubebuilder:validation:MaxLength=255
 	// +optional
+	// +kubebuilder:validation:MaxLength=255
 	Description string `json:"description,omitempty"`
 
 	// Type indicates the type of the interface.
-	//
 	// +required
-	Type InterfaceType `json:"type,omitempty"`
+	Type InterfaceType `json:"type"`
 
 	// MTU (Maximum Transmission Unit) specifies the size of the largest packet that can be sent over the interface.
-	//
+	// +optional
 	// +kubebuilder:validation:Minimum=576
 	// +kubebuilder:validation:Maximum=9216
-	// +optional
 	MTU int32 `json:"mtu,omitempty"`
 
 	// Switchport defines the switchport configuration for the interface.
 	// This is only applicable for interfaces that are switchports (e.g., Ethernet interfaces).
-	//
 	// +optional
 	Switchport *Switchport `json:"switchport,omitempty"`
 
 	// Ipv4Addresses is the list of IPv4 addresses assigned to the interface.
 	// Each address should be given either in CIDR notation (e.g., "10.0.0.1/32")
 	// or as interface reference in the form of "unnumbered:<source-interface>" (e.g., "unnumbered:lo0").
-	//
-	// +kubebuilder:validation:items:Pattern=`^(?:(?:\d{1,3}\.){3}\d{1,3}\/\d{1,2}?|unnumbered:[\w-]+)$`
 	// +optional
+	// +kubebuilder:validation:items:Pattern=`^(?:(?:\d{1,3}\.){3}\d{1,3}\/\d{1,2}?|unnumbered:[\w-]+)$`
 	IPv4Addresses []string `json:"ipv4Addresses,omitempty"`
 }
 
 // AdminState represents the administrative state of the interface.
-//
 // +kubebuilder:validation:Enum=Up;Down
 type AdminState string
 
@@ -68,7 +71,6 @@ const (
 )
 
 // InterfaceType represents the type of the interface.
-//
 // +kubebuilder:validation:Enum=Physical;Loopback
 type InterfaceType string
 
@@ -80,44 +82,38 @@ const (
 )
 
 // Switchport defines the switchport configuration for an interface.
-//
 // +kubebuilder:validation:XValidation:rule="self.mode != 'Access' || has(self.accessVlan)", message="accessVlan must be specified when mode is Access"
 // +kubebuilder:validation:XValidation:rule="self.mode != 'Trunk' || has(self.nativeVlan)", message="nativeVlan must be specified when mode is Trunk"
 // +kubebuilder:validation:XValidation:rule="self.mode != 'Trunk' || has(self.allowedVlans)", message="allowedVlans must be specified when mode is Trunk"
 type Switchport struct {
 	// Mode defines the switchport mode, such as access or trunk.
-	//
 	// +required
-	Mode SwitchportMode `json:"mode,omitempty"`
+	Mode SwitchportMode `json:"mode"`
 
 	// AccessVlan specifies the VLAN ID for access mode switchports.
 	// Only applicable when Mode is set to "Access".
-	//
+	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=4094
-	// +optional
 	AccessVlan int32 `json:"accessVlan,omitempty"`
 
 	// NativeVlan specifies the native VLAN ID for trunk mode switchports.
 	// Only applicable when Mode is set to "Trunk".
-	//
+	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=4094
-	// +optional
 	NativeVlan int32 `json:"nativeVlan,omitempty"`
 
 	// AllowedVlans is a list of VLAN IDs that are allowed on the trunk port.
 	// Only applicable when Mode is set to "Trunk".
-	//
+	// +optional
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:items:Minimum=1
 	// +kubebuilder:validation:items:Maximum=4094
-	// +optional
 	AllowedVlans []int32 `json:"allowedVlans,omitempty"`
 }
 
 // SwitchportMode represents the switchport mode of an interface.
-//
 // +kubebuilder:validation:Enum=Access;Trunk
 type SwitchportMode string
 
@@ -136,7 +132,7 @@ type InterfaceStatus struct {
 	//+patchStrategy=merge
 	//+patchMergeKey=type
 	//+optional
-	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -148,6 +144,7 @@ type InterfaceStatus struct {
 // +kubebuilder:printcolumn:name="Admin State",type=string,JSONPath=`.spec.adminState`
 // +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.spec.description`
 // +kubebuilder:printcolumn:name="MTU",type=string,JSONPath=`.spec.mtu`
+// +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceName`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
@@ -158,12 +155,14 @@ type Interface struct {
 
 	// Specification of the desired state of the resource.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+	// +required
 	Spec InterfaceSpec `json:"spec,omitempty"`
 
 	// Status of the resource. This is set and updated automatically.
 	// Read-only.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
-	Status InterfaceStatus `json:"status,omitempty"`
+	// +optional
+	Status InterfaceStatus `json:"status,omitempty,omitzero"`
 }
 
 // +kubebuilder:object:root=true

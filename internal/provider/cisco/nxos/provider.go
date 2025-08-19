@@ -63,18 +63,32 @@ const (
 	CoppProfileAnnotation = "nxos.cisco.network.ironcore.dev/copp-profile"
 )
 
-type Provider struct{}
+var _ provider.Provider = &Provider{}
 
-func (p *Provider) CreateInterface(ctx context.Context, _ *v1alpha1.Interface) error {
-	log := ctrl.LoggerFrom(ctx)
-	log.Error(provider.ErrUnimplemented, "CreateInterface not implemented")
+type Provider struct {
+	conn   *grpc.ClientConn
+	client gnmiext.Client
+}
+
+func NewProvider() provider.Provider {
+	return &Provider{}
+}
+
+func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (err error) {
+	p.conn, err = deviceutil.NewGrpcClient(ctx, conn)
+	if err != nil {
+		return fmt.Errorf("failed to create grpc connection: %w", err)
+	}
+	log := slog.New(logr.ToSlogHandler(ctrl.LoggerFrom(ctx)))
+	p.client, err = gnmiext.NewClient(ctx, gpb.NewGNMIClient(p.conn), true, gnmiext.WithLogger(log))
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
-func (p *Provider) DeleteInterface(ctx context.Context, _ *v1alpha1.Interface) error {
-	log := ctrl.LoggerFrom(ctx)
-	log.Error(provider.ErrUnimplemented, "DeleteInterface not implemented")
-	return nil
+func (p *Provider) Disconnect(context.Context, *deviceutil.Connection) error {
+	return p.conn.Close()
 }
 
 func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) error {
@@ -85,7 +99,12 @@ func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) er
 		return errors.New("failed to get controller client from context")
 	}
 
-	conn, err := deviceutil.GetDeviceGrpcClient(ctx, c, device)
+	cc, err := deviceutil.GetDeviceConnection(ctx, c, device)
+	if err != nil {
+		return fmt.Errorf("failed to get device connection details: %w", err)
+	}
+
+	conn, err := deviceutil.NewGrpcClient(ctx, cc)
 	if err != nil {
 		return fmt.Errorf("failed to create grpc connection: %w", err)
 	}
@@ -241,12 +260,6 @@ func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) er
 	return nil
 }
 
-func (p *Provider) DeleteDevice(ctx context.Context, _ *v1alpha1.Device) error {
-	log := ctrl.LoggerFrom(ctx)
-	log.Error(provider.ErrUnimplemented, "DeleteDevice not implemented")
-	return nil
-}
-
 func (p *Provider) GetGrpcClient(ctx context.Context, obj metav1.Object) (*grpc.ClientConn, error) {
 	c, ok := clientutil.FromContext(ctx)
 	if !ok {
@@ -256,7 +269,11 @@ func (p *Provider) GetGrpcClient(ctx context.Context, obj metav1.Object) (*grpc.
 	if err != nil {
 		return nil, fmt.Errorf("failed to get device from metadata: %w", err)
 	}
-	conn, err := deviceutil.GetDeviceGrpcClient(ctx, c, d)
+	cc, err := deviceutil.GetDeviceConnection(ctx, c, d)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get device connection details: %w", err)
+	}
+	conn, err := deviceutil.NewGrpcClient(ctx, cc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create grpc connection: %w", err)
 	}
@@ -672,5 +689,5 @@ func (step *Banner) Exec(ctx context.Context, s *Scope) error {
 }
 
 func init() {
-	provider.Register("cisco-nxos-gnmi", &Provider{})
+	provider.Register("cisco-nxos-gnmi", NewProvider)
 }
