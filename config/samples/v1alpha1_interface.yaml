@@ -7,6 +7,7 @@ metadata:
     networking.cloud.sap/device-name: leaf1
   name: lo0
 spec:
+  deviceName: leaf1
   name: lo0
   description: Router-ID Leaf1
   adminState: Up
@@ -14,6 +15,10 @@ spec:
   mtu: 1500
   ipv4Addresses:
     - 10.0.0.10/32
+#   providerConfigRef:
+#     apiVersion: nxos.cisco.networking.cloud.sap/v1alpha1
+#     kind: InterfaceConfig
+#     name: leaf-interface-config
 ---
 apiVersion: networking.cloud.sap/v1alpha1
 kind: Interface
@@ -24,6 +29,7 @@ metadata:
     networking.cloud.sap/device-name: leaf1
   name: lo1
 spec:
+  deviceName: leaf1
   name: lo1
   description: VTEP Leaf1
   adminState: Up
@@ -41,6 +47,7 @@ metadata:
     networking.cloud.sap/device-name: leaf1
   name: eth1-1
 spec:
+  deviceName: leaf1
   name: eth1/1
   description: Leaf1 to Spine1
   adminState: Up
@@ -58,6 +65,7 @@ metadata:
     networking.cloud.sap/device-name: leaf1
   name: eth1-2
 spec:
+  deviceName: leaf1
   name: eth1/2
   description: Leaf1 to Spine2
   adminState: Up
@@ -75,6 +83,7 @@ metadata:
     networking.cloud.sap/device-name: leaf1
   name: eth1-10
 spec:
+  deviceName: leaf1
   name: eth1/10
   description: Leaf1 to Host1
   adminState: Up

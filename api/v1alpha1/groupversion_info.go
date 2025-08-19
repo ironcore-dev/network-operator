@@ -61,6 +61,10 @@ const (
 	// ReconcilePendingReason indicates that the controller is waiting for resources to be reconciled.
 	ReconcilePendingReason = "ReconcilePending"
 
+	// NotImplementedReason indicates that the provider does not implement the required functionality
+	// to support the resource.
+	NotImplementedReason = "NotImplemented"
+
 	// ProvisioningReason indicates that the resource is being provisioned.
 	ProvisioningReason = "Provisioning"
 

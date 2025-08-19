@@ -4,25 +4,24 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"flag"
 	"fmt"
 	"os"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/yaml"
 
 	// Import all supported provider implementations.
+	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	_ "github.com/ironcore-dev/network-operator/internal/provider/openconfig"
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
-	"github.com/ironcore-dev/network-operator/internal/clientutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 )
 
@@ -165,62 +164,61 @@ func main() {
 	fmt.Printf("\n=== Resource Information ===\n")
 	printResourceInfo(resource)
 
-	prov, err := provider.Get(*providerName)
+	fn, err := provider.Get(*providerName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting provider: %v\n", err)
 		os.Exit(1)
 	}
 
-	device := &v1alpha1.Device{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-device",
-			Namespace: obj.GetNamespace(),
-		},
-		Spec: v1alpha1.DeviceSpec{
-			Endpoint: &v1alpha1.Endpoint{
-				Address: *address,
-				SecretRef: &corev1.SecretReference{
-					Name:      "test-secret",
-					Namespace: obj.GetNamespace(),
-				},
-			},
-		},
+	prov := fn()
+
+	conn := &deviceutil.Connection{
+		Address:  *address,
+		Username: *username,
+		Password: *password,
+		// #nosec 204
+		TLS: &tls.Config{InsecureSkipVerify: true}, // For testing purposes only
 	}
 
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-secret",
-			Namespace: obj.GetNamespace(),
-		},
-		Data: map[string][]byte{
-			"username": []byte(*username),
-			"password": []byte(*password),
-		},
-		Type: corev1.SecretTypeBasicAuth,
+	ctx := context.Background()
+
+	ip, ok := prov.(provider.InterfaceProvider)
+	if !ok {
+		fmt.Fprintf(os.Stderr, "Error: provider %T does not implement provider.InterfaceProvider\n", fn)
+		os.Exit(1)
 	}
 
-	obj.SetLabels(map[string]string{v1alpha1.DeviceLabel: device.Name})
-
-	c := fake.NewClientBuilder().
-		WithScheme(scheme.Scheme).
-		WithObjects(device, secret).
-		Build()
-
-	ctx := clientutil.IntoContext(context.Background(), c, obj.GetNamespace())
+	err = prov.Connect(ctx, conn)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error connecting to provider: %v\n", err)
+		os.Exit(1)
+	}
+	defer func() {
+		if disconnectErr := prov.Disconnect(ctx, conn); disconnectErr != nil {
+			fmt.Fprintf(os.Stderr, "Error disconnecting from provider: %v\n", disconnectErr)
+			os.Exit(1)
+		}
+	}()
 
 	fmt.Printf("\n=== Operation Status ===\n")
 	switch operation {
 	case "create":
 		switch resource := obj.(type) {
 		case *v1alpha1.Interface:
-			err = prov.CreateInterface(ctx, resource)
+			_, err = ip.EnsureInterface(ctx, &provider.InterfaceRequest{
+				Interface:      resource,
+				ProviderConfig: nil,
+			})
 		default:
 			fmt.Printf("Loaded resource of unknown type: %T\n", resource)
 		}
 	case "delete":
 		switch resource := obj.(type) {
 		case *v1alpha1.Interface:
-			err = prov.DeleteInterface(ctx, resource)
+			err = ip.DeleteInterface(ctx, &provider.InterfaceRequest{
+				Interface:      resource,
+				ProviderConfig: nil,
+			})
 		default:
 			fmt.Printf("Loaded resource of unknown type: %T\n", resource)
 		}
@@ -228,7 +226,7 @@ func main() {
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error performing operation: %v\n", err)
-		os.Exit(1)
+		return
 	}
 
 	fmt.Printf("Provider tool completed successfully.\n")
