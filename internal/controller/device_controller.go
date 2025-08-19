@@ -16,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
@@ -29,7 +28,6 @@ import (
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/clientutil"
-	"github.com/ironcore-dev/network-operator/internal/provider"
 )
 
 const DefaultRequeueAfter = 30 * time.Second
@@ -45,9 +43,6 @@ type DeviceReconciler struct {
 	// Recorder is used to record events for the controller.
 	// More info: https://book.kubebuilder.io/reference/raising-events
 	Recorder record.EventRecorder
-
-	// Provider is the provider that will be used to create & delete the interface.
-	Provider provider.Provider
 }
 
 // +kubebuilder:rbac:groups=networking.cloud.sap,resources=devices,verbs=get;list;watch;create;update;patch;delete
@@ -230,11 +225,6 @@ func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1alpha1.Device{}).
 		Named("device").
 		WithEventFilter(filter).
-		Owns(&v1alpha1.Interface{}).
-		Watches(
-			&v1alpha1.Interface{},
-			handler.EnqueueRequestsFromMapFunc(r.interfaceToDevice),
-		).
 		// Watches enqueues Devices for referenced Secret resources.
 		Watches(
 			&corev1.Secret{},
@@ -250,7 +240,7 @@ func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *DeviceReconciler) reconcile(ctx context.Context, obj *v1alpha1.Device) error {
+func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Device) error {
 	log := ctrl.LoggerFrom(ctx)
 
 	c, ok := clientutil.FromContext(ctx)
@@ -258,12 +248,12 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, obj *v1alpha1.Device) 
 		return errors.New("failed to get controller client from context")
 	}
 
-	if err := obj.Spec.Validate(); err != nil {
+	if err := device.Spec.Validate(); err != nil {
 		log.Error(err, "Invalid Device spec")
 		return err
 	}
 
-	if ref := obj.Spec.Endpoint.SecretRef; ref != nil {
+	if ref := device.Spec.Endpoint.SecretRef; ref != nil {
 		secret := new(corev1.Secret)
 		if err := c.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: ref.Namespace}, secret); err != nil {
 			log.Error(err, "Failed to get endpoint secret for device")
@@ -279,34 +269,12 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, obj *v1alpha1.Device) 
 		}
 	}
 
-	if err := r.setOwnerReferencesOnInterfaces(ctx, obj); err != nil {
-		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-			Type:               v1alpha1.ReadyCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             v1alpha1.NotReadyReason,
-			Message:            fmt.Sprintf("Failed to reconcile interfaces: %v", err),
-			ObservedGeneration: obj.Generation,
-		})
-		return err
-	}
-
-	if err := r.Provider.CreateDevice(ctx, obj); err != nil {
-		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-			Type:               v1alpha1.ReadyCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             v1alpha1.NotReadyReason,
-			Message:            fmt.Sprintf("Failed to configured device configuration: %v", err),
-			ObservedGeneration: obj.Generation,
-		})
-		return err
-	}
-
-	meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
+	meta.SetStatusCondition(&device.Status.Conditions, metav1.Condition{
 		Type:               v1alpha1.ReadyCondition,
 		Status:             metav1.ConditionTrue,
 		Reason:             v1alpha1.AllResourcesReadyReason,
 		Message:            "All owned resources are ready",
-		ObservedGeneration: obj.Generation,
+		ObservedGeneration: device.Generation,
 	})
 	return nil
 }
@@ -317,11 +285,6 @@ func (r *DeviceReconciler) finalize(ctx context.Context, device *v1alpha1.Device
 	c, ok := clientutil.FromContext(ctx)
 	if !ok {
 		return errors.New("failed to get controller client from context")
-	}
-
-	if err := r.Provider.DeleteDevice(ctx, device); err != nil {
-		r.Recorder.Event(device, "Warning", "FinalizeFailed", err.Error())
-		return err
 	}
 
 	if ref := device.Spec.Endpoint.SecretRef; ref != nil {
@@ -341,65 +304,6 @@ func (r *DeviceReconciler) finalize(ctx context.Context, device *v1alpha1.Device
 	}
 
 	return nil
-}
-
-// setOwnerReferencesOnInterfaces sets the owner reference on all Interfaces owned by the Device if they do not already have one.
-func (r *DeviceReconciler) setOwnerReferencesOnInterfaces(ctx context.Context, device *v1alpha1.Device) error {
-	log := ctrl.LoggerFrom(ctx)
-
-	var list v1alpha1.InterfaceList
-	labelSelector := client.MatchingLabels{v1alpha1.DeviceLabel: device.Name}
-	if err := r.List(ctx, &list, client.InNamespace(device.Namespace), labelSelector); err != nil {
-		return fmt.Errorf("failed to list interfaces for device %q: %w", device.Name, err)
-	}
-
-	for _, iface := range list.Items {
-		hasOwnerRef, err := controllerutil.HasOwnerReference(iface.GetOwnerReferences(), device, r.Scheme)
-		if err != nil {
-			return fmt.Errorf("failed to check owner reference for interface %q: %w", iface.Name, err)
-		}
-
-		if !hasOwnerRef {
-			err := controllerutil.SetOwnerReference(device, &iface, r.Scheme, controllerutil.WithBlockOwnerDeletion(true))
-			if err != nil {
-				return fmt.Errorf("failed to set owner reference for interface %q: %w", iface.Name, err)
-			}
-
-			if err := r.Update(ctx, &iface); err != nil {
-				if apierrors.IsNotFound(err) {
-					log.Info("Interface not found, skipping update", "interface", iface.Name)
-					continue
-				}
-				return fmt.Errorf("failed to update interface %q with owner reference: %w", iface.Name, err)
-			}
-		}
-	}
-
-	return nil
-}
-
-// interfaceToDevice is a [handler.MapFunc] to be used to enqueue requests for reconciliation
-// for a Device to update when one of its own Interfaces gets updated.
-func (r *DeviceReconciler) interfaceToDevice(ctx context.Context, obj client.Object) []ctrl.Request {
-	iface, ok := obj.(*v1alpha1.Interface)
-	if !ok {
-		panic(fmt.Sprintf("Expected Interface but got a %T", obj))
-	}
-
-	log := ctrl.LoggerFrom(ctx, "Interface", klog.KObj(iface))
-
-	name, exists := iface.Labels[v1alpha1.DeviceLabel]
-	if !exists {
-		log.Info("Interface does not have a device label, skipping reconciliation")
-		return nil
-	}
-
-	return []ctrl.Request{{
-		NamespacedName: types.NamespacedName{
-			Namespace: iface.Namespace,
-			Name:      name,
-		},
-	}}
 }
 
 // secretToDevices is a [handler.MapFunc] to be used to enqueue requests for reconciliation

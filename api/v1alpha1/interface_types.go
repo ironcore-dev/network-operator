@@ -12,6 +12,19 @@ import (
 // +kubebuilder:validation:XValidation:rule="!has(self.switchport) || !has(self.ipv4Addresses)", message="switchport and ipv4Addresses are mutually exclusive"
 // +kubebuilder:validation:XValidation:rule="self.type != 'Loopback' || !has(self.switchport)", message="switchport must not be specified for interfaces of type Loopback"
 type InterfaceSpec struct {
+	// DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
+	// Immutable.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	DeviceName string `json:"deviceName,omitempty"`
+
+	// ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
+	// This reference is used to link the interface to its provider-specific configuration.
+	// Immutable.
+	// +optional
+	ProviderConfigRef *ProviderConfigReference `json:"providerConfigRef,omitempty"`
+
 	// Name is the name of the interface.
 	// +kubebuilder:validation:MaxLength=255
 	// +required
@@ -148,6 +161,7 @@ type InterfaceStatus struct {
 // +kubebuilder:printcolumn:name="Admin State",type=string,JSONPath=`.spec.adminState`
 // +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.spec.description`
 // +kubebuilder:printcolumn:name="MTU",type=string,JSONPath=`.spec.mtu`
+// +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceName`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

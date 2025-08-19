@@ -115,15 +115,6 @@ var _ = Describe("Device Controller", func() {
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
 			}).Should(Succeed())
-
-			By("Ensuring the resource is created in the provider")
-			Eventually(func(g Gomega) {
-				item, ok := testProvider.Items[name]
-				g.Expect(ok).To(BeTrue(), "Resource should exist in the provider")
-				resource, ok := item.(*v1alpha1.Device)
-				g.Expect(ok).To(BeTrue(), "Resource should be of type Device")
-				g.Expect(resource.Name).To(Equal(name))
-			}).Should(Succeed())
 		})
 	})
 })
