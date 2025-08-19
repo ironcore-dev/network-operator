@@ -5,49 +5,35 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"slices"
-	"time"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
+	"github.com/go-logr/logr"
+	"github.com/ironcore-dev/controller-utils/clientutils"
+	"github.com/ironcore-dev/network-operator/api/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/provider/api"
+	"github.com/ironcore-dev/network-operator/internal/provider/edgecore"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
-
-	"github.com/ironcore-dev/network-operator/api/v1alpha1"
-	"github.com/ironcore-dev/network-operator/internal/clientutil"
-	"github.com/ironcore-dev/network-operator/internal/provider"
 )
 
-const DefaultRequeueAfter = 30 * time.Second
+const (
+	DeviceFinalizer = "networking.cloud.sap/device"
+)
 
 // DeviceReconciler reconciles a Device object
 type DeviceReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
-	// WatchFilterValue is the label value used to filter events prior to reconciliation.
-	WatchFilterValue string
-
 	// Recorder is used to record events for the controller.
 	// More info: https://book.kubebuilder.io/reference/raising-events
-	Recorder record.EventRecorder
-
-	// Provider is the provider that will be used to create & delete the interface.
-	Provider provider.Provider
+	Recorder           record.EventRecorder
+	DiscoverInterfaces bool
 }
 
 // +kubebuilder:rbac:groups=networking.cloud.sap,resources=devices,verbs=get;list;watch;create;update;patch;delete
@@ -59,413 +45,186 @@ type DeviceReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.2/pkg/reconcile
-//
-// For more details about the method shape, read up here:
-// - https://ahmet.im/blog/controller-pitfalls/#reconcile-method-shape
-func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
+func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
-	log.Info("Reconciling resource")
+	device := &v1alpha1.Device{}
+	if err := r.Get(ctx, req.NamespacedName, device); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
 
-	obj := new(v1alpha1.Device)
-	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
-		if apierrors.IsNotFound(err) {
-			// If the custom resource is not found then it usually means that it was deleted or not created
-			// In this way, we will stop the reconciliation
-			log.Info("Resource not found. Ignoring since object must be deleted")
-			return ctrl.Result{}, nil
+	return ctrl.Result{}, r.reconcileExists(ctx, log, device)
+}
+
+func (r *DeviceReconciler) reconcileExists(ctx context.Context, log logr.Logger, device *v1alpha1.Device) error {
+	if !device.DeletionTimestamp.IsZero() {
+		return r.delete(ctx, log, device)
+	}
+	return r.reconcile(ctx, log, device)
+}
+
+func (r *DeviceReconciler) delete(ctx context.Context, log logr.Logger, device *v1alpha1.Device) error {
+	if _, err := clientutils.PatchEnsureNoFinalizer(ctx, r.Client, device, DeviceFinalizer); err != nil {
+		return fmt.Errorf("failed to remove finalizer from device %q: %w", device.Name, err)
+	}
+	// TODO: Implement deletion logic for the device.
+	return nil
+}
+
+func (r *DeviceReconciler) reconcile(ctx context.Context, log logr.Logger, device *v1alpha1.Device) error {
+	log.Info("Reconciling Device")
+	if device.Status.Phase == "" {
+		deviceBase := device.DeepCopy()
+		deviceBase.Status.Phase = v1alpha1.DevicePhasePending
+		if err := r.Status().Patch(ctx, device, client.MergeFrom(device)); err != nil {
+			return fmt.Errorf("failed to patch device status: %w", err)
 		}
-		// Error reading the object - requeue the request.
-		log.Error(err, "Failed to get resource")
-		return ctrl.Result{}, err
+		log.Info("Device status patched", "phase", device.Status.Phase)
+		return nil
 	}
 
-	c := clientutil.NewClient(r.Client, req.Namespace)
-	ctx = clientutil.NewContext(ctx, c)
-
-	if !obj.DeletionTimestamp.IsZero() {
-		if controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
-			if err := r.finalize(ctx, obj); err != nil {
-				log.Error(err, "Failed to finalize resource")
-				return ctrl.Result{}, err
-			}
-			controllerutil.RemoveFinalizer(obj, v1alpha1.FinalizerName)
-			if err := r.Update(ctx, obj); err != nil {
-				log.Error(err, "Failed to remove finalizer from resource")
-				return ctrl.Result{}, err
-			}
-		}
-		log.Info("Resource is being deleted, skipping reconciliation")
-		return ctrl.Result{}, nil
+	if modified, err := clientutils.PatchEnsureFinalizer(ctx, r.Client, device, DeviceFinalizer); err != nil || modified {
+		return err
 	}
+	log.Info("Ensured Finalizer")
 
-	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
-	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
-		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
-		if err := r.Update(ctx, obj); err != nil {
-			log.Error(err, "Failed to add finalizer to resource")
-			return ctrl.Result{}, err
-		}
-		log.Info("Added finalizer to resource")
-		return ctrl.Result{}, nil
+	deviceProvider, err := r.getProviderForDevice(device, log)
+	if err != nil {
+		return fmt.Errorf("failed to get provider for device %q: %w", device.Name, err)
 	}
+	log.Info("Got Device Provider", "Provider", device.Spec.Provider)
 
-	orig := obj.DeepCopy()
-	if len(obj.Status.Conditions) == 0 {
-		log.Info("Initializing status conditions")
-		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
-			Status:  metav1.ConditionUnknown,
-			Reason:  v1alpha1.ReconcilePendingReason,
-			Message: "Starting reconciliation",
-		})
-		return ctrl.Result{}, r.Status().Update(ctx, obj)
+	if err := deviceProvider.Connect(ctx, api.ConnectionDetails{
+		Address:  device.Spec.Endpoint.Address,
+		Username: "foo",
+		Password: "bar",
+		Port:     8000,
+	}); err != nil {
+		return fmt.Errorf("failed to connect to device %q: %w", device.Name, err)
 	}
-
-	// Always attempt to update the status after reconciliation
 	defer func() {
-		if !equality.Semantic.DeepEqual(orig.Status, obj.Status) {
-			if err := r.Status().Patch(ctx, obj, client.MergeFrom(orig)); err != nil {
-				log.Error(err, "Failed to update status")
-				reterr = kerrors.NewAggregate([]error{reterr, err})
-			}
+		if err := deviceProvider.Disconnect(ctx); err != nil {
+			log.Error(err, "failed to disconnect from device", "Device", device.Name)
 		}
 	}()
+	log.Info("Connected to Device")
 
-	switch obj.Status.Phase {
-	case v1alpha1.DevicePhasePending:
-		if obj.Spec.Bootstrap == nil {
-			// Skip provisioning if no bootstrap configuration is provided.
-			obj.Status.Phase = v1alpha1.DevicePhaseActive
-			return ctrl.Result{}, nil
+	if r.ensureDeviceStatus(ctx, log, device, deviceProvider) != nil {
+		return fmt.Errorf("failed to ensure device status for device %q: %w", device.Name, err)
+	}
+	log.Info("Ensured Device Status")
+
+	if r.DiscoverInterfaces {
+		if err := r.discoverAndCreateInterfacesForDevice(ctx, log, device, deviceProvider); err != nil {
+			return fmt.Errorf("failed to discover and create interfaces for device %q: %w", device.Name, err)
 		}
-
-		log.Info("Device is in pending phase, starting provisioning")
-		tmpl, err := c.Template(ctx, obj.Spec.Bootstrap.Template)
-		if err != nil {
-			log.Error(err, "Failed to get template for device provisioning")
-			meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-				Type:               v1alpha1.ReadyCondition,
-				Status:             metav1.ConditionFalse,
-				Reason:             v1alpha1.NotReadyReason,
-				Message:            fmt.Sprintf("Failed to get template for device provisioning: %v", err),
-				ObservedGeneration: obj.Generation,
-			})
-			obj.Status.Phase = v1alpha1.DevicePhaseFailed
-			r.Recorder.Event(obj, "Warning", "ProvisioningFailed", "Device provisioning failed due to template retrieval error")
-			return ctrl.Result{}, err
-		}
-		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-			Type:               v1alpha1.ReadyCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             v1alpha1.ProvisioningReason,
-			Message:            "Device is being provisioned",
-			ObservedGeneration: obj.Generation,
-		})
-		obj.Status.Phase = v1alpha1.DevicePhaseProvisioning
-		r.Recorder.Event(obj, "Normal", "ProvisioningStarted", "Device provisioning has started")
-		// TODO(swagner-de): Start POAP Process.
-		_ = tmpl // <-- Use the template.
-		return ctrl.Result{RequeueAfter: DefaultRequeueAfter}, nil
-
-	case v1alpha1.DevicePhaseProvisioning:
-		log.Info("Device is in provisioning phase, checking completion")
-		// TODO(swagner-de): Check if POAP Process is complete.
-		ready := true // <-- This should be replaced with actual readiness check logic.
-		if !ready {
-			// If the device is not ready yet, we requeue the request to check again later.
-			return ctrl.Result{RequeueAfter: DefaultRequeueAfter}, nil
-		}
-		log.Info("Device provisioning is complete, updating status")
-		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-			Type:               v1alpha1.ReadyCondition,
-			Status:             metav1.ConditionTrue,
-			Reason:             v1alpha1.ReadyReason,
-			Message:            "Device is ready for use",
-			ObservedGeneration: obj.Generation,
-		})
-		obj.Status.Phase = v1alpha1.DevicePhaseActive
-		r.Recorder.Event(obj, "Normal", "ProvisioningComplete", "Device provisioning has completed successfully")
-		// Trigger a status update and let the controller requeue the request
-		return ctrl.Result{}, nil
-
-	case v1alpha1.DevicePhaseActive:
-		if err := r.reconcile(ctx, obj); err != nil {
-			log.Error(err, "Failed to reconcile resource")
-			return ctrl.Result{}, err
-		}
-
-	case v1alpha1.DevicePhaseFailed:
-		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-			Type:               v1alpha1.ReadyCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             v1alpha1.NotReadyReason,
-			Message:            "Device provisioning has failed",
-			ObservedGeneration: obj.Generation,
-		})
-
-	default:
-		log.Info("Device is in an unknown phase, resetting to active")
-		obj.Status.Phase = v1alpha1.DevicePhaseActive
+		log.Info("Discovered and Created Interfaces for Device")
 	}
 
-	return ctrl.Result{}, nil
+	if err := r.ensureDeviceSettings(ctx, log, device, deviceProvider); err != nil {
+		return fmt.Errorf("failed to ensure device settings for %q: %w", device.Name, err)
+	}
+	log.Info("Ensured Device Settings")
+
+	// TODO: rest of the story
+
+	log.Info("Reconciled Device")
+	return nil
+}
+
+func (r *DeviceReconciler) ensureDeviceSettings(ctx context.Context, log logr.Logger, device *v1alpha1.Device, deviceProvider provider.DeviceProvider) error {
+	ntpServers := make([]string, 0, len(device.Spec.NTP.Servers))
+	for _, server := range device.Spec.NTP.Servers {
+		ntpServers = append(ntpServers, server.Address)
+	}
+
+	if err := deviceProvider.EnsureDeviceSettings(ctx, api.DeviceSettingsConfig{
+		Hostname:       device.Spec.Hostname,
+		NTPServers:     ntpServers,
+		ProviderConfig: nil,
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *DeviceReconciler) getProviderForDevice(device *v1alpha1.Device, log logr.Logger) (provider.DeviceProvider, error) {
+	var err error
+	var deviceProvider provider.DeviceProvider
+	switch device.Spec.Provider {
+	case v1alpha1.ProviderEdgeCore:
+		deviceProvider, err = edgecore.NewProvider(log, edgecore.Config{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create EdgeCore provider: %w", err)
+		}
+	case v1alpha1.ProviderCisco:
+		log.Info("Creating Cisco Provider")
+	default:
+		return nil, fmt.Errorf("unsupported provider %s", device.Spec.Provider)
+	}
+	return deviceProvider, nil
+}
+
+func (r *DeviceReconciler) ensureDeviceStatus(ctx context.Context, log logr.Logger, device *v1alpha1.Device, deviceProvider provider.DeviceProvider) error {
+	deviceInfo, err := deviceProvider.GetDeviceInfo(ctx)
+	if err != nil {
+		return err
+	}
+
+	deviceBase := device.DeepCopy()
+	device.Status.Vendor = deviceInfo.Vendor
+	device.Status.Model = deviceInfo.Model
+	device.Status.SerialNumber = deviceInfo.SerialNumber
+	device.Status.OSVersion = deviceInfo.OSVersion
+
+	if err := r.Status().Patch(ctx, device, client.MergeFrom(deviceBase)); err != nil {
+		return fmt.Errorf("failed to patch device status: %w", err)
+	}
+
+	return nil
+}
+
+func (r *DeviceReconciler) discoverAndCreateInterfacesForDevice(ctx context.Context, log logr.Logger, device *v1alpha1.Device, deviceProvider provider.DeviceProvider) error {
+	interfaces, err := deviceProvider.ListPhysicalInterfaces(ctx)
+	if err != nil {
+		return err
+	}
+	for _, iface := range interfaces {
+		log.Info("Creating Interface", "Interface", iface.Name)
+
+		ifaceObj := &v1alpha1.Interface{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      iface.Name,
+				Namespace: device.Namespace,
+			},
+			Spec: v1alpha1.InterfaceSpec{
+				Name:          iface.Name,
+				AdminState:    v1alpha1.AdminState(iface.AdminState),
+				Description:   iface.Description,
+				Type:          "",
+				MTU:           0,
+				Switchport:    nil,
+				IPv4Addresses: nil,
+			},
+		}
+
+		if err := controllerutil.SetControllerReference(device, ifaceObj, r.Scheme); err != nil {
+			return fmt.Errorf("failed to set controller reference for interface %q: %w", iface.Name, err)
+		}
+
+		if err := r.Patch(ctx, ifaceObj, client.Apply, client.FieldOwner("device-controller")); err != nil {
+			return fmt.Errorf("failed to apply interface %q: %w", iface.Name, err)
+		}
+	}
+
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	labelSelector := metav1.LabelSelector{}
-	if r.WatchFilterValue != "" {
-		labelSelector.MatchLabels = map[string]string{v1alpha1.WatchLabel: r.WatchFilterValue}
-	}
-
-	filter, err := predicate.LabelSelectorPredicate(labelSelector)
-	if err != nil {
-		return fmt.Errorf("failed to create label selector predicate: %w", err)
-	}
-
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Device{}).
 		Named("device").
-		WithEventFilter(filter).
 		Owns(&v1alpha1.Interface{}).
-		Watches(
-			&v1alpha1.Interface{},
-			handler.EnqueueRequestsFromMapFunc(r.interfaceToDevice),
-		).
-		// Watches enqueues Devices for referenced Secret resources.
-		Watches(
-			&corev1.Secret{},
-			handler.EnqueueRequestsFromMapFunc(r.secretToDevices),
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
-		).
-		// Watches enqueues Devices for referenced ConfigMap resources.
-		Watches(
-			&corev1.ConfigMap{},
-			handler.EnqueueRequestsFromMapFunc(r.configMapToDevices),
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
-		).
 		Complete(r)
-}
-
-func (r *DeviceReconciler) reconcile(ctx context.Context, obj *v1alpha1.Device) error {
-	log := ctrl.LoggerFrom(ctx)
-
-	c, ok := clientutil.FromContext(ctx)
-	if !ok {
-		return errors.New("failed to get controller client from context")
-	}
-
-	if err := obj.Spec.Validate(); err != nil {
-		log.Error(err, "Invalid Device spec")
-		return err
-	}
-
-	if ref := obj.Spec.Endpoint.SecretRef; ref != nil {
-		secret := new(corev1.Secret)
-		if err := c.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: ref.Namespace}, secret); err != nil {
-			log.Error(err, "Failed to get endpoint secret for device")
-			return err
-		}
-		if !controllerutil.ContainsFinalizer(secret, v1alpha1.FinalizerName) {
-			controllerutil.AddFinalizer(secret, v1alpha1.FinalizerName)
-			if err := r.Update(ctx, secret); err != nil {
-				log.Error(err, "Failed to add finalizer to endpoint secret")
-				return err
-			}
-			log.Info("Added finalizer to endpoint secret")
-		}
-	}
-
-	if err := r.setOwnerReferencesOnInterfaces(ctx, obj); err != nil {
-		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-			Type:               v1alpha1.ReadyCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             v1alpha1.NotReadyReason,
-			Message:            fmt.Sprintf("Failed to reconcile interfaces: %v", err),
-			ObservedGeneration: obj.Generation,
-		})
-		return err
-	}
-
-	if err := r.Provider.CreateDevice(ctx, obj); err != nil {
-		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-			Type:               v1alpha1.ReadyCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             v1alpha1.NotReadyReason,
-			Message:            fmt.Sprintf("Failed to configured device configuration: %v", err),
-			ObservedGeneration: obj.Generation,
-		})
-		return err
-	}
-
-	meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-		Type:               v1alpha1.ReadyCondition,
-		Status:             metav1.ConditionTrue,
-		Reason:             v1alpha1.AllResourcesReadyReason,
-		Message:            "All owned resources are ready",
-		ObservedGeneration: obj.Generation,
-	})
-	return nil
-}
-
-func (r *DeviceReconciler) finalize(ctx context.Context, device *v1alpha1.Device) error {
-	log := ctrl.LoggerFrom(ctx)
-
-	c, ok := clientutil.FromContext(ctx)
-	if !ok {
-		return errors.New("failed to get controller client from context")
-	}
-
-	if err := r.Provider.DeleteDevice(ctx, device); err != nil {
-		r.Recorder.Event(device, "Warning", "FinalizeFailed", err.Error())
-		return err
-	}
-
-	if ref := device.Spec.Endpoint.SecretRef; ref != nil {
-		secret := new(corev1.Secret)
-		if err := c.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: ref.Namespace}, secret); err != nil {
-			log.Error(err, "Failed to get endpoint secret for device")
-			return err
-		}
-		if controllerutil.ContainsFinalizer(secret, v1alpha1.FinalizerName) {
-			controllerutil.RemoveFinalizer(secret, v1alpha1.FinalizerName)
-			if err := r.Update(ctx, secret); err != nil {
-				log.Error(err, "Failed to remove finalizer from endpoint secret")
-				return err
-			}
-			log.Info("Removed finalizer from endpoint secret")
-		}
-	}
-
-	return nil
-}
-
-// setOwnerReferencesOnInterfaces sets the owner reference on all Interfaces owned by the Device if they do not already have one.
-func (r *DeviceReconciler) setOwnerReferencesOnInterfaces(ctx context.Context, device *v1alpha1.Device) error {
-	log := ctrl.LoggerFrom(ctx)
-
-	var list v1alpha1.InterfaceList
-	labelSelector := client.MatchingLabels{v1alpha1.DeviceLabel: device.Name}
-	if err := r.List(ctx, &list, client.InNamespace(device.Namespace), labelSelector); err != nil {
-		return fmt.Errorf("failed to list interfaces for device %q: %w", device.Name, err)
-	}
-
-	for _, iface := range list.Items {
-		hasOwnerRef, err := controllerutil.HasOwnerReference(iface.GetOwnerReferences(), device, r.Scheme)
-		if err != nil {
-			return fmt.Errorf("failed to check owner reference for interface %q: %w", iface.Name, err)
-		}
-
-		if !hasOwnerRef {
-			err := controllerutil.SetOwnerReference(device, &iface, r.Scheme, controllerutil.WithBlockOwnerDeletion(true))
-			if err != nil {
-				return fmt.Errorf("failed to set owner reference for interface %q: %w", iface.Name, err)
-			}
-
-			if err := r.Update(ctx, &iface); err != nil {
-				if apierrors.IsNotFound(err) {
-					log.Info("Interface not found, skipping update", "interface", iface.Name)
-					continue
-				}
-				return fmt.Errorf("failed to update interface %q with owner reference: %w", iface.Name, err)
-			}
-		}
-	}
-
-	return nil
-}
-
-// interfaceToDevice is a [handler.MapFunc] to be used to enqueue requests for reconciliation
-// for a Device to update when one of its own Interfaces gets updated.
-func (r *DeviceReconciler) interfaceToDevice(ctx context.Context, obj client.Object) []ctrl.Request {
-	iface, ok := obj.(*v1alpha1.Interface)
-	if !ok {
-		panic(fmt.Sprintf("Expected Interface but got a %T", obj))
-	}
-
-	log := ctrl.LoggerFrom(ctx, "Interface", klog.KObj(iface))
-
-	name, exists := iface.Labels[v1alpha1.DeviceLabel]
-	if !exists {
-		log.Info("Interface does not have a device label, skipping reconciliation")
-		return nil
-	}
-
-	return []ctrl.Request{{
-		NamespacedName: types.NamespacedName{
-			Namespace: iface.Namespace,
-			Name:      name,
-		},
-	}}
-}
-
-// secretToDevices is a [handler.MapFunc] to be used to enqueue requests for reconciliation
-// for a Device to update when one of its referenced Secrets gets updated.
-func (r *DeviceReconciler) secretToDevices(ctx context.Context, obj client.Object) []ctrl.Request {
-	secret, ok := obj.(*corev1.Secret)
-	if !ok {
-		panic(fmt.Sprintf("Expected a Secret but got a %T", obj))
-	}
-
-	log := ctrl.LoggerFrom(ctx, "Secret", klog.KObj(secret))
-
-	devices := new(v1alpha1.DeviceList)
-	if err := r.List(ctx, devices); err != nil {
-		log.Error(err, "Failed to list Devices")
-		return nil
-	}
-
-	requests := []ctrl.Request{}
-	for _, dev := range devices.Items {
-		if slices.ContainsFunc(dev.GetSecretRefs(), func(ref corev1.SecretReference) bool {
-			return ref.Name == secret.Name && ref.Namespace == secret.Namespace
-		}) {
-			log.Info("Enqueuing Device for reconciliation", "Device", klog.KObj(&dev))
-			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      dev.Name,
-					Namespace: dev.Namespace,
-				},
-			})
-		}
-	}
-
-	return requests
-}
-
-// configMapToDevices is a [handler.MapFunc] to be used to enqueue requests for reconciliation
-// for a Device to update when one of its referenced ConfigMaps gets updated.
-func (r *DeviceReconciler) configMapToDevices(ctx context.Context, obj client.Object) []ctrl.Request {
-	cm, ok := obj.(*corev1.ConfigMap)
-	if !ok {
-		panic(fmt.Sprintf("Expected a ConfigMap but got a %T", obj))
-	}
-
-	log := ctrl.LoggerFrom(ctx, "ConfigMap", klog.KObj(cm))
-
-	devices := new(v1alpha1.DeviceList)
-	if err := r.List(ctx, devices); err != nil {
-		log.Error(err, "Failed to list Devices")
-		return nil
-	}
-
-	requests := []ctrl.Request{}
-	for _, dev := range devices.Items {
-		if slices.ContainsFunc(dev.GetConfigMapRefs(), func(ref corev1.ObjectReference) bool {
-			return ref.Name == cm.Name && ref.Namespace == cm.Namespace
-		}) {
-			log.Info("Enqueuing Device for reconciliation", "Device", klog.KObj(&dev))
-			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      dev.Name,
-					Namespace: dev.Namespace,
-				},
-			})
-		}
-	}
-
-	return requests
 }

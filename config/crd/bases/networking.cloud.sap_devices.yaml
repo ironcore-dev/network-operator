@@ -412,6 +412,9 @@ spec:
                     minimum: 1024
                     type: integer
                 type: object
+              hostname:
+                description: Hostname is the hostname of the device.
+                type: string
               logging:
                 description: Top-level logging configuration for the device.
                 properties:
@@ -557,6 +560,9 @@ spec:
                 required:
                 - certificates
                 type: object
+              provider:
+                description: Provider is the type of device provider.
+                type: string
               snmp:
                 description: SNMP global configuration.
                 properties:
@@ -683,6 +689,7 @@ spec:
                 type: array
             required:
             - endpoint
+            - provider
             type: object
           status:
             description: |-
@@ -751,6 +758,10 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              model:
+                type: string
+              osVersion:
+                type: string
               phase:
                 default: Pending
                 description: Phase represents the current phase of the Device.
@@ -759,6 +770,10 @@ spec:
                 - Provisioning
                 - Active
                 - Failed
+                type: string
+              serialNumber:
+                type: string
+              vendor:
                 type: string
             required:
             - phase

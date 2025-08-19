@@ -10,8 +10,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type ProviderType string
+
+const (
+	ProviderEdgeCore ProviderType = "EdgeCore"
+	ProviderCisco    ProviderType = "Cisco"
+)
+
 // DeviceSpec defines the desired state of Device.
 type DeviceSpec struct {
+	// Provider is the type of device provider.
+	Provider ProviderType `json:"provider"`
+
+	// Hostname is the hostname of the device.
+	Hostname string `json:"hostname,omitempty"`
+
 	// Endpoint contains the connection information for the device.
 	// +required
 	Endpoint *Endpoint `json:"endpoint"`
@@ -489,6 +502,11 @@ type DeviceStatus struct {
 	// +kubebuilder:default=Pending
 	// +required
 	Phase DevicePhase `json:"phase,omitempty"`
+
+	Vendor       string `json:"vendor,omitempty"`
+	Model        string `json:"model,omitempty"`
+	SerialNumber string `json:"serialNumber,omitempty"`
+	OSVersion    string `json:"osVersion,omitempty"`
 
 	// The conditions are a list of status objects that describe the state of the Device.
 	//+listType=map
