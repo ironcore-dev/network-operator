@@ -11,23 +11,16 @@ import (
 	"path/filepath"
 	"strings"
 
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	"k8s.io/utils/ptr"
-
-	// Set runtime concurrency to match CPU limit imposed by Kubernetes
-	_ "go.uber.org/automaxprocs"
-
-	"github.com/sapcc/go-api-declarations/bininfo"
 	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+
+	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	// to ensure that exec-entrypoint and run can make use of them.
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
-	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
@@ -56,9 +49,6 @@ func init() {
 }
 
 func main() {
-	// if called with `--version`, report version and exit
-	bininfo.HandleVersionArgument()
-
 	var metricsAddr string
 	var metricsCertPath, metricsCertName, metricsCertKey string
 	var webhookCertPath, webhookCertName, webhookCertKey string
@@ -82,6 +72,7 @@ func main() {
 	flag.BoolVar(&enableHTTP2, "enable-http2", false, "If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.StringVar(&watchFilterValue, "watch-filter", "", fmt.Sprintf("Label value that the controller watches to reconcile api objects. Label key is always %q. If unspecified, the controller watches for all api objects.", v1alpha1.WatchLabel))
 	flag.StringVar(&providerName, "provider", "openconfig", "The provider to use for the controller. If not specified, the default provider is used. Available providers: "+strings.Join(provider.Providers(), ", "))
+
 	opts := zap.Options{
 		Development: true,
 		TimeEncoder: zapcore.ISO8601TimeEncoder,
@@ -179,8 +170,6 @@ func main() {
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Cache:                  cache.Options{ReaderFailOnMissingInformer: true},
-		Controller:             config.Controller{UsePriorityQueue: ptr.To(true)},
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
-package util
+package utils
 
 import (
 	"bufio"
@@ -11,12 +11,16 @@ import (
 	"os/exec"
 	"strings"
 
-	. "github.com/onsi/ginkgo/v2" //nolint:golint,revive
+	. "github.com/onsi/ginkgo/v2" // nolint:revive,staticcheck
 )
 
 const (
-	prometheusOperatorURL = "https://github.com/prometheus-operator/prometheus-operator/releases/download/v0.82.2/bundle.yaml"
-	certmanagerURL        = "https://github.com/cert-manager/cert-manager/releases/download/v1.17.2/cert-manager.yaml"
+	prometheusOperatorVersion = "v0.77.1"
+	prometheusOperatorURL     = "https://github.com/prometheus-operator/prometheus-operator/" +
+		"releases/download/%s/bundle.yaml"
+
+	certmanagerVersion = "v1.16.3"
+	certmanagerURLTmpl = "https://github.com/cert-manager/cert-manager/releases/download/%s/cert-manager.yaml"
 )
 
 func warnError(err error) {
@@ -25,22 +29,19 @@ func warnError(err error) {
 
 // Run executes the provided command within this context
 func Run(cmd *exec.Cmd) (string, error) {
-	dir, err := GetProjectDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get project directory: %w", err)
-	}
-
+	dir, _ := GetProjectDir()
 	cmd.Dir = dir
-	if err = os.Chdir(cmd.Dir); err != nil {
-		_, _ = fmt.Fprintf(GinkgoWriter, "chdir dir: %s\n", err)
+
+	if err := os.Chdir(cmd.Dir); err != nil {
+		_, _ = fmt.Fprintf(GinkgoWriter, "chdir dir: %q\n", err)
 	}
 
+	cmd.Env = append(os.Environ(), "GO111MODULE=on")
 	command := strings.Join(cmd.Args, " ")
-	_, _ = fmt.Fprintf(GinkgoWriter, "running: %s\n", command)
-
+	_, _ = fmt.Fprintf(GinkgoWriter, "running: %q\n", command)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return string(output), fmt.Errorf("%s failed with error: (%w) %s", command, err, string(output))
+		return string(output), fmt.Errorf("%q failed with error %q: %w", command, string(output), err)
 	}
 
 	return string(output), nil
@@ -48,14 +49,16 @@ func Run(cmd *exec.Cmd) (string, error) {
 
 // InstallPrometheusOperator installs the prometheus Operator to be used to export the enabled metrics.
 func InstallPrometheusOperator() error {
-	cmd := exec.Command("kubectl", "create", "-f", prometheusOperatorURL)
+	url := fmt.Sprintf(prometheusOperatorURL, prometheusOperatorVersion)
+	cmd := exec.Command("kubectl", "create", "-f", url)
 	_, err := Run(cmd)
 	return err
 }
 
 // UninstallPrometheusOperator uninstalls the prometheus
 func UninstallPrometheusOperator() {
-	cmd := exec.Command("kubectl", "delete", "-f", prometheusOperatorURL)
+	url := fmt.Sprintf(prometheusOperatorURL, prometheusOperatorVersion)
+	cmd := exec.Command("kubectl", "delete", "-f", url)
 	if _, err := Run(cmd); err != nil {
 		warnError(err)
 	}
@@ -90,15 +93,30 @@ func IsPrometheusCRDsInstalled() bool {
 
 // UninstallCertManager uninstalls the cert manager
 func UninstallCertManager() {
-	cmd := exec.Command("kubectl", "delete", "-f", certmanagerURL)
+	url := fmt.Sprintf(certmanagerURLTmpl, certmanagerVersion)
+	cmd := exec.Command("kubectl", "delete", "-f", url)
 	if _, err := Run(cmd); err != nil {
 		warnError(err)
+	}
+
+	// Delete leftover leases in kube-system (not cleaned by default)
+	kubeSystemLeases := []string{
+		"cert-manager-cainjector-leader-election",
+		"cert-manager-controller",
+	}
+	for _, lease := range kubeSystemLeases {
+		cmd = exec.Command("kubectl", "delete", "lease", lease,
+			"-n", "kube-system", "--ignore-not-found", "--force", "--grace-period=0")
+		if _, err := Run(cmd); err != nil {
+			warnError(err)
+		}
 	}
 }
 
 // InstallCertManager installs the cert manager bundle.
 func InstallCertManager() error {
-	cmd := exec.Command("kubectl", "apply", "-f", certmanagerURL)
+	url := fmt.Sprintf(certmanagerURLTmpl, certmanagerVersion)
+	cmd := exec.Command("kubectl", "apply", "-f", url)
 	if _, err := Run(cmd); err != nil {
 		return err
 	}
@@ -153,31 +171,8 @@ func LoadImageToKindClusterWithName(name string) error {
 	if v, ok := os.LookupEnv("KIND_CLUSTER"); ok {
 		cluster = v
 	}
-	// See: https://kind.sigs.k8s.io/docs/user/rootless/#creating-a-kind-cluster-with-rootless-nerdctl
-	prov, ok := os.LookupEnv("KIND_EXPERIMENTAL_PROVIDER")
-	if ok && prov != "docker" {
-		// If kind is configured to not use the docker runtime (e.g. when using podman or nerctl),
-		// we need to create a temp file to store the image archive and load it as a tarball.
-		// See: https://github.com/kubernetes-sigs/kind/issues/2760
-		file, err := os.CreateTemp("", "operator-image-")
-		if err != nil {
-			return fmt.Errorf("failed to create temp file: %w", err)
-		}
-		_ = file.Close()
-		defer func() { _ = os.Remove(file.Name()) }()
-
-		// https://github.com/containerd/nerdctl/blob/main/docs/command-reference.md#whale-nerdctl-save
-		// https://docs.podman.io/en/v5.3.0/markdown/podman-save.1.html
-		cmd := exec.Command(prov, "save", name, "--output", file.Name())
-		if _, err = Run(cmd); err != nil {
-			return fmt.Errorf("failed to save image: %w", err)
-		}
-
-		cmd = exec.Command("kind", "load", "image-archive", file.Name(), "--name", cluster) //nolint:gosec
-		_, err = Run(cmd)
-		return err
-	}
-	cmd := exec.Command("kind", "load", "docker-image", name, "--name", cluster)
+	kindOptions := []string{"load", "docker-image", name, "--name", cluster}
+	cmd := exec.Command("kind", kindOptions...)
 	_, err := Run(cmd)
 	return err
 }
@@ -192,6 +187,7 @@ func GetNonEmptyLines(output string) []string {
 			res = append(res, element)
 		}
 	}
+
 	return res
 }
 
@@ -199,7 +195,7 @@ func GetNonEmptyLines(output string) []string {
 func GetProjectDir() (string, error) {
 	wd, err := os.Getwd()
 	if err != nil {
-		return wd, err
+		return wd, fmt.Errorf("failed to get current working directory: %w", err)
 	}
 	wd = strings.ReplaceAll(wd, "/test/e2e", "")
 	return wd, nil
@@ -208,23 +204,23 @@ func GetProjectDir() (string, error) {
 // UncommentCode searches for target in the file and remove the comment prefix
 // of the target content. The target content may span multiple lines.
 func UncommentCode(filename, target, prefix string) error {
+	// false positive
+	// nolint:gosec
 	content, err := os.ReadFile(filename)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read file %q: %w", filename, err)
 	}
+	strContent := string(content)
 
-	idx := strings.Index(string(content), target)
+	idx := strings.Index(strContent, target)
 	if idx < 0 {
-		if strings.Contains(string(content), target[len(prefix):]) {
-			return nil // already uncommented
-		}
-
-		return fmt.Errorf("unable to find the code %s to be uncomment", target)
+		return fmt.Errorf("unable to find the code %q to be uncomment", target)
 	}
 
 	out := new(bytes.Buffer)
-	if _, err = out.Write(content[:idx]); err != nil {
-		return err
+	_, err = out.Write(content[:idx])
+	if err != nil {
+		return fmt.Errorf("failed to write to output: %w", err)
 	}
 
 	scanner := bufio.NewScanner(bytes.NewBufferString(target))
@@ -232,22 +228,27 @@ func UncommentCode(filename, target, prefix string) error {
 		return nil
 	}
 	for {
-		_, err = out.WriteString(strings.TrimPrefix(scanner.Text(), prefix))
-		if err != nil {
-			return err
+		if _, err = out.WriteString(strings.TrimPrefix(scanner.Text(), prefix)); err != nil {
+			return fmt.Errorf("failed to write to output: %w", err)
 		}
 		// Avoid writing a newline in case the previous line was the last in target.
 		if !scanner.Scan() {
 			break
 		}
 		if _, err = out.WriteString("\n"); err != nil {
-			return err
+			return fmt.Errorf("failed to write to output: %w", err)
 		}
 	}
 
 	if _, err = out.Write(content[idx+len(target):]); err != nil {
-		return err
+		return fmt.Errorf("failed to write to output: %w", err)
 	}
 
-	return os.WriteFile(filename, out.Bytes(), 0o644)
+	// false positive
+	// nolint:gosec
+	if err = os.WriteFile(filename, out.Bytes(), 0o644); err != nil {
+		return fmt.Errorf("failed to write file %q: %w", filename, err)
+	}
+
+	return nil
 }

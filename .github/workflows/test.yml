@@ -1,4 +1,4 @@
-name: E2E Tests
+name: Tests
 
 on:
   pull_request:
@@ -8,7 +8,7 @@ on:
       - '**/*.md'
 
 jobs:
-  test-e2e:
+  test:
     name: Run on Ubuntu
     runs-on: ubuntu-latest
     steps:
@@ -20,12 +20,7 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Create k8s Kind Cluster
-        uses: helm/kind-action@v1
-        with:
-          install_only: true
-
-      - name: Running Test e2e
+      - name: Running Tests
         run: |
           go mod tidy
-          make test-e2e
+          make test

@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
 # SPDX-License-Identifier: Apache-2.0
 
-FROM golang:1.25-alpine3.22 AS builder
+FROM golang:1.24-alpine3.22 AS builder
 
 RUN apk add --no-cache --no-progress git make
 
@@ -14,31 +14,33 @@ ARG TARGETOS
 ARG TARGETARCH
 
 WORKDIR /workspace
+# Copy the Go Modules manifests
+COPY go.mod go.mod
+COPY go.sum go.sum
+# cache deps before building and copying source so that we don't need to re-download as much
+# and so that source changes don't invalidate our downloaded layer
+RUN go mod download
 
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=bind,source=go.mod,target=go.mod \
-    --mount=type=bind,source=go.sum,target=go.sum \
-    go mod download -x
+# Copy the go source
+COPY cmd/main.go cmd/main.go
+COPY api/ api/
+COPY internal/ internal/
 
-RUN --mount=type=bind,target=.,readwrite \
-    --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    GOOS=${TARGETOS} GOARCH=${TARGETARCH} GOTOOLCHAIN=local make install
+# Build
+# the GOARCH has not a default value to allow the binary be built according to the host where the command
+# was called. For example, if we call make docker-build in a local env which has the Apple Silicon M1 SO
+# the docker BUILDPLATFORM arg will be linux/arm64 when for Apple x86 it will be linux/amd64. Therefore,
+# by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg \
+    CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -ldflags="-s -w" -a -o manager cmd/main.go
 
-FROM gcr.io/distroless/static:nonroot
-
-ARG BININFO_BUILD_DATE
-ARG BININFO_COMMIT_HASH
-ARG BININFO_VERSION
-
-LABEL source_repository="https://github.com/ironcore-dev/network-operator" \
-    org.opencontainers.image.url="https://github.com/ironcore-dev/network-operator" \
-    org.opencontainers.image.created=${BININFO_BUILD_DATE} \
-    org.opencontainers.image.revision=${BININFO_COMMIT_HASH} \
-    org.opencontainers.image.version=${BININFO_VERSION}
-
-COPY --from=builder /usr/bin/network-operator /manager
-
-USER 65532:65532
+# Use distroless as minimal base image to package the manager binary
+# Refer to https://github.com/GoogleContainerTools/distroless for more details
+FROM gcr.io/distroless/static:nonroot AS manager
+LABEL source_repository="https://github.com/ironcore-dev/metal-operator"
 WORKDIR /
-ENTRYPOINT [ "/manager" ]
+COPY --from=builder /workspace/manager .
+USER 65532:65532
+
+ENTRYPOINT ["/manager"]

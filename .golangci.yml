@@ -1,0 +1,93 @@
+version: "2"
+run:
+  allow-parallel-runners: true
+  timeout: 10m
+linters:
+  default: none
+  enable:
+    - copyloopvar
+    - dupl
+    - errcheck
+    - ginkgolinter
+    - goconst
+    - gocyclo
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - nakedret
+    - prealloc
+    - revive
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+  settings:
+    revive:
+      rules:
+        - name: comment-spacings
+        - name: import-shadowing
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - lll
+        path: api/*
+      - linters:
+          - dupl
+          - lll
+        path: internal/controller
+      - linters:
+          - lll
+        path: cmd/*
+      - linters:
+          - lll
+        path: test
+      - linters:
+          - lll
+        path: hack/provider
+      - linters:
+          - gocyclo
+          - dupl
+        path: internal/provider/cisco/nxos/vrf
+      - linters:
+          - lll
+        path: internal/provider/cisco/nxos
+      - linters:
+          - lll
+        path: internal/provider/openconfig
+      - linters:
+          - staticcheck
+          - goconst
+          - unconvert
+          - misspell
+          - gofmt
+          - gocyclo
+          - dupl
+        path: internal/provider/cisco/nxos/genyang
+      - linters:
+          - staticcheck
+          - goconst
+          - unused
+          - unconvert
+          - gofmt
+          - errcheck
+        path: internal/provider/openconfig
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 10
+  max-same-issues: 10
+

@@ -108,7 +108,12 @@ func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) er
 	if err != nil {
 		return fmt.Errorf("failed to create grpc connection: %w", err)
 	}
-	defer conn.Close()
+	defer func(conn *grpc.ClientConn) {
+		err := conn.Close()
+		if err != nil {
+			log.Error(err, "failed to close grpc connection")
+		}
+	}(conn)
 
 	var opts []gnmiext.Option
 	var isDryRun bool
