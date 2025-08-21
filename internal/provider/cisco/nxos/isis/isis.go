@@ -4,6 +4,7 @@
 package isis
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/openconfig/ygot/ygot"
@@ -49,10 +50,10 @@ const (
 
 func (i *ISIS) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 	if i.Name == "" {
-		return nil, fmt.Errorf("isis: name must be set")
+		return nil, errors.New("isis: name must be set")
 	}
 	if i.NET == "" {
-		return nil, fmt.Errorf("isis: NET must be set")
+		return nil, errors.New("isis: NET must be set")
 	}
 	instList := &nxos.Cisco_NX_OSDevice_System_IsisItems_InstItems_InstList{
 		Name: ygot.String(i.Name),
@@ -89,6 +90,12 @@ func (i *ISIS) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 	}
 
 	return []gnmiext.Update{
+		gnmiext.EditingUpdate{
+			XPath: "System/fm-items/isis-items",
+			Value: &nxos.Cisco_NX_OSDevice_System_FmItems_IsisItems{
+				AdminSt: nxos.Cisco_NX_OSDevice_Fm_AdminState_enabled,
+			},
+		},
 		gnmiext.ReplacingUpdate{
 			XPath: "System/isis-items/inst-items/Inst-list[name=" + i.Name + "]",
 			Value: instList,

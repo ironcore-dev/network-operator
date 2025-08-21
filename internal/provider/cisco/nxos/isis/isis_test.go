@@ -26,12 +26,19 @@ func TestToYGOT(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ToYGOT() error = %v", err)
 	}
-	if len(got) != 1 {
-		t.Fatalf("ToYGOT() expected 1 update, got %d", len(got))
+	if len(got) != 2 {
+		t.Fatalf("ToYGOT() expected 2 updates, got %d", len(got))
 	}
-	update, ok := got[0].(gnmiext.ReplacingUpdate)
+	edit, ok := got[0].(gnmiext.EditingUpdate)
 	if !ok {
-		t.Errorf("expected value to be of type ReplacingUpdate")
+		t.Errorf("expected first update to be of type ReplacingUpdate")
+	}
+	if edit.XPath != "System/fm-items/isis-items" {
+		t.Errorf("expected first update XPath 'System/fm-items/isis-items', got %s", edit.XPath)
+	}
+	update, ok := got[1].(gnmiext.ReplacingUpdate)
+	if !ok {
+		t.Errorf("expected second update to be of type ReplacingUpdate")
 	}
 	if update.XPath != "System/isis-items/inst-items/Inst-list[name=UNDERLAY]" {
 		t.Errorf("expected XPath 'System/isis-items/inst-items/Inst-list[name=UNDERLAY]', got %s", update.XPath)
@@ -118,8 +125,8 @@ func TestISIS_ToYGOT_EmptyAddressFamilies(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error for empty address families: %v", err)
 	}
-	if len(updates) != 1 {
-		t.Errorf("expected 1 update, got %d", len(updates))
+	if len(updates) != 2 {
+		t.Errorf("expected 2 updates, got %d", len(updates))
 	}
 }
 
