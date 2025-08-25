@@ -25,7 +25,7 @@ func Test_PhysIf_NewPhysicalInterface(t *testing.T) {
 	validNames := []string{"Ethernet1/1", "ethernet1/2", "eth1/1", "eTH1/2", "Eth1/3"}
 	for _, name := range validNames {
 		t.Run(name, func(t *testing.T) {
-			_, err := NewPhysicalInterface(name, nil)
+			_, err := NewPhysicalInterface(name)
 			if err != nil {
 				t.Fatalf("failed to create physical interface: %v", err)
 			}
@@ -34,7 +34,7 @@ func Test_PhysIf_NewPhysicalInterface(t *testing.T) {
 	invalidNames := []string{"test", "ether1/1", "ethernet1.1", "eth1/1/1", "port-channel01", "po100"}
 	for _, name := range invalidNames {
 		t.Run(name, func(t *testing.T) {
-			_, err := NewPhysicalInterface(name, nil)
+			_, err := NewPhysicalInterface(name)
 			if err == nil {
 				t.Fatalf("created interface with invalid name: %s", name)
 			}
@@ -45,7 +45,7 @@ func Test_PhysIf_NewPhysicalInterface(t *testing.T) {
 // tests base configuration of the physical interface is correctly initialized
 func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 	t.Run("No additional base options", func(t *testing.T) {
-		p, err := NewPhysicalInterface(physIfName, ygot.String(physIfDescription))
+		p, err := NewPhysicalInterface(physIfName, WithDescription(physIfDescription))
 		if err != nil {
 			t.Fatalf("failed to create physical interface")
 		}
@@ -57,7 +57,7 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 
 		// single update affecting only base configuration of physical interface
 		if len(got) != 1 {
-			t.Errorf("expected 2 update, got %d", len(got))
+			t.Errorf("expected 1 update, got %d", len(got))
 		}
 		bUpdate, ok := got[0].(gnmiext.ReplacingUpdate)
 		if !ok {
@@ -83,7 +83,9 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 		}
 	})
 	t.Run("MTU and VRF", func(t *testing.T) {
-		p, err := NewPhysicalInterface(physIfName, ygot.String(physIfDescription),
+		p, err := NewPhysicalInterface(
+			physIfName,
+			WithDescription(physIfDescription),
 			WithPhysIfMTU(9216),
 			WithPhysIfVRF(physIfVRFName),
 		)
@@ -98,7 +100,7 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 
 		// single update affecting only base configuration of physical interface
 		if len(got) != 1 {
-			t.Errorf("expected 2 update, got %d", len(got))
+			t.Errorf("expected 1 update, got %d", len(got))
 		}
 		bUpdate, ok := got[0].(gnmiext.ReplacingUpdate)
 		if !ok {
@@ -128,7 +130,7 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 }
 
 func Test_PhysIf_Reset_BaseConfig(t *testing.T) {
-	p, err := NewPhysicalInterface(physIfName, ygot.String(physIfDescription))
+	p, err := NewPhysicalInterface(physIfName, WithDescription(physIfDescription))
 	if err != nil {
 		t.Fatalf("failed to create physical interface")
 	}
@@ -176,13 +178,13 @@ func Test_PhysIf_ToYGOT_WithL2AndL3(t *testing.T) {
 	}
 
 	t.Run("L2 with VRF is not allowed", func(t *testing.T) {
-		_, err := NewPhysicalInterface(physIfName, ygot.String(physIfDescription), WithPhysIfL2(l2cfg), WithPhysIfVRF(physIfVRFName))
+		_, err := NewPhysicalInterface(physIfName, WithDescription(physIfDescription), WithPhysIfL2(l2cfg), WithPhysIfVRF(physIfVRFName))
 		if err == nil {
 			t.Fatalf("expected error when creating physical interface with L2 and VRF, got nil")
 		}
 	})
 	t.Run("L2 then L3, expect only L3", func(t *testing.T) {
-		p, err := NewPhysicalInterface(physIfName, ygot.String(physIfDescription), WithPhysIfL2(l2cfg), WithPhysIfL3(l3cfg))
+		p, err := NewPhysicalInterface(physIfName, WithDescription(physIfDescription), WithPhysIfL2(l2cfg), WithPhysIfL3(l3cfg))
 		if err != nil {
 			t.Fatalf("failed to create physical interface")
 		}
@@ -195,7 +197,7 @@ func Test_PhysIf_ToYGOT_WithL2AndL3(t *testing.T) {
 	})
 
 	t.Run("L3 then L2, expect only L2", func(t *testing.T) {
-		p, err := NewPhysicalInterface(physIfName, ygot.String(physIfDescription), WithPhysIfL3(l3cfg), WithPhysIfL2(l2cfg))
+		p, err := NewPhysicalInterface(physIfName, WithDescription(physIfDescription), WithPhysIfL3(l3cfg), WithPhysIfL2(l2cfg))
 		if err != nil {
 			t.Fatalf("failed to create physical interface")
 		}
@@ -218,7 +220,7 @@ func Test_PhysIf_ToYGOT_WithL2_Trunk(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error while creating L2 config: %v", err)
 	}
-	p, err := NewPhysicalInterface(physIfName, ygot.String(physIfDescription), WithPhysIfL2(l2cfg))
+	p, err := NewPhysicalInterface(physIfName, WithDescription(physIfDescription), WithPhysIfL2(l2cfg))
 	if err != nil {
 		t.Fatalf("failed to create physical interface")
 	}
@@ -287,7 +289,7 @@ func Test_PhysIf_ToYGOT_WithL2_Access(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error while creating L2 config: %v", err)
 	}
-	p, err := NewPhysicalInterface(physIfName, ygot.String(physIfDescription), WithPhysIfL2(l2cfg))
+	p, err := NewPhysicalInterface(physIfName, WithDescription(physIfDescription), WithPhysIfL2(l2cfg))
 	if err != nil {
 		t.Fatalf("failed to create physical interface")
 	}
@@ -312,7 +314,7 @@ func Test_PhysIf_ToYGOT_WithL2_Access(t *testing.T) {
 			AdminSt:       nxos.Cisco_NX_OSDevice_L1_AdminSt_up,
 			Layer:         nxos.Cisco_NX_OSDevice_L1_Layer_Layer2,
 			Mode:          nxos.Cisco_NX_OSDevice_L1_Mode_access,
-			AccessVlan:    ygot.String("10"),
+			AccessVlan:    ygot.String("vlan-10"),
 			UserCfgdFlags: ygot.String("admin_layer,admin_state"),
 		}
 		phGot := bUpdate.Value.(*nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList)
@@ -355,7 +357,7 @@ func Test_PhysIf_ToYGOT_WithL3(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	p, err := NewPhysicalInterface(physIfName, ygot.String(physIfDescription), WithPhysIfL3(l3cfg))
+	p, err := NewPhysicalInterface(physIfName, WithDescription(physIfDescription), WithPhysIfL3(l3cfg))
 	if err != nil {
 		t.Fatalf("failed to create physical interface")
 	}
@@ -448,7 +450,7 @@ func Test_PhysIf_ToYGOT_WithL3(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		p2, err := NewPhysicalInterface(physIfName, ygot.String(physIfDescription), WithPhysIfL3(l3cfg))
+		p2, err := NewPhysicalInterface(physIfName, WithDescription(physIfDescription), WithPhysIfL3(l3cfg))
 		if err != nil {
 			t.Fatalf("failed to create physical interface")
 		}
@@ -480,7 +482,7 @@ func Test_PhysIf_Reset_WithL3(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	p, err := NewPhysicalInterface(physIfName, ygot.String(physIfDescription), WithPhysIfL3(l3cfg))
+	p, err := NewPhysicalInterface(physIfName, WithDescription(physIfDescription), WithPhysIfL3(l3cfg))
 	if err != nil {
 		t.Fatalf("failed to create physical interface")
 	}
@@ -522,7 +524,9 @@ func Test_PhysIf_ToYGOT_VRF(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	p, err := NewPhysicalInterface(physIfName, ygot.String(physIfDescription),
+	p, err := NewPhysicalInterface(
+		physIfName,
+		WithDescription(physIfDescription),
 		WithPhysIfVRF(physIfVRFName),
 		WithPhysIfL3(l3cfg),
 	)

@@ -28,8 +28,8 @@ const (
 type L2Config struct {
 	spanningTree SpanningTreeMode
 	switchPort   SwitchPortMode
-	accessVlan   *uint16
-	nativeVlan   *uint16
+	accessVlan   uint16
+	nativeVlan   uint16
 	allowedVlans []uint16
 }
 
@@ -75,7 +75,7 @@ func WithAccessVlan(vlan uint16) L2Option {
 		if vlan < 1 || vlan > 4094 {
 			return errors.New("access VLAN must be between 1 and 4094")
 		}
-		c.accessVlan = &vlan
+		c.accessVlan = vlan
 		return nil
 	}
 }
@@ -88,7 +88,7 @@ func WithNativeVlan(vlan uint16) L2Option {
 		if vlan < 1 || vlan > 4094 {
 			return errors.New("native VLAN must be between 1 and 4094")
 		}
-		c.nativeVlan = &vlan
+		c.nativeVlan = vlan
 		return nil
 	}
 }

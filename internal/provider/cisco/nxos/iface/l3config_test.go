@@ -68,7 +68,7 @@ func TestL3Config_ConflictingAddressingModes(t *testing.T) {
 			t.Errorf("expected no addressesInterface, got %s", c.unnumberedLoopback)
 		}
 		if len(c.prefixesIPv4) != 1 || c.prefixesIPv4[0].String() != "10.0.0.1/24" {
-			t.Errorf("expected IPv4 addresses to be 10.0.1/24, got %v", c.prefixesIPv4)
+			t.Errorf("expected IPv4 addresses to be 10.0.0.1/24, got %v", c.prefixesIPv4)
 		}
 		if len(c.prefixesIPv6) != 0 {
 			t.Errorf("expected no IPv6 addresses, got %v", c.prefixesIPv6)
@@ -117,25 +117,25 @@ func TestL3Config_OverlapAddresses(t *testing.T) {
 	t.Run("WithNumberedAddressingIPv4_duplicates", func(t *testing.T) {
 		_, err := NewL3Config(WithNumberedAddressingIPv4([]string{"10.0.0.1/24", "10.0.0.1/24"}))
 		if err == nil {
-			t.Fatalf("unexpected error: %v", err)
+			t.Fatal("expected error for duplicate IPv4 addresses, got nil")
 		}
 	})
 	t.Run("WithNumberedAddressingIPv4_overlap", func(t *testing.T) {
 		_, err := NewL3Config(WithNumberedAddressingIPv4([]string{"10.0.0.1/24", "10.0.0.1/8"}))
 		if err == nil {
-			t.Fatalf("unexpected error: %v", err)
+			t.Fatal("expected error for overlapping IPv4 addresses, got nil")
 		}
 	})
 	t.Run("WithNumberedAddressingIPv6_duplicates", func(t *testing.T) {
 		_, err := NewL3Config(WithNumberedAddressingIPv6([]string{"2001:db8::1/64", "2001:db8::1/64"}))
 		if err == nil {
-			t.Fatalf("unexpected error: %v", err)
+			t.Fatal("expected error for duplicate IPv6 addresses, got nil")
 		}
 	})
 	t.Run("WithNumberedAddressingIPv6_overlap", func(t *testing.T) {
 		_, err := NewL3Config(WithNumberedAddressingIPv6([]string{"2001:db8::1/64", "2001:db8::2/32"}))
 		if err == nil {
-			t.Fatalf("unexpected error: %v", err)
+			t.Fatal("expected error for overlapping IPv6 addresses, got nil")
 		}
 	})
 }

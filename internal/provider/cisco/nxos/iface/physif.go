@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -22,9 +23,9 @@ var _ gnmiext.DeviceConf = (*PhysIf)(nil)
 
 type PhysIf struct {
 	name        string
-	description *string
+	description string
 	adminSt     bool
-	mtu         *uint32
+	mtu         uint32
 	// Layer 2 properties, e.g., switchport mode, spanning tree, etc.
 	l2 *L2Config
 	// Layer 3 properties, e.g., IP address, PIM, ISIS, etc.
@@ -39,15 +40,14 @@ type PhysIfOption func(*PhysIf) error
 //   - Name must follow the NX-OS naming convention, e.g., "Ethernet1/1" or "eth1/1" (case insensitive).
 //   - The interface will be configured admin state set to `up`.
 //   - If both L2 and L3 configurations options are supplied, only the last one will be applied.
-func NewPhysicalInterface(name string, description *string, opts ...PhysIfOption) (*PhysIf, error) {
+func NewPhysicalInterface(name string, opts ...PhysIfOption) (*PhysIf, error) {
 	altName, err := getPhysicalInterfaceShortName(name)
 	if err != nil {
 		return nil, fmt.Errorf("physif: not a valid name: %w", err)
 	}
 	p := &PhysIf{
-		name:        altName,
-		description: description,
-		adminSt:     true,
+		name:    altName,
+		adminSt: true,
 	}
 	for _, opt := range opts {
 		if err := opt(p); err != nil {
@@ -57,10 +57,24 @@ func NewPhysicalInterface(name string, description *string, opts ...PhysIfOption
 	return p, nil
 }
 
+// WithDescription sets a description on the physical interface.
+func WithDescription(descr string) PhysIfOption {
+	return func(p *PhysIf) error {
+		if descr == "" {
+			return errors.New("physif: description must not be empty")
+		}
+		p.description = descr
+		return nil
+	}
+}
+
 // WithPhysIfMTU sets the MTU for the physical interface.
 func WithPhysIfMTU(mtu uint32) PhysIfOption {
 	return func(p *PhysIf) error {
-		p.mtu = &mtu
+		if mtu > 9216 || mtu < 576 {
+			return errors.New("physif: MTU must be between 576 and 9216")
+		}
+		p.mtu = mtu
 		return nil
 	}
 }
@@ -125,32 +139,25 @@ func getPhysicalInterfaceShortName(name string) (string, error) {
 //   - subsequent updates modify the base configuration to add L2 and L3 configurations, if applicable
 //   - the last update attaches the physical interface to a port channel, if applicable
 func (p *PhysIf) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
-	// base
+	var descr *string
+	if p.description != "" {
+		descr = &p.description
+	}
+
 	pl := &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
 		AdminSt:       nxos.Cisco_NX_OSDevice_L1_AdminSt_up,
-		Descr:         p.description,
-		Mtu:           p.mtu,
+		Descr:         descr,
 		UserCfgdFlags: ygot.String("admin_state"),
 	}
 	if !p.adminSt {
 		pl.AdminSt = nxos.Cisco_NX_OSDevice_L1_AdminSt_down
 	}
-	if p.mtu != nil {
+	if p.mtu != 0 {
 		pl.UserCfgdFlags = ygot.String("admin_mtu," + *pl.UserCfgdFlags)
+		pl.Mtu = ygot.Uint32(p.mtu)
 	}
 	if p.vrf != "" {
 		pl.GetOrCreateRtvrfMbrItems().TDn = ygot.String("System/inst-items/Inst-list[name=" + p.vrf + "]")
-	}
-
-	// l2 (modifies part of the base tree)
-	var l2Updates []gnmiext.Update
-	if p.l2 != nil {
-		l2Updates = p.createL2(pl)
-	}
-	// l3 (modifies part of the base tree)
-	l3Updates, err := p.createL3(pl)
-	if err != nil {
-		return nil, fmt.Errorf("physif: fail to create ygot objects for L3 config %w", err)
 	}
 
 	// base config must to be in the first update
@@ -160,12 +167,18 @@ func (p *PhysIf) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
 			Value: pl,
 		},
 	}
-	if l2Updates != nil {
-		updates = append(updates, l2Updates...)
+
+	// l2 (modifies part of the base tree)
+	l2Updates := p.createL2(pl)
+	updates = append(updates, l2Updates...)
+
+	// l3 (modifies part of the base tree)
+	l3Updates, err := p.createL3(pl)
+	if err != nil {
+		return nil, fmt.Errorf("physif: fail to create ygot objects for L3 config %w", err)
 	}
-	if l3Updates != nil {
-		updates = append(updates, l3Updates...)
-	}
+	updates = append(updates, l3Updates...)
+
 	return updates, nil
 }
 
@@ -180,17 +193,16 @@ func (p *PhysIf) createL2(pl *nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_
 			switch p.l2.switchPort {
 			case SwitchPortModeAccess:
 				pl.Mode = nxos.Cisco_NX_OSDevice_L1_Mode_access
-				if p.l2.accessVlan != nil {
-					pl.AccessVlan = ygot.String(strconv.FormatUint(uint64(*p.l2.accessVlan), 10))
+				if p.l2.accessVlan != 0 {
+					pl.AccessVlan = ygot.String("vlan-" + strconv.FormatUint(uint64(p.l2.accessVlan), 10))
 				}
 			case SwitchPortModeTrunk:
 				pl.Mode = nxos.Cisco_NX_OSDevice_L1_Mode_trunk
-				if p.l2.allowedVlans != nil {
-					pl.TrunkVlans = ygot.String(strings.Trim(strings.ReplaceAll(fmt.Sprint(p.l2.allowedVlans), " ", ","), "[]"))
+				if len(p.l2.allowedVlans) != 0 {
+					pl.TrunkVlans = ygot.String(Range(p.l2.allowedVlans))
 				}
-				// configure native VLAN (cisco accepts "vlan-<vlan-id>")
-				if p.l2.nativeVlan != nil {
-					pl.NativeVlan = ygot.String(fmt.Sprintf("vlan-%d", *p.l2.nativeVlan))
+				if p.l2.nativeVlan != 0 {
+					pl.NativeVlan = ygot.String("vlan-" + strconv.FormatUint(uint64(p.l2.nativeVlan), 10))
 				}
 			}
 		}
@@ -257,4 +269,36 @@ func (p *PhysIf) Reset(client gnmiext.Client) ([]gnmiext.Update, error) {
 		},
 	}
 	return updates, nil
+}
+
+// Range provides a string representation of identifiers (typically VLAN IDs) that formats the range in a human-readable way.
+// Consecutive IDs are represented as a range (e.g., "10-12"), while single IDs are shown individually (e.g., "15").
+// All values are joined in a comma-separated list of ranges and individual IDs, e.g. "10-12,15,20-22".
+func Range(r []uint16) string {
+	if len(r) == 0 {
+		return ""
+	}
+
+	slices.Sort(r)
+	var ranges []string
+	start, curr := r[0], r[0]
+	for _, id := range r[1:] {
+		if id == curr+1 {
+			curr = id
+			continue
+		}
+		if curr != start {
+			ranges = append(ranges, fmt.Sprintf("%d-%d", start, curr))
+		} else {
+			ranges = append(ranges, strconv.FormatInt(int64(start), 10))
+		}
+		start, curr = id, id
+	}
+	if curr != start {
+		ranges = append(ranges, fmt.Sprintf("%d-%d", start, curr))
+	} else {
+		ranges = append(ranges, strconv.FormatInt(int64(start), 10))
+	}
+
+	return strings.Join(ranges, ",")
 }
