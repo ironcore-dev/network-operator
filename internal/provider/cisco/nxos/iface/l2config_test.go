@@ -16,7 +16,7 @@ func TestL2Config_AccessModeOptions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error while creating L2 config: %v", err)
 	}
-	if l2.accessVlan == nil || *l2.accessVlan != 100 {
+	if l2.accessVlan != 100 {
 		t.Errorf("expected accessVlan to be 100, got %v", l2.accessVlan)
 	}
 
@@ -57,7 +57,7 @@ func TestL2Config_TrunkModeOptions(t *testing.T) {
 			t.Fatalf("unexpected error while creating L2 config: %v", err)
 		}
 
-		if l2.nativeVlan == nil || *l2.nativeVlan != 200 {
+		if l2.nativeVlan != 200 {
 			t.Errorf("expected nativeVlan to be 200, got %v", l2.nativeVlan)
 		}
 		expected := []uint16{10, 20, 30}

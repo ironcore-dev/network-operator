@@ -117,9 +117,7 @@ func (l *Loopback) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
 		if err != nil {
 			return nil, fmt.Errorf("loopback: fail to create ygot objects for L3 config %w ", err)
 		}
-		if l3Updates != nil {
-			updates = append(updates, l3Updates...)
-		}
+		updates = append(updates, l3Updates...)
 	}
 	return updates, nil
 }
