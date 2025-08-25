@@ -349,8 +349,7 @@ func (c *client) applyEditingUpdate(ctx context.Context, update *EditingUpdate) 
 	}
 
 	got := reflect.New(reflect.TypeOf(update.Value).Elem()).Interface().(ygot.GoStruct)
-	err := c.Get(ctx, update.XPath, got)
-	if err != nil && !errors.Is(err, ErrNil) {
+	if err := c.Get(ctx, update.XPath, got); err != nil && !errors.Is(err, ErrNil) {
 		return fmt.Errorf("gnmiext: failed to reflect %s onto a ygot.GoStruct: %w", update.XPath, err)
 	}
 
@@ -531,10 +530,10 @@ func diffList(got, want ygot.GoStruct) ([]*gpb.Path, error) {
 // collect returns a list of contained list element paths for the given GoStruct.
 func collect(s ygot.GoStruct) ([]string, error) {
 	rv := reflect.ValueOf(s)
-	if rv.Kind() != reflect.Ptr {
+	if rv.Kind() != reflect.Pointer {
 		return nil, fmt.Errorf("gnmiext: expected pointer to GoStruct, got %T", s)
 	}
-	for rv.Kind() == reflect.Ptr {
+	for rv.Kind() == reflect.Pointer {
 		rv = rv.Elem()
 	}
 	if rv.Kind() != reflect.Struct {
@@ -557,7 +556,7 @@ func collect(s ygot.GoStruct) ([]string, error) {
 		}
 		path := strings.Join(sp[0], "/")
 
-		if f.Kind() == reflect.Ptr {
+		if f.Kind() == reflect.Pointer {
 			gs, ok := f.Interface().(ygot.GoStruct)
 			if !ok {
 				continue
