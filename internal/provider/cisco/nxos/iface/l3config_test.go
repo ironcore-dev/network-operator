@@ -440,3 +440,117 @@ func TestToYGOT_WithISIS_DualStack(t *testing.T) {
 		t.Error("expected ISIS config to be present in updates")
 	}
 }
+
+func TestWithOSPF(t *testing.T) {
+	tests := []struct {
+		name        string
+		ospfName    string
+		area        string
+		isP2P       bool
+		disablePM   bool
+		expectError bool
+	}{
+		{
+			name:      "valid decimal area",
+			ospfName:  "OSPF",
+			area:      "0",
+			isP2P:     false,
+			disablePM: false,
+		},
+		{
+			name:      "valid dotted decimal area",
+			ospfName:  "OSPF",
+			area:      "0.0.0.1",
+			isP2P:     true,
+			disablePM: true,
+		},
+		{
+			name:        "invalid area - not a number",
+			ospfName:    "OSPF",
+			area:        "notanarea",
+			expectError: true,
+		},
+		{
+			name:        "invalid area - IPv6",
+			ospfName:    "OSPF",
+			area:        "2001:db8::1",
+			expectError: true,
+		},
+		{
+			name:        "invalid area - out of range",
+			ospfName:    "OSPF",
+			area:        "4294967296", // 2^32, just over uint32
+			expectError: true,
+		},
+		{
+			name:        "invalid area - dotted decimal out of range",
+			ospfName:    "OSPF",
+			area:        "256.0.0.1",
+			expectError: true,
+		},
+		{
+			name:        "empty OSPF name",
+			ospfName:    "",
+			area:        "0",
+			expectError: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := NewL3Config(WithOSPF(tc.ospfName, tc.area, tc.isP2P, tc.disablePM))
+			if tc.expectError && err == nil {
+				t.Errorf("expected error but got nil")
+			}
+			if !tc.expectError && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestToYGOT_WithOSPF(t *testing.T) {
+	ospfName := "OSPF"
+	ospfArea := "0.0.0.0"
+	vrfName := "management"
+	interfaceName := "eth1/1"
+
+	cfg, err := NewL3Config(
+		WithOSPF(ospfName, ospfArea, true, true),
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	updates, err := cfg.ToYGOT(interfaceName, vrfName)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(updates) != 1 {
+		t.Errorf("expected one update (OSPF), got %d", len(updates))
+	}
+	ru, ok := updates[0].(gnmiext.ReplacingUpdate)
+	if !ok {
+		t.Errorf("expected ReplacingUpdate, got %T", updates[0])
+	}
+	expectedXPath := "System/ospf-items/inst-items/Inst-list[name=" + ospfName + "]/dom-items/Dom-list[name=" + vrfName + "]/if-items/If-list[id=" + interfaceName + "]"
+	if ru.XPath != expectedXPath {
+		t.Errorf("unexpected xpath, got %s, expected: %s", ru.XPath, expectedXPath)
+	}
+	val, ok := ru.Value.(*nxos.Cisco_NX_OSDevice_System_OspfItems_InstItems_InstList_DomItems_DomList_IfItems_IfList)
+	if !ok {
+		t.Errorf("unexpected value type, got %T", ru.Value)
+	}
+	expectedVal := &nxos.Cisco_NX_OSDevice_System_OspfItems_InstItems_InstList_DomItems_DomList_IfItems_IfList{
+		Area:                 ygot.String(ospfArea),
+		NwT:                  nxos.Cisco_NX_OSDevice_Ospf_NwT_p2p,
+		PassiveCtrl:          nxos.Cisco_NX_OSDevice_Ospf_PassiveControl_disabled,
+		AdvertiseSecondaries: ygot.Bool(true),
+	}
+	diffNotifications, err := ygot.Diff(val, expectedVal)
+	if err != nil {
+		t.Errorf("failed to compute diff")
+	}
+	if len(diffNotifications.Update) > 0 || len(diffNotifications.Delete) > 0 {
+		t.Errorf("unexpected diff: %s", diffNotifications)
+	}
+}

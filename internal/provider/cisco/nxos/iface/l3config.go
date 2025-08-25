@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"strconv"
 
 	"github.com/openconfig/ygot/ygot"
 
@@ -32,9 +33,17 @@ const (
 )
 
 type ISISConfig struct {
-	Name     string // e.g., "UNDERLAY"
+	Name     string // name of the ISIS process/instance
 	V4Enable bool
 	V6Enable bool
+}
+
+type OSPFConfig struct {
+	Name               string // name of the OSPF process/instance
+	Area               string // area ID, an uint32, represented in decimal formar or in decimal-dot notation
+	IsP2P              bool   // if true, set the network type to P2P, no-op otherwise
+	DisablePassiveMode bool   // if true, will explicitly disable passive mode on the interface, no-op otherwise
+
 }
 
 type L3Config struct {
@@ -44,6 +53,7 @@ type L3Config struct {
 	prefixesIPv4       []netip.Prefix
 	prefixesIPv6       []netip.Prefix
 	isisCfg            *ISISConfig
+	ospfCfg            *OSPFConfig
 	pimSparseMode      bool
 }
 
@@ -72,6 +82,44 @@ func WithISIS(name string, v4Enable, v6Enable bool) L3Option {
 			Name:     name,
 			V4Enable: v4Enable,
 			V6Enable: v6Enable,
+		}
+		return nil
+	}
+}
+
+// isValidOSPFArea checks if the area is a valid uint32 in decimal or dotted decimal notation.
+func isValidOSPFArea(area string) bool {
+	// Try decimal integer
+	if n, err := strconv.ParseUint(area, 10, 32); err == nil {
+		return n <= 0xFFFFFFFF
+	}
+	// Try dotted decimal using netip.Addr
+	if addr, err := netip.ParseAddr(area); err == nil && addr.Is4() {
+		return true
+	}
+	return false
+}
+
+// WithOSPF configures the OSPF routing protocol for the interface.
+//   - instanceName is the name of the running OSPF instance, must not be empty
+//   - area is the area ID, an uint32, represented in decimal format or in decimal-dot notation
+//   - isP2P: if true, set the network type to P2P, no-op otherwise
+//   - disablePassiveMode: if true then explicitly disable the passive mode on the interface, no-op otherwise
+//
+// The interface will be also configured to advertise secondary addresses (as per NX-OS default behavior).
+func WithOSPF(instanceName, area string, isP2P, disablePassiveMode bool) L3Option {
+	return func(c *L3Config) error {
+		if instanceName == "" {
+			return errors.New("ospf config name cannot be empty")
+		}
+		if !isValidOSPFArea(area) {
+			return fmt.Errorf("ospf area %s is not a valid uint32 in decimal or dotted decimal notation", area)
+		}
+		c.ospfCfg = &OSPFConfig{
+			Name:               instanceName,
+			Area:               area,
+			IsP2P:              isP2P,
+			DisablePassiveMode: disablePassiveMode,
 		}
 		return nil
 	}
@@ -192,6 +240,15 @@ func (c *L3Config) ToYGOT(interfaceName, vrfName string) ([]gnmiext.Update, erro
 			updates = append(updates, isisUpdate)
 		}
 	}
+	if c.ospfCfg != nil {
+		ospfUpdate, err := c.createOSPF(interfaceName, vrfName)
+		if err != nil {
+			return nil, fmt.Errorf("L3: fail to create ygot objects for OSPF config %w ", err)
+		}
+		if ospfUpdate != nil {
+			updates = append(updates, ospfUpdate)
+		}
+	}
 	return updates, nil
 }
 
@@ -255,5 +312,22 @@ func (c *L3Config) createISIS(interfaceName, vrfName string) (gnmiext.Update, er
 			V4Enable:       ygot.Bool(c.isisCfg.V4Enable),
 			V6Enable:       ygot.Bool(c.isisCfg.V6Enable),
 		},
+	}, nil
+}
+
+func (c *L3Config) createOSPF(interfaceName, vrfName string) (gnmiext.Update, error) {
+	val := &nxos.Cisco_NX_OSDevice_System_OspfItems_InstItems_InstList_DomItems_DomList_IfItems_IfList{
+		Area:                 ygot.String(c.ospfCfg.Area),
+		AdvertiseSecondaries: ygot.Bool(true), // NX-OS default behavior (from nx-api sandbox)
+	}
+	if c.ospfCfg.IsP2P {
+		val.NwT = nxos.Cisco_NX_OSDevice_Ospf_NwT_p2p
+	}
+	if c.ospfCfg.DisablePassiveMode {
+		val.PassiveCtrl = nxos.Cisco_NX_OSDevice_Ospf_PassiveControl_disabled
+	}
+	return gnmiext.ReplacingUpdate{
+		XPath: "System/ospf-items/inst-items/Inst-list[name=" + c.ospfCfg.Name + "]/dom-items/Dom-list[name=" + vrfName + "]/if-items/If-list[id=" + interfaceName + "]",
+		Value: val,
 	}, nil
 }
