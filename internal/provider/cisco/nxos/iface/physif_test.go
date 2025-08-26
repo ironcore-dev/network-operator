@@ -13,12 +13,9 @@ import (
 )
 
 const (
-	physIfDescription  = "test interface"
-	physIfVRFName      = "test-vrf"
-	physIfName         = "eth1/1"
-	physIfISISName     = "test-isis"
-	physIfISISV4Enable = true
-	physIfISISV6Enable = false
+	physIfDescription = "test interface"
+	physIfVRFName     = "test-vrf"
+	physIfName        = "eth1/1"
 )
 
 func Test_PhysIf_NewPhysicalInterface(t *testing.T) {
@@ -352,7 +349,6 @@ func Test_PhysIf_ToYGOT_WithL3(t *testing.T) {
 	l3cfg, err := NewL3Config(
 		WithMedium(L3MediumTypeP2P),
 		WithUnnumberedAddressing("loopback0"),
-		WithSparseModePIM(),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -365,7 +361,7 @@ func Test_PhysIf_ToYGOT_WithL3(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if len(got) != 3 {
+	if len(got) != 2 {
 		t.Errorf("expected 2 update, got %d", len(got))
 	}
 
@@ -395,33 +391,9 @@ func Test_PhysIf_ToYGOT_WithL3(t *testing.T) {
 		}
 	})
 
-	t.Run("PIM config", func(t *testing.T) {
-		// check l2 config: a single update for spanning tree
-		l3Update, ok := got[1].(gnmiext.ReplacingUpdate)
-		if !ok {
-			t.Errorf("expected value to be of type ReplacingUpdate")
-		}
-		expectPath := "System/pim-items/inst-items/dom-items/Dom-list[name=default]/if-items/If-list[id=" + p.name + "]"
-		if l3Update.XPath != expectPath {
-			t.Errorf("wrong xpath, expected '%s', got '%s'", expectPath, l3Update.XPath)
-		}
-		pimRef := nxos.Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList{
-			AdminSt:       nxos.Cisco_NX_OSDevice_Nw_IfAdminSt_enabled,
-			PimSparseMode: ygot.Bool(true),
-		}
-		pimGot := l3Update.Value.(*nxos.Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList)
-		notification, err := ygot.Diff(&pimRef, pimGot)
-		if err != nil {
-			t.Errorf("failed to compute diff")
-		}
-		if len(notification.Update) > 0 || len(notification.Delete) > 0 {
-			t.Errorf("unexpected diff: %s", notification)
-		}
-	})
-
 	t.Run("Addressing config: unnumbered loopback0", func(t *testing.T) {
 		// check addressing config: a single update for addressing
-		aUpdate, ok := got[2].(gnmiext.ReplacingUpdate)
+		aUpdate, ok := got[1].(gnmiext.ReplacingUpdate)
 		if !ok {
 			t.Errorf("expected value to be of type ReplacingUpdate")
 		}
@@ -476,7 +448,6 @@ func Test_PhysIf_Reset_WithL3(t *testing.T) {
 	l3cfg, err := NewL3Config(
 		WithMedium(L3MediumTypeP2P),
 		WithUnnumberedAddressing("loopback0"),
-		WithSparseModePIM(),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -518,8 +489,6 @@ func Test_PhysIf_ToYGOT_VRF(t *testing.T) {
 	l3cfg, err := NewL3Config(
 		WithMedium(L3MediumTypeP2P),
 		WithUnnumberedAddressing("loopback0"),
-		WithSparseModePIM(),
-		WithISIS(physIfISISName, physIfISISV4Enable, physIfISISV6Enable),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -540,8 +509,8 @@ func Test_PhysIf_ToYGOT_VRF(t *testing.T) {
 	}
 
 	// single update affecting only base configuration of physical interface
-	if len(got) != 4 {
-		t.Errorf("expected 4 update, got %d", len(got))
+	if len(got) != 2 {
+		t.Errorf("expected 2 update, got %d", len(got))
 	}
 
 	t.Run("Base config", func(t *testing.T) {
@@ -571,40 +540,10 @@ func Test_PhysIf_ToYGOT_VRF(t *testing.T) {
 		}
 	})
 
-	t.Run("PIM config", func(t *testing.T) {
-		pimUpdate := got[1].(gnmiext.ReplacingUpdate)
-		if pimUpdate.XPath != "System/pim-items/inst-items/dom-items/Dom-list[name="+physIfVRFName+"]/if-items/If-list[id="+physIfName+"]" {
-			t.Errorf("wrong xpath, expected 'System/pim-items/inst-items/dom-items/Dom-list[name="+physIfVRFName+"]/if-items/If-list[id="+physIfName+"]', got '%s'", pimUpdate.XPath)
-		}
-	})
-
 	t.Run("Addressing", func(t *testing.T) {
-		aUpdate := got[2].(gnmiext.ReplacingUpdate)
+		aUpdate := got[1].(gnmiext.ReplacingUpdate)
 		if aUpdate.XPath != "System/ipv4-items/inst-items/dom-items/Dom-list[name="+physIfVRFName+"]/if-items/If-list[id="+physIfName+"]" {
 			t.Errorf("wrong xpath, expected 'System/ipv4-items/inst-items/dom-items/Dom-list[name="+physIfVRFName+"]/if-items/If-list[id="+physIfName+"]', got '%s'", aUpdate.XPath)
-		}
-	})
-
-	t.Run("ISIS", func(t *testing.T) {
-		iUpdate := got[3].(gnmiext.ReplacingUpdate)
-
-		isisRef := &nxos.Cisco_NX_OSDevice_System_IsisItems_IfItems_InternalIfList{
-			Instance:       ygot.String(physIfISISName),
-			V4Enable:       ygot.Bool(physIfISISV4Enable),
-			V6Enable:       ygot.Bool(physIfISISV6Enable),
-			NetworkTypeP2P: nxos.Cisco_NX_OSDevice_Isis_NetworkTypeP2PSt_on,
-			Dom:            ygot.String(physIfVRFName),
-		}
-		isisGot := iUpdate.Value.(*nxos.Cisco_NX_OSDevice_System_IsisItems_IfItems_InternalIfList)
-		notification, err := ygot.Diff(isisGot, isisRef)
-		if err != nil {
-			t.Errorf("failed to compute diff")
-		}
-		if len(notification.Update) > 0 || len(notification.Delete) > 0 {
-			t.Errorf("unexpected diff: %s", notification)
-		}
-		if iUpdate.XPath != "System/isis-items/if-items/InternalIf-list[id="+physIfName+"]" {
-			t.Errorf("wrong xpath, expected 'System/isis-items/if-items/InternalIf-list[id="+physIfName+"]', got '%s'", iUpdate.XPath)
 		}
 	})
 }

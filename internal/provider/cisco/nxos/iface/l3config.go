@@ -31,20 +31,12 @@ const (
 	AddressingModeUnnumbered
 )
 
-type ISISConfig struct {
-	Name     string // e.g., "UNDERLAY"
-	V4Enable bool
-	V6Enable bool
-}
-
 type L3Config struct {
 	medium             L3MediumType
 	addressingMode     L3IPAddressingModeType
 	unnumberedLoopback string // used with unnumbered addressing: name of the loopback interface name we borrow the IP from
 	prefixesIPv4       []netip.Prefix
 	prefixesIPv6       []netip.Prefix
-	isisCfg            *ISISConfig
-	pimSparseMode      bool
 }
 
 func NewL3Config(opts ...L3Option) (*L3Config, error) {
@@ -55,26 +47,6 @@ func NewL3Config(opts ...L3Option) (*L3Config, error) {
 		}
 	}
 	return cfg, nil
-}
-
-func WithSparseModePIM() L3Option {
-	return func(c *L3Config) error {
-		c.pimSparseMode = true
-		return nil
-	}
-}
-
-// WithISIS configures the ISIS routing protocol for the interface.
-// This is a no-op if a process with such name does not exist.
-func WithISIS(name string, v4Enable, v6Enable bool) L3Option {
-	return func(c *L3Config) error {
-		c.isisCfg = &ISISConfig{
-			Name:     name,
-			V4Enable: v4Enable,
-			V6Enable: v6Enable,
-		}
-		return nil
-	}
 }
 
 // WithUnnumberedAddressing sets the interface to use unnumbered addressing, borrowing the IP from the specified loopback interface.
@@ -169,9 +141,6 @@ func WithMedium(medium L3MediumType) L3Option {
 
 func (c *L3Config) ToYGOT(interfaceName, vrfName string) ([]gnmiext.Update, error) {
 	updates := []gnmiext.Update{}
-	if c.pimSparseMode {
-		updates = append(updates, c.createPIM(interfaceName, vrfName))
-	}
 	switch c.addressingMode {
 	case AddressingModeUnnumbered:
 		updates = append(updates, c.createAddressingUnnumbered(interfaceName, vrfName))
@@ -183,27 +152,7 @@ func (c *L3Config) ToYGOT(interfaceName, vrfName string) ([]gnmiext.Update, erro
 			updates = append(updates, c.createAddressingIP6(interfaceName, vrfName))
 		}
 	}
-	if c.isisCfg != nil {
-		isisUpdate, err := c.createISIS(interfaceName, vrfName)
-		if err != nil {
-			return nil, fmt.Errorf("L3: fail to create ygot objects for ISIS config %w ", err)
-		}
-		if isisUpdate != nil {
-			updates = append(updates, isisUpdate)
-		}
-	}
 	return updates, nil
-}
-
-// createPIM configures PIM in sparse mode for the interface
-func (c *L3Config) createPIM(interfaceName, vrfName string) gnmiext.Update {
-	return gnmiext.ReplacingUpdate{
-		XPath: "System/pim-items/inst-items/dom-items/Dom-list[name=" + vrfName + "]/if-items/If-list[id=" + interfaceName + "]",
-		Value: &nxos.Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList{
-			AdminSt:       nxos.Cisco_NX_OSDevice_Nw_IfAdminSt_enabled,
-			PimSparseMode: ygot.Bool(true),
-		},
-	}
 }
 
 func (c *L3Config) createAddressingUnnumbered(interfaceName, vrfName string) gnmiext.Update {
@@ -237,23 +186,4 @@ func (c *L3Config) createAddressingIP6(interfaceName, vrfName string) gnmiext.Up
 		XPath: "System/ipv6-items/inst-items/dom-items/Dom-list[name=" + vrfName + "]/if-items/If-list[id=" + interfaceName + "]",
 		Value: iface,
 	}
-}
-
-func (c *L3Config) createISIS(interfaceName, vrfName string) (gnmiext.Update, error) {
-	if c.isisCfg == nil {
-		return nil, nil
-	}
-	if c.isisCfg.Name == "" {
-		return nil, errors.New("isis config name is not set")
-	}
-	return gnmiext.ReplacingUpdate{
-		XPath: "System/isis-items/if-items/InternalIf-list[id=" + interfaceName + "]",
-		Value: &nxos.Cisco_NX_OSDevice_System_IsisItems_IfItems_InternalIfList{
-			Dom:            ygot.String(vrfName),
-			Instance:       ygot.String(c.isisCfg.Name),
-			NetworkTypeP2P: nxos.Cisco_NX_OSDevice_Isis_NetworkTypeP2PSt_on,
-			V4Enable:       ygot.Bool(c.isisCfg.V4Enable),
-			V6Enable:       ygot.Bool(c.isisCfg.V6Enable),
-		},
-	}, nil
 }

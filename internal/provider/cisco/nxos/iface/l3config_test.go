@@ -9,8 +9,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/openconfig/ygot/ygot"
-
 	nxos "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/genyang"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
 )
@@ -289,29 +287,6 @@ func TestWithMedium(t *testing.T) {
 	})
 }
 
-func TestWithSparseModePIM(t *testing.T) {
-	cfg, err := NewL3Config(WithSparseModePIM())
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !cfg.pimSparseMode {
-		t.Errorf("expected PIMSparseMode true, got false")
-	}
-}
-
-func TestWithISIS(t *testing.T) {
-	cfg, err := NewL3Config(WithISIS("UNDERLAY", true, false))
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if cfg.isisCfg == nil {
-		t.Fatal("expected isisCfg to be set")
-	}
-	if cfg.isisCfg.Name != "UNDERLAY" || !cfg.isisCfg.V4Enable || cfg.isisCfg.V6Enable {
-		t.Errorf("unexpected ISIS config: %+v", cfg.isisCfg)
-	}
-}
-
 func TestToYGOT_Numbered(t *testing.T) {
 	cfg, err := NewL3Config(
 		WithNumberedAddressingIPv4([]string{"10.0.0.1/24"}),
@@ -357,86 +332,4 @@ func TestToYGOT_Unnumbered(t *testing.T) {
 			}
 		}
 	})
-}
-
-func TestToYGOT_WithISIS(t *testing.T) {
-	cfg, err := NewL3Config(
-		WithNumberedAddressingIPv4([]string{"10.0.0.1/24"}),
-		WithISIS("UNDERLAY", true, false),
-	)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	updates, err := cfg.ToYGOT("eth1/1", "default")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(updates) < 2 {
-		t.Errorf("expected at least two updates (addressing + isis), got %d", len(updates))
-	}
-}
-
-func TestToYGOT_ISISNameUnset(t *testing.T) {
-	cfg, err := NewL3Config(
-		WithNumberedAddressingIPv4([]string{"10.0.0.1/24"}),
-	)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	// Manually set isisCfg with empty name to simulate error
-	cfg.isisCfg = &ISISConfig{Name: ""}
-	_, err = cfg.ToYGOT("eth1/1", "default")
-	if err == nil {
-		t.Error("expected error when ISIS name is not set")
-	}
-}
-
-func TestToYGOT_WithISIS_DualStack(t *testing.T) {
-	vrfName := "test"
-	interfaceName := "eth1/1"
-	isisName := "UNDERLAY"
-	cfg, err := NewL3Config(
-		WithNumberedAddressingIPv4([]string{"10.0.0.1/24"}),
-		WithNumberedAddressingIPv6([]string{"2001:db8::1/64"}),
-		WithISIS(isisName, true, true),
-	)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	updates, err := cfg.ToYGOT(interfaceName, vrfName)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(updates) < 2 {
-		t.Errorf("expected at least two updates (addressing + isis), got %d", len(updates))
-	}
-
-	expect := &nxos.Cisco_NX_OSDevice_System_IsisItems_IfItems_InternalIfList{
-		Dom:            ygot.String(vrfName),
-		Instance:       ygot.String(isisName),
-		NetworkTypeP2P: nxos.Cisco_NX_OSDevice_Isis_NetworkTypeP2PSt_on,
-		V4Enable:       ygot.Bool(true),
-		V6Enable:       ygot.Bool(true),
-	}
-	foundISIS := false
-	for _, u := range updates {
-		ur, ok := u.(gnmiext.ReplacingUpdate)
-		if ok {
-			if ur.XPath == "System/isis-items/if-items/InternalIf-list[id=eth1/1]" {
-				if ru, ok := u.(gnmiext.ReplacingUpdate); ok {
-					if val, ok := ru.Value.(*nxos.Cisco_NX_OSDevice_System_IsisItems_IfItems_InternalIfList); ok {
-						foundISIS = true
-						if !reflect.DeepEqual(val, expect) {
-							t.Errorf("expected ISIS config %v, got %v", expect, val)
-						}
-						break
-					}
-				}
-			}
-		}
-	}
-	if !foundISIS {
-		t.Error("expected ISIS config to be present in updates")
-	}
 }

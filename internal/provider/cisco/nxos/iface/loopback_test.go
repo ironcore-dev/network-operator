@@ -13,13 +13,10 @@ import (
 )
 
 const (
-	loopbackName         = "Loopback0"
-	loopbackShortName    = "lo0"
-	loopbackDescription  = "Test Loopback Interface"
-	loopbackVRFName      = "test-vrf"
-	loopbackISISName     = "UNDERLAY"
-	loopbackISISV4Enable = true
-	loopbackISISV6Enable = false
+	loopbackName        = "Loopback0"
+	loopbackShortName   = "lo0"
+	loopbackDescription = "Test Loopback Interface"
+	loopbackVRFName     = "test-vrf"
 )
 
 func Test_NewLoopback(t *testing.T) {
@@ -121,8 +118,6 @@ func Test_Loopback_ToYGOT_BaseConfig(t *testing.T) {
 func Test_Loopback_ToYGOT_WithL3Config(t *testing.T) {
 	l3cfg, err := NewL3Config(
 		WithNumberedAddressingIPv4([]string{"10.0.0.1/24"}),
-		WithSparseModePIM(),
-		WithISIS(loopbackISISName, loopbackISISV4Enable, loopbackISISV6Enable),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -138,30 +133,12 @@ func Test_Loopback_ToYGOT_WithL3Config(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if len(got) != 4 {
-		t.Errorf("expected 3 updates (base + L3), got %d", len(got))
+	if len(got) != 2 {
+		t.Errorf("expected 2 updates (base + L3), got %d", len(got))
 	}
-	t.Run("PIM config", func(t *testing.T) {
-		pimUpdate := got[1].(gnmiext.ReplacingUpdate)
-		if pimUpdate.XPath != "System/pim-items/inst-items/dom-items/Dom-list[name=test-vrf]/if-items/If-list[id="+loopbackShortName+"]" {
-			t.Errorf("wrong xpath, expected 'System/pim-items/inst-items/dom-items/Dom-list[name=test-vrf]/if-items/If-list[id="+loopbackShortName+"]', got '%s'", pimUpdate.XPath)
-		}
-		expected := &nxos.Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList{
-			AdminSt:       nxos.Cisco_NX_OSDevice_Nw_IfAdminSt_enabled,
-			PimSparseMode: ygot.Bool(true),
-		}
-		pimGot := pimUpdate.Value.(*nxos.Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList)
-		notification, err := ygot.Diff(pimGot, expected)
-		if err != nil {
-			t.Errorf("failed to compute diff")
-		}
-		if len(notification.Update) > 0 || len(notification.Delete) > 0 {
-			t.Errorf("unexpected diff: %s", notification)
-		}
-	})
 
 	t.Run("Addressing", func(t *testing.T) {
-		aUpdate := got[2].(gnmiext.ReplacingUpdate)
+		aUpdate := got[1].(gnmiext.ReplacingUpdate)
 		if aUpdate.XPath != "System/ipv4-items/inst-items/dom-items/Dom-list[name=test-vrf]/if-items/If-list[id="+loopbackShortName+"]" {
 			t.Errorf("wrong xpath, expected 'System/ipv4-items/inst-items/dom-items/Dom-list[name=test-vrf]/if-items/If-list[id="+loopbackShortName+"]', got '%s'", aUpdate.XPath)
 		}
@@ -181,29 +158,6 @@ func Test_Loopback_ToYGOT_WithL3Config(t *testing.T) {
 		}
 		if len(notification.Update) > 0 || len(notification.Delete) > 0 {
 			t.Errorf("unexpected diff: %s", notification)
-		}
-	})
-
-	t.Run("ISIS", func(t *testing.T) {
-		iUpdate := got[3].(gnmiext.ReplacingUpdate)
-
-		isisRef := &nxos.Cisco_NX_OSDevice_System_IsisItems_IfItems_InternalIfList{
-			Instance:       ygot.String(loopbackISISName),
-			V4Enable:       ygot.Bool(loopbackISISV4Enable),
-			V6Enable:       ygot.Bool(loopbackISISV6Enable),
-			NetworkTypeP2P: nxos.Cisco_NX_OSDevice_Isis_NetworkTypeP2PSt_on,
-			Dom:            ygot.String(loopbackVRFName),
-		}
-		isisGot := iUpdate.Value.(*nxos.Cisco_NX_OSDevice_System_IsisItems_IfItems_InternalIfList)
-		notification, err := ygot.Diff(isisGot, isisRef)
-		if err != nil {
-			t.Errorf("failed to compute diff")
-		}
-		if len(notification.Update) > 0 || len(notification.Delete) > 0 {
-			t.Errorf("unexpected diff: %s", notification)
-		}
-		if iUpdate.XPath != "System/isis-items/if-items/InternalIf-list[id="+loopbackShortName+"]" {
-			t.Errorf("wrong xpath, expected 'System/isis-items/if-items/InternalIf-list[id="+loopbackShortName+"]', got '%s'", iUpdate.XPath)
 		}
 	})
 }

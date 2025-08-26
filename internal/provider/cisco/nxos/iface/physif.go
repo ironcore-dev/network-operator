@@ -28,7 +28,7 @@ type PhysIf struct {
 	mtu         uint32
 	// Layer 2 properties, e.g., switchport mode, spanning tree, etc.
 	l2 *L2Config
-	// Layer 3 properties, e.g., IP address, PIM, ISIS, etc.
+	// Layer 3 properties, e.g., IP address
 	l3 *L3Config
 	// vrf setting resides on the physical interface yang subtree
 	vrf string
@@ -126,6 +126,8 @@ func WithPhysIfAdminState(adminSt bool) PhysIfOption {
 
 var physNameRgx = regexp.MustCompile(`^(?i)(Ethernet|eth)(\d+/\d+)$`)
 
+// getPhysicalInterfaceShortName validates and converts a physical interface name to the short form used in the YANG model.
+// For example, "Ethernet1/1" or "eth1/1" will be converted to "eth1/1".
 func getPhysicalInterfaceShortName(name string) (string, error) {
 	matches := physNameRgx.FindStringSubmatch(name)
 	if len(matches) == 3 {
