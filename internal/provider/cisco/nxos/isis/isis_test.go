@@ -10,7 +10,7 @@ import (
 )
 
 // TestToYGOT tests a configuration with only ISIS for IPv6
-func TestToYGOT(t *testing.T) {
+func Test_ISIS_ToYGOT(t *testing.T) {
 	isis := &ISIS{
 		Name:  "UNDERLAY",
 		NET:   "49.0001.0001.0000.0001.00",
@@ -50,9 +50,16 @@ func TestToYGOT(t *testing.T) {
 	if instList.Name == nil || *instList.Name != "UNDERLAY" {
 		t.Errorf("expected instList.Name to be 'UNDERLAY', got %v", instList.Name)
 	}
-	domList := instList.GetDomItems().GetDomList("default")
+	domItems := instList.GetDomItems()
+	if domItems == nil {
+		t.Fatalf("expected DomItems to be present")
+	}
+	domList := domItems.GetDomList("default")
 	if domList == nil {
 		t.Fatalf("expected domList for default to be present")
+	}
+	if domList.Net == nil {
+		t.Fatalf("expected Net to be set")
 	}
 	if *domList.Net != isis.NET {
 		t.Errorf("Net not set correctly")
@@ -74,7 +81,7 @@ func TestToYGOT(t *testing.T) {
 	}
 }
 
-func TestISIS_ToYGOT_InvalidLevel(t *testing.T) {
+func Test_ISIS_ToYGOT_InvalidLevel(t *testing.T) {
 	isis := &ISIS{
 		Name:            "UNDERLAY",
 		NET:             "49.0001.0001.0000.0001.00",
@@ -87,7 +94,7 @@ func TestISIS_ToYGOT_InvalidLevel(t *testing.T) {
 	}
 }
 
-func TestISIS_ToYGOT_InvalidAddressFamily(t *testing.T) {
+func Test_ISIS_ToYGOT_InvalidAddressFamily(t *testing.T) {
 	isis := &ISIS{
 		Name:            "UNDERLAY",
 		NET:             "49.0001.0001.0000.0001.00",
@@ -100,7 +107,7 @@ func TestISIS_ToYGOT_InvalidAddressFamily(t *testing.T) {
 	}
 }
 
-func TestISIS_ToYGOT_NoOverloadBit(t *testing.T) {
+func Test_ISIS_ToYGOT_NoOverloadBit(t *testing.T) {
 	isis := &ISIS{
 		Name:            "UNDERLAY",
 		NET:             "49.0001.0001.0000.0001.00",
@@ -114,7 +121,7 @@ func TestISIS_ToYGOT_NoOverloadBit(t *testing.T) {
 	}
 }
 
-func TestISIS_ToYGOT_EmptyAddressFamilies(t *testing.T) {
+func Test_ISIS_ToYGOT_EmptyAddressFamilies(t *testing.T) {
 	isis := &ISIS{
 		Name:            "UNDERLAY",
 		NET:             "49.0001.0001.0000.0001.00",
@@ -130,7 +137,7 @@ func TestISIS_ToYGOT_EmptyAddressFamilies(t *testing.T) {
 	}
 }
 
-func TestISIS_Reset(t *testing.T) {
+func Test_ISIS_Reset(t *testing.T) {
 	isis := &ISIS{Name: "UNDERLAY"}
 	updates, err := isis.Reset(&gnmiext.ClientMock{})
 	if err != nil {
@@ -149,7 +156,7 @@ func TestISIS_Reset(t *testing.T) {
 	}
 }
 
-func TestISIS_MissingMandatoryFields(t *testing.T) {
+func Test_ISIS_MissingMandatoryFields(t *testing.T) {
 	t.Run("missing name", func(t *testing.T) {
 		isis := &ISIS{
 			NET:             "49.0001.0001.0000.0001.00",
