@@ -132,6 +132,94 @@ func Test_NewClient_Version(t *testing.T) {
 	}
 }
 
+func TestClient_Exists(t *testing.T) {
+	ctx := context.Background()
+	path := "System/time-items/srcIf-items"
+
+	t.Run("exists with value", func(t *testing.T) {
+		cc := &GNMIClientMock{
+			GetFunc: func(_ context.Context, in *gpb.GetRequest, _ ...grpc.CallOption) (*gpb.GetResponse, error) {
+				return &gpb.GetResponse{
+					Notification: []*gpb.Notification{
+						{
+							Update: []*gpb.Update{
+								{
+									Path: &gpb.Path{Elem: []*gpb.PathElem{
+										{Name: "System"},
+										{Name: "time-items"},
+										{Name: "srcIf-items"},
+									}},
+									Val: &gpb.TypedValue{
+										Value: &gpb.TypedValue_JsonVal{
+											JsonVal: []byte(`{"srcIf":"mgmt0"}`),
+										},
+									},
+								},
+							},
+						},
+					},
+				}, nil
+			},
+		}
+		c := &client{c: cc}
+		found, err := c.Exists(ctx, path)
+		if !found || err != nil {
+			t.Fatalf("expected true, nil; got %v, %v", found, err)
+		}
+	})
+
+	t.Run("exists but empty value", func(t *testing.T) {
+		cc := &GNMIClientMock{
+			GetFunc: func(_ context.Context, in *gpb.GetRequest, _ ...grpc.CallOption) (*gpb.GetResponse, error) {
+				return &gpb.GetResponse{
+					Notification: []*gpb.Notification{
+						{
+							Update: []*gpb.Update{
+								{
+									Path: &gpb.Path{Elem: []*gpb.PathElem{
+										{Name: "System"},
+										{Name: "time-items"},
+										{Name: "srcIf-items"},
+									}},
+									Val: &gpb.TypedValue{
+										Value: &gpb.TypedValue_JsonVal{
+											JsonVal: []byte{},
+										},
+									},
+								},
+							},
+						},
+					},
+				}, nil
+			},
+		}
+		c := &client{c: cc}
+		found, err := c.Exists(ctx, path)
+		if found || err != nil {
+			t.Fatalf("expected false, nil; got %v, %v", found, err)
+		}
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		cc := &GNMIClientMock{
+			GetFunc: func(_ context.Context, in *gpb.GetRequest, _ ...grpc.CallOption) (*gpb.GetResponse, error) {
+				return &gpb.GetResponse{
+					Notification: []*gpb.Notification{
+						{
+							Update: []*gpb.Update{},
+						},
+					},
+				}, nil
+			},
+		}
+		c := &client{c: cc}
+		found, err := c.Exists(ctx, path)
+		if found || err != nil {
+			t.Fatalf("expected false, nil; got %v, %v", found, err)
+		}
+	})
+}
+
 func Test_Get(t *testing.T) {
 	cc := &GNMIClientMock{
 		GetFunc: func(_ context.Context, in *gpb.GetRequest, _ ...grpc.CallOption) (*gpb.GetResponse, error) {

@@ -8,8 +8,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/openconfig/ygot/ygot"
-
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
 )
 
@@ -17,7 +15,7 @@ func TestExists(t *testing.T) {
 	tests := []struct {
 		name          string
 		interfaceName string
-		fn            func(ctx context.Context, xpath string, dest ygot.GoStruct) error
+		fn            func(ctx context.Context, xpath string) (bool, error)
 		wantExists    bool
 		wantErr       bool
 	}{
@@ -25,11 +23,11 @@ func TestExists(t *testing.T) {
 		{
 			name:          "ethernet interface exists - full name",
 			interfaceName: "Ethernet1/1",
-			fn: func(_ context.Context, xpath string, _ ygot.GoStruct) error {
+			fn: func(_ context.Context, xpath string) (bool, error) {
 				if xpath == "System/intf-items/phys-items/PhysIf-list[id=eth1/1]" {
-					return nil
+					return true, nil
 				}
-				return errors.New("unexpected xpath")
+				return false, errors.New("unexpected xpath")
 			},
 			wantExists: true,
 			wantErr:    false,
@@ -37,23 +35,23 @@ func TestExists(t *testing.T) {
 		{
 			name:          "ethernet interface exists - short name",
 			interfaceName: "eth10/24",
-			fn: func(_ context.Context, xpath string, _ ygot.GoStruct) error {
+			fn: func(_ context.Context, xpath string) (bool, error) {
 				if xpath == "System/intf-items/phys-items/PhysIf-list[id=eth10/24]" {
-					return nil
+					return true, nil
 				}
-				return errors.New("unexpected xpath")
+				return false, errors.New("unexpected xpath")
 			},
 			wantExists: true,
 			wantErr:    false,
 		},
 		{
-			name:          "ethernet interface does not exist - ErrNil",
+			name:          "ethernet interface exists but has no value - ErrNil",
 			interfaceName: "Ethernet2/2",
-			fn: func(_ context.Context, xpath string, _ ygot.GoStruct) error {
+			fn: func(_ context.Context, xpath string) (bool, error) {
 				if xpath == "System/intf-items/phys-items/PhysIf-list[id=eth2/2]" {
-					return gnmiext.ErrNil
+					return false, nil
 				}
-				return errors.New("unexpected xpath")
+				return false, errors.New("unexpected xpath")
 			},
 			wantExists: false,
 			wantErr:    false,
@@ -61,11 +59,11 @@ func TestExists(t *testing.T) {
 		{
 			name:          "ethernet interface does not exist - ErrNotFound",
 			interfaceName: "eth3/3",
-			fn: func(_ context.Context, xpath string, _ ygot.GoStruct) error {
+			fn: func(_ context.Context, xpath string) (bool, error) {
 				if xpath == "System/intf-items/phys-items/PhysIf-list[id=eth3/3]" {
-					return gnmiext.ErrNotFound
+					return false, nil
 				}
-				return errors.New("unexpected xpath")
+				return false, errors.New("unexpected xpath")
 			},
 			wantExists: false,
 			wantErr:    false,
@@ -75,11 +73,11 @@ func TestExists(t *testing.T) {
 		{
 			name:          "loopback interface exists - full name",
 			interfaceName: "Loopback1",
-			fn: func(_ context.Context, xpath string, _ ygot.GoStruct) error {
+			fn: func(_ context.Context, xpath string) (bool, error) {
 				if xpath == "System/intf-items/lb-items/LbRtdIf-list[id=lo1]" {
-					return nil
+					return true, nil
 				}
-				return errors.New("unexpected xpath")
+				return false, errors.New("unexpected xpath")
 			},
 			wantExists: true,
 			wantErr:    false,
@@ -87,11 +85,11 @@ func TestExists(t *testing.T) {
 		{
 			name:          "loopback interface exists - short name",
 			interfaceName: "lo100",
-			fn: func(_ context.Context, xpath string, _ ygot.GoStruct) error {
+			fn: func(_ context.Context, xpath string) (bool, error) {
 				if xpath == "System/intf-items/lb-items/LbRtdIf-list[id=lo100]" {
-					return nil
+					return true, nil
 				}
-				return errors.New("unexpected xpath")
+				return false, errors.New("unexpected xpath")
 			},
 			wantExists: true,
 			wantErr:    false,
@@ -99,11 +97,11 @@ func TestExists(t *testing.T) {
 		{
 			name:          "loopback interface does not exist - ErrNil",
 			interfaceName: "Loopback2",
-			fn: func(_ context.Context, xpath string, _ ygot.GoStruct) error {
+			fn: func(_ context.Context, xpath string) (bool, error) {
 				if xpath == "System/intf-items/lb-items/LbRtdIf-list[id=lo2]" {
-					return gnmiext.ErrNil
+					return false, nil
 				}
-				return errors.New("unexpected xpath")
+				return false, errors.New("unexpected xpath")
 			},
 			wantExists: false,
 			wantErr:    false,
@@ -111,11 +109,11 @@ func TestExists(t *testing.T) {
 		{
 			name:          "loopback interface does not exist - ErrNotFound",
 			interfaceName: "lo3",
-			fn: func(_ context.Context, xpath string, _ ygot.GoStruct) error {
+			fn: func(_ context.Context, xpath string) (bool, error) {
 				if xpath == "System/intf-items/lb-items/LbRtdIf-list[id=lo3]" {
-					return gnmiext.ErrNotFound
+					return false, nil
 				}
-				return errors.New("unexpected xpath")
+				return false, errors.New("unexpected xpath")
 			},
 			wantExists: false,
 			wantErr:    false,
@@ -125,8 +123,8 @@ func TestExists(t *testing.T) {
 		{
 			name:          "empty interface name",
 			interfaceName: "",
-			fn: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
-				return errors.New("should not be called")
+			fn: func(ctx context.Context, xpath string) (bool, error) {
+				return false, errors.New("should not be called")
 			},
 			wantExists: false,
 			wantErr:    true,
@@ -134,8 +132,8 @@ func TestExists(t *testing.T) {
 		{
 			name:          "unsupported interface format",
 			interfaceName: "Foobar1/1",
-			fn: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
-				return errors.New("should not be called")
+			fn: func(ctx context.Context, xpath string) (bool, error) {
+				return false, errors.New("should not be called")
 			},
 			wantExists: false,
 			wantErr:    true,
@@ -143,11 +141,11 @@ func TestExists(t *testing.T) {
 		{
 			name:          "client error",
 			interfaceName: "Ethernet1/1",
-			fn: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+			fn: func(ctx context.Context, xpath string) (bool, error) {
 				if xpath == "System/intf-items/phys-items/PhysIf-list[id=eth1/1]" {
-					return errors.New("connection failed")
+					return false, errors.New("connection failed")
 				}
-				return errors.New("unexpected xpath")
+				return false, errors.New("unexpected xpath")
 			},
 			wantExists: false,
 			wantErr:    true,
@@ -156,7 +154,7 @@ func TestExists(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			mock := &gnmiext.ClientMock{GetFunc: test.fn}
+			mock := &gnmiext.ClientMock{ExistsFunc: test.fn}
 			exists, err := Exists(context.Background(), mock, test.interfaceName)
 			if exists != test.wantExists {
 				t.Errorf("Exists(%q) = %v, want %v", test.interfaceName, exists, test.wantExists)

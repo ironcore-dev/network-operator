@@ -262,6 +262,9 @@ var _ Client = &ClientMock{}
 //
 //		// make and configure a mocked Client
 //		mockedClient := &ClientMock{
+//			ExistsFunc: func(ctx context.Context, xpath string) (bool, error) {
+//				panic("mock out the Exists method")
+//			},
 //			GetFunc: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
 //				panic("mock out the Get method")
 //			},
@@ -281,6 +284,9 @@ var _ Client = &ClientMock{}
 //
 //	}
 type ClientMock struct {
+	// ExistsFunc mocks the Exists method.
+	ExistsFunc func(ctx context.Context, xpath string) (bool, error)
+
 	// GetFunc mocks the Get method.
 	GetFunc func(ctx context.Context, xpath string, dest ygot.GoStruct) error
 
@@ -295,6 +301,13 @@ type ClientMock struct {
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// Exists holds details about calls to the Exists method.
+		Exists []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Xpath is the xpath argument value.
+			Xpath string
+		}
 		// Get holds details about calls to the Get method.
 		Get []struct {
 			// Ctx is the ctx argument value.
@@ -326,10 +339,47 @@ type ClientMock struct {
 			Config DeviceConf
 		}
 	}
+	lockExists sync.RWMutex
 	lockGet    sync.RWMutex
 	lockReset  sync.RWMutex
 	lockSet    sync.RWMutex
 	lockUpdate sync.RWMutex
+}
+
+// Exists calls ExistsFunc.
+func (mock *ClientMock) Exists(ctx context.Context, xpath string) (bool, error) {
+	if mock.ExistsFunc == nil {
+		panic("ClientMock.ExistsFunc: method is nil but Client.Exists was just called")
+	}
+	callInfo := struct {
+		Ctx   context.Context
+		Xpath string
+	}{
+		Ctx:   ctx,
+		Xpath: xpath,
+	}
+	mock.lockExists.Lock()
+	mock.calls.Exists = append(mock.calls.Exists, callInfo)
+	mock.lockExists.Unlock()
+	return mock.ExistsFunc(ctx, xpath)
+}
+
+// ExistsCalls gets all the calls that were made to Exists.
+// Check the length with:
+//
+//	len(mockedClient.ExistsCalls())
+func (mock *ClientMock) ExistsCalls() []struct {
+	Ctx   context.Context
+	Xpath string
+} {
+	var calls []struct {
+		Ctx   context.Context
+		Xpath string
+	}
+	mock.lockExists.RLock()
+	calls = mock.calls.Exists
+	mock.lockExists.RUnlock()
+	return calls
 }
 
 // Get calls GetFunc.

@@ -29,6 +29,7 @@ import (
 type GNMIClient = gpb.GNMIClient
 
 type Client interface {
+	Exists(ctx context.Context, xpath string) (bool, error)
 	Get(ctx context.Context, xpath string, dest ygot.GoStruct) error
 	Set(ctx context.Context, notification *gpb.Notification) error
 	Update(ctx context.Context, config DeviceConf) error
@@ -207,6 +208,40 @@ func (c *client) log(ctx context.Context, level slog.Level, msg string, attrs ..
 	if c.logger != nil {
 		c.logger.LogAttrs(ctx, level, msg, attrs...)
 	}
+}
+
+// Exists checks if the given xpath exists on the target device and has a non-nil value
+func (c *client) Exists(ctx context.Context, xpath string) (bool, error) {
+	path, err := ygot.StringToStructuredPath(xpath)
+	if err != nil {
+		return false, fmt.Errorf("gnmiext: failed to convert xpath %s to path: %w", xpath, err)
+	}
+
+	res, err := c.c.Get(ctx, &gpb.GetRequest{
+		Path:     []*gpb.Path{path},
+		Type:     gpb.GetRequest_CONFIG,
+		Encoding: gpb.Encoding_JSON,
+	})
+	if err != nil {
+		return false, err
+	}
+
+	for _, n := range res.Notification {
+		for _, u := range n.Update {
+			if proto.Equal(u.Path, path) {
+				v, ok := u.Val.Value.(*gpb.TypedValue_JsonVal)
+				if !ok {
+					// we got a value but it's not JSON, we can't interpret it despite the path exists
+					return false, fmt.Errorf("gnmiext: unexpected json value type for xpath %s, got %T", xpath, u.Val.Value)
+				}
+				if len(v.JsonVal) == 0 {
+					return false, nil
+				}
+				return true, nil
+			}
+		}
+	}
+	return false, nil
 }
 
 // Get retrieves the configuration for the given XPath and unmarshals it into the given GoStruct.
