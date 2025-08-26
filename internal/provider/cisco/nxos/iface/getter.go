@@ -7,34 +7,47 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 
-	nxos "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/genyang"
+	"github.com/openconfig/ygot/ygot"
+
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
 )
 
-// Exists checks if the interface with the given name exists on the device.
+var patterns = map[string]*regexp.Regexp{
+	"System/intf-items/phys-items/PhysIf-list[id=eth%s]": ethernetRe,
+	"System/intf-items/lb-items/LbRtdIf-list[id=lo%s]":   loopbackRe,
+}
+
+// Exists checks if the interface with the given name exists on the device
 func Exists(ctx context.Context, client gnmiext.Client, name string) (bool, error) {
 	if name == "" {
 		return false, errors.New("interface name must not be empty")
 	}
-	var err error
-	switch {
-	case ethernetRe.MatchString(name):
-		matches := ethernetRe.FindStringSubmatch(name)
-		var inst nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList
-		err = client.Get(ctx, "System/intf-items/phys-items/PhysIf-list[id=eth"+matches[2]+"]", &inst)
-	case loopbackRe.MatchString(name):
-		matches := loopbackRe.FindStringSubmatch(name)
-		var inst nxos.Cisco_NX_OSDevice_System_IntfItems_LbItems_LbRtdIfList
-		err = client.Get(ctx, "System/intf-items/lb-items/LbRtdIf-list[id=lo"+matches[2]+"]", &inst)
-	default:
-		return false, fmt.Errorf(`unsupported interface format %q, expected (Ethernet|eth)\d+/\d+ or (Loopback|lo)\d+`, name)
-	}
-	if err != nil {
-		if errors.Is(err, gnmiext.ErrNil) || errors.Is(err, gnmiext.ErrNotFound) {
-			return false, nil
+	for path, re := range patterns {
+		if re.MatchString(name) {
+			matches := re.FindStringSubmatch(name)
+			xpath := fmt.Sprintf(path, matches[2])
+			return client.Exists(ctx, xpath)
 		}
-		return false, fmt.Errorf("failed to check interface existence: %w", err)
 	}
-	return true, nil
+	return false, fmt.Errorf(`unsupported interface format %q, expected (Ethernet|eth)\d+/\d+ or (Loopback|lo)\d+`, name)
+}
+
+func Get(ctx context.Context, client gnmiext.Client, name string) (ygot.GoStruct, error) {
+	if name == "" {
+		return nil, errors.New("interface name must not be empty")
+	}
+	for path, re := range patterns {
+		if re.MatchString(name) {
+			matches := re.FindStringSubmatch(name)
+			xpath := fmt.Sprintf(path, matches[2])
+			var val ygot.GoStruct
+			if err := client.Get(ctx, xpath, val); err != nil {
+				return nil, err
+			}
+			return val, nil
+		}
+	}
+	return nil, fmt.Errorf(`unsupported interface format %q, expected (Ethernet|eth)\d+/\d+ or (Loopback|lo)\d+`, name)
 }
