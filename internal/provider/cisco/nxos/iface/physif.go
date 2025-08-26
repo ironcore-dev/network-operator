@@ -6,7 +6,6 @@ package iface
 import (
 	"errors"
 	"fmt"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -41,12 +40,12 @@ type PhysIfOption func(*PhysIf) error
 //   - The interface will be configured admin state set to `up`.
 //   - If both L2 and L3 configurations options are supplied, only the last one will be applied.
 func NewPhysicalInterface(name string, opts ...PhysIfOption) (*PhysIf, error) {
-	altName, err := getPhysicalInterfaceShortName(name)
-	if err != nil {
-		return nil, fmt.Errorf("physif: not a valid name: %w", err)
+	shortName, err := ShortName(name) // validate name
+	if err != nil || !strings.HasPrefix(shortName, "eth") {
+		return nil, fmt.Errorf("iface: '%s' is not a valid name for a physical interface", name)
 	}
 	p := &PhysIf{
-		name:    altName,
+		name:    shortName,
 		adminSt: true,
 	}
 	for _, opt := range opts {
@@ -122,18 +121,6 @@ func WithPhysIfAdminState(adminSt bool) PhysIfOption {
 		p.adminSt = adminSt
 		return nil
 	}
-}
-
-var physNameRgx = regexp.MustCompile(`^(?i)(Ethernet|eth)(\d+/\d+)$`)
-
-// getPhysicalInterfaceShortName validates and converts a physical interface name to the short form used in the YANG model.
-// For example, "Ethernet1/1" or "eth1/1" will be converted to "eth1/1".
-func getPhysicalInterfaceShortName(name string) (string, error) {
-	matches := physNameRgx.FindStringSubmatch(name)
-	if len(matches) == 3 {
-		return "eth" + matches[2], nil
-	}
-	return "", fmt.Errorf("invalid physical interface name %s", name)
 }
 
 // ToYGOT returns a slice of updates for the physical interface:

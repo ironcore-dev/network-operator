@@ -9,8 +9,6 @@ import (
 	"net/netip"
 	"testing"
 
-	"github.com/openconfig/ygot/ygot"
-
 	nxos "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/genyang"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
 )
@@ -649,7 +647,11 @@ func TestAnycastPeer_ToYGOT_WithCustomVRF(t *testing.T) {
 		t.Fatalf("NewAnycastPeer() unexpected error = %v", err)
 	}
 
-	got, err := ap.ToYGOT(&gnmiext.ClientMock{})
+	got, err := ap.ToYGOT(&gnmiext.ClientMock{
+		ExistsFunc: func(_ context.Context, xpath string) (bool, error) {
+			return true, nil
+		},
+	})
 	if err != nil {
 		t.Errorf("AnycastPeer.ToYGOT() unexpected error = %v", err)
 		return
@@ -885,8 +887,8 @@ func TestInterface_ToYGOT_MissingInterface(t *testing.T) {
 	}
 
 	client := &gnmiext.ClientMock{
-		GetFunc: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
-			return gnmiext.ErrNil
+		ExistsFunc: func(ctx context.Context, xpath string) (bool, error) {
+			return false, nil
 		},
 	}
 
@@ -900,7 +902,7 @@ func TestInterface_ToYGOT_MissingInterface(t *testing.T) {
 	}
 }
 
-func TestInterface_ToYGOT_GetError(t *testing.T) {
+func TestInterface_ToYGOT_ExistsError(t *testing.T) {
 	intf, err := NewInterface("lo0")
 	if err != nil {
 		t.Fatalf("NewInterface() unexpected error = %v", err)
@@ -908,8 +910,8 @@ func TestInterface_ToYGOT_GetError(t *testing.T) {
 
 	expectedErr := errors.New("get error")
 	client := &gnmiext.ClientMock{
-		GetFunc: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
-			return expectedErr
+		ExistsFunc: func(ctx context.Context, xpath string) (bool, error) {
+			return false, expectedErr
 		},
 	}
 
@@ -926,12 +928,12 @@ func TestInterface_ToYGOT_Success(t *testing.T) {
 	}
 
 	client := &gnmiext.ClientMock{
-		GetFunc: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+		ExistsFunc: func(ctx context.Context, xpath string) (bool, error) {
 			if xpath != "System/intf-items/lb-items/LbRtdIf-list[id=lo0]" {
 				t.Errorf("Interface.ToYGOT() unexpected xpath = %v", xpath)
 			}
 			// Simulate existing interface
-			return nil
+			return true, nil
 		},
 	}
 
@@ -998,12 +1000,12 @@ func TestInterface_ToYGOT_WithCustomVRF(t *testing.T) {
 	}
 
 	client := &gnmiext.ClientMock{
-		GetFunc: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+		ExistsFunc: func(ctx context.Context, xpath string) (bool, error) {
 			if xpath != "System/intf-items/phys-items/PhysIf-list[id=eth1/1]" {
 				t.Errorf("Interface.ToYGOT() unexpected xpath = %v", xpath)
 			}
 			// Simulate existing interface
-			return nil
+			return true, nil
 		},
 	}
 

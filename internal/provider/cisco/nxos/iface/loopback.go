@@ -6,7 +6,7 @@ package iface
 import (
 	"errors"
 	"fmt"
-	"regexp"
+	"strings"
 
 	"github.com/openconfig/ygot/ygot"
 
@@ -28,12 +28,12 @@ type LoopbackOption func(*Loopback) error
 
 // NewLoopbackInterface creates a new loopback interface with the given name and description.
 func NewLoopbackInterface(name string, description *string, opts ...LoopbackOption) (*Loopback, error) {
-	altName, err := getLoopbackShortName(name)
-	if err != nil {
-		return nil, fmt.Errorf("loopback: not a valid name: %w", err)
+	shortName, err := ShortName(name) // validate name
+	if err != nil || !strings.HasPrefix(shortName, "lo") {
+		return nil, fmt.Errorf("iface: '%s' is not a valid name for a loopback interface", name)
 	}
 	l := &Loopback{
-		name:        altName,
+		name:        shortName,
 		description: description,
 		adminSt:     true,
 	}
@@ -43,16 +43,6 @@ func NewLoopbackInterface(name string, description *string, opts ...LoopbackOpti
 		}
 	}
 	return l, nil
-}
-
-var loopbackNameRgx = regexp.MustCompile(`^(?i)(Loopback|lo)(\d+)$`)
-
-func getLoopbackShortName(name string) (string, error) {
-	matches := loopbackNameRgx.FindStringSubmatch(name)
-	if len(matches) == 3 {
-		return "lo" + matches[2], nil
-	}
-	return "", fmt.Errorf("invalid loopback interface name %s", name)
 }
 
 func WithLoopbackL3(c *L3Config) LoopbackOption {

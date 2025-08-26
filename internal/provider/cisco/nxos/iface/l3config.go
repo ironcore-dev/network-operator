@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"strings"
 
 	"github.com/openconfig/ygot/ygot"
 
@@ -53,15 +54,15 @@ func NewL3Config(opts ...L3Option) (*L3Config, error) {
 // If the interface where this config is applied is not configured to be in the medium P2P, an error is returned.
 func WithUnnumberedAddressing(interfaceName string) L3Option {
 	return func(c *L3Config) error {
-		loName, err := getLoopbackShortName(interfaceName)
-		if err != nil {
-			return fmt.Errorf("not a valid loopback interface name %s", interfaceName)
+		shortName, err := ShortName(interfaceName) // validate name
+		if err != nil || !strings.HasPrefix(shortName, "lo") {
+			return fmt.Errorf("iface: '%s' is not a valid name for a loopback interface", interfaceName)
 		}
 		if c.medium != L3MediumTypeP2P {
 			return errors.New("interface must use P2P medium type for unnumbered addressing")
 		}
 		c.addressingMode = AddressingModeUnnumbered
-		c.unnumberedLoopback = loName
+		c.unnumberedLoopback = shortName
 		c.prefixesIPv4 = nil
 		c.prefixesIPv6 = nil
 		return nil
