@@ -9,12 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
-	"regexp"
 
 	"github.com/openconfig/ygot/ygot"
 
 	nxos "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/genyang"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/iface"
 )
 
 var _ gnmiext.DeviceConf = (*RendezvousPoint)(nil)
@@ -238,29 +238,11 @@ type Interface struct {
 	Vrf string
 }
 
-var (
-	ethernetRe = regexp.MustCompile(`(?i)^(ethernet|eth)(\d+/\d+)$`)
-	loopbackRe = regexp.MustCompile(`(?i)^(loopback|lo)(\d+)$`)
-)
-
 func NewInterface(name string, opts ...InterfaceOption) (*Interface, error) {
-	if name == "" {
-		return nil, errors.New("pim: interface name cannot be empty")
+	shortName, err := iface.ShortName(name)
+	if err != nil {
+		return nil, fmt.Errorf("pim: invalid interface name %q: %w", name, err)
 	}
-
-	// Validate and convert interface name to short form
-	var shortName string
-	switch {
-	case ethernetRe.MatchString(name):
-		matches := ethernetRe.FindStringSubmatch(name)
-		shortName = "eth" + matches[2]
-	case loopbackRe.MatchString(name):
-		matches := loopbackRe.FindStringSubmatch(name)
-		shortName = "lo" + matches[2]
-	default:
-		return nil, fmt.Errorf(`pim: unsupported interface format %q, expected (Ethernet|eth)\d+/\d+ or (Loopback|lo)\d+`, name)
-	}
-
 	i := &Interface{
 		Name: shortName,
 		Vrf:  "default",
@@ -301,13 +283,13 @@ func WithInterfaceVRF(vrf string) InterfaceOption {
 var ErrMissingInterface = errors.New("pim: missing interface")
 
 func (i *Interface) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
-	var inst nxos.Cisco_NX_OSDevice_System_IntfItems_LbItems_LbRtdIfList
-	err := client.Get(context.Background(), "System/intf-items/lb-items/LbRtdIf-list/[id="+i.Name+"]", &inst)
+	ctx := context.Background()
+	exists, err := iface.Exists(ctx, client, i.Name)
 	if err != nil {
-		if errors.Is(err, gnmiext.ErrNil) {
-			return nil, ErrMissingInterface
-		}
 		return nil, fmt.Errorf("pim: failed to get interface %q: %w", i.Name, err)
+	}
+	if !exists {
+		return nil, ErrMissingInterface
 	}
 	intf := &nxos.Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList{}
 	intf.PopulateDefaults()

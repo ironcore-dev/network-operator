@@ -747,80 +747,39 @@ func mustParseAddr(addr string) netip.Addr {
 
 func TestNewInterface(t *testing.T) {
 	tests := []struct {
-		name          string
-		ifName        string
-		opts          []InterfaceOption
-		wantErr       bool
-		wantVrf       string
-		wantShortName string
+		name    string
+		ifName  string
+		opts    []InterfaceOption
+		wantErr bool
+		wantVrf string
 	}{
 		{
-			name:    "empty interface name",
-			ifName:  "",
-			wantErr: true,
+			name:    "with sparse mode enabled",
+			ifName:  "lo0",
+			opts:    []InterfaceOption{WithSparseMode(true)},
+			wantErr: false,
+			wantVrf: "default",
 		},
 		{
-			name:    "invalid Ethernet format",
-			ifName:  "Ethernet1",
-			wantErr: true,
+			name:    "with sparse mode disabled",
+			ifName:  "lo0",
+			opts:    []InterfaceOption{WithSparseMode(false)},
+			wantErr: false,
+			wantVrf: "default",
 		},
 		{
-			name:    "invalid Loopback format",
-			ifName:  "Loopback",
-			wantErr: true,
+			name:    "with custom VRF",
+			ifName:  "lo0",
+			opts:    []InterfaceOption{WithInterfaceVRF("management")},
+			wantErr: false,
+			wantVrf: "management",
 		},
 		{
-			name:          "valid interface short form",
-			ifName:        "lo0",
-			wantErr:       false,
-			wantVrf:       "default",
-			wantShortName: "lo0",
-		},
-		{
-			name:          "Ethernet interface conversion",
-			ifName:        "Ethernet1/1",
-			wantErr:       false,
-			wantVrf:       "default",
-			wantShortName: "eth1/1",
-		},
-		{
-			name:          "Loopback interface conversion",
-			ifName:        "Loopback0",
-			wantErr:       false,
-			wantVrf:       "default",
-			wantShortName: "lo0",
-		},
-		{
-			name:          "with sparse mode enabled",
-			ifName:        "lo0",
-			opts:          []InterfaceOption{WithSparseMode(true)},
-			wantErr:       false,
-			wantVrf:       "default",
-			wantShortName: "lo0",
-		},
-		{
-			name:          "with sparse mode disabled",
-			ifName:        "lo0",
-			opts:          []InterfaceOption{WithSparseMode(false)},
-			wantErr:       false,
-			wantVrf:       "default",
-			wantShortName: "lo0",
-		},
-		{
-			name:          "with custom VRF",
-			ifName:        "lo0",
-			opts:          []InterfaceOption{WithInterfaceVRF("management")},
-			wantErr:       false,
-			wantVrf:       "management",
-			wantShortName: "lo0",
-		},
-		{
-			name:          "with multiple options",
-			ifName:        "Ethernet1/1",
-			opts:          []InterfaceOption{WithSparseMode(true), WithInterfaceVRF("custom")},
-			wantErr:       false,
-			wantVrf:       "custom",
-			wantShortName: "eth1/1",
+			name:    "with multiple options",
+			ifName:  "eth1/1",
+			opts:    []InterfaceOption{WithSparseMode(true), WithInterfaceVRF("custom")},
+			wantErr: false,
+			wantVrf: "custom",
 		},
 	}
 
@@ -840,9 +799,6 @@ func TestNewInterface(t *testing.T) {
 			if intf == nil {
 				t.Errorf("NewInterface() returned nil")
 				return
-			}
-			if intf.Name != test.wantShortName {
-				t.Errorf("NewInterface() Name = %v, want %v", intf.Name, test.wantShortName)
 			}
 			if intf.Vrf != test.wantVrf {
 				t.Errorf("NewInterface() Vrf = %v, want %v", intf.Vrf, test.wantVrf)
@@ -971,7 +927,7 @@ func TestInterface_ToYGOT_Success(t *testing.T) {
 
 	client := &gnmiext.ClientMock{
 		GetFunc: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
-			if xpath != "System/intf-items/lb-items/LbRtdIf-list/[id=lo0]" {
+			if xpath != "System/intf-items/lb-items/LbRtdIf-list[id=lo0]" {
 				t.Errorf("Interface.ToYGOT() unexpected xpath = %v", xpath)
 			}
 			// Simulate existing interface
@@ -1043,7 +999,7 @@ func TestInterface_ToYGOT_WithCustomVRF(t *testing.T) {
 
 	client := &gnmiext.ClientMock{
 		GetFunc: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
-			if xpath != "System/intf-items/lb-items/LbRtdIf-list/[id=eth1/1]" {
+			if xpath != "System/intf-items/phys-items/PhysIf-list[id=eth1/1]" {
 				t.Errorf("Interface.ToYGOT() unexpected xpath = %v", xpath)
 			}
 			// Simulate existing interface
