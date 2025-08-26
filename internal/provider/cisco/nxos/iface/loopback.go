@@ -6,7 +6,6 @@ package iface
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/openconfig/ygot/ygot"
 
@@ -28,9 +27,9 @@ type LoopbackOption func(*Loopback) error
 
 // NewLoopbackInterface creates a new loopback interface with the given name and description.
 func NewLoopbackInterface(name string, description *string, opts ...LoopbackOption) (*Loopback, error) {
-	shortName, err := ShortName(name) // validate name
-	if err != nil || !strings.HasPrefix(shortName, "lo") {
-		return nil, fmt.Errorf("iface: '%s' is not a valid name for a loopback interface", name)
+	shortName, err := ShortNameLoopback(name)
+	if err != nil {
+		return nil, err
 	}
 	l := &Loopback{
 		name:        shortName,
