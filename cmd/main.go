@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,8 +21,6 @@ import (
 	// Set runtime concurrency to match CPU limit imposed by Kubernetes
 	_ "go.uber.org/automaxprocs"
 
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
@@ -44,6 +43,10 @@ import (
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
+
+	version   = "dev"
+	gitCommit = "none"
+	buildDate = "unknown"
 )
 
 func init() {
@@ -53,6 +56,14 @@ func init() {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "version" {
+		log.SetFlags(0)
+		log.Printf("Version:   %s", version)
+		log.Printf("Git Commit: %s", gitCommit)
+		log.Printf("Build Date: %s", buildDate)
+		os.Exit(0)
+	}
+
 	var metricsAddr string
 	var metricsCertPath, metricsCertName, metricsCertKey string
 	var webhookCertPath, webhookCertName, webhookCertKey string

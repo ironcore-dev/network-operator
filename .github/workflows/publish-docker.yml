@@ -53,6 +53,10 @@ jobs:
           flavor: |
             latest=${{ github.ref == 'refs/heads/main' }}
 
+      - name: Set short git commit SHA
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         with:
@@ -82,3 +86,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           target: ${{ matrix.image.target }}
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+            GIT_COMMIT=${{ steps.vars.sha_short }}
+            BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')

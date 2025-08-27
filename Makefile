@@ -12,6 +12,12 @@ endif
 GOARCH  := $(shell go env GOARCH)
 GOOS    := $(shell go env GOOS)
 
+VERSION ?= dev
+GIT_COMMIT ?= $(shell git rev-parse --short HEAD)
+BUILD_DATE ?= $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+LDFLAGS = -ldflags="-X 'main.version=$(VERSION)' -X 'main.gitCommit=$(GIT_COMMIT)' -X 'main.buildDate=$(BUILD_DATE)'"
+
 # CONTAINER_TOOL defines the container tool to be used for building images.
 # Be aware that the target commands are only tested with Docker which is
 # scaffolded by default. However, you might want to replace it to use other
@@ -127,7 +133,7 @@ docs: gen-crd-api-reference-docs ## Run go generate to generate API reference do
 
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
-	go build -o bin/manager cmd/main.go
+	go build $(LDFLAGS) -o bin/manager cmd/main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
@@ -143,7 +149,11 @@ helm: manifests kubebuilder
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
-	$(CONTAINER_TOOL) build -t ${IMG} .
+	$(CONTAINER_TOOL) build \
+		--build-arg=BUILD_DATE=$(BUILD_DATE) \
+	 	--build-arg=GIT_COMMIT=$(GIT_COMMIT) \
+	 	--build-arg=VERSION=$(VERSION) \
+	 	-t ${IMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.

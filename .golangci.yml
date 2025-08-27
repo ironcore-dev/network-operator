@@ -39,6 +39,9 @@ linters:
     - usetesting
     - whitespace
   settings:
+    gomoddirectives:
+      toolchain-forbidden: true
+      go-version-pattern: 1\.\d+(\.0)?$
     revive:
       rules:
         - name: comment-spacings
