@@ -14,6 +14,7 @@ require (
 	github.com/openconfig/goyang v1.6.2
 	github.com/openconfig/ygnmi v0.13.1-0.20250924235719-646562b5d0c3
 	github.com/openconfig/ygot v0.32.0
+	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.71.0
 	google.golang.org/protobuf v1.36.5

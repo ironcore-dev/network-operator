@@ -28,7 +28,7 @@ jobs:
 
       - name: Lint Helm Chart
         run: |
-          helm lint ./dist/chart
+          helm lint ./charts/network-operator
 
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1
@@ -55,7 +55,7 @@ jobs:
 
       - name: Install Helm chart for project
         run: |
-          helm install my-release ./dist/chart --create-namespace --namespace network-operator-system
+          helm install my-release ./charts/network-operator --create-namespace --namespace network-operator-system
 
       - name: Check Helm release status
         run: |

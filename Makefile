@@ -1,5 +1,6 @@
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
+TEST_SERVER_IMG ?= gnmi-test-server:latest
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -135,6 +136,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 .PHONY: helm
 helm: manifests kubebuilder
 	$(KUBEBUILDER) edit --plugins=helm/v1-alpha
+	@rm -rf charts/network-operator && mv dist/chart charts/network-operator && rm -rf dist
 
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64). However, you must enable docker buildKit for it.
@@ -169,6 +171,13 @@ build-installer: manifests generate kustomize ## Generate a consolidated YAML wi
 	mkdir -p dist
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default > dist/install.yaml
+
+.PHONY: build-test-gnmi-server
+build-test-gnmi-server: ## Build docker image with the gnmi test server.
+	$(CONTAINER_TOOL) build -t ${TEST_SERVER_IMG} ./test/gnmi/
+
+run-test-gnmi-server: build-test-gnmi-server
+	@$(CONTAINER_TOOL) run --rm -p 8000:8000 -p 9339:9339 $(TEST_SERVER_IMG)
 
 ##@ Deployment
 

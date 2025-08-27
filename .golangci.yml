@@ -5,23 +5,39 @@ run:
 linters:
   default: none
   enable:
+    - bodyclose
+    - containedctx
     - copyloopvar
-    - dupl
+    - dupword
+    - durationcheck
     - errcheck
+    - errname
+    - errorlint
+    - exptostd
+    - forbidigo
     - ginkgolinter
+    - gocheckcompilerdirectives
     - goconst
-    - gocyclo
+    - gocritic
+    - gosec
     - govet
     - ineffassign
-    - lll
+    - intrange
     - misspell
-    - nakedret
-    - prealloc
-    - revive
+    - nilerr
+    - nolintlint
+    - nosprintfhostport
+    - perfsprint
+    - predeclared
+    - rowserrcheck
+    - sqlclosecheck
     - staticcheck
     - unconvert
     - unparam
     - unused
+    - usestdlibvars
+    - usetesting
+    - whitespace
   settings:
     revive:
       rules:
@@ -30,6 +46,12 @@ linters:
   exclusions:
     generated: lax
     rules:
+      - linters:
+          - perfsprint
+          - nolintlint
+          - gosec
+          - forbidigo
+        path: test/
       - linters:
           - lll
         path: api/*
@@ -45,6 +67,8 @@ linters:
         path: test
       - linters:
           - lll
+          - gosec
+          - forbidigo
         path: hack/provider
       - linters:
           - gocyclo
@@ -55,6 +79,12 @@ linters:
         path: internal/provider/cisco/nxos
       - linters:
           - lll
+          - perfsprint
+          - gosec
+          - gocritic
+          - whitespace
+          - errorlint
+          - dupword
         path: internal/provider/openconfig
       - linters:
           - staticcheck
@@ -64,6 +94,10 @@ linters:
           - gofmt
           - gocyclo
           - dupl
+          - gocritic
+          - whitespace
+          - perfsprint
+          - errorlint
         path: internal/provider/cisco/nxos/genyang
       - linters:
           - staticcheck
@@ -81,6 +115,11 @@ formatters:
   enable:
     - gofmt
     - goimports
+  settings:
+    goimports:
+      # Put local imports after 3rd-party packages
+      local-prefixes:
+        - github.com/ironcore-dev/network-operator
   exclusions:
     generated: lax
     paths:
