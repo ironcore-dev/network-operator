@@ -67,9 +67,8 @@ const (
 var (
 	_ provider.Provider          = &Provider{}
 	_ provider.InterfaceProvider = &Provider{}
+	_ provider.BannerProvider    = &Provider{}
 )
-
-var _ provider.Provider = &Provider{}
 
 type Provider struct {
 	conn   *grpc.ClientConn
@@ -93,7 +92,7 @@ func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (er
 	return nil
 }
 
-func (p *Provider) Disconnect(context.Context, *deviceutil.Connection) error {
+func (p *Provider) Disconnect(_ context.Context, _ *deviceutil.Connection) error {
 	return p.conn.Close()
 }
 
@@ -204,6 +203,19 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 	return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
 }
 
+func (p *Provider) EnsureBanner(ctx context.Context, req *provider.BannerRequest) (res provider.Result, reterr error) {
+	defer func() {
+		res = WithErrorConditions(res, reterr)
+	}()
+
+	b := &banner.Banner{Message: req.Message, Delimiter: "^"}
+	return provider.Result{}, p.client.Update(ctx, b)
+}
+
+func (p *Provider) DeleteBanner(ctx context.Context) error {
+	return p.client.Reset(ctx, &banner.Banner{})
+}
+
 func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) error {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -295,7 +307,6 @@ func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) er
 		&Trustpoints{Spec: device.Spec.PKI, DryRun: isDryRun},
 		&SNMP{Spec: device.Spec.SNMP},
 		&GRPC{Spec: device.Spec.GRPC},
-		&Banner{Spec: device.Spec.Banner},
 		&VLAN{LongName: device.Annotations[VlanLongNameAnnotation] == "true"},
 		&Copp{Profile: device.Annotations[CoppProfileAnnotation]},
 		&Logging{
@@ -431,7 +442,6 @@ var (
 	_ Step = (*Features)(nil)
 	_ Step = (*DNS)(nil)
 	_ Step = (*Copp)(nil)
-	_ Step = (*Banner)(nil)
 )
 
 type NTP struct{ Spec *v1alpha1.NTP }
@@ -769,36 +779,6 @@ func (step *Copp) Exec(ctx context.Context, s *Scope) error {
 	}
 	c := &copp.COPP{Profile: profile}
 	return s.GNMI.Update(ctx, c)
-}
-
-type Banner struct{ Spec *v1alpha1.TemplateSource }
-
-func (step *Banner) Name() string { return "Banner" }
-func (step *Banner) Deps() []client.ObjectKey {
-	if step.Spec == nil {
-		return nil
-	}
-	if step.Spec.SecretRef != nil {
-		return []client.ObjectKey{
-			{
-				Name: step.Spec.SecretRef.Name,
-			},
-		}
-	}
-	// TODO(felix-kaestner): Support ConfigMap references
-	return nil
-}
-
-func (step *Banner) Exec(ctx context.Context, s *Scope) error {
-	if step.Spec == nil {
-		return nil
-	}
-	message, err := s.Client.Template(ctx, step.Spec)
-	if err != nil {
-		return err
-	}
-	b := &banner.Banner{Message: string(message), Delimiter: "^"}
-	return s.GNMI.Update(ctx, b)
 }
 
 func WithErrorConditions(res provider.Result, err error) provider.Result {

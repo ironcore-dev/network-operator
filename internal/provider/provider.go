@@ -50,6 +50,21 @@ type InterfaceRequest struct {
 	ProviderConfig *ProviderConfig
 }
 
+// BannerProvider is the interface for the realization of the Banner objects over different providers.
+type BannerProvider interface {
+	Provider
+
+	// EnsureBanner call is responsible for Banner realization on the provider.
+	EnsureBanner(context.Context, *BannerRequest) (Result, error)
+	// DeleteBanner call is responsible for Banner deletion on the provider.
+	DeleteBanner(context.Context) error
+}
+
+type BannerRequest struct {
+	Message        string
+	ProviderConfig *ProviderConfig
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.
