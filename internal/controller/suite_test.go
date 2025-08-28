@@ -38,7 +38,7 @@ var (
 	testEnv      *envtest.Environment
 	k8sClient    client.Client
 	k8sManager   ctrl.Manager
-	testProvider = &Provider{Items: make(map[string]client.Object)}
+	testProvider = NewProvider()
 )
 
 func TestControllers(t *testing.T) {
@@ -108,6 +108,14 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&BannerReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -153,13 +161,22 @@ func detectTestBinaryDir() string {
 var (
 	_ provider.Provider          = (*Provider)(nil)
 	_ provider.InterfaceProvider = (*Provider)(nil)
+	_ provider.BannerProvider    = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
 type Provider struct {
 	sync.Mutex
 
-	Items map[string]client.Object
+	Items  map[string]client.Object
+	Banner *string
+}
+
+func NewProvider() *Provider {
+	return &Provider{
+		Items: make(map[string]client.Object),
+		User:  make(map[string]struct{}),
+	}
 }
 
 func (p *Provider) Connect(context.Context, *deviceutil.Connection) error    { return nil }
@@ -178,3 +195,18 @@ func (p *Provider) DeleteInterface(_ context.Context, req *provider.InterfaceReq
 	delete(p.Items, req.Interface.Name)
 	return nil
 }
+
+func (p *Provider) EnsureBanner(_ context.Context, req *provider.BannerRequest) (provider.Result, error) {
+	p.Lock()
+	defer p.Unlock()
+	p.Banner = &req.Message
+	return provider.Result{}, nil
+}
+
+func (p *Provider) DeleteBanner(context.Context) error {
+	p.Lock()
+	defer p.Unlock()
+	p.Banner = nil
+	return nil
+}
+
