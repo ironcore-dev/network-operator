@@ -65,6 +65,29 @@ type BannerRequest struct {
 	ProviderConfig *ProviderConfig
 }
 
+// UserProvider is the interface for the realization of the User objects over different providers.
+type UserProvider interface {
+	Provider
+
+	// EnsureUser call is responsible for User realization on the provider.
+	EnsureUser(context.Context, *EnsureUserRequest) (Result, error)
+	// DeleteUser call is responsible for User deletion on the provider.
+	DeleteUser(context.Context, *DeleteUserRequest) error
+}
+
+type EnsureUserRequest struct {
+	Username       string
+	Password       string
+	SSHKey         string
+	Roles          []string
+	ProviderConfig *ProviderConfig
+}
+
+type DeleteUserRequest struct {
+	Username       string
+	ProviderConfig *ProviderConfig
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.

@@ -74,13 +74,6 @@ spec:
     facilities:
       - name: user
         severity: Warning
-  users:
-    - name: user
-      password:
-        secretKeyRef:
-          name: secret-basic-auth
-          key: password
-      role: network-admin
   grpc:
     port: 9339
     certificateId: trustpoint

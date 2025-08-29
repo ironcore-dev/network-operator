@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.18.0
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: devices.networking.cloud.sap
 spec:
   group: networking.cloud.sap
@@ -576,52 +576,6 @@ spec:
                 - location
                 - srcIf
                 type: object
-              users:
-                description: List of local users on the switch.
-                items:
-                  properties:
-                    name:
-                      description: Assigned username for this user.
-                      type: string
-                    password:
-                      description: The user password, supplied as cleartext.
-                      properties:
-                        secretKeyRef:
-                          description: Selects a key of a secret.
-                          properties:
-                            key:
-                              description: The key of the secret to select from.  Must
-                                be a valid secret key.
-                              type: string
-                            name:
-                              default: ""
-                              description: |-
-                                Name of the referent.
-                                This field is effectively required, but due to backwards compatibility is
-                                allowed to be empty. Instances of this type with an empty value here are
-                                almost certainly wrong.
-                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              type: string
-                            optional:
-                              description: Specify whether the Secret or its key must
-                                be defined
-                              type: boolean
-                          required:
-                          - key
-                          type: object
-                          x-kubernetes-map-type: atomic
-                      required:
-                      - secretKeyRef
-                      type: object
-                    role:
-                      description: Role which the user is to be assigned to.
-                      type: string
-                  required:
-                  - name
-                  - password
-                  - role
-                  type: object
-                type: array
             required:
             - endpoint
             type: object

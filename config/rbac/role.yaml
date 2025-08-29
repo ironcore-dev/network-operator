@@ -34,6 +34,7 @@ rules:
   - banners
   - devices
   - interfaces
+  - users
   verbs:
   - create
   - delete
@@ -48,6 +49,7 @@ rules:
   - banners/finalizers
   - devices/finalizers
   - interfaces/finalizers
+  - users/finalizers
   verbs:
   - update
 - apiGroups:
@@ -56,6 +58,7 @@ rules:
   - banners/status
   - devices/status
   - interfaces/status
+  - users/status
   verbs:
   - get
   - patch

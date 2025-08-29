@@ -116,6 +116,14 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&UserReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -162,6 +170,7 @@ var (
 	_ provider.Provider          = (*Provider)(nil)
 	_ provider.InterfaceProvider = (*Provider)(nil)
 	_ provider.BannerProvider    = (*Provider)(nil)
+	_ provider.UserProvider      = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -169,12 +178,14 @@ type Provider struct {
 	sync.Mutex
 
 	Items  map[string]client.Object
+	User   map[string]struct{}
 	Banner *string
 }
 
 func NewProvider() *Provider {
 	return &Provider{
 		Items: make(map[string]client.Object),
+		User:  make(map[string]struct{}),
 	}
 }
 
@@ -206,5 +217,19 @@ func (p *Provider) DeleteBanner(context.Context) error {
 	p.Lock()
 	defer p.Unlock()
 	p.Banner = nil
+	return nil
+}
+
+func (p *Provider) EnsureUser(_ context.Context, req *provider.EnsureUserRequest) (provider.Result, error) {
+	p.Lock()
+	defer p.Unlock()
+	p.User[req.Username] = struct{}{}
+	return provider.Result{}, nil
+}
+
+func (p *Provider) DeleteUser(_ context.Context, req *provider.DeleteUserRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	delete(p.User, req.Username)
 	return nil
 }

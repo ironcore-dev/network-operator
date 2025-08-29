@@ -52,6 +52,9 @@ k8s_resource(new_name='eth1-10', objects=['eth1-10:interface'], trigger_mode=TRI
 k8s_yaml('./config/samples/v1alpha1_banner.yaml')
 k8s_resource(new_name='banner', objects=['banner:banner'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
+k8s_yaml('./config/samples/v1alpha1_user.yaml')
+k8s_resource(new_name='user', objects=['user:user', 'user-password:secret', 'user-ssh-key:secret'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')
 print('👉 Tilt will automatically rebuild and redeploy when changes are detected')

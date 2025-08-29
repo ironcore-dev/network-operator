@@ -41,6 +41,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/ntp"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/snmp"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/term"
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/user"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/vlan"
 )
 
@@ -68,6 +69,7 @@ var (
 	_ provider.Provider          = &Provider{}
 	_ provider.InterfaceProvider = &Provider{}
 	_ provider.BannerProvider    = &Provider{}
+	_ provider.UserProvider      = &Provider{}
 )
 
 type Provider struct {
@@ -214,6 +216,33 @@ func (p *Provider) EnsureBanner(ctx context.Context, req *provider.BannerRequest
 
 func (p *Provider) DeleteBanner(ctx context.Context) error {
 	return p.client.Reset(ctx, &banner.Banner{})
+}
+
+func (p *Provider) EnsureUser(ctx context.Context, req *provider.EnsureUserRequest) (res provider.Result, reterr error) {
+	defer func() {
+		res = WithErrorConditions(res, reterr)
+	}()
+
+	opts := []user.UserOption{}
+	if req.SSHKey != "" {
+		opts = append(opts, user.WithSSHKey(req.SSHKey))
+	}
+	if len(req.Roles) > 0 {
+		r := make([]user.Role, 0, len(req.Roles))
+		for _, role := range req.Roles {
+			r = append(r, user.Role{Name: role})
+		}
+		opts = append(opts, user.WithRoles(r...))
+	}
+	u, err := user.NewUser(req.Username, req.Password, opts...)
+	if err != nil {
+		return provider.Result{}, fmt.Errorf("failed to create user: %w", err)
+	}
+	return provider.Result{}, p.client.Update(ctx, u)
+}
+
+func (p *Provider) DeleteUser(ctx context.Context, req *provider.DeleteUserRequest) error {
+	return p.client.Reset(ctx, &user.User{Name: req.Username})
 }
 
 func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) error {

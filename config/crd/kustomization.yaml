@@ -5,6 +5,7 @@ resources:
 - bases/networking.cloud.sap_devices.yaml
 - bases/networking.cloud.sap_interfaces.yaml
 - bases/networking.cloud.sap_banners.yaml
+- bases/networking.cloud.sap_users.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:
