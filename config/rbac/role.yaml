@@ -33,6 +33,7 @@ rules:
   resources:
   - banners
   - devices
+  - dns
   - interfaces
   - users
   verbs:
@@ -48,6 +49,7 @@ rules:
   resources:
   - banners/finalizers
   - devices/finalizers
+  - dns/finalizers
   - interfaces/finalizers
   - users/finalizers
   verbs:
@@ -57,6 +59,7 @@ rules:
   resources:
   - banners/status
   - devices/status
+  - dns/status
   - interfaces/status
   - users/status
   verbs:

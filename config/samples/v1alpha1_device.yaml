@@ -38,12 +38,6 @@ spec:
         hostname leaf1
         feature grpc
         grpc port 9339
-  dns:
-    srcIf: mgmt0
-    domain: net.cloud.sap
-    servers:
-      - address: 8.8.8.8
-        networkInstance: management
   ntp:
     srcIf: mgmt0
     servers:

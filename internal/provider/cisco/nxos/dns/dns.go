@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company
 // SPDX-License-Identifier: Apache-2.0
 
-// This package enables the configuration of DNS settings on the device as per the following configuration sample:
+// Package dns enables the configuration of DNS settings on the device as per the following configuration sample:
 //   - ip domain-lookup
 //   - ip domain-name foo.bar
 //   - ip name-server 10.10.10.10 use-vrf management
@@ -90,13 +90,10 @@ func (d *DNS) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, err
 	}, nil
 }
 
-func (v *DNS) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
-	dns := new(nxos.Cisco_NX_OSDevice_System_DnsItems)
-	dns.PopulateDefaults()
+func (d *DNS) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{
-		gnmiext.EditingUpdate{
+		gnmiext.DeletingUpdate{
 			XPath: "System/dns-items",
-			Value: dns,
 		},
 	}, nil
 }
