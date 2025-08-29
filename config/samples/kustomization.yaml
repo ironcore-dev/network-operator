@@ -3,4 +3,5 @@ resources:
 - v1alpha1_device.yaml
 - v1alpha1_interface.yaml
 - v1alpha1_banner.yaml
+- v1alpha1_user.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

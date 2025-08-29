@@ -45,10 +45,6 @@ type DeviceSpec struct {
 	// +optional
 	SNMP *SNMP `json:"snmp,omitempty"`
 
-	// List of local users on the switch.
-	// +optional
-	User []*User `json:"users,omitempty"`
-
 	// Configuration for the gRPC server on the device.
 	// Currently, only a single "default" gRPC server is supported.
 	// +optional
@@ -371,24 +367,6 @@ type SNMPCommunity struct {
 	ACL string `json:"acl,omitempty"`
 }
 
-type User struct {
-	// Assigned username for this user.
-	// +required
-	Name string `json:"name"`
-
-	// TODO(felix-kaestner): Allow to supply the password in hashed form.
-
-	// The user password, supplied as cleartext.
-	// +required
-	Password *PasswordSource `json:"password"`
-
-	// TODO(felix-kaestner): Add support for SSH keys.
-
-	// Role which the user is to be assigned to.
-	// +required
-	Role string `json:"role,omitempty"`
-}
-
 type GRPC struct {
 	// The TCP port on which the gRPC server should listen.
 	// The range of port-id is from 1024 to 65535.
@@ -472,13 +450,6 @@ type CertificateSource struct {
 	SecretRef *corev1.SecretReference `json:"secretRef,omitempty"`
 }
 
-// PasswordSource represents a source for the value of a password.
-type PasswordSource struct {
-	// Selects a key of a secret.
-	// +required
-	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
-}
-
 // DeviceStatus defines the observed state of Device.
 type DeviceStatus struct {
 	// Phase represents the current phase of the Device.
@@ -558,9 +529,6 @@ func (d *Device) GetSecretRefs() []corev1.SecretReference {
 				refs = append(refs, *cert.Source.SecretRef)
 			}
 		}
-	}
-	for _, user := range d.Spec.User {
-		refs = append(refs, corev1.SecretReference{Name: user.Password.SecretKeyRef.Name})
 	}
 	for i := range refs {
 		if refs[i].Namespace == "" {

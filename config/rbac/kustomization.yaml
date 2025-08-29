@@ -31,3 +31,6 @@ resources:
 - banner_admin_role.yaml
 - banner_editor_role.yaml
 - banner_viewer_role.yaml
+- user_admin_role.yaml
+- user_editor_role.yaml
+- user_viewer_role.yaml
