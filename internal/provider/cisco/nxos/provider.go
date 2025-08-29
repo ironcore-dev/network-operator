@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -37,7 +36,6 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/dns"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/feat"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/localusr"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/logging"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/ntp"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/snmp"
@@ -164,7 +162,6 @@ func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) er
 		&ACL{Spec: device.Spec.ACL},
 		&Trustpoints{Spec: device.Spec.PKI, DryRun: isDryRun},
 		&SNMP{Spec: device.Spec.SNMP},
-		&User{Spec: device.Spec.User},
 		&GRPC{Spec: device.Spec.GRPC},
 		&Banner{Spec: device.Spec.Banner},
 		&VLAN{LongName: device.Annotations[VlanLongNameAnnotation] == "true"},
@@ -301,7 +298,6 @@ var (
 	_ Step = (*SNMP)(nil)
 	_ Step = (*Logging)(nil)
 	_ Step = (*VLAN)(nil)
-	_ Step = (*User)(nil)
 	_ Step = (*Features)(nil)
 	_ Step = (*DNS)(nil)
 	_ Step = (*Copp)(nil)
@@ -605,44 +601,6 @@ func (step *VLAN) Deps() []client.ObjectKey { return nil }
 func (step *VLAN) Exec(ctx context.Context, s *Scope) error {
 	v := &vlan.VLAN{LongName: step.LongName}
 	return s.GNMI.Update(ctx, v)
-}
-
-type User struct{ Spec []*v1alpha1.User }
-
-func (step *User) Name() string             { return "User" }
-func (step *User) Deps() []client.ObjectKey { return nil }
-func (step *User) Exec(ctx context.Context, s *Scope) error {
-	users := &localusr.Users{UserList: make([]*localusr.User, len(step.Spec))}
-	for i, u := range step.Spec {
-		pwd, err := s.Client.Secret(ctx, u.Password.SecretKeyRef)
-		if err != nil {
-			return fmt.Errorf("failed to get user authentication password from k8s secret: %w", err)
-		}
-
-		users.UserList[i] = &localusr.User{
-			Name:           u.Name,
-			Pwd:            string(pwd),
-			PwdEncryptType: localusr.PasswdType5,
-			Shelltype:      localusr.VSH,
-		}
-
-		if u.Role != "" {
-			users.UserList[i].UserdomainItems = []localusr.UserDomain{{
-				Name: "all",
-				RoleItems: []*localusr.UserRole{{
-					Name:     u.Role,
-					PrivType: localusr.NoDataPriv,
-				}},
-			}}
-		}
-	}
-
-	if !slices.ContainsFunc(step.Spec, func(u *v1alpha1.User) bool { return u.Name == "admin" }) {
-		// Prevent admin user from being deleted, if not managed by the operator.
-		users.IgnorePaths = []string{"/User-list[name=admin]"}
-	}
-
-	return s.GNMI.Update(ctx, users)
 }
 
 type Features struct{ Spec []string }
