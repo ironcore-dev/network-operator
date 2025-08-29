@@ -1,0 +1,16 @@
+apiVersion: networking.cloud.sap/v1alpha1
+kind: DNS
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.cloud.sap/device-name: leaf1
+  name: dns
+spec:
+  deviceRef:
+    name: leaf1
+  domain: net.cloud.sap
+  servers:
+    - address: 8.8.8.8
+      vrfName: management
+  sourceInterfaceName: mgmt0

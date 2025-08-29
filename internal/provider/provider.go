@@ -88,6 +88,21 @@ type DeleteUserRequest struct {
 	ProviderConfig *ProviderConfig
 }
 
+// DNSProvider is the interface for the realization of the DNS objects over different providers.
+type DNSProvider interface {
+	Provider
+
+	// EnsureDNS call is responsible for DNS realization on the provider.
+	EnsureDNS(context.Context, *EnsureDNSRequest) (Result, error)
+	// DeleteDNS call is responsible for DNS deletion on the provider.
+	DeleteDNS(context.Context) error
+}
+
+type EnsureDNSRequest struct {
+	DNS            *v1alpha1.DNS
+	ProviderConfig *ProviderConfig
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.

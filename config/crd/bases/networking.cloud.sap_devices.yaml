@@ -185,36 +185,6 @@ spec:
                 required:
                 - template
                 type: object
-              dns:
-                description: Top-level configuration for DNS / resolver.
-                properties:
-                  domain:
-                    description: Default domain name that the switch uses to complete
-                      unqualified hostnames.
-                    format: hostname
-                    type: string
-                  servers:
-                    description: A list of DNS servers to use for address resolution.
-                    items:
-                      properties:
-                        address:
-                          description: The Hostname or IP address of the DNS server.
-                          type: string
-                        networkInstance:
-                          description: The network instance used to communicate with
-                            the DNS server.
-                          type: string
-                      required:
-                      - address
-                      type: object
-                    maxItems: 6
-                    type: array
-                  srcIf:
-                    description: Source interface for all DNS traffic.
-                    type: string
-                required:
-                - domain
-                type: object
               endpoint:
                 description: Endpoint contains the connection information for the
                   device.

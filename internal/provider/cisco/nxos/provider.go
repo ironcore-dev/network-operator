@@ -70,6 +70,7 @@ var (
 	_ provider.InterfaceProvider = &Provider{}
 	_ provider.BannerProvider    = &Provider{}
 	_ provider.UserProvider      = &Provider{}
+	_ provider.DNSProvider       = &Provider{}
 )
 
 type Provider struct {
@@ -245,6 +246,30 @@ func (p *Provider) DeleteUser(ctx context.Context, req *provider.DeleteUserReque
 	return p.client.Reset(ctx, &user.User{Name: req.Username})
 }
 
+func (p *Provider) EnsureDNS(ctx context.Context, req *provider.EnsureDNSRequest) (res provider.Result, reterr error) {
+	defer func() {
+		res = WithErrorConditions(res, reterr)
+	}()
+
+	d := &dns.DNS{
+		Enable:     true,
+		DomainName: req.DNS.Spec.Domain,
+		Providers:  make([]*dns.Provider, len(req.DNS.Spec.Servers)),
+	}
+	for i, p := range req.DNS.Spec.Servers {
+		d.Providers[i] = &dns.Provider{
+			Addr:  p.Address,
+			Vrf:   p.VrfName,
+			SrcIf: req.DNS.Spec.SourceInterfaceName,
+		}
+	}
+	return provider.Result{}, p.client.Update(ctx, d)
+}
+
+func (p *Provider) DeleteDNS(ctx context.Context) error {
+	return p.client.Reset(ctx, &dns.DNS{})
+}
+
 func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) error {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -330,7 +355,6 @@ func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) er
 			"vpc",
 		}},
 		// Steps that depend on the device spec
-		&DNS{Spec: device.Spec.DNS},
 		&NTP{Spec: device.Spec.NTP},
 		&ACL{Spec: device.Spec.ACL},
 		&Trustpoints{Spec: device.Spec.PKI, DryRun: isDryRun},
@@ -469,7 +493,6 @@ var (
 	_ Step = (*Logging)(nil)
 	_ Step = (*VLAN)(nil)
 	_ Step = (*Features)(nil)
-	_ Step = (*DNS)(nil)
 	_ Step = (*Copp)(nil)
 )
 
@@ -764,25 +787,6 @@ func (step *Features) Name() string             { return "Features" }
 func (step *Features) Deps() []client.ObjectKey { return nil }
 func (step *Features) Exec(ctx context.Context, s *Scope) error {
 	return s.GNMI.Update(ctx, feat.Features(step.Spec))
-}
-
-type DNS struct{ Spec *v1alpha1.DNS }
-
-func (step *DNS) Name() string             { return "DNS" }
-func (step *DNS) Deps() []client.ObjectKey { return nil }
-func (step *DNS) Exec(ctx context.Context, s *Scope) error {
-	d := &dns.DNS{Enable: false}
-	if step.Spec != nil {
-		d = &dns.DNS{
-			Enable:     true,
-			DomainName: step.Spec.Domain,
-			Providers:  make([]*dns.Provider, len(step.Spec.Servers)),
-		}
-		for i, p := range step.Spec.Servers {
-			d.Providers[i] = &dns.Provider{Addr: p.Address, Vrf: p.NetworkInstance, SrcIf: step.Spec.SrcIf}
-		}
-	}
-	return s.GNMI.Update(ctx, d)
 }
 
 type Copp struct{ Profile string }

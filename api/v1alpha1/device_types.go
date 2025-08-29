@@ -21,10 +21,6 @@ type DeviceSpec struct {
 	// +optional
 	Bootstrap *Bootstrap `json:"bootstrap,omitempty"`
 
-	// Top-level configuration for DNS / resolver.
-	// +optional
-	DNS *DNS `json:"dns,omitempty"`
-
 	// Configuration data for system-wide NTP process.
 	// +optional
 	NTP *NTP `json:"ntp,omitempty"`
@@ -92,32 +88,6 @@ type Bootstrap struct {
 	// Template defines the multiline string template that contains the initial configuration for the device.
 	// +required
 	Template *TemplateSource `json:"template"`
-}
-
-type DNS struct {
-	// Default domain name that the switch uses to complete unqualified hostnames.
-	// +kubebuilder:validation:Format=hostname
-	// +required
-	Domain string `json:"domain"`
-
-	// A list of DNS servers to use for address resolution.
-	// +kubebuilder:validation:MaxItems=6
-	// +optional
-	Servers []*NameServer `json:"servers,omitempty"`
-
-	// Source interface for all DNS traffic.
-	// +optional
-	SrcIf string `json:"srcIf"`
-}
-
-type NameServer struct {
-	// The Hostname or IP address of the DNS server.
-	// +required
-	Address string `json:"address"`
-
-	// The network instance used to communicate with the DNS server.
-	// +optional
-	NetworkInstance string `json:"networkInstance,omitempty"`
 }
 
 type NTP struct {

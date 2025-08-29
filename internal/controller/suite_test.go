@@ -124,6 +124,14 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&DNSReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -171,6 +179,7 @@ var (
 	_ provider.InterfaceProvider = (*Provider)(nil)
 	_ provider.BannerProvider    = (*Provider)(nil)
 	_ provider.UserProvider      = (*Provider)(nil)
+	_ provider.DNSProvider       = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -180,6 +189,8 @@ type Provider struct {
 	Items  map[string]client.Object
 	User   map[string]struct{}
 	Banner *string
+	DNS    *v1alpha1.DNS
+	NTP    *v1alpha1.NTP
 }
 
 func NewProvider() *Provider {
@@ -231,5 +242,19 @@ func (p *Provider) DeleteUser(_ context.Context, req *provider.DeleteUserRequest
 	p.Lock()
 	defer p.Unlock()
 	delete(p.User, req.Username)
+	return nil
+}
+
+func (p *Provider) EnsureDNS(_ context.Context, req *provider.EnsureDNSRequest) (provider.Result, error) {
+	p.Lock()
+	defer p.Unlock()
+	p.DNS = req.DNS
+	return provider.Result{}, nil
+}
+
+func (p *Provider) DeleteDNS(_ context.Context) error {
+	p.Lock()
+	defer p.Unlock()
+	p.DNS = nil
 	return nil
 }

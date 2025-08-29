@@ -34,3 +34,6 @@ resources:
 - user_admin_role.yaml
 - user_editor_role.yaml
 - user_viewer_role.yaml
+- dns_admin_role.yaml
+- dns_editor_role.yaml
+- dns_viewer_role.yaml
