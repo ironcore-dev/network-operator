@@ -51,6 +51,7 @@ func Test_PortChannel_NewPortChannel(t *testing.T) {
 		})
 	}
 }
+
 func Test_PortChannel_ToYGOT_WithOptions_Invalid(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -157,12 +158,13 @@ func Test_PortChannel_ToYGOT_GnmiClient(t *testing.T) {
 		})
 	}
 }
+
 func Test_PortChannel_ToYGOT_Updates(t *testing.T) {
 	type updateCheck struct {
-		updateIdx   int         // the position we want to check in the returned slice of updates
-		expectType  string      // "EditingUpdate" or "ReplacingUpdate"
-		expectXPath string      // the expected XPath of the update
-		expectValue interface{} // the expected ygot object that should be in the update
+		updateIdx   int    // the position we want to check in the returned slice of updates
+		expectType  string // "EditingUpdate" or "ReplacingUpdate"
+		expectXPath string // the expected XPath of the update
+		expectValue any    // the expected ygot object that should be in the update
 	}
 
 	tests := []struct {
@@ -282,7 +284,7 @@ func Test_PortChannel_ToYGOT_Updates(t *testing.T) {
 				t.Fatalf("expected %d updates, got %d", tt.expectedNumberOfUpdates, len(updates))
 			}
 			for _, check := range tt.updateChecks {
-				var update interface{}
+				var update any
 				switch check.expectType {
 				case "EditingUpdate":
 					update, _ = updates[check.updateIdx].(gnmiext.EditingUpdate)
@@ -296,7 +298,7 @@ func Test_PortChannel_ToYGOT_Updates(t *testing.T) {
 					continue
 				}
 				var xpath string
-				var value interface{}
+				var value any
 				switch u := update.(type) {
 				case gnmiext.EditingUpdate:
 					xpath = u.XPath
