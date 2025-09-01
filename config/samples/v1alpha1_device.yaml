@@ -38,15 +38,6 @@ spec:
         hostname leaf1
         feature grpc
         grpc port 9339
-  ntp:
-    srcIf: mgmt0
-    servers:
-      - address: de.pool.ntp.org
-        prefer: true
-        networkInstance: management
-      - address: pool.ntp.org
-        prefer: false
-        networkInstance: management
   acl:
     - name: mgmt-acl
       entries:

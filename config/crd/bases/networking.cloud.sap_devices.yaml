@@ -396,37 +396,6 @@ spec:
                 - facilities
                 - servers
                 type: object
-              ntp:
-                description: Configuration data for system-wide NTP process.
-                properties:
-                  servers:
-                    description: NTP servers.
-                    items:
-                      properties:
-                        address:
-                          description: Hostname/IP address of the NTP server.
-                          type: string
-                        networkInstance:
-                          description: The network instance used to communicate with
-                            the NTP server.
-                          type: string
-                        prefer:
-                          default: false
-                          description: Indicates whether this server should be preferred
-                            or not.
-                          type: boolean
-                      required:
-                      - address
-                      type: object
-                    minItems: 1
-                    type: array
-                  srcIf:
-                    description: Source interface for all NTP traffic.
-                    type: string
-                required:
-                - servers
-                - srcIf
-                type: object
               pki:
                 description: PKI configuration for managing certificates on the device.
                 properties:

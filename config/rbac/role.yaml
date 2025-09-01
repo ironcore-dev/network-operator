@@ -35,6 +35,7 @@ rules:
   - devices
   - dns
   - interfaces
+  - ntp
   - users
   verbs:
   - create
@@ -51,6 +52,7 @@ rules:
   - devices/finalizers
   - dns/finalizers
   - interfaces/finalizers
+  - ntp/finalizers
   - users/finalizers
   verbs:
   - update
@@ -61,6 +63,7 @@ rules:
   - devices/status
   - dns/status
   - interfaces/status
+  - ntp/status
   - users/status
   verbs:
   - get

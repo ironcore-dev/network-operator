@@ -21,10 +21,6 @@ type DeviceSpec struct {
 	// +optional
 	Bootstrap *Bootstrap `json:"bootstrap,omitempty"`
 
-	// Configuration data for system-wide NTP process.
-	// +optional
-	NTP *NTP `json:"ntp,omitempty"`
-
 	// Access Control Lists (ACLs) configuration.
 	// +optional
 	ACL []*ACL `json:"acl,omitempty"`
@@ -88,32 +84,6 @@ type Bootstrap struct {
 	// Template defines the multiline string template that contains the initial configuration for the device.
 	// +required
 	Template *TemplateSource `json:"template"`
-}
-
-type NTP struct {
-	// Source interface for all NTP traffic.
-	// +required
-	SrcIf string `json:"srcIf"`
-
-	// NTP servers.
-	// +kubebuilder:validation:MinItems=1
-	// +required
-	Servers []*NTPServer `json:"servers"`
-}
-
-type NTPServer struct {
-	// Hostname/IP address of the NTP server.
-	// +required
-	Address string `json:"address"`
-
-	// Indicates whether this server should be preferred or not.
-	// +kubebuilder:default=false
-	// +optional
-	Prefer bool `json:"prefer,omitempty"`
-
-	// The network instance used to communicate with the NTP server.
-	// +optional
-	NetworkInstance string `json:"networkInstance,omitempty"`
 }
 
 type ACL struct {
