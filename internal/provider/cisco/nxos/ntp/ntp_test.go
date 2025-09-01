@@ -33,29 +33,43 @@ func Test_NTP(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(got) != 3 {
-		t.Errorf("expected 3 keys, got %d", len(got))
+	if len(got) != 2 {
+		t.Errorf("expected 2 updates, got %d", len(got))
 	}
 
-	for i := range ntp.Servers {
-		xpathStr := "System/time-items/prov-items/NtpProvider-list[name=" + ntp.Servers[i].Name + "]"
-		update, ok := got[i].(gnmiext.EditingUpdate)
-		if !ok {
-			t.Errorf("expected value to be of type EditingUpdate")
-		}
-		if update.XPath != xpathStr {
-			t.Errorf("expected xpath #%d to be %s, found %s", i, xpathStr, update.XPath)
-		}
-	}
-
-	update, ok := got[2].(gnmiext.EditingUpdate)
+	ntpdUpdate, ok := got[0].(gnmiext.EditingUpdate)
 	if !ok {
-		t.Errorf("expected value to be of type EditingUpdate")
+		t.Errorf("expected first update to be of type EditingUpdate")
 	}
 
-	ti, ok := update.Value.(*nxos.Cisco_NX_OSDevice_System_TimeItems)
+	expectedNtpdXPath := "System/fm-items/ntpd-items"
+	if ntpdUpdate.XPath != expectedNtpdXPath {
+		t.Errorf("expected first update xpath to be %s, found %s", expectedNtpdXPath, ntpdUpdate.XPath)
+	}
+
+	ntpdItems, ok := ntpdUpdate.Value.(*nxos.Cisco_NX_OSDevice_System_FmItems_NtpdItems)
 	if !ok {
-		t.Errorf("expected value to be of type *nxos.Cisco_NX_OSDevice_System_TimeItems")
+		t.Errorf("expected first update value to be of type *nxos.Cisco_NX_OSDevice_System_FmItems_NtpdItems")
+	}
+
+	if ntpdItems.AdminSt != nxos.Cisco_NX_OSDevice_Fm_AdminState_enabled {
+		t.Errorf("expected NTP daemon AdminSt to be enabled, got %v", ntpdItems.AdminSt)
+	}
+
+	// Test second update - time items configuration
+	timeUpdate, ok := got[1].(gnmiext.ReplacingUpdate)
+	if !ok {
+		t.Errorf("expected second update to be of type ReplacingUpdate")
+	}
+
+	expectedTimeXPath := "System/time-items"
+	if timeUpdate.XPath != expectedTimeXPath {
+		t.Errorf("expected second update xpath to be %s, found %s", expectedTimeXPath, timeUpdate.XPath)
+	}
+
+	ti, ok := timeUpdate.Value.(*nxos.Cisco_NX_OSDevice_System_TimeItems)
+	if !ok {
+		t.Errorf("expected second update value to be of type *nxos.Cisco_NX_OSDevice_System_TimeItems")
 	}
 
 	if ti.Logging == nxos.Cisco_NX_OSDevice_Datetime_AdminState_UNSET {
@@ -66,5 +80,23 @@ func Test_NTP(t *testing.T) {
 	}
 	if ti.ProvItems == nil || len(ti.ProvItems.NtpProviderList) != len(ntp.Servers) {
 		t.Errorf("expected %d NTP servers in 'System/time-items/prov-items'", len(ntp.Servers))
+	}
+
+	// Verify server configurations
+	for _, server := range ntp.Servers {
+		ntpProvider, exists := ti.ProvItems.NtpProviderList[server.Name]
+		if !exists {
+			t.Errorf("expected NTP server %s to be present in provider list", server.Name)
+			continue
+		}
+		if ntpProvider.Name == nil || *ntpProvider.Name != server.Name {
+			t.Errorf("expected NTP server name to be %s, got %v", server.Name, ntpProvider.Name)
+		}
+		if ntpProvider.Preferred == nil || *ntpProvider.Preferred != server.Preferred {
+			t.Errorf("expected NTP server %s preferred to be %t, got %v", server.Name, server.Preferred, ntpProvider.Preferred)
+		}
+		if ntpProvider.Vrf == nil || *ntpProvider.Vrf != server.Vrf {
+			t.Errorf("expected NTP server %s VRF to be %s, got %v", server.Name, server.Vrf, ntpProvider.Vrf)
+		}
 	}
 }
