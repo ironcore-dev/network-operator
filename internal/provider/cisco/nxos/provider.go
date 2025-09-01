@@ -319,7 +319,6 @@ func (step *NTP) Exec(ctx context.Context, s *Scope) error {
 			Name:      s.Address,
 			Preferred: s.Prefer,
 			Vrf:       s.NetworkInstance,
-			Key:       uint16(i), //nolint:gosec
 		}
 	}
 	return s.GNMI.Update(ctx, n)
