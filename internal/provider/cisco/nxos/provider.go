@@ -353,8 +353,8 @@ func (step *ACL) Exec(ctx context.Context, s *Scope) error {
 	if len(step.Spec) == 0 {
 		return nil
 	}
-	a := &acl.ACL{Items: make([]*acl.Item, len(step.Spec))}
-	for i, item := range step.Spec {
+
+	for _, item := range step.Spec {
 		rules := make([]*acl.Rule, len(item.Entries))
 		for j, rule := range item.Entries {
 			var action acl.Action
@@ -374,9 +374,18 @@ func (step *ACL) Exec(ctx context.Context, s *Scope) error {
 				Destination: rule.DestinationAddress.Prefix,
 			}
 		}
-		a.Items[i] = &acl.Item{Name: item.Name, Rules: rules}
+
+		a := &acl.ACL{
+			Name:  item.Name,
+			Rules: rules,
+		}
+
+		if err := s.GNMI.Update(ctx, a); err != nil {
+			return fmt.Errorf("failed to update ACL %s: %w", item.Name, err)
+		}
 	}
-	return s.GNMI.Update(ctx, a)
+
+	return nil
 }
 
 type Trustpoints struct {
