@@ -118,6 +118,54 @@ func TestExists(t *testing.T) {
 			wantExists: false,
 			wantErr:    false,
 		},
+		{
+			name:          "port-channel exists - full name",
+			interfaceName: "Port-Channel10",
+			fn: func(_ context.Context, xpath string) (bool, error) {
+				if xpath == "System/intf-items/aggr-items/AggrIf-list[id=po10]" {
+					return true, nil
+				}
+				return false, errors.New("unexpected xpath")
+			},
+			wantExists: true,
+			wantErr:    false,
+		},
+		{
+			name:          "port-channel exists - short name",
+			interfaceName: "po20",
+			fn: func(_ context.Context, xpath string) (bool, error) {
+				if xpath == "System/intf-items/aggr-items/AggrIf-list[id=po20]" {
+					return true, nil
+				}
+				return false, errors.New("unexpected xpath")
+			},
+			wantExists: true,
+			wantErr:    false,
+		},
+		{
+			name:          "port-channel does not exist - ErrNil",
+			interfaceName: "Port-Channel30",
+			fn: func(_ context.Context, xpath string) (bool, error) {
+				if xpath == "System/intf-items/aggr-items/AggrIf-list[id=po30]" {
+					return false, nil
+				}
+				return false, errors.New("unexpected xpath")
+			},
+			wantExists: false,
+			wantErr:    false,
+		},
+		{
+			name:          "port-channel does not exist - ErrNotFound",
+			interfaceName: "po40",
+			fn: func(_ context.Context, xpath string) (bool, error) {
+				if xpath == "System/intf-items/aggr-items/AggrIf-list[id=po40]" {
+					return false, nil
+				}
+				return false, errors.New("unexpected xpath")
+			},
+			wantExists: false,
+			wantErr:    false,
+		},
 
 		// Error cases
 		{

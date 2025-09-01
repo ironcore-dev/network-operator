@@ -40,9 +40,9 @@ type PhysIfOption func(*PhysIf) error
 //   - The interface will be configured admin state set to `up`.
 //   - If both L2 and L3 configurations options are supplied, only the last one will be applied.
 func NewPhysicalInterface(name string, opts ...PhysIfOption) (*PhysIf, error) {
-	shortName, err := ShortName(name) // validate name
-	if err != nil || !strings.HasPrefix(shortName, "eth") {
-		return nil, fmt.Errorf("iface: '%s' is not a valid name for a physical interface", name)
+	shortName, err := ShortNamePhysicalInterface(name)
+	if err != nil {
+		return nil, err
 	}
 	p := &PhysIf{
 		name:    shortName,

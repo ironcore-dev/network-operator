@@ -91,6 +91,36 @@ func TestShortName(t *testing.T) {
 			expected: "",
 			wantErr:  true,
 		},
+		{
+			name:     "port-channel full name",
+			input:    "Port-Channel10",
+			expected: "po10",
+			wantErr:  false,
+		},
+		{
+			name:     "port-channel short name",
+			input:    "po10",
+			expected: "po10",
+			wantErr:  false,
+		},
+		{
+			name:     "port-channel with multiple digits",
+			input:    "Port-Channel123",
+			expected: "po123",
+			wantErr:  false,
+		},
+		{
+			name:     "invalid port-channel format",
+			input:    "PortChannel10",
+			expected: "",
+			wantErr:  true,
+		},
+		{
+			name:     "invalid port-channel format",
+			input:    "po100a",
+			expected: "",
+			wantErr:  true,
+		},
 	}
 
 	for _, test := range tests {

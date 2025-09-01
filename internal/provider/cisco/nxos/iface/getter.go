@@ -17,6 +17,7 @@ import (
 var patterns = map[string]*regexp.Regexp{
 	"System/intf-items/phys-items/PhysIf-list[id=eth%s]": ethernetRe,
 	"System/intf-items/lb-items/LbRtdIf-list[id=lo%s]":   loopbackRe,
+	"System/intf-items/aggr-items/AggrIf-list[id=po%s]":  portchannelRe,
 }
 
 // Exists checks if the interface with the given name exists on the device
