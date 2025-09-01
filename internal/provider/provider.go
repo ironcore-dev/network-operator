@@ -103,6 +103,21 @@ type EnsureDNSRequest struct {
 	ProviderConfig *ProviderConfig
 }
 
+// NTPProvider is the interface for the realization of the NTP objects over different providers.
+type NTPProvider interface {
+	Provider
+
+	// EnsureNTP call is responsible for NTP realization on the provider.
+	EnsureNTP(context.Context, *EnsureNTPRequest) (Result, error)
+	// DeleteNTP call is responsible for NTP deletion on the provider.
+	DeleteNTP(context.Context) error
+}
+
+type EnsureNTPRequest struct {
+	NTP            *v1alpha1.NTP
+	ProviderConfig *ProviderConfig
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.

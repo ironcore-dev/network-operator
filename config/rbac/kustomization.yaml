@@ -37,3 +37,6 @@ resources:
 - dns_admin_role.yaml
 - dns_editor_role.yaml
 - dns_viewer_role.yaml
+- ntp_admin_role.yaml
+- ntp_editor_role.yaml
+- ntp_viewer_role.yaml

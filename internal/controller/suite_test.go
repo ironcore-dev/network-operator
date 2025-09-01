@@ -132,6 +132,14 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&NTPReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -180,6 +188,7 @@ var (
 	_ provider.BannerProvider    = (*Provider)(nil)
 	_ provider.UserProvider      = (*Provider)(nil)
 	_ provider.DNSProvider       = (*Provider)(nil)
+	_ provider.NTPProvider       = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -256,5 +265,19 @@ func (p *Provider) DeleteDNS(_ context.Context) error {
 	p.Lock()
 	defer p.Unlock()
 	p.DNS = nil
+	return nil
+}
+
+func (p *Provider) EnsureNTP(_ context.Context, req *provider.EnsureNTPRequest) (provider.Result, error) {
+	p.Lock()
+	defer p.Unlock()
+	p.NTP = req.NTP
+	return provider.Result{}, nil
+}
+
+func (p *Provider) DeleteNTP(context.Context) error {
+	p.Lock()
+	defer p.Unlock()
+	p.NTP = nil
 	return nil
 }
