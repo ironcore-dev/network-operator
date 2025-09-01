@@ -248,11 +248,6 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 		return errors.New("failed to get controller client from context")
 	}
 
-	if err := device.Spec.Validate(); err != nil {
-		log.Error(err, "Invalid Device spec")
-		return err
-	}
-
 	if ref := device.Spec.Endpoint.SecretRef; ref != nil {
 		secret := new(corev1.Secret)
 		if err := c.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: ref.Namespace}, secret); err != nil {

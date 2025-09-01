@@ -113,6 +113,26 @@ type EnsureNTPRequest struct {
 	ProviderConfig *ProviderConfig
 }
 
+// ACLProvider is the interface for the realization of the AccessControlList objects over different providers.
+type ACLProvider interface {
+	Provider
+
+	// EnsureACL call is responsible for AccessControlList realization on the provider.
+	EnsureACL(context.Context, *EnsureACLRequest) (Result, error)
+	// DeleteACL call is responsible for AccessControlList deletion on the provider.
+	DeleteACL(context.Context, *DeleteACLRequest) error
+}
+
+type EnsureACLRequest struct {
+	ACL            *v1alpha1.AccessControlList
+	ProviderConfig *ProviderConfig
+}
+
+type DeleteACLRequest struct {
+	Name           string
+	ProviderConfig *ProviderConfig
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.

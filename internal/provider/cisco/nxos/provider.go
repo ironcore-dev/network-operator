@@ -70,6 +70,7 @@ var (
 	_ provider.UserProvider   = &Provider{}
 	_ provider.DNSProvider    = &Provider{}
 	_ provider.NTPProvider    = &Provider{}
+	_ provider.ACLProvider    = &Provider{}
 )
 
 type Provider struct {
@@ -182,6 +183,37 @@ func (p *Provider) DeleteNTP(ctx context.Context) error {
 	return p.client.Reset(ctx, &ntp.NTP{})
 }
 
+func (p *Provider) EnsureACL(ctx context.Context, req *provider.EnsureACLRequest) (provider.Result, error) {
+	a := &acl.ACL{
+		Name:  req.ACL.Spec.Name,
+		Rules: make([]*acl.Rule, len(req.ACL.Spec.Entries)),
+	}
+	for i, entry := range req.ACL.Spec.Entries {
+		var action acl.Action
+		switch entry.Action {
+		case v1alpha1.ActionPermit:
+			action = acl.Permit
+		case v1alpha1.ActionDeny:
+			action = acl.Deny
+		default:
+			return provider.Result{}, fmt.Errorf("unsupported ACL action: %s", entry.Action)
+		}
+		a.Rules[i] = &acl.Rule{
+			Seq:         uint32(entry.Sequence), //nolint:gosec
+			Action:      action,
+			Protocol:    acl.ProtocolFrom(entry.Protocol),
+			Description: entry.Description,
+			Source:      entry.SourceAddress.Prefix,
+			Destination: entry.DestinationAddress.Prefix,
+		}
+	}
+	return provider.Result{}, p.client.Update(ctx, a)
+}
+
+func (p *Provider) DeleteACL(ctx context.Context, req *provider.DeleteACLRequest) error {
+	return p.client.Reset(ctx, &acl.ACL{Name: req.Name})
+}
+
 func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) error {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -267,7 +299,6 @@ func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) er
 			"vpc",
 		}},
 		// Steps that depend on the device spec
-		&ACL{Spec: device.Spec.ACL},
 		&Trustpoints{Spec: device.Spec.PKI, DryRun: isDryRun},
 		&SNMP{Spec: device.Spec.SNMP},
 		&GRPC{Spec: device.Spec.GRPC},
@@ -395,7 +426,6 @@ type Step interface {
 var (
 	_ Step = (*VTY)(nil)
 	_ Step = (*Console)(nil)
-	_ Step = (*ACL)(nil)
 	_ Step = (*Trustpoints)(nil)
 	_ Step = (*NXAPI)(nil)
 	_ Step = (*GRPC)(nil)
@@ -425,49 +455,6 @@ func (step *Console) Deps() []client.ObjectKey { return nil }
 func (step *Console) Exec(ctx context.Context, s *Scope) error {
 	c := &term.Console{Timeout: 5} // minutes
 	return s.GNMI.Update(ctx, c)
-}
-
-type ACL struct{ Spec []*v1alpha1.ACL }
-
-func (step *ACL) Name() string             { return "ACL" }
-func (step *ACL) Deps() []client.ObjectKey { return nil }
-func (step *ACL) Exec(ctx context.Context, s *Scope) error {
-	if len(step.Spec) == 0 {
-		return nil
-	}
-
-	for _, item := range step.Spec {
-		rules := make([]*acl.Rule, len(item.Entries))
-		for j, rule := range item.Entries {
-			var action acl.Action
-			switch rule.Action {
-			case v1alpha1.ActionPermit:
-				action = acl.Permit
-			case v1alpha1.ActionDeny:
-				action = acl.Deny
-			default:
-				return fmt.Errorf("unsupported ACL action: %s", rule.Action)
-			}
-
-			rules[j] = &acl.Rule{
-				Seq:         uint32(rule.Sequence), //nolint:gosec
-				Action:      action,
-				Source:      rule.SourceAddress.Prefix,
-				Destination: rule.DestinationAddress.Prefix,
-			}
-		}
-
-		a := &acl.ACL{
-			Name:  item.Name,
-			Rules: rules,
-		}
-
-		if err := s.GNMI.Update(ctx, a); err != nil {
-			return fmt.Errorf("failed to update ACL %s: %w", item.Name, err)
-		}
-	}
-
-	return nil
 }
 
 type Trustpoints struct {

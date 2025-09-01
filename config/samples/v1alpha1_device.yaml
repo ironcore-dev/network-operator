@@ -38,13 +38,6 @@ spec:
         hostname leaf1
         feature grpc
         grpc port 9339
-  acl:
-    - name: mgmt-acl
-      entries:
-        - sequence: 10
-          action: Permit
-          sourceAddress: 10.0.0.0/8
-          destinationAddress: 0.0.0.0/0
   pki:
     certificates:
       - name: trustpoint
