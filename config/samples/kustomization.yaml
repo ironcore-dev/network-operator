@@ -6,4 +6,5 @@ resources:
 - v1alpha1_user.yaml
 - v1alpha1_dns.yaml
 - v1alpha1_ntp.yaml
+- v1alpha1_acl.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

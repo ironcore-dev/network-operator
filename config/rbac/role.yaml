@@ -31,6 +31,7 @@ rules:
 - apiGroups:
   - networking.cloud.sap
   resources:
+  - accesscontrollists
   - banners
   - devices
   - dns
@@ -48,6 +49,7 @@ rules:
 - apiGroups:
   - networking.cloud.sap
   resources:
+  - accesscontrollists/finalizers
   - banners/finalizers
   - devices/finalizers
   - dns/finalizers
@@ -59,6 +61,7 @@ rules:
 - apiGroups:
   - networking.cloud.sap
   resources:
+  - accesscontrollists/status
   - banners/status
   - devices/status
   - dns/status

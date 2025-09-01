@@ -272,6 +272,17 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "NTP")
 		os.Exit(1)
 	}
+
+	if err := (&controller.AccessControlListReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("acl-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "AccessControlList")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {

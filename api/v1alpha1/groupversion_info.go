@@ -70,6 +70,9 @@ const (
 
 	// AllResourcesReadyReason indicates that all resources owned by the resource are ready.
 	AllResourcesReadyReason = "AllResourcesReady"
+
+	// ValidationFailedReason indicates that the resource failed validation checks.
+	ValidationFailedReason = "ValidationFailed"
 )
 
 // Device reasons that are used specifically for Device objects.
