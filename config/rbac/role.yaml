@@ -33,6 +33,7 @@ rules:
   resources:
   - accesscontrollists
   - banners
+  - certificates
   - devices
   - dns
   - interfaces
@@ -51,6 +52,7 @@ rules:
   resources:
   - accesscontrollists/finalizers
   - banners/finalizers
+  - certificates/finalizers
   - devices/finalizers
   - dns/finalizers
   - interfaces/finalizers
@@ -63,6 +65,7 @@ rules:
   resources:
   - accesscontrollists/status
   - banners/status
+  - certificates/status
   - devices/status
   - dns/status
   - interfaces/status

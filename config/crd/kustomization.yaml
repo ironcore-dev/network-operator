@@ -9,6 +9,7 @@ resources:
 - bases/networking.cloud.sap_dns.yaml
 - bases/networking.cloud.sap_ntp.yaml
 - bases/networking.cloud.sap_accesscontrollists.yaml
+- bases/networking.cloud.sap_certificates.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

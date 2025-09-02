@@ -26,7 +26,6 @@ k8s_resource('network-operator-controller-manager', resource_deps=['controller-g
 # Sample resources with manual trigger mode
 k8s_yaml('./config/samples/v1alpha1_device.yaml')
 k8s_resource(new_name='leaf1', objects=['leaf1:device', 'secret-basic-auth:secret'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
-k8s_resource(new_name='certificate', objects=['network-operator:issuer', 'network-operator-ca:certificate'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 k8s_yaml('./config/samples/v1alpha1_interface.yaml')
 k8s_resource(new_name='lo0', objects=['lo0:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
@@ -49,6 +48,9 @@ k8s_resource(new_name='ntp', objects=['ntp:ntp'], trigger_mode=TRIGGER_MODE_MANU
 
 k8s_yaml('./config/samples/v1alpha1_acl.yaml')
 k8s_resource(new_name='acl', objects=['acl:accesscontrollist'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+
+k8s_yaml('./config/samples/v1alpha1_certificate.yaml')
+k8s_resource(new_name='trustpoint', objects=['network-operator:issuer', 'network-operator-ca:certificate', 'trustpoint:certificate'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')
