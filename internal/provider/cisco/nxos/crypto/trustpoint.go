@@ -10,42 +10,28 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
 )
 
+var _ gnmiext.DeviceConf = (*Trustpoint)(nil)
+
 type Trustpoint struct {
 	ID string
 }
 
-var _ gnmiext.DeviceConf = Trustpoints{}
-
-type Trustpoints []*Trustpoint
-
-func (t Trustpoints) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
-	items := &nxos.Cisco_NX_OSDevice_System_UserextItems_PkiextItems_TpItems{TPList: make(map[string]*nxos.Cisco_NX_OSDevice_System_UserextItems_PkiextItems_TpItems_TPList, len(t))}
-	for _, tp := range t {
-		list := &nxos.Cisco_NX_OSDevice_System_UserextItems_PkiextItems_TpItems_TPList{
-			Name: ygot.String(tp.ID),
-		}
-		list.PopulateDefaults()
-
-		if err := items.AppendTPList(list); err != nil {
-			return nil, err
-		}
-	}
-
+func (t *Trustpoint) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
+	v := &nxos.Cisco_NX_OSDevice_System_UserextItems_PkiextItems_TpItems_TPList{}
+	v.PopulateDefaults()
+	v.Name = ygot.String(t.ID)
 	return []gnmiext.Update{
 		gnmiext.ReplacingUpdate{
-			XPath: "System/userext-items/pkiext-items/tp-items",
-			Value: items,
+			XPath: "System/userext-items/pkiext-items/tp-items/TP-list[name=" + t.ID + "]",
+			Value: v,
 		},
 	}, nil
 }
 
-func (t Trustpoints) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
-	items := &nxos.Cisco_NX_OSDevice_System_UserextItems_PkiextItems_TpItems{}
-	items.PopulateDefaults()
+func (t *Trustpoint) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{
-		gnmiext.ReplacingUpdate{
-			XPath: "System/userext-items/pkiext-items/tp-items",
-			Value: items,
+		gnmiext.DeletingUpdate{
+			XPath: "System/userext-items/pkiext-items/tp-items/TP-list[name=" + t.ID + "]",
 		},
 	}, nil
 }

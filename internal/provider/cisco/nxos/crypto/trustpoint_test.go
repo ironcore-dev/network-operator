@@ -14,7 +14,7 @@ import (
 )
 
 func Test_Trustpoint(t *testing.T) {
-	tp := &Trustpoints{{ID: "mytrustpoint"}}
+	tp := &Trustpoint{ID: "mytrustpoint"}
 
 	got, err := tp.ToYGOT(&gnmiext.ClientMock{})
 	if err != nil {
@@ -30,26 +30,22 @@ func Test_Trustpoint(t *testing.T) {
 		t.Errorf("expected value to be of type ReplacingUpdate")
 	}
 
-	if update.XPath != "System/userext-items/pkiext-items/tp-items" {
-		t.Errorf("expected key 'System/userext-items/pkiext-items/tp-items' to be present")
+	if update.XPath != "System/userext-items/pkiext-items/tp-items/TP-list[name=mytrustpoint]" {
+		t.Errorf("expected key 'System/userext-items/pkiext-items/tp-items/TP-list[name=mytrustpoint]' to be present")
 	}
 
-	ti, ok := update.Value.(*nxos.Cisco_NX_OSDevice_System_UserextItems_PkiextItems_TpItems)
+	ti, ok := update.Value.(*nxos.Cisco_NX_OSDevice_System_UserextItems_PkiextItems_TpItems_TPList)
 	if !ok {
 		t.Errorf("expected value to be of type *nxos.Cisco_NX_OSDevice_System_UserextItems_PkiextItems_TpItems")
 	}
 
-	want := &nxos.Cisco_NX_OSDevice_System_UserextItems_PkiextItems_TpItems{
-		TPList: map[string]*nxos.Cisco_NX_OSDevice_System_UserextItems_PkiextItems_TpItems_TPList{
-			"mytrustpoint": {
-				Name:            ygot.String("mytrustpoint"),
-				KeyType:         nxos.Cisco_NX_OSDevice_Pki_KeyType_Type_RSA,
-				RevokeCheckConf: nxos.Cisco_NX_OSDevice_Pki_CertRevokeCheck_crl,
-				EnrollmentType:  nxos.Cisco_NX_OSDevice_Pki_CertEnrollType_none,
-			},
-		},
+	want := &nxos.Cisco_NX_OSDevice_System_UserextItems_PkiextItems_TpItems_TPList{
+		Name:            ygot.String("mytrustpoint"),
+		KeyType:         nxos.Cisco_NX_OSDevice_Pki_KeyType_Type_RSA,
+		RevokeCheckConf: nxos.Cisco_NX_OSDevice_Pki_CertRevokeCheck_crl,
+		EnrollmentType:  nxos.Cisco_NX_OSDevice_Pki_CertEnrollType_none,
 	}
 	if !reflect.DeepEqual(ti, want) {
-		t.Errorf("unexpected value for 'System/userext-items/pkiext-items/tp-items': got=%+v, want=%+v", ti, want)
+		t.Errorf("unexpected value for 'System/userext-items/pkiext-items/tp-items/TP-list[name=mytrustpoint]': got=%+v, want=%+v", ti, want)
 	}
 }

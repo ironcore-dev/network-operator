@@ -413,17 +413,11 @@ func (step *Trustpoints) Exec(ctx context.Context, s *Scope) error {
 	if step.Spec == nil {
 		return nil
 	}
-	t := make(crypto.Trustpoints, 0, len(step.Spec.Certificates))
 	for _, trustpoint := range step.Spec.Certificates {
-		t = append(t, &crypto.Trustpoint{ID: trustpoint.Name})
-	}
-	if err := s.GNMI.Update(ctx, t); err != nil {
-		return err
-	}
-	if step.DryRun {
-		return nil
-	}
-	for _, trustpoint := range step.Spec.Certificates {
+		tp := &crypto.Trustpoint{ID: trustpoint.Name}
+		if err := s.GNMI.Update(ctx, tp); err != nil {
+			return fmt.Errorf("failed to get trustpoint %s: %w", trustpoint.Name, err)
+		}
 		cert, err := s.Client.Certificate(ctx, trustpoint.Source.SecretRef)
 		if err != nil {
 			return fmt.Errorf("failed to get trustpoint certificate from secret: %w", err)
