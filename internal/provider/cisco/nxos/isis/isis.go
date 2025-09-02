@@ -4,6 +4,7 @@
 package isis
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -48,7 +49,7 @@ const (
 	IPv6Unicast
 )
 
-func (i *ISIS) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (i *ISIS) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	if i.Name == "" {
 		return nil, errors.New("isis: name must be set")
 	}
@@ -104,7 +105,7 @@ func (i *ISIS) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 }
 
 // Reset removes the ISIS process with the given name from the device.
-func (i *ISIS) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (i *ISIS) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{
 		gnmiext.DeletingUpdate{
 			XPath: "System/isis-items/inst-items/Inst-list[name=" + i.Name + "]",

@@ -10,6 +10,7 @@
 package banner
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -30,7 +31,7 @@ type Banner struct {
 	Message string
 }
 
-func (b *Banner) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (b *Banner) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	lines := strings.Split(b.Message, "\n")
 	if len(lines) > 40 {
 		return nil, errors.New("banner: maximum of 40 lines allowed")
@@ -52,7 +53,7 @@ func (b *Banner) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 	}, nil
 }
 
-func (v *Banner) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (v *Banner) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	banner := &nxos.Cisco_NX_OSDevice_System_UserextItems_PreloginbannerItems{}
 	banner.PopulateDefaults()
 	return []gnmiext.Update{

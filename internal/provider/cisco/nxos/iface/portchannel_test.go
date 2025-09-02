@@ -151,7 +151,7 @@ func Test_PortChannel_ToYGOT_GnmiClient(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error during NewPortChannel: %v", err)
 			}
-			_, err = p.ToYGOT(tt.client)
+			_, err = p.ToYGOT(t.Context(), tt.client)
 			if (err != nil) != tt.expectError {
 				t.Fatalf("Expected error: %v, got error: %v", tt.expectError, err)
 			}
@@ -274,7 +274,7 @@ func Test_PortChannel_ToYGOT_Updates(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error during NewPortChannel: %v", err)
 			}
-			updates, err := pc.ToYGOT(&gnmiext.ClientMock{
+			updates, err := pc.ToYGOT(t.Context(), &gnmiext.ClientMock{
 				ExistsFunc: func(_ context.Context, _ string) (bool, error) { return true, nil },
 			})
 			if err != nil {
@@ -373,7 +373,7 @@ func Test_PortChannel_Reset(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to create port-channel: %v", err)
 			}
-			got, err := p.Reset(nil)
+			got, err := p.Reset(t.Context(), nil)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}

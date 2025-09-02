@@ -42,7 +42,7 @@ func TestToYGOT(t *testing.T) {
 		DefaultSeverity: Warning,
 	}
 
-	got, err := loggingConfig.ToYGOT(&gnmiext.ClientMock{})
+	got, err := loggingConfig.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestToYGOT_Facilities(t *testing.T) {
 		},
 	}
 
-	got, err := l.ToYGOT(&gnmiext.ClientMock{})
+	got, err := l.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

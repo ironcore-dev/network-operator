@@ -47,7 +47,7 @@ func Test_Loopback_ToYGOT_BaseConfig(t *testing.T) {
 			t.Fatalf("failed to create loopback interface: %v", err)
 		}
 
-		got, err := p.ToYGOT(&gnmiext.ClientMock{})
+		got, err := p.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -82,7 +82,7 @@ func Test_Loopback_ToYGOT_BaseConfig(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to create loopback interface: %v", err)
 		}
-		got, err := p.ToYGOT(&gnmiext.ClientMock{})
+		got, err := p.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -129,7 +129,7 @@ func Test_Loopback_ToYGOT_WithL3Config(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create loopback interface: %v", err)
 	}
-	got, err := p.ToYGOT(&gnmiext.ClientMock{})
+	got, err := p.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

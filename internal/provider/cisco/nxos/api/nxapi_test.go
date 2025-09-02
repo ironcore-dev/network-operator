@@ -18,7 +18,7 @@ func Test_NXAPI(t *testing.T) {
 		Enable: true,
 	}
 
-	got, err := nxapi.ToYGOT(&gnmiext.ClientMock{})
+	got, err := nxapi.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -50,7 +50,7 @@ func Test_NXAPI_Trustpoint(t *testing.T) {
 		Cert:   Trustpoint{ID: "mytrustpoint"},
 	}
 
-	got, err := nxapi.ToYGOT(&gnmiext.ClientMock{})
+	got, err := nxapi.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -108,7 +108,7 @@ func Test_NXAPI_Cert(t *testing.T) {
 		},
 	}
 
-	got, err := nxapi.ToYGOT(&gnmiext.ClientMock{})
+	got, err := nxapi.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -162,7 +162,7 @@ func Test_NXAPI_Cert(t *testing.T) {
 func Test_NXAPI_Disabled(t *testing.T) {
 	nxapi := &NXAPI{Enable: false}
 
-	got, err := nxapi.ToYGOT(&gnmiext.ClientMock{})
+	got, err := nxapi.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

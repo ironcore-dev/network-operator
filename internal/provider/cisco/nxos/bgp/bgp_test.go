@@ -177,7 +177,7 @@ func TestBGP_ToYGOT(t *testing.T) {
 		t.Fatalf("NewBGP() unexpected error = %v", err)
 	}
 
-	got, err := bgp.ToYGOT(&gnmiext.ClientMock{})
+	got, err := bgp.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("BGP.ToYGOT() unexpected error = %v", err)
 		return
@@ -249,7 +249,7 @@ func TestBGP_ToYGOT_WithEVPN(t *testing.T) {
 		t.Fatalf("NewBGP() unexpected error = %v", err)
 	}
 
-	got, err := bgp.ToYGOT(&gnmiext.ClientMock{})
+	got, err := bgp.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("BGP.ToYGOT() unexpected error = %v", err)
 		return
@@ -286,7 +286,7 @@ func TestBGP_Reset(t *testing.T) {
 		t.Fatalf("NewBGP() unexpected error = %v", err)
 	}
 
-	got, err := bgp.Reset(&gnmiext.ClientMock{})
+	got, err := bgp.Reset(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("BGP.Reset() unexpected error = %v", err)
 		return
@@ -610,7 +610,7 @@ func TestBGPPeer_ToYGOT_MissingBGPInstance(t *testing.T) {
 		},
 	}
 
-	_, err = peer.ToYGOT(client)
+	_, err = peer.ToYGOT(t.Context(), client)
 	if err == nil {
 		t.Errorf("BGPPeer.ToYGOT() expected error for missing BGP instance, got nil")
 		return
@@ -633,7 +633,7 @@ func TestBGPPeer_ToYGOT_GetError(t *testing.T) {
 		},
 	}
 
-	_, err = peer.ToYGOT(client)
+	_, err = peer.ToYGOT(t.Context(), client)
 	if err == nil {
 		t.Errorf("BGPPeer.ToYGOT() expected error, got nil")
 		return
@@ -661,7 +661,7 @@ func TestBGPPeer_ToYGOT_Success(t *testing.T) {
 		},
 	}
 
-	got, err := peer.ToYGOT(client)
+	got, err := peer.ToYGOT(t.Context(), client)
 	if err != nil {
 		t.Errorf("BGPPeer.ToYGOT() unexpected error = %v", err)
 		return
@@ -709,7 +709,7 @@ func TestBGPPeer_Reset(t *testing.T) {
 		t.Fatalf("NewBGPPeer() unexpected error = %v", err)
 	}
 
-	got, err := peer.Reset(&gnmiext.ClientMock{})
+	got, err := peer.Reset(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("BGPPeer.Reset() unexpected error = %v", err)
 		return

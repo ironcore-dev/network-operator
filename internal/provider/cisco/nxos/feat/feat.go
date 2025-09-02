@@ -4,6 +4,7 @@
 package feat
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -19,7 +20,7 @@ var _ gnmiext.DeviceConf = Features{}
 // All features not listed here are considered disabled.
 type Features []string
 
-func (feat Features) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (feat Features) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	fm := &nxos.Cisco_NX_OSDevice_System_FmItems{}
 	fm.PopulateDefaults()
 	rv := reflect.ValueOf(fm).Elem()
@@ -52,6 +53,6 @@ func (feat Features) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 }
 
 // do not support resetting features
-func (v Features) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (v Features) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{}, errors.New("feat: resetting features is not supported")
 }

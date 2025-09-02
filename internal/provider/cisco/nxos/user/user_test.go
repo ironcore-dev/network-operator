@@ -309,7 +309,7 @@ func TestUser_ToYGOT(t *testing.T) {
 				t.Fatalf("NewUser() unexpected error = %v", err)
 			}
 
-			got, err := user.ToYGOT(&gnmiext.ClientMock{})
+			got, err := user.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 			if test.wantErr {
 				if err == nil {
 					t.Errorf("User.ToYGOT() expected error, got nil")
@@ -396,7 +396,7 @@ func TestUser_Reset(t *testing.T) {
 		t.Fatalf("NewUser() unexpected error = %v", err)
 	}
 
-	got, err := user.Reset(&gnmiext.ClientMock{})
+	got, err := user.Reset(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("User.Reset() unexpected error = %v", err)
 		return

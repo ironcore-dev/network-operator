@@ -87,7 +87,7 @@ func WithAddressFamily(af AddressFamily) BGPOption {
 	}
 }
 
-func (b *BGP) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (b *BGP) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	inst := &nxos.Cisco_NX_OSDevice_System_BgpItems_InstItems{}
 	inst.AdminSt = nxos.Cisco_NX_OSDevice_Nw_AdminSt_enabled
 	inst.Asn = ygot.String(b.AsNumber)
@@ -130,7 +130,7 @@ func (b *BGP) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 	return updates, nil
 }
 
-func (b *BGP) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (b *BGP) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{
 		gnmiext.EditingUpdate{
 			XPath: "System/fm-items/bgp-items",
@@ -277,7 +277,7 @@ func WithPeerAddressFamily(af PeerAddressFamily) BGPPeerOption {
 
 var ErrMissingBGPInstance = errors.New("bgp peer: missing BGP instance")
 
-func (p *BGPPeer) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
+func (p *BGPPeer) ToYGOT(ctx context.Context, client gnmiext.Client) ([]gnmiext.Update, error) {
 	// Ensure that the BGP instance exists and is configured on the "default" domain
 	// and return an error if it does not exist.
 	// Otherwise, by default of the gnmi specification, all missing nodes in the yang
@@ -287,7 +287,7 @@ func (p *BGPPeer) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
 	// configured by requeuing the request for the BGP Peer on the k8s controller. This avoids
 	// a race condition where the BGP instance is created after the BGP Peer is created.
 	var inst nxos.Cisco_NX_OSDevice_System_BgpItems_InstItems
-	err := client.Get(context.Background(), "System/bgp-items/inst-items", &inst)
+	err := client.Get(ctx, "System/bgp-items/inst-items", &inst)
 	if err != nil {
 		if errors.Is(err, gnmiext.ErrNil) {
 			return nil, ErrMissingBGPInstance
@@ -316,7 +316,7 @@ func (p *BGPPeer) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
 	}, nil
 }
 
-func (p *BGPPeer) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (p *BGPPeer) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{
 		gnmiext.DeletingUpdate{
 			XPath: "System/bgp-items/inst-items/dom-items/Dom-list[name=default]/peer-items/Peer-list[addr=" + p.Addr.String() + "]",

@@ -47,7 +47,7 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 			t.Fatalf("failed to create physical interface")
 		}
 
-		got, err := p.ToYGOT(&gnmiext.ClientMock{})
+		got, err := p.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -90,7 +90,7 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 			t.Fatalf("failed to create physical interface")
 		}
 
-		got, err := p.ToYGOT(&gnmiext.ClientMock{})
+		got, err := p.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -132,7 +132,7 @@ func Test_PhysIf_Reset_BaseConfig(t *testing.T) {
 		t.Fatalf("failed to create physical interface")
 	}
 
-	got, err := p.Reset(&gnmiext.ClientMock{})
+	got, err := p.Reset(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -221,7 +221,7 @@ func Test_PhysIf_ToYGOT_WithL2_Trunk(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create physical interface")
 	}
-	got, err := p.ToYGOT(&gnmiext.ClientMock{})
+	got, err := p.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -290,7 +290,7 @@ func Test_PhysIf_ToYGOT_WithL2_Access(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create physical interface")
 	}
-	got, err := p.ToYGOT(&gnmiext.ClientMock{})
+	got, err := p.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -357,7 +357,7 @@ func Test_PhysIf_ToYGOT_WithL3(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create physical interface")
 	}
-	got, err := p.ToYGOT(&gnmiext.ClientMock{})
+	got, err := p.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -426,7 +426,7 @@ func Test_PhysIf_ToYGOT_WithL3(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to create physical interface")
 		}
-		got, err := p2.ToYGOT(&gnmiext.ClientMock{})
+		got, err := p2.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -457,7 +457,7 @@ func Test_PhysIf_Reset_WithL3(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create physical interface")
 	}
-	got, err := p.Reset(&gnmiext.ClientMock{})
+	got, err := p.Reset(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -503,7 +503,7 @@ func Test_PhysIf_ToYGOT_VRF(t *testing.T) {
 		t.Fatalf("failed to create physical interface")
 	}
 
-	got, err := p.ToYGOT(&gnmiext.ClientMock{})
+	got, err := p.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

@@ -13,7 +13,7 @@ import (
 func Test_Console(t *testing.T) {
 	c := &Console{Timeout: 10}
 
-	got, err := c.ToYGOT(&gnmiext.ClientMock{})
+	got, err := c.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -48,7 +48,7 @@ func Test_Console(t *testing.T) {
 func Test_VTY(t *testing.T) {
 	v := &VTY{ACL: "example", SessionLimit: 16, Timeout: 10}
 
-	got, err := v.ToYGOT(&gnmiext.ClientMock{})
+	got, err := v.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

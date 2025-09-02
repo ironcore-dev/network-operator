@@ -4,6 +4,7 @@
 package iface
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -127,7 +128,7 @@ func WithPhysIfAdminState(adminSt bool) PhysIfOption {
 //   - the first update always replaces the entire base configuration of the physical interface (gnmiext.ReplacingUpdate)
 //   - subsequent updates modify the base configuration to add L2 and L3 configurations, if applicable
 //   - the last update attaches the physical interface to a port channel, if applicable
-func (p *PhysIf) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
+func (p *PhysIf) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	var descr *string
 	if p.description != "" {
 		descr = &p.description
@@ -247,8 +248,8 @@ func (p *PhysIf) createL3(pl *nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_
 //   - In this Cisco Nexus version devices clean up parts of the  models that are related but in different paths of the YANG tree
 //   - Once the base configuration is reset, the remote device will automatically remove the physical interface in the port-channel.
 //   - The same occurs for the L2 and L3 configurations options, except for the spanning tree configuration, which is not automatically reset.
-func (p *PhysIf) Reset(client gnmiext.Client) ([]gnmiext.Update, error) {
-	updates := []gnmiext.Update{
+func (p *PhysIf) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
+	return []gnmiext.Update{
 		gnmiext.ReplacingUpdate{
 			XPath: "System/intf-items/phys-items/PhysIf-list[id=" + p.name + "]",
 			Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{},
@@ -256,8 +257,7 @@ func (p *PhysIf) Reset(client gnmiext.Client) ([]gnmiext.Update, error) {
 		gnmiext.DeletingUpdate{ // reset spanning tree
 			XPath: "System/stp-items/inst-items/if-items/If-list[id=" + p.name + "]",
 		},
-	}
-	return updates, nil
+	}, nil
 }
 
 // Range provides a string representation of identifiers (typically VLAN IDs) that formats the range in a human-readable way.

@@ -100,8 +100,8 @@ func WithPointToPoint() IfOption {
 //   - the update sets the network type for ISIS as point-to-point
 //   - it queries to check if the interface exists on the device before attempting applying the
 //     configuration. If the interface does not exist or is empty, an error is returned.
-func (i *Interface) ToYGOT(c gnmiext.Client) ([]gnmiext.Update, error) {
-	exists, err := iface.Exists(context.Background(), c, i.interfaceName)
+func (i *Interface) ToYGOT(ctx context.Context, client gnmiext.Client) ([]gnmiext.Update, error) {
+	exists, err := iface.Exists(ctx, client, i.interfaceName)
 	if err != nil {
 		return nil, fmt.Errorf("isis: failed to check interface %q existence: %w", i.interfaceName, err)
 	}
@@ -133,7 +133,7 @@ func (i *Interface) ToYGOT(c gnmiext.Client) ([]gnmiext.Update, error) {
 }
 
 // Reset removes the ISIS configuration from the interface.
-func (i *Interface) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (i *Interface) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{
 		gnmiext.DeletingUpdate{
 			XPath: "System/isis-items/if-items/InternalIf-list[id=" + i.interfaceName + "]",

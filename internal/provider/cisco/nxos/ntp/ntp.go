@@ -4,6 +4,8 @@
 package ntp
 
 import (
+	"context"
+
 	"github.com/openconfig/ygot/ygot"
 
 	nxos "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/genyang"
@@ -24,7 +26,7 @@ type Server struct {
 	Vrf       string
 }
 
-func (n *NTP) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (n *NTP) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	prov := &nxos.Cisco_NX_OSDevice_System_TimeItems_ProvItems{NtpProviderList: make(map[string]*nxos.Cisco_NX_OSDevice_System_TimeItems_ProvItems_NtpProviderList, len(n.Servers))}
 	for _, s := range n.Servers {
 		l := prov.GetOrCreateNtpProviderList(s.Name)
@@ -59,7 +61,7 @@ func (n *NTP) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 }
 
 // Reset disables the NTP feature and resets the configuration to the default values.
-func (n *NTP) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (n *NTP) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	ntp := &nxos.Cisco_NX_OSDevice_System_TimeItems{}
 	ntp.PopulateDefaults()
 	ntp.AdminSt = nxos.Cisco_NX_OSDevice_Datetime_AdminState_disabled

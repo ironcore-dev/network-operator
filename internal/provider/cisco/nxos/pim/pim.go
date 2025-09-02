@@ -95,7 +95,7 @@ func (p *RendezvousPoint) CIDR() (string, error) {
 	return prefix.String(), nil
 }
 
-func (p *RendezvousPoint) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (p *RendezvousPoint) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	cidr, err := p.CIDR()
 	if err != nil {
 		return nil, err
@@ -121,7 +121,7 @@ func (p *RendezvousPoint) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 	}, nil
 }
 
-func (p *RendezvousPoint) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (p *RendezvousPoint) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	cidr, err := p.CIDR()
 	if err != nil {
 		return nil, err
@@ -192,7 +192,7 @@ func (a *AnycastPeer) CIDR() (string, error) {
 	return prefix.String(), nil
 }
 
-func (a *AnycastPeer) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
+func (a *AnycastPeer) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	cidr, err := a.CIDR()
 	if err != nil {
 		return nil, err
@@ -214,7 +214,7 @@ func (a *AnycastPeer) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
 	}, nil
 }
 
-func (a *AnycastPeer) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (a *AnycastPeer) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	cidr, err := a.CIDR()
 	if err != nil {
 		return nil, err
@@ -282,8 +282,7 @@ func WithInterfaceVRF(vrf string) InterfaceOption {
 // device's configuration (yet).
 var ErrMissingInterface = errors.New("pim: missing interface")
 
-func (i *Interface) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
-	ctx := context.Background()
+func (i *Interface) ToYGOT(ctx context.Context, client gnmiext.Client) ([]gnmiext.Update, error) {
 	exists, err := iface.Exists(ctx, client, i.Name)
 	if err != nil {
 		return nil, fmt.Errorf("pim: failed to get interface %q: %w", i.Name, err)
@@ -309,7 +308,7 @@ func (i *Interface) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
 	}, nil
 }
 
-func (i *Interface) Reset(client gnmiext.Client) ([]gnmiext.Update, error) {
+func (i *Interface) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{
 		gnmiext.DeletingUpdate{
 			XPath: "System/pim-items/inst-items/dom-items/Dom-list[name=" + i.Vrf + "]/if-items/If-list[id=" + i.Name + "]",

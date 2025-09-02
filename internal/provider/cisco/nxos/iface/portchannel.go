@@ -97,7 +97,7 @@ func WithPortChannelL2(c *L2Config) PortChannelOption {
 // are configured correctly in the device (e.g., the interface mode is compatible with the port-channel
 // mode, etc.). The only check being done by this function is to ensure that the physical interfaces exist
 // on the device.
-func (p *PortChannel) ToYGOT(c gnmiext.Client) ([]gnmiext.Update, error) {
+func (p *PortChannel) ToYGOT(ctx context.Context, client gnmiext.Client) ([]gnmiext.Update, error) {
 	// enable LACP globally
 	updates := []gnmiext.Update{
 		gnmiext.EditingUpdate{
@@ -118,7 +118,7 @@ func (p *PortChannel) ToYGOT(c gnmiext.Client) ([]gnmiext.Update, error) {
 	}
 	// add interfaces to the port-channel
 	for i := range p.physIfs {
-		exists, err := Exists(context.Background(), c, i)
+		exists, err := Exists(ctx, client, i)
 		if err != nil {
 			return nil, fmt.Errorf("port-channel: failed to check if physical interface %q exists: %w", i, err)
 		}
@@ -137,7 +137,7 @@ func (p *PortChannel) ToYGOT(c gnmiext.Client) ([]gnmiext.Update, error) {
 }
 
 // Reset returns a deleting update to remove the port channel from the device.
-func (p *PortChannel) Reset(client gnmiext.Client) ([]gnmiext.Update, error) {
+func (p *PortChannel) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{
 		gnmiext.DeletingUpdate{
 			XPath: "System/intf-items/aggr-items/AggrIf-list[id=" + p.name + "]",

@@ -36,7 +36,7 @@ func Test_DNS_Enable(t *testing.T) {
 		Enable: true,
 	}
 
-	got, err := d.ToYGOT(&gnmiext.ClientMock{})
+	got, err := d.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -99,7 +99,7 @@ func Test_DNS_Disable(t *testing.T) {
 		Enable: false,
 	}
 
-	got, err := d.ToYGOT(&gnmiext.ClientMock{})
+	got, err := d.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

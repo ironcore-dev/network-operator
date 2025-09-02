@@ -3,6 +3,7 @@
 package ospf
 
 import (
+	"context"
 	"errors"
 	"net/netip"
 
@@ -176,7 +177,7 @@ func WithRedistributionConfig(distributionProtocol DistributionProtocol, routeMa
 // ToYGOT converts the OSPF configuration to a YANG model representation suitable for gNMI operations.
 // It returns a slice of gnmiext.Update, where: 1) the first update enables the OSPF feature in the system,
 // and 2) the second update contains the OSPF process configuration.
-func (o *OSPF) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (o *OSPF) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	val := nxos.Cisco_NX_OSDevice_System_OspfItems_InstItems_InstList{
 		Name: ygot.String(o.name),
 	}
@@ -247,7 +248,7 @@ func (o *OSPF) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 }
 
 // Reset removes the OSPF process with the given name from the device.
-func (o *OSPF) Reset(c gnmiext.Client) ([]gnmiext.Update, error) {
+func (o *OSPF) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{
 		gnmiext.DeletingUpdate{
 			XPath: "System/ospf-items/inst-items/Inst-list[name=" + o.name + "]",

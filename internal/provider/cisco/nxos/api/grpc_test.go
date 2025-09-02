@@ -20,7 +20,7 @@ func Test_GRPC(t *testing.T) {
 		Trustpoint: "mytrustpoint",
 	}
 
-	got, err := grpc.ToYGOT(&gnmiext.ClientMock{})
+	got, err := grpc.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -78,7 +78,7 @@ func Test_GRPC(t *testing.T) {
 func Test_GRPC_Disabled(t *testing.T) {
 	grpc := &GRPC{Enable: false}
 
-	got, err := grpc.ToYGOT(&gnmiext.ClientMock{})
+	got, err := grpc.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

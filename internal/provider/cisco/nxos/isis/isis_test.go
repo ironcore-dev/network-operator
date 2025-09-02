@@ -22,7 +22,7 @@ func Test_ISIS_ToYGOT(t *testing.T) {
 			IPv6Unicast,
 		},
 	}
-	got, err := isis.ToYGOT(nil)
+	got, err := isis.ToYGOT(t.Context(), nil)
 	if err != nil {
 		t.Fatalf("ToYGOT() error = %v", err)
 	}
@@ -88,7 +88,7 @@ func Test_ISIS_ToYGOT_InvalidLevel(t *testing.T) {
 		Level:           ISISType(99),
 		AddressFamilies: []ISISAFType{IPv4Unicast},
 	}
-	_, err := isis.ToYGOT(&gnmiext.ClientMock{})
+	_, err := isis.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err == nil {
 		t.Error("expected error for invalid level, got nil")
 	}
@@ -101,7 +101,7 @@ func Test_ISIS_ToYGOT_InvalidAddressFamily(t *testing.T) {
 		Level:           Level1,
 		AddressFamilies: []ISISAFType{ISISAFType(99)},
 	}
-	_, err := isis.ToYGOT(&gnmiext.ClientMock{})
+	_, err := isis.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err == nil {
 		t.Error("expected error for invalid address family, got nil")
 	}
@@ -115,7 +115,7 @@ func Test_ISIS_ToYGOT_NoOverloadBit(t *testing.T) {
 		AddressFamilies: []ISISAFType{IPv4Unicast},
 		OverloadBit:     nil,
 	}
-	_, err := isis.ToYGOT(&gnmiext.ClientMock{})
+	_, err := isis.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("unexpected error when OverloadBit is nil: %v", err)
 	}
@@ -128,7 +128,7 @@ func Test_ISIS_ToYGOT_EmptyAddressFamilies(t *testing.T) {
 		Level:           Level1,
 		AddressFamilies: []ISISAFType{},
 	}
-	updates, err := isis.ToYGOT(&gnmiext.ClientMock{})
+	updates, err := isis.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("unexpected error for empty address families: %v", err)
 	}
@@ -139,7 +139,7 @@ func Test_ISIS_ToYGOT_EmptyAddressFamilies(t *testing.T) {
 
 func Test_ISIS_Reset(t *testing.T) {
 	isis := &ISIS{Name: "UNDERLAY"}
-	updates, err := isis.Reset(&gnmiext.ClientMock{})
+	updates, err := isis.Reset(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -163,7 +163,7 @@ func Test_ISIS_MissingMandatoryFields(t *testing.T) {
 			Level:           Level1,
 			AddressFamilies: []ISISAFType{IPv4Unicast},
 		}
-		_, err := isis.ToYGOT(&gnmiext.ClientMock{})
+		_, err := isis.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 		if err == nil {
 			t.Error("expected error for empty name, got nil")
 		}
@@ -174,7 +174,7 @@ func Test_ISIS_MissingMandatoryFields(t *testing.T) {
 			Level:           Level1,
 			AddressFamilies: []ISISAFType{IPv4Unicast},
 		}
-		_, err := isis.ToYGOT(&gnmiext.ClientMock{})
+		_, err := isis.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 		if err == nil {
 			t.Error("expected error for empty NET, got nil")
 		}

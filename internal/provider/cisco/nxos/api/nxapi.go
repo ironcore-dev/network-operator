@@ -4,6 +4,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/openconfig/ygot/ygot"
@@ -42,7 +43,7 @@ type Trustpoint struct {
 
 func (Trustpoint) isNXAPICert() {}
 
-func (n *NXAPI) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (n *NXAPI) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	if !n.Enable {
 		return []gnmiext.Update{
 			gnmiext.EditingUpdate{
@@ -97,7 +98,7 @@ func (n *NXAPI) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 }
 
 // disables nxapi, resets config to defaults
-func (v *NXAPI) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (v *NXAPI) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	nxapi := &nxos.Cisco_NX_OSDevice_System_NxapiItems{}
 	nxapi.PopulateDefaults()
 	return []gnmiext.Update{

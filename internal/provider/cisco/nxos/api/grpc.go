@@ -4,6 +4,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 
 	"github.com/openconfig/ygot/ygot"
@@ -43,7 +44,7 @@ type GNMI struct {
 }
 
 // ToYGOT converts the GRPC configuration to a slice of gNMI updates.
-func (g *GRPC) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (g *GRPC) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	if !g.Enable {
 		return []gnmiext.Update{
 			gnmiext.EditingUpdate{
@@ -100,6 +101,6 @@ func (g *GRPC) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 }
 
 // returns an empty update and an error indicating that the reset is not implemented
-func (v *GRPC) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (v *GRPC) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{}, errors.New("grpc: reset not implemented as it effectively disables management over gNMI")
 }

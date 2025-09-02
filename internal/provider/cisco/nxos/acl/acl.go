@@ -4,6 +4,7 @@
 package acl
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -105,7 +106,7 @@ func ProtocolFrom(s string) Protocol {
 }
 
 // ToYGOT returns a single update forcing the replacement of an ACL configuration.
-func (a *ACL) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (a *ACL) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	if err := a.Validate(); err != nil {
 		return nil, err
 	}
@@ -143,7 +144,7 @@ func (a *ACL) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 }
 
 // Reset returns a single update deleting the YANG entry of the ACL.
-func (a *ACL) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (a *ACL) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	if err := a.Validate(); err != nil {
 		return nil, err
 	}

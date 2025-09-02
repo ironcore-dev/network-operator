@@ -13,7 +13,7 @@ import (
 func Test_COPP(t *testing.T) {
 	copp := &COPP{Profile: Moderate}
 
-	got, err := copp.ToYGOT(&gnmiext.ClientMock{})
+	got, err := copp.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

@@ -22,8 +22,7 @@ type Trustpoint struct {
 
 var ErrAlreadyExists = errors.New("crypto: trustpoint already exists")
 
-func (t *Trustpoint) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
-	ctx := context.Background()
+func (t *Trustpoint) ToYGOT(ctx context.Context, client gnmiext.Client) ([]gnmiext.Update, error) {
 	exists, err := client.Exists(ctx, "System/userext-items/pkiext-items/tp-items/TP-list[name="+t.ID+"]")
 	if err != nil {
 		return nil, fmt.Errorf("trustpoint: failed to get trustpoint %q: %w", t.ID, err)
@@ -43,7 +42,7 @@ func (t *Trustpoint) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
 	}, nil
 }
 
-func (t *Trustpoint) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (t *Trustpoint) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{
 		gnmiext.DeletingUpdate{
 			XPath: "System/userext-items/pkiext-items/tp-items/TP-list[name=" + t.ID + "]",

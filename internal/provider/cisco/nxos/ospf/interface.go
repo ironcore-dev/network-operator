@@ -109,8 +109,8 @@ func WithDisablePassiveMode() IfOption {
 //  3. the update will fail if the interface is not configured in layer 3 mode (i.e., equivalent to
 //     CLI command `no switchport`). The configuration as a routed interface can be realized
 //     using the `iface` package.
-func (i *Interface) ToYGOT(c gnmiext.Client) ([]gnmiext.Update, error) {
-	exists, err := iface.Exists(context.Background(), c, i.interfaceName)
+func (i *Interface) ToYGOT(ctx context.Context, client gnmiext.Client) ([]gnmiext.Update, error) {
+	exists, err := iface.Exists(ctx, client, i.interfaceName)
 	if err != nil {
 		return nil, fmt.Errorf("ospf: failed to check interface %q existence: %w", i.interfaceName, err)
 	}
@@ -144,7 +144,7 @@ func (i *Interface) ToYGOT(c gnmiext.Client) ([]gnmiext.Update, error) {
 }
 
 // Reset removes the OSPF configuration from the interface by deleting the node associated with the current OSPF instance, the VRF, and the interface name.
-func (i *Interface) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (i *Interface) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{
 		gnmiext.DeletingUpdate{
 			XPath: "System/ospf-items/inst-items/Inst-list[name=" + i.instanceName + "]/dom-items/Dom-list[name=" + i.vrf + "]/if-items/If-list[id=" + i.interfaceName + "]",

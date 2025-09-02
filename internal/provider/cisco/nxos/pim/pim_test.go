@@ -232,7 +232,7 @@ func TestRendezvousPoint_ToYGOT(t *testing.T) {
 		t.Fatalf("NewRendezvousPoint() unexpected error = %v", err)
 	}
 
-	got, err := rp.ToYGOT(&gnmiext.ClientMock{})
+	got, err := rp.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("RendezvousPoint.ToYGOT() unexpected error = %v", err)
 		return
@@ -291,7 +291,7 @@ func TestRendezvousPoint_ToYGOT_WithGroup(t *testing.T) {
 		t.Fatalf("NewRendezvousPoint() unexpected error = %v", err)
 	}
 
-	got, err := rp.ToYGOT(&gnmiext.ClientMock{})
+	got, err := rp.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("RendezvousPoint.ToYGOT() unexpected error = %v", err)
 		return
@@ -341,7 +341,7 @@ func TestRendezvousPoint_ToYGOT_WithCustomVRF(t *testing.T) {
 		t.Fatalf("NewRendezvousPoint() unexpected error = %v", err)
 	}
 
-	got, err := rp.ToYGOT(&gnmiext.ClientMock{})
+	got, err := rp.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("RendezvousPoint.ToYGOT() unexpected error = %v", err)
 		return
@@ -406,7 +406,7 @@ func TestRendezvousPoint_Reset(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := test.rp.Reset(&gnmiext.ClientMock{})
+			got, err := test.rp.Reset(t.Context(), &gnmiext.ClientMock{})
 			if err != nil {
 				t.Errorf("RendezvousPoint.Reset() unexpected error = %v", err)
 				return
@@ -585,7 +585,7 @@ func TestAnycastPeer_ToYGOT(t *testing.T) {
 		t.Fatalf("NewAnycastPeer() unexpected error = %v", err)
 	}
 
-	got, err := ap.ToYGOT(&gnmiext.ClientMock{})
+	got, err := ap.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("AnycastPeer.ToYGOT() unexpected error = %v", err)
 		return
@@ -647,7 +647,7 @@ func TestAnycastPeer_ToYGOT_WithCustomVRF(t *testing.T) {
 		t.Fatalf("NewAnycastPeer() unexpected error = %v", err)
 	}
 
-	got, err := ap.ToYGOT(&gnmiext.ClientMock{
+	got, err := ap.ToYGOT(t.Context(), &gnmiext.ClientMock{
 		ExistsFunc: func(_ context.Context, xpath string) (bool, error) {
 			return true, nil
 		},
@@ -714,7 +714,7 @@ func TestAnycastPeer_Reset(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := test.ap.Reset(&gnmiext.ClientMock{})
+			got, err := test.ap.Reset(t.Context(), &gnmiext.ClientMock{})
 			if err != nil {
 				t.Errorf("AnycastPeer.Reset() unexpected error = %v", err)
 				return
@@ -892,7 +892,7 @@ func TestInterface_ToYGOT_MissingInterface(t *testing.T) {
 		},
 	}
 
-	_, err = intf.ToYGOT(client)
+	_, err = intf.ToYGOT(t.Context(), client)
 	if err == nil {
 		t.Errorf("Interface.ToYGOT() expected error for missing interface, got nil")
 		return
@@ -915,7 +915,7 @@ func TestInterface_ToYGOT_ExistsError(t *testing.T) {
 		},
 	}
 
-	_, err = intf.ToYGOT(client)
+	_, err = intf.ToYGOT(t.Context(), client)
 	if err == nil {
 		t.Errorf("Interface.ToYGOT() expected error, got nil")
 	}
@@ -937,7 +937,7 @@ func TestInterface_ToYGOT_Success(t *testing.T) {
 		},
 	}
 
-	got, err := intf.ToYGOT(client)
+	got, err := intf.ToYGOT(t.Context(), client)
 	if err != nil {
 		t.Errorf("Interface.ToYGOT() unexpected error = %v", err)
 		return
@@ -1009,7 +1009,7 @@ func TestInterface_ToYGOT_WithCustomVRF(t *testing.T) {
 		},
 	}
 
-	got, err := intf.ToYGOT(client)
+	got, err := intf.ToYGOT(t.Context(), client)
 	if err != nil {
 		t.Errorf("Interface.ToYGOT() unexpected error = %v", err)
 		return
@@ -1072,7 +1072,7 @@ func TestInterface_Reset(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := test.intf.Reset(&gnmiext.ClientMock{})
+			got, err := test.intf.Reset(t.Context(), &gnmiext.ClientMock{})
 			if err != nil {
 				t.Errorf("Interface.Reset() unexpected error = %v", err)
 				return

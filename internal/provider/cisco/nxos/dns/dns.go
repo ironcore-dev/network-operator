@@ -19,6 +19,8 @@
 package dns
 
 import (
+	"context"
+
 	"github.com/openconfig/ygot/ygot"
 
 	nxos "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/genyang"
@@ -46,7 +48,7 @@ type Provider struct {
 	SrcIf string
 }
 
-func (d *DNS) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (d *DNS) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	if !d.Enable {
 		return []gnmiext.Update{
 			gnmiext.EditingUpdate{
@@ -88,7 +90,7 @@ func (d *DNS) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 	}, nil
 }
 
-func (v *DNS) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (v *DNS) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	dns := new(nxos.Cisco_NX_OSDevice_System_DnsItems)
 	dns.PopulateDefaults()
 	return []gnmiext.Update{

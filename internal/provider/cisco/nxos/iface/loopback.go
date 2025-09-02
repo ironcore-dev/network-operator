@@ -4,6 +4,7 @@
 package iface
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -77,7 +78,7 @@ func WithLoopbackAdminState(adminSt bool) LoopbackOption {
 	}
 }
 
-func (l *Loopback) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
+func (l *Loopback) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	ll := &nxos.Cisco_NX_OSDevice_System_IntfItems_LbItems_LbRtdIfList{
 		Descr:   l.description,
 		AdminSt: nxos.Cisco_NX_OSDevice_L1_AdminSt_up,
@@ -111,7 +112,7 @@ func (l *Loopback) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
 	return updates, nil
 }
 
-func (l *Loopback) Reset(client gnmiext.Client) ([]gnmiext.Update, error) {
+func (l *Loopback) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{
 		gnmiext.ReplacingUpdate{
 			XPath: "System/intf-items/lb-items/LbRtdIf-list[id=" + l.name + "]",

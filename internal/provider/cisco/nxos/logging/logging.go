@@ -33,6 +33,7 @@
 package logging
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/openconfig/ygot/ygot"
@@ -111,7 +112,7 @@ type Facility struct {
 	Severity SeverityLevel
 }
 
-func (l *Logging) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (l *Logging) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	if !l.Enable {
 		return []gnmiext.Update{
 			gnmiext.EditingUpdate{
@@ -214,7 +215,7 @@ func (l *Logging) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 	}, nil
 }
 
-func (v *Logging) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (v *Logging) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	lg := &nxos.Cisco_NX_OSDevice_System_LoggingItems{}
 	lg.PopulateDefaults()
 	li := lg.GetOrCreateLoglevelItems()

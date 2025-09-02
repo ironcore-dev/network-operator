@@ -3,6 +3,7 @@
 package vrf
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/openconfig/ygot/ygot"
@@ -76,7 +77,7 @@ func WithRouteTarget(rt RouteTarget) VRFOption {
 
 // ToYGOT converts the VRF configuration to a YANG model representation for gNMI. It returns a slice of Updates of type ReplacingUpdate.
 // The entire tree under "System/inst-items/Inst-list[vrf-name]" will be replaced ("vrf-name" is the value used during the VRF initialization).
-func (v *VRF) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (v *VRF) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	val := &nxos.Cisco_NX_OSDevice_System_InstItems_InstList{
 		Name: ygot.String(v.name),
 	}
@@ -172,7 +173,7 @@ func (v *VRF) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 
 // Reset returns DeletingUpdates for the path "System/inst-items/Inst-list[vrf-name]", where
 // "vrf-name" is the value used during the VRF initialization.
-func (v *VRF) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (v *VRF) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{
 		gnmiext.DeletingUpdate{
 			XPath: "System/inst-items/Inst-list[name=" + v.name + "]/",

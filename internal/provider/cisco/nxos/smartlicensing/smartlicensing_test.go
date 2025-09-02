@@ -17,7 +17,7 @@ func Test_SmartLicensing(t *testing.T) {
 		Vrf:  "management",
 	}
 
-	got, err := s.ToYGOT(&gnmiext.ClientMock{})
+	got, err := s.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -49,7 +49,7 @@ func Test_CallHome(t *testing.T) {
 		Profiles: []*Profile{{Seq: 1, URL: "https://cspc-n080-ssm.wdf.sap.corp/cslu/v1/pi/CC-LA-N080-4"}},
 	}
 
-	got, err := c.ToYGOT(&gnmiext.ClientMock{})
+	got, err := c.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

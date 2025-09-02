@@ -9,6 +9,7 @@
 package copp
 
 import (
+	"context"
 	"fmt"
 
 	nxos "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/genyang"
@@ -34,7 +35,7 @@ const (
 	Lenient
 )
 
-func (c *COPP) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (c *COPP) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	var prof nxos.E_Cisco_NX_OSDevice_Copp_ProfT
 	switch c.Profile {
 	case Unspecified:
@@ -62,7 +63,7 @@ func (c *COPP) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 }
 
 // sets the COPP profile to strict, which is the default profile.
-func (v *COPP) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (v *COPP) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	x := &nxos.Cisco_NX_OSDevice_System_CoppItems_ProfileItems{}
 	x.PopulateDefaults()
 	x.Prof = nxos.Cisco_NX_OSDevice_Copp_ProfT_strict

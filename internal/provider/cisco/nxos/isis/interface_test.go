@@ -116,7 +116,7 @@ func Test_Interface_ToYGOT(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	updates, err := i.ToYGOT(&gnmiext.ClientMock{
+	updates, err := i.ToYGOT(t.Context(), &gnmiext.ClientMock{
 		ExistsFunc: func(_ context.Context, xpath string) (bool, error) {
 			return true, nil
 		},
@@ -182,7 +182,7 @@ func Test_Interface_ToYGOT_NoP2P(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	updates, err := i.ToYGOT(&gnmiext.ClientMock{
+	updates, err := i.ToYGOT(t.Context(), &gnmiext.ClientMock{
 		ExistsFunc: func(_ context.Context, xpath string) (bool, error) {
 			return true, nil
 		},
@@ -209,7 +209,7 @@ func TestReset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	updates, err := i.Reset(nil)
+	updates, err := i.Reset(t.Context(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error from Reset: %v", err)
 	}

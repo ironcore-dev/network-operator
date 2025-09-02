@@ -152,7 +152,7 @@ func Test_Interface_ToYGOT(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	updates, err := intf.ToYGOT(&gnmiext.ClientMock{
+	updates, err := intf.ToYGOT(t.Context(), &gnmiext.ClientMock{
 		ExistsFunc: func(_ context.Context, xpath string) (bool, error) {
 			return true, nil
 		},

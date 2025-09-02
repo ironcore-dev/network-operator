@@ -62,7 +62,7 @@ func Test_SNMP(t *testing.T) {
 		Traps:  []string{"license notify-license-expiry"},
 	}
 
-	got, err := s.ToYGOT(mockedClient)
+	got, err := s.ToYGOT(t.Context(), mockedClient)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -108,7 +108,7 @@ func Test_SNMP_Err(t *testing.T) {
 		Traps:  []string{"license invalid"},
 	}
 
-	if _, err := s.ToYGOT(mockedClient); err == nil {
+	if _, err := s.ToYGOT(t.Context(), mockedClient); err == nil {
 		t.Errorf("expected error, got nil")
 	}
 }
@@ -118,7 +118,7 @@ func Test_SNMP_Reset(t *testing.T) {
 		Enable: true,
 	}
 
-	updates, err := s.Reset(mockedClient)
+	updates, err := s.Reset(t.Context(), mockedClient)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

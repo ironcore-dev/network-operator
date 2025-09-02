@@ -3,6 +3,8 @@
 package term
 
 import (
+	"context"
+
 	"github.com/openconfig/ygot/ygot"
 
 	nxos "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/genyang"
@@ -21,7 +23,7 @@ type Console struct {
 	Timeout uint32
 }
 
-func (c *Console) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (c *Console) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{
 		gnmiext.EditingUpdate{
 			XPath: "System/terml-items/ln-items/cons-items/execTmeout-items",
@@ -32,7 +34,7 @@ func (c *Console) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 	}, nil
 }
 
-func (v *Console) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (v *Console) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	cons := &nxos.Cisco_NX_OSDevice_System_TermlItems_LnItems_ConsItems{}
 	cons.PopulateDefaults()
 	return []gnmiext.Update{
@@ -54,7 +56,7 @@ type VTY struct {
 	Timeout uint32
 }
 
-func (v *VTY) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (v *VTY) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	u := []gnmiext.Update{
 		gnmiext.EditingUpdate{
 			XPath: "System/terml-items/ln-items/vty-items",
@@ -79,7 +81,7 @@ func (v *VTY) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 	return u, nil
 }
 
-func (v *VTY) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (v *VTY) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	vtys := &nxos.Cisco_NX_OSDevice_System_TermlItems_LnItems_VtyItems{}
 	vtys.PopulateDefaults()
 	acls := &nxos.Cisco_NX_OSDevice_System_AclItems_Ipv4Items_PolicyItems_IngressItems_VtyItems_AclItems{}

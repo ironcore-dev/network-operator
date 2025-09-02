@@ -143,7 +143,7 @@ func TestNewVRF_ToYGOT(t *testing.T) {
 			},
 		},
 	}
-	updates, err := vrfCfg2.ToYGOT(&gnmiext.ClientMock{})
+	updates, err := vrfCfg2.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Fatalf("ToYGOT returned error: %v", err)
 	}
@@ -301,7 +301,7 @@ func TestVRF_Reset(t *testing.T) {
 		name: "test-vrf",
 	}
 
-	updates, err := vrf.Reset(&gnmiext.ClientMock{})
+	updates, err := vrf.Reset(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Fatalf("Reset returned error: %v", err)
 	}

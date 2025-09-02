@@ -236,7 +236,6 @@ func (*Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_BsrItems_Rp
 // Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_BsrItems_RpfuncItems_RangeItems struct. The keys of the list are populated from the input
 // arguments.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_BsrItems_RpfuncItems_RangeItems) NewRpGrpRangeList(Bidir bool) (*Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_BsrItems_RpfuncItems_RangeItems_RpGrpRangeList, error) {
-
 	// Initialise the list within the receiver struct if it has not already been
 	// created.
 	if t.RpGrpRangeList == nil {
@@ -273,7 +272,6 @@ func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_BsrItems_
 // the receiver Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_BsrItems_RpfuncItems_RangeItems. If the entry does not exist, then it is created.
 // It returns the existing or new list member.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_BsrItems_RpfuncItems_RangeItems) GetOrCreateRpGrpRangeList(Bidir bool) *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_BsrItems_RpfuncItems_RangeItems_RpGrpRangeList {
-
 	key := Bidir
 
 	if v, ok := t.RpGrpRangeList[key]; ok {
@@ -293,7 +291,6 @@ func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_BsrItems_
 // the specified key is not present in the list, nil is returned such that Get*
 // methods may be safely chained.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_BsrItems_RpfuncItems_RangeItems) GetRpGrpRangeList(Bidir bool) *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_BsrItems_RpfuncItems_RangeItems_RpGrpRangeList {
-
 	if t == nil {
 		return nil
 	}
@@ -449,7 +446,6 @@ func (*Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_EventhistIt
 // Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_EventhistItems struct. The keys of the list are populated from the input
 // arguments.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_EventhistItems) NewEventHistoryList(Type E_Cisco_NX_OSDevice_Pim6_EhType) (*Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_EventhistItems_EventHistoryList, error) {
-
 	// Initialise the list within the receiver struct if it has not already been
 	// created.
 	if t.EventHistoryList == nil {
@@ -486,7 +482,6 @@ func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_Eventhist
 // the receiver Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_EventhistItems. If the entry does not exist, then it is created.
 // It returns the existing or new list member.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_EventhistItems) GetOrCreateEventHistoryList(Type E_Cisco_NX_OSDevice_Pim6_EhType) *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_EventhistItems_EventHistoryList {
-
 	key := Type
 
 	if v, ok := t.EventHistoryList[key]; ok {
@@ -506,7 +501,6 @@ func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_Eventhist
 // the specified key is not present in the list, nil is returned such that Get*
 // methods may be safely chained.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_EventhistItems) GetEventHistoryList(Type E_Cisco_NX_OSDevice_Pim6_EhType) *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_EventhistItems_EventHistoryList {
-
 	if t == nil {
 		return nil
 	}
@@ -606,7 +600,6 @@ func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_Eventhist
 
 // ΛListKeyMap returns the keys of the Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_EventhistItems_EventHistoryList struct, which is a YANG list entry.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_EventhistItems_EventHistoryList) ΛListKeyMap() (map[string]interface{}, error) {
-
 	return map[string]interface{}{
 		"type": t.Type,
 	}, nil
@@ -651,7 +644,6 @@ func (*Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems) Is
 // Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems struct. The keys of the list are populated from the input
 // arguments.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems) NewIfList(Id string) (*Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList, error) {
-
 	// Initialise the list within the receiver struct if it has not already been
 	// created.
 	if t.IfList == nil {
@@ -688,7 +680,6 @@ func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems) 
 // the receiver Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems. If the entry does not exist, then it is created.
 // It returns the existing or new list member.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems) GetOrCreateIfList(Id string) *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList {
-
 	key := Id
 
 	if v, ok := t.IfList[key]; ok {
@@ -708,7 +699,6 @@ func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems) 
 // the specified key is not present in the list, nil is returned such that Get*
 // methods may be safely chained.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems) GetIfList(Id string) *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList {
-
 	if t == nil {
 		return nil
 	}
@@ -1011,7 +1001,6 @@ func (*Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfL
 // Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_AdjItems struct. The keys of the list are populated from the input
 // arguments.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_AdjItems) NewAdjEpList(Addr string) (*Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_AdjItems_AdjEpList, error) {
-
 	// Initialise the list within the receiver struct if it has not already been
 	// created.
 	if t.AdjEpList == nil {
@@ -1048,7 +1037,6 @@ func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_I
 // the receiver Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_AdjItems. If the entry does not exist, then it is created.
 // It returns the existing or new list member.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_AdjItems) GetOrCreateAdjEpList(Addr string) *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_AdjItems_AdjEpList {
-
 	key := Addr
 
 	if v, ok := t.AdjEpList[key]; ok {
@@ -1068,7 +1056,6 @@ func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_I
 // the specified key is not present in the list, nil is returned such that Get*
 // methods may be safely chained.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_AdjItems) GetAdjEpList(Addr string) *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_AdjItems_AdjEpList {
-
 	if t == nil {
 		return nil
 	}
@@ -1203,8 +1190,7 @@ func (*Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfL
 }
 
 // Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_DbItems represents the /Cisco-NX-OS-device/System/pim6-items/inst-items/dom-items/Dom-list/if-items/If-list/db-items YANG schema element.
-type Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_DbItems struct {
-}
+type Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_DbItems struct{}
 
 // IsYANGGoStruct ensures that Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_DbItems implements the yang.GoStruct
 // interface. This allows functions that need to handle this struct to
@@ -1320,7 +1306,6 @@ func (*Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfL
 // Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_JpItems struct. The keys of the list are populated from the input
 // arguments.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_JpItems) NewJpTrPList(PolicyDir E_Cisco_NX_OSDevice_Rtdmc_PolicyDirType) (*Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_JpItems_JpTrPList, error) {
-
 	// Initialise the list within the receiver struct if it has not already been
 	// created.
 	if t.JpTrPList == nil {
@@ -1357,7 +1342,6 @@ func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_I
 // the receiver Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_JpItems. If the entry does not exist, then it is created.
 // It returns the existing or new list member.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_JpItems) GetOrCreateJpTrPList(PolicyDir E_Cisco_NX_OSDevice_Rtdmc_PolicyDirType) *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_JpItems_JpTrPList {
-
 	key := PolicyDir
 
 	if v, ok := t.JpTrPList[key]; ok {
@@ -1377,7 +1361,6 @@ func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_I
 // the specified key is not present in the list, nil is returned such that Get*
 // methods may be safely chained.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_JpItems) GetJpTrPList(PolicyDir E_Cisco_NX_OSDevice_Rtdmc_PolicyDirType) *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_JpItems_JpTrPList {
-
 	if t == nil {
 		return nil
 	}
@@ -1484,7 +1467,6 @@ func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_I
 
 // ΛListKeyMap returns the keys of the Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_JpItems_JpTrPList struct, which is a YANG list entry.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_JpItems_JpTrPList) ΛListKeyMap() (map[string]interface{}, error) {
-
 	return map[string]interface{}{
 		"policyDir": t.PolicyDir,
 	}, nil
@@ -1562,8 +1544,7 @@ func (*Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfL
 }
 
 // Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_TrstatsItems represents the /Cisco-NX-OS-device/System/pim6-items/inst-items/dom-items/Dom-list/if-items/If-list/trstats-items YANG schema element.
-type Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_TrstatsItems struct {
-}
+type Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_TrstatsItems struct{}
 
 // IsYANGGoStruct ensures that Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_IfItems_IfList_TrstatsItems implements the yang.GoStruct
 // interface. This allows functions that need to handle this struct to
@@ -1867,7 +1848,6 @@ func (*Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpIte
 // Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems struct. The keys of the list are populated from the input
 // arguments.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems) NewStaticRPList(Addr string) (*Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList, error) {
-
 	// Initialise the list within the receiver struct if it has not already been
 	// created.
 	if t.StaticRPList == nil {
@@ -1904,7 +1884,6 @@ func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpI
 // the receiver Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems. If the entry does not exist, then it is created.
 // It returns the existing or new list member.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems) GetOrCreateStaticRPList(Addr string) *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList {
-
 	key := Addr
 
 	if v, ok := t.StaticRPList[key]; ok {
@@ -1924,7 +1903,6 @@ func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpI
 // the specified key is not present in the list, nil is returned such that Get*
 // methods may be safely chained.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems) GetStaticRPList(Addr string) *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList {
-
 	if t == nil {
 		return nil
 	}
@@ -2116,7 +2094,6 @@ func (*Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpIte
 // Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RangeItems struct. The keys of the list are populated from the input
 // arguments.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RangeItems) NewRpGrpRangeList(Bidir bool) (*Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RangeItems_RpGrpRangeList, error) {
-
 	// Initialise the list within the receiver struct if it has not already been
 	// created.
 	if t.RpGrpRangeList == nil {
@@ -2153,7 +2130,6 @@ func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpI
 // the receiver Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RangeItems. If the entry does not exist, then it is created.
 // It returns the existing or new list member.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RangeItems) GetOrCreateRpGrpRangeList(Bidir bool) *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RangeItems_RpGrpRangeList {
-
 	key := Bidir
 
 	if v, ok := t.RpGrpRangeList[key]; ok {
@@ -2173,7 +2149,6 @@ func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpI
 // the specified key is not present in the list, nil is returned such that Get*
 // methods may be safely chained.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RangeItems) GetRpGrpRangeList(Bidir bool) *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RangeItems_RpGrpRangeList {
-
 	if t == nil {
 		return nil
 	}
@@ -2329,7 +2304,6 @@ func (*Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpIte
 // Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RpgrplistItems struct. The keys of the list are populated from the input
 // arguments.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RpgrplistItems) NewRpGrpListList(GrpListName string) (*Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RpgrplistItems_RpGrpListList, error) {
-
 	// Initialise the list within the receiver struct if it has not already been
 	// created.
 	if t.RpGrpListList == nil {
@@ -2366,7 +2340,6 @@ func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpI
 // the receiver Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RpgrplistItems. If the entry does not exist, then it is created.
 // It returns the existing or new list member.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RpgrplistItems) GetOrCreateRpGrpListList(GrpListName string) *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RpgrplistItems_RpGrpListList {
-
 	key := GrpListName
 
 	if v, ok := t.RpGrpListList[key]; ok {
@@ -2386,7 +2359,6 @@ func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpI
 // the specified key is not present in the list, nil is returned such that Get*
 // methods may be safely chained.
 func (t *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RpgrplistItems) GetRpGrpListList(GrpListName string) *Cisco_NX_OSDevice_System_Pim6Items_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RpgrplistItems_RpGrpListList {
-
 	if t == nil {
 		return nil
 	}
@@ -2638,8 +2610,7 @@ func (*Cisco_NX_OSDevice_System_Pim6Items_InstItems_RoutedbItems) ΛBelongingMod
 }
 
 // Cisco_NX_OSDevice_System_Pim6Items_InstItems_RoutedbItems_VrfItems represents the /Cisco-NX-OS-device/System/pim6-items/inst-items/routedb-items/vrf-items YANG schema element.
-type Cisco_NX_OSDevice_System_Pim6Items_InstItems_RoutedbItems_VrfItems struct {
-}
+type Cisco_NX_OSDevice_System_Pim6Items_InstItems_RoutedbItems_VrfItems struct{}
 
 // IsYANGGoStruct ensures that Cisco_NX_OSDevice_System_Pim6Items_InstItems_RoutedbItems_VrfItems implements the yang.GoStruct
 // interface. This allows functions that need to handle this struct to
@@ -2936,7 +2907,6 @@ func (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems) IsYANGGoStruct() {}
 // Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems struct. The keys of the list are populated from the input
 // arguments.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems) NewDomList(Name string) (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList, error) {
-
 	// Initialise the list within the receiver struct if it has not already been
 	// created.
 	if t.DomList == nil {
@@ -2973,7 +2943,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems) GetOrCreateDomLis
 // the receiver Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems. If the entry does not exist, then it is created.
 // It returns the existing or new list member.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems) GetOrCreateDomList(Name string) *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList {
-
 	key := Name
 
 	if v, ok := t.DomList[key]; ok {
@@ -2993,7 +2962,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems) GetOrCreateDomLis
 // the specified key is not present in the list, nil is returned such that Get*
 // methods may be safely chained.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems) GetDomList(Name string) *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList {
-
 	if t == nil {
 		return nil
 	}
@@ -3635,7 +3603,6 @@ func (t Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_Acastrpfunc
 // Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_AcastrpfuncItems_PeerItems struct. The keys of the list are populated from the input
 // arguments.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_AcastrpfuncItems_PeerItems) NewAcastRPPeerList(Addr string, RpSetAddr string) (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_AcastrpfuncItems_PeerItems_AcastRPPeerList, error) {
-
 	// Initialise the list within the receiver struct if it has not already been
 	// created.
 	if t.AcastRPPeerList == nil {
@@ -3676,7 +3643,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_Acastrpfun
 // the receiver Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_AcastrpfuncItems_PeerItems. If the entry does not exist, then it is created.
 // It returns the existing or new list member.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_AcastrpfuncItems_PeerItems) GetOrCreateAcastRPPeerList(Addr string, RpSetAddr string) *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_AcastrpfuncItems_PeerItems_AcastRPPeerList {
-
 	key := Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_AcastrpfuncItems_PeerItems_AcastRPPeerList_Key{
 		Addr:      Addr,
 		RpSetAddr: RpSetAddr,
@@ -3699,7 +3665,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_Acastrpfun
 // the specified key is not present in the list, nil is returned such that Get*
 // methods may be safely chained.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_AcastrpfuncItems_PeerItems) GetAcastRPPeerList(Addr string, RpSetAddr string) *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_AcastrpfuncItems_PeerItems_AcastRPPeerList {
-
 	if t == nil {
 		return nil
 	}
@@ -4609,7 +4574,6 @@ func (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_AutorpItems_
 // Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_AutorpItems_RpfuncItems_RangeItems struct. The keys of the list are populated from the input
 // arguments.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_AutorpItems_RpfuncItems_RangeItems) NewRPGrpRangeList(Bidir bool) (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_AutorpItems_RpfuncItems_RangeItems_RPGrpRangeList, error) {
-
 	// Initialise the list within the receiver struct if it has not already been
 	// created.
 	if t.RPGrpRangeList == nil {
@@ -4646,7 +4610,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_AutorpItem
 // the receiver Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_AutorpItems_RpfuncItems_RangeItems. If the entry does not exist, then it is created.
 // It returns the existing or new list member.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_AutorpItems_RpfuncItems_RangeItems) GetOrCreateRPGrpRangeList(Bidir bool) *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_AutorpItems_RpfuncItems_RangeItems_RPGrpRangeList {
-
 	key := Bidir
 
 	if v, ok := t.RPGrpRangeList[key]; ok {
@@ -4666,7 +4629,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_AutorpItem
 // the specified key is not present in the list, nil is returned such that Get*
 // methods may be safely chained.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_AutorpItems_RpfuncItems_RangeItems) GetRPGrpRangeList(Bidir bool) *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_AutorpItems_RpfuncItems_RangeItems_RPGrpRangeList {
-
 	if t == nil {
 		return nil
 	}
@@ -5259,7 +5221,6 @@ func (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_BsrItems_Rpf
 // Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_BsrItems_RpfuncItems_RangeItems struct. The keys of the list are populated from the input
 // arguments.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_BsrItems_RpfuncItems_RangeItems) NewRPGrpRangeList(Bidir bool) (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_BsrItems_RpfuncItems_RangeItems_RPGrpRangeList, error) {
-
 	// Initialise the list within the receiver struct if it has not already been
 	// created.
 	if t.RPGrpRangeList == nil {
@@ -5296,7 +5257,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_BsrItems_R
 // the receiver Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_BsrItems_RpfuncItems_RangeItems. If the entry does not exist, then it is created.
 // It returns the existing or new list member.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_BsrItems_RpfuncItems_RangeItems) GetOrCreateRPGrpRangeList(Bidir bool) *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_BsrItems_RpfuncItems_RangeItems_RPGrpRangeList {
-
 	key := Bidir
 
 	if v, ok := t.RPGrpRangeList[key]; ok {
@@ -5316,7 +5276,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_BsrItems_R
 // the specified key is not present in the list, nil is returned such that Get*
 // methods may be safely chained.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_BsrItems_RpfuncItems_RangeItems) GetRPGrpRangeList(Bidir bool) *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_BsrItems_RpfuncItems_RangeItems_RPGrpRangeList {
-
 	if t == nil {
 		return nil
 	}
@@ -5458,8 +5417,7 @@ func (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_BsrItems_Rpf
 }
 
 // Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_DbItems represents the /Cisco-NX-OS-device/System/pim-items/inst-items/dom-items/Dom-list/db-items YANG schema element.
-type Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_DbItems struct {
-}
+type Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_DbItems struct{}
 
 // IsYANGGoStruct ensures that Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_DbItems implements the yang.GoStruct
 // interface. This allows functions that need to handle this struct to
@@ -5502,8 +5460,7 @@ func (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_DbItems) ΛB
 }
 
 // Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_DomstatsItems represents the /Cisco-NX-OS-device/System/pim-items/inst-items/dom-items/Dom-list/domstats-items YANG schema element.
-type Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_DomstatsItems struct {
-}
+type Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_DomstatsItems struct{}
 
 // IsYANGGoStruct ensures that Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_DomstatsItems implements the yang.GoStruct
 // interface. This allows functions that need to handle this struct to
@@ -5560,7 +5517,6 @@ func (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_EventHistIte
 // Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_EventHistItems struct. The keys of the list are populated from the input
 // arguments.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_EventHistItems) NewEventHistoryList(Type E_Cisco_NX_OSDevice_Pim_EhType) (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_EventHistItems_EventHistoryList, error) {
-
 	// Initialise the list within the receiver struct if it has not already been
 	// created.
 	if t.EventHistoryList == nil {
@@ -5597,7 +5553,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_EventHistI
 // the receiver Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_EventHistItems. If the entry does not exist, then it is created.
 // It returns the existing or new list member.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_EventHistItems) GetOrCreateEventHistoryList(Type E_Cisco_NX_OSDevice_Pim_EhType) *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_EventHistItems_EventHistoryList {
-
 	key := Type
 
 	if v, ok := t.EventHistoryList[key]; ok {
@@ -5617,7 +5572,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_EventHistI
 // the specified key is not present in the list, nil is returned such that Get*
 // methods may be safely chained.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_EventHistItems) GetEventHistoryList(Type E_Cisco_NX_OSDevice_Pim_EhType) *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_EventHistItems_EventHistoryList {
-
 	if t == nil {
 		return nil
 	}
@@ -5717,7 +5671,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_EventHistI
 
 // ΛListKeyMap returns the keys of the Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_EventHistItems_EventHistoryList struct, which is a YANG list entry.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_EventHistItems_EventHistoryList) ΛListKeyMap() (map[string]interface{}, error) {
-
 	return map[string]interface{}{
 		"type": t.Type,
 	}, nil
@@ -5762,7 +5715,6 @@ func (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems) IsY
 // Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems struct. The keys of the list are populated from the input
 // arguments.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems) NewIfList(Id string) (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList, error) {
-
 	// Initialise the list within the receiver struct if it has not already been
 	// created.
 	if t.IfList == nil {
@@ -5799,7 +5751,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems) G
 // the receiver Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems. If the entry does not exist, then it is created.
 // It returns the existing or new list member.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems) GetOrCreateIfList(Id string) *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList {
-
 	key := Id
 
 	if v, ok := t.IfList[key]; ok {
@@ -5819,7 +5770,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems) G
 // the specified key is not present in the list, nil is returned such that Get*
 // methods may be safely chained.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems) GetIfList(Id string) *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList {
-
 	if t == nil {
 		return nil
 	}
@@ -6124,8 +6074,7 @@ func (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfLi
 }
 
 // Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_DbItems represents the /Cisco-NX-OS-device/System/pim-items/inst-items/dom-items/Dom-list/if-items/If-list/db-items YANG schema element.
-type Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_DbItems struct {
-}
+type Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_DbItems struct{}
 
 // IsYANGGoStruct ensures that Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_DbItems implements the yang.GoStruct
 // interface. This allows functions that need to handle this struct to
@@ -6227,8 +6176,7 @@ func (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfLi
 }
 
 // Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_IfdbItems represents the /Cisco-NX-OS-device/System/pim-items/inst-items/dom-items/Dom-list/if-items/If-list/ifdb-items YANG schema element.
-type Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_IfdbItems struct {
-}
+type Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_IfdbItems struct{}
 
 // IsYANGGoStruct ensures that Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_IfdbItems implements the yang.GoStruct
 // interface. This allows functions that need to handle this struct to
@@ -6286,7 +6234,6 @@ func (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfLi
 // Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_JpItems struct. The keys of the list are populated from the input
 // arguments.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_JpItems) NewJPTrPList(PolicyDir E_Cisco_NX_OSDevice_Rtdmc_PolicyDirType) (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_JpItems_JPTrPList, error) {
-
 	// Initialise the list within the receiver struct if it has not already been
 	// created.
 	if t.JPTrPList == nil {
@@ -6323,7 +6270,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_If
 // the receiver Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_JpItems. If the entry does not exist, then it is created.
 // It returns the existing or new list member.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_JpItems) GetOrCreateJPTrPList(PolicyDir E_Cisco_NX_OSDevice_Rtdmc_PolicyDirType) *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_JpItems_JPTrPList {
-
 	key := PolicyDir
 
 	if v, ok := t.JPTrPList[key]; ok {
@@ -6343,7 +6289,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_If
 // the specified key is not present in the list, nil is returned such that Get*
 // methods may be safely chained.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_JpItems) GetJPTrPList(PolicyDir E_Cisco_NX_OSDevice_Rtdmc_PolicyDirType) *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_JpItems_JPTrPList {
-
 	if t == nil {
 		return nil
 	}
@@ -6450,7 +6395,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_If
 
 // ΛListKeyMap returns the keys of the Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_JpItems_JPTrPList struct, which is a YANG list entry.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_JpItems_JPTrPList) ΛListKeyMap() (map[string]interface{}, error) {
-
 	return map[string]interface{}{
 		"policyDir": t.PolicyDir,
 	}, nil
@@ -6528,8 +6472,7 @@ func (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfLi
 }
 
 // Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_TrstatsItems represents the /Cisco-NX-OS-device/System/pim-items/inst-items/dom-items/Dom-list/if-items/If-list/trstats-items YANG schema element.
-type Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_TrstatsItems struct {
-}
+type Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_TrstatsItems struct{}
 
 // IsYANGGoStruct ensures that Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_IfItems_IfList_TrstatsItems implements the yang.GoStruct
 // interface. This allows functions that need to handle this struct to
@@ -6630,8 +6573,7 @@ func (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_LimitItems) 
 }
 
 // Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_MtiItems represents the /Cisco-NX-OS-device/System/pim-items/inst-items/dom-items/Dom-list/mti-items YANG schema element.
-type Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_MtiItems struct {
-}
+type Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_MtiItems struct{}
 
 // IsYANGGoStruct ensures that Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_MtiItems implements the yang.GoStruct
 // interface. This allows functions that need to handle this struct to
@@ -6944,7 +6886,6 @@ func (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItem
 // Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems struct. The keys of the list are populated from the input
 // arguments.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems) NewStaticRPList(Addr string) (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList, error) {
-
 	// Initialise the list within the receiver struct if it has not already been
 	// created.
 	if t.StaticRPList == nil {
@@ -6981,7 +6922,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpIt
 // the receiver Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems. If the entry does not exist, then it is created.
 // It returns the existing or new list member.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems) GetOrCreateStaticRPList(Addr string) *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList {
-
 	key := Addr
 
 	if v, ok := t.StaticRPList[key]; ok {
@@ -7001,7 +6941,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpIt
 // the specified key is not present in the list, nil is returned such that Get*
 // methods may be safely chained.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems) GetStaticRPList(Addr string) *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList {
-
 	if t == nil {
 		return nil
 	}
@@ -7193,7 +7132,6 @@ func (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItem
 // Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RangeItems struct. The keys of the list are populated from the input
 // arguments.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RangeItems) NewRPGrpRangeList(Bidir bool) (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RangeItems_RPGrpRangeList, error) {
-
 	// Initialise the list within the receiver struct if it has not already been
 	// created.
 	if t.RPGrpRangeList == nil {
@@ -7230,7 +7168,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpIt
 // the receiver Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RangeItems. If the entry does not exist, then it is created.
 // It returns the existing or new list member.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RangeItems) GetOrCreateRPGrpRangeList(Bidir bool) *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RangeItems_RPGrpRangeList {
-
 	key := Bidir
 
 	if v, ok := t.RPGrpRangeList[key]; ok {
@@ -7250,7 +7187,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpIt
 // the specified key is not present in the list, nil is returned such that Get*
 // methods may be safely chained.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RangeItems) GetRPGrpRangeList(Bidir bool) *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RangeItems_RPGrpRangeList {
-
 	if t == nil {
 		return nil
 	}
@@ -7406,7 +7342,6 @@ func (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItem
 // Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RpgrplistItems struct. The keys of the list are populated from the input
 // arguments.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RpgrplistItems) NewRPGrpListList(GrpListName string) (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RpgrplistItems_RPGrpListList, error) {
-
 	// Initialise the list within the receiver struct if it has not already been
 	// created.
 	if t.RPGrpListList == nil {
@@ -7443,7 +7378,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpIt
 // the receiver Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RpgrplistItems. If the entry does not exist, then it is created.
 // It returns the existing or new list member.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RpgrplistItems) GetOrCreateRPGrpListList(GrpListName string) *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RpgrplistItems_RPGrpListList {
-
 	key := GrpListName
 
 	if v, ok := t.RPGrpListList[key]; ok {
@@ -7463,7 +7397,6 @@ func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpIt
 // the specified key is not present in the list, nil is returned such that Get*
 // methods may be safely chained.
 func (t *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RpgrplistItems) GetRPGrpListList(GrpListName string) *Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItems_RpItems_StaticRPList_RpgrplistItems_RPGrpListList {
-
 	if t == nil {
 		return nil
 	}
@@ -7599,8 +7532,7 @@ func (*Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_StaticrpItem
 }
 
 // Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_TrstatsItems represents the /Cisco-NX-OS-device/System/pim-items/inst-items/dom-items/Dom-list/trstats-items YANG schema element.
-type Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_TrstatsItems struct {
-}
+type Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_TrstatsItems struct{}
 
 // IsYANGGoStruct ensures that Cisco_NX_OSDevice_System_PimItems_InstItems_DomItems_DomList_TrstatsItems implements the yang.GoStruct
 // interface. This allows functions that need to handle this struct to
@@ -7698,8 +7630,7 @@ func (*Cisco_NX_OSDevice_System_PimItems_InstItems_GlItems) ΛBelongingModule() 
 }
 
 // Cisco_NX_OSDevice_System_PimItems_InstItems_RoutedbItems represents the /Cisco-NX-OS-device/System/pim-items/inst-items/routedb-items YANG schema element.
-type Cisco_NX_OSDevice_System_PimItems_InstItems_RoutedbItems struct {
-}
+type Cisco_NX_OSDevice_System_PimItems_InstItems_RoutedbItems struct{}
 
 // IsYANGGoStruct ensures that Cisco_NX_OSDevice_System_PimItems_InstItems_RoutedbItems implements the yang.GoStruct
 // interface. This allows functions that need to handle this struct to
@@ -7808,8 +7739,7 @@ func (*Cisco_NX_OSDevice_System_PimItems_PimdomdbItems) ΛBelongingModule() stri
 }
 
 // Cisco_NX_OSDevice_System_PimItems_PimdomdbItems_PimdomItems represents the /Cisco-NX-OS-device/System/pim-items/pimdomdb-items/pimdom-items YANG schema element.
-type Cisco_NX_OSDevice_System_PimItems_PimdomdbItems_PimdomItems struct {
-}
+type Cisco_NX_OSDevice_System_PimItems_PimdomdbItems_PimdomItems struct{}
 
 // IsYANGGoStruct ensures that Cisco_NX_OSDevice_System_PimItems_PimdomdbItems_PimdomItems implements the yang.GoStruct
 // interface. This allows functions that need to handle this struct to
@@ -7852,8 +7782,7 @@ func (*Cisco_NX_OSDevice_System_PimItems_PimdomdbItems_PimdomItems) ΛBelongingM
 }
 
 // Cisco_NX_OSDevice_System_PimItems_PimifdbItems represents the /Cisco-NX-OS-device/System/pim-items/pimifdb-items YANG schema element.
-type Cisco_NX_OSDevice_System_PimItems_PimifdbItems struct {
-}
+type Cisco_NX_OSDevice_System_PimItems_PimifdbItems struct{}
 
 // IsYANGGoStruct ensures that Cisco_NX_OSDevice_System_PimItems_PimifdbItems implements the yang.GoStruct
 // interface. This allows functions that need to handle this struct to
@@ -8065,7 +7994,6 @@ func (*Cisco_NX_OSDevice_System_PktmgrItems_InstItems_IfItems) IsYANGGoStruct() 
 // Cisco_NX_OSDevice_System_PktmgrItems_InstItems_IfItems struct. The keys of the list are populated from the input
 // arguments.
 func (t *Cisco_NX_OSDevice_System_PktmgrItems_InstItems_IfItems) NewIfList(Id string) (*Cisco_NX_OSDevice_System_PktmgrItems_InstItems_IfItems_IfList, error) {
-
 	// Initialise the list within the receiver struct if it has not already been
 	// created.
 	if t.IfList == nil {
@@ -8102,7 +8030,6 @@ func (t *Cisco_NX_OSDevice_System_PktmgrItems_InstItems_IfItems) GetOrCreateIfLi
 // the receiver Cisco_NX_OSDevice_System_PktmgrItems_InstItems_IfItems. If the entry does not exist, then it is created.
 // It returns the existing or new list member.
 func (t *Cisco_NX_OSDevice_System_PktmgrItems_InstItems_IfItems) GetOrCreateIfList(Id string) *Cisco_NX_OSDevice_System_PktmgrItems_InstItems_IfItems_IfList {
-
 	key := Id
 
 	if v, ok := t.IfList[key]; ok {
@@ -8122,7 +8049,6 @@ func (t *Cisco_NX_OSDevice_System_PktmgrItems_InstItems_IfItems) GetOrCreateIfLi
 // the specified key is not present in the list, nil is returned such that Get*
 // methods may be safely chained.
 func (t *Cisco_NX_OSDevice_System_PktmgrItems_InstItems_IfItems) GetIfList(Id string) *Cisco_NX_OSDevice_System_PktmgrItems_InstItems_IfItems_IfList {
-
 	if t == nil {
 		return nil
 	}
@@ -9380,7 +9306,6 @@ func (*Cisco_NX_OSDevice_System_PltfmItems_BdItems_BdItems) IsYANGGoStruct() {}
 // Cisco_NX_OSDevice_System_PltfmItems_BdItems_BdItems struct. The keys of the list are populated from the input
 // arguments.
 func (t *Cisco_NX_OSDevice_System_PltfmItems_BdItems_BdItems) NewBdList(FabEncap string) (*Cisco_NX_OSDevice_System_PltfmItems_BdItems_BdItems_BdList, error) {
-
 	// Initialise the list within the receiver struct if it has not already been
 	// created.
 	if t.BdList == nil {
@@ -9417,7 +9342,6 @@ func (t *Cisco_NX_OSDevice_System_PltfmItems_BdItems_BdItems) GetOrCreateBdListM
 // the receiver Cisco_NX_OSDevice_System_PltfmItems_BdItems_BdItems. If the entry does not exist, then it is created.
 // It returns the existing or new list member.
 func (t *Cisco_NX_OSDevice_System_PltfmItems_BdItems_BdItems) GetOrCreateBdList(FabEncap string) *Cisco_NX_OSDevice_System_PltfmItems_BdItems_BdItems_BdList {
-
 	key := FabEncap
 
 	if v, ok := t.BdList[key]; ok {
@@ -9437,7 +9361,6 @@ func (t *Cisco_NX_OSDevice_System_PltfmItems_BdItems_BdItems) GetOrCreateBdList(
 // the specified key is not present in the list, nil is returned such that Get*
 // methods may be safely chained.
 func (t *Cisco_NX_OSDevice_System_PltfmItems_BdItems_BdItems) GetBdList(FabEncap string) *Cisco_NX_OSDevice_System_PltfmItems_BdItems_BdItems_BdList {
-
 	if t == nil {
 		return nil
 	}
@@ -9720,8 +9643,7 @@ func (*Cisco_NX_OSDevice_System_PltfmItems_BuffermonitorstatsItems) ΛBelongingM
 }
 
 // Cisco_NX_OSDevice_System_PltfmItems_BuffermonitorstatsItems_McastbbItems represents the /Cisco-NX-OS-device/System/pltfm-items/buffermonitorstats-items/mcastbb-items YANG schema element.
-type Cisco_NX_OSDevice_System_PltfmItems_BuffermonitorstatsItems_McastbbItems struct {
-}
+type Cisco_NX_OSDevice_System_PltfmItems_BuffermonitorstatsItems_McastbbItems struct{}
 
 // IsYANGGoStruct ensures that Cisco_NX_OSDevice_System_PltfmItems_BuffermonitorstatsItems_McastbbItems implements the yang.GoStruct
 // interface. This allows functions that need to handle this struct to
@@ -9764,8 +9686,7 @@ func (*Cisco_NX_OSDevice_System_PltfmItems_BuffermonitorstatsItems_McastbbItems)
 }
 
 // Cisco_NX_OSDevice_System_PltfmItems_BuffermonitorstatsItems_UcastbbItems represents the /Cisco-NX-OS-device/System/pltfm-items/buffermonitorstats-items/ucastbb-items YANG schema element.
-type Cisco_NX_OSDevice_System_PltfmItems_BuffermonitorstatsItems_UcastbbItems struct {
-}
+type Cisco_NX_OSDevice_System_PltfmItems_BuffermonitorstatsItems_UcastbbItems struct{}
 
 // IsYANGGoStruct ensures that Cisco_NX_OSDevice_System_PltfmItems_BuffermonitorstatsItems_UcastbbItems implements the yang.GoStruct
 // interface. This allows functions that need to handle this struct to

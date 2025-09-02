@@ -13,7 +13,7 @@ import (
 func Test_Features(t *testing.T) {
 	f := Features{"restconf"}
 
-	got, err := f.ToYGOT(&gnmiext.ClientMock{})
+	got, err := f.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

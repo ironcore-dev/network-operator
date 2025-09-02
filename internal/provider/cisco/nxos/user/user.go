@@ -4,6 +4,7 @@
 package user
 
 import (
+	"context"
 	"errors"
 
 	"github.com/openconfig/ygot/ygot"
@@ -82,7 +83,7 @@ func WithRoles(roles ...Role) UserOption {
 	}
 }
 
-func (u *User) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
+func (u *User) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	pwd, enc, err := u.Encoder.Encode(u.Password)
 	if err != nil {
 		return nil, err
@@ -106,7 +107,7 @@ func (u *User) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
 	}, nil
 }
 
-func (u *User) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (u *User) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{
 		gnmiext.DeletingUpdate{
 			XPath: "System/userext-items/user-items/User-list[name=" + u.Name + "]",

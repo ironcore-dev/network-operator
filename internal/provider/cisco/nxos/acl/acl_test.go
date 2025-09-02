@@ -26,7 +26,7 @@ func Test_ACL(t *testing.T) {
 		},
 	}
 
-	got, err := a.ToYGOT(&gnmiext.ClientMock{})
+	got, err := a.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -103,7 +103,7 @@ func Test_ACL_IPv6(t *testing.T) {
 		},
 	}
 
-	got, err := a.ToYGOT(&gnmiext.ClientMock{})
+	got, err := a.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -137,7 +137,7 @@ func Test_ACL_Validation_MixedIPVersions(t *testing.T) {
 		},
 	}
 
-	_, err := a.ToYGOT(&gnmiext.ClientMock{})
+	_, err := a.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err == nil {
 		t.Errorf("expected validation error for mixed IP versions, got nil")
 	}
@@ -158,7 +158,7 @@ func Test_ACL_EmptyDescription(t *testing.T) {
 		},
 	}
 
-	got, err := a.ToYGOT(&gnmiext.ClientMock{})
+	got, err := a.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

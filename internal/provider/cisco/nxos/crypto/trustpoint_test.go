@@ -5,6 +5,7 @@ package crypto
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 
@@ -28,7 +29,7 @@ func Test_Trustpoint(t *testing.T) {
 		},
 	}
 
-	got, err := tp.ToYGOT(mockClient)
+	got, err := tp.ToYGOT(t.Context(), mockClient)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -81,8 +82,8 @@ func Test_Trustpoint_AlreadyExists(t *testing.T) {
 		},
 	}
 
-	_, err := tp.ToYGOT(mockClient)
-	if err != ErrAlreadyExists {
+	_, err := tp.ToYGOT(t.Context(), mockClient)
+	if !errors.Is(err, ErrAlreadyExists) {
 		t.Errorf("expected ErrAlreadyExists, got %v", err)
 	}
 

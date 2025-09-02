@@ -4,6 +4,7 @@
 package smartlicensing
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/openconfig/ygot/ygot"
@@ -39,7 +40,7 @@ const (
 	TransportCallhome
 )
 
-func (l *Licensing) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (l *Licensing) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	var mode nxos.E_Cisco_NX_OSDevice_LicensemanagerTransportmodeType
 	switch l.Transport {
 	case TransportCallhome:
@@ -70,7 +71,7 @@ func (l *Licensing) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 	}, nil
 }
 
-func (v *Licensing) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (v *Licensing) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	x := &nxos.Cisco_NX_OSDevice_System_LicensemanagerItems_InstItems_SmartlicensingItems{}
 	x.PopulateDefaults()
 	return []gnmiext.Update{
@@ -93,7 +94,7 @@ type Profile struct {
 	Seq uint32
 }
 
-func (c *CallHome) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (c *CallHome) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	if !c.Enable {
 		return []gnmiext.Update{
 			gnmiext.EditingUpdate{
@@ -184,7 +185,7 @@ func (c *CallHome) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 	}, nil
 }
 
-func (v *CallHome) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (v *CallHome) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	x := &nxos.Cisco_NX_OSDevice_System_CallhomeItems_InstItems{}
 	x.PopulateDefaults()
 	return []gnmiext.Update{

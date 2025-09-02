@@ -15,7 +15,7 @@ func Test_VLAN(t *testing.T) {
 		LongName: true,
 	}
 
-	got, err := vlan.ToYGOT(&gnmiext.ClientMock{})
+	got, err := vlan.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

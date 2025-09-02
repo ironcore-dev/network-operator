@@ -76,12 +76,12 @@ type DeviceConf interface {
 	// ToYGOT returns a list that represents the desired configuration updates. `client``
 	// is an optional parameter that can be used to retrieve the current configuration
 	// from the target device, if needed by the implementation.
-	ToYGOT(client Client) ([]Update, error)
+	ToYGOT(context.Context, Client) ([]Update, error)
 	// return a list of updates that reconfigures a device with the default values
 	// provided by the yGOT library. `client` is an optional parameter that can be used
 	// to retrieve the current configuration from the target device, if the implementation
 	// requires keeping some of the current values.
-	Reset(client Client) ([]Update, error)
+	Reset(context.Context, Client) ([]Update, error)
 }
 
 var (
@@ -313,7 +313,7 @@ func (c *client) Set(ctx context.Context, notification *gpb.Notification) error 
 // computing the difference to the desired configuration, and applying the changes.
 // It effectively combines the Get, diff, and Set functions into a single operation.
 func (c *client) Update(ctx context.Context, config DeviceConf) error {
-	conf, err := config.ToYGOT(c)
+	conf, err := config.ToYGOT(ctx, c)
 	if err != nil {
 		return fmt.Errorf("gnmiext: failed to convert configuration to YGot structures: %w", err)
 	}
@@ -424,7 +424,7 @@ func (c *client) applyDeletingUpdate(ctx context.Context, update *DeletingUpdate
 // between the current configuration and the default configuration values set by yGoT.
 // It effectively combines the Get, diff, and Set functions into a single operation.
 func (c *client) Reset(ctx context.Context, config DeviceConf) error {
-	conf, err := config.Reset(c)
+	conf, err := config.Reset(ctx, c)
 	if err != nil {
 		return fmt.Errorf("gnmiext: failed to convert configuration to YGot structures: %w", err)
 	}

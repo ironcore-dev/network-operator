@@ -28,7 +28,7 @@ func Test_NTP(t *testing.T) {
 		},
 	}
 
-	got, err := ntp.ToYGOT(&gnmiext.ClientMock{})
+	got, err := ntp.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

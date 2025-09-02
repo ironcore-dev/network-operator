@@ -4,6 +4,8 @@
 package vlan
 
 import (
+	"context"
+
 	"github.com/openconfig/ygot/ygot"
 
 	nxos "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/genyang"
@@ -17,7 +19,7 @@ type VLAN struct {
 	LongName bool
 }
 
-func (n *VLAN) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (n *VLAN) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{
 		gnmiext.EditingUpdate{
 			XPath: "System/vlanmgr-items/inst-items",
@@ -26,7 +28,7 @@ func (n *VLAN) ToYGOT(_ gnmiext.Client) ([]gnmiext.Update, error) {
 	}, nil
 }
 
-func (v *VLAN) Reset(_ gnmiext.Client) ([]gnmiext.Update, error) {
+func (v *VLAN) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	vlan := &nxos.Cisco_NX_OSDevice_System_VlanmgrItems_InstItems{}
 	vlan.PopulateDefaults()
 	return []gnmiext.Update{

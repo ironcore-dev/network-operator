@@ -190,7 +190,7 @@ func TestOSPF_ToYGOT(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	updates, err := o.ToYGOT(nil)
+	updates, err := o.ToYGOT(t.Context(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -242,7 +242,7 @@ func TestOSPF_Reset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	updates, err := o.Reset(nil)
+	updates, err := o.Reset(t.Context(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

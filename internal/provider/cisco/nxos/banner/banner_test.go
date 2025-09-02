@@ -19,7 +19,7 @@ func Test_Banner(t *testing.T) {
 		Message:   message,
 	}
 
-	got, err := banner.ToYGOT(&gnmiext.ClientMock{})
+	got, err := banner.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -51,7 +51,7 @@ func Test_Banner_Limit(t *testing.T) {
 	for i, test := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			banner := &Banner{Delimiter: "^", Message: test}
-			if _, err := banner.ToYGOT(&gnmiext.ClientMock{}); err == nil {
+			if _, err := banner.ToYGOT(t.Context(), &gnmiext.ClientMock{}); err == nil {
 				t.Errorf("expected error, got nil")
 			}
 		})

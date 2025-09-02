@@ -95,10 +95,10 @@ type Community struct {
 // - /System/snmp-items/inst-items/traps-items/fcns-items
 // - /System/snmp-items/inst-items/traps-items/rscn-items
 // - /System/snmp-items/inst-items/traps-items/zone-items
-func (s *SNMP) Reset(client gnmiext.Client) ([]gnmiext.Update, error) {
+func (s *SNMP) Reset(ctx context.Context, client gnmiext.Client) ([]gnmiext.Update, error) {
 	it := &nxos.Cisco_NX_OSDevice_System_SnmpItems{}
 	it.PopulateDefaults()
-	err := s.addValuesFromRemote(client, it)
+	err := s.addValuesFromRemote(ctx, client, it)
 	if err != nil {
 		return nil, fmt.Errorf("snmp: failed to add values from remote: %w", err)
 	}
@@ -115,12 +115,12 @@ func (s *SNMP) Reset(client gnmiext.Client) ([]gnmiext.Update, error) {
 	}, nil
 }
 
-func (s *SNMP) addValuesFromRemote(client gnmiext.Client, dst *nxos.Cisco_NX_OSDevice_System_SnmpItems) error {
+func (s *SNMP) addValuesFromRemote(ctx context.Context, client gnmiext.Client, dst *nxos.Cisco_NX_OSDevice_System_SnmpItems) error {
 	src := &nxos.Cisco_NX_OSDevice_System_SnmpItems{}
 	if client == nil {
 		return errors.New("snmp: client is nil")
 	}
-	err := client.Get(context.Background(), "System/snmp-items", src)
+	err := client.Get(ctx, "System/snmp-items", src)
 	if err != nil {
 		return fmt.Errorf("snmp: failed to get snmp-items from remote: %w", err)
 	}
@@ -282,7 +282,7 @@ func (s *SNMP) createAndPopulateSNMPItems() (*nxos.Cisco_NX_OSDevice_System_Snmp
 // The following paths will we queried and copied onto the return value:
 // - /System/snmp-items/inst-items/lclUser-items/LocalUser-list[userName=admin]
 // - /System/snmp-items/servershutdown-items
-func (s *SNMP) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
+func (s *SNMP) ToYGOT(ctx context.Context, client gnmiext.Client) ([]gnmiext.Update, error) {
 	snmpItems, err := s.createAndPopulateSNMPItems()
 	if err != nil {
 		return nil, err
@@ -293,7 +293,7 @@ func (s *SNMP) ToYGOT(client gnmiext.Client) ([]gnmiext.Update, error) {
 		snmpItems.AdminSt = nxos.Cisco_NX_OSDevice_Nw_AdminSt_disabled
 	}
 	// copy non-modifiable values from remote
-	err = s.addValuesFromRemote(client, snmpItems)
+	err = s.addValuesFromRemote(ctx, client, snmpItems)
 	if err != nil {
 		return nil, fmt.Errorf("snmp: failed to add values in remote config to new config: %w", err)
 	}

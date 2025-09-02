@@ -540,7 +540,7 @@ var _ DeviceConf = (*Dummy)(nil)
 
 type Dummy struct{ srcIf string }
 
-func (d *Dummy) ToYGOT(client Client) ([]Update, error) {
+func (d *Dummy) ToYGOT(_ context.Context, _ Client) ([]Update, error) {
 	return []Update{
 		EditingUpdate{
 			XPath: "System/time-items/srcIf-items",
@@ -549,17 +549,17 @@ func (d *Dummy) ToYGOT(client Client) ([]Update, error) {
 	}, nil
 }
 
-func (v *Dummy) Reset(client Client) ([]Update, error) {
+func (v *Dummy) Reset(_ context.Context, _ Client) ([]Update, error) {
 	return nil, errors.New("not implemented")
 }
 
 type DummyWithError struct{}
 
-func (d *DummyWithError) ToYGOT(client Client) ([]Update, error) {
+func (d *DummyWithError) ToYGOT(_ context.Context, _ Client) ([]Update, error) {
 	return nil, errors.New("YGOT error")
 }
 
-func (v *DummyWithError) Reset(client Client) ([]Update, error) {
+func (v *DummyWithError) Reset(_ context.Context, _ Client) ([]Update, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -639,7 +639,7 @@ func Test_Update_ToYGOTError(t *testing.T) {
 
 type DummyWithValidationError struct{}
 
-func (d *DummyWithValidationError) ToYGOT(client Client) ([]Update, error) {
+func (d *DummyWithValidationError) ToYGOT(_ context.Context, _ Client) ([]Update, error) {
 	return []Update{
 		EditingUpdate{
 			XPath: "",
@@ -650,7 +650,7 @@ func (d *DummyWithValidationError) ToYGOT(client Client) ([]Update, error) {
 	}, nil
 }
 
-func (v *DummyWithValidationError) Reset(client Client) ([]Update, error) {
+func (v *DummyWithValidationError) Reset(_ context.Context, _ Client) ([]Update, error) {
 	return nil, errors.New("not implemented")
 }
 
