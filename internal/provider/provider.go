@@ -155,6 +155,25 @@ type DeleteCertificateRequest struct {
 	ProviderConfig *ProviderConfig
 }
 
+// SNMPProvider is the interface for the realization of the SNMP objects over different providers.
+type SNMPProvider interface {
+	Provider
+
+	// EnsureSNMP call is responsible for SNMP realization on the provider.
+	EnsureSNMP(context.Context, *EnsureSNMPRequest) (Result, error)
+	// DeleteSNMP call is responsible for SNMP deletion on the provider.
+	DeleteSNMP(context.Context, *DeleteSNMPRequest) error
+}
+
+type EnsureSNMPRequest struct {
+	SNMP           *v1alpha1.SNMP
+	ProviderConfig *ProviderConfig
+}
+
+type DeleteSNMPRequest struct {
+	ProviderConfig *ProviderConfig
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.

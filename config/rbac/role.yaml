@@ -38,6 +38,7 @@ rules:
   - dns
   - interfaces
   - ntp
+  - snmp
   - users
   verbs:
   - create
@@ -57,6 +58,7 @@ rules:
   - dns/finalizers
   - interfaces/finalizers
   - ntp/finalizers
+  - snmp/finalizers
   - users/finalizers
   verbs:
   - update
@@ -70,6 +72,7 @@ rules:
   - dns/status
   - interfaces/status
   - ntp/status
+  - snmp/status
   - users/status
   verbs:
   - get

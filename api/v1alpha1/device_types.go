@@ -23,10 +23,6 @@ type DeviceSpec struct {
 	// +optional
 	Logging *Logging `json:"logging,omitempty"`
 
-	// SNMP global configuration.
-	// +optional
-	SNMP *SNMP `json:"snmp,omitempty"`
-
 	// Configuration for the gRPC server on the device.
 	// Currently, only a single "default" gRPC server is supported.
 	// +optional
@@ -123,77 +119,6 @@ const (
 	SeverityAlert     Severity = "Alert"
 	SeverityEmergency Severity = "Emergency"
 )
-
-type SNMP struct {
-	// The contact information for the SNMP server.
-	// +required
-	Contact string `json:"contact"`
-
-	// The location information for the SNMP server.
-	// +required
-	Location string `json:"location"`
-
-	// The SNMP engine ID for the SNMP server.
-	// +required
-	EngineID string `json:"engineId,omitempty"`
-
-	// Source interface to be used for sending out SNMP Trap/Inform notifications.
-	// +required
-	SrcIf string `json:"srcIf"`
-
-	// SNMP communities for SNMPv1 or SNMPv2c.
-	// +optional
-	Communities []*SNMPCommunity `json:"communities"`
-
-	// SNMP destinations for SNMP traps or informs.
-	// +kubebuilder:validation:MinItems=1
-	// +required
-	Destinations []*SNMPDestination `json:"destinations"`
-
-	// The list of trap groups to enable.
-	// +optional
-	Traps []string `json:"traps"`
-}
-
-type SNMPDestination struct {
-	// The Hostname or IP address of the SNMP host to send notifications to.
-	// +required
-	Address string `json:"address"`
-
-	// Type of message to send to host. Default is traps.
-	// +kubebuilder:validation:Enum=Traps;Inform
-	// +kubebuilder:default=Traps
-	// +optional
-	Type string `json:"type"`
-
-	// SNMP version. Default is v2c.
-	// +kubebuilder:validation:Enum=v1;v2c;v3
-	// +kubebuilder:default=v2c
-	// +optional
-	Version string `json:"version"`
-
-	// SNMP community or user name.
-	// +optional
-	Target string `json:"target,omitempty"`
-
-	// The network instance to use to source traffic.
-	// +optional
-	NetworkInstance string `json:"networkInstance,omitempty"`
-}
-
-type SNMPCommunity struct {
-	// Name of the community.
-	// +optional
-	Name string `json:"name"`
-
-	// Group to which the community belongs.
-	// +optional
-	Group string `json:"group,omitempty"`
-
-	// ACL name to filter snmp requests.
-	// +optional
-	ACL string `json:"acl,omitempty"`
-}
 
 type GRPC struct {
 	// The TCP port on which the gRPC server should listen.

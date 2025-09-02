@@ -8,4 +8,5 @@ resources:
 - v1alpha1_ntp.yaml
 - v1alpha1_acl.yaml
 - v1alpha1_certificate.yaml
+- v1alpha1_snmp.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

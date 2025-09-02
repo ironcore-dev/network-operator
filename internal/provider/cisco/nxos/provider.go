@@ -72,6 +72,7 @@ var (
 	_ provider.NTPProvider         = &Provider{}
 	_ provider.ACLProvider         = &Provider{}
 	_ provider.CertificateProvider = &Provider{}
+	_ provider.SNMPProvider        = &Provider{}
 )
 
 type Provider struct {
@@ -237,6 +238,39 @@ func (p *Provider) DeleteCertificate(ctx context.Context, req *provider.DeleteCe
 	return p.client.Reset(ctx, tp)
 }
 
+func (p *Provider) EnsureSNMP(ctx context.Context, req *provider.EnsureSNMPRequest) (provider.Result, error) {
+	s := &snmp.SNMP{
+		Contact:     req.SNMP.Spec.Contact,
+		Location:    req.SNMP.Spec.Location,
+		SrcIf:       req.SNMP.Spec.SourceInterfaceName,
+		Hosts:       make([]snmp.Host, len(req.SNMP.Spec.Hosts)),
+		Communities: make([]snmp.Community, len(req.SNMP.Spec.Communities)),
+		Traps:       req.SNMP.Spec.Traps,
+	}
+	for i, h := range req.SNMP.Spec.Hosts {
+		s.Hosts[i] = snmp.Host{
+			Address:   h.Address,
+			Type:      snmp.MessageTypeFrom(h.Type),
+			Version:   snmp.VersionFrom(h.Version),
+			Vrf:       h.VrfName,
+			Community: h.Community,
+		}
+	}
+	for i, c := range req.SNMP.Spec.Communities {
+		s.Communities[i] = snmp.Community{
+			Name:    c.Name,
+			Group:   c.Group,
+			IPv4ACL: c.ACLName,
+		}
+	}
+	return provider.Result{}, p.client.Update(ctx, s)
+}
+
+func (p *Provider) DeleteSNMP(ctx context.Context, req *provider.DeleteSNMPRequest) error {
+	s := &snmp.SNMP{}
+	return p.client.Reset(ctx, s)
+}
+
 func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) error {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -320,7 +354,6 @@ func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) er
 			"vpc",
 		}},
 		// Steps that depend on the device spec
-		&SNMP{Spec: device.Spec.SNMP},
 		&GRPC{Spec: device.Spec.GRPC},
 		&VLAN{LongName: device.Annotations[VlanLongNameAnnotation] == "true"},
 		&Copp{Profile: device.Annotations[CoppProfileAnnotation]},
@@ -448,7 +481,6 @@ var (
 	_ Step = (*Console)(nil)
 	_ Step = (*NXAPI)(nil)
 	_ Step = (*GRPC)(nil)
-	_ Step = (*SNMP)(nil)
 	_ Step = (*Logging)(nil)
 	_ Step = (*VLAN)(nil)
 	_ Step = (*Features)(nil)
@@ -511,41 +543,6 @@ func (step *GRPC) Exec(ctx context.Context, s *Scope) error {
 		}
 	}
 	return s.GNMI.Update(ctx, g)
-}
-
-type SNMP struct{ Spec *v1alpha1.SNMP }
-
-func (step *SNMP) Name() string             { return "SNMP" }
-func (step *SNMP) Deps() []client.ObjectKey { return nil }
-func (step *SNMP) Exec(ctx context.Context, sc *Scope) error {
-	if step.Spec == nil {
-		return sc.GNMI.Reset(ctx, &snmp.SNMP{})
-	}
-	s := &snmp.SNMP{
-		Contact:     step.Spec.Contact,
-		Location:    step.Spec.Location,
-		SrcIf:       step.Spec.SrcIf,
-		Hosts:       make([]snmp.Host, len(step.Spec.Destinations)),
-		Communities: make([]snmp.Community, len(step.Spec.Communities)),
-		Traps:       step.Spec.Traps,
-	}
-	for i, h := range step.Spec.Destinations {
-		s.Hosts[i] = snmp.Host{
-			Address:   h.Address,
-			Type:      snmp.MessageTypeFrom(h.Type),
-			Version:   snmp.VersionFrom(h.Version),
-			Vrf:       h.NetworkInstance,
-			Community: h.Target,
-		}
-	}
-	for i, c := range step.Spec.Communities {
-		s.Communities[i] = snmp.Community{
-			Name:    c.Name,
-			Group:   c.Group,
-			IPv4ACL: c.ACL,
-		}
-	}
-	return sc.GNMI.Update(ctx, s)
 }
 
 type Logging struct {
