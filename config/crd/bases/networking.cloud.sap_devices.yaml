@@ -333,47 +333,6 @@ spec:
                 - facilities
                 - servers
                 type: object
-              pki:
-                description: PKI configuration for managing certificates on the device.
-                properties:
-                  certificates:
-                    description: Certificates is a list of certificates to be managed
-                      by the PKI.
-                    items:
-                      properties:
-                        name:
-                          description: The name of the certificate.
-                          type: string
-                        source:
-                          description: The source of the certificate content.
-                          properties:
-                            secretRef:
-                              description: |-
-                                Secret containing the certificate.
-                                The secret must be of type kubernetes.io/tls and as such contain the following keys: 'tls.crt' and 'tls.key'.
-                              properties:
-                                name:
-                                  description: name is unique within a namespace to
-                                    reference a secret resource.
-                                  type: string
-                                namespace:
-                                  description: namespace defines the space within
-                                    which the secret name must be unique.
-                                  type: string
-                              type: object
-                              x-kubernetes-map-type: atomic
-                          required:
-                          - secretRef
-                          type: object
-                      required:
-                      - name
-                      - source
-                      type: object
-                    minItems: 1
-                    type: array
-                required:
-                - certificates
-                type: object
               snmp:
                 description: SNMP global configuration.
                 properties:

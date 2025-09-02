@@ -148,6 +148,14 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&CertificateReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -191,13 +199,14 @@ func detectTestBinaryDir() string {
 }
 
 var (
-	_ provider.Provider          = (*Provider)(nil)
-	_ provider.InterfaceProvider = (*Provider)(nil)
-	_ provider.BannerProvider    = (*Provider)(nil)
-	_ provider.UserProvider      = (*Provider)(nil)
-	_ provider.DNSProvider       = (*Provider)(nil)
-	_ provider.NTPProvider       = (*Provider)(nil)
-	_ provider.ACLProvider       = (*Provider)(nil)
+	_ provider.Provider            = (*Provider)(nil)
+	_ provider.InterfaceProvider   = (*Provider)(nil)
+	_ provider.BannerProvider      = (*Provider)(nil)
+	_ provider.UserProvider        = (*Provider)(nil)
+	_ provider.DNSProvider         = (*Provider)(nil)
+	_ provider.NTPProvider         = (*Provider)(nil)
+	_ provider.ACLProvider         = (*Provider)(nil)
+	_ provider.CertificateProvider = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -210,6 +219,7 @@ type Provider struct {
 	DNS    *v1alpha1.DNS
 	NTP    *v1alpha1.NTP
 	ACLs   map[string]struct{}
+	Certs  map[string]struct{}
 }
 
 func NewProvider() *Provider {
@@ -217,6 +227,7 @@ func NewProvider() *Provider {
 		Items: make(map[string]client.Object),
 		User:  make(map[string]struct{}),
 		ACLs:  make(map[string]struct{}),
+		Certs: make(map[string]struct{}),
 	}
 }
 
@@ -304,5 +315,19 @@ func (p *Provider) DeleteACL(_ context.Context, req *provider.DeleteACLRequest) 
 	p.Lock()
 	defer p.Unlock()
 	delete(p.ACLs, req.Name)
+	return nil
+}
+
+func (p *Provider) EnsureCertificate(_ context.Context, req *provider.EnsureCertificateRequest) (provider.Result, error) {
+	p.Lock()
+	defer p.Unlock()
+	p.Certs[req.ID] = struct{}{}
+	return provider.Result{}, nil
+}
+
+func (p *Provider) DeleteCertificate(_ context.Context, req *provider.DeleteCertificateRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	delete(p.Certs, req.ID)
 	return nil
 }

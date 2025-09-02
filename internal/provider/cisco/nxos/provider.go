@@ -66,13 +66,14 @@ const (
 )
 
 var (
-	_ provider.Provider          = &Provider{}
-	_ provider.InterfaceProvider = &Provider{}
-	_ provider.BannerProvider    = &Provider{}
-	_ provider.UserProvider      = &Provider{}
-	_ provider.DNSProvider       = &Provider{}
-	_ provider.NTPProvider       = &Provider{}
-	_ provider.ACLProvider       = &Provider{}
+	_ provider.Provider            = &Provider{}
+	_ provider.InterfaceProvider   = &Provider{}
+	_ provider.BannerProvider      = &Provider{}
+	_ provider.UserProvider        = &Provider{}
+	_ provider.DNSProvider         = &Provider{}
+	_ provider.NTPProvider         = &Provider{}
+	_ provider.ACLProvider         = &Provider{}
+	_ provider.CertificateProvider = &Provider{}
 )
 
 type Provider struct {
@@ -343,6 +344,32 @@ func (p *Provider) DeleteACL(ctx context.Context, req *provider.DeleteACLRequest
 	return p.client.Reset(ctx, &acl.ACL{Name: req.Name})
 }
 
+func (p *Provider) EnsureCertificate(ctx context.Context, req *provider.EnsureCertificateRequest) (res provider.Result, reterr error) {
+	defer func() {
+		res = WithErrorConditions(res, reterr)
+	}()
+
+	tp := &crypto.Trustpoint{ID: req.ID}
+	if err := p.client.Update(ctx, tp); err != nil {
+		// Duo to a limitation in the NX-OS YANG model, trustpoints cannot be updated.
+		if errors.Is(err, crypto.ErrAlreadyExists) {
+			return provider.Result{}, nil
+		}
+		return provider.Result{}, err
+	}
+	key, ok := req.Certificate.PrivateKey.(*rsa.PrivateKey)
+	if !ok {
+		return provider.Result{}, fmt.Errorf("unsupported private key type: expected *rsa.PrivateKey, got %T", req.Certificate.PrivateKey)
+	}
+	cert := &crypto.Certificate{Key: key, Cert: req.Certificate.Leaf}
+	return provider.Result{}, cert.Load(ctx, p.conn, req.ID)
+}
+
+func (p *Provider) DeleteCertificate(ctx context.Context, req *provider.DeleteCertificateRequest) error {
+	tp := &crypto.Trustpoint{ID: req.ID}
+	return p.client.Reset(ctx, tp)
+}
+
 func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) error {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -363,11 +390,9 @@ func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) er
 	defer conn.Close()
 
 	var opts []gnmiext.Option
-	var isDryRun bool
 	v, ok := device.Annotations[DryRunAnnotation]
 	if ok && v == "true" {
 		opts = append(opts, gnmiext.WithDryRun())
-		isDryRun = true
 	}
 	opts = append(opts, gnmiext.WithLogger(slog.New(logr.ToSlogHandler(log))))
 
@@ -428,7 +453,6 @@ func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) er
 			"vpc",
 		}},
 		// Steps that depend on the device spec
-		&Trustpoints{Spec: device.Spec.PKI, DryRun: isDryRun},
 		&SNMP{Spec: device.Spec.SNMP},
 		&GRPC{Spec: device.Spec.GRPC},
 		&VLAN{LongName: device.Annotations[VlanLongNameAnnotation] == "true"},
@@ -555,7 +579,6 @@ type Step interface {
 var (
 	_ Step = (*VTY)(nil)
 	_ Step = (*Console)(nil)
-	_ Step = (*Trustpoints)(nil)
 	_ Step = (*NXAPI)(nil)
 	_ Step = (*GRPC)(nil)
 	_ Step = (*SNMP)(nil)
@@ -584,52 +607,6 @@ func (step *Console) Deps() []client.ObjectKey { return nil }
 func (step *Console) Exec(ctx context.Context, s *Scope) error {
 	c := &term.Console{Timeout: 5} // minutes
 	return s.GNMI.Update(ctx, c)
-}
-
-type Trustpoints struct {
-	Spec   *v1alpha1.PKI
-	DryRun bool
-}
-
-func (step *Trustpoints) Name() string { return "Trustpoints" }
-
-func (step *Trustpoints) Deps() []client.ObjectKey {
-	if step.Spec == nil {
-		return nil
-	}
-	keys := make([]client.ObjectKey, 0, len(step.Spec.Certificates))
-	for _, trustpoint := range step.Spec.Certificates {
-		keys = append(keys, client.ObjectKey{
-			Namespace: trustpoint.Source.SecretRef.Namespace,
-			Name:      trustpoint.Source.SecretRef.Name,
-		})
-	}
-	return keys
-}
-
-func (step *Trustpoints) Exec(ctx context.Context, s *Scope) error {
-	if step.Spec == nil {
-		return nil
-	}
-	for _, trustpoint := range step.Spec.Certificates {
-		tp := &crypto.Trustpoint{ID: trustpoint.Name}
-		if err := s.GNMI.Update(ctx, tp); err != nil {
-			return fmt.Errorf("failed to get trustpoint %s: %w", trustpoint.Name, err)
-		}
-		cert, err := s.Client.Certificate(ctx, trustpoint.Source.SecretRef)
-		if err != nil {
-			return fmt.Errorf("failed to get trustpoint certificate from secret: %w", err)
-		}
-		key, ok := cert.PrivateKey.(*rsa.PrivateKey)
-		if !ok {
-			return fmt.Errorf("unsupported private key type: expected *rsa.PrivateKey, got %T", cert.PrivateKey)
-		}
-		c := &crypto.Certificate{Key: key, Cert: cert.Leaf}
-		if err := c.Load(ctx, s.Conn, trustpoint.Name); err != nil {
-			return fmt.Errorf("failed to load trustpoint certificate: %w", err)
-		}
-	}
-	return nil
 }
 
 type NXAPI struct{ Spec *v1alpha1.Certificate }

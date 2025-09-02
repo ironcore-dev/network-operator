@@ -4,6 +4,7 @@ package provider
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"maps"
 	"slices"
@@ -135,6 +136,27 @@ type EnsureACLRequest struct {
 
 type DeleteACLRequest struct {
 	Name           string
+	ProviderConfig *ProviderConfig
+}
+
+// CertificateProvider is the interface for the realization of the Certificate objects over different providers.
+type CertificateProvider interface {
+	Provider
+
+	// EnsureCertificate call is responsible for Certificate realization on the provider.
+	EnsureCertificate(context.Context, *EnsureCertificateRequest) (Result, error)
+	// DeleteCertificate call is responsible for Certificate deletion on the provider.
+	DeleteCertificate(context.Context, *DeleteCertificateRequest) error
+}
+
+type EnsureCertificateRequest struct {
+	ID             string
+	Certificate    *tls.Certificate
+	ProviderConfig *ProviderConfig
+}
+
+type DeleteCertificateRequest struct {
+	ID             string
 	ProviderConfig *ProviderConfig
 }
 

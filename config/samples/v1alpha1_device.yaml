@@ -38,12 +38,6 @@ spec:
         hostname leaf1
         feature grpc
         grpc port 9339
-  pki:
-    certificates:
-      - name: trustpoint
-        source:
-          secretRef:
-            name: network-operator-ca
   logging:
     servers:
       - address: 192.168.55.55 # udp/514
@@ -72,27 +66,3 @@ type: kubernetes.io/basic-auth
 stringData:
   username: admin
   password: admin
----
-apiVersion: cert-manager.io/v1
-kind: Issuer
-metadata:
-  name: network-operator
-spec:
-  selfSigned: {}
----
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: network-operator-ca
-spec:
-  isCA: true
-  subject:
-    organizations:
-      - SAP SE
-  dnsNames:
-    - net.cloud.sap
-  issuerRef:
-    kind: Issuer
-    name: network-operator
-    group: cert-manager.io
-  secretName: network-operator-ca
