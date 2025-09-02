@@ -1,0 +1,23 @@
+apiVersion: networking.cloud.sap/v1alpha1
+kind: SNMP
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.cloud.sap/device-name: leaf1
+  name: snmp
+spec:
+  deviceRef:
+    name: leaf1
+  contact: IronCore
+  location: rack1
+  sourceInterfaceName: mgmt0
+  communities:
+    - name: snmpcollector
+      group: network-operator
+  hosts:
+    - address: 10.0.0.1
+      type: Informs
+      version: v2c
+      community: snmpcollector
+      vrfName: management
