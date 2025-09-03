@@ -33,7 +33,7 @@ type OverloadBit struct {
 	OnStartup uint32
 }
 
-//go:generate stringer -type=ISISType
+//go:generate go run golang.org/x/tools/cmd/stringer@v0.35.0 -type=ISISType
 type ISISType int
 
 const (
