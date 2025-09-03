@@ -1,12 +1,10 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company
+// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package snmp
 
 import (
 	"context"
-	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/openconfig/ygot/ygot"
@@ -15,150 +13,419 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
 )
 
-var mockedClient = &gnmiext.ClientMock{
-	// mock a get method that populates the SNMP structure with an admin user and shutdown items
-	GetFunc: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
-		snmpItems, ok := dest.(*nxos.Cisco_NX_OSDevice_System_SnmpItems)
-		if !ok {
-			return fmt.Errorf("expected *nxos.Cisco_NX_OSDevice_System_SnmpItems, got %T", dest)
-		}
-
-		adminUser := snmpItems.GetOrCreateInstItems().GetOrCreateLclUserItems().GetOrCreateLocalUserList("admin")
-		*adminUser = *createAdminUser() // copy the admin user structure
-
-		shutdown := snmpItems.GetOrCreateServershutdownItems()
-		*shutdown = *createShutdownItems() // copy the shutdown items structure
-		return nil
-	},
+func TestVersionFrom(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  Version
+	}{
+		{
+			name:  "v1",
+			input: "v1",
+			want:  V1,
+		},
+		{
+			name:  "v2c",
+			input: "v2c",
+			want:  V2c,
+		},
+		{
+			name:  "v3",
+			input: "v3",
+			want:  V3,
+		},
+		{
+			name:  "invalid version defaults to v1",
+			input: "invalid",
+			want:  V1,
+		},
+		{
+			name:  "empty string defaults to v1",
+			input: "",
+			want:  V1,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := VersionFrom(test.input); got != test.want {
+				t.Errorf("VersionFrom(%q) = %v, want %v", test.input, got, test.want)
+			}
+		})
+	}
 }
 
-func createAdminUser() *nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList {
-	snmpItems := nxos.Cisco_NX_OSDevice_System_SnmpItems{}
-	adminUser := snmpItems.GetOrCreateInstItems().GetOrCreateLclUserItems().GetOrCreateLocalUserList("admin")
-	adminUser.PopulateDefaults()
-	adminUser.Privpwd = ygot.String("this-is-a-secret")
-	return adminUser
+func TestMessageTypeFrom(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  MessageType
+	}{
+		{
+			name:  "traps",
+			input: "traps",
+			want:  Traps,
+		},
+		{
+			name:  "informs",
+			input: "informs",
+			want:  Informs,
+		},
+		{
+			name:  "invalid type defaults to traps",
+			input: "invalid",
+			want:  Traps,
+		},
+		{
+			name:  "empty string defaults to traps",
+			input: "",
+			want:  Traps,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := MessageTypeFrom(test.input); got != test.want {
+				t.Errorf("MessageTypeFrom(%q) = %v, want %v", test.input, got, test.want)
+			}
+		})
+	}
 }
 
-func createShutdownItems() *nxos.Cisco_NX_OSDevice_System_SnmpItems_ServershutdownItems {
-	shutdown := &nxos.Cisco_NX_OSDevice_System_SnmpItems_ServershutdownItems{}
-	shutdown.PopulateDefaults()
-	shutdown.SysShutdown = nxos.Cisco_NX_OSDevice_Snmp_Boolean_no
-	return shutdown
+func TestSNMP_ToYGOT(t *testing.T) {
+	tests := []struct {
+		name            string
+		snmp            *SNMP
+		mockGet         func(ctx context.Context, xpath string, dest ygot.GoStruct) error
+		wantErr         bool
+		wantUpdateCount int
+		wantContact     string
+		wantLocation    string
+	}{
+		{
+			name: "basic configuration",
+			snmp: &SNMP{
+				Contact:  "admin@example.com",
+				Location: "Data Center 1",
+				SrcIf:    "mgmt0",
+				IPv4ACL:  "SNMP-ACL",
+				Hosts: []Host{
+					{
+						Address:   "192.168.1.100",
+						Community: "public",
+						Version:   V2c,
+						Type:      Traps,
+						Vrf:       "management",
+					},
+				},
+				Communities: []Community{
+					{
+						Name:    "public",
+						Group:   "network-admin",
+						IPv4ACL: "SNMP-READ",
+					},
+				},
+				Traps: []string{},
+			},
+			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+				if res, ok := dest.(*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems); ok {
+					res.LocalUserList = make(map[string]*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList)
+					res.LocalUserList["admin"] = &nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList{}
+				}
+				return nil
+			},
+			wantErr:         false,
+			wantUpdateCount: 7,
+			wantContact:     "admin@example.com",
+			wantLocation:    "Data Center 1",
+		},
+		{
+			name: "duplicate host error",
+			snmp: &SNMP{
+				Hosts: []Host{
+					{
+						Address:   "192.168.1.100",
+						Community: "public",
+						Version:   V1,
+						Type:      Traps,
+					},
+					{
+						Address:   "192.168.1.100", // Duplicate address
+						Community: "private",
+						Version:   V2c,
+						Type:      Informs,
+					},
+				},
+			},
+			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+				if res, ok := dest.(*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems); ok {
+					res.LocalUserList = make(map[string]*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList)
+				}
+				return nil
+			},
+			wantErr: true,
+		},
+		{
+			name: "duplicate community error",
+			snmp: &SNMP{
+				Communities: []Community{
+					{
+						Name:  "public",
+						Group: "network-admin",
+					},
+					{
+						Name:  "public", // Duplicate name
+						Group: "network-operator",
+					},
+				},
+			},
+			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+				if res, ok := dest.(*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems); ok {
+					res.LocalUserList = make(map[string]*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList)
+				}
+				return nil
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid trap configuration",
+			snmp: &SNMP{
+				Traps: []string{"invalid-trap-name"},
+			},
+			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+				if res, ok := dest.(*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems); ok {
+					res.LocalUserList = make(map[string]*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList)
+				}
+				return nil
+			},
+			wantErr: true,
+		},
+		{
+			name: "v3 host configuration",
+			snmp: &SNMP{
+				Hosts: []Host{
+					{
+						Address:   "192.168.1.200",
+						Community: "snmpv3user",
+						Version:   V3,
+						Type:      Informs,
+						Vrf:       "default",
+					},
+				},
+			},
+			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+				if res, ok := dest.(*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems); ok {
+					res.LocalUserList = make(map[string]*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList)
+				}
+				return nil
+			},
+			wantErr:         false,
+			wantUpdateCount: 6,
+		},
+		{
+			name: "empty configuration",
+			snmp: &SNMP{},
+			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+				if res, ok := dest.(*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems); ok {
+					res.LocalUserList = make(map[string]*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList)
+				}
+				return nil
+			},
+			wantErr:         false,
+			wantUpdateCount: 6,
+		},
+		{
+			name: "empty strings use unset marker",
+			snmp: &SNMP{
+				Contact:  "", // Empty contact should use DME_UNSET_PROPERTY_MARKER
+				Location: "", // Empty location should use DME_UNSET_PROPERTY_MARKER
+				SrcIf:    "", // Empty source interface should use DME_UNSET_PROPERTY_MARKER
+			},
+			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+				if res, ok := dest.(*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems); ok {
+					res.LocalUserList = make(map[string]*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList)
+				}
+				return nil
+			},
+			wantErr:         false,
+			wantUpdateCount: 6,
+			wantContact:     "DME_UNSET_PROPERTY_MARKER",
+			wantLocation:    "DME_UNSET_PROPERTY_MARKER",
+		},
+		{
+			name: "version and message type mappings",
+			snmp: &SNMP{
+				Hosts: []Host{
+					{
+						Address:   "192.168.1.10",
+						Community: "v1-community",
+						Version:   V1,
+						Type:      Traps,
+					},
+					{
+						Address:   "192.168.1.20",
+						Community: "v2c-community",
+						Version:   V2c,
+						Type:      Informs,
+					},
+				},
+			},
+			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+				if res, ok := dest.(*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems); ok {
+					res.LocalUserList = make(map[string]*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList)
+				}
+				return nil
+			},
+			wantErr:         false,
+			wantUpdateCount: 6,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			mockClient := &gnmiext.ClientMock{
+				GetFunc: test.mockGet,
+			}
+
+			updates, err := test.snmp.ToYGOT(context.Background(), mockClient)
+			if test.wantErr {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if test.wantUpdateCount > 0 {
+				if len(updates) != test.wantUpdateCount {
+					t.Errorf("expected %d updates, got %d", test.wantUpdateCount, len(updates))
+				}
+			}
+
+			if test.wantContact != "" || test.wantLocation != "" {
+				sysinfoUpdate, ok := updates[0].(gnmiext.EditingUpdate)
+				if !ok {
+					t.Errorf("expected EditingUpdate for sysinfo")
+				}
+				xpath := "System/snmp-items/inst-items/sysinfo-items"
+				if sysinfoUpdate.XPath != xpath {
+					t.Errorf("expected XPath %s, got %s", xpath, sysinfoUpdate.XPath)
+				}
+				sysinfo, ok := sysinfoUpdate.Value.(*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_SysinfoItems)
+				if !ok {
+					t.Errorf("expected sysinfo value type")
+				}
+				if test.wantContact != "" && *sysinfo.SysContact != test.wantContact {
+					t.Errorf("expected contact %s, got %s", test.wantContact, *sysinfo.SysContact)
+				}
+				if test.wantLocation != "" && *sysinfo.SysLocation != test.wantLocation {
+					t.Errorf("expected location %s, got %s", test.wantLocation, *sysinfo.SysLocation)
+				}
+			}
+		})
+	}
 }
 
-func createTrapsItems() *nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_TrapsItems {
-	traps := &nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_TrapsItems{}
-	traps.PopulateDefaults()
-	traps.FcnsItems = nil
-	traps.RscnItems = nil
-	traps.ZoneItems = nil
-	return traps
-}
-
-func Test_SNMP(t *testing.T) {
-	s := &SNMP{
-		Enable: true,
-		Traps:  []string{"license notify-license-expiry"},
+func TestSNMP_Reset(t *testing.T) {
+	mockClient := &gnmiext.ClientMock{
+		GetFunc: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+			if res, ok := dest.(*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems); ok {
+				res.LocalUserList = make(map[string]*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList)
+				res.LocalUserList["admin"] = &nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList{}
+				res.LocalUserList["operator"] = &nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList{}
+			}
+			return nil
+		},
 	}
 
-	got, err := s.ToYGOT(t.Context(), mockedClient)
+	updates, err := (&SNMP{}).Reset(context.Background(), mockClient)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
+		return
 	}
 
-	if len(got) != 1 {
-		t.Errorf("expected 1 key, got %d", len(got))
+	if len(updates) != 8 {
+		t.Errorf("expected 8 updates, got %d", len(updates))
+		return
 	}
 
-	update, ok := got[0].(gnmiext.ReplacingUpdate)
+	del, ok := updates[0].(gnmiext.DeletingUpdate)
 	if !ok {
-		t.Errorf("expected value to be of type EditingUpdate")
+		t.Errorf("update 0: expected DeletingUpdate, got %T", updates[0])
+	}
+	xpath := "System/snmp-items/inst-items/sysinfo-items"
+	if del.XPath != xpath {
+		t.Errorf("update 0: expected XPath %s, got %s", xpath, del.XPath)
 	}
 
-	if update.XPath != "System/snmp-items" {
-		t.Errorf("expected key 'System/snmp-items' to be present")
-	}
-
-	v, ok := update.Value.(*nxos.Cisco_NX_OSDevice_System_SnmpItems)
+	del, ok = updates[1].(gnmiext.DeletingUpdate)
 	if !ok {
-		t.Errorf("expected value to be of type *nxos.Cisco_NX_OSDevice_System_SnmpItems")
+		t.Errorf("update 1: expected DeletingUpdate, got %T", updates[1])
+	}
+	xpath = "System/snmp-items/inst-items/globals-items/srcInterfaceTraps-items"
+	if del.XPath != xpath {
+		t.Errorf("update 1: expected XPath %s, got %s", xpath, del.XPath)
 	}
 
-	// check that we haven't modified the admin user password that we return in the mock
-	adminUser := v.GetInstItems().GetLclUserItems().GetLocalUserList("admin")
-	if adminUser == nil || !reflect.DeepEqual(adminUser, createAdminUser()) {
-		t.Errorf("admin user has not been copied correctly")
-	}
-
-	// check that the shutdown items have been copied correctly from the mock
-	shutdown := v.GetServershutdownItems()
-	if shutdown == nil || !reflect.DeepEqual(shutdown, v.GetServershutdownItems()) {
-		t.Errorf("shutdown items have not been copied correctly")
-	}
-
-	if v.InstItems.TrapsItems.LicenseItems.NotifylicenseexpiryItems.Trapstatus != nxos.Cisco_NX_OSDevice_Snmp_SnmpTrapSt_enable {
-		t.Errorf("expected value for 'System/snmp-items/inst-items/traps-items/license-items/notifylicenseexpiry-items/trapstatus' to be enabled, got %v", v.InstItems.TrapsItems.LicenseItems.NotifylicenseexpiryItems.Trapstatus)
-	}
-}
-
-func Test_SNMP_Err(t *testing.T) {
-	s := &SNMP{
-		Enable: true,
-		Traps:  []string{"license invalid"},
-	}
-
-	if _, err := s.ToYGOT(t.Context(), mockedClient); err == nil {
-		t.Errorf("expected error, got nil")
-	}
-}
-
-func Test_SNMP_Reset(t *testing.T) {
-	s := &SNMP{
-		Enable: true,
-	}
-
-	updates, err := s.Reset(t.Context(), mockedClient)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-
-	if len(updates) != 1 {
-		t.Errorf("expected 1 update, got %d", len(updates))
-	}
-
-	update, ok := updates[0].(gnmiext.ReplacingUpdate)
+	del, ok = updates[2].(gnmiext.DeletingUpdate)
 	if !ok {
-		t.Errorf("expected value to be of type ReplacingUpdate")
+		t.Errorf("update 2: expected DeletingUpdate, got %T", updates[2])
+	}
+	xpath = "System/snmp-items/inst-items/globals-items/srcInterfaceInforms-items"
+	if del.XPath != xpath {
+		t.Errorf("update 2: expected XPath %s, got %s", xpath, del.XPath)
 	}
 
-	if update.XPath != "System/snmp-items" {
-		t.Errorf("expected key 'System/snmp-items' to be present, got %s", update.XPath)
-	}
-
-	v, ok := update.Value.(*nxos.Cisco_NX_OSDevice_System_SnmpItems)
+	del, ok = updates[3].(gnmiext.DeletingUpdate)
 	if !ok {
-		t.Errorf("expected value to be of type *nxos.Cisco_NX_OSDevice_System_SnmpItems")
+		t.Errorf("update 3: expected DeletingUpdate, got %T", updates[3])
+	}
+	xpath = "System/snmp-items/inst-items/host-items"
+	if del.XPath != xpath {
+		t.Errorf("update 3: expected XPath %s, got %s", xpath, del.XPath)
 	}
 
-	// we need an empty SNMP structure with the admin user and shutdown items populated as in the mock.
-	// The rest of the structure should be empty as the defaults
-	emptySNMP, err := s.createAndPopulateSNMPItems()
-	emptySNMP.PopulateDefaults()
-	if err != nil {
-		t.Errorf("unexpected error creating empty SNMP items: %v", err)
+	del, ok = updates[4].(gnmiext.DeletingUpdate)
+	if !ok {
+		t.Errorf("update 4: expected DeletingUpdate, got %T", updates[4])
 	}
-	adminUser := emptySNMP.GetOrCreateInstItems().GetOrCreateLclUserItems().GetOrCreateLocalUserList("admin")
-	*adminUser = *createAdminUser()
+	xpath = "System/snmp-items/inst-items/community-items"
+	if del.XPath != xpath {
+		t.Errorf("update 4: expected XPath %s, got %s", xpath, del.XPath)
+	}
 
-	traps := emptySNMP.GetOrCreateInstItems().GetOrCreateTrapsItems()
-	*traps = *createTrapsItems()
+	replace, ok := updates[5].(gnmiext.ReplacingUpdate)
+	if !ok {
+		t.Errorf("update 5: expected ReplacingUpdate, got %T", updates[5])
+	}
+	xpath = "System/snmp-items/inst-items/traps-items"
+	if replace.XPath != xpath {
+		t.Errorf("update 5: expected XPath %s, got %s", xpath, replace.XPath)
+	}
+	traps, ok := replace.Value.(*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_TrapsItems)
+	if !ok {
+		t.Errorf("update 5: expected TrapsItems value, got %T", replace.Value)
+	}
+	if *traps != (nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_TrapsItems{}) {
+		t.Errorf("update 5: expected empty TrapsItems, got %+v", traps)
+	}
 
-	shutdown := emptySNMP.GetOrCreateServershutdownItems()
-	*shutdown = *createShutdownItems()
+	del, ok = updates[6].(gnmiext.DeletingUpdate)
+	if !ok {
+		t.Errorf("update 6: expected DeletingUpdate, got %T", updates[6])
+	}
+	xpath = "System/snmp-items/inst-items/lclUser-items/LocalUser-list[userName=admin]/ipv4AclName"
+	if del.XPath != xpath {
+		t.Errorf("update 6: expected XPath %s, got %s", xpath, del.XPath)
+	}
 
-	// check that the returned SNMP structure is equal to the empty SNMP structure with admin user and shutdown items populated
-	if !reflect.DeepEqual(v, emptySNMP) {
-		t.Errorf("expected value to be equal to empty SNMP structure, got %v", v)
+	del, ok = updates[7].(gnmiext.DeletingUpdate)
+	if !ok {
+		t.Errorf("update 7: expected DeletingUpdate, got %T", updates[7])
+	}
+	xpath = "System/snmp-items/inst-items/lclUser-items/LocalUser-list[userName=operator]/ipv4AclName"
+	if del.XPath != xpath {
+		t.Errorf("update 7: expected XPath %s, got %s", xpath, del.XPath)
 	}
 }

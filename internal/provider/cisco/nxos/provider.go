@@ -476,49 +476,33 @@ type SNMP struct{ Spec *v1alpha1.SNMP }
 func (step *SNMP) Name() string             { return "SNMP" }
 func (step *SNMP) Deps() []client.ObjectKey { return nil }
 func (step *SNMP) Exec(ctx context.Context, sc *Scope) error {
-	s := &snmp.SNMP{Enable: false}
-	if step.Spec != nil {
-		s = &snmp.SNMP{
-			Enable:      true,
-			Contact:     step.Spec.Contact,
-			Location:    step.Spec.Location,
-			SrcIf:       step.Spec.SrcIf,
-			Hosts:       make([]*snmp.Host, len(step.Spec.Destinations)),
-			Communities: make([]*snmp.Community, len(step.Spec.Communities)),
-			Traps:       step.Spec.Traps,
-		}
-
-		for i, h := range step.Spec.Destinations {
-			var version snmp.Version
-			switch h.Type {
-			case "v1":
-				version = snmp.V1
-			case "v2c":
-				version = snmp.V2c
-			case "v3":
-				version = snmp.V3
-			default:
-				return fmt.Errorf("unsupported SNMP version: %s", h.Type)
-			}
-
-			s.Hosts[i] = &snmp.Host{
-				Address:   h.Address,
-				Type:      h.Type,
-				Version:   version,
-				Community: h.Target,
-				Vrf:       h.NetworkInstance,
-			}
-		}
-
-		for i, c := range step.Spec.Communities {
-			s.Communities[i] = &snmp.Community{
-				Name:  c.Name,
-				Group: c.Group,
-				ACL:   c.ACL,
-			}
+	if step.Spec == nil {
+		return sc.GNMI.Reset(ctx, &snmp.SNMP{})
+	}
+	s := &snmp.SNMP{
+		Contact:     step.Spec.Contact,
+		Location:    step.Spec.Location,
+		SrcIf:       step.Spec.SrcIf,
+		Hosts:       make([]snmp.Host, len(step.Spec.Destinations)),
+		Communities: make([]snmp.Community, len(step.Spec.Communities)),
+		Traps:       step.Spec.Traps,
+	}
+	for i, h := range step.Spec.Destinations {
+		s.Hosts[i] = snmp.Host{
+			Address:   h.Address,
+			Type:      snmp.MessageTypeFrom(h.Type),
+			Version:   snmp.VersionFrom(h.Version),
+			Vrf:       h.NetworkInstance,
+			Community: h.Target,
 		}
 	}
-
+	for i, c := range step.Spec.Communities {
+		s.Communities[i] = snmp.Community{
+			Name:    c.Name,
+			Group:   c.Group,
+			IPv4ACL: c.ACL,
+		}
+	}
 	return sc.GNMI.Update(ctx, s)
 }
 
