@@ -274,6 +274,21 @@ func (c *client) Get(ctx context.Context, xpath string, dest ygot.GoStruct) erro
 					return ErrNil
 				}
 
+				// NOTE: If you query for list elements on Cisco NX-OS, the encoded payload
+				// will be the wrapped in an array (even if only one element is requested), i.e.
+				//
+				// [
+				// 	{
+				// 		...
+				// 	}
+				// ]
+				_, ok = dest.(interface {
+					ΛListKeyMap() (map[string]any, error)
+				})
+				if ok && v.JsonVal[0] == '[' && v.JsonVal[len(v.JsonVal)-1] == ']' {
+					v.JsonVal = v.JsonVal[1 : len(v.JsonVal)-1]
+				}
+
 				return nxos.Unmarshal(v.JsonVal, dest)
 			}
 		}

@@ -264,6 +264,51 @@ func Test_Get(t *testing.T) {
 	}
 }
 
+func Test_Get_ListElement(t *testing.T) {
+	cc := &GNMIClientMock{
+		GetFunc: func(_ context.Context, in *gpb.GetRequest, _ ...grpc.CallOption) (*gpb.GetResponse, error) {
+			if in.Type != gpb.GetRequest_CONFIG {
+				t.Fatalf("unexpected type: %v", in.Type)
+			}
+			if in.Encoding != gpb.Encoding_JSON {
+				t.Fatalf("unexpected encoding: %v", in.Encoding)
+			}
+			return &gpb.GetResponse{
+				Notification: []*gpb.Notification{
+					{
+						Update: []*gpb.Update{
+							{
+								Path: &gpb.Path{Elem: []*gpb.PathElem{
+									{Name: "System"},
+									{Name: "intf-items"},
+									{Name: "phys-items"},
+									{Name: "PhysIf-list", Key: map[string]string{"id": "eth1/1"}},
+								}},
+								Val: &gpb.TypedValue{
+									Value: &gpb.TypedValue_JsonVal{
+										JsonVal: []byte(`[{"id":"eth1/1"}]`),
+									},
+								},
+							},
+						},
+					},
+				},
+			}, nil
+		},
+	}
+
+	var got nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList
+	if err := (&client{c: cc}).Get(t.Context(), "System/intf-items/phys-items/PhysIf-list[id=eth1/1]", &got); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Id == nil {
+		t.Fatal("unexpected nil id")
+	}
+	if *got.Id != "eth1/1" {
+		t.Fatalf("unexpected id: got '%v', want 'eth1/1'", *got.Id)
+	}
+}
+
 func Test_Get_Err(t *testing.T) {
 	cc := &GNMIClientMock{
 		GetFunc: func(_ context.Context, in *gpb.GetRequest, _ ...grpc.CallOption) (*gpb.GetResponse, error) {
@@ -549,17 +594,17 @@ func (d *Dummy) ToYGOT(_ context.Context, _ Client) ([]Update, error) {
 	}, nil
 }
 
-func (v *Dummy) Reset(_ context.Context, _ Client) ([]Update, error) {
+func (*Dummy) Reset(_ context.Context, _ Client) ([]Update, error) {
 	return nil, errors.New("not implemented")
 }
 
 type DummyWithError struct{}
 
-func (d *DummyWithError) ToYGOT(_ context.Context, _ Client) ([]Update, error) {
+func (*DummyWithError) ToYGOT(_ context.Context, _ Client) ([]Update, error) {
 	return nil, errors.New("YGOT error")
 }
 
-func (v *DummyWithError) Reset(_ context.Context, _ Client) ([]Update, error) {
+func (*DummyWithError) Reset(_ context.Context, _ Client) ([]Update, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -639,7 +684,7 @@ func Test_Update_ToYGOTError(t *testing.T) {
 
 type DummyWithValidationError struct{}
 
-func (d *DummyWithValidationError) ToYGOT(_ context.Context, _ Client) ([]Update, error) {
+func (*DummyWithValidationError) ToYGOT(_ context.Context, _ Client) ([]Update, error) {
 	return []Update{
 		EditingUpdate{
 			XPath: "",
@@ -650,7 +695,7 @@ func (d *DummyWithValidationError) ToYGOT(_ context.Context, _ Client) ([]Update
 	}, nil
 }
 
-func (v *DummyWithValidationError) Reset(_ context.Context, _ Client) ([]Update, error) {
+func (*DummyWithValidationError) Reset(_ context.Context, _ Client) ([]Update, error) {
 	return nil, errors.New("not implemented")
 }
 
