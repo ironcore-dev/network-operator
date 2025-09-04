@@ -160,12 +160,6 @@ func Test_PortChannel_ToYGOT_GnmiClient(t *testing.T) {
 }
 
 func Test_PortChannel_ToYGOT_Updates(t *testing.T) {
-	type updateCheck struct {
-		updateIdx   int    // the position we want to check in the returned slice of updates
-		expectType  string // "EditingUpdate" or "ReplacingUpdate"
-		expectXPath string // the expected XPath of the update
-		expectValue any    // the expected ygot object that should be in the update
-	}
 
 	tests := []struct {
 		name                    string
@@ -274,56 +268,20 @@ func Test_PortChannel_ToYGOT_Updates(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error during NewPortChannel: %v", err)
 			}
+
 			updates, err := pc.ToYGOT(t.Context(), &gnmiext.ClientMock{
 				ExistsFunc: func(_ context.Context, _ string) (bool, error) { return true, nil },
 			})
+
 			if err != nil {
 				t.Fatalf("unexpected error during ToYGOT: %v", err)
+
 			}
 			if len(updates) != tt.expectedNumberOfUpdates {
 				t.Fatalf("expected %d updates, got %d", tt.expectedNumberOfUpdates, len(updates))
 			}
-			for _, check := range tt.updateChecks {
-				var update any
-				switch check.expectType {
-				case "EditingUpdate":
-					update, _ = updates[check.updateIdx].(gnmiext.EditingUpdate)
-				case "ReplacingUpdate":
-					update, _ = updates[check.updateIdx].(gnmiext.ReplacingUpdate)
-				default:
-					t.Fatalf("unknown expectType: %s", check.expectType)
-				}
-				if update == nil {
-					t.Errorf("expected value to be of type %s at index %d", check.expectType, check.updateIdx)
-					continue
-				}
-				var xpath string
-				var value any
-				switch u := update.(type) {
-				case gnmiext.EditingUpdate:
-					xpath = u.XPath
-					value = u.Value
-				case gnmiext.ReplacingUpdate:
-					xpath = u.XPath
-					value = u.Value
-				}
-				if xpath != check.expectXPath {
-					t.Errorf("wrong xpath at index %d, expected '%s', got '%s'", check.updateIdx, check.expectXPath, xpath)
-				}
-				valueGoStruct, ok1 := value.(ygot.GoStruct)
-				expectValueGoStruct, ok2 := check.expectValue.(ygot.GoStruct)
-				if !ok1 || !ok2 {
-					t.Errorf("failed to type assert value or expectValue to ygot.GoStruct at index %d", check.updateIdx)
-					continue
-				}
-				notification, err := ygot.Diff(valueGoStruct, expectValueGoStruct)
-				if err != nil {
-					t.Errorf("failed to compute diff: %v", err)
-				}
-				if len(notification.Update) > 0 || len(notification.Delete) > 0 {
-					t.Errorf("unexpected diff at index %d: %s", check.updateIdx, notification)
-				}
-			}
+
+			validateUpdates(t, updates, tt.updateChecks)
 		})
 	}
 }

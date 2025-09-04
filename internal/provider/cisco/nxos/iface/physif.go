@@ -246,16 +246,16 @@ func (p *PhysIf) createL3(pl *nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_
 
 // Reset clears config of the physical interface as well as L2, L3 options.
 //   - In this Cisco Nexus version devices clean up parts of the  models that are related but in different paths of the YANG tree
-//   - Once the base configuration is reset, the remote device will automatically remove the physical interface in the port-channel.
 //   - The same occurs for the L2 and L3 configurations options, except for the spanning tree configuration, which is not automatically reset.
 func (p *PhysIf) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{
 		gnmiext.ReplacingUpdate{
+			XPath: "System/stp-items/inst-items/if-items/If-list[id=" + p.name + "]",
+			Value: &nxos.Cisco_NX_OSDevice_System_StpItems_InstItems_IfItems_IfList{},
+		},
+		gnmiext.ReplacingUpdate{
 			XPath: "System/intf-items/phys-items/PhysIf-list[id=" + p.name + "]",
 			Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{},
-		},
-		gnmiext.DeletingUpdate{ // reset spanning tree
-			XPath: "System/stp-items/inst-items/if-items/If-list[id=" + p.name + "]",
 		},
 	}, nil
 }

@@ -41,6 +41,9 @@ type L3Config struct {
 }
 
 func NewL3Config(opts ...L3Option) (*L3Config, error) {
+	if len(opts) == 0 {
+		return nil, errors.New("no options provided for L2Config")
+	}
 	cfg := &L3Config{}
 	for _, opt := range opts {
 		if err := opt(cfg); err != nil {
