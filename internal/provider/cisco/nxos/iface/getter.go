@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/openconfig/ygot/ygot"
-
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
 )
 
@@ -33,22 +31,4 @@ func Exists(ctx context.Context, client gnmiext.Client, name string) (bool, erro
 		}
 	}
 	return false, fmt.Errorf(`unsupported interface format %q, expected (Ethernet|eth)\d+/\d+ or (Loopback|lo)\d+`, name)
-}
-
-func Get(ctx context.Context, client gnmiext.Client, name string) (ygot.GoStruct, error) {
-	if name == "" {
-		return nil, errors.New("interface name must not be empty")
-	}
-	for path, re := range patterns {
-		if re.MatchString(name) {
-			matches := re.FindStringSubmatch(name)
-			xpath := fmt.Sprintf(path, matches[2])
-			var val ygot.GoStruct
-			if err := client.Get(ctx, xpath, val); err != nil {
-				return nil, err
-			}
-			return val, nil
-		}
-	}
-	return nil, fmt.Errorf(`unsupported interface format %q, expected (Ethernet|eth)\d+/\d+ or (Loopback|lo)\d+`, name)
 }
