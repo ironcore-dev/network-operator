@@ -194,6 +194,21 @@ type EnsureSyslogRequest struct {
 	ProviderConfig *ProviderConfig
 }
 
+// ManagementAccessProvider is the interface for the realization of the ManagementAccess objects over different providers.
+type ManagementAccessProvider interface {
+	Provider
+
+	// EnsureManagementAccess call is responsible for ManagementAccess realization on the provider.
+	EnsureManagementAccess(context.Context, *EnsureManagementAccessRequest) (Result, error)
+	// DeleteManagementAccess call is responsible for ManagementAccess deletion on the provider.
+	DeleteManagementAccess(context.Context) error
+}
+
+type EnsureManagementAccessRequest struct {
+	ManagementAccess *v1alpha1.ManagementAccess
+	ProviderConfig   *ProviderConfig
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.

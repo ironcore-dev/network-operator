@@ -1,0 +1,20 @@
+apiVersion: networking.cloud.sap/v1alpha1
+kind: ManagementAccess
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.cloud.sap/device-name: leaf1
+  name: managementaccess
+spec:
+  deviceRef:
+    name: leaf1
+  grpc:
+    enabled: true
+    port: 9339
+    certificateId: mytrustpoint
+    vrfName: default
+    gnmi:
+      maxConcurrentCall: 16
+      keepAliveTimeout: 600s
+      minSampleInterval: 10s
