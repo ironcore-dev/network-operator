@@ -12,29 +12,27 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
 )
 
-var _ gnmiext.DeviceConf = (*VLAN)(nil)
+var _ gnmiext.DeviceConf = (*Settings)(nil)
 
-type VLAN struct {
+// Settings represents the settings shared among all VLANs
+type Settings struct {
 	// If configured as "true" then long strings will be allowed when naming VLANs
 	LongName bool
 }
 
-func (n *VLAN) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
+func (s *Settings) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{
 		gnmiext.EditingUpdate{
 			XPath: "System/vlanmgr-items/inst-items",
-			Value: &nxos.Cisco_NX_OSDevice_System_VlanmgrItems_InstItems{LongName: ygot.Bool(n.LongName)},
+			Value: &nxos.Cisco_NX_OSDevice_System_VlanmgrItems_InstItems{LongName: ygot.Bool(s.LongName)},
 		},
 	}, nil
 }
 
-func (v *VLAN) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
-	vlan := &nxos.Cisco_NX_OSDevice_System_VlanmgrItems_InstItems{}
-	vlan.PopulateDefaults()
+func (s *Settings) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{
-		gnmiext.EditingUpdate{
+		gnmiext.DeletingUpdate{
 			XPath: "System/vlanmgr-items/inst-items",
-			Value: vlan,
 		},
 	}, nil
 }
