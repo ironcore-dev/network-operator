@@ -585,7 +585,7 @@ type VLAN struct{ LongName bool }
 func (step *VLAN) Name() string             { return "VLAN" }
 func (step *VLAN) Deps() []client.ObjectKey { return nil }
 func (step *VLAN) Exec(ctx context.Context, s *Scope) error {
-	v := &vlan.VLAN{LongName: step.LongName}
+	v := &vlan.Settings{LongName: step.LongName}
 	return s.GNMI.Update(ctx, v)
 }
 

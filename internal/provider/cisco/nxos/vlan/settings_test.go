@@ -10,12 +10,12 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
 )
 
-func Test_VLAN(t *testing.T) {
-	vlan := &VLAN{
+func Test_Settings(t *testing.T) {
+	Settings := &Settings{
 		LongName: true,
 	}
 
-	got, err := vlan.ToYGOT(t.Context(), &gnmiext.ClientMock{})
+	got, err := Settings.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
