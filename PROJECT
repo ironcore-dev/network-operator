@@ -118,4 +118,14 @@ resources:
   kind: ISIS
   path: github.com/ironcore-dev/network-operator/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  # TODO: follow-up with controller
+  controller: false
+  domain: cloud.sap
+  group: networking
+  kind: VLAN
+  path: github.com/ironcore-dev/network-operator/api/v1alpha1
+  version: v1alpha1
 version: "3"

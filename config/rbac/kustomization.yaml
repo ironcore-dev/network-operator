@@ -58,3 +58,6 @@ resources:
 - isis_admin_role.yaml
 - isis_editor_role.yaml
 - isis_viewer_role.yaml
+- vlan_admin_role.yaml
+- vlan_editor_role.yaml
+- vlan_viewer_role.yaml

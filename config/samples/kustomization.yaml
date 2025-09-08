@@ -12,4 +12,5 @@ resources:
 - v1alpha1_syslog.yaml
 - v1alpha1_managementaccess.yaml
 - v1alpha1_isis.yaml
+- v1alpha1_vlan.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

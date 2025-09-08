@@ -1,0 +1,12 @@
+apiVersion: cloud.sap/v1alpha1
+kind: VLAN
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  networking.cloud.sap/device-name: lab-nxos-01
+  name: lab-nxos-01-vlan-100
+spec:
+  deviceName: lab-nxos-01
+  id: 100
+  adminState: Up
