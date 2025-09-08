@@ -39,6 +39,7 @@ rules:
   - interfaces
   - ntp
   - snmp
+  - syslogs
   - users
   verbs:
   - create
@@ -59,6 +60,7 @@ rules:
   - interfaces/finalizers
   - ntp/finalizers
   - snmp/finalizers
+  - syslogs/finalizers
   - users/finalizers
   verbs:
   - update
@@ -73,6 +75,7 @@ rules:
   - interfaces/status
   - ntp/status
   - snmp/status
+  - syslogs/status
   - users/status
   verbs:
   - get
