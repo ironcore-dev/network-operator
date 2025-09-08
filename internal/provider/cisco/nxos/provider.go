@@ -8,24 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/mitchellh/hashstructure/v2"
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
-	"github.com/ironcore-dev/network-operator/internal/clientutil"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/acl"
@@ -34,7 +23,6 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/copp"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/crypto"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/dns"
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/feat"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/logging"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/ntp"
@@ -44,26 +32,17 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/vlan"
 )
 
-// API Object Annotations to set NX-OS specific attributes.
-const (
-	// This label can be set to true to simulate the configuration changes without applying them to the switch.
-	DryRunAnnotation = "nxos.cisco.network.ironcore.dev/dry-run"
-	// This label can be set to enable the long-name option for VLANs.
-	VlanLongNameAnnotation = "nxos.cisco.network.ironcore.dev/vlan-long-name"
-	// This label can be set to configure the control plane policing (CoPP) profile for the device.
-	CoppProfileAnnotation = "nxos.cisco.network.ironcore.dev/copp-profile"
-)
-
 var (
-	_ provider.Provider            = &Provider{}
-	_ provider.BannerProvider      = &Provider{}
-	_ provider.UserProvider        = &Provider{}
-	_ provider.DNSProvider         = &Provider{}
-	_ provider.NTPProvider         = &Provider{}
-	_ provider.ACLProvider         = &Provider{}
-	_ provider.CertificateProvider = &Provider{}
-	_ provider.SNMPProvider        = &Provider{}
-	_ provider.SyslogProvider      = &Provider{}
+	_ provider.Provider                 = &Provider{}
+	_ provider.BannerProvider           = &Provider{}
+	_ provider.UserProvider             = &Provider{}
+	_ provider.DNSProvider              = &Provider{}
+	_ provider.NTPProvider              = &Provider{}
+	_ provider.ACLProvider              = &Provider{}
+	_ provider.CertificateProvider      = &Provider{}
+	_ provider.SNMPProvider             = &Provider{}
+	_ provider.SyslogProvider           = &Provider{}
+	_ provider.ManagementAccessProvider = &Provider{}
 )
 
 type Provider struct {
@@ -322,311 +301,50 @@ func (p *Provider) DeleteSyslog(ctx context.Context) error {
 	return p.client.Reset(ctx, l)
 }
 
-func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) error {
-	log := ctrl.LoggerFrom(ctx)
-
-	c, ok := clientutil.FromContext(ctx)
-	if !ok {
-		return errors.New("failed to get controller client from context")
-	}
-
-	cc, err := deviceutil.GetDeviceConnection(ctx, c, device)
-	if err != nil {
-		return fmt.Errorf("failed to get device connection details: %w", err)
-	}
-
-	conn, err := deviceutil.NewGrpcClient(ctx, cc)
-	if err != nil {
-		return fmt.Errorf("failed to create grpc connection: %w", err)
-	}
-	defer conn.Close()
-
-	var opts []gnmiext.Option
-	v, ok := device.Annotations[DryRunAnnotation]
-	if ok && v == "true" {
-		opts = append(opts, gnmiext.WithDryRun())
-	}
-	opts = append(opts, gnmiext.WithLogger(slog.New(logr.ToSlogHandler(log))))
-
-	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	gnmi, err := gnmiext.NewClient(cctx, gpb.NewGNMIClient(conn), true, opts...)
-	if err != nil {
-		if s, ok := status.FromError(err); ok {
-			log.Error(err, "Failed to connect to device", "Message", s.Message())
-
-			var reason string
-			switch s.Code() {
-			case codes.DeadlineExceeded, codes.Unavailable:
-				reason = v1alpha1.DeviceUnreachableReason
-			case codes.Unauthenticated:
-				reason = v1alpha1.DeviceUnauthenticatedReason
-			}
-
-			meta.SetStatusCondition(&device.Status.Conditions, metav1.Condition{
-				Type:               v1alpha1.ReadyCondition,
-				Status:             metav1.ConditionFalse,
-				Reason:             reason,
-				Message:            err.Error(),
-				ObservedGeneration: device.Generation,
-			})
-			return nil
-		}
-
-		meta.SetStatusCondition(&device.Status.Conditions, metav1.Condition{
-			Type:               v1alpha1.ReadyCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             v1alpha1.DeviceUnsupportedReason,
-			Message:            err.Error(),
-			ObservedGeneration: device.Generation,
-		})
-		return nil
-	}
-
-	s := &Scope{
-		Client: c,
-		Conn:   conn,
-		GNMI:   gnmi,
-	}
-
-	steps := []Step{
-		// Features that need to be enabled on the device
-		&Features{Spec: []string{
-			"bfd",
-			"bgp",
-			"grpc",
-			"isis",
-			"lacp",
-			"lldp",
-			"netconf",
-			"nxapi",
-			"pim",
-			"vpc",
-		}},
+func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.EnsureManagementAccessRequest) (provider.Result, error) {
+	steps := []gnmiext.DeviceConf{
 		// Steps that depend on the device spec
-		&GRPC{Spec: device.Spec.GRPC},
-		&VLAN{LongName: device.Annotations[VlanLongNameAnnotation] == "true"},
-		&Copp{Profile: device.Annotations[CoppProfileAnnotation]},
-		// Static steps that are always executed
-		&NXAPI{},
-		&Console{},
-		&VTY{},
-	}
-
-	errs := []error{}
-	for _, step := range steps {
-		hash, err := hashstructure.Hash(step, hashstructure.FormatV2, nil)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		check := strconv.FormatUint(hash, 10)
-		if deps := step.Deps(); len(deps) > 0 {
-			v, err := c.ListResourceVersions(ctx, deps...)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-			check += ":" + strings.Join(v, ":")
-		}
-
-		name := step.Name()
-		cond := meta.FindStatusCondition(device.Status.Conditions, name)
-		if cond != nil && cond.Status == metav1.ConditionTrue && cond.Message == check {
-			log.Info(name + " configuration already up to date, skipping")
-			continue
-		}
-
-		if err := step.Exec(ctx, s); err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		meta.SetStatusCondition(&device.Status.Conditions, metav1.Condition{
-			Type:               name,
-			Status:             metav1.ConditionTrue,
-			Reason:             v1alpha1.ReadyReason,
-			Message:            check,
-			ObservedGeneration: device.Generation,
-		})
-	}
-
-	if len(errs) > 0 {
-		meta.SetStatusCondition(&device.Status.Conditions, metav1.Condition{
-			Type:               v1alpha1.ReadyCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             v1alpha1.NotReadyReason,
-			Message:            "One or more errors occurred during reconciliation",
-			ObservedGeneration: device.Generation,
-		})
-		return kerrors.NewAggregate(errs)
-	}
-
-	meta.SetStatusCondition(&device.Status.Conditions, metav1.Condition{
-		Type:               v1alpha1.ReadyCondition,
-		Status:             metav1.ConditionTrue,
-		Reason:             v1alpha1.ReadyReason,
-		Message:            "Switch has been configured and is ready for use",
-		ObservedGeneration: device.Generation,
-	})
-
-	return nil
-}
-
-func (p *Provider) GetGrpcClient(ctx context.Context, obj metav1.Object) (*grpc.ClientConn, error) {
-	c, ok := clientutil.FromContext(ctx)
-	if !ok {
-		return nil, errors.New("failed to get controller client from context")
-	}
-	d, err := deviceutil.GetDeviceFromMetadata(ctx, c, obj)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get device from metadata: %w", err)
-	}
-	cc, err := deviceutil.GetDeviceConnection(ctx, c, d)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get device connection details: %w", err)
-	}
-	conn, err := deviceutil.NewGrpcClient(ctx, cc)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create grpc connection: %w", err)
-	}
-	return conn, nil
-}
-
-// Scope holds the different objects that are read and used during the reconcile.
-type Scope struct {
-	Client *clientutil.Client
-	Conn   *grpc.ClientConn
-	GNMI   gnmiext.Client
-}
-
-// Step is an interface that defines a reconciliation step.
-// Each step is responsible for a specific part of the switch configuration.
-// It is only executed if the coresponding part of the [v1alpha1.SwitchSpec]
-// or any of the dependencies listed by Deps have changed.
-// This is done to avoid unnecessary API calls and to speed up the reconciliation process.
-type Step interface {
-	// Name returns the name of the step.
-	Name() string
-
-	// Exec executes the reconciliation step.
-	Exec(ctx context.Context, s *Scope) error
-
-	// Deps returns a list of dependent resources than should trigger a reconciliation if changed.
-	// Currently, only secret references are supported.
-	Deps() []client.ObjectKey
-}
-
-var (
-	_ Step = (*VTY)(nil)
-	_ Step = (*Console)(nil)
-	_ Step = (*NXAPI)(nil)
-	_ Step = (*GRPC)(nil)
-	_ Step = (*VLAN)(nil)
-	_ Step = (*Features)(nil)
-	_ Step = (*Copp)(nil)
-)
-
-type VTY struct{}
-
-func (step *VTY) Name() string             { return "VTY" }
-func (step *VTY) Deps() []client.ObjectKey { return nil }
-func (step *VTY) Exec(ctx context.Context, s *Scope) error {
-	v := &term.VTY{
-		SessionLimit: 8,
-		Timeout:      5, // minutes
-	}
-	return s.GNMI.Update(ctx, v)
-}
-
-type Console struct{}
-
-func (step *Console) Name() string             { return "Console" }
-func (step *Console) Deps() []client.ObjectKey { return nil }
-func (step *Console) Exec(ctx context.Context, s *Scope) error {
-	c := &term.Console{Timeout: 5} // minutes
-	return s.GNMI.Update(ctx, c)
-}
-
-type NXAPI struct{ Spec *v1alpha1.Certificate }
-
-func (step *NXAPI) Name() string             { return "NXAPI" }
-func (step *NXAPI) Deps() []client.ObjectKey { return nil }
-func (step *NXAPI) Exec(ctx context.Context, s *Scope) error {
-	n := &api.NXAPI{Enable: false}
-	if step.Spec != nil {
-		n = &api.NXAPI{Enable: true, Cert: &api.Trustpoint{ID: step.Spec.Name}}
-	}
-	return s.GNMI.Update(ctx, n)
-}
-
-type GRPC struct{ Spec *v1alpha1.GRPC }
-
-func (step *GRPC) Name() string             { return "GRPC" }
-func (step *GRPC) Deps() []client.ObjectKey { return nil }
-func (step *GRPC) Exec(ctx context.Context, s *Scope) error {
-	g := &api.GRPC{Enable: false}
-	if step.Spec != nil {
-		g = &api.GRPC{
-			Enable:     true,
-			Port:       uint32(step.Spec.Port), //nolint:gosec
-			Vrf:        step.Spec.NetworkInstance,
-			Trustpoint: step.Spec.CertificateID,
+		&api.GRPC{
+			Enable:     req.ManagementAccess.Spec.GRPC.Enabled,
+			Port:       uint32(req.ManagementAccess.Spec.GRPC.Port), //nolint:gosec
+			Vrf:        req.ManagementAccess.Spec.GRPC.VrfName,
+			Trustpoint: req.ManagementAccess.Spec.GRPC.CertificateID,
 			GNMI:       nil,
+		},
+		// Static steps that are always executed
+		&vlan.Settings{LongName: true},
+		&copp.COPP{Profile: copp.Strict},
+		&term.Console{
+			Timeout: 5, // minutes
+		},
+		&term.VTY{
+			SessionLimit: 8,
+			Timeout:      5, // minutes
+		},
+	}
+	errs := make([]error, 0, len(steps))
+	for _, step := range steps {
+		if err := p.client.Update(ctx, step); err != nil {
+			errs = append(errs, err)
 		}
-		if step.Spec.GNMI != nil {
-			g.GNMI = &api.GNMI{
-				MaxConcurrentCall: uint16(step.Spec.GNMI.MaxConcurrentCall), //nolint:gosec
-				KeepAliveTimeout:  uint32(step.Spec.GNMI.KeepAliveTimeout.Seconds()),
-				MinSampleInterval: uint32(step.Spec.GNMI.MinSampleInterval.Seconds()),
-			}
+	}
+	return provider.Result{}, errors.Join(errs...)
+}
+
+func (p *Provider) DeleteManagementAccess(ctx context.Context) error {
+	steps := []gnmiext.DeviceConf{
+		&vlan.Settings{},
+		&copp.COPP{},
+		&term.Console{},
+		&term.VTY{},
+	}
+	errs := make([]error, 0, len(steps))
+	for _, step := range steps {
+		if err := p.client.Reset(ctx, step); err != nil {
+			errs = append(errs, err)
 		}
 	}
-	return s.GNMI.Update(ctx, g)
-}
-
-type VLAN struct{ LongName bool }
-
-func (step *VLAN) Name() string             { return "VLAN" }
-func (step *VLAN) Deps() []client.ObjectKey { return nil }
-func (step *VLAN) Exec(ctx context.Context, s *Scope) error {
-	v := &vlan.Settings{LongName: step.LongName}
-	return s.GNMI.Update(ctx, v)
-}
-
-type Features struct{ Spec []string }
-
-func (step *Features) Name() string             { return "Features" }
-func (step *Features) Deps() []client.ObjectKey { return nil }
-func (step *Features) Exec(ctx context.Context, s *Scope) error {
-	return s.GNMI.Update(ctx, feat.Features(step.Spec))
-}
-
-type Copp struct{ Profile string }
-
-func (step *Copp) Name() string             { return "COPP" }
-func (step *Copp) Deps() []client.ObjectKey { return nil }
-func (step *Copp) Exec(ctx context.Context, s *Scope) error {
-	if step.Profile == "" {
-		return nil
-	}
-	var profile copp.Profile
-	switch strings.ToLower(step.Profile) {
-	case "strict":
-		profile = copp.Strict
-	case "moderate":
-		profile = copp.Moderate
-	case "dense":
-		profile = copp.Dense
-	case "lenient":
-		profile = copp.Lenient
-	default:
-		profile = copp.Unknown
-	}
-	c := &copp.COPP{Profile: profile}
-	return s.GNMI.Update(ctx, c)
+	return errors.Join(errs...)
 }
 
 func init() {

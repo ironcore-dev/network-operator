@@ -52,3 +52,6 @@ resources:
 - syslog_admin_role.yaml
 - syslog_editor_role.yaml
 - syslog_viewer_role.yaml
+- managementaccess_admin_role.yaml
+- managementaccess_editor_role.yaml
+- managementaccess_viewer_role.yaml
