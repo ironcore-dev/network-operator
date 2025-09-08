@@ -15,13 +15,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
-	"github.com/ironcore-dev/network-operator/internal/deviceutil"
+	// "github.com/ironcore-dev/network-operator/internal/deviceutil"
 )
 
 // Provider is the common interface used to establish and tear down connections to the provider.
 type Provider interface {
-	Connect(context.Context, *deviceutil.Connection) error
-	Disconnect(context.Context, *deviceutil.Connection) error
+	Init(context.Context, *ProviderConfig) error
+	// disconnect(context.Context, *ProviderConfig) error
 }
 
 type Result struct {
@@ -88,7 +88,7 @@ func Providers() []string {
 }
 
 // GetProviderConfig retrieves the provider-specific configuration resource for a given reference.
-func GetProviderConfig(ctx context.Context, r client.Reader, namespace string, ref *v1alpha1.ProviderConfigReference) (*ProviderConfig, error) {
+func GetProviderRawConfig(ctx context.Context, r client.Reader, namespace string, ref *v1alpha1.ProviderConfigReference) (*ProviderRawConfig, error) {
 	obj := &unstructured.Unstructured{}
 	obj.SetAPIVersion(ref.APIVersion)
 	obj.SetKind(ref.Kind)
@@ -97,15 +97,29 @@ func GetProviderConfig(ctx context.Context, r client.Reader, namespace string, r
 	if err := r.Get(ctx, client.ObjectKeyFromObject(obj), obj); err != nil {
 		return nil, fmt.Errorf("failed to get provider config %s/%s (%s): %w", namespace, ref.Name, obj.GetObjectKind().GroupVersionKind().String(), err)
 	}
-	return &ProviderConfig{obj}, nil
+	return &ProviderRawConfig{obj}, nil
 }
 
 // ProviderConfig is a wrapper around an [unstructured.Unstructured] object that represents a provider-specific configuration.
+type ProviderRawConfig struct {
+	*unstructured.Unstructured
+}
+
+type ProviderRuntimeConfig interface {
+	GetKind() string
+}
+
 type ProviderConfig struct {
-	obj *unstructured.Unstructured
+	RawConfig    *ProviderRawConfig
+	RuntimeConfig ProviderRuntimeConfig
 }
 
 // Into converts the underlying unstructured object into the specified type.
-func (p ProviderConfig) Into(v any) error {
-	return runtime.DefaultUnstructuredConverter.FromUnstructured(p.obj.Object, v)
+func (p ProviderConfig) GetRawConfig(v any) error {
+	return runtime.DefaultUnstructuredConverter.FromUnstructured(p.RawConfig.Object, v)
+}
+
+
+func (p ProviderConfig) GetRuntimeConfig() ProviderRuntimeConfig {
+	return p.RuntimeConfig
 }

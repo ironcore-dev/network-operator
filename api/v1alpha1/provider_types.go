@@ -27,3 +27,6 @@ type ProviderConfigReference struct {
 	//+kubebuilder:validation:Pattern=`^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/)?([a-z0-9]([-a-z0-9]*[a-z0-9])?)$`
 	APIVersion string `json:"apiVersion"`
 }
+
+
+

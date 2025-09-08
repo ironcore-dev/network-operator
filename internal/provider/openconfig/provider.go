@@ -5,8 +5,10 @@ package openconfig
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/netip"
+	"reflect"
 
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ygnmi/ygnmi"
@@ -33,7 +35,37 @@ func NewProvider() provider.Provider {
 	return &Provider{}
 }
 
-func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (err error) {
+type OpenconfigProviderRuntimeConfig struct {
+	Kind string
+
+	// Address is the API address of the device, in the format "host:port".
+	Address string
+	// Username for basic authentication. Might be empty if the device does not require authentication.
+	Username string
+	// Password for basic authentication. Might be empty if the device does not require authentication.
+	Password string
+	// TLS configuration for the connection.
+	TLS *tls.Config
+}
+
+func (c *OpenconfigProviderRuntimeConfig) GetKind() string {
+	return c.Kind
+}
+
+func (p *Provider) Init(ctx context.Context, config *provider.ProviderConfig) (err error) {
+
+	runtimeConfig, ok := config.RuntimeConfig.(*OpenconfigProviderRuntimeConfig)
+	if !ok {
+		return fmt.Errorf("invalid runtime config type: expected %s, got %s", reflect.TypeOf(&OpenconfigProviderRuntimeConfig{}).String(), reflect.TypeOf(config.RuntimeConfig).String())
+	}
+
+	conn := &deviceutil.Connection{
+		Address:  runtimeConfig.Address,
+		Username: runtimeConfig.Username,
+		Password: runtimeConfig.Password,
+		TLS:      runtimeConfig.TLS,
+	}
+
 	p.conn, err = deviceutil.NewGrpcClient(ctx, conn)
 	if err != nil {
 		return fmt.Errorf("failed to create grpc connection: %w", err)
@@ -45,12 +77,21 @@ func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (er
 	return nil
 }
 
-func (p *Provider) Disconnect(context.Context, *deviceutil.Connection) error {
-	return p.conn.Close()
-}
+// func (p *Provider) Disconnect(context.Context, config *provider.ProviderConfig) error {
+// 	return p.conn.Close()
+// }
 
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) (provider.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
+
+	if err := p.Init(ctx, req.ProviderConfig); err != nil {
+		return provider.Result{}, fmt.Errorf("failed to initialize provider: %w", err)
+	}
+	defer func() {
+		if disconnectErr := p.conn.Close(); disconnectErr != nil {
+			log.Error(disconnectErr, "failed to close grpc connection")
+		}
+	}()
 
 	i := &Interface{Name: ygot.String(req.Interface.Spec.Name)}
 	switch req.Interface.Spec.AdminState {
@@ -119,6 +160,16 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 }
 
 func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceRequest) error {
+	if err := p.Init(ctx, req.ProviderConfig); err != nil {
+		return fmt.Errorf("failed to initialize provider: %w", err)
+	}
+	defer func() error{
+		if disconnectErr := p.conn.Close(); disconnectErr != nil {
+			return fmt.Errorf("failed to close grpc connection: %w", disconnectErr)
+		}
+		return nil
+	} ()
+	
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
 		// For physical interfaces, we can't delete the interface directly.
@@ -138,6 +189,9 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 
 	return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
 }
+
+
+var OpenConfigProviderKind = reflect.TypeOf(&OpenconfigProviderRuntimeConfig{}).Name()
 
 func init() {
 	provider.Register("openconfig", NewProvider)

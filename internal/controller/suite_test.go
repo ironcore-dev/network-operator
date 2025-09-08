@@ -178,3 +178,5 @@ func (p *Provider) DeleteInterface(_ context.Context, req *provider.InterfaceReq
 	delete(p.Items, req.Interface.Name)
 	return nil
 }
+
+func (p *Provider) Init(context.Context, *provider.ProviderConfig) error { return nil }
