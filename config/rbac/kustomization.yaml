@@ -49,3 +49,6 @@ resources:
 - snmp_admin_role.yaml
 - snmp_editor_role.yaml
 - snmp_viewer_role.yaml
+- syslog_admin_role.yaml
+- syslog_editor_role.yaml
+- syslog_viewer_role.yaml

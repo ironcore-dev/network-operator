@@ -35,6 +35,7 @@ package logging
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/openconfig/ygot/ygot"
 
@@ -55,6 +56,29 @@ const (
 	Informational
 	Debug
 )
+
+func SeverityLevelFrom(s string) SeverityLevel {
+	switch strings.ToLower(s) {
+	case "emergency":
+		return Emergency
+	case "alert":
+		return Alert
+	case "critical":
+		return Critical
+	case "error":
+		return Error
+	case "warning":
+		return Warning
+	case "notice":
+		return Notice
+	case "info", "informational":
+		return Informational
+	case "debug":
+		return Debug
+	default:
+		return Informational
+	}
+}
 
 //go:generate go run golang.org/x/tools/cmd/stringer@v0.35.0 -type=SyslogProto
 type SyslogProto int
