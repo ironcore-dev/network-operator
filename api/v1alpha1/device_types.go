@@ -18,11 +18,6 @@ type DeviceSpec struct {
 	// It can be used to provide initial configuration templates or scripts that are applied during the device provisioning.
 	// +optional
 	Bootstrap *Bootstrap `json:"bootstrap,omitempty"`
-
-	// Configuration for the gRPC server on the device.
-	// Currently, only a single "default" gRPC server is supported.
-	// +optional
-	GRPC *GRPC `json:"grpc,omitempty"`
 }
 
 type Endpoint struct {
@@ -57,63 +52,6 @@ type Bootstrap struct {
 	// Template defines the multiline string template that contains the initial configuration for the device.
 	// +required
 	Template *TemplateSource `json:"template"`
-}
-
-type GRPC struct {
-	// The TCP port on which the gRPC server should listen.
-	// The range of port-id is from 1024 to 65535.
-	// Port 9339 is the default.
-	// +kubebuilder:validation:Minimum=1024
-	// +kubebuilder:validation:Maximum=65535
-	// +kubebuilder:validation:ExclusiveMaximum=false
-	// +kubebuilder:default=9339
-	// +optional
-	Port int32 `json:"port"`
-
-	// Name of the certificate that is associated with the gRPC service.
-	// The certificate is provisioned through other interfaces on the device,
-	// such as e.g. the gNOI certificate management service.
-	// +optional
-	CertificateID string `json:"certificateId,omitempty"`
-
-	// Enable the gRPC agent to accept incoming (dial-in) RPC requests from a given network instance.
-	// +optional
-	NetworkInstance string `json:"networkInstance,omitempty"`
-
-	// Additional gNMI configuration for the gRPC server.
-	// This may not be supported by all devices.
-	// +optional
-	GNMI *GNMI `json:"gnmi,omitempty"`
-}
-
-type GNMI struct {
-	// The maximum number of concurrent gNMI calls that can be made to the gRPC server on the switch for each VRF.
-	// Configure a limit from 1 through 16. The default limit is 8.
-	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=16
-	// +kubebuilder:validation:ExclusiveMaximum=false
-	// +kubebuilder:default=8
-	// +optional
-	MaxConcurrentCall int8 `json:"maxConcurrentCall"`
-
-	// Configure the keepalive timeout for inactive or unauthorized connections.
-	// The gRPC agent is expected to periodically send an empty response to the client, on which the client is expected to respond with an empty request.
-	// If the client does not respond within the keepalive timeout, the gRPC agent should close the connection.
-	// The default interval value is 10 minutes.
-	// +kubebuilder:validation:Type=string
-	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
-	// +kubebuilder:default="10m"
-	// +optional
-	KeepAliveTimeout metav1.Duration `json:"keepAliveTimeout"`
-
-	// Configure the minimum sample interval for the gNMI telemetry stream.
-	// Once per stream sample interval, the switch sends the current values for all specified paths.
-	// The default value is 10 seconds.
-	// +kubebuilder:validation:Type=string
-	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
-	// +kubebuilder:default="10s"
-	// +optional
-	MinSampleInterval metav1.Duration `json:"minSampleInterval"`
 }
 
 // TemplateSource defines a source for template content.
