@@ -9,10 +9,6 @@ metadata:
     networking.cloud.sap/rack: lab
   annotations:
     nxos.cisco.networking.cloud.sap/dry-run: "true"
-    nxos.cisco.networking.cloud.sap/log-default-severity: Debug
-    nxos.cisco.networking.cloud.sap/log-history-severity: Debug
-    nxos.cisco.networking.cloud.sap/log-history-size: "500"
-    nxos.cisco.networking.cloud.sap/log-origin-id: leaf1
     nxos.cisco.networking.cloud.sap/vlan-long-name: "true"
     nxos.cisco.networking.cloud.sap/copp-profile: strict
   name: leaf1
@@ -38,14 +34,6 @@ spec:
         hostname leaf1
         feature grpc
         grpc port 9339
-  logging:
-    servers:
-      - address: 192.168.55.55 # udp/514
-        severity: Info
-        networkInstance: management
-    facilities:
-      - name: user
-        severity: Warning
   grpc:
     port: 9339
     certificateId: trustpoint

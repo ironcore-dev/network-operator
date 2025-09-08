@@ -1,0 +1,18 @@
+apiVersion: networking.cloud.sap/v1alpha1
+kind: Syslog
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.cloud.sap/device-name: leaf1
+  name: syslog
+spec:
+  deviceRef:
+    name: leaf1
+  servers:
+    - address: 192.168.55.55 # udp/514
+      severity: Info
+      vrfName: management
+  facilities:
+    - name: user
+      severity: Warning

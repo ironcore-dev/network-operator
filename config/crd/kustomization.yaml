@@ -11,6 +11,7 @@ resources:
 - bases/networking.cloud.sap_accesscontrollists.yaml
 - bases/networking.cloud.sap_certificates.yaml
 - bases/networking.cloud.sap_snmp.yaml
+- bases/networking.cloud.sap_syslogs.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

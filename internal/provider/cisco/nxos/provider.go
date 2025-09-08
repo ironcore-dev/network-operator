@@ -49,16 +49,6 @@ import (
 const (
 	// This label can be set to true to simulate the configuration changes without applying them to the switch.
 	DryRunAnnotation = "nxos.cisco.network.ironcore.dev/dry-run"
-	// This label can be set to configure the default severity level for logging.
-	LogDefaultSeverityAnnotation = "nxos.cisco.network.ironcore.dev/log-default-severity"
-	// This label can be set to severity level for log history.
-	LogHistorySeverityAnnotation = "nxos.cisco.network.ironcore.dev/log-history-severity"
-	// This label can be set to the size of the log history.
-	LogHistorySizeAnnotation = "nxos.cisco.network.ironcore.dev/log-history-size"
-	// This label can be set to the origin ID for logging.
-	LogOriginIDAnnotation = "nxos.cisco.network.ironcore.dev/log-origin-id"
-	// This label can be set to the source interface to be used to reach the syslog servers.
-	LogSrcIfAnnotation = "nxos.cisco.network.ironcore.dev/log-src-if"
 	// This label can be set to enable the long-name option for VLANs.
 	VlanLongNameAnnotation = "nxos.cisco.network.ironcore.dev/vlan-long-name"
 	// This label can be set to configure the control plane policing (CoPP) profile for the device.
@@ -75,6 +65,7 @@ var (
 	_ provider.ACLProvider         = &Provider{}
 	_ provider.CertificateProvider = &Provider{}
 	_ provider.SNMPProvider        = &Provider{}
+	_ provider.SyslogProvider      = &Provider{}
 )
 
 type Provider struct {
@@ -408,6 +399,70 @@ func (p *Provider) DeleteSNMP(ctx context.Context, req *provider.DeleteSNMPReque
 	return p.client.Reset(ctx, s)
 }
 
+type SyslogConfig struct {
+	OriginID            string
+	SourceInterfaceName string
+	HistorySize         uint32
+	HistoryLevel        v1alpha1.Severity
+	DefaultSeverity     v1alpha1.Severity
+}
+
+func (p *Provider) EnsureSyslog(ctx context.Context, req *provider.EnsureSyslogRequest) (res provider.Result, reterr error) {
+	defer func() {
+		res = WithErrorConditions(res, reterr)
+	}()
+
+	var cfg SyslogConfig
+	if req.ProviderConfig != nil {
+		if err := req.ProviderConfig.Into(&cfg); err != nil {
+			return provider.Result{}, err
+		}
+	}
+
+	if cfg.OriginID == "" {
+		cfg.OriginID = req.Syslog.Name
+	}
+	if cfg.SourceInterfaceName == "" {
+		cfg.SourceInterfaceName = "mgmt0"
+	}
+	if cfg.HistorySize <= 0 {
+		cfg.HistorySize = 500
+	}
+
+	l := &logging.Logging{
+		Enable:          true,
+		OriginID:        cfg.OriginID,
+		SrcIf:           cfg.SourceInterfaceName,
+		Servers:         make([]*logging.SyslogServer, len(req.Syslog.Spec.Servers)),
+		History:         logging.History{Size: cfg.HistorySize, Severity: logging.SeverityLevelFrom(string(cfg.HistoryLevel))},
+		DefaultSeverity: logging.SeverityLevelFrom(string(cfg.DefaultSeverity)),
+		Facilities:      make([]*logging.Facility, len(req.Syslog.Spec.Facilities)),
+	}
+
+	for i, s := range req.Syslog.Spec.Servers {
+		l.Servers[i] = &logging.SyslogServer{
+			Host:  s.Address,
+			Port:  uint32(s.Port), //nolint:gosec
+			Proto: logging.UDP,
+			Vrf:   s.VrfName,
+			Level: logging.SeverityLevelFrom(string(s.Severity)),
+		}
+	}
+
+	for i, f := range req.Syslog.Spec.Facilities {
+		l.Facilities[i] = &logging.Facility{
+			Name:     f.Name,
+			Severity: logging.SeverityLevelFrom(string(f.Severity)),
+		}
+	}
+	return provider.Result{}, p.client.Reset(ctx, l)
+}
+
+func (p *Provider) DeleteSyslog(ctx context.Context) error {
+	l := &logging.Logging{}
+	return p.client.Reset(ctx, l)
+}
+
 func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) error {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -494,14 +549,6 @@ func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) er
 		&GRPC{Spec: device.Spec.GRPC},
 		&VLAN{LongName: device.Annotations[VlanLongNameAnnotation] == "true"},
 		&Copp{Profile: device.Annotations[CoppProfileAnnotation]},
-		&Logging{
-			Spec:            device.Spec.Logging,
-			DefaultSeverity: device.Annotations[LogDefaultSeverityAnnotation],
-			HistoryLevel:    device.Annotations[LogHistorySeverityAnnotation],
-			HistorySize:     device.Annotations[LogHistorySizeAnnotation],
-			OriginID:        device.Annotations[LogOriginIDAnnotation],
-			SrcIf:           device.Annotations[LogSrcIfAnnotation],
-		},
 		// Static steps that are always executed
 		&NXAPI{},
 		&Console{},
@@ -618,7 +665,6 @@ var (
 	_ Step = (*Console)(nil)
 	_ Step = (*NXAPI)(nil)
 	_ Step = (*GRPC)(nil)
-	_ Step = (*Logging)(nil)
 	_ Step = (*VLAN)(nil)
 	_ Step = (*Features)(nil)
 	_ Step = (*Copp)(nil)
@@ -680,80 +726,6 @@ func (step *GRPC) Exec(ctx context.Context, s *Scope) error {
 		}
 	}
 	return s.GNMI.Update(ctx, g)
-}
-
-type Logging struct {
-	Spec            *v1alpha1.Logging
-	OriginID        string
-	SrcIf           string
-	HistorySize     string
-	HistoryLevel    string
-	DefaultSeverity string
-}
-
-func (step *Logging) Name() string             { return "Logging" }
-func (step *Logging) Deps() []client.ObjectKey { return nil }
-func (step *Logging) Exec(ctx context.Context, s *Scope) error {
-	severity := func(s v1alpha1.Severity) logging.SeverityLevel {
-		switch s {
-		case v1alpha1.SeverityEmergency:
-			return logging.Emergency
-		case v1alpha1.SeverityAlert:
-			return logging.Alert
-		case v1alpha1.SeverityCritical:
-			return logging.Critical
-		case v1alpha1.SeverityError:
-			return logging.Error
-		case v1alpha1.SeverityWarning:
-			return logging.Warning
-		case v1alpha1.SeverityNotice:
-			return logging.Notice
-		case v1alpha1.SeverityInfo:
-			return logging.Informational
-		case v1alpha1.SeverityDebug:
-			return logging.Debug
-		default:
-			return logging.Informational
-		}
-	}
-
-	historySize, err := strconv.Atoi(step.HistorySize)
-	if err != nil {
-		ctrl.LoggerFrom(ctx).Error(err, "Failed to parse history size", "HistorySize", step.HistorySize)
-		historySize = 500
-	}
-
-	l := &logging.Logging{Enable: false}
-	if step.Spec != nil {
-		l = &logging.Logging{
-			Enable:          true,
-			OriginID:        step.OriginID,
-			SrcIf:           step.SrcIf,
-			Servers:         make([]*logging.SyslogServer, len(step.Spec.Servers)),
-			History:         logging.History{Size: uint32(historySize), Severity: severity(v1alpha1.Severity(step.HistoryLevel))}, //nolint:gosec
-			DefaultSeverity: severity(v1alpha1.Severity(step.DefaultSeverity)),
-			Facilities:      make([]*logging.Facility, len(step.Spec.Facilities)),
-		}
-
-		for i, s := range step.Spec.Servers {
-			l.Servers[i] = &logging.SyslogServer{
-				Host:  s.Address,
-				Port:  uint32(s.Port), //nolint:gosec
-				Proto: logging.UDP,
-				Vrf:   s.NetworkInstance,
-				Level: severity(s.Severity),
-			}
-		}
-
-		for i, f := range step.Spec.Facilities {
-			l.Facilities[i] = &logging.Facility{
-				Name:     f.Name,
-				Severity: severity(f.Severity),
-			}
-		}
-	}
-
-	return s.GNMI.Update(ctx, l)
 }
 
 type VLAN struct{ LongName bool }

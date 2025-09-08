@@ -179,6 +179,21 @@ type DeleteSNMPRequest struct {
 	ProviderConfig *ProviderConfig
 }
 
+// SyslogProvider is the interface for the realization of the Syslog objects over different providers.
+type SyslogProvider interface {
+	Provider
+
+	// EnsureSyslog call is responsible for Syslog realization on the provider.
+	EnsureSyslog(context.Context, *EnsureSyslogRequest) (Result, error)
+	// DeleteSyslog call is responsible for Syslog deletion on the provider.
+	DeleteSyslog(context.Context) error
+}
+
+type EnsureSyslogRequest struct {
+	Syslog         *v1alpha1.Syslog
+	ProviderConfig *ProviderConfig
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.

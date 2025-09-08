@@ -19,10 +19,6 @@ type DeviceSpec struct {
 	// +optional
 	Bootstrap *Bootstrap `json:"bootstrap,omitempty"`
 
-	// Top-level logging configuration for the device.
-	// +optional
-	Logging *Logging `json:"logging,omitempty"`
-
 	// Configuration for the gRPC server on the device.
 	// Currently, only a single "default" gRPC server is supported.
 	// +optional
@@ -62,63 +58,6 @@ type Bootstrap struct {
 	// +required
 	Template *TemplateSource `json:"template"`
 }
-
-type Logging struct {
-	// Servers is a list of remote log servers to which the device will send logs.
-	// +kubebuilder:validation:MinItems=1
-	// +required
-	Servers []*LogServer `json:"servers"`
-
-	// Facilities is a list of log facilities to configure on the device.
-	// +kubebuilder:validation:MinItems=1
-	// +required
-	Facilities []*LogFacility `json:"facilities"`
-}
-
-type LogServer struct {
-	// IP address or hostname of the remote log server
-	// +required
-	Address string `json:"address"`
-
-	// The servity level of the log messages sent to the server.
-	// +required
-	Severity Severity `json:"severity"`
-
-	// The network instance used to reach the log server.
-	// +required
-	NetworkInstance string `json:"networkInstance,omitempty"`
-
-	// The destination port number for syslog UDP messages to
-	// the server. The default is 514.
-	// +kubebuilder:default=514
-	// +optional
-	Port int64 `json:"port"`
-}
-
-type LogFacility struct {
-	// The name of the log facility.
-	// +required
-	Name string `json:"name"`
-
-	// The severity level of the log messages for this facility.
-	// +required
-	Severity Severity `json:"severity"`
-}
-
-// Severity represents the severity level of a log message.
-// +kubebuilder:validation:Enum=Debug;Info;Notice;Warning;Error;Critical;Alert;Emergency
-type Severity string
-
-const (
-	SeverityDebug     Severity = "Debug"
-	SeverityInfo      Severity = "Info"
-	SeverityNotice    Severity = "Notice"
-	SeverityWarning   Severity = "Warning"
-	SeverityError     Severity = "Error"
-	SeverityCritical  Severity = "Critical"
-	SeverityAlert     Severity = "Alert"
-	SeverityEmergency Severity = "Emergency"
-)
 
 type GRPC struct {
 	// The TCP port on which the gRPC server should listen.

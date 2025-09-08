@@ -164,6 +164,14 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&SyslogReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -216,6 +224,7 @@ var (
 	_ provider.ACLProvider         = (*Provider)(nil)
 	_ provider.CertificateProvider = (*Provider)(nil)
 	_ provider.SNMPProvider        = (*Provider)(nil)
+	_ provider.SyslogProvider      = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -230,6 +239,7 @@ type Provider struct {
 	ACLs   map[string]struct{}
 	Certs  map[string]struct{}
 	SNMP   *v1alpha1.SNMP
+	Syslog *v1alpha1.Syslog
 }
 
 func NewProvider() *Provider {
@@ -353,5 +363,19 @@ func (p *Provider) DeleteSNMP(_ context.Context, req *provider.DeleteSNMPRequest
 	p.Lock()
 	defer p.Unlock()
 	p.SNMP = nil
+	return nil
+}
+
+func (p *Provider) EnsureSyslog(_ context.Context, req *provider.EnsureSyslogRequest) (provider.Result, error) {
+	p.Lock()
+	defer p.Unlock()
+	p.Syslog = req.Syslog
+	return provider.Result{}, nil
+}
+
+func (p *Provider) DeleteSyslog(_ context.Context) error {
+	p.Lock()
+	defer p.Unlock()
+	p.Syslog = nil
 	return nil
 }
