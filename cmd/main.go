@@ -314,6 +314,17 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Syslog")
 		os.Exit(1)
 	}
+
+	if err := (&controller.ManagementAccessReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("managementaccess-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ManagementAccess")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {
