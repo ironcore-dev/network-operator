@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -122,7 +123,9 @@ func GetDeviceConnection(ctx context.Context, r client.Reader, obj *v1alpha1.Dev
 }
 
 // NewGrpcClient creates a new gRPC client connection to a specified device using the provided [Connection].
-func NewGrpcClient(ctx context.Context, conn *Connection) (*grpc.ClientConn, error) {
+// The connection will use TLS if the [Connection.TLS] field is set, otherwise it will use an insecure connection.
+// If the [Connection.Username] and [Connection.Password] fields are set, basic authentication in the form of metadata will be used.
+func NewGrpcClient(ctx context.Context, conn *Connection, o ...Option) (*grpc.ClientConn, error) {
 	creds := insecure.NewCredentials()
 	if conn.TLS != nil {
 		creds = credentials.NewTLS(conn.TLS)
@@ -136,7 +139,28 @@ func NewGrpcClient(ctx context.Context, conn *Connection) (*grpc.ClientConn, err
 		}))
 	}
 
+	for _, opt := range o {
+		dialOpt, err := opt()
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts, dialOpt)
+	}
+
 	return grpc.NewClient(conn.Address, opts...)
+}
+
+type Option func() (grpc.DialOption, error)
+
+// WithDefaultTimeout returns a gRPC dial option that sets a default timeout for each RPC.
+// If a deadline is already present in the context, it will not be modified.
+func WithDefaultTimeout(timeout time.Duration) Option {
+	return func() (grpc.DialOption, error) {
+		if timeout <= 0 {
+			return nil, errors.New("timeout must be greater than zero")
+		}
+		return grpc.WithUnaryInterceptor(UnaryDefaultTimeoutInterceptor(timeout)), nil
+	}
 }
 
 type auth struct {
@@ -154,3 +178,18 @@ func (a *auth) GetRequestMetadata(_ context.Context, _ ...string) (map[string]st
 }
 
 func (a *auth) RequireTransportSecurity() bool { return true }
+
+// UnaryDefaultTimeoutInterceptor returns a gRPC unary client interceptor that sets a default timeout
+// for each RPC. If a deadline is already present , it will not be modified.
+func UnaryDefaultTimeoutInterceptor(timeout time.Duration) grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		if _, ok := ctx.Deadline(); ok {
+			return invoker(ctx, method, req, reply, cc, opts...)
+		}
+
+		ctx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
+}

@@ -29,7 +29,7 @@ spec:
     - jsonPath: .spec.mtu
       name: MTU
       type: string
-    - jsonPath: .spec.deviceName
+    - jsonPath: .spec.deviceRef.name
       name: Device
       type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
