@@ -79,6 +79,7 @@ linters:
         path: internal/provider/cisco/nxos/vrf
       - linters:
           - lll
+          - goconst
         path: internal/provider/cisco/nxos
       - linters:
           - lll
