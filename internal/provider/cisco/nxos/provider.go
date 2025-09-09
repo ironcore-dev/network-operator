@@ -24,6 +24,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/crypto"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/dns"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/iface"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/logging"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/ntp"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/snmp"
@@ -34,6 +35,7 @@ import (
 
 var (
 	_ provider.Provider                 = &Provider{}
+	_ provider.InterfaceProvider        = &Provider{}
 	_ provider.BannerProvider           = &Provider{}
 	_ provider.UserProvider             = &Provider{}
 	_ provider.DNSProvider              = &Provider{}
@@ -69,6 +71,109 @@ func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (er
 
 func (p *Provider) Disconnect(_ context.Context, _ *deviceutil.Connection) error {
 	return p.conn.Close()
+}
+
+func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) (provider.Result, error) {
+	switch req.Interface.Spec.Type {
+	case v1alpha1.InterfaceTypePhysical:
+		var opts []iface.PhysIfOption
+		opts = append(opts, iface.WithPhysIfAdminState(req.Interface.Spec.AdminState == v1alpha1.AdminStateUp))
+		if req.Interface.Spec.Description != "" {
+			opts = append(opts, iface.WithDescription(req.Interface.Spec.Description))
+		}
+		if req.Interface.Spec.MTU > 0 {
+			opts = append(opts, iface.WithPhysIfMTU(uint32(req.Interface.Spec.MTU))) // #nosec
+		}
+		if req.Interface.Spec.Switchport != nil {
+			var l2opts []iface.L2Option
+			switch req.Interface.Spec.Switchport.Mode {
+			case v1alpha1.SwitchportModeAccess:
+				l2opts = append(l2opts, iface.WithAccessVlan(uint16(req.Interface.Spec.Switchport.AccessVlan))) // #nosec
+			case v1alpha1.SwitchportModeTrunk:
+				l2opts = append(l2opts, iface.WithNativeVlan(uint16(req.Interface.Spec.Switchport.NativeVlan))) // #nosec
+				vlans := make([]uint16, 0, len(req.Interface.Spec.Switchport.AllowedVlans))
+				for _, v := range req.Interface.Spec.Switchport.AllowedVlans {
+					vlans = append(vlans, uint16(v)) // #nosec
+				}
+				l2opts = append(l2opts, iface.WithAllowedVlans(vlans))
+			default:
+				return provider.Result{}, fmt.Errorf("invalid switchport mode: %s", req.Interface.Spec.Switchport.Mode)
+			}
+			cfg, err := iface.NewL2Config(l2opts...)
+			if err != nil {
+				return provider.Result{}, err
+			}
+			opts = append(opts, iface.WithPhysIfL2(cfg))
+		}
+		if len(req.Interface.Spec.IPv4Addresses) > 0 {
+			var l3opts []iface.L3Option
+			switch {
+			case len(req.Interface.Spec.IPv4Addresses[0]) >= 10 && req.Interface.Spec.IPv4Addresses[0][:10] == "unnumbered":
+				l3opts = append(l3opts, iface.WithMedium(iface.L3MediumTypeP2P))
+				l3opts = append(l3opts, iface.WithUnnumberedAddressing(req.Interface.Spec.IPv4Addresses[0][11:])) // Extract the source interface name
+			default:
+				l3opts = append(l3opts, iface.WithNumberedAddressingIPv4(req.Interface.Spec.IPv4Addresses))
+			}
+			// FIXME: don't hardcode P2P
+			l3opts = append(l3opts, iface.WithMedium(iface.L3MediumTypeP2P))
+			cfg, err := iface.NewL3Config(l3opts...)
+			if err != nil {
+				return provider.Result{}, err
+			}
+			opts = append(opts, iface.WithPhysIfL3(cfg))
+		}
+		i, err := iface.NewPhysicalInterface(req.Interface.Spec.Name, opts...)
+		if err != nil {
+			return provider.Result{}, err
+		}
+		return provider.Result{}, p.client.Update(ctx, i)
+	case v1alpha1.InterfaceTypeLoopback:
+		var opts []iface.LoopbackOption
+		opts = append(opts, iface.WithLoopbackAdminState(req.Interface.Spec.AdminState == v1alpha1.AdminStateUp))
+		if len(req.Interface.Spec.IPv4Addresses) > 0 {
+			var l3opts []iface.L3Option
+			switch {
+			case len(req.Interface.Spec.IPv4Addresses[0]) >= 10 && req.Interface.Spec.IPv4Addresses[0][:10] == "unnumbered":
+				l3opts = append(l3opts, iface.WithUnnumberedAddressing(req.Interface.Spec.IPv4Addresses[0][11:])) // Extract the source interface name
+			default:
+				l3opts = append(l3opts, iface.WithNumberedAddressingIPv4(req.Interface.Spec.IPv4Addresses))
+			}
+			cfg, err := iface.NewL3Config(l3opts...)
+			if err != nil {
+				return provider.Result{}, err
+			}
+			opts = append(opts, iface.WithLoopbackL3(cfg))
+		}
+		var desc *string
+		if req.Interface.Spec.Description != "" {
+			desc = &req.Interface.Spec.Description
+		}
+		i, err := iface.NewLoopbackInterface(req.Interface.Spec.Name, desc, opts...)
+		if err != nil {
+			return provider.Result{}, err
+		}
+		return provider.Result{}, p.client.Update(ctx, i)
+	}
+	return provider.Result{}, fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
+}
+
+func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceRequest) error {
+	switch req.Interface.Spec.Type {
+	case v1alpha1.InterfaceTypePhysical:
+		i, err := iface.NewPhysicalInterface(req.Interface.Spec.Name)
+		if err != nil {
+			return err
+		}
+		return p.client.Reset(ctx, i)
+	case v1alpha1.InterfaceTypeLoopback:
+		// FIXME: Description should no be a required field in the constructor
+		i, err := iface.NewLoopbackInterface(req.Interface.Spec.Name, nil)
+		if err != nil {
+			return err
+		}
+		return p.client.Reset(ctx, i)
+	}
+	return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
 }
 
 func (p *Provider) EnsureBanner(ctx context.Context, req *provider.BannerRequest) (provider.Result, error) {
