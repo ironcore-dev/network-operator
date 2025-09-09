@@ -441,6 +441,50 @@ func Test_Get_Encoding(t *testing.T) {
 	}
 }
 
+func Test_Get_IgnoreExtraFields(t *testing.T) {
+	cc := &GNMIClientMock{
+		GetFunc: func(_ context.Context, in *gpb.GetRequest, _ ...grpc.CallOption) (*gpb.GetResponse, error) {
+			if in.Type != gpb.GetRequest_CONFIG {
+				t.Fatalf("unexpected type: %v", in.Type)
+			}
+			if in.Encoding != gpb.Encoding_JSON {
+				t.Fatalf("unexpected encoding: %v", in.Encoding)
+			}
+			return &gpb.GetResponse{
+				Notification: []*gpb.Notification{
+					{
+						Update: []*gpb.Update{
+							{
+								Path: &gpb.Path{Elem: []*gpb.PathElem{
+									{Name: "System"},
+									{Name: "time-items"},
+									{Name: "srcIf-items"},
+								}},
+								Val: &gpb.TypedValue{
+									Value: &gpb.TypedValue_JsonVal{
+										JsonVal: []byte(`{"srcIf":"mgmt0","extraField":"should be ignored"}`),
+									},
+								},
+							},
+						},
+					},
+				},
+			}, nil
+		},
+	}
+
+	var got nxos.Cisco_NX_OSDevice_System_TimeItems_SrcIfItems
+	if err := (&client{c: cc}).Get(t.Context(), "System/time-items/srcIf-items", &got); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.SrcIf == nil {
+		t.Fatal("unexpected nil srcIf")
+	}
+	if *got.SrcIf != "mgmt0" {
+		t.Fatalf("unexpected srcIf: got '%v', want 'mgmt0'", *got.SrcIf)
+	}
+}
+
 func Test_Set(t *testing.T) {
 	cc := &GNMIClientMock{
 		SetFunc: func(ctx context.Context, in *gpb.SetRequest, opts ...grpc.CallOption) (*gpb.SetResponse, error) {

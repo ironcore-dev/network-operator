@@ -17,6 +17,7 @@ import (
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ygot/util"
 	"github.com/openconfig/ygot/ygot"
+	"github.com/openconfig/ygot/ytypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -289,7 +290,7 @@ func (c *client) Get(ctx context.Context, xpath string, dest ygot.GoStruct) erro
 					v.JsonVal = v.JsonVal[1 : len(v.JsonVal)-1]
 				}
 
-				return nxos.Unmarshal(v.JsonVal, dest)
+				return nxos.Unmarshal(v.JsonVal, dest, &ytypes.IgnoreExtraFields{})
 			}
 		}
 	}
