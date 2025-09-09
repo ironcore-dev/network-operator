@@ -42,6 +42,8 @@ const DeviceLabel = "networking.cloud.sap/device-name"
 // DeviceKind represents the Kind of Device.
 const DeviceKind = "Device"
 
+const DeviceSerialLabel = "networking.cloud.sap/device-serial"
+
 // Condition types that are used across different objects.
 const (
 	// Ready is the top-level status condition that reports if an object is ready.

@@ -271,6 +271,7 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 		Message:            "All owned resources are ready",
 		ObservedGeneration: device.Generation,
 	})
+
 	return nil
 }
 

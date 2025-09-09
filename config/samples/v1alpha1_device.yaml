@@ -7,6 +7,7 @@ metadata:
     networking.cloud.sap/role: leaf
     networking.cloud.sap/site: test
     networking.cloud.sap/rack: lab
+    networking.cloud.sap/device-serial: abcde1
   name: leaf1
 spec:
   endpoint:
@@ -14,22 +15,32 @@ spec:
     secretRef:
       name: secret-basic-auth
   bootstrap:
-    # The bootstrap configuration can also be defined in a ConfigMap or Secret as follows:
-    # template:
-    #   secretRef:
-    #     name: leaf1-bootstrap
-    #     key: setup.cfg
-    # --- or ---
-    # template:
-    #   configMapRef:
-    #     name: leaf1-bootstrap
-    #     key: setup.cfg
-    # --- or ---
     template:
       inline: |
-        hostname leaf1
-        feature grpc
-        grpc port 9339
+        {
+          "image": {
+              "version": "10.4(4)",
+              "url": "https://repo.eu-de-1.cloud.sap/hw-firmware/cisco/nexus9k/nxos64-cs.10.4.4.F.bin",
+              "md5sum": "366ef574de8899b7179e75dc6856492f"
+          },
+          "config": {
+              "lines": [
+                  "feature grpc",
+                  "grpc port 50051",
+                  "no password strength-check",
+                  "username seb password 8 $nx-pbkdf2$qLhZSB/e2dZyGU$V1e1xatLlM7qMKb40ZcSMOIU4lMksBX2GLvY6jBGQCU  role network-admin",
+                  "username admin password 5 $5$FKAICE$j6flrdKoxirJ.4CCrx/Pl6M6W/zhc0MCkneXH1vFNr9  role network-admin",
+                  "vrf context management",
+                  "  ip domain-name switch.cloud.sap",
+                  "  ip name-server 147.204.9.201",
+                  "  ip route 0.0.0.0/0 10.114.235.1",
+                  "interface mgmt0",
+                  "  vrf member management",
+                  "  ip address 192.168.5.2/24"
+              ]
+          }
+        }
+
 ---
 apiVersion: v1
 kind: Secret

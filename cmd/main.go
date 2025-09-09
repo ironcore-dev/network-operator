@@ -39,6 +39,7 @@ import (
 	_ "github.com/ironcore-dev/network-operator/internal/provider/openconfig"
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/bootstrap"
 	"github.com/ironcore-dev/network-operator/internal/controller"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	// +kubebuilder:scaffold:imports
@@ -69,6 +70,8 @@ func main() {
 	var tlsOpts []func(*tls.Config)
 	var watchFilterValue string
 	var providerName string
+	var bootstrapHTTPPort int
+	var bootstrapHTTPValidateSourceIP bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
@@ -82,6 +85,8 @@ func main() {
 	flag.BoolVar(&enableHTTP2, "enable-http2", false, "If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.StringVar(&watchFilterValue, "watch-filter", "", fmt.Sprintf("Label value that the controller watches to reconcile api objects. Label key is always %q. If unspecified, the controller watches for all api objects.", v1alpha1.WatchLabel))
 	flag.StringVar(&providerName, "provider", "openconfig", "The provider to use for the controller. If not specified, the default provider is used. Available providers: "+strings.Join(provider.Providers(), ", "))
+	flag.IntVar(&bootstrapHTTPPort, "bootstrap-http-port", 8080, "The port on which the bootstrap HTTP server listens.")
+	flag.BoolVar(&bootstrapHTTPValidateSourceIP, "bootstrap-http-validate-source-ip", false, "If set, the bootstrap HTTP server will validate the source IP of incoming requests against the DeviceIPLabel of Device resources.")
 	opts := zap.Options{
 		Development: true,
 		TimeEncoder: zapcore.ISO8601TimeEncoder,
@@ -336,6 +341,20 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "ISIS")
 		os.Exit(1)
 	}
+
+	ctx := ctrl.SetupSignalHandler()
+
+	if bootstrapHTTPPort != 0 {
+		bootstrapServer := bootstrap.NewHTTPServer(mgr.GetClient(), bootstrapHTTPPort, bootstrapHTTPValidateSourceIP)
+		setupLog.Info("Starting bootstrap HTTP server", "port", bootstrapHTTPPort, "validateSourceIP", bootstrapHTTPValidateSourceIP)
+		go func() {
+			if err := bootstrapServer.Start(ctx); err != nil {
+				setupLog.Error(err, "bootstrap HTTP server failed")
+				os.Exit(1)
+			}
+		}()
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {
@@ -364,7 +383,7 @@ func main() {
 	}
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
