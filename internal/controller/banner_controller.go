@@ -253,6 +253,9 @@ func (r *BannerReconciler) reconcile(ctx context.Context, s *bannerScope) (_ ctr
 		Message:        string(msg),
 		ProviderConfig: s.ProviderConfig,
 	})
+	for _, c := range res.Conditions {
+		meta.SetStatusCondition(&s.Banner.Status.Conditions, c)
+	}
 	if err != nil {
 		return ctrl.Result{}, err
 	}

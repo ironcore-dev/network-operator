@@ -229,6 +229,9 @@ func (r *SNMPReconciler) reconcile(ctx context.Context, s *snmpScope) (_ ctrl.Re
 		SNMP:           s.SNMP,
 		ProviderConfig: s.ProviderConfig,
 	})
+	for _, c := range res.Conditions {
+		meta.SetStatusCondition(&s.SNMP.Status.Conditions, c)
+	}
 	if err != nil {
 		return ctrl.Result{}, err
 	}

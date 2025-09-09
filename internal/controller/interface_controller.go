@@ -229,6 +229,9 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		Interface:      s.Interface,
 		ProviderConfig: s.ProviderConfig,
 	})
+	for _, c := range res.Conditions {
+		meta.SetStatusCondition(&s.Interface.Status.Conditions, c)
+	}
 	if err != nil {
 		return ctrl.Result{}, err
 	}

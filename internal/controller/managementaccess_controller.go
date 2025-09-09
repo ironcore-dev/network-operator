@@ -229,6 +229,9 @@ func (r *ManagementAccessReconciler) reconcile(ctx context.Context, s *managemen
 		ManagementAccess: s.ManagementAccess,
 		ProviderConfig:   s.ProviderConfig,
 	})
+	for _, c := range res.Conditions {
+		meta.SetStatusCondition(&s.ManagementAccess.Status.Conditions, c)
+	}
 	if err != nil {
 		return ctrl.Result{}, err
 	}

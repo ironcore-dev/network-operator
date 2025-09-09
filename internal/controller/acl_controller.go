@@ -241,6 +241,9 @@ func (r *AccessControlListReconciler) reconcile(ctx context.Context, s *aclScope
 		ACL:            s.ACL,
 		ProviderConfig: s.ProviderConfig,
 	})
+	for _, c := range res.Conditions {
+		meta.SetStatusCondition(&s.ACL.Status.Conditions, c)
+	}
 	if err != nil {
 		return ctrl.Result{}, err
 	}
