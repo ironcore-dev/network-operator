@@ -229,6 +229,9 @@ func (r *SyslogReconciler) reconcile(ctx context.Context, s *syslogScope) (_ ctr
 		Syslog:         s.Syslog,
 		ProviderConfig: s.ProviderConfig,
 	})
+	for _, c := range res.Conditions {
+		meta.SetStatusCondition(&s.Syslog.Status.Conditions, c)
+	}
 	if err != nil {
 		return ctrl.Result{}, err
 	}

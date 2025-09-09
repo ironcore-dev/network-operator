@@ -247,6 +247,9 @@ func (r *CertificateReconciler) reconcile(ctx context.Context, s *certificateSco
 		Certificate:    cert,
 		ProviderConfig: s.ProviderConfig,
 	})
+	for _, c := range res.Conditions {
+		meta.SetStatusCondition(&s.Certificate.Status.Conditions, c)
+	}
 	if err != nil {
 		return ctrl.Result{}, err
 	}

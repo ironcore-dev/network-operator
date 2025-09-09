@@ -229,6 +229,9 @@ func (r *DNSReconciler) reconcile(ctx context.Context, s *dnsScope) (_ ctrl.Resu
 		DNS:            s.DNS,
 		ProviderConfig: s.ProviderConfig,
 	})
+	for _, c := range res.Conditions {
+		meta.SetStatusCondition(&s.DNS.Status.Conditions, c)
+	}
 	if err != nil {
 		return ctrl.Result{}, err
 	}

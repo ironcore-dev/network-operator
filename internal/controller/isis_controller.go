@@ -245,6 +245,9 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (_ ctrl.Re
 		Interfaces:     interfaces,
 		ProviderConfig: s.ProviderConfig,
 	})
+	for _, c := range res.Conditions {
+		meta.SetStatusCondition(&s.ISIS.Status.Conditions, c)
+	}
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -270,5 +273,8 @@ func (r *ISISReconciler) finalize(ctx context.Context, s *isisScope) (reterr err
 		}
 	}()
 
-	return s.Provider.DeleteISIS(ctx)
+	return s.Provider.DeleteISIS(ctx, &provider.DeleteISISRequest{
+		ISIS:           s.ISIS,
+		ProviderConfig: s.ProviderConfig,
+	})
 }

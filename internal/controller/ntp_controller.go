@@ -229,6 +229,9 @@ func (r *NTPReconciler) reconcile(ctx context.Context, s *ntpScope) (_ ctrl.Resu
 		NTP:            s.NTP,
 		ProviderConfig: s.ProviderConfig,
 	})
+	for _, c := range res.Conditions {
+		meta.SetStatusCondition(&s.NTP.Status.Conditions, c)
+	}
 	if err != nil {
 		return ctrl.Result{}, err
 	}

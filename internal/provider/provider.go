@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,6 +30,10 @@ type Result struct {
 	// RequeueAfter if greater than 0, indicates that the caller should retry the request after the specified duration.
 	// This is useful for situations where the operation is pending and needs to be retried later.
 	RequeueAfter time.Duration
+
+	// Conditions contains the conditions that should be applied to the resource's status.
+	// The caller is responsible for merging these conditions with any existing conditions on the resource.
+	Conditions []metav1.Condition
 }
 
 // InterfaceProvider is the interface for the realization of the Interface objects over different providers.

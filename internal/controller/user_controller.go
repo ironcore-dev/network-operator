@@ -264,6 +264,9 @@ func (r *UserReconciler) reconcile(ctx context.Context, s *userScope) (_ ctrl.Re
 		SSHKey:         sshKey,
 		ProviderConfig: s.ProviderConfig,
 	})
+	for _, c := range res.Conditions {
+		meta.SetStatusCondition(&s.User.Status.Conditions, c)
+	}
 	if err != nil {
 		return ctrl.Result{}, err
 	}
