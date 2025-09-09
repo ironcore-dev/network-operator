@@ -8,10 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/go-logr/logr"
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"google.golang.org/grpc"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
@@ -128,7 +130,28 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 		if err != nil {
 			return provider.Result{}, err
 		}
-		return provider.Result{}, p.client.Update(ctx, i)
+		if err := p.client.Update(ctx, i); err != nil {
+			return provider.Result{}, err
+		}
+		s, err := i.GetStatus(ctx, p.client)
+		if err != nil {
+			return provider.Result{}, err
+		}
+		status := metav1.ConditionFalse
+		if s.OperSt == "up" {
+			status = metav1.ConditionTrue
+		}
+		return provider.Result{
+			RequeueAfter: time.Second * 30,
+			Conditions: []metav1.Condition{
+				{
+					Type:    "Operational",
+					Status:  status,
+					Reason:  "OperationalStatus",
+					Message: fmt.Sprintf("Interface is %s (admin: %s)", s.OperSt, req.Interface.Spec.AdminState),
+				},
+			},
+		}, p.client.Update(ctx, i)
 	case v1alpha1.InterfaceTypeLoopback:
 		var opts []iface.LoopbackOption
 		opts = append(opts, iface.WithLoopbackAdminState(req.Interface.Spec.AdminState == v1alpha1.AdminStateUp))

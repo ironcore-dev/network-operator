@@ -605,7 +605,7 @@ func TestBGPPeer_ToYGOT_MissingBGPInstance(t *testing.T) {
 	}
 
 	client := &gnmiext.ClientMock{
-		GetFunc: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+		GetFunc: func(ctx context.Context, xpath string, dest ygot.GoStruct, opts ...gnmiext.GetOption) error {
 			return gnmiext.ErrNil
 		},
 	}
@@ -628,7 +628,7 @@ func TestBGPPeer_ToYGOT_GetError(t *testing.T) {
 
 	expectedErr := errors.New("get error")
 	client := &gnmiext.ClientMock{
-		GetFunc: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+		GetFunc: func(ctx context.Context, xpath string, dest ygot.GoStruct, opts ...gnmiext.GetOption) error {
 			return expectedErr
 		},
 	}
@@ -650,7 +650,7 @@ func TestBGPPeer_ToYGOT_Success(t *testing.T) {
 	}
 
 	client := &gnmiext.ClientMock{
-		GetFunc: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+		GetFunc: func(ctx context.Context, xpath string, dest ygot.GoStruct, opts ...gnmiext.GetOption) error {
 			if xpath != "System/bgp-items/inst-items" {
 				t.Errorf("BGPPeer.ToYGOT() unexpected xpath = %v", xpath)
 			}

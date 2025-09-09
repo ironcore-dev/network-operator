@@ -94,7 +94,7 @@ func TestSNMP_ToYGOT(t *testing.T) {
 	tests := []struct {
 		name            string
 		snmp            *SNMP
-		mockGet         func(ctx context.Context, xpath string, dest ygot.GoStruct) error
+		mockGet         func(ctx context.Context, xpath string, dest ygot.GoStruct, opts ...gnmiext.GetOption) error
 		wantErr         bool
 		wantUpdateCount int
 		wantContact     string
@@ -125,7 +125,7 @@ func TestSNMP_ToYGOT(t *testing.T) {
 				},
 				Traps: []string{},
 			},
-			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct, opts ...gnmiext.GetOption) error {
 				if res, ok := dest.(*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems); ok {
 					res.LocalUserList = make(map[string]*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList)
 					res.LocalUserList["admin"] = &nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList{}
@@ -155,7 +155,7 @@ func TestSNMP_ToYGOT(t *testing.T) {
 					},
 				},
 			},
-			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct, opts ...gnmiext.GetOption) error {
 				if res, ok := dest.(*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems); ok {
 					res.LocalUserList = make(map[string]*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList)
 				}
@@ -177,7 +177,7 @@ func TestSNMP_ToYGOT(t *testing.T) {
 					},
 				},
 			},
-			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct, opts ...gnmiext.GetOption) error {
 				if res, ok := dest.(*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems); ok {
 					res.LocalUserList = make(map[string]*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList)
 				}
@@ -190,7 +190,7 @@ func TestSNMP_ToYGOT(t *testing.T) {
 			snmp: &SNMP{
 				Traps: []string{"invalid-trap-name"},
 			},
-			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct, opts ...gnmiext.GetOption) error {
 				if res, ok := dest.(*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems); ok {
 					res.LocalUserList = make(map[string]*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList)
 				}
@@ -211,7 +211,7 @@ func TestSNMP_ToYGOT(t *testing.T) {
 					},
 				},
 			},
-			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct, opts ...gnmiext.GetOption) error {
 				if res, ok := dest.(*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems); ok {
 					res.LocalUserList = make(map[string]*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList)
 				}
@@ -223,7 +223,7 @@ func TestSNMP_ToYGOT(t *testing.T) {
 		{
 			name: "empty configuration",
 			snmp: &SNMP{},
-			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct, opts ...gnmiext.GetOption) error {
 				if res, ok := dest.(*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems); ok {
 					res.LocalUserList = make(map[string]*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList)
 				}
@@ -239,7 +239,7 @@ func TestSNMP_ToYGOT(t *testing.T) {
 				Location: "", // Empty location should use DME_UNSET_PROPERTY_MARKER
 				SrcIf:    "", // Empty source interface should use DME_UNSET_PROPERTY_MARKER
 			},
-			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct, opts ...gnmiext.GetOption) error {
 				if res, ok := dest.(*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems); ok {
 					res.LocalUserList = make(map[string]*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList)
 				}
@@ -268,7 +268,7 @@ func TestSNMP_ToYGOT(t *testing.T) {
 					},
 				},
 			},
-			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+			mockGet: func(ctx context.Context, xpath string, dest ygot.GoStruct, opts ...gnmiext.GetOption) error {
 				if res, ok := dest.(*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems); ok {
 					res.LocalUserList = make(map[string]*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList)
 				}
@@ -329,7 +329,7 @@ func TestSNMP_ToYGOT(t *testing.T) {
 
 func TestSNMP_Reset(t *testing.T) {
 	mockClient := &gnmiext.ClientMock{
-		GetFunc: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+		GetFunc: func(ctx context.Context, xpath string, dest ygot.GoStruct, opts ...gnmiext.GetOption) error {
 			if res, ok := dest.(*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems); ok {
 				res.LocalUserList = make(map[string]*nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList)
 				res.LocalUserList["admin"] = &nxos.Cisco_NX_OSDevice_System_SnmpItems_InstItems_LclUserItems_LocalUserList{}

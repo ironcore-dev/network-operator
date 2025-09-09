@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ygot/ygot"
 
 	nxos "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/genyang"
@@ -259,6 +260,24 @@ func (p *PhysIf) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, e
 		},
 	}, nil
 }
+
+func (p *PhysIf) GetStatus(ctx context.Context, c gnmiext.Client) (*PhysIfState, error) {
+	var s PhysIfState
+	err := c.Get(ctx, "System/intf-items/phys-items/PhysIf-list[id="+p.name+"]/phys-items", &s, gnmiext.WithType(gpb.GetRequest_STATE), gnmiext.WithStdJSONUnmarshal())
+	if err != nil {
+		return nil, fmt.Errorf("physif: failed to get status for interface %q: %w", p.name, err)
+	}
+	return &s, nil
+}
+
+var _ ygot.GoStruct = (*PhysIfState)(nil)
+
+type PhysIfState struct {
+	OperSt    string `json:"operSt"`
+	OperSpeed string `json:"operSpeed"`
+}
+
+func (s *PhysIfState) IsYANGGoStruct() {}
 
 // Range provides a string representation of identifiers (typically VLAN IDs) that formats the range in a human-readable way.
 // Consecutive IDs are represented as a range (e.g., "10-12"), while single IDs are shown individually (e.g., "15").
