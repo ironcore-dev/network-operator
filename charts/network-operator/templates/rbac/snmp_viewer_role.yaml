@@ -11,12 +11,12 @@ kind: ClusterRole
 metadata:
   labels:
     {{- include "chart.labels" . | nindent 4 }}
-  name: interface-viewer-role
+  name: snmp-viewer-role
 rules:
 - apiGroups:
   - networking.cloud.sap
   resources:
-  - interfaces
+  - snmp
   verbs:
   - get
   - list
@@ -24,7 +24,7 @@ rules:
 - apiGroups:
   - networking.cloud.sap
   resources:
-  - interfaces/status
+  - snmp/status
   verbs:
   - get
 {{- end -}}

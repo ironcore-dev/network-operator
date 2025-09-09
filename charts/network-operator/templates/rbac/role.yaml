@@ -11,7 +11,6 @@ rules:
   - ""
   resources:
   - configmaps
-  - secrets
   verbs:
   - get
   - list
@@ -24,10 +23,29 @@ rules:
   - create
   - patch
 - apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
   - networking.cloud.sap
   resources:
+  - accesscontrollists
+  - banners
+  - certificates
   - devices
+  - dns
   - interfaces
+  - isis
+  - managementaccesses
+  - ntp
+  - snmp
+  - syslogs
+  - users
   verbs:
   - create
   - delete
@@ -39,15 +57,35 @@ rules:
 - apiGroups:
   - networking.cloud.sap
   resources:
+  - accesscontrollists/finalizers
+  - banners/finalizers
+  - certificates/finalizers
   - devices/finalizers
+  - dns/finalizers
   - interfaces/finalizers
+  - isis/finalizers
+  - managementaccesses/finalizers
+  - ntp/finalizers
+  - snmp/finalizers
+  - syslogs/finalizers
+  - users/finalizers
   verbs:
   - update
 - apiGroups:
   - networking.cloud.sap
   resources:
+  - accesscontrollists/status
+  - banners/status
+  - certificates/status
   - devices/status
+  - dns/status
   - interfaces/status
+  - isis/status
+  - managementaccesses/status
+  - ntp/status
+  - snmp/status
+  - syslogs/status
+  - users/status
   verbs:
   - get
   - patch

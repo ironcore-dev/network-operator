@@ -10,31 +10,17 @@ metadata:
     "helm.sh/resource-policy": keep
     {{- end }}
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: interfaces.networking.cloud.sap
+  name: users.networking.cloud.sap
 spec:
   group: networking.cloud.sap
   names:
-    kind: Interface
-    listKind: InterfaceList
-    plural: interfaces
-    shortNames:
-    - int
-    singular: interface
+    kind: User
+    listKind: UserList
+    plural: users
+    singular: user
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.name
-      name: Interface
-      type: string
-    - jsonPath: .spec.adminState
-      name: Admin State
-      type: string
-    - jsonPath: .spec.description
-      name: Description
-      type: string
-    - jsonPath: .spec.mtu
-      name: MTU
-      type: string
     - jsonPath: .spec.deviceName
       name: Device
       type: string
@@ -47,7 +33,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Interface is the Schema for the interfaces API.
+        description: User is the Schema for the users API
         properties:
           apiVersion:
             description: |-
@@ -71,18 +57,6 @@ spec:
               Specification of the desired state of the resource.
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
             properties:
-              adminState:
-                description: AdminState indicates whether the interface is administratively
-                  up or down.
-                enum:
-                - Up
-                - Down
-                type: string
-              description:
-                description: Description provides a human-readable description of
-                  the interface.
-                maxLength: 255
-                type: string
               deviceName:
                 description: |-
                   DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
@@ -90,26 +64,36 @@ spec:
                 maxLength: 63
                 minLength: 1
                 type: string
-              ipv4Addresses:
-                description: |-
-                  Ipv4Addresses is the list of IPv4 addresses assigned to the interface.
-                  Each address should be given either in CIDR notation (e.g., "10.0.0.1/32")
-                  or as interface reference in the form of "unnumbered:<source-interface>" (e.g., "unnumbered:lo0").
-                items:
-                  pattern: ^(?:(?:\d{1,3}\.){3}\d{1,3}\/\d{1,2}?|unnumbered:[\w-]+)$
-                  type: string
-                type: array
-              mtu:
-                description: MTU (Maximum Transmission Unit) specifies the size of
-                  the largest packet that can be sent over the interface.
-                format: int32
-                maximum: 9216
-                minimum: 576
-                type: integer
-              name:
-                description: Name is the name of the interface.
-                maxLength: 255
-                type: string
+              password:
+                description: The user password, supplied in cleartext.
+                properties:
+                  secretKeyRef:
+                    description: Selects a key of a secret.
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                required:
+                - secretKeyRef
+                type: object
               providerConfigRef:
                 description: |-
                   ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
@@ -144,72 +128,65 @@ spec:
                 - kind
                 - name
                 type: object
-              switchport:
-                description: |-
-                  Switchport defines the switchport configuration for the interface.
-                  This is only applicable for interfaces that are switchports (e.g., Ethernet interfaces).
+              roles:
+                description: Role which the user is to be assigned to.
+                items:
+                  description: UserRole represents a role that can be assigned to
+                    a user.
+                  properties:
+                    name:
+                      description: The name of the role.
+                      maxLength: 255
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  type: object
+                minItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              sshPublicKey:
+                description: SSH public key for this user.
                 properties:
-                  accessVlan:
-                    description: |-
-                      AccessVlan specifies the VLAN ID for access mode switchports.
-                      Only applicable when Mode is set to "Access".
-                    format: int32
-                    maximum: 4094
-                    minimum: 1
-                    type: integer
-                  allowedVlans:
-                    description: |-
-                      AllowedVlans is a list of VLAN IDs that are allowed on the trunk port.
-                      Only applicable when Mode is set to "Trunk".
-                    items:
-                      format: int32
-                      maximum: 4094
-                      minimum: 1
-                      type: integer
-                    minItems: 1
-                    type: array
-                  mode:
-                    description: Mode defines the switchport mode, such as access
-                      or trunk.
-                    enum:
-                    - Access
-                    - Trunk
-                    type: string
-                  nativeVlan:
-                    description: |-
-                      NativeVlan specifies the native VLAN ID for trunk mode switchports.
-                      Only applicable when Mode is set to "Trunk".
-                    format: int32
-                    maximum: 4094
-                    minimum: 1
-                    type: integer
+                  secretKeyRef:
+                    description: Selects a key of a secret.
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
                 required:
-                - mode
+                - secretKeyRef
                 type: object
-                x-kubernetes-validations:
-                - message: accessVlan must be specified when mode is Access
-                  rule: self.mode != 'Access' || has(self.accessVlan)
-                - message: nativeVlan must be specified when mode is Trunk
-                  rule: self.mode != 'Trunk' || has(self.nativeVlan)
-                - message: allowedVlans must be specified when mode is Trunk
-                  rule: self.mode != 'Trunk' || has(self.allowedVlans)
-              type:
-                description: Type indicates the type of the interface.
-                enum:
-                - Physical
-                - Loopback
+              username:
+                description: Assigned username for this user.
+                minLength: 1
                 type: string
             required:
-            - adminState
             - deviceName
-            - name
-            - type
+            - password
+            - roles
+            - username
             type: object
-            x-kubernetes-validations:
-            - message: switchport and ipv4Addresses are mutually exclusive
-              rule: '!has(self.switchport) || !has(self.ipv4Addresses)'
-            - message: switchport must not be specified for interfaces of type Loopback
-              rule: self.type != 'Loopback' || !has(self.switchport)
           status:
             description: |-
               Status of the resource. This is set and updated automatically.
@@ -218,7 +195,7 @@ spec:
             properties:
               conditions:
                 description: The conditions are a list of status objects that describe
-                  the state of the Interface.
+                  the state of the User.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -278,6 +255,8 @@ spec:
                 - type
                 x-kubernetes-list-type: map
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true
