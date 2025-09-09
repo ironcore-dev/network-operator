@@ -49,7 +49,7 @@ type DeviceReconciler struct {
 // +kubebuilder:rbac:groups=networking.cloud.sap,resources=devices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.cloud.sap,resources=devices/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
-// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;update;list;watch
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;update;list;watchx
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -271,6 +271,7 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 		Message:            "All owned resources are ready",
 		ObservedGeneration: device.Generation,
 	})
+
 	return nil
 }
 
