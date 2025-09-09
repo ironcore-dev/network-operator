@@ -1,0 +1,30 @@
+apiVersion: networking.cloud.sap/v1alpha1
+kind: ISIS
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.cloud.sap/device-name: leaf1
+  name: underlay
+spec:
+  deviceName: leaf1
+  instance: UNDERLAY
+  networkEntityTitle: 49.0001.0000.0000.0010.00
+  type: Level1
+  overloadBit: OnStartup
+  addressFamilies:
+    - IPv4Unicast
+    - IPv6Unicast
+  interfaces:
+    - ref:
+        name: eth1-1
+      bfd:
+        enabled: true
+    - ref:
+        name: eth1-2
+      bfd:
+        enabled: true
+    - ref:
+        name: lo0
+    - ref:
+        name: lo1
