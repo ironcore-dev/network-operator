@@ -13,6 +13,8 @@ import (
 
 	"github.com/openconfig/ygot/ygot"
 
+	gpb "github.com/openconfig/gnmi/proto/gnmi"
+
 	nxos "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/genyang"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
 )
@@ -20,6 +22,10 @@ import (
 // PhysIf represents a physical interface on a Cisco Nexus device and implements the gnmiext.DeviceConf interface
 // to enable configuration via the gnmiext package.
 var _ gnmiext.DeviceConf = (*PhysIf)(nil)
+
+type Status struct {
+	OperSt bool // operational state: "up" or "down"
+}
 
 type PhysIf struct {
 	name        string
@@ -124,6 +130,21 @@ func WithPhysIfAdminState(adminSt bool) PhysIfOption {
 	}
 }
 
+func (p *PhysIf) GetStatus(ctx context.Context, c gnmiext.Client) (*Status, error) {
+	dst := &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{}
+	err := c.Get(ctx, "System/intf-items/phys-items/PhysIf-list[id="+p.name+"]", dst, gnmiext.WithType(gpb.GetRequest_STATE))
+	if err != nil {
+		return nil, fmt.Errorf("physif: failed to get status for interface %q: %w", p.name, err)
+	}
+	items := dst.GetPhysItems()
+	if items == nil {
+		return nil, fmt.Errorf("physif: no status found for interface %q", p.name)
+	}
+	return &Status{
+		OperSt: items.OperSt == nxos.Cisco_NX_OSDevice_L1_OperSt_up,
+	}, nil
+}
+
 // ToYGOT returns a slice of updates for the physical interface:
 //   - the first update always replaces the entire base configuration of the physical interface (gnmiext.ReplacingUpdate)
 //   - subsequent updates modify the base configuration to add L2 and L3 configurations, if applicable
@@ -149,7 +170,6 @@ func (p *PhysIf) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, 
 	if p.vrf != "" {
 		pl.GetOrCreateRtvrfMbrItems().TDn = ygot.String("System/inst-items/Inst-list[name=" + p.vrf + "]")
 	}
-
 	// base config must to be in the first update
 	updates := []gnmiext.Update{
 		gnmiext.ReplacingUpdate{

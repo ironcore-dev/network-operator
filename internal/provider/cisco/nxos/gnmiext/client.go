@@ -30,7 +30,7 @@ type GNMIClient = gpb.GNMIClient
 
 type Client interface {
 	Exists(ctx context.Context, xpath string) (bool, error)
-	Get(ctx context.Context, xpath string, dest ygot.GoStruct) error
+	Get(ctx context.Context, xpath string, dest ygot.GoStruct, option ...GetOption) error
 	Set(ctx context.Context, notification *gpb.Notification) error
 	Update(ctx context.Context, config DeviceConf) error
 	Reset(ctx context.Context, config DeviceConf) error
@@ -244,20 +244,32 @@ func (c *client) Exists(ctx context.Context, xpath string) (bool, error) {
 	return false, nil
 }
 
+type GetOption func(*gpb.GetRequest)
+
+func WithType(t gpb.GetRequest_DataType) GetOption {
+	return func(r *gpb.GetRequest) {
+		r.Type = t
+	}
+}
+
 // Get retrieves the configuration for the given XPath and unmarshals it into the given GoStruct.
 //
 // TODO: Retrieve multiple paths in a single request.
-func (c *client) Get(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+func (c *client) Get(ctx context.Context, xpath string, dest ygot.GoStruct, opts ...GetOption) error {
 	path, err := ygot.StringToStructuredPath(xpath)
 	if err != nil {
 		return fmt.Errorf("gnmiext: failed to convert xpath %s to path: %w", xpath, err)
 	}
-
-	res, err := c.c.Get(ctx, &gpb.GetRequest{
+	request := &gpb.GetRequest{
 		Path:     []*gpb.Path{path},
 		Type:     gpb.GetRequest_CONFIG,
 		Encoding: gpb.Encoding_JSON,
-	})
+	}
+	for _, opt := range opts {
+		opt(request)
+	}
+
+	res, err := c.c.Get(ctx, request)
 	if err != nil {
 		return err
 	}

@@ -16,7 +16,6 @@ mkdir genyang
 
 go run github.com/openconfig/ygot/generator@v0.32.0 \
   -structs_split_files_count=50 \
-  -exclude_state \
   -generate_append \
   -generate_getters \
   -generate_simple_unions \
