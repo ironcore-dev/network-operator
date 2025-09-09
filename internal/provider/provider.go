@@ -204,6 +204,32 @@ type EnsureManagementAccessRequest struct {
 	ProviderConfig   *ProviderConfig
 }
 
+// ISISProvider is the interface for the realization of the ISIS objects over different providers.
+type ISISProvider interface {
+	Provider
+
+	// EnsureISIS call is responsible for ISIS realization on the provider.
+	EnsureISIS(context.Context, *EnsureISISRequest) (Result, error)
+	// DeleteISIS call is responsible for ISIS deletion on the provider.
+	DeleteISIS(context.Context, *DeleteISISRequest) error
+}
+
+type EnsureISISRequest struct {
+	ISIS           *v1alpha1.ISIS
+	Interfaces     []ISISInterface
+	ProviderConfig *ProviderConfig
+}
+
+type ISISInterface struct {
+	Interface *v1alpha1.Interface
+	BFD       bool
+}
+
+type DeleteISISRequest struct {
+	ISIS           *v1alpha1.ISIS
+	ProviderConfig *ProviderConfig
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.

@@ -55,3 +55,6 @@ resources:
 - managementaccess_admin_role.yaml
 - managementaccess_editor_role.yaml
 - managementaccess_viewer_role.yaml
+- isis_admin_role.yaml
+- isis_editor_role.yaml
+- isis_viewer_role.yaml
