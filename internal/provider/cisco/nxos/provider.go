@@ -32,6 +32,9 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/term"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/user"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/vlan"
+
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -75,7 +78,10 @@ func (p *Provider) Disconnect(_ context.Context, _ *deviceutil.Connection) error
 	return p.conn.Close()
 }
 
-func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) (provider.Result, error) {
+func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) (res provider.Result, err error) {
+	defer func() {
+		res = WithErrorConditions(ctx, res, err)
+	}()
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
 		var opts []iface.PhysIfOption
@@ -178,7 +184,10 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 	return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
 }
 
-func (p *Provider) EnsureBanner(ctx context.Context, req *provider.BannerRequest) (provider.Result, error) {
+func (p *Provider) EnsureBanner(ctx context.Context, req *provider.BannerRequest) (res provider.Result, err error) {
+	defer func() {
+		res = WithErrorConditions(ctx, res, err)
+	}()
 	b := &banner.Banner{Message: req.Message, Delimiter: "^"}
 	return provider.Result{}, p.client.Update(ctx, b)
 }
@@ -187,7 +196,10 @@ func (p *Provider) DeleteBanner(ctx context.Context) error {
 	return p.client.Reset(ctx, &banner.Banner{})
 }
 
-func (p *Provider) EnsureUser(ctx context.Context, req *provider.EnsureUserRequest) (provider.Result, error) {
+func (p *Provider) EnsureUser(ctx context.Context, req *provider.EnsureUserRequest) (res provider.Result, err error) {
+	defer func() {
+		res = WithErrorConditions(ctx, res, err)
+	}()
 	opts := []user.UserOption{}
 	if req.SSHKey != "" {
 		opts = append(opts, user.WithSSHKey(req.SSHKey))
@@ -210,7 +222,10 @@ func (p *Provider) DeleteUser(ctx context.Context, req *provider.DeleteUserReque
 	return p.client.Reset(ctx, &user.User{Name: req.Username})
 }
 
-func (p *Provider) EnsureDNS(ctx context.Context, req *provider.EnsureDNSRequest) (provider.Result, error) {
+func (p *Provider) EnsureDNS(ctx context.Context, req *provider.EnsureDNSRequest) (res provider.Result, err error) {
+	defer func() {
+		res = WithErrorConditions(ctx, res, err)
+	}()
 	d := &dns.DNS{
 		Enable:     true,
 		DomainName: req.DNS.Spec.Domain,
@@ -236,7 +251,10 @@ type NTPConfig struct {
 	} `json:"log"`
 }
 
-func (p *Provider) EnsureNTP(ctx context.Context, req *provider.EnsureNTPRequest) (provider.Result, error) {
+func (p *Provider) EnsureNTP(ctx context.Context, req *provider.EnsureNTPRequest) (res provider.Result, err error) {
+	defer func() {
+		res = WithErrorConditions(ctx, res, err)
+	}()
 	var cfg NTPConfig
 	if req.ProviderConfig != nil {
 		if err := req.ProviderConfig.Into(&cfg); err != nil {
@@ -262,7 +280,10 @@ func (p *Provider) DeleteNTP(ctx context.Context) error {
 	return p.client.Reset(ctx, &ntp.NTP{})
 }
 
-func (p *Provider) EnsureACL(ctx context.Context, req *provider.EnsureACLRequest) (provider.Result, error) {
+func (p *Provider) EnsureACL(ctx context.Context, req *provider.EnsureACLRequest) (res provider.Result, err error) {
+	defer func() {
+		res = WithErrorConditions(ctx, res, err)
+	}()
 	a := &acl.ACL{
 		Name:  req.ACL.Spec.Name,
 		Rules: make([]*acl.Rule, len(req.ACL.Spec.Entries)),
@@ -293,7 +314,10 @@ func (p *Provider) DeleteACL(ctx context.Context, req *provider.DeleteACLRequest
 	return p.client.Reset(ctx, &acl.ACL{Name: req.Name})
 }
 
-func (p *Provider) EnsureCertificate(ctx context.Context, req *provider.EnsureCertificateRequest) (provider.Result, error) {
+func (p *Provider) EnsureCertificate(ctx context.Context, req *provider.EnsureCertificateRequest) (res provider.Result, err error) {
+	defer func() {
+		res = WithErrorConditions(ctx, res, err)
+	}()
 	tp := &crypto.Trustpoint{ID: req.ID}
 	if err := p.client.Update(ctx, tp); err != nil {
 		// Duo to a limitation in the NX-OS YANG model, trustpoints cannot be updated.
@@ -315,7 +339,10 @@ func (p *Provider) DeleteCertificate(ctx context.Context, req *provider.DeleteCe
 	return p.client.Reset(ctx, tp)
 }
 
-func (p *Provider) EnsureSNMP(ctx context.Context, req *provider.EnsureSNMPRequest) (provider.Result, error) {
+func (p *Provider) EnsureSNMP(ctx context.Context, req *provider.EnsureSNMPRequest) (res provider.Result, err error) {
+	defer func() {
+		res = WithErrorConditions(ctx, res, err)
+	}()
 	s := &snmp.SNMP{
 		Contact:     req.SNMP.Spec.Contact,
 		Location:    req.SNMP.Spec.Location,
@@ -356,7 +383,10 @@ type SyslogConfig struct {
 	DefaultSeverity     v1alpha1.Severity
 }
 
-func (p *Provider) EnsureSyslog(ctx context.Context, req *provider.EnsureSyslogRequest) (provider.Result, error) {
+func (p *Provider) EnsureSyslog(ctx context.Context, req *provider.EnsureSyslogRequest) (res provider.Result, err error) {
+	defer func() {
+		res = WithErrorConditions(ctx, res, err)
+	}()
 	var cfg SyslogConfig
 	if req.ProviderConfig != nil {
 		if err := req.ProviderConfig.Into(&cfg); err != nil {
@@ -408,7 +438,10 @@ func (p *Provider) DeleteSyslog(ctx context.Context) error {
 	return p.client.Reset(ctx, l)
 }
 
-func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.EnsureManagementAccessRequest) (provider.Result, error) {
+func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.EnsureManagementAccessRequest) (res provider.Result, err error) {
+	defer func() {
+		res = WithErrorConditions(ctx, res, err)
+	}()
 	steps := []gnmiext.DeviceConf{
 		// Steps that depend on the device spec
 		&api.GRPC{
@@ -454,7 +487,10 @@ func (p *Provider) DeleteManagementAccess(ctx context.Context) error {
 	return errors.Join(errs...)
 }
 
-func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISRequest) (provider.Result, error) {
+func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISRequest) (res provider.Result, err error) {
+	defer func() {
+		res = WithErrorConditions(ctx, res, err)
+	}()
 	s := &isis.ISIS{
 		Name: req.ISIS.Spec.Instance,
 		NET:  req.ISIS.Spec.NetworkEntityTitle,
@@ -516,4 +552,26 @@ func (p *Provider) DeleteISIS(ctx context.Context, req *provider.DeleteISISReque
 
 func init() {
 	provider.Register("cisco-nxos-gnmi", NewProvider)
+}
+
+func WithErrorConditions(ctx context.Context, res provider.Result, err error) provider.Result {
+	cond := metav1.Condition{
+		Type:    "Configured",
+		Status:  metav1.ConditionTrue,
+		Reason:  "Success",
+		Message: "Successfully applied configuration via gNMI",
+	}
+	if err != nil {
+		cond.Status = metav1.ConditionFalse
+		cond.Reason = "Error"
+		cond.Message = err.Error()
+
+		// If the error is a gRPC status error, extract the code and message
+		if statusErr, ok := status.FromError(err); ok {
+			cond.Reason = fmt.Sprintf("ErrorCode%d", statusErr.Code())
+			cond.Message = statusErr.Message()
+		}
+	}
+	meta.SetStatusCondition(&res.Conditions, cond)
+	return res
 }
