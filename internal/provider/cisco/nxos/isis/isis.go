@@ -10,8 +10,11 @@ import (
 
 	"github.com/openconfig/ygot/ygot"
 
+	gpb "github.com/openconfig/gnmi/proto/gnmi"
+
 	nxos "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/genyang"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/iface"
 )
 
 var _ gnmiext.DeviceConf = (*ISIS)(nil)
@@ -111,4 +114,51 @@ func (i *ISIS) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, err
 			XPath: "System/isis-items/inst-items/Inst-list[name=" + i.Name + "]",
 		},
 	}, nil
+}
+
+var _ ygot.GoStruct = (*AdjStatus)(nil)
+
+type AdjStatus struct {
+	ID     *string `json:"id"`
+	OperSt string  `json:"operSt"`
+}
+
+func (t *AdjStatus) ΛListKeyMap() (map[string]interface{}, error) {
+	return map[string]interface{}{
+		"id": *t.ID,
+	}, nil
+}
+
+func (s *AdjStatus) IsYANGGoStruct() {}
+
+func (i ISIS) GetAdjancencyStatus(ctx context.Context, c gnmiext.Client, ifName, vrfName, levelName string) (bool, error) {
+	shName, err := iface.ShortNamePhysicalInterface(ifName)
+	if err != nil {
+		return false, fmt.Errorf("isis: %q is not a valid physical name: %w", shName, err)
+	}
+	xpath := "System/isis-items/inst-items/Inst-list[name=" + i.Name + "]/dom-items/Dom-list[name=" + vrfName + "]/oper-items/adj-items/level-items/Level-list[cktType=" + levelName + "]/adjif-items/AdjIf-list[id=" + shName + "]/"
+	var adjStatus AdjStatus
+	err = c.Get(ctx, xpath, &adjStatus, gnmiext.WithType(gpb.GetRequest_STATE), gnmiext.WithStdJSONUnmarshal())
+	if err != nil {
+		return false, fmt.Errorf("isis: failed to get adjacency status for ISIS instance %q, interface %q, level %q, vrfName %q: %w", i.Name, shName, levelName, vrfName, err)
+	}
+	return adjStatus.OperSt == "up", nil
+}
+
+// GetAdjancencyStatuses returns the number of active and total adjacencies for the given interfaces by repeatedly calling GetAdjancencyStatus. It thus makes multiple gNMI Get calls.
+func (i ISIS) GetAdjancencyStatuses(ctx context.Context, c gnmiext.Client, ifNames []string, vrfName, levelName string) (uint16, uint16, error) {
+	var active, total uint16
+	var errs []error
+	for _, ifName := range ifNames {
+		up, err := i.GetAdjancencyStatus(ctx, c, ifName, vrfName, levelName)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		total++
+		if up {
+			active++
+		}
+	}
+	return active, total, errors.Join(errs...)
 }

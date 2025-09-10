@@ -510,6 +510,7 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 	if err := p.client.Update(ctx, s); err != nil {
 		return provider.Result{}, err
 	}
+	var adjUp uint16 = 0
 	for _, iface := range req.Interfaces {
 		var opts []isis.IfOption
 		opts = append(opts, isis.WithIPv4(ipv4))
@@ -524,8 +525,31 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 		if err := p.client.Update(ctx, i); err != nil {
 			return provider.Result{}, err
 		}
+		// TODO: remove hard-coded vrf "default" and level "l1" for now
+		up, err := s.GetAdjancencyStatus(ctx, p.client, iface.Interface.Spec.Name, "default", "l1")
+		if err != nil {
+			return provider.Result{}, err
+		}
+		if up {
+			adjUp++
+		}
 	}
-	return provider.Result{}, nil
+	status := metav1.ConditionFalse
+	// TODO: OperSt should be up
+	if adjUp == uint16(len(req.Interfaces)) {
+		status = metav1.ConditionTrue
+	}
+	return provider.Result{
+		RequeueAfter: time.Second * 30,
+		Conditions: []metav1.Condition{
+			{
+				Type:    "Operational",
+				Status:  status,
+				Reason:  "OperationalStatus",
+				Message: fmt.Sprintf("active adjancecies %d of %d)", adjUp, len(req.Interfaces)),
+			},
+		},
+	}, nil
 }
 
 func (p *Provider) DeleteISIS(ctx context.Context, req *provider.DeleteISISRequest) error {
