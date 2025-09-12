@@ -100,3 +100,56 @@ func Test_NTP(t *testing.T) {
 		}
 	}
 }
+
+func Test_NTP_Reset(t *testing.T) {
+	ntp := &NTP{}
+
+	got, err := ntp.Reset(t.Context(), &gnmiext.ClientMock{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(got) != 2 {
+		t.Fatalf("expected 2 updates, got %d", len(got))
+	}
+
+	// First update
+	replacingUpdate, ok := got[0].(gnmiext.ReplacingUpdate)
+	if !ok {
+		t.Fatalf("expected first update to be of type gnmiext.ReplacingUpdate, got %T", got[0])
+	}
+
+	expectedTimeXPath := "System/time-items"
+	if replacingUpdate.XPath != expectedTimeXPath {
+		t.Errorf("expected first update xpath to be %s, found %s", expectedTimeXPath, replacingUpdate.XPath)
+	}
+
+	ti, ok := replacingUpdate.Value.(*nxos.Cisco_NX_OSDevice_System_TimeItems)
+	if !ok {
+		t.Fatalf("expected first update value to be of type *nxos.Cisco_NX_OSDevice_System_TimeItems, got %T", replacingUpdate.Value)
+	}
+
+	if ti.AdminSt != nxos.Cisco_NX_OSDevice_Datetime_AdminState_disabled {
+		t.Errorf("expected TimeItems AdminSt to be disabled, got %v", ti.AdminSt)
+	}
+
+	// Second update
+	editingUpdate, ok := got[1].(gnmiext.EditingUpdate)
+	if !ok {
+		t.Fatalf("expected second update to be of type gnmiext.EditingUpdate, got %T", got[1])
+	}
+
+	expectedNtpdXPath := "System/fm-items/ntpd-items"
+	if editingUpdate.XPath != expectedNtpdXPath {
+		t.Errorf("expected second update xpath to be %s, found %s", expectedNtpdXPath, editingUpdate.XPath)
+	}
+
+	ntpdItems, ok := editingUpdate.Value.(*nxos.Cisco_NX_OSDevice_System_FmItems_NtpdItems)
+	if !ok {
+		t.Fatalf("expected second update value to be of type *nxos.Cisco_NX_OSDevice_System_FmItems_NtpdItems, got %T", editingUpdate.Value)
+	}
+
+	if ntpdItems.AdminSt != nxos.Cisco_NX_OSDevice_Fm_AdminState_disabled {
+		t.Errorf("expected NTP daemon AdminSt to be disabled, got %v", ntpdItems.AdminSt)
+	}
+}
