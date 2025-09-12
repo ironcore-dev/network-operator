@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/openconfig/ygot/ygot"
 
@@ -27,6 +28,8 @@ type ISIS struct {
 	OverloadBit *OverloadBit
 	// supported families
 	AddressFamilies []ISISAFType
+	// list of interfaces that are part of this ISIS process
+	Interfaces []*Interface
 }
 
 type OverloadBit struct {
@@ -49,7 +52,7 @@ const (
 	IPv6Unicast
 )
 
-func (i *ISIS) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
+func (i *ISIS) ToYGOT(ctx context.Context, c gnmiext.Client) ([]gnmiext.Update, error) {
 	if i.Name == "" {
 		return nil, errors.New("isis: name must be set")
 	}
@@ -57,7 +60,8 @@ func (i *ISIS) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, er
 		return nil, errors.New("isis: NET must be set")
 	}
 	instList := &nxos.Cisco_NX_OSDevice_System_IsisItems_InstItems_InstList{
-		Name: ygot.String(i.Name),
+		Name:    ygot.String(i.Name),
+		AdminSt: nxos.Cisco_NX_OSDevice_Nw_AdminSt_enabled,
 	}
 
 	domList := instList.GetOrCreateDomItems().GetOrCreateDomList("default")
@@ -90,7 +94,15 @@ func (i *ISIS) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, er
 		}
 	}
 
-	return []gnmiext.Update{
+	for _, intf := range i.Interfaces {
+		iflist, err := intf.toYGOT(ctx, c)
+		if err != nil {
+			return nil, err
+		}
+		domList.GetOrCreateIfItems().AppendIfList(iflist)
+	}
+
+	updates := []gnmiext.Update{
 		gnmiext.EditingUpdate{
 			XPath: "System/fm-items/isis-items",
 			Value: &nxos.Cisco_NX_OSDevice_System_FmItems_IsisItems{
@@ -101,7 +113,19 @@ func (i *ISIS) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, er
 			XPath: "System/isis-items/inst-items/Inst-list[name=" + i.Name + "]",
 			Value: instList,
 		},
-	}, nil
+	}
+
+	if slices.ContainsFunc(i.Interfaces, func(intf *Interface) bool {
+		return intf.bfd
+	}) {
+		updates = slices.Insert(updates, 0, gnmiext.Update(gnmiext.EditingUpdate{
+			XPath: "System/fm-items/bfd-items",
+			Value: &nxos.Cisco_NX_OSDevice_System_FmItems_BfdItems{
+				AdminSt: nxos.Cisco_NX_OSDevice_Fm_AdminState_enabled,
+			},
+		}))
+	}
+	return updates, nil
 }
 
 // Reset removes the ISIS process with the given name from the device.
