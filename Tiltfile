@@ -26,7 +26,14 @@ k8s_yaml(kustomize('config/develop'))
 k8s_resource('network-operator-controller-manager', resource_deps=['controller-gen'])
 
 # Sample resources with manual trigger mode
-k8s_yaml('./config/samples/v1alpha1_device.yaml')
+def device_yaml():
+    decoded = read_yaml_stream('./config/samples/v1alpha1_device.yaml')
+    ip = str(local("docker run --rm busybox:1.37.0 nslookup host.docker.internal 2>/dev/null | grep 'Address:' | tail -n 1 | awk '{print $2}' || echo ''", quiet=True)).rstrip('\n')
+    if len(ip) > 0:
+        decoded[0]['spec']['endpoint']['address'] = ip+':9339'
+    return encode_yaml_stream(decoded)
+
+k8s_yaml(device_yaml())
 k8s_resource(new_name='leaf1', objects=['leaf1:device', 'secret-basic-auth:secret'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='certificate', objects=['network-operator:issuer', 'network-operator-ca:certificate'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
