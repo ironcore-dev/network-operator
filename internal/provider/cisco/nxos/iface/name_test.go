@@ -121,6 +121,20 @@ func TestShortName(t *testing.T) {
 			expected: "",
 			wantErr:  true,
 		},
+
+		// Management interface names
+		{
+			name:     "valid management interface",
+			input:    "mgmt0",
+			expected: "mgmt0",
+			wantErr:  false,
+		},
+		{
+			name:     "invalid management interface",
+			input:    "mgmt1",
+			expected: "",
+			wantErr:  true,
+		},
 	}
 
 	for _, test := range tests {

@@ -13,6 +13,7 @@ import (
 )
 
 var patterns = map[string]*regexp.Regexp{
+	"System/mgmt-items/MgmtIf-list[id=mgmt0]":            mgmtRe,
 	"System/intf-items/phys-items/PhysIf-list[id=eth%s]": ethernetRe,
 	"System/intf-items/lb-items/LbRtdIf-list[id=lo%s]":   loopbackRe,
 	"System/intf-items/aggr-items/AggrIf-list[id=po%s]":  portchannelRe,
@@ -24,11 +25,13 @@ func Exists(ctx context.Context, client gnmiext.Client, name string) (bool, erro
 		return false, errors.New("interface name must not be empty")
 	}
 	for path, re := range patterns {
-		if re.MatchString(name) {
-			matches := re.FindStringSubmatch(name)
-			xpath := fmt.Sprintf(path, matches[2])
+		if matches := re.FindStringSubmatch(name); matches != nil {
+			xpath := path
+			if len(matches) > 2 {
+				xpath = fmt.Sprintf(path, matches[2])
+			}
 			return client.Exists(ctx, xpath)
 		}
 	}
-	return false, fmt.Errorf(`unsupported interface format %q, expected (Ethernet|eth)\d+/\d+ or (Loopback|lo)\d+`, name)
+	return false, fmt.Errorf("unsupported interface format %q, expected one of: %s, %s, %s, %s", name, mgmtRe.String(), ethernetRe.String(), loopbackRe.String(), portchannelRe.String())
 }
