@@ -31,7 +31,7 @@ type GNMIClient = gpb.GNMIClient
 
 type Client interface {
 	Exists(ctx context.Context, xpath string) (bool, error)
-	Get(ctx context.Context, xpath string, dest ygot.GoStruct) error
+	Get(ctx context.Context, xpath string, dest ygot.GoStruct, opts ...GetOption) error
 	Set(ctx context.Context, notification *gpb.Notification) error
 	Update(ctx context.Context, config DeviceConf) error
 	Reset(ctx context.Context, config DeviceConf) error
@@ -245,18 +245,44 @@ func (c *client) Exists(ctx context.Context, xpath string) (bool, error) {
 	return false, nil
 }
 
+type GetOption func(*config)
+
+type config struct {
+	Type      gpb.GetRequest_DataType
+	Unmarshal func([]byte, any) error
+}
+
+func WithType(t gpb.GetRequest_DataType) GetOption {
+	return func(c *config) {
+		c.Type = t
+	}
+}
+
+func WithStdJSONUnmarshal() GetOption {
+	return func(c *config) {
+		c.Unmarshal = json.Unmarshal
+	}
+}
+
 // Get retrieves the configuration for the given XPath and unmarshals it into the given GoStruct.
 //
 // TODO: Retrieve multiple paths in a single request.
-func (c *client) Get(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+func (c *client) Get(ctx context.Context, xpath string, dest ygot.GoStruct, opts ...GetOption) error {
 	path, err := ygot.StringToStructuredPath(xpath)
 	if err != nil {
 		return fmt.Errorf("gnmiext: failed to convert xpath %s to path: %w", xpath, err)
 	}
 
+	cfg := &config{
+		Type: gpb.GetRequest_CONFIG,
+	}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
 	res, err := c.c.Get(ctx, &gpb.GetRequest{
 		Path:     []*gpb.Path{path},
-		Type:     gpb.GetRequest_CONFIG,
+		Type:     cfg.Type,
 		Encoding: gpb.Encoding_JSON,
 	})
 	if err != nil {
@@ -288,6 +314,10 @@ func (c *client) Get(ctx context.Context, xpath string, dest ygot.GoStruct) erro
 				})
 				if ok && v.JsonVal[0] == '[' && v.JsonVal[len(v.JsonVal)-1] == ']' {
 					v.JsonVal = v.JsonVal[1 : len(v.JsonVal)-1]
+				}
+
+				if cfg.Unmarshal != nil {
+					return cfg.Unmarshal(v.JsonVal, dest)
 				}
 
 				return nxos.Unmarshal(v.JsonVal, dest, &ytypes.IgnoreExtraFields{})

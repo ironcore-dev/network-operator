@@ -5,6 +5,7 @@ package gnmiext
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -482,6 +483,54 @@ func Test_Get_IgnoreExtraFields(t *testing.T) {
 	}
 	if *got.SrcIf != "mgmt0" {
 		t.Fatalf("unexpected srcIf: got '%v', want 'mgmt0'", *got.SrcIf)
+	}
+}
+
+type DummyYgot struct {
+	Name  string `json:"name"`
+	Value int    `json:"value"`
+}
+
+func (*DummyYgot) IsYANGGoStruct() {}
+
+var _ ygot.GoStruct = (*DummyYgot)(nil)
+
+func TestClient_Get_WithStdJSONUnmarshal_NonRFC7951(t *testing.T) {
+	cc := &GNMIClientMock{
+		GetFunc: func(_ context.Context, in *gpb.GetRequest, _ ...grpc.CallOption) (*gpb.GetResponse, error) {
+			if in.Type != gpb.GetRequest_CONFIG {
+				t.Fatalf("unexpected type: %v", in.Type)
+			}
+			if in.Encoding != gpb.Encoding_JSON {
+				t.Fatalf("unexpected encoding: %v", in.Encoding)
+			}
+			return &gpb.GetResponse{
+				Notification: []*gpb.Notification{
+					{
+						Update: []*gpb.Update{
+							{
+								Path: &gpb.Path{Elem: []*gpb.PathElem{{Name: "System/time-items/srcIf-items/srcIf"}}},
+								Val: func() *gpb.TypedValue {
+									val, _ := json.Marshal(map[string]interface{}{
+										"name":  "eth1/1",
+										"value": 42,
+									})
+									return &gpb.TypedValue{Value: &gpb.TypedValue_JsonVal{JsonVal: val}}
+								}(),
+							},
+						},
+					},
+				},
+			}, nil
+		},
+	}
+
+	var got DummyYgot
+	if err := (&client{c: cc}).Get(t.Context(), "System/time-items/srcIf-items/srcIf", &got); err == nil {
+		t.Fatal("unexpected error: test uses an RFC7951 compliant JSON")
+	}
+	if err := (&client{c: cc}).Get(t.Context(), "System/time-items/srcIf-items/srcIf", &got, WithStdJSONUnmarshal()); err == nil {
+		t.Fatal("failed to parse non RFC7951 compliant JSON")
 	}
 }
 

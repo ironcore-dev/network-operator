@@ -5,11 +5,10 @@ package gnmiext
 
 import (
 	"context"
-	"sync"
-
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ygot/ygot"
 	"google.golang.org/grpc"
+	"sync"
 )
 
 // Ensure, that GNMIClientMock does implement GNMIClient.
@@ -265,7 +264,7 @@ var _ Client = &ClientMock{}
 //			ExistsFunc: func(ctx context.Context, xpath string) (bool, error) {
 //				panic("mock out the Exists method")
 //			},
-//			GetFunc: func(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+//			GetFunc: func(ctx context.Context, xpath string, dest ygot.GoStruct, opts ...GetOption) error {
 //				panic("mock out the Get method")
 //			},
 //			ResetFunc: func(ctx context.Context, config DeviceConf) error {
@@ -288,7 +287,7 @@ type ClientMock struct {
 	ExistsFunc func(ctx context.Context, xpath string) (bool, error)
 
 	// GetFunc mocks the Get method.
-	GetFunc func(ctx context.Context, xpath string, dest ygot.GoStruct) error
+	GetFunc func(ctx context.Context, xpath string, dest ygot.GoStruct, opts ...GetOption) error
 
 	// ResetFunc mocks the Reset method.
 	ResetFunc func(ctx context.Context, config DeviceConf) error
@@ -316,6 +315,8 @@ type ClientMock struct {
 			Xpath string
 			// Dest is the dest argument value.
 			Dest ygot.GoStruct
+			// Opts is the opts argument value.
+			Opts []GetOption
 		}
 		// Reset holds details about calls to the Reset method.
 		Reset []struct {
@@ -383,7 +384,7 @@ func (mock *ClientMock) ExistsCalls() []struct {
 }
 
 // Get calls GetFunc.
-func (mock *ClientMock) Get(ctx context.Context, xpath string, dest ygot.GoStruct) error {
+func (mock *ClientMock) Get(ctx context.Context, xpath string, dest ygot.GoStruct, opts ...GetOption) error {
 	if mock.GetFunc == nil {
 		panic("ClientMock.GetFunc: method is nil but Client.Get was just called")
 	}
@@ -391,15 +392,17 @@ func (mock *ClientMock) Get(ctx context.Context, xpath string, dest ygot.GoStruc
 		Ctx   context.Context
 		Xpath string
 		Dest  ygot.GoStruct
+		Opts  []GetOption
 	}{
 		Ctx:   ctx,
 		Xpath: xpath,
 		Dest:  dest,
+		Opts:  opts,
 	}
 	mock.lockGet.Lock()
 	mock.calls.Get = append(mock.calls.Get, callInfo)
 	mock.lockGet.Unlock()
-	return mock.GetFunc(ctx, xpath, dest)
+	return mock.GetFunc(ctx, xpath, dest, opts...)
 }
 
 // GetCalls gets all the calls that were made to Get.
@@ -410,11 +413,13 @@ func (mock *ClientMock) GetCalls() []struct {
 	Ctx   context.Context
 	Xpath string
 	Dest  ygot.GoStruct
+	Opts  []GetOption
 } {
 	var calls []struct {
 		Ctx   context.Context
 		Xpath string
 		Dest  ygot.GoStruct
+		Opts  []GetOption
 	}
 	mock.lockGet.RLock()
 	calls = mock.calls.Get
