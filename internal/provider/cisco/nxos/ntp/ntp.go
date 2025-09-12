@@ -66,15 +66,15 @@ func (n *NTP) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, erro
 	ntp.PopulateDefaults()
 	ntp.AdminSt = nxos.Cisco_NX_OSDevice_Datetime_AdminState_disabled
 	return []gnmiext.Update{
+		gnmiext.ReplacingUpdate{
+			XPath: "System/time-items",
+			Value: ntp,
+		},
 		gnmiext.EditingUpdate{
 			XPath: "System/fm-items/ntpd-items",
 			Value: &nxos.Cisco_NX_OSDevice_System_FmItems_NtpdItems{
 				AdminSt: nxos.Cisco_NX_OSDevice_Fm_AdminState_disabled,
 			},
-		},
-		gnmiext.ReplacingUpdate{
-			XPath: "System/time-items",
-			Value: ntp,
 		},
 	}, nil
 }
