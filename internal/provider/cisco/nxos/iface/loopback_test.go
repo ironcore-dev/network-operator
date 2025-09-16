@@ -4,188 +4,255 @@
 package iface
 
 import (
+	"context"
 	"testing"
 
 	"github.com/openconfig/ygot/ygot"
 
 	nxos "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/genyang"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
-)
-
-const (
-	loopbackName        = "Loopback0"
-	loopbackShortName   = "lo0"
-	loopbackDescription = "Test Loopback Interface"
-	loopbackVRFName     = "test-vrf"
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/testutils"
 )
 
 func Test_NewLoopback(t *testing.T) {
-	validNames := []string{"Loopback0", "loopback123", "lo1", "lo99"}
-	for _, name := range validNames {
-		t.Run(name, func(t *testing.T) {
-			_, err := NewLoopbackInterface(name, nil)
-			if err != nil {
-				t.Fatalf("failed to create physical interface: %v", err)
-			}
-		})
+	tests := []struct {
+		name        string
+		input       string
+		shouldError bool
+	}{
+		{"valid: Loopback0", "Loopback0", false},
+		{"valid: loopback123", "loopback123", false},
+		{"valid: lo1", "lo1", false},
+		{"valid: lo99", "lo99", false},
+		{"invalid: test", "test", true},
+		{"invalid: Loopback", "Loopback", true},
+		{"invalid: lo", "lo", true},
+		{"invalid: Loopback1/2", "Loopback1/2", true},
+		{"invalid: lo1.1", "lo1.1", true},
+		{"invalid: eth100", "eth100", true},
 	}
-	invalidNames := []string{"test", "Loopback", "lo", "Loopback1/2", "lo1.1", "eth100"}
-	for _, name := range invalidNames {
-		t.Run(name, func(t *testing.T) {
-			_, err := NewLoopbackInterface(name, nil)
-			if err == nil {
-				t.Fatalf("created interface with invalid name: %s", name)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewLoopbackInterface(tt.input, nil)
+			if tt.shouldError && err == nil {
+				t.Errorf("expected error for input %q, got nil", tt.input)
+			}
+			if !tt.shouldError && err != nil {
+				t.Errorf("unexpected error for input %q: %v", tt.input, err)
 			}
 		})
 	}
 }
 
 func Test_Loopback_ToYGOT_BaseConfig(t *testing.T) {
-	t.Run("No additional base options", func(t *testing.T) {
-		p, err := NewLoopbackInterface(loopbackName, ygot.String(loopbackDescription))
-		if err != nil {
-			t.Fatalf("failed to create loopback interface: %v", err)
-		}
-
-		got, err := p.ToYGOT(t.Context(), &gnmiext.ClientMock{})
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		// single update affecting only base configuration of physical interface
-		if len(got) != 1 {
-			t.Errorf("expected 2 update, got %d", len(got))
-		}
-		bUpdate, ok := got[0].(gnmiext.ReplacingUpdate)
-		if !ok {
-			t.Errorf("expected value to be of type ReplacingUpdate")
-		}
-		if bUpdate.XPath != "System/intf-items/lb-items/LbRtdIf-list[id="+p.name+"]" {
-			t.Errorf("wrong xpath, expected 'System/intf-items/lb-items/LbRtdIf-list[id=%s]', got '%s'", p.name, bUpdate.XPath)
-		}
-		// correct initialization
-		phRef := &nxos.Cisco_NX_OSDevice_System_IntfItems_LbItems_LbRtdIfList{
-			Descr:   ygot.String(loopbackDescription),
-			AdminSt: nxos.Cisco_NX_OSDevice_L1_AdminSt_up,
-		}
-		phGot := bUpdate.Value.(*nxos.Cisco_NX_OSDevice_System_IntfItems_LbItems_LbRtdIfList)
-		notification, err := ygot.Diff(phGot, phRef)
-		if err != nil {
-			t.Errorf("failed to compute diff")
-		}
-		if len(notification.Update) > 0 || len(notification.Delete) > 0 {
-			t.Errorf("unexpected diff: %s", notification)
-		}
-	})
-
-	t.Run("With VRF", func(t *testing.T) {
-		p, err := NewLoopbackInterface(loopbackName, ygot.String(loopbackDescription), WithLoopbackVRF("test-vrf"))
-		if err != nil {
-			t.Fatalf("failed to create loopback interface: %v", err)
-		}
-		got, err := p.ToYGOT(t.Context(), &gnmiext.ClientMock{})
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		if len(got) != 1 {
-			t.Errorf("expected 1 update, got %d", len(got))
-		}
-		bUpdate, ok := got[0].(gnmiext.ReplacingUpdate)
-		if !ok {
-			t.Errorf("expected value to be of type ReplacingUpdate")
-		}
-		if bUpdate.XPath != "System/intf-items/lb-items/LbRtdIf-list[id="+p.name+"]" {
-			t.Errorf("wrong xpath, expected 'System/intf-items/lb-items/LbRtdIf-list[id=%s]', got '%s'", p.name, bUpdate.XPath)
-		}
-
-		llRef := &nxos.Cisco_NX_OSDevice_System_IntfItems_LbItems_LbRtdIfList{
-			Descr:   ygot.String(loopbackDescription),
-			AdminSt: nxos.Cisco_NX_OSDevice_L1_AdminSt_up,
-			RtvrfMbrItems: &nxos.Cisco_NX_OSDevice_System_IntfItems_LbItems_LbRtdIfList_RtvrfMbrItems{
-				TDn: ygot.String("System/inst-items/Inst-list[name=test-vrf]"),
-			},
-		}
-		llGot := bUpdate.Value.(*nxos.Cisco_NX_OSDevice_System_IntfItems_LbItems_LbRtdIfList)
-		notification, err := ygot.Diff(llGot, llRef)
-		if err != nil {
-			t.Errorf("failed to compute diff")
-		}
-		if len(notification.Update) > 0 || len(notification.Delete) > 0 {
-			t.Errorf("unexpected diff: %s", notification)
-		}
-	})
-}
-
-func Test_Loopback_ToYGOT_WithL3Config(t *testing.T) {
-	l3cfg, err := NewL3Config(
-		WithNumberedAddressingIPv4([]string{"10.0.0.1/24"}),
-	)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	p, err := NewLoopbackInterface(loopbackName, ygot.String(loopbackDescription),
-		WithLoopbackL3(l3cfg),
-		WithLoopbackVRF("test-vrf"),
-	)
-	if err != nil {
-		t.Fatalf("failed to create loopback interface: %v", err)
-	}
-	got, err := p.ToYGOT(t.Context(), &gnmiext.ClientMock{})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if len(got) != 2 {
-		t.Errorf("expected 2 updates (base + L3), got %d", len(got))
-	}
-
-	t.Run("Addressing", func(t *testing.T) {
-		aUpdate := got[1].(gnmiext.ReplacingUpdate)
-		if aUpdate.XPath != "System/ipv4-items/inst-items/dom-items/Dom-list[name=test-vrf]/if-items/If-list[id="+loopbackShortName+"]" {
-			t.Errorf("wrong xpath, expected 'System/ipv4-items/inst-items/dom-items/Dom-list[name=test-vrf]/if-items/If-list[id="+loopbackShortName+"]', got '%s'", aUpdate.XPath)
-		}
-		expected := &nxos.Cisco_NX_OSDevice_System_Ipv4Items_InstItems_DomItems_DomList_IfItems_IfList{
-			AddrItems: &nxos.Cisco_NX_OSDevice_System_Ipv4Items_InstItems_DomItems_DomList_IfItems_IfList_AddrItems{
-				AddrList: map[string]*nxos.Cisco_NX_OSDevice_System_Ipv4Items_InstItems_DomItems_DomList_IfItems_IfList_AddrItems_AddrList{
-					"10.0.0.1/24": {
-						Addr: ygot.String("10.0.0.1/24"),
+	tests := []struct {
+		name            string
+		inputName       string
+		description     string
+		options         []LoopbackOption
+		expectedUpdates []gnmiext.Update
+	}{
+		{
+			name:        "No additional base options",
+			inputName:   "Loopback0",
+			description: "Test Loopback Interface",
+			options:     nil,
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/intf-items/lb-items/LbRtdIf-list[id=lo0]",
+					Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_LbItems_LbRtdIfList{
+						Descr:   ygot.String("Test Loopback Interface"),
+						AdminSt: nxos.Cisco_NX_OSDevice_L1_AdminSt_up,
 					},
 				},
 			},
-		}
-		aGot := aUpdate.Value.(*nxos.Cisco_NX_OSDevice_System_Ipv4Items_InstItems_DomItems_DomList_IfItems_IfList)
-		notification, err := ygot.Diff(aGot, expected)
-		if err != nil {
-			t.Errorf("failed to compute diff")
-		}
-		if len(notification.Update) > 0 || len(notification.Delete) > 0 {
-			t.Errorf("unexpected diff: %s", notification)
-		}
-	})
+		},
+		{
+			name:        "With VRF",
+			inputName:   "Loopback0",
+			description: "Test Loopback Interface",
+			options:     []LoopbackOption{WithLoopbackVRF("test-vrf")},
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/intf-items/lb-items/LbRtdIf-list[id=lo0]",
+					Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_LbItems_LbRtdIfList{
+						Descr:   ygot.String("Test Loopback Interface"),
+						AdminSt: nxos.Cisco_NX_OSDevice_L1_AdminSt_up,
+						RtvrfMbrItems: &nxos.Cisco_NX_OSDevice_System_IntfItems_LbItems_LbRtdIfList_RtvrfMbrItems{
+							TDn: ygot.String("System/inst-items/Inst-list[name=test-vrf]"),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, err := NewLoopbackInterface(tt.inputName, &tt.description, tt.options...)
+			if err != nil {
+				t.Fatalf("failed to create loopback interface: %v", err)
+			}
+			got, err := p.ToYGOT(context.Background(), &gnmiext.ClientMock{})
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			testutils.AssertEqual(t, got, tt.expectedUpdates)
+		})
+	}
+}
+
+func Test_Loopback_ToYGOT_WithL3Config(t *testing.T) {
+
+	testAddressingL3Cfg, err := NewL3Config(
+		WithNumberedAddressingIPv4([]string{"10.0.0.1/24"}),
+	)
+	if err != nil {
+		panic(err)
+	}
+	testAddressingOptions := []LoopbackOption{
+		WithLoopbackL3(testAddressingL3Cfg),
+		WithLoopbackVRF("test-vrf"),
+	}
+
+	tests := []struct {
+		name            string
+		l3cfg           *L3Config
+		options         []LoopbackOption
+		expectedUpdates []gnmiext.Update
+	}{
+		{
+			name:    "Addressing",
+			l3cfg:   testAddressingL3Cfg,
+			options: testAddressingOptions,
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/intf-items/lb-items/LbRtdIf-list[id=lo0]",
+					Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_LbItems_LbRtdIfList{
+						Descr:   ygot.String("Test Loopback Interface"),
+						AdminSt: nxos.Cisco_NX_OSDevice_L1_AdminSt_up,
+						RtvrfMbrItems: &nxos.Cisco_NX_OSDevice_System_IntfItems_LbItems_LbRtdIfList_RtvrfMbrItems{
+							TDn: ygot.String("System/inst-items/Inst-list[name=test-vrf]"),
+						},
+					},
+				},
+				gnmiext.ReplacingUpdate{
+					XPath: "System/ipv4-items/inst-items/dom-items/Dom-list[name=test-vrf]/if-items/If-list[id=lo0]",
+					Value: &nxos.Cisco_NX_OSDevice_System_Ipv4Items_InstItems_DomItems_DomList_IfItems_IfList{
+						AddrItems: &nxos.Cisco_NX_OSDevice_System_Ipv4Items_InstItems_DomItems_DomList_IfItems_IfList_AddrItems{
+							AddrList: map[string]*nxos.Cisco_NX_OSDevice_System_Ipv4Items_InstItems_DomItems_DomList_IfItems_IfList_AddrItems_AddrList{
+								"10.0.0.1/24": {
+									Addr: ygot.String("10.0.0.1/24"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, err := NewLoopbackInterface("Loopback0", ygot.String("Test Loopback Interface"), tt.options...)
+			if err != nil {
+				t.Fatalf("failed to create loopback interface: %v", err)
+			}
+			got, err := p.ToYGOT(context.Background(), &gnmiext.ClientMock{})
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			testutils.AssertEqual(t, got, tt.expectedUpdates)
+		})
+	}
 }
 
 func Test_Loopback_ToYGOT_InvalidL3Config(t *testing.T) {
-	t.Run("With unnumbered addressing", func(t *testing.T) {
-		l3cfg, err := NewL3Config(
-			WithMedium(L3MediumTypeP2P),
-			WithUnnumberedAddressing("loopback1"),
-		)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		_, err = NewLoopbackInterface(loopbackName, ygot.String(loopbackDescription), WithLoopbackL3(l3cfg))
-		if err == nil {
-			t.Fatalf("expected error for unnumbered addressing, got nil")
-		}
-	})
-	t.Run("With medium ", func(t *testing.T) {
-		l3cfg, err := NewL3Config(
-			WithMedium(L3MediumTypeP2P),
-		)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		_, err = NewLoopbackInterface(loopbackName, ygot.String(loopbackDescription), WithLoopbackL3(l3cfg))
-		if err == nil {
-			t.Fatalf("expected error for medium type, got nil")
-		}
-	})
+	tests := []struct {
+		name    string
+		options []LoopbackOption
+	}{
+		{
+			name: "With unnumbered addressing",
+			options: []LoopbackOption{
+				WithLoopbackL3(func() *L3Config {
+					l3cfg, err := NewL3Config(
+						WithMedium(L3MediumTypeP2P),
+						WithUnnumberedAddressing("loopback1"),
+					)
+					if err != nil {
+						panic(err)
+					}
+					return l3cfg
+				}()),
+			},
+		},
+		{
+			name: "With medium only",
+			options: []LoopbackOption{
+				WithLoopbackL3(func() *L3Config {
+					l3cfg, err := NewL3Config(
+						WithMedium(L3MediumTypeP2P),
+					)
+					if err != nil {
+						panic(err)
+					}
+					return l3cfg
+				}()),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewLoopbackInterface("Loopback0", ygot.String("Test Loopback Interface"), tt.options...)
+			if err == nil {
+				t.Fatalf("expected error for invalid L3 config, got nil")
+			}
+		})
+	}
+}
+
+func Test_Loopback_Reset(t *testing.T) {
+	tests := []struct {
+		name            string
+		inputName       string
+		options         []LoopbackOption
+		expectedUpdates []gnmiext.Update
+	}{
+		{
+			name:      "basic reset",
+			inputName: "Loopback0",
+			options:   nil,
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.DeletingUpdate{
+					XPath: "System/intf-items/lb-items/LbRtdIf-list[id=lo0]",
+				},
+			},
+		},
+		{
+			name:      "reset with VRF",
+			inputName: "Loopback1",
+			options:   []LoopbackOption{WithLoopbackVRF("test-vrf")},
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.DeletingUpdate{
+					XPath: "System/intf-items/lb-items/LbRtdIf-list[id=lo1]",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, err := NewLoopbackInterface(tt.inputName, ygot.String("Test Loopback Interface"), tt.options...)
+			if err != nil {
+				t.Fatalf("failed to create loopback interface: %v", err)
+			}
+			updates, err := p.Reset(context.Background(), nil)
+			if err != nil {
+				t.Errorf("unexpected error during reset: %v", err)
+			}
+			testutils.AssertEqual(t, updates, tt.expectedUpdates)
+		})
+	}
 }

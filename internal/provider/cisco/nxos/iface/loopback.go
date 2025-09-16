@@ -114,9 +114,8 @@ func (l *Loopback) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update
 
 func (l *Loopback) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{
-		gnmiext.ReplacingUpdate{
+		gnmiext.DeletingUpdate{
 			XPath: "System/intf-items/lb-items/LbRtdIf-list[id=" + l.name + "]",
-			Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_LbItems_LbRtdIfList{},
 		},
 	}, nil
 }

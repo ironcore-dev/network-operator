@@ -11,37 +11,121 @@ import (
 
 	nxos "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/genyang"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/testutils"
 )
 
-const (
-	portChannelName        = "po10"
-	portChannelDescription = "test port-channel"
-	physIf1                = "eth1/1"
-	physIf2                = "eth1/2"
-)
-
-func Test_PortChannel_NewPortChannel(t *testing.T) {
+func Test_NewPortChannel(t *testing.T) {
 	tests := []struct {
 		name        string
 		input       string
+		options     []PortChannelOption
 		shouldError bool
 	}{
 		// Valid names
-		{"valid: Port-Channel10", "Port-Channel10", false},
-		{"valid: port-channel10", "port-channel10", false},
-		{"valid: po10", "po10", false},
+		{
+			name:        "valid: Port-Channel10",
+			input:       "Port-Channel10",
+			options:     nil,
+			shouldError: false,
+		},
+		{
+			name:        "valid: port-channel10",
+			input:       "port-channel10",
+			options:     nil,
+			shouldError: false,
+		},
+		{
+			name:        "valid: po10",
+			input:       "po10",
+			options:     nil,
+			shouldError: false,
+		},
 		// Invalid names
-		{"invalid: lo1", "lo1", true},
-		{"invalid: poo1", "poo1", true},
-		{"invalid: eth1/1", "eth1/1", true},
+		{
+			name:        "invalid: lo1",
+			input:       "lo1",
+			options:     nil,
+			shouldError: true,
+		},
+		{
+			name:        "invalid: poo1",
+			input:       "poo1",
+			options:     nil,
+			shouldError: true,
+		},
+		{
+			name:        "invalid: eth1/1",
+			input:       "eth1/1",
+			options:     nil,
+			shouldError: true,
+		},
 		// Boundary cases
-		{"invalid: empty string", "", true},
-		{"invalid: port-channel0", "port-channel0", true},
-		{"invalid: port-channel4097", "port-channel4097", true},
+		{
+			name:        "invalid: empty string",
+			input:       "",
+			options:     nil,
+			shouldError: true,
+		},
+		{
+			name:        "invalid: port-channel0",
+			input:       "port-channel0",
+			options:     nil,
+			shouldError: true,
+		},
+		{
+			name:        "invalid: port-channel4097",
+			input:       "port-channel4097",
+			options:     nil,
+			shouldError: true,
+		},
+		// Option validation
+		{
+			name:        "valid: single physical interface",
+			input:       "po1",
+			options:     []PortChannelOption{WithPhysicalInterface("eth1/1")},
+			shouldError: false,
+		},
+		{
+			name:        "invalid: loopback as physical interface",
+			input:       "po1",
+			options:     []PortChannelOption{WithPhysicalInterface("lo1")},
+			shouldError: true,
+		},
+		{
+			name:        "invalid: port-channel as physical interface",
+			input:       "po1",
+			options:     []PortChannelOption{WithPhysicalInterface("po1")},
+			shouldError: true,
+		},
+		{
+			name:        "invalid: a list with valid and invalid interfaces",
+			input:       "po1",
+			options:     []PortChannelOption{WithPhysicalInterface("eth1/1"), WithPhysicalInterface("po1")},
+			shouldError: true,
+		},
+		{
+			name:        "valid: multiple valid physical interfaces",
+			input:       "po1",
+			options:     []PortChannelOption{WithPhysicalInterface("eth1/1"), WithPhysicalInterface("eth1/2")},
+			shouldError: false,
+		},
+		{
+			name:        "invalid: empty description",
+			input:       "po1",
+			options:     []PortChannelOption{WithPortChannelDescription("")},
+			shouldError: true,
+		},
+		{
+			name:        "invalid: nil L2 config",
+			input:       "po1",
+			options:     []PortChannelOption{WithPortChannelL2(nil)},
+			shouldError: true,
+		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewPortChannel(tt.input)
+			_, err := NewPortChannel(tt.input, tt.options...)
 			if tt.shouldError && err == nil {
 				t.Errorf("expected error for input %q, got nil", tt.input)
 			}
@@ -52,155 +136,39 @@ func Test_PortChannel_NewPortChannel(t *testing.T) {
 	}
 }
 
-func Test_PortChannel_ToYGOT_WithOptions_Invalid(t *testing.T) {
+func Test_PortChannel_ToYGOT(t *testing.T) {
 	tests := []struct {
-		name        string
-		options     []PortChannelOption
-		shouldError bool
+		name            string
+		pcName          string
+		options         []PortChannelOption
+		expectedUpdates []gnmiext.Update
+		clientMock      *gnmiext.ClientMock
+		expectErr       bool
 	}{
 		{
-			name:        "valid: single physical interface",
-			options:     []PortChannelOption{WithPhysicalInterface("eth1/1")},
-			shouldError: false,
-		},
-		{
-			name:        "invalid: loopback as physical interface",
-			options:     []PortChannelOption{WithPhysicalInterface("lo1")},
-			shouldError: true,
-		},
-		{
-			name:        "invalid: port-channel as physical interface",
-			options:     []PortChannelOption{WithPhysicalInterface("po1")},
-			shouldError: true,
-		},
-		{
-			name:        "invalid: a list with valid and invalid interfaces",
-			options:     []PortChannelOption{WithPhysicalInterface("eth1/1"), WithPhysicalInterface("po1")},
-			shouldError: true,
-		},
-		{
-			name:        "valid: multiple valid physical interfaces",
-			options:     []PortChannelOption{WithPhysicalInterface("eth1/1"), WithPhysicalInterface("eth1/2")},
-			shouldError: false,
-		},
-		{
-			name:        "invalid: empty description",
-			options:     []PortChannelOption{WithPortChannelDescription("")},
-			shouldError: true,
-		},
-		{
-			name:        "invalid: nil L2 config",
-			options:     []PortChannelOption{WithPortChannelL2(nil)},
-			shouldError: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewPortChannel("po1", tt.options...)
-			if (err != nil) != tt.shouldError {
-				t.Fatalf("Expected error: %v, got error: %v", tt.shouldError, err)
-			}
-		})
-	}
-}
-
-// Test_PortChannel_ToYGOT_GnmiClient tests interactions with the gnmi client
-func Test_PortChannel_ToYGOT_GnmiClient(t *testing.T) {
-	tests := []struct {
-		name        string
-		opts        []PortChannelOption
-		client      *gnmiext.ClientMock
-		expectError bool
-	}{
-		{
-			name: "invalid physical interface",
-			opts: []PortChannelOption{WithPhysicalInterface("eth1/1")},
-			client: &gnmiext.ClientMock{
-				ExistsFunc: func(_ context.Context, _ string) (bool, error) {
-					return true, nil
-				},
-			},
-			expectError: false,
-		},
-		{
-			name: "physical interface does not exist",
-			opts: []PortChannelOption{WithPhysicalInterface("eth1/1")},
-			client: &gnmiext.ClientMock{
-				ExistsFunc: func(_ context.Context, _ string) (bool, error) {
-					return false, nil
-				},
-			},
-			expectError: true,
-		},
-		{
-			name: "client error while checking if physical interface exists",
-			opts: []PortChannelOption{WithPhysicalInterface("eth1/1")},
-			client: &gnmiext.ClientMock{
-				ExistsFunc: func(_ context.Context, _ string) (bool, error) {
-					return false, errors.New("error")
-				},
-			},
-			expectError: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			p, err := NewPortChannel(portChannelName, tt.opts...)
-			if err != nil {
-				t.Fatalf("unexpected error during NewPortChannel: %v", err)
-			}
-			_, err = p.ToYGOT(t.Context(), tt.client)
-			if (err != nil) != tt.expectError {
-				t.Fatalf("Expected error: %v, got error: %v", tt.expectError, err)
-			}
-		})
-	}
-}
-
-func Test_PortChannel_ToYGOT_Updates(t *testing.T) {
-
-	tests := []struct {
-		name                    string
-		pcName                  string
-		options                 []PortChannelOption
-		expectedNumberOfUpdates int
-		updateChecks            []updateCheck
-	}{
-		{
-			name:                    "1st update is LACP feature",
-			pcName:                  "po1",
-			options:                 []PortChannelOption{},
-			expectedNumberOfUpdates: 2,
-			updateChecks: []updateCheck{
-				{
-					updateIdx:   0,
-					expectType:  "EditingUpdate",
-					expectXPath: "System/fm-items/lacp-items",
-					expectValue: &nxos.Cisco_NX_OSDevice_System_FmItems_LacpItems{
+			name:    "1st update is LACP feature",
+			pcName:  "po1",
+			options: []PortChannelOption{},
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.EditingUpdate{
+					XPath: "System/fm-items/lacp-items",
+					Value: &nxos.Cisco_NX_OSDevice_System_FmItems_LacpItems{
 						AdminSt: nxos.Cisco_NX_OSDevice_Fm_AdminState_enabled,
 					},
 				},
-			},
-		},
-		{
-			name:                    "vanilla port-channel config",
-			pcName:                  "po1",
-			options:                 []PortChannelOption{},
-			expectedNumberOfUpdates: 2,
-			updateChecks: []updateCheck{
-				{
-					updateIdx:   1,
-					expectType:  "ReplacingUpdate",
-					expectXPath: "System/intf-items/aggr-items/AggrIf-list[id=po1]",
-					expectValue: &nxos.Cisco_NX_OSDevice_System_IntfItems_AggrItems_AggrIfList{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/intf-items/aggr-items/AggrIf-list[id=po1]",
+					Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_AggrItems_AggrIfList{
 						AdminSt:       nxos.Cisco_NX_OSDevice_L1_AdminSt_up,
 						UserCfgdFlags: ygot.String("admin_state"),
 						PcMode:        nxos.Cisco_NX_OSDevice_Pc_Mode_active,
 					},
 				},
 			},
+			clientMock: &gnmiext.ClientMock{
+				ExistsFunc: func(_ context.Context, _ string) (bool, error) { return true, nil },
+			},
+			expectErr: false,
 		},
 		{
 			name:   "configured as with trunk with vlan",
@@ -222,13 +190,16 @@ func Test_PortChannel_ToYGOT_Updates(t *testing.T) {
 					return l2cfg
 				}()),
 			},
-			expectedNumberOfUpdates: 3,
-			updateChecks: []updateCheck{
-				{
-					updateIdx:   1,
-					expectType:  "ReplacingUpdate",
-					expectXPath: "System/intf-items/aggr-items/AggrIf-list[id=po1]",
-					expectValue: &nxos.Cisco_NX_OSDevice_System_IntfItems_AggrItems_AggrIfList{
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.EditingUpdate{
+					XPath: "System/fm-items/lacp-items",
+					Value: &nxos.Cisco_NX_OSDevice_System_FmItems_LacpItems{
+						AdminSt: nxos.Cisco_NX_OSDevice_Fm_AdminState_enabled,
+					},
+				},
+				gnmiext.ReplacingUpdate{
+					XPath: "System/intf-items/aggr-items/AggrIf-list[id=po1]",
+					Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_AggrItems_AggrIfList{
 						AdminSt:       nxos.Cisco_NX_OSDevice_L1_AdminSt_up,
 						Descr:         ygot.String("trunk port-channel"),
 						PcMode:        nxos.Cisco_NX_OSDevice_Pc_Mode_active,
@@ -249,16 +220,36 @@ func Test_PortChannel_ToYGOT_Updates(t *testing.T) {
 						},
 					},
 				},
-				{
-					updateIdx:   2,
-					expectType:  "ReplacingUpdate",
-					expectXPath: "System/stp-items/inst-items/if-items/If-list[id=po1]",
-					expectValue: &nxos.Cisco_NX_OSDevice_System_StpItems_InstItems_IfItems_IfList{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/stp-items/inst-items/if-items/If-list[id=po1]",
+					Value: &nxos.Cisco_NX_OSDevice_System_StpItems_InstItems_IfItems_IfList{
 						AdminSt: nxos.Cisco_NX_OSDevice_Nw_IfAdminSt_enabled,
 						Mode:    nxos.Cisco_NX_OSDevice_Stp_IfMode_network,
 					},
 				},
 			},
+			clientMock: &gnmiext.ClientMock{
+				ExistsFunc: func(_ context.Context, _ string) (bool, error) { return true, nil },
+			},
+			expectErr: false,
+		},
+		{
+			name:    "physical interface does not exist",
+			pcName:  "po1",
+			options: []PortChannelOption{WithPhysicalInterface("eth1/1")},
+			clientMock: &gnmiext.ClientMock{
+				ExistsFunc: func(_ context.Context, _ string) (bool, error) { return false, nil },
+			},
+			expectErr: true,
+		},
+		{
+			name:    "client error while checking if physical interface exists",
+			pcName:  "po1",
+			options: []PortChannelOption{WithPhysicalInterface("eth1/1")},
+			clientMock: &gnmiext.ClientMock{
+				ExistsFunc: func(_ context.Context, _ string) (bool, error) { return false, errors.New("error") },
+			},
+			expectErr: true,
 		},
 	}
 
@@ -266,40 +257,43 @@ func Test_PortChannel_ToYGOT_Updates(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			pc, err := NewPortChannel(tt.pcName, tt.options...)
 			if err != nil {
-				t.Fatalf("unexpected error during NewPortChannel: %v", err)
+				if !tt.expectErr {
+					t.Fatalf("unexpected error during NewPortChannel: %v", err)
+				}
+				return
 			}
-
-			updates, err := pc.ToYGOT(t.Context(), &gnmiext.ClientMock{
-				ExistsFunc: func(_ context.Context, _ string) (bool, error) { return true, nil },
-			})
-
+			updates, err := pc.ToYGOT(t.Context(), tt.clientMock)
+			if tt.expectErr {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				}
+				return
+			}
 			if err != nil {
-				t.Fatalf("unexpected error during ToYGOT: %v", err)
-
+				t.Errorf("unexpected error: %v", err)
 			}
-			if len(updates) != tt.expectedNumberOfUpdates {
-				t.Fatalf("expected %d updates, got %d", tt.expectedNumberOfUpdates, len(updates))
-			}
-
-			validateUpdates(t, updates, tt.updateChecks)
+			testutils.AssertEqual(t, updates, tt.expectedUpdates)
 		})
 	}
 }
-
 func Test_PortChannel_Reset(t *testing.T) {
 	tests := []struct {
-		name         string
-		pcName       string
-		options      []PortChannelOption
-		expectXPaths []string
+		name            string
+		pcName          string
+		options         []PortChannelOption
+		expectedUpdates []gnmiext.Update
 	}{
 		{
 			name:    "basic reset: also enforce removal of in stp path",
 			pcName:  "po10",
 			options: nil,
-			expectXPaths: []string{
-				"System/intf-items/aggr-items/AggrIf-list[id=po10]",
-				"System/stp-items/inst-items/if-items/If-list[id=po10]",
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.DeletingUpdate{
+					XPath: "System/intf-items/aggr-items/AggrIf-list[id=po10]",
+				},
+				gnmiext.DeletingUpdate{
+					XPath: "System/stp-items/inst-items/if-items/If-list[id=po10]",
+				},
 			},
 		},
 		{
@@ -318,9 +312,13 @@ func Test_PortChannel_Reset(t *testing.T) {
 					return l2cfg
 				}()),
 			},
-			expectXPaths: []string{
-				"System/intf-items/aggr-items/AggrIf-list[id=po99]",
-				"System/stp-items/inst-items/if-items/If-list[id=po99]",
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.DeletingUpdate{
+					XPath: "System/intf-items/aggr-items/AggrIf-list[id=po99]",
+				},
+				gnmiext.DeletingUpdate{
+					XPath: "System/stp-items/inst-items/if-items/If-list[id=po99]",
+				},
 			},
 		},
 	}
@@ -331,25 +329,11 @@ func Test_PortChannel_Reset(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to create port-channel: %v", err)
 			}
-			got, err := p.Reset(t.Context(), nil)
+			updates, err := p.Reset(t.Context(), nil)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
-			if len(got) != len(tt.expectXPaths) {
-				t.Errorf("expected %d updates, got %d", len(tt.expectXPaths), len(got))
-			}
-			for i, expectXPath := range tt.expectXPaths {
-				if i >= len(got) {
-					t.Errorf("missing update for expected xpath '%s'", expectXPath)
-				}
-				del, ok := got[i].(gnmiext.DeletingUpdate)
-				if !ok {
-					t.Errorf("expected value to be of type DeletingUpdate at index %d", i)
-				}
-				if del.XPath != expectXPath {
-					t.Errorf("wrong xpath at index %d, expected '%s', got '%s'", i, expectXPath, del.XPath)
-				}
-			}
+			testutils.AssertEqual(t, updates, tt.expectedUpdates)
 		})
 	}
 }

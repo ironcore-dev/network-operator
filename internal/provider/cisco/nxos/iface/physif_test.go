@@ -11,6 +11,7 @@ import (
 
 	nxos "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/genyang"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/testutils"
 )
 
 const (
@@ -92,32 +93,21 @@ func mustNewL3Config(opts ...L3Option) *L3Config {
 	return l3cfg
 }
 
-type updateCheck struct {
-	updateIdx   int    // the position we want to check in the returned slice of updates
-	expectType  string // "EditingUpdate" or "ReplacingUpdate"
-	expectXPath string // the expected XPath of the update
-	expectValue any    // the expected ygot object that should be in the update
-}
-
 func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 	tests := []struct {
-		name                    string
-		ifName                  string
-		options                 []PhysIfOption
-		expectedNumberOfUpdates int
-		updateChecks            []updateCheck
+		name            string
+		ifName          string
+		options         []PhysIfOption
+		expectedUpdates []gnmiext.Update
 	}{
 		{
-			name:                    "No additional base options",
-			ifName:                  "eth1/1",
-			options:                 []PhysIfOption{WithDescription("this is a test")},
-			expectedNumberOfUpdates: 1,
-			updateChecks: []updateCheck{
-				{
-					updateIdx:   0,
-					expectType:  "ReplacingUpdate",
-					expectXPath: "System/intf-items/phys-items/PhysIf-list[id=eth1/1]",
-					expectValue: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
+			name:    "No additional base options",
+			ifName:  "eth1/1",
+			options: []PhysIfOption{WithDescription("this is a test")},
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/intf-items/phys-items/PhysIf-list[id=eth1/1]",
+					Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
 						Descr:         ygot.String("this is a test"),
 						AdminSt:       nxos.Cisco_NX_OSDevice_L1_AdminSt_up,
 						UserCfgdFlags: ygot.String("admin_state"),
@@ -133,13 +123,10 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 				WithPhysIfMTU(9216),
 				WithPhysIfVRF(physIfVRFName),
 			},
-			expectedNumberOfUpdates: 1,
-			updateChecks: []updateCheck{
-				{
-					updateIdx:   0,
-					expectType:  "ReplacingUpdate",
-					expectXPath: "System/intf-items/phys-items/PhysIf-list[id=eth1/2]",
-					expectValue: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/intf-items/phys-items/PhysIf-list[id=eth1/2]",
+					Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
 						Descr:         ygot.String("this is a second test"),
 						AdminSt:       nxos.Cisco_NX_OSDevice_L1_AdminSt_up,
 						Mtu:           ygot.Uint32(9216),
@@ -165,18 +152,21 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 					WithUnnumberedAddressing("loopback0"),
 				)),
 			},
-			expectedNumberOfUpdates: 2,
-			updateChecks: []updateCheck{
-				{
-					updateIdx:   0,
-					expectType:  "ReplacingUpdate",
-					expectXPath: "System/intf-items/phys-items/PhysIf-list[id=eth1/4]",
-					expectValue: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/intf-items/phys-items/PhysIf-list[id=eth1/4]",
+					Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
 						Descr:         ygot.String("L2 then L3 test"),
 						AdminSt:       nxos.Cisco_NX_OSDevice_L1_AdminSt_up,
 						Layer:         nxos.Cisco_NX_OSDevice_L1_Layer_Layer3,
 						Medium:        nxos.Cisco_NX_OSDevice_L1_Medium_p2p,
 						UserCfgdFlags: ygot.String("admin_layer,admin_state"),
+					},
+				},
+				gnmiext.ReplacingUpdate{
+					XPath: "System/ipv4-items/inst-items/dom-items/Dom-list[name=default]/if-items/If-list[id=eth1/4]",
+					Value: &nxos.Cisco_NX_OSDevice_System_Ipv4Items_InstItems_DomItems_DomList_IfItems_IfList{
+						Unnumbered: ygot.String("lo0"),
 					},
 				},
 			},
@@ -195,18 +185,22 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 					WithSwithPortMode(SwitchPortModeAccess),
 				)),
 			},
-			expectedNumberOfUpdates: 2,
-			updateChecks: []updateCheck{
-				{
-					updateIdx:   0,
-					expectType:  "ReplacingUpdate",
-					expectXPath: "System/intf-items/phys-items/PhysIf-list[id=eth1/5]",
-					expectValue: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/intf-items/phys-items/PhysIf-list[id=eth1/5]",
+					Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
 						Descr:         ygot.String("L3 then L2 test"),
 						AdminSt:       nxos.Cisco_NX_OSDevice_L1_AdminSt_up,
 						Mode:          nxos.Cisco_NX_OSDevice_L1_Mode_access,
 						Layer:         nxos.Cisco_NX_OSDevice_L1_Layer_Layer2,
 						UserCfgdFlags: ygot.String("admin_layer,admin_state"),
+					},
+				},
+				gnmiext.ReplacingUpdate{
+					XPath: "System/stp-items/inst-items/if-items/If-list[id=eth1/5]",
+					Value: &nxos.Cisco_NX_OSDevice_System_StpItems_InstItems_IfItems_IfList{
+						Mode:    nxos.Cisco_NX_OSDevice_Stp_IfMode_edge,
+						AdminSt: nxos.Cisco_NX_OSDevice_Nw_IfAdminSt_enabled,
 					},
 				},
 			},
@@ -223,13 +217,10 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 					WithAllowedVlans([]uint16{10, 20, 30}),
 				)),
 			},
-			expectedNumberOfUpdates: 2,
-			updateChecks: []updateCheck{
-				{
-					updateIdx:   0,
-					expectType:  "ReplacingUpdate",
-					expectXPath: "System/intf-items/phys-items/PhysIf-list[id=eth1/3]",
-					expectValue: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/intf-items/phys-items/PhysIf-list[id=eth1/3]",
+					Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
 						Descr:         ygot.String("L2 trunk test"),
 						AdminSt:       nxos.Cisco_NX_OSDevice_L1_AdminSt_up,
 						Layer:         nxos.Cisco_NX_OSDevice_L1_Layer_Layer2,
@@ -239,11 +230,9 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 						UserCfgdFlags: ygot.String("admin_layer,admin_state"),
 					},
 				},
-				{
-					updateIdx:   1,
-					expectType:  "ReplacingUpdate",
-					expectXPath: "System/stp-items/inst-items/if-items/If-list[id=eth1/3]",
-					expectValue: &nxos.Cisco_NX_OSDevice_System_StpItems_InstItems_IfItems_IfList{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/stp-items/inst-items/if-items/If-list[id=eth1/3]",
+					Value: &nxos.Cisco_NX_OSDevice_System_StpItems_InstItems_IfItems_IfList{
 						AdminSt: nxos.Cisco_NX_OSDevice_Nw_IfAdminSt_enabled,
 						Mode:    nxos.Cisco_NX_OSDevice_Stp_IfMode_edge,
 					},
@@ -261,13 +250,10 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 					WithAccessVlan(10),
 				)),
 			},
-			expectedNumberOfUpdates: 2,
-			updateChecks: []updateCheck{
-				{
-					updateIdx:   0,
-					expectType:  "ReplacingUpdate",
-					expectXPath: "System/intf-items/phys-items/PhysIf-list[id=eth2/2]",
-					expectValue: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/intf-items/phys-items/PhysIf-list[id=eth2/2]",
+					Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
 						Descr:         ygot.String("L2 access test"),
 						AdminSt:       nxos.Cisco_NX_OSDevice_L1_AdminSt_up,
 						Layer:         nxos.Cisco_NX_OSDevice_L1_Layer_Layer2,
@@ -276,11 +262,9 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 						UserCfgdFlags: ygot.String("admin_layer,admin_state"),
 					},
 				},
-				{
-					updateIdx:   1,
-					expectType:  "ReplacingUpdate",
-					expectXPath: "System/stp-items/inst-items/if-items/If-list[id=eth2/2]",
-					expectValue: &nxos.Cisco_NX_OSDevice_System_StpItems_InstItems_IfItems_IfList{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/stp-items/inst-items/if-items/If-list[id=eth2/2]",
+					Value: &nxos.Cisco_NX_OSDevice_System_StpItems_InstItems_IfItems_IfList{
 						AdminSt: nxos.Cisco_NX_OSDevice_Nw_IfAdminSt_enabled,
 						Mode:    nxos.Cisco_NX_OSDevice_Stp_IfMode_edge,
 					},
@@ -297,13 +281,10 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 					WithUnnumberedAddressing("loopback0"),
 				)),
 			},
-			expectedNumberOfUpdates: 2,
-			updateChecks: []updateCheck{
-				{
-					updateIdx:   0,
-					expectType:  "ReplacingUpdate",
-					expectXPath: "System/intf-items/phys-items/PhysIf-list[id=eth1/1]",
-					expectValue: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/intf-items/phys-items/PhysIf-list[id=eth1/1]",
+					Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
 						AdminSt:       nxos.Cisco_NX_OSDevice_L1_AdminSt_up,
 						Descr:         ygot.String("test interface"),
 						Layer:         nxos.Cisco_NX_OSDevice_L1_Layer_Layer3,
@@ -311,11 +292,9 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 						UserCfgdFlags: ygot.String("admin_layer,admin_state"),
 					},
 				},
-				{
-					updateIdx:   1,
-					expectType:  "ReplacingUpdate",
-					expectXPath: "System/ipv4-items/inst-items/dom-items/Dom-list[name=default]/if-items/If-list[id=eth1/1]",
-					expectValue: &nxos.Cisco_NX_OSDevice_System_Ipv4Items_InstItems_DomItems_DomList_IfItems_IfList{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/ipv4-items/inst-items/dom-items/Dom-list[name=default]/if-items/If-list[id=eth1/1]",
+					Value: &nxos.Cisco_NX_OSDevice_System_Ipv4Items_InstItems_DomItems_DomList_IfItems_IfList{
 						Unnumbered: ygot.String("lo0"),
 					},
 				},
@@ -330,24 +309,19 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 					WithNumberedAddressingIPv4([]string{"192.0.2.1/8"}),
 				)),
 			},
-			expectedNumberOfUpdates: 2,
-			updateChecks: []updateCheck{
-				{
-					updateIdx:   0,
-					expectType:  "ReplacingUpdate",
-					expectXPath: "System/intf-items/phys-items/PhysIf-list[id=eth3/1]",
-					expectValue: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/intf-items/phys-items/PhysIf-list[id=eth3/1]",
+					Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
 						AdminSt:       nxos.Cisco_NX_OSDevice_L1_AdminSt_up,
 						Descr:         ygot.String("test interface"),
 						Layer:         nxos.Cisco_NX_OSDevice_L1_Layer_Layer3,
 						UserCfgdFlags: ygot.String("admin_layer,admin_state"),
 					},
 				},
-				{
-					updateIdx:   1,
-					expectType:  "ReplacingUpdate",
-					expectXPath: "System/ipv4-items/inst-items/dom-items/Dom-list[name=default]/if-items/If-list[id=eth3/1]",
-					expectValue: &nxos.Cisco_NX_OSDevice_System_Ipv4Items_InstItems_DomItems_DomList_IfItems_IfList{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/ipv4-items/inst-items/dom-items/Dom-list[name=default]/if-items/If-list[id=eth3/1]",
+					Value: &nxos.Cisco_NX_OSDevice_System_Ipv4Items_InstItems_DomItems_DomList_IfItems_IfList{
 						AddrItems: &nxos.Cisco_NX_OSDevice_System_Ipv4Items_InstItems_DomItems_DomList_IfItems_IfList_AddrItems{
 							AddrList: map[string]*nxos.Cisco_NX_OSDevice_System_Ipv4Items_InstItems_DomItems_DomList_IfItems_IfList_AddrItems_AddrList{
 								"192.0.2.1/8": {
@@ -370,13 +344,10 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 					WithUnnumberedAddressing("loopback0"),
 				)),
 			},
-			expectedNumberOfUpdates: 2,
-			updateChecks: []updateCheck{
-				{
-					updateIdx:   0,
-					expectType:  "ReplacingUpdate",
-					expectXPath: "System/intf-items/phys-items/PhysIf-list[id=eth1/1]",
-					expectValue: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/intf-items/phys-items/PhysIf-list[id=eth1/1]",
+					Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
 						Descr:         ygot.String("test interface"),
 						AdminSt:       nxos.Cisco_NX_OSDevice_L1_AdminSt_up,
 						Layer:         nxos.Cisco_NX_OSDevice_L1_Layer_Layer3,
@@ -387,11 +358,9 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 						},
 					},
 				},
-				{
-					updateIdx:   1,
-					expectType:  "ReplacingUpdate",
-					expectXPath: "System/ipv4-items/inst-items/dom-items/Dom-list[name=test-vrf]/if-items/If-list[id=eth1/1]",
-					expectValue: &nxos.Cisco_NX_OSDevice_System_Ipv4Items_InstItems_DomItems_DomList_IfItems_IfList{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/ipv4-items/inst-items/dom-items/Dom-list[name=test-vrf]/if-items/If-list[id=eth1/1]",
+					Value: &nxos.Cisco_NX_OSDevice_System_Ipv4Items_InstItems_DomItems_DomList_IfItems_IfList{
 						Unnumbered: ygot.String("lo0"),
 					},
 				},
@@ -407,13 +376,10 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 					WithNumberedAddressingIPv4([]string{"192.0.2.1/8"}),
 				)),
 			},
-			expectedNumberOfUpdates: 2,
-			updateChecks: []updateCheck{
-				{
-					updateIdx:   0,
-					expectType:  "ReplacingUpdate",
-					expectXPath: "System/intf-items/phys-items/PhysIf-list[id=eth3/3]",
-					expectValue: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/intf-items/phys-items/PhysIf-list[id=eth3/3]",
+					Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{
 						Descr:         ygot.String("test interface"),
 						AdminSt:       nxos.Cisco_NX_OSDevice_L1_AdminSt_up,
 						Layer:         nxos.Cisco_NX_OSDevice_L1_Layer_Layer3,
@@ -423,11 +389,9 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 						},
 					},
 				},
-				{
-					updateIdx:   1,
-					expectType:  "ReplacingUpdate",
-					expectXPath: "System/ipv4-items/inst-items/dom-items/Dom-list[name=test-vrf]/if-items/If-list[id=eth3/3]",
-					expectValue: &nxos.Cisco_NX_OSDevice_System_Ipv4Items_InstItems_DomItems_DomList_IfItems_IfList{
+				gnmiext.ReplacingUpdate{
+					XPath: "System/ipv4-items/inst-items/dom-items/Dom-list[name=test-vrf]/if-items/If-list[id=eth3/3]",
+					Value: &nxos.Cisco_NX_OSDevice_System_Ipv4Items_InstItems_DomItems_DomList_IfItems_IfList{
 						AddrItems: &nxos.Cisco_NX_OSDevice_System_Ipv4Items_InstItems_DomItems_DomList_IfItems_IfList_AddrItems{
 							AddrList: map[string]*nxos.Cisco_NX_OSDevice_System_Ipv4Items_InstItems_DomItems_DomList_IfItems_IfList_AddrItems_AddrList{
 								"192.0.2.1/8": {
@@ -450,27 +414,18 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 
 			updates, err := p.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 			if err != nil {
-				t.Fatalf("unexpected error during ToYGOT: %v", err)
+				t.Errorf("unexpected error during ToYGOT: %v", err)
 			}
-
-			if len(updates) != tt.expectedNumberOfUpdates {
-				t.Fatalf("expected %d updates, got %d", tt.expectedNumberOfUpdates, len(updates))
-			}
-
-			validateUpdates(t, updates, tt.updateChecks)
+			testutils.AssertEqual(t, updates, tt.expectedUpdates)
 		})
 	}
 }
-
 func Test_PhysIf_Reset(t *testing.T) {
 	tests := []struct {
-		name          string
-		ifName        string
-		options       []PhysIfOption
-		expectUpdates []struct {
-			XPath string
-			Value any
-		}
+		name            string
+		ifName          string
+		options         []PhysIfOption
+		expectedUpdates []gnmiext.Update
 	}{
 		{
 			name:   "basic reset",
@@ -478,15 +433,12 @@ func Test_PhysIf_Reset(t *testing.T) {
 			options: []PhysIfOption{
 				WithDescription("test interface"),
 			},
-			expectUpdates: []struct {
-				XPath string
-				Value any
-			}{
-				{
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.ReplacingUpdate{
 					XPath: "System/stp-items/inst-items/if-items/If-list[id=eth1/1]",
 					Value: &nxos.Cisco_NX_OSDevice_System_StpItems_InstItems_IfItems_IfList{},
 				},
-				{
+				gnmiext.ReplacingUpdate{
 					XPath: "System/intf-items/phys-items/PhysIf-list[id=eth1/1]",
 					Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{},
 				},
@@ -499,15 +451,12 @@ func Test_PhysIf_Reset(t *testing.T) {
 				WithDescription("L2 test interface"),
 				WithPhysIfL2(&L2Config{}),
 			},
-			expectUpdates: []struct {
-				XPath string
-				Value any
-			}{
-				{
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.ReplacingUpdate{
 					XPath: "System/stp-items/inst-items/if-items/If-list[id=eth1/2]",
 					Value: &nxos.Cisco_NX_OSDevice_System_StpItems_InstItems_IfItems_IfList{},
 				},
-				{
+				gnmiext.ReplacingUpdate{
 					XPath: "System/intf-items/phys-items/PhysIf-list[id=eth1/2]",
 					Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{},
 				},
@@ -523,15 +472,12 @@ func Test_PhysIf_Reset(t *testing.T) {
 					unnumberedLoopback: "lo0",
 				}),
 			},
-			expectUpdates: []struct {
-				XPath string
-				Value any
-			}{
-				{
+			expectedUpdates: []gnmiext.Update{
+				gnmiext.ReplacingUpdate{
 					XPath: "System/stp-items/inst-items/if-items/If-list[id=eth1/3]",
 					Value: &nxos.Cisco_NX_OSDevice_System_StpItems_InstItems_IfItems_IfList{},
 				},
-				{
+				gnmiext.ReplacingUpdate{
 					XPath: "System/intf-items/phys-items/PhysIf-list[id=eth1/3]",
 					Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{},
 				},
@@ -546,82 +492,12 @@ func Test_PhysIf_Reset(t *testing.T) {
 				t.Fatalf("failed to create physical interface: %v", err)
 			}
 
-			got, err := p.Reset(context.Background(), nil)
+			updates, err := p.Reset(context.Background(), nil)
 			if err != nil {
 				t.Errorf("unexpected error during reset: %v", err)
 			}
 
-			if len(got) != len(tt.expectUpdates) {
-				t.Errorf("expected %d updates, got %d", len(tt.expectUpdates), len(got))
-			}
-
-			for i, expect := range tt.expectUpdates {
-				if i >= len(got) {
-					t.Errorf("missing update for expected xpath '%s'", expect.XPath)
-					continue
-				}
-				update, ok := got[i].(gnmiext.ReplacingUpdate)
-				if !ok {
-					t.Errorf("expected value to be of type ReplacingUpdate at index %d", i)
-					continue
-				}
-				if update.XPath != expect.XPath {
-					t.Errorf("wrong xpath at index %d, expected '%s', got '%s'", i, expect.XPath, update.XPath)
-				}
-
-				expectValue := expect.Value.(ygot.GoStruct)
-				notification, err := ygot.Diff(update.Value, expectValue)
-				if err != nil {
-					t.Errorf("failed to compute diff at index %d: %v", i, err)
-				}
-				if len(notification.Update) > 0 || len(notification.Delete) > 0 {
-					t.Errorf("unexpected diff at index %d: %s", i, notification)
-				}
-			}
+			testutils.AssertEqual(t, updates, tt.expectedUpdates)
 		})
-	}
-}
-
-func validateUpdates(t *testing.T, updates []gnmiext.Update, updateChecks []updateCheck) {
-	for _, check := range updateChecks {
-		var update any
-		switch check.expectType {
-		case "EditingUpdate":
-			update, _ = updates[check.updateIdx].(gnmiext.EditingUpdate)
-		case "ReplacingUpdate":
-			update, _ = updates[check.updateIdx].(gnmiext.ReplacingUpdate)
-		default:
-			t.Fatalf("unknown expectType: %s", check.expectType)
-		}
-		if update == nil {
-			t.Errorf("expected value to be of type %s at index %d", check.expectType, check.updateIdx)
-			continue
-		}
-		var xpath string
-		var value any
-		switch u := update.(type) {
-		case gnmiext.EditingUpdate:
-			xpath = u.XPath
-			value = u.Value
-		case gnmiext.ReplacingUpdate:
-			xpath = u.XPath
-			value = u.Value
-		}
-		if xpath != check.expectXPath {
-			t.Errorf("wrong xpath at index %d, expected '%s', got '%s'", check.updateIdx, check.expectXPath, xpath)
-		}
-		valueGoStruct, ok1 := value.(ygot.GoStruct)
-		expectValueGoStruct, ok2 := check.expectValue.(ygot.GoStruct)
-		if !ok1 || !ok2 {
-			t.Errorf("failed to type assert value or expectValue to ygot.GoStruct at index %d", check.updateIdx)
-			continue
-		}
-		notification, err := ygot.Diff(valueGoStruct, expectValueGoStruct)
-		if err != nil {
-			t.Errorf("failed to compute diff: %v", err)
-		}
-		if len(notification.Update) > 0 || len(notification.Delete) > 0 {
-			t.Errorf("unexpected diff at index %d: %s", check.updateIdx, notification)
-		}
 	}
 }

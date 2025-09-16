@@ -227,15 +227,19 @@ func (n *NVE) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, err
 	}
 
 	val.SuppressARP = n.suppressARP
-
+	adminSt := nxos.Cisco_NX_OSDevice_Fm_AdminState_enabled
+	if !n.adminSt {
+		adminSt = nxos.Cisco_NX_OSDevice_Fm_AdminState_disabled
+	}
 	if n.mcastL2 != nil {
 		val.McastGroupL2 = ygot.String(n.mcastL2.String())
 	}
 	if n.mcastL3 != nil {
+
 		updates = append(updates, gnmiext.EditingUpdate{
 			XPath: "/System/fm-items/ngmvpn-items",
 			Value: &nxos.Cisco_NX_OSDevice_System_FmItems_NgmvpnItems{
-				AdminSt: nxos.Cisco_NX_OSDevice_Fm_AdminState_enabled,
+				AdminSt: adminSt,
 			},
 		})
 		val.McastGroupL3 = ygot.String(n.mcastL3.String())
@@ -244,12 +248,11 @@ func (n *NVE) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, err
 	if n.holdDownTime != 0 {
 		val.HoldDownTime = ygot.Uint16(n.holdDownTime)
 	}
-
 	return append(updates, []gnmiext.Update{
 		gnmiext.EditingUpdate{
 			XPath: "/System/fm-items/nvo-items",
 			Value: &nxos.Cisco_NX_OSDevice_System_FmItems_NvoItems{
-				AdminSt: nxos.Cisco_NX_OSDevice_Fm_AdminState_enabled,
+				AdminSt: adminSt,
 			},
 		},
 		gnmiext.ReplacingUpdate{
