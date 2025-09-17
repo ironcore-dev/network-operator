@@ -247,17 +247,27 @@ func (p *PhysIf) createL3(pl *nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_
 // Reset clears config of the physical interface as well as L2, L3 options.
 //   - In this Cisco Nexus version devices clean up parts of the  models that are related but in different paths of the YANG tree
 //   - The same occurs for the L2 and L3 configurations options, except for the spanning tree configuration, which is not automatically reset.
-func (p *PhysIf) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
-	return []gnmiext.Update{
-		gnmiext.ReplacingUpdate{
-			XPath: "System/stp-items/inst-items/if-items/If-list[id=" + p.name + "]",
-			Value: &nxos.Cisco_NX_OSDevice_System_StpItems_InstItems_IfItems_IfList{},
-		},
+func (p *PhysIf) Reset(ctx context.Context, client gnmiext.Client) ([]gnmiext.Update, error) {
+	updates := []gnmiext.Update{
 		gnmiext.ReplacingUpdate{
 			XPath: "System/intf-items/phys-items/PhysIf-list[id=" + p.name + "]",
 			Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{},
 		},
-	}, nil
+	}
+
+	exists, err := client.Exists(ctx, "System/stp-items/inst-items/if-items/If-list[id="+p.name+"]")
+	if err != nil {
+		return nil, err
+	}
+
+	if exists {
+		updates = slices.Insert(updates, 0, gnmiext.Update(gnmiext.ReplacingUpdate{
+			XPath: "System/stp-items/inst-items/if-items/If-list[id=" + p.name + "]",
+			Value: &nxos.Cisco_NX_OSDevice_System_StpItems_InstItems_IfItems_IfList{},
+		}))
+	}
+
+	return updates, nil
 }
 
 // Range provides a string representation of identifiers (typically VLAN IDs) that formats the range in a human-readable way.

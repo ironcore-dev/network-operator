@@ -14,11 +14,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/testutils"
 )
 
-const (
-	physIfDescription = "test interface"
-	physIfVRFName     = "test-vrf"
-	physIfName        = "eth1/1"
-)
+const physIfVRFName = "test-vrf"
 
 func Test_PhysIf_NewPhysicalInterface(t *testing.T) {
 	tests := []struct {
@@ -420,16 +416,24 @@ func Test_PhysIf_ToYGOT_BaseConfig(t *testing.T) {
 		})
 	}
 }
+
 func Test_PhysIf_Reset(t *testing.T) {
 	tests := []struct {
 		name            string
 		ifName          string
+		exists          func(ctx context.Context, xpath string) (bool, error)
 		options         []PhysIfOption
 		expectedUpdates []gnmiext.Update
 	}{
 		{
 			name:   "basic reset",
 			ifName: "eth1/1",
+			exists: func(ctx context.Context, xpath string) (bool, error) {
+				if xpath == "System/stp-items/inst-items/if-items/If-list[id=eth1/1]" {
+					return true, nil
+				}
+				return false, nil
+			},
 			options: []PhysIfOption{
 				WithDescription("test interface"),
 			},
@@ -447,6 +451,12 @@ func Test_PhysIf_Reset(t *testing.T) {
 		{
 			name:   "reset with L2 configuration",
 			ifName: "eth1/2",
+			exists: func(ctx context.Context, xpath string) (bool, error) {
+				if xpath == "System/stp-items/inst-items/if-items/If-list[id=eth1/2]" {
+					return true, nil
+				}
+				return false, nil
+			},
 			options: []PhysIfOption{
 				WithDescription("L2 test interface"),
 				WithPhysIfL2(&L2Config{}),
@@ -465,6 +475,7 @@ func Test_PhysIf_Reset(t *testing.T) {
 		{
 			name:   "reset with L3 configuration",
 			ifName: "eth1/3",
+			exists: func(ctx context.Context, xpath string) (bool, error) { return false, nil },
 			options: []PhysIfOption{
 				WithDescription("L3 test interface"),
 				WithPhysIfL3(&L3Config{
@@ -473,10 +484,6 @@ func Test_PhysIf_Reset(t *testing.T) {
 				}),
 			},
 			expectedUpdates: []gnmiext.Update{
-				gnmiext.ReplacingUpdate{
-					XPath: "System/stp-items/inst-items/if-items/If-list[id=eth1/3]",
-					Value: &nxos.Cisco_NX_OSDevice_System_StpItems_InstItems_IfItems_IfList{},
-				},
 				gnmiext.ReplacingUpdate{
 					XPath: "System/intf-items/phys-items/PhysIf-list[id=eth1/3]",
 					Value: &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{},
@@ -492,7 +499,9 @@ func Test_PhysIf_Reset(t *testing.T) {
 				t.Fatalf("failed to create physical interface: %v", err)
 			}
 
-			updates, err := p.Reset(context.Background(), nil)
+			m := &gnmiext.ClientMock{ExistsFunc: tt.exists}
+
+			updates, err := p.Reset(context.Background(), m)
 			if err != nil {
 				t.Errorf("unexpected error during reset: %v", err)
 			}
