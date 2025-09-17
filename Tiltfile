@@ -22,7 +22,12 @@ local_resource('controller-gen', 'make generate', ignore=['*/*/zz_generated.deep
 
 docker_build('ghcr.io/ironcore-dev/gnmi-test-server:latest', './test/gnmi')
 
-k8s_yaml(kustomize('config/develop'))
+provider = os.getenv('PROVIDER', 'openconfig')
+
+manager = kustomize('config/develop')
+manager = str(manager).replace('--provider=openconfig', '--provider={}'.format(provider))
+
+k8s_yaml(blob(manager))
 k8s_resource('network-operator-controller-manager', resource_deps=['controller-gen'])
 
 # Sample resources with manual trigger mode

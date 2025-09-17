@@ -3,3 +3,4 @@
   value:
     - --leader-elect=false
     - --health-probe-bind-address=:8081
+    - --provider=openconfig
