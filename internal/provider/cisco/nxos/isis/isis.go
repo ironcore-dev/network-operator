@@ -99,7 +99,9 @@ func (i *ISIS) ToYGOT(ctx context.Context, c gnmiext.Client) ([]gnmiext.Update, 
 		if err != nil {
 			return nil, err
 		}
-		domList.GetOrCreateIfItems().AppendIfList(iflist)
+		if err = domList.GetOrCreateIfItems().AppendIfList(iflist); err != nil {
+			return nil, fmt.Errorf("isis: failed to append interface %q: %w", intf.name, err)
+		}
 	}
 
 	updates := []gnmiext.Update{
@@ -135,4 +137,12 @@ func (i *ISIS) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, err
 			XPath: "System/isis-items/inst-items/Inst-list[name=" + i.Name + "]",
 		},
 	}, nil
+}
+
+func (i *ISIS) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (i *ISIS) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
 }

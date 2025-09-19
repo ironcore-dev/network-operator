@@ -7,7 +7,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
+	"regexp"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -300,4 +303,292 @@ func Range(r []uint16) string {
 	}
 
 	return strings.Join(ranges, ",")
+}
+
+// InvRange inverts a string representation of identifiers (typically VLAN IDs) into a slice of uint16.
+func InvRange(r string) ([]uint16, error) {
+	if r == "" {
+		return nil, nil
+	}
+	var result []uint16
+	for part := range strings.SplitSeq(r, ",") {
+		part = strings.TrimSpace(part)
+		if strings.Contains(part, "-") {
+			bounds := strings.SplitN(part, "-", 2)
+			if len(bounds) != 2 {
+				return nil, fmt.Errorf("invalid range: %q", part)
+			}
+			start, err := strconv.ParseUint(bounds[0], 10, 16)
+			if err != nil {
+				return nil, fmt.Errorf("invalid start in range %q: %w", part, err)
+			}
+			end, err := strconv.ParseUint(bounds[1], 10, 16)
+			if err != nil {
+				return nil, fmt.Errorf("invalid end in range %q: %w", part, err)
+			}
+			if start > end {
+				return nil, fmt.Errorf("start greater than end in range %q", part)
+			}
+			for v := start; v <= end; v++ {
+				result = append(result, uint16(v))
+			}
+		} else {
+			val, err := strconv.ParseUint(part, 10, 16)
+			if err != nil {
+				return nil, fmt.Errorf("invalid value %q: %w", part, err)
+			}
+			result = append(result, uint16(val))
+		}
+	}
+	return result, nil
+}
+
+func (p *PhysIf) FromYGOT(ctx context.Context, client gnmiext.Client) error {
+	i := &nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList{}
+
+	if err := client.Get(ctx, "System/intf-items/phys-items/PhysIf-list[id="+p.name+"]", i); err != nil {
+		return fmt.Errorf("physif: interface %s does not exist on device: %w", p.name, err)
+	}
+
+	if i.Descr != nil {
+		p.description = *i.Descr
+	}
+	p.adminSt = i.AdminSt == nxos.Cisco_NX_OSDevice_L1_AdminSt_up
+	if i.Mtu != nil {
+		p.mtu = *i.Mtu
+	}
+	// TDn is of the form "System/inst-items/Inst-list[name=VRF_NAME]"
+	if i.GetRtvrfMbrItems() != nil && i.GetRtvrfMbrItems().TDn != nil {
+		re := regexp.MustCompile(`\[name=([^\]]+)\]`)
+		matches := re.FindStringSubmatch(*i.GetRtvrfMbrItems().TDn)
+		if len(matches) == 2 {
+			p.vrf = matches[1]
+		}
+	}
+
+	switch i.Layer {
+	case nxos.Cisco_NX_OSDevice_L1_Layer_Layer2:
+		err := p.fromYGOTL2(ctx, client, i)
+		if err != nil {
+			return fmt.Errorf("physif: FromYGOT failed to parse L2 configuration %w", err)
+		}
+	case nxos.Cisco_NX_OSDevice_L1_Layer_Layer3:
+		err := p.fromYGOTL3(ctx, client, i)
+		if err != nil {
+			return fmt.Errorf("physif: FromYGOT failed to parse L3 configuration %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (p *PhysIf) fromYGOTL2(_ context.Context, client gnmiext.Client, i *nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList) error {
+	// base config
+	p.l2 = &L2Config{}
+	switch i.Mode {
+	case nxos.Cisco_NX_OSDevice_L1_Mode_access:
+		p.l2.switchPort = SwitchPortModeAccess
+	case nxos.Cisco_NX_OSDevice_L1_Mode_trunk:
+		p.l2.switchPort = SwitchPortModeTrunk
+	default:
+		return errors.New("physif: unexpected switchport mode for L2 interface")
+	}
+	if i.AccessVlan != nil {
+		vlanStr := strings.TrimPrefix(*i.AccessVlan, "vlan-")
+		vlanID, err := strconv.ParseUint(vlanStr, 10, 16)
+		if err != nil {
+			return fmt.Errorf("physif: failed to parse access VLAN ID: %w", err)
+		}
+		p.l2.accessVlan = uint16(vlanID)
+	}
+	if i.TrunkVlans != nil {
+		vlans, err := InvRange(*i.TrunkVlans)
+		if err != nil {
+			return fmt.Errorf("physif: failed to parse trunk allowed VLANs: %w", err)
+		}
+		slices.Sort(vlans)
+		p.l2.allowedVlans = vlans
+	}
+	if i.NativeVlan != nil {
+		vlanStr := strings.TrimPrefix(*i.NativeVlan, "vlan-")
+		vlanID, err := strconv.ParseUint(vlanStr, 10, 16)
+		if err != nil {
+			return fmt.Errorf("physif: failed to parse native VLAN ID: %w", err)
+		}
+		p.l2.nativeVlan = uint16(vlanID)
+	}
+	// spanning tree
+	p.l2.spanningTree = SpanningTreeModeUnset
+	s := nxos.Cisco_NX_OSDevice_System_StpItems_InstItems_IfItems_IfList{}
+	err := client.Get(context.Background(), "System/stp-items/inst-items/if-items/If-list[id="+p.name+"]", &s)
+	if err != nil {
+		return fmt.Errorf("physif: failed to get spanning tree config for interface %s: %w", p.name, err)
+	}
+	switch s.Mode {
+	case nxos.Cisco_NX_OSDevice_Stp_IfMode_edge:
+		p.l2.spanningTree = SpanningTreeModeEdge
+	case nxos.Cisco_NX_OSDevice_Stp_IfMode_network:
+		p.l2.spanningTree = SpanningTreeModeNetwork
+	case nxos.Cisco_NX_OSDevice_Stp_IfMode_trunk:
+		p.l2.spanningTree = SpanningTreeModeTrunk
+	}
+	return nil
+}
+
+// fromYGOTL3 populates the L3 configuration of the physical interface from the YGOT model. VRF must be
+// already be correctly set on the PhysIf struct.
+func (p *PhysIf) fromYGOTL3(_ context.Context, client gnmiext.Client, i *nxos.Cisco_NX_OSDevice_System_IntfItems_PhysItems_PhysIfList) error {
+	p.l3 = &L3Config{}
+	p.l3.medium = L3MediumTypeUnset
+	switch i.Medium {
+	case nxos.Cisco_NX_OSDevice_L1_Medium_broadcast:
+		p.l3.medium = L3MediumTypeBroadcast
+	case nxos.Cisco_NX_OSDevice_L1_Medium_p2p:
+		p.l3.medium = L3MediumTypeP2P
+	}
+	// get addressing mode and addresses
+	vrfName := "default"
+	if p.vrf != "" {
+		vrfName = p.vrf
+	}
+	a := &nxos.Cisco_NX_OSDevice_System_Ipv4Items_InstItems_DomItems_DomList_IfItems_IfList{}
+	err := client.Get(context.Background(), "System/ipv4-items/inst-items/dom-items/Dom-list[name="+vrfName+"]/if-items/If-list[id="+p.name+"]", a)
+	if err != nil {
+		return errors.New("physif: failed to get IPv4 config for L3 physical interface")
+	}
+	if a.Unnumbered != nil {
+		p.l3.addressingMode = AddressingModeUnnumbered
+		p.l3.unnumberedLoopback = *a.Unnumbered
+		return nil
+	}
+	if a.AddrItems == nil || len(a.AddrItems.AddrList) == 0 {
+		return nil
+	}
+	p.l3.addressingMode = AddressingModeNumbered
+	for _, addr := range a.GetOrCreateAddrItems().AddrList {
+		a, err := netip.ParsePrefix(*addr.Addr)
+		if err != nil {
+			return fmt.Errorf("physif: failed to parse IPv4 address: %w", err)
+		}
+		p.l3.prefixesIPv4 = append(p.l3.prefixesIPv4, a)
+	}
+	// IPv6 addresses
+	v6 := &nxos.Cisco_NX_OSDevice_System_Ipv6Items_InstItems_DomItems_DomList_IfItems_IfList{}
+	err = client.Get(context.Background(), "System/ipv6-items/inst-items/dom-items/Dom-list[name="+vrfName+"]/if-items/If-list[id="+p.name+"]", v6)
+	if err != nil {
+		return errors.New("physif: failed to get IPv6 config for L3 physical interface")
+	}
+	if v6.AddrItems == nil || len(v6.AddrItems.AddrList) == 0 {
+		return nil
+	}
+	for _, addr := range v6.GetOrCreateAddrItems().AddrList {
+		a, err := netip.ParsePrefix(*addr.Addr)
+		if err != nil {
+			return fmt.Errorf("physif: failed to parse IPv6 address: %w", err)
+		}
+		p.l3.prefixesIPv6 = append(p.l3.prefixesIPv6, a)
+	}
+	return nil
+}
+
+func sortedCopyPrefix(prefixes []netip.Prefix) []netip.Prefix {
+	result := slices.Clone(prefixes)
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Addr() != result[j].Addr() {
+			return result[i].Addr().Less(result[j].Addr())
+		}
+		return result[i].Bits() < result[j].Bits()
+	})
+	return result
+}
+
+func sortedCopyUint16(s []uint16) []uint16 {
+	c := slices.Clone(s)
+	slices.Sort(c)
+	return c
+}
+
+func (p *PhysIf) Equals(other gnmiext.DeviceConf) (bool, error) {
+	o, ok := other.(*PhysIf)
+	if !ok {
+		return false, fmt.Errorf("type mismatch: expected *PhysIf, got %T", other)
+	}
+	if p.name != o.name ||
+		p.description != o.description ||
+		p.adminSt != o.adminSt ||
+		p.mtu != o.mtu ||
+		p.vrf != o.vrf {
+		return false, nil
+	}
+	// Compare L2 configs (implement L2Config.Equals if needed)
+	if p.l2 == nil != (o.l2 == nil) {
+		return false, nil
+	}
+	if p.l2 != nil && o.l2 != nil {
+		if p.l2.switchPort != o.l2.switchPort ||
+			p.l2.spanningTree != o.l2.spanningTree ||
+			p.l2.accessVlan != o.l2.accessVlan ||
+			p.l2.nativeVlan != o.l2.nativeVlan ||
+			!slices.Equal(sortedCopyUint16(p.l2.allowedVlans), sortedCopyUint16(o.l2.allowedVlans)) {
+			return false, nil
+		}
+	}
+
+	// Compare L3 configs, ignoring slice order
+	if (p.l3 == nil) != (o.l3 == nil) {
+		return false, nil
+	}
+	if p.l3 != nil && o.l3 != nil {
+		if p.l3.medium != o.l3.medium ||
+			p.l3.addressingMode != o.l3.addressingMode ||
+			p.l3.unnumberedLoopback != o.l3.unnumberedLoopback {
+			return false, nil
+		}
+		pv4 := sortedCopyPrefix(p.l3.prefixesIPv4)
+		ov4 := sortedCopyPrefix(o.l3.prefixesIPv4)
+		pv6 := sortedCopyPrefix(p.l3.prefixesIPv6)
+		ov6 := sortedCopyPrefix(o.l3.prefixesIPv6)
+		if !slices.Equal(pv4, ov4) || !slices.Equal(pv6, ov6) {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func (p *PhysIf) String() string {
+	result := fmt.Sprintf("PhysIf(name=%q, description=%q, adminSt=%t, mtu=%d, vrf=%q", p.name, p.description, p.adminSt, p.mtu, p.vrf)
+	if p.l2 != nil {
+		result += ", l2=" + p.l2.String()
+	}
+	if p.l3 != nil {
+		result += ", l3=" + p.l3.String()
+	}
+	result += ")"
+	return result
+}
+
+func (c *L2Config) String() string {
+	return fmt.Sprintf(
+		"L2Config(switchPort=%s, spanningTree=%d, accessVlan=%d, nativeVlan=%d, allowedVlans=%v)",
+		c.switchPort.String(), c.spanningTree, c.accessVlan, c.nativeVlan, c.allowedVlans,
+	)
+}
+
+// String returns the string representation of the SwitchPortMode.
+func (m SwitchPortMode) String() string {
+	switch m {
+	case SwitchPortModeAccess:
+		return "access"
+	case SwitchPortModeTrunk:
+		return "trunk"
+	default:
+		return "unknown"
+	}
+}
+
+func (c *L3Config) String() string {
+	return fmt.Sprintf(
+		"L3Config(medium=%d, addressingMode=%d, unnumberedLoopback=%q, prefixesIPv4=%v, prefixesIPv6=%v)",
+		c.medium, c.addressingMode, c.unnumberedLoopback, c.prefixesIPv4, c.prefixesIPv6,
+	)
 }

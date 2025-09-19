@@ -5,6 +5,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/openconfig/ygot/ygot"
@@ -111,4 +112,12 @@ func (v *NXAPI) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, er
 			Value: nxapi,
 		},
 	}, nil
+}
+
+func (n *NXAPI) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (n *NXAPI) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
 }

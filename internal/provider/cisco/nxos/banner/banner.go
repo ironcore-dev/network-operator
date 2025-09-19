@@ -53,7 +53,7 @@ func (b *Banner) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, 
 	}, nil
 }
 
-func (v *Banner) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
+func (b *Banner) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	banner := &nxos.Cisco_NX_OSDevice_System_UserextItems_PreloginbannerItems{}
 	banner.PopulateDefaults()
 	return []gnmiext.Update{
@@ -62,4 +62,12 @@ func (v *Banner) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, e
 			Value: banner,
 		},
 	}, nil
+}
+
+func (b *Banner) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (b *Banner) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
 }

@@ -203,7 +203,7 @@ func TestExists(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			mock := &gnmiext.ClientMock{ExistsFunc: test.fn}
-			exists, err := Exists(context.Background(), mock, test.interfaceName)
+			exists, err := Exists(t.Context(), mock, test.interfaceName)
 			if exists != test.wantExists {
 				t.Errorf("Exists(%q) = %v, want %v", test.interfaceName, exists, test.wantExists)
 			}

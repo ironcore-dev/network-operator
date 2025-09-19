@@ -255,3 +255,11 @@ func (o *OSPF) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, err
 		},
 	}, nil
 }
+
+func (o *OSPF) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (o *OSPF) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
+}

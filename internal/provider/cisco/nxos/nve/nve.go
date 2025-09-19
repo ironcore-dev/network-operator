@@ -235,7 +235,6 @@ func (n *NVE) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, err
 		val.McastGroupL2 = ygot.String(n.mcastL2.String())
 	}
 	if n.mcastL3 != nil {
-
 		updates = append(updates, gnmiext.EditingUpdate{
 			XPath: "/System/fm-items/ngmvpn-items",
 			Value: &nxos.Cisco_NX_OSDevice_System_FmItems_NgmvpnItems{
@@ -281,4 +280,12 @@ func (n *NVE) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, erro
 			},
 		},
 	}, nil
+}
+
+func (n *NVE) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (n *NVE) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
 }

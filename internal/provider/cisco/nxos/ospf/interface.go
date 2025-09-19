@@ -151,3 +151,11 @@ func (i *Interface) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update
 		},
 	}, nil
 }
+
+func (i *Interface) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (i *Interface) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
+}

@@ -4,7 +4,6 @@
 package iface
 
 import (
-	"context"
 	"testing"
 
 	"github.com/openconfig/ygot/ygot"
@@ -93,7 +92,7 @@ func Test_Loopback_ToYGOT_BaseConfig(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to create loopback interface: %v", err)
 			}
-			got, err := p.ToYGOT(context.Background(), &gnmiext.ClientMock{})
+			got, err := p.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
@@ -103,7 +102,6 @@ func Test_Loopback_ToYGOT_BaseConfig(t *testing.T) {
 }
 
 func Test_Loopback_ToYGOT_WithL3Config(t *testing.T) {
-
 	testAddressingL3Cfg, err := NewL3Config(
 		WithNumberedAddressingIPv4([]string{"10.0.0.1/24"}),
 	)
@@ -158,7 +156,7 @@ func Test_Loopback_ToYGOT_WithL3Config(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to create loopback interface: %v", err)
 			}
-			got, err := p.ToYGOT(context.Background(), &gnmiext.ClientMock{})
+			got, err := p.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
@@ -248,7 +246,7 @@ func Test_Loopback_Reset(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to create loopback interface: %v", err)
 			}
-			updates, err := p.Reset(context.Background(), nil)
+			updates, err := p.Reset(t.Context(), nil)
 			if err != nil {
 				t.Errorf("unexpected error during reset: %v", err)
 			}

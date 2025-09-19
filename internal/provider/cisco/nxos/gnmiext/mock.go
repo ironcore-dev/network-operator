@@ -5,10 +5,11 @@ package gnmiext
 
 import (
 	"context"
+	"sync"
+
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ygot/ygot"
 	"google.golang.org/grpc"
-	"sync"
 )
 
 // Ensure, that GNMIClientMock does implement GNMIClient.
@@ -267,6 +268,9 @@ var _ Client = &ClientMock{}
 //			GetFunc: func(ctx context.Context, xpath string, dest ygot.GoStruct, opts ...GetOption) error {
 //				panic("mock out the Get method")
 //			},
+//			PullFunc: func(ctx context.Context, config DeviceConf) error {
+//				panic("mock out the Pull method")
+//			},
 //			ResetFunc: func(ctx context.Context, config DeviceConf) error {
 //				panic("mock out the Reset method")
 //			},
@@ -288,6 +292,9 @@ type ClientMock struct {
 
 	// GetFunc mocks the Get method.
 	GetFunc func(ctx context.Context, xpath string, dest ygot.GoStruct, opts ...GetOption) error
+
+	// PullFunc mocks the Pull method.
+	PullFunc func(ctx context.Context, config DeviceConf) error
 
 	// ResetFunc mocks the Reset method.
 	ResetFunc func(ctx context.Context, config DeviceConf) error
@@ -318,6 +325,13 @@ type ClientMock struct {
 			// Opts is the opts argument value.
 			Opts []GetOption
 		}
+		// Pull holds details about calls to the Pull method.
+		Pull []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Config is the config argument value.
+			Config DeviceConf
+		}
 		// Reset holds details about calls to the Reset method.
 		Reset []struct {
 			// Ctx is the ctx argument value.
@@ -342,6 +356,7 @@ type ClientMock struct {
 	}
 	lockExists sync.RWMutex
 	lockGet    sync.RWMutex
+	lockPull   sync.RWMutex
 	lockReset  sync.RWMutex
 	lockSet    sync.RWMutex
 	lockUpdate sync.RWMutex
@@ -424,6 +439,42 @@ func (mock *ClientMock) GetCalls() []struct {
 	mock.lockGet.RLock()
 	calls = mock.calls.Get
 	mock.lockGet.RUnlock()
+	return calls
+}
+
+// Pull calls PullFunc.
+func (mock *ClientMock) Pull(ctx context.Context, config DeviceConf) error {
+	if mock.PullFunc == nil {
+		panic("ClientMock.PullFunc: method is nil but Client.Pull was just called")
+	}
+	callInfo := struct {
+		Ctx    context.Context
+		Config DeviceConf
+	}{
+		Ctx:    ctx,
+		Config: config,
+	}
+	mock.lockPull.Lock()
+	mock.calls.Pull = append(mock.calls.Pull, callInfo)
+	mock.lockPull.Unlock()
+	return mock.PullFunc(ctx, config)
+}
+
+// PullCalls gets all the calls that were made to Pull.
+// Check the length with:
+//
+//	len(mockedClient.PullCalls())
+func (mock *ClientMock) PullCalls() []struct {
+	Ctx    context.Context
+	Config DeviceConf
+} {
+	var calls []struct {
+		Ctx    context.Context
+		Config DeviceConf
+	}
+	mock.lockPull.RLock()
+	calls = mock.calls.Pull
+	mock.lockPull.RUnlock()
 	return calls
 }
 

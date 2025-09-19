@@ -83,7 +83,7 @@ func WithBFD() IfOption {
 	}
 }
 
-var ErrInterfaceNotFound = fmt.Errorf("interface not found on device")
+var ErrInterfaceNotFound = errors.New("interface not found on device")
 
 func (i *Interface) toYGOT(ctx context.Context, client gnmiext.Client) (*nxos.Cisco_NX_OSDevice_System_IsisItems_InstItems_InstList_DomItems_DomList_IfItems_IfList, error) {
 	exists, err := iface.Exists(ctx, client, i.name)

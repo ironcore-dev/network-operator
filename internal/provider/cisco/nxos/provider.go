@@ -594,7 +594,8 @@ type Features struct{ Spec []string }
 func (step *Features) Name() string             { return "Features" }
 func (step *Features) Deps() []client.ObjectKey { return nil }
 func (step *Features) Exec(ctx context.Context, s *Scope) error {
-	return s.GNMI.Update(ctx, feat.Features(step.Spec))
+	f := &feat.Features{List: step.Spec}
+	return s.GNMI.Update(ctx, f)
 }
 
 type DNS struct{ Spec *v1alpha1.DNS }

@@ -11,7 +11,7 @@ import (
 )
 
 func Test_Features(t *testing.T) {
-	f := Features{"restconf"}
+	f := Features{List: []string{"restconf"}}
 
 	got, err := f.ToYGOT(t.Context(), &gnmiext.ClientMock{})
 	if err != nil {

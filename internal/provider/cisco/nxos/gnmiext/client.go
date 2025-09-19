@@ -35,6 +35,7 @@ type Client interface {
 	Set(ctx context.Context, notification *gpb.Notification) error
 	Update(ctx context.Context, config DeviceConf) error
 	Reset(ctx context.Context, config DeviceConf) error
+	Pull(ctx context.Context, config DeviceConf) error
 }
 
 // Update is an interface that represents an operation to change the configuration of a device.
@@ -83,6 +84,11 @@ type DeviceConf interface {
 	// to retrieve the current configuration from the target device, if the implementation
 	// requires keeping some of the current values.
 	Reset(context.Context, Client) ([]Update, error)
+	// FromYGOT updates the configuration object by fetchin it from the target device. Key values
+	// must be pre-set in the configuration object, e.g., the interface name.
+	FromYGOT(context.Context, Client) error
+	// Equal compares the current configuration with another configuration of the same type
+	Equals(other DeviceConf) (bool, error)
 }
 
 var (
@@ -724,4 +730,11 @@ func valueToJSON(value *gpb.TypedValue) (*gpb.TypedValue, error) {
 	}
 
 	return &gpb.TypedValue{Value: &gpb.TypedValue_JsonVal{JsonVal: b}}, nil
+}
+
+func (c *client) Pull(ctx context.Context, config DeviceConf) error {
+	if ok := config.FromYGOT(ctx, c); ok != nil {
+		return fmt.Errorf("gnmiext: failed to get remote ygot structures: %w", ok)
+	}
+	return nil
 }

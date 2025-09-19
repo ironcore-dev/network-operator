@@ -7,9 +7,10 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/openconfig/ygot/ygot"
+
 	nxos "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/genyang"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
-	"github.com/openconfig/ygot/ygot"
 )
 
 func Test_Interface_NewInterface(t *testing.T) {
@@ -101,7 +102,7 @@ func Test_Interface_toYGOT(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error from NewInterface: %v", err)
 			}
-			got, err := intf.toYGOT(context.Background(), &gnmiext.ClientMock{
+			got, err := intf.toYGOT(t.Context(), &gnmiext.ClientMock{
 				ExistsFunc: func(ctx context.Context, xpath string) (bool, error) {
 					if tc.expectErr {
 						return false, errors.New("error")

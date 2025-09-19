@@ -252,7 +252,7 @@ func Test_NVE_ToYGOT(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error during NewNVE: %v", err)
 			}
-			updates, err := nve.ToYGOT(context.TODO(), &gnmiext.ClientMock{
+			updates, err := nve.ToYGOT(t.Context(), &gnmiext.ClientMock{
 				ExistsFunc: func(_ context.Context, _ string) (bool, error) { return true, nil },
 			})
 			if err != nil {
@@ -322,7 +322,7 @@ func Test_NVE_Reset(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error during NewNVE: %v", err)
 			}
-			updates, err := nve.Reset(context.TODO(), &gnmiext.ClientMock{
+			updates, err := nve.Reset(t.Context(), &gnmiext.ClientMock{
 				ExistsFunc: func(_ context.Context, _ string) (bool, error) { return true, nil },
 			})
 			if err != nil {

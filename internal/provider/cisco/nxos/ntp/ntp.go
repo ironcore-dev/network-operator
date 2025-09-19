@@ -5,6 +5,7 @@ package ntp
 
 import (
 	"context"
+	"errors"
 
 	"github.com/openconfig/ygot/ygot"
 
@@ -77,4 +78,12 @@ func (n *NTP) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, erro
 			},
 		},
 	}, nil
+}
+
+func (n *NTP) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (n *NTP) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
 }

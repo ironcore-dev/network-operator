@@ -195,3 +195,11 @@ func (p *PortChannel) createL2(a *nxos.Cisco_NX_OSDevice_System_IntfItems_AggrIt
 	}
 	return nil
 }
+
+func (p *PortChannel) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (p *PortChannel) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
+}

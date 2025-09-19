@@ -300,3 +300,11 @@ func opt(s string) *string {
 	}
 	return ygot.String(s)
 }
+
+func (s *SNMP) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (s *SNMP) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
+}

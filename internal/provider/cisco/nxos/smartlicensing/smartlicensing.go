@@ -5,6 +5,7 @@ package smartlicensing
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/openconfig/ygot/ygot"
@@ -80,6 +81,14 @@ func (v *Licensing) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update
 			Value: x,
 		},
 	}, nil
+}
+
+func (l *Licensing) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (l *Licensing) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
 }
 
 type CallHome struct {
@@ -194,4 +203,12 @@ func (v *CallHome) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update,
 			Value: x,
 		},
 	}, nil
+}
+
+func (c *CallHome) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (c *CallHome) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
 }

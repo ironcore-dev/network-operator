@@ -4,6 +4,7 @@ package term
 
 import (
 	"context"
+	"errors"
 
 	"github.com/openconfig/ygot/ygot"
 
@@ -34,7 +35,7 @@ func (c *Console) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update,
 	}, nil
 }
 
-func (v *Console) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
+func (c *Console) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	cons := &nxos.Cisco_NX_OSDevice_System_TermlItems_LnItems_ConsItems{}
 	cons.PopulateDefaults()
 	return []gnmiext.Update{
@@ -43,6 +44,14 @@ func (v *Console) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, 
 			Value: cons,
 		},
 	}, nil
+}
+
+func (c *Console) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (c *Console) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
 }
 
 // VTY represents the virtual terminal line configuration.
@@ -96,4 +105,12 @@ func (v *VTY) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, erro
 			Value: acls,
 		},
 	}, nil
+}
+
+func (v *VTY) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (v *VTY) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
 }

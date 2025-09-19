@@ -101,6 +101,14 @@ func (g *GRPC) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, er
 }
 
 // returns an empty update and an error indicating that the reset is not implemented
-func (v *GRPC) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
+func (g *GRPC) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{}, errors.New("grpc: reset not implemented as it effectively disables management over gNMI")
+}
+
+func (g *GRPC) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (g *GRPC) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
 }

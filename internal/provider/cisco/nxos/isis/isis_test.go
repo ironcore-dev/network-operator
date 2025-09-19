@@ -44,8 +44,8 @@ func Test_ISIS_ToYGOT(t *testing.T) {
 		t.Errorf("expected XPath 'System/isis-items/inst-items/Inst-list[name=UNDERLAY]', got %s", update.XPath)
 	}
 	instList, ok := update.Value.(*nxos.Cisco_NX_OSDevice_System_IsisItems_InstItems_InstList)
-	if !ok {
-		t.Errorf("expected value to be of type *nxos.Cisco_NX_OSDevice_System_IsisItems_InstItems_InstList")
+	if !ok || instList == nil {
+		t.Fatalf("expected value to be non-nil *nxos.Cisco_NX_OSDevice_System_IsisItems_InstItems_InstList")
 	}
 	if instList.Name == nil || *instList.Name != "UNDERLAY" {
 		t.Errorf("expected instList.Name to be 'UNDERLAY', got %v", instList.Name)
@@ -55,16 +55,16 @@ func Test_ISIS_ToYGOT(t *testing.T) {
 		t.Fatalf("expected DomItems to be present")
 	}
 	domList := domItems.GetDomList("default")
-	if domList == nil {
+	if domList == nil { //nolint:staticcheck
 		t.Fatalf("expected domList for default to be present")
 	}
-	if domList.Net == nil {
+	if domList.Net == nil { //nolint:staticcheck
 		t.Fatalf("expected Net to be set")
 	}
-	if *domList.Net != isis.NET {
+	if *domList.Net != isis.NET { //nolint:staticcheck
 		t.Errorf("Net not set correctly")
 	}
-	if domList.IsType != nxos.Cisco_NX_OSDevice_Isis_IsT_l12 {
+	if domList.IsType != nxos.Cisco_NX_OSDevice_Isis_IsT_l12 { //nolint:staticcheck
 		t.Errorf("Level not set correctly")
 	}
 	if domList.GetOverloadItems().AdminSt != nxos.Cisco_NX_OSDevice_Isis_OverloadAdminSt_bootup {

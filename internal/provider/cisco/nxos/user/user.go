@@ -115,6 +115,14 @@ func (u *User) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, err
 	}, nil
 }
 
+func (u *User) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (u *User) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
+}
+
 type Role struct {
 	Name string
 }

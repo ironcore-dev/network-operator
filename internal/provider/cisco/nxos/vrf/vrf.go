@@ -4,6 +4,7 @@ package vrf
 
 import (
 	"context"
+	"errors"
 	"strconv"
 
 	"github.com/openconfig/ygot/ygot"
@@ -179,4 +180,12 @@ func (v *VRF) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, erro
 			XPath: "System/inst-items/Inst-list[name=" + v.name + "]/",
 		},
 	}, nil
+}
+
+func (v *VRF) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (v *VRF) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
 }

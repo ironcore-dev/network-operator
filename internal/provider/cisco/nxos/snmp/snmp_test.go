@@ -284,7 +284,7 @@ func TestSNMP_ToYGOT(t *testing.T) {
 				GetFunc: test.mockGet,
 			}
 
-			updates, err := test.snmp.ToYGOT(context.Background(), mockClient)
+			updates, err := test.snmp.ToYGOT(t.Context(), mockClient)
 			if test.wantErr {
 				if err == nil {
 					t.Errorf("expected error, got nil")
@@ -339,7 +339,7 @@ func TestSNMP_Reset(t *testing.T) {
 		},
 	}
 
-	updates, err := (&SNMP{}).Reset(context.Background(), mockClient)
+	updates, err := (&SNMP{}).Reset(t.Context(), mockClient)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 		return

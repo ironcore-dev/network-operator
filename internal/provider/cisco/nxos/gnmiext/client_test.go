@@ -134,7 +134,7 @@ func Test_NewClient_Version(t *testing.T) {
 }
 
 func TestClient_Exists(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	path := "System/time-items/srcIf-items"
 
 	t.Run("exists with value", func(t *testing.T) {
@@ -511,7 +511,7 @@ func TestClient_Get_WithStdJSONUnmarshal_NonRFC7951(t *testing.T) {
 							{
 								Path: &gpb.Path{Elem: []*gpb.PathElem{{Name: "System/time-items/srcIf-items/srcIf"}}},
 								Val: func() *gpb.TypedValue {
-									val, _ := json.Marshal(map[string]interface{}{
+									val, _ := json.Marshal(map[string]any{ //nolint:errcheck
 										"name":  "eth1/1",
 										"value": 42,
 									})
@@ -691,6 +691,14 @@ func (*Dummy) Reset(_ context.Context, _ Client) ([]Update, error) {
 	return nil, errors.New("not implemented")
 }
 
+func (*Dummy) Equals(_ DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
+}
+
+func (*Dummy) FromYGOT(_ context.Context, _ Client) error {
+	return errors.New("not implemented")
+}
+
 type DummyWithError struct{}
 
 func (*DummyWithError) ToYGOT(_ context.Context, _ Client) ([]Update, error) {
@@ -699,6 +707,14 @@ func (*DummyWithError) ToYGOT(_ context.Context, _ Client) ([]Update, error) {
 
 func (*DummyWithError) Reset(_ context.Context, _ Client) ([]Update, error) {
 	return nil, errors.New("not implemented")
+}
+
+func (*DummyWithError) Equals(_ DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
+}
+
+func (*DummyWithError) FromYGOT(_ context.Context, _ Client) error {
+	return errors.New("not implemented")
 }
 
 func Test_Update(t *testing.T) {
@@ -790,6 +806,14 @@ func (*DummyWithValidationError) ToYGOT(_ context.Context, _ Client) ([]Update, 
 
 func (*DummyWithValidationError) Reset(_ context.Context, _ Client) ([]Update, error) {
 	return nil, errors.New("not implemented")
+}
+
+func (*DummyWithValidationError) Equals(_ DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
+}
+
+func (*DummyWithValidationError) FromYGOT(_ context.Context, _ Client) error {
+	return errors.New("not implemented")
 }
 
 func Test_Update_ValidationFails(t *testing.T) {

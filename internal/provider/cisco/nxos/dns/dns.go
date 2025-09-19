@@ -20,6 +20,7 @@ package dns
 
 import (
 	"context"
+	"errors"
 
 	"github.com/openconfig/ygot/ygot"
 
@@ -99,4 +100,12 @@ func (v *DNS) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, erro
 			Value: dns,
 		},
 	}, nil
+}
+
+func (d *DNS) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (d *DNS) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
 }

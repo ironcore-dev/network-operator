@@ -5,6 +5,7 @@ package vlan
 
 import (
 	"context"
+	"errors"
 
 	"github.com/openconfig/ygot/ygot"
 
@@ -35,4 +36,12 @@ func (s *Settings) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update,
 			XPath: "System/vlanmgr-items/inst-items",
 		},
 	}, nil
+}
+
+func (s *Settings) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (s *Settings) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
 }

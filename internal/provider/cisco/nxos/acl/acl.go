@@ -154,3 +154,11 @@ func (a *ACL) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, erro
 		},
 	}, nil
 }
+
+func (a *ACL) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (a *ACL) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
+}

@@ -144,6 +144,14 @@ func (b *BGP) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, erro
 	}, nil
 }
 
+func (b *BGP) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (b *BGP) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
+}
+
 var (
 	_ AddressFamily = (*L2EVPN)(nil)
 	_ AddressFamily = (*IPv4Unicast)(nil)
@@ -322,6 +330,14 @@ func (p *BGPPeer) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, 
 			XPath: "System/bgp-items/inst-items/dom-items/Dom-list[name=default]/peer-items/Peer-list[addr=" + p.Addr.String() + "]",
 		},
 	}, nil
+}
+
+func (b *BGPPeer) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (b *BGPPeer) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
 }
 
 var (

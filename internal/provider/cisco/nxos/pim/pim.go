@@ -133,6 +133,14 @@ func (p *RendezvousPoint) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.
 	}, nil
 }
 
+func (r *RendezvousPoint) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (r *RendezvousPoint) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
+}
+
 var _ gnmiext.DeviceConf = (*AnycastPeer)(nil)
 
 // AnycastPeer represents a PIM anycast rendezvous point peer configuration.
@@ -226,6 +234,14 @@ func (a *AnycastPeer) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Upda
 	}, nil
 }
 
+func (a *AnycastPeer) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (a *AnycastPeer) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
+}
+
 var _ gnmiext.DeviceConf = (*Interface)(nil)
 
 // Interface represents a PIM interface configuration. It is used to configure PIM on a specific interface.
@@ -314,4 +330,12 @@ func (i *Interface) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update
 			XPath: "System/pim-items/inst-items/dom-items/Dom-list[name=" + i.Vrf + "]/if-items/If-list[id=" + i.Name + "]",
 		},
 	}, nil
+}
+
+func (p *Interface) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (p *Interface) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
 }

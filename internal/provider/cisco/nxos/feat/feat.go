@@ -14,17 +14,19 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
 )
 
-var _ gnmiext.DeviceConf = Features{}
+var _ gnmiext.DeviceConf = (*Features)(nil)
 
 // Features the list of enabled features on the device.
 // All features not listed here are considered disabled.
-type Features []string
+type Features struct {
+	List []string
+}
 
 func (feat Features) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	fm := &nxos.Cisco_NX_OSDevice_System_FmItems{}
 	fm.PopulateDefaults()
 	rv := reflect.ValueOf(fm).Elem()
-	for _, f := range feat {
+	for _, f := range feat.List {
 		name := strings.ToUpper(f[:1]) + strings.ToLower(f[1:])
 		name = strings.TrimSuffix(name, "-items") + "Items"
 		field := rv.FieldByName(name)
@@ -53,6 +55,14 @@ func (feat Features) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Upda
 }
 
 // do not support resetting features
-func (v Features) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
+func (f Features) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	return []gnmiext.Update{}, errors.New("feat: resetting features is not supported")
+}
+
+func (f *Features) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (f *Features) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
 }

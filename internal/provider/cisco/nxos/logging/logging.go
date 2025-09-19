@@ -34,6 +34,7 @@ package logging
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/openconfig/ygot/ygot"
@@ -285,4 +286,12 @@ func toSeverityLevel(level SeverityLevel) (nxos.E_Cisco_NX_OSDevice_Syslog_Sever
 	default:
 		return nxos.Cisco_NX_OSDevice_Syslog_Severity_UNSET, fmt.Errorf("logging: unknown severity level %s", level)
 	}
+}
+
+func (l *Logging) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (l *Logging) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
 }

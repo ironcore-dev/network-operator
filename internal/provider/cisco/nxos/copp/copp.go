@@ -10,6 +10,7 @@ package copp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	nxos "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/genyang"
@@ -73,4 +74,12 @@ func (v *COPP) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, err
 			Value: x,
 		},
 	}, nil
+}
+
+func (c *COPP) FromYGOT(_ context.Context, _ gnmiext.Client) error {
+	return errors.New("not implemented")
+}
+
+func (c *COPP) Equals(_ gnmiext.DeviceConf) (bool, error) {
+	return false, errors.New("not implemented")
 }
