@@ -198,6 +198,41 @@ func TestExists(t *testing.T) {
 			wantExists: false,
 			wantErr:    true,
 		},
+
+		// Management interface cases
+		{
+			name:          "management interface exists",
+			interfaceName: "mgmt0",
+			fn: func(_ context.Context, xpath string) (bool, error) {
+				if xpath == "System/mgmt-items/MgmtIf-list[id=mgmt0]" {
+					return true, nil
+				}
+				return false, errors.New("unexpected xpath")
+			},
+			wantExists: true,
+			wantErr:    false,
+		},
+		{
+			name:          "management interface does not exist - ErrNil",
+			interfaceName: "mgmt0",
+			fn: func(_ context.Context, xpath string) (bool, error) {
+				if xpath == "System/mgmt-items/MgmtIf-list[id=mgmt0]" {
+					return false, nil
+				}
+				return false, errors.New("unexpected xpath")
+			},
+			wantExists: false,
+			wantErr:    false,
+		},
+		{
+			name:          "invalid management interface - mgmt1",
+			interfaceName: "mgmt1",
+			fn: func(ctx context.Context, xpath string) (bool, error) {
+				return false, errors.New("should not be called")
+			},
+			wantExists: false,
+			wantErr:    true,
+		},
 	}
 
 	for _, test := range tests {
