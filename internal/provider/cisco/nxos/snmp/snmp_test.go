@@ -411,21 +411,30 @@ func TestSNMP_Reset(t *testing.T) {
 		t.Errorf("update 5: expected empty TrapsItems, got %+v", traps)
 	}
 
-	del, ok = updates[6].(gnmiext.DeletingUpdate)
-	if !ok {
-		t.Errorf("update 6: expected DeletingUpdate, got %T", updates[6])
-	}
-	xpath = "System/snmp-items/inst-items/lclUser-items/LocalUser-list[userName=admin]/ipv4AclName"
-	if del.XPath != xpath {
-		t.Errorf("update 6: expected XPath %s, got %s", xpath, del.XPath)
+	// Check the last two updates are deleting local users (order may vary due to map iteration)
+	expectedUserXPaths := map[string]bool{
+		"System/snmp-items/inst-items/lclUser-items/LocalUser-list[userName=admin]/ipv4AclName":    false,
+		"System/snmp-items/inst-items/lclUser-items/LocalUser-list[userName=operator]/ipv4AclName": false,
 	}
 
-	del, ok = updates[7].(gnmiext.DeletingUpdate)
-	if !ok {
-		t.Errorf("update 7: expected DeletingUpdate, got %T", updates[7])
+	for i := 6; i <= 7; i++ {
+		del, ok := updates[i].(gnmiext.DeletingUpdate)
+		if !ok {
+			t.Errorf("update %d: expected DeletingUpdate, got %T", i, updates[i])
+			continue
+		}
+		if _, exists := expectedUserXPaths[del.XPath]; !exists {
+			t.Errorf("update %d: unexpected XPath %s", i, del.XPath)
+			continue
+		}
+
+		expectedUserXPaths[del.XPath] = true
 	}
-	xpath = "System/snmp-items/inst-items/lclUser-items/LocalUser-list[userName=operator]/ipv4AclName"
-	if del.XPath != xpath {
-		t.Errorf("update 7: expected XPath %s, got %s", xpath, del.XPath)
+
+	// Verify all expected XPaths were found
+	for xpath, found := range expectedUserXPaths {
+		if !found {
+			t.Errorf("expected XPath %s not found in updates", xpath)
+		}
 	}
 }
