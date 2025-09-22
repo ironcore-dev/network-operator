@@ -117,65 +117,6 @@ spec:
                   - name
                   type: object
                 type: array
-              banner:
-                description: MOTD banner to display on login.
-                properties:
-                  configMapRef:
-                    description: Reference to a ConfigMap containing the template
-                    properties:
-                      key:
-                        description: The key to select.
-                        type: string
-                      name:
-                        default: ""
-                        description: |-
-                          Name of the referent.
-                          This field is effectively required, but due to backwards compatibility is
-                          allowed to be empty. Instances of this type with an empty value here are
-                          almost certainly wrong.
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                        type: string
-                      optional:
-                        description: Specify whether the ConfigMap or its key must
-                          be defined
-                        type: boolean
-                    required:
-                    - key
-                    type: object
-                    x-kubernetes-map-type: atomic
-                  inline:
-                    description: Inline template content
-                    type: string
-                  secretRef:
-                    description: Reference to a Secret containing the template
-                    properties:
-                      key:
-                        description: The key of the secret to select from.  Must be
-                          a valid secret key.
-                        type: string
-                      name:
-                        default: ""
-                        description: |-
-                          Name of the referent.
-                          This field is effectively required, but due to backwards compatibility is
-                          allowed to be empty. Instances of this type with an empty value here are
-                          almost certainly wrong.
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                        type: string
-                      optional:
-                        description: Specify whether the Secret or its key must be
-                          defined
-                        type: boolean
-                    required:
-                    - key
-                    type: object
-                    x-kubernetes-map-type: atomic
-                type: object
-                x-kubernetes-validations:
-                - message: exactly one of 'inline', 'secretRef', or 'configMapRef'
-                    must be specified
-                  rule: '[has(self.inline), has(self.secretRef), has(self.configMapRef)].filter(x,
-                    x).size() == 1'
               bootstrap:
                 description: |-
                   Bootstrap is an optional configuration for the device bootstrap process.
@@ -273,144 +214,6 @@ spec:
                     type: string
                 required:
                 - domain
-                type: object
-              endpoint:
-                description: Endpoint contains the connection information for the
-                  device.
-                properties:
-                  address:
-                    description: Address is the management address of the device provided
-                      as <ip:port>.
-                    pattern: ^(\d{1,3}\.){3}\d{1,3}:\d{1,5}$
-                    type: string
-                  secretRef:
-                    description: |-
-                      SecretRef is name of the authentication secret for the device containing the username and password.
-                      The secret must be of type kubernetes.io/basic-auth and as such contain the following keys: 'username' and 'password'.
-                    properties:
-                      name:
-                        description: name is unique within a namespace to reference
-                          a secret resource.
-                        type: string
-                      namespace:
-                        description: namespace defines the space within which the
-                          secret name must be unique.
-                        type: string
-                    type: object
-                    x-kubernetes-map-type: atomic
-                  tls:
-                    description: Transport credentials for grpc connection to the
-                      switch.
-                    properties:
-                      ca:
-                        description: The CA certificate to verify the server's identity.
-                        properties:
-                          key:
-                            description: The key of the secret to select from.  Must
-                              be a valid secret key.
-                            type: string
-                          name:
-                            default: ""
-                            description: |-
-                              Name of the referent.
-                              This field is effectively required, but due to backwards compatibility is
-                              allowed to be empty. Instances of this type with an empty value here are
-                              almost certainly wrong.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                          optional:
-                            description: Specify whether the Secret or its key must
-                              be defined
-                            type: boolean
-                        required:
-                        - key
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      certificate:
-                        description: |-
-                          The client certificate and private key to use for mutual TLS authentication.
-                          Leave empty if mTLS is not desired.
-                        properties:
-                          secretRef:
-                            description: |-
-                              Secret containing the certificate.
-                              The secret must be of type kubernetes.io/tls and as such contain the following keys: 'tls.crt' and 'tls.key'.
-                            properties:
-                              name:
-                                description: name is unique within a namespace to
-                                  reference a secret resource.
-                                type: string
-                              namespace:
-                                description: namespace defines the space within which
-                                  the secret name must be unique.
-                                type: string
-                            type: object
-                            x-kubernetes-map-type: atomic
-                        required:
-                        - secretRef
-                        type: object
-                    required:
-                    - ca
-                    type: object
-                required:
-                - address
-                type: object
-              grpc:
-                description: |-
-                  Configuration for the gRPC server on the device.
-                  Currently, only a single "default" gRPC server is supported.
-                properties:
-                  certificateId:
-                    description: |-
-                      Name of the certificate that is associated with the gRPC service.
-                      The certificate is provisioned through other interfaces on the device,
-                      such as e.g. the gNOI certificate management service.
-                    type: string
-                  gnmi:
-                    description: |-
-                      Additional gNMI configuration for the gRPC server.
-                      This may not be supported by all devices.
-                    properties:
-                      keepAliveTimeout:
-                        default: 10m
-                        description: |-
-                          Configure the keepalive timeout for inactive or unauthorized connections.
-                          The gRPC agent is expected to periodically send an empty response to the client, on which the client is expected to respond with an empty request.
-                          If the client does not respond within the keepalive timeout, the gRPC agent should close the connection.
-                          The default interval value is 10 minutes.
-                        pattern: ^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$
-                        type: string
-                      maxConcurrentCall:
-                        default: 8
-                        description: |-
-                          The maximum number of concurrent gNMI calls that can be made to the gRPC server on the switch for each VRF.
-                          Configure a limit from 1 through 16. The default limit is 8.
-                        maximum: 16
-                        minimum: 1
-                        type: integer
-                      minSampleInterval:
-                        default: 10s
-                        description: |-
-                          Configure the minimum sample interval for the gNMI telemetry stream.
-                          Once per stream sample interval, the switch sends the current values for all specified paths.
-                          The default value is 10 seconds.
-                        pattern: ^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$
-                        type: string
-                    type: object
-                  networkInstance:
-                    description: Enable the gRPC agent to accept incoming (dial-in)
-                      RPC requests from a given network instance.
-                    type: string
-                  port:
-                    default: 9339
-                    description: |-
-                      The TCP port on which the gRPC server should listen.
-                      The range of port-id is from 1024 to 65535.
-                      Port 9339 is the default.
-                    format: int32
-                    maximum: 65535
-                    minimum: 1024
-                    type: integer
                 type: object
               logging:
                 description: Top-level logging configuration for the device.
@@ -557,6 +360,40 @@ spec:
                 required:
                 - certificates
                 type: object
+              providerConfigRef:
+                description: ProviderConfigReference is a reference to a resource
+                  holding the provider-specific configuration of an object.
+                properties:
+                  apiVersion:
+                    description: APIVersion is the api group version of the resource
+                      being referenced.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/)?([a-z0-9]([-a-z0-9]*[a-z0-9])?)$
+                    type: string
+                  kind:
+                    description: |-
+                      Kind of the resource being referenced.
+                      Kind must consist of alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                    type: string
+                  name:
+                    description: |-
+                      Name of the resource being referenced.
+                      Name must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                type: object
+              providerName:
+                type: string
               snmp:
                 description: SNMP global configuration.
                 properties:
@@ -682,7 +519,7 @@ spec:
                   type: object
                 type: array
             required:
-            - endpoint
+            - providerName
             type: object
           status:
             description: |-

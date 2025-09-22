@@ -19,11 +19,11 @@ type InterfaceSpec struct {
 	// +kubebuilder:validation:MaxLength=63
 	DeviceName string `json:"deviceName,omitempty"`
 
-	// ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
-	// This reference is used to link the interface to its provider-specific configuration.
-	// Immutable.
-	// +optional
-	ProviderConfigRef *ProviderConfigReference `json:"providerConfigRef,omitempty"`
+	// // ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
+	// // This reference is used to link the interface to its provider-specific configuration.
+	// // Immutable.
+	// // +optional
+	// ProviderConfigRef *ProviderConfigReference `json:"providerConfigRef,omitempty"`
 
 	// Name is the name of the interface.
 	// +kubebuilder:validation:MaxLength=255

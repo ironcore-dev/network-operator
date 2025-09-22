@@ -10,6 +10,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
 )
@@ -213,4 +214,62 @@ func NewContext(ctx context.Context, c *Client) context.Context {
 // IntoContext is a convenience function to add a newly create [Client] to a context.
 func IntoContext(ctx context.Context, r client.Reader, ns string) context.Context {
 	return NewContext(ctx, NewClient(r, ns))
+}
+
+const (
+	RemoveFinalizerOnProviderConfig = iota
+	AddFinalizerOnProviderConfig
+)
+
+func ModifyFinalizerOnObject(ctx context.Context, c client.Client, obj any, finalizer string, operation int) error {
+	// Check if obj implements client.Object (which all K8s objects should)
+	clientObj, ok := obj.(client.Object)
+	if !ok {
+		return fmt.Errorf("object does not implement client.Object interface")
+	}
+
+	// Validate that it has proper metadata
+	if clientObj.GetName() == "" {
+		return fmt.Errorf("object has empty name")
+	}
+
+	// Validate that it has a proper GroupVersionKind
+	gvk := clientObj.GetObjectKind().GroupVersionKind()
+	if gvk.Kind == "" {
+		return fmt.Errorf("object has empty Kind")
+	}
+
+	// Get the current object from the cluster to ensure we have the latest version
+	key := client.ObjectKeyFromObject(clientObj)
+	currentObj := clientObj.DeepCopyObject().(client.Object)
+	
+	if err := c.Get(ctx, key, currentObj); err != nil {
+		return fmt.Errorf("failed to get current object %s/%s: %w", key.Namespace, key.Name, err)
+	}
+
+	// Perform the finalizer operation
+	var modified bool
+	switch operation {
+	case AddFinalizerOnProviderConfig:
+		if !controllerutil.ContainsFinalizer(currentObj, finalizer) {
+			controllerutil.AddFinalizer(currentObj, finalizer)
+			modified = true
+		}
+	case RemoveFinalizerOnProviderConfig:
+		if controllerutil.ContainsFinalizer(currentObj, finalizer) {
+			controllerutil.RemoveFinalizer(currentObj, finalizer)
+			modified = true
+		}
+	default:
+		return fmt.Errorf("unknown operation: %d", operation)
+	}
+
+	// Only update if we actually modified something
+	if modified {
+		if err := c.Update(ctx, currentObj); err != nil {
+			return fmt.Errorf("failed to update finalizer on object %s/%s: %w", key.Namespace, key.Name, err)
+		}
+	}
+
+	return nil
 }

@@ -12,9 +12,9 @@ import (
 
 // DeviceSpec defines the desired state of Device.
 type DeviceSpec struct {
-	// Endpoint contains the connection information for the device.
-	// +required
-	Endpoint *Endpoint `json:"endpoint"`
+
+	ProviderType string `json:"providerName"`
+	ProviderConfigRef *ProviderConfigReference `json:"providerConfigRef,omitempty"`
 
 	// Bootstrap is an optional configuration for the device bootstrap process.
 	// It can be used to provide initial configuration templates or scripts that are applied during the device provisioning.
@@ -52,11 +52,11 @@ type DeviceSpec struct {
 	// Configuration for the gRPC server on the device.
 	// Currently, only a single "default" gRPC server is supported.
 	// +optional
-	GRPC *GRPC `json:"grpc,omitempty"`
+	// GRPC *GRPC `json:"grpc,omitempty"`
 
 	// MOTD banner to display on login.
 	// +optional
-	Banner *TemplateSource `json:"banner,omitempty"`
+	// Banner *TemplateSource `json:"banner,omitempty"`
 }
 
 func (d *DeviceSpec) Validate() error {
@@ -68,37 +68,10 @@ func (d *DeviceSpec) Validate() error {
 	return nil
 }
 
-type Endpoint struct {
-	// Address is the management address of the device provided as <ip:port>.
-	// +kubebuilder:validation:Pattern=`^(\d{1,3}\.){3}\d{1,3}:\d{1,5}$`
-	// +required
-	Address string `json:"address"`
-
-	// SecretRef is name of the authentication secret for the device containing the username and password.
-	// The secret must be of type kubernetes.io/basic-auth and as such contain the following keys: 'username' and 'password'.
-	// +optional
-	SecretRef *corev1.SecretReference `json:"secretRef,omitempty"`
-
-	// Transport credentials for grpc connection to the switch.
-	// +optional
-	TLS *TLS `json:"tls,omitempty"`
-}
-
-type TLS struct {
-	// The CA certificate to verify the server's identity.
-	// +required
-	CA *corev1.SecretKeySelector `json:"ca"`
-
-	// The client certificate and private key to use for mutual TLS authentication.
-	// Leave empty if mTLS is not desired.
-	// +optional
-	Certificate *CertificateSource `json:"certificate,omitempty"`
-}
-
 // Bootstrap defines the configuration for device bootstrap.
 type Bootstrap struct {
 	// Template defines the multiline string template that contains the initial configuration for the device.
-	// +required
+	// +required 
 	Template *TemplateSource `json:"template"`
 }
 
@@ -393,62 +366,62 @@ type User struct {
 	Role string `json:"role,omitempty"`
 }
 
-type GRPC struct {
-	// The TCP port on which the gRPC server should listen.
-	// The range of port-id is from 1024 to 65535.
-	// Port 9339 is the default.
-	// +kubebuilder:validation:Minimum=1024
-	// +kubebuilder:validation:Maximum=65535
-	// +kubebuilder:validation:ExclusiveMaximum=false
-	// +kubebuilder:default=9339
-	// +optional
-	Port int32 `json:"port"`
+// type GRPC struct {
+// 	// The TCP port on which the gRPC server should listen.
+// 	// The range of port-id is from 1024 to 65535.
+// 	// Port 9339 is the default.
+// 	// +kubebuilder:validation:Minimum=1024
+// 	// +kubebuilder:validation:Maximum=65535
+// 	// +kubebuilder:validation:ExclusiveMaximum=false
+// 	// +kubebuilder:default=9339
+// 	// +optional
+// 	Port int32 `json:"port"`
 
-	// Name of the certificate that is associated with the gRPC service.
-	// The certificate is provisioned through other interfaces on the device,
-	// such as e.g. the gNOI certificate management service.
-	// +optional
-	CertificateID string `json:"certificateId,omitempty"`
+// 	// Name of the certificate that is associated with the gRPC service.
+// 	// The certificate is provisioned through other interfaces on the device,
+// 	// such as e.g. the gNOI certificate management service.
+// 	// +optional
+// 	CertificateID string `json:"certificateId,omitempty"`
 
-	// Enable the gRPC agent to accept incoming (dial-in) RPC requests from a given network instance.
-	// +optional
-	NetworkInstance string `json:"networkInstance,omitempty"`
+// 	// Enable the gRPC agent to accept incoming (dial-in) RPC requests from a given network instance.
+// 	// +optional
+// 	NetworkInstance string `json:"networkInstance,omitempty"`
 
-	// Additional gNMI configuration for the gRPC server.
-	// This may not be supported by all devices.
-	// +optional
-	GNMI *GNMI `json:"gnmi,omitempty"`
-}
+// 	// Additional gNMI configuration for the gRPC server.
+// 	// This may not be supported by all devices.
+// 	// +optional
+// 	GNMI *GNMI `json:"gnmi,omitempty"`
+// }
 
-type GNMI struct {
-	// The maximum number of concurrent gNMI calls that can be made to the gRPC server on the switch for each VRF.
-	// Configure a limit from 1 through 16. The default limit is 8.
-	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=16
-	// +kubebuilder:validation:ExclusiveMaximum=false
-	// +kubebuilder:default=8
-	// +optional
-	MaxConcurrentCall int8 `json:"maxConcurrentCall"`
+// type GNMI struct {
+// 	// The maximum number of concurrent gNMI calls that can be made to the gRPC server on the switch for each VRF.
+// 	// Configure a limit from 1 through 16. The default limit is 8.
+// 	// +kubebuilder:validation:Minimum=1
+// 	// +kubebuilder:validation:Maximum=16
+// 	// +kubebuilder:validation:ExclusiveMaximum=false
+// 	// +kubebuilder:default=8
+// 	// +optional
+// 	MaxConcurrentCall int8 `json:"maxConcurrentCall"`
 
-	// Configure the keepalive timeout for inactive or unauthorized connections.
-	// The gRPC agent is expected to periodically send an empty response to the client, on which the client is expected to respond with an empty request.
-	// If the client does not respond within the keepalive timeout, the gRPC agent should close the connection.
-	// The default interval value is 10 minutes.
-	// +kubebuilder:validation:Type=string
-	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
-	// +kubebuilder:default="10m"
-	// +optional
-	KeepAliveTimeout metav1.Duration `json:"keepAliveTimeout"`
+// 	// Configure the keepalive timeout for inactive or unauthorized connections.
+// 	// The gRPC agent is expected to periodically send an empty response to the client, on which the client is expected to respond with an empty request.
+// 	// If the client does not respond within the keepalive timeout, the gRPC agent should close the connection.
+// 	// The default interval value is 10 minutes.
+// 	// +kubebuilder:validation:Type=string
+// 	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+// 	// +kubebuilder:default="10m"
+// 	// +optional
+// 	KeepAliveTimeout metav1.Duration `json:"keepAliveTimeout"`
 
-	// Configure the minimum sample interval for the gNMI telemetry stream.
-	// Once per stream sample interval, the switch sends the current values for all specified paths.
-	// The default value is 10 seconds.
-	// +kubebuilder:validation:Type=string
-	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
-	// +kubebuilder:default="10s"
-	// +optional
-	MinSampleInterval metav1.Duration `json:"minSampleInterval"`
-}
+// 	// Configure the minimum sample interval for the gNMI telemetry stream.
+// 	// Once per stream sample interval, the switch sends the current values for all specified paths.
+// 	// The default value is 10 seconds.
+// 	// +kubebuilder:validation:Type=string
+// 	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+// 	// +kubebuilder:default="10s"
+// 	// +optional
+// 	MinSampleInterval metav1.Duration `json:"minSampleInterval"`
+// }
 
 // TemplateSource defines a source for template content.
 // It can be provided inline, or as a reference to a Secret or ConfigMap.
@@ -466,21 +439,6 @@ type TemplateSource struct {
 	// Reference to a ConfigMap containing the template
 	// +optional
 	ConfigMapRef *corev1.ConfigMapKeySelector `json:"configMapRef,omitempty"`
-}
-
-// CertificateSource represents a source for the value of a certificate.
-type CertificateSource struct {
-	// Secret containing the certificate.
-	// The secret must be of type kubernetes.io/tls and as such contain the following keys: 'tls.crt' and 'tls.key'.
-	// +required
-	SecretRef *corev1.SecretReference `json:"secretRef,omitempty"`
-}
-
-// PasswordSource represents a source for the value of a password.
-type PasswordSource struct {
-	// Selects a key of a secret.
-	// +required
-	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
 // DeviceStatus defines the observed state of Device.
@@ -542,15 +500,15 @@ type Device struct {
 // GetSecretRefs returns the list of secrets referenced in the [Device] resource.
 func (d *Device) GetSecretRefs() []corev1.SecretReference {
 	refs := []corev1.SecretReference{}
-	if d.Spec.Endpoint.SecretRef != nil {
-		refs = append(refs, *d.Spec.Endpoint.SecretRef)
-	}
-	if d.Spec.Endpoint.TLS != nil {
-		refs = append(refs, corev1.SecretReference{Name: d.Spec.Endpoint.TLS.CA.Name})
-		if d.Spec.Endpoint.TLS.Certificate != nil {
-			refs = append(refs, *d.Spec.Endpoint.TLS.Certificate.SecretRef)
-		}
-	}
+	// if d.Spec.Endpoint.SecretRef != nil {
+	// 	refs = append(refs, *d.Spec.Endpoint.SecretRef)
+	// }
+	// if d.Spec.Endpoint.TLS != nil {
+	// 	refs = append(refs, corev1.SecretReference{Name: d.Spec.Endpoint.TLS.CA.Name})
+	// 	if d.Spec.Endpoint.TLS.Certificate != nil {
+	// 		refs = append(refs, *d.Spec.Endpoint.TLS.Certificate.SecretRef)
+	// 	}
+	// }
 	if d.Spec.Bootstrap != nil && d.Spec.Bootstrap.Template != nil {
 		if d.Spec.Bootstrap.Template.SecretRef != nil {
 			refs = append(refs, corev1.SecretReference{Name: d.Spec.Bootstrap.Template.SecretRef.Name})

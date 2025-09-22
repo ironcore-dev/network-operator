@@ -64,26 +64,26 @@ func GetDeviceByName(ctx context.Context, r client.Reader, namespace, name strin
 // Connection holds the necessary information to connect to a device's API.
 //
 // TODO(felix-kaestner): find a better place for this struct, maybe in a 'connection' package?
-type Connection struct {
-	// Address is the API address of the device, in the format "host:port".
-	Address string
-	// Username for basic authentication. Might be empty if the device does not require authentication.
-	Username string
-	// Password for basic authentication. Might be empty if the device does not require authentication.
-	Password string
-	// TLS configuration for the connection.
-	TLS *tls.Config
-}
+// type SecureConnection struct {
+// 	// Address is the API address of the device, in the format "host:port".
+// 	Address string
+// 	// Username for basic authentication. Might be empty if the device does not require authentication.
+// 	Username string
+// 	// Password for basic authentication. Might be empty if the device does not require authentication.
+// 	Password string
+// 	// TLS configuration for the connection.
+// 	TLS *tls.Config
+// }
 
 // GetDeviceConnection retrieves the connection details for accessing the Device.
-func GetDeviceConnection(ctx context.Context, r client.Reader, obj *v1alpha1.Device) (*Connection, error) {
+func GetDeviceSecureConnection(ctx context.Context, r client.Reader, obj *v1alpha1.Device, endPoint *v1alpha1.Endpoint) (string, string, *tls.Config, error) {
 	c := clientutil.NewClient(r, obj.Namespace)
 
 	conf := &tls.Config{InsecureSkipVerify: true} //nolint:gosec
-	if obj.Spec.Endpoint.TLS != nil {
-		ca, err := c.Secret(ctx, obj.Spec.Endpoint.TLS.CA)
+	if endPoint.TLS != nil {
+		ca, err := c.Secret(ctx, endPoint.TLS.CA)
 		if err != nil {
-			return nil, err
+			return "", "", nil, fmt.Errorf("failed to get CA certificate: %w", err)
 		}
 
 		log := ctrl.LoggerFrom(ctx)
@@ -91,10 +91,10 @@ func GetDeviceConnection(ctx context.Context, r client.Reader, obj *v1alpha1.Dev
 			log.Info("added CA certificate to x509 pool")
 			conf = &tls.Config{RootCAs: certPool, MinVersion: tls.VersionTLS12}
 
-			if obj.Spec.Endpoint.TLS.Certificate != nil {
-				cert, err := c.Certificate(ctx, obj.Spec.Endpoint.TLS.Certificate.SecretRef)
+			if endPoint.TLS.Certificate != nil {
+				cert, err := c.Certificate(ctx, endPoint.TLS.Certificate.SecretRef)
 				if err != nil {
-					return nil, err
+					return "", "", nil, fmt.Errorf("failed to get client certificate: %w", err)
 				}
 				log.Info("added client certificate tls configuration")
 				conf.Certificates = []tls.Certificate{*cert}
@@ -105,38 +105,33 @@ func GetDeviceConnection(ctx context.Context, r client.Reader, obj *v1alpha1.Dev
 	}
 
 	var user, pass []byte
-	if obj.Spec.Endpoint.SecretRef != nil {
+	if endPoint.SecretRef != nil {
 		var err error
-		user, pass, err = c.BasicAuth(ctx, obj.Spec.Endpoint.SecretRef)
+		user, pass, err = c.BasicAuth(ctx, endPoint.SecretRef)
 		if err != nil {
-			return nil, err
+			return "", "", nil, err
 		}
 	}
 
-	return &Connection{
-		Address:  obj.Spec.Endpoint.Address,
-		Username: string(user),
-		Password: string(pass),
-		TLS:      conf,
-	}, nil
+	return string(user), string(pass), conf, nil
 }
 
 // NewGrpcClient creates a new gRPC client connection to a specified device using the provided [Connection].
-func NewGrpcClient(ctx context.Context, conn *Connection) (*grpc.ClientConn, error) {
+func NewGrpcClient(ctx context.Context, addr string, user string, pass string, tls *tls.Config) (*grpc.ClientConn, error) {
 	creds := insecure.NewCredentials()
-	if conn.TLS != nil {
-		creds = credentials.NewTLS(conn.TLS)
+	if tls != nil {
+		creds = credentials.NewTLS(tls)
 	}
 
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(creds)}
-	if conn.Username != "" && conn.Password != "" {
+	if user != "" && pass != "" {
 		opts = append(opts, grpc.WithPerRPCCredentials(&auth{
-			Username: conn.Username,
-			Password: conn.Password,
+			Username: user,
+			Password: pass,
 		}))
 	}
 
-	return grpc.NewClient(conn.Address, opts...)
+	return grpc.NewClient(addr, opts...)
 }
 
 type auth struct {

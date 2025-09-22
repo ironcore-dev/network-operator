@@ -5,10 +5,8 @@ package openconfig
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"net/netip"
-	"reflect"
 
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ygnmi/ygnmi"
@@ -27,46 +25,27 @@ var (
 )
 
 type Provider struct {
+	initConfig *provider.OpenconfigProviderInitConfig
+
 	conn   *grpc.ClientConn
 	client *ygnmi.Client
 }
 
-func NewProvider() provider.Provider {
-	return &Provider{}
-}
-
-type OpenconfigProviderRuntimeConfig struct {
-	Kind string
-
-	// Address is the API address of the device, in the format "host:port".
-	Address string
-	// Username for basic authentication. Might be empty if the device does not require authentication.
-	Username string
-	// Password for basic authentication. Might be empty if the device does not require authentication.
-	Password string
-	// TLS configuration for the connection.
-	TLS *tls.Config
-}
-
-func (c *OpenconfigProviderRuntimeConfig) GetKind() string {
-	return c.Kind
-}
-
-func (p *Provider) Init(ctx context.Context, config *provider.ProviderConfig) (err error) {
-
-	runtimeConfig, ok := config.RuntimeConfig.(*OpenconfigProviderRuntimeConfig)
-	if !ok {
-		return fmt.Errorf("invalid runtime config type: expected %s, got %s", reflect.TypeOf(&OpenconfigProviderRuntimeConfig{}).String(), reflect.TypeOf(config.RuntimeConfig).String())
+func NewProvider(initConfig provider.ProviderInitConfig) provider.Provider {
+	return &Provider{
+		initConfig: initConfig.(*provider.OpenconfigProviderInitConfig),
 	}
+}
 
-	conn := &deviceutil.Connection{
-		Address:  runtimeConfig.Address,
-		Username: runtimeConfig.Username,
-		Password: runtimeConfig.Password,
-		TLS:      runtimeConfig.TLS,
-	}
 
-	p.conn, err = deviceutil.NewGrpcClient(ctx, conn)
+func (p *Provider) Init(ctx context.Context) (err error) {
+
+	p.conn, err = deviceutil.NewGrpcClient(ctx, 
+		p.initConfig.Address, 
+		p.initConfig.Username, 
+		p.initConfig.Password, 
+		p.initConfig.TLS,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create grpc connection: %w", err)
 	}
@@ -84,7 +63,7 @@ func (p *Provider) Init(ctx context.Context, config *provider.ProviderConfig) (e
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) (provider.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
 
-	if err := p.Init(ctx, req.ProviderConfig); err != nil {
+	if err := p.Init(ctx); err != nil {
 		return provider.Result{}, fmt.Errorf("failed to initialize provider: %w", err)
 	}
 	defer func() {
@@ -160,7 +139,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 }
 
 func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceRequest) error {
-	if err := p.Init(ctx, req.ProviderConfig); err != nil {
+	if err := p.Init(ctx); err != nil {
 		return fmt.Errorf("failed to initialize provider: %w", err)
 	}
 	defer func() error{
@@ -191,8 +170,6 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 }
 
 
-var OpenConfigProviderKind = reflect.TypeOf(&OpenconfigProviderRuntimeConfig{}).Name()
-
 func init() {
-	provider.Register("openconfig", NewProvider)
+	provider.Register(v1alpha1.OpenconfigProviderType, NewProvider)
 }

@@ -5,7 +5,6 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -28,6 +27,7 @@ import (
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/clientutil"
+	"github.com/ironcore-dev/network-operator/internal/provider"
 )
 
 const DefaultRequeueAfter = 30 * time.Second
@@ -243,31 +243,36 @@ func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Device) error {
 	log := ctrl.LoggerFrom(ctx)
 
-	c, ok := clientutil.FromContext(ctx)
-	if !ok {
-		return errors.New("failed to get controller client from context")
-	}
+	// c, ok := clientutil.FromContext(ctx)
+	// if !ok {
+	// 	return errors.New("failed to get controller client from context")
+	// }
 
 	if err := device.Spec.Validate(); err != nil {
 		log.Error(err, "Invalid Device spec")
 		return err
 	}
 
-	if ref := device.Spec.Endpoint.SecretRef; ref != nil {
-		secret := new(corev1.Secret)
-		if err := c.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: ref.Namespace}, secret); err != nil {
-			log.Error(err, "Failed to get endpoint secret for device")
-			return err
-		}
-		if !controllerutil.ContainsFinalizer(secret, v1alpha1.FinalizerName) {
-			controllerutil.AddFinalizer(secret, v1alpha1.FinalizerName)
-			if err := r.Update(ctx, secret); err != nil {
-				log.Error(err, "Failed to add finalizer to endpoint secret")
-				return err
-			}
-			log.Info("Added finalizer to endpoint secret")
-		}
+	if err := provider.ModifyFinalizerOnProviderConfig(ctx, r.Client, device, v1alpha1.FinalizerName, clientutil.AddFinalizerOnProviderConfig); err != nil {
+		log.Error(err, "Failed to add finalizer to provider config")
+		return err
 	}
+
+	// if ref := device.Spec.Endpoint.SecretRef; ref != nil {
+	// 	secret := new(corev1.Secret)
+	// 	if err := c.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: ref.Namespace}, secret); err != nil {
+	// 		log.Error(err, "Failed to get endpoint secret for device")
+	// 		return err
+	// 	}
+	// 	if !controllerutil.ContainsFinalizer(secret, v1alpha1.FinalizerName) {
+	// 		controllerutil.AddFinalizer(secret, v1alpha1.FinalizerName)
+	// 		if err := r.Update(ctx, secret); err != nil {
+	// 			log.Error(err, "Failed to add finalizer to endpoint secret")
+	// 			return err
+	// 		}
+	// 		log.Info("Added finalizer to endpoint secret")
+	// 	}
+	// }
 
 	meta.SetStatusCondition(&device.Status.Conditions, metav1.Condition{
 		Type:               v1alpha1.ReadyCondition,
@@ -279,29 +284,34 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 	return nil
 }
 
-func (r *DeviceReconciler) finalize(ctx context.Context, device *v1alpha1.Device) error {
+func (r *DeviceReconciler)  finalize(ctx context.Context, device *v1alpha1.Device) error {
 	log := ctrl.LoggerFrom(ctx)
 
-	c, ok := clientutil.FromContext(ctx)
-	if !ok {
-		return errors.New("failed to get controller client from context")
+	// c, ok := clientutil.FromContext(ctx)
+	// if !ok {
+	// 	return errors.New("failed to get controller client from context")
+	// }
+
+	if err := provider.ModifyFinalizerOnProviderConfig(ctx, r.Client, device, v1alpha1.FinalizerName, clientutil.RemoveFinalizerOnProviderConfig); err != nil {
+		log.Error(err, "Failed to remove finalizer from provider config")
+		return err
 	}
 
-	if ref := device.Spec.Endpoint.SecretRef; ref != nil {
-		secret := new(corev1.Secret)
-		if err := c.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: ref.Namespace}, secret); err != nil {
-			log.Error(err, "Failed to get endpoint secret for device")
-			return err
-		}
-		if controllerutil.ContainsFinalizer(secret, v1alpha1.FinalizerName) {
-			controllerutil.RemoveFinalizer(secret, v1alpha1.FinalizerName)
-			if err := r.Update(ctx, secret); err != nil {
-				log.Error(err, "Failed to remove finalizer from endpoint secret")
-				return err
-			}
-			log.Info("Removed finalizer from endpoint secret")
-		}
-	}
+	// if ref := device.Spec.Endpoint.SecretRef; ref != nil {
+	// 	secret := new(corev1.Secret)
+	// 	if err := c.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: ref.Namespace}, secret); err != nil {
+	// 		log.Error(err, "Failed to get endpoint secret for device")
+	// 		return err
+	// 	}
+	// 	if controllerutil.ContainsFinalizer(secret, v1alpha1.FinalizerName) {
+	// 		controllerutil.RemoveFinalizer(secret, v1alpha1.FinalizerName)
+	// 		if err := r.Update(ctx, secret); err != nil {
+	// 			log.Error(err, "Failed to remove finalizer from endpoint secret")
+	// 			return err
+	// 		}
+	// 		log.Info("Removed finalizer from endpoint secret")
+	// 	}
+	// }
 
 	return nil
 }

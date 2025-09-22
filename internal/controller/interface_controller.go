@@ -22,7 +22,6 @@ import (
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
-	"github.com/ironcore-dev/network-operator/internal/provider/openconfig"
 )
 
 // InterfaceReconciler reconciles a Interface object
@@ -36,10 +35,6 @@ type InterfaceReconciler struct {
 	// Recorder is used to record events for the controller.
 	// More info: https://book.kubebuilder.io/reference/raising-events
 	Recorder record.EventRecorder
-
-	// Provider is the driver that will be used to create & delete the interface.
-	Provider provider.ProviderFunc
-	ProviderCfg *provider.ProviderConfig
 }
 
 // +kubebuilder:rbac:groups=networking.cloud.sap,resources=interfaces,verbs=get;list;watch;create;update;patch;delete
@@ -72,38 +67,6 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		log.Error(err, "Failed to get resource")
 		return ctrl.Result{}, err
 	}
-
-	// _, ok := r.Provider().(provider.InterfaceProvider)
-	// if !ok {
-	// 	meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-	// 		Type:    v1alpha1.ReadyCondition,
-	// 		Status:  metav1.ConditionFalse,
-	// 		Reason:  v1alpha1.NotImplementedReason,
-	// 		Message: "Provider does not implement provider.InterfaceProvider",
-	// 	})
-	// 	return ctrl.Result{}, r.Status().Update(ctx, obj)
-	// }
-	
-	providerCfg, err := r.GetProviderConfig(ctx, r.Provider(), obj)
-	if err != nil {
-		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  v1alpha1.DeviceUnauthenticatedReason,
-			Message: fmt.Sprintf("Failed to get provider config: %v", err),
-		})
-		return ctrl.Result{}, r.Status().Update(ctx, obj)
-	}
-	r.ProviderCfg = providerCfg
-
-
-	// s := &scope{
-	// 	Device:         device,
-	// 	Interface:      obj,
-	// 	Connection:     conn,
-	// 	ProviderConfig: cfg,
-	// 	Provider:       prov,
-	// }
 
 	if !obj.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
@@ -195,14 +158,6 @@ func (r *InterfaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// scope holds the different objects that are read and used during the reconcile.
-// type scope struct {
-// 	Device         *v1alpha1.Device
-// 	Interface      *v1alpha1.Interface
-// 	Connection     *deviceutil.Connection
-// 	ProviderConfig *provider.ProviderConfig
-// 	Provider       provider.InterfaceProvider
-// }
 
 func (r *InterfaceReconciler) reconcile(ctx context.Context, dev *v1alpha1.Device, iface *v1alpha1.Interface) (_ ctrl.Result, reterr error) {
 	if iface.Labels == nil {
@@ -218,23 +173,14 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, dev *v1alpha1.Devic
 		}
 	}
 
-	// if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-	// 	return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
-	// }
-	// defer func() {
-	// 	if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
-	// 		reterr = kerrors.NewAggregate([]error{reterr, err})
-	// 	}
-	// }()
-
 	// Ensure the Interface is realized on the provider.
-	prov, ok := r.Provider().(provider.InterfaceProvider)
-	if !ok {
-		return ctrl.Result{}, fmt.Errorf("provider does not implement provider.InterfaceProvider")
+	ifaceProvider, err := provider.GetInterfaceProvider(ctx, r, iface)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to get interface provider: %w", err)
 	}
-	res, err := prov.EnsureInterface(ctx, &provider.InterfaceRequest{
+	res, err := ifaceProvider.EnsureInterface(ctx, &provider.InterfaceRequest{
 		Interface:      iface,
-		ProviderConfig: r.ProviderCfg,
+		ProviderConfig: r.GetProviderConfig(ctx, iface),
 	})
 	if err != nil {
 		return ctrl.Result{}, err
@@ -252,64 +198,31 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, dev *v1alpha1.Devic
 }
 
 func (r *InterfaceReconciler) finalize(ctx context.Context, obj *v1alpha1.Interface) (reterr error) {
-	// if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-	// 	return fmt.Errorf("failed to connect to provider: %w", err)
-	// }
-	// defer func() {
-	// 	if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
-	// 		reterr = kerrors.NewAggregate([]error{reterr, err})
-	// 	}
-	// }()
-
-	prov, ok := r.Provider().(provider.InterfaceProvider)
-	if !ok {
+	prov, err := provider.GetInterfaceProvider(ctx, r, obj)
+	if err != nil {
 		// If the provider does not implement the InterfaceProvider interface, we cannot delete the interface.
-		return fmt.Errorf("provider does not implement provider.InterfaceProvider")
+		return fmt.Errorf("provider does not implement provider.InterfaceProvider: %w", err)
 	}
 	return prov.DeleteInterface(ctx, &provider.InterfaceRequest{
 		Interface:      obj,
-		ProviderConfig: r.ProviderCfg,
+		ProviderConfig: r.GetProviderConfig(ctx, obj),
 	})
 }
 
-
-func (r *InterfaceReconciler) GetProviderConfig(ctx context.Context, ifaceProvider provider.Provider, iface *v1alpha1.Interface) (*provider.ProviderConfig, error) {
-	var rawCfg *provider.ProviderRawConfig
-	var err error
-
-	if iface.Spec.ProviderConfigRef != nil {
-		rawCfg, err = provider.GetProviderRawConfig(ctx, r, iface.Namespace, iface.Spec.ProviderConfigRef)
-		if err != nil {
-			return nil, err
-		}
+// this function should be also moved & optimized in provider.go
+func (r *InterfaceReconciler) GetProviderConfig(ctx context.Context, iface *v1alpha1.Interface) *provider.ProviderConfig {
+	device, err := deviceutil.GetDeviceByName(ctx, r, iface.Namespace, iface.Spec.DeviceName)
+	if err != nil {
+		return nil
 	}
 
-	var runtimeCfg provider.ProviderRuntimeConfig
-	switch ifaceProvider.(type) {
-	case *openconfig.Provider:
-		{
-			device, err := deviceutil.GetDeviceByName(ctx, r, iface.Namespace, iface.Spec.DeviceName)
-			if err != nil {
-					return nil, err
-			}
-			conn, err := deviceutil.GetDeviceConnection(ctx, r, device)
-			if err != nil {
-				return nil, err
-			}
-
-			runtimeCfg = &openconfig.OpenconfigProviderRuntimeConfig{
-				Kind:    openconfig.OpenConfigProviderKind,
-				Address:  conn.Address,
-				Username: conn.Username,
-				Password: conn.Password,
-				TLS:     conn.TLS,
-			}
-		}
+	cfg, err := provider.GetProviderConfig(ctx, r, device.Namespace, device.Spec.ProviderConfigRef)
+	if err != nil {
+		return nil
 	}
-
-	return &provider.ProviderConfig{
-		RawConfig:     rawCfg,
-		RuntimeConfig: runtimeCfg,
-	}, nil
-
+	return cfg
 }
+
+
+
+
