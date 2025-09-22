@@ -1,6 +1,6 @@
 module github.com/ironcore-dev/gnmi-test-server
 
-go 1.24
+go 1.25
 
 require (
 	github.com/openconfig/gnmi v0.14.1

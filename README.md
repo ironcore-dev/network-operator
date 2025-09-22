@@ -4,6 +4,7 @@
 -->
 
 # network-operator
+
 [![REUSE status](https://api.reuse.software/badge/github.com/ironcore-dev/network-operator)](https://api.reuse.software/info/github.com/ironcore-dev/network-operator)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ironcore-dev/network-operator)](https://goreportcard.com/report/github.com/ironcore-dev/network-operator)
 [![GitHub License](https://img.shields.io/static/v1?label=License&message=Apache-2.0&color=blue)](LICENSE)
@@ -18,12 +19,14 @@ Network-operator is a project built using Kubebuilder and controller-runtime to 
 ## Getting Started
 
 ### Prerequisites
-- go version v1.24.0+
+
+- go version v1.25.0+
 - docker version 28+.
 - kubectl version v1.33.1+.
 - Access to a Kubernetes v1.33.0+ cluster.
 
 ### To Deploy on the cluster
+
 **Build and push your image to the location specified by `IMG`:**
 
 ```sh
@@ -53,9 +56,10 @@ You can apply the samples (examples) from the config/sample:
 kubectl apply -k config/samples/
 ```
 
->**NOTE**: Ensure that the samples have default values to test it out.
+> **NOTE**: Ensure that the samples have default values to test it out.
 
 ### To Uninstall
+
 **Delete the instances (CRs) from the cluster:**
 
 ```sh
