@@ -24,8 +24,6 @@ github.com/evanphx/json-patch v0.5.2 h1:xVCHIVMUu1wtM/VkR9jVZ45N3FhZfYMMYGorLCR8
 github.com/evanphx/json-patch v0.5.2/go.mod h1:ZWS5hhDbVDyob71nXKNL0+PWn6ToqBHMikGIFbs31qQ=
 github.com/evanphx/json-patch/v5 v5.9.11 h1:/8HVnzMq13/3x9TPvjG08wUGqBTmZBsCWzjTM0wiaDU=
 github.com/evanphx/json-patch/v5 v5.9.11/go.mod h1:3j+LviiESTElxA4p3EMKAB9HXj3/XEtnUf6OZxqIQTM=
-github.com/felix-kaestner/ygnmi v0.0.0-20250709083711-68dcb70888a5 h1:X28XGxzt794nzhWsATA5RQC1jTC1QkFRgp0McbocnKM=
-github.com/felix-kaestner/ygnmi v0.0.0-20250709083711-68dcb70888a5/go.mod h1:PdM5tOI2aCWSqfci5OagAyKJUNJ1IhYIGmSeRlMBVCI=
 github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2Wg=
 github.com/felixge/httpsnoop v1.0.4/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
 github.com/fsnotify/fsnotify v1.8.0 h1:dAwr6QBTBZIkG8roQaJjGof0pp0EeF+tNV7YBP3F/8M=
@@ -115,6 +113,12 @@ github.com/openconfig/goyang v1.6.2 h1:LVwwlVIIt4nmwacW67yBsxzP5DhDM94SOEMWod1hE
 github.com/openconfig/goyang v1.6.2/go.mod h1:jzlGg+yjRpOcq1Kg6q6cSiLGQK5hrNNMsUx0fFxm4U0=
 github.com/openconfig/grpctunnel v0.1.0 h1:EN99qtlExZczgQgp5ANnHRC/Rs62cAG+Tz2BQ5m/maM=
 github.com/openconfig/grpctunnel v0.1.0/go.mod h1:G04Pdu0pml98tdvXrvLaU+EBo3PxYfI9MYqpvdaEHLo=
+github.com/openconfig/ygnmi v0.12.0 h1:tHQvwAtOK59P9o0yLYT9VcVFG90jPFebaKJTFk1M8V0=
+github.com/openconfig/ygnmi v0.12.0/go.mod h1:tgmeZPVofJnH0zUIPmoO0ZyBX3Ami1asv86k7cbahVA=
+github.com/openconfig/ygnmi v0.13.0 h1:l/oxs5QMpZhMYoFYLoUCjXOOEFCxVrxgz3Fdj7ot+BM=
+github.com/openconfig/ygnmi v0.13.0/go.mod h1:PdM5tOI2aCWSqfci5OagAyKJUNJ1IhYIGmSeRlMBVCI=
+github.com/openconfig/ygnmi v0.13.1-0.20250924235719-646562b5d0c3 h1:y9Wj152WN0UadK5v0iZGB5qs36FxO2x/CyX73GtKR+4=
+github.com/openconfig/ygnmi v0.13.1-0.20250924235719-646562b5d0c3/go.mod h1:PdM5tOI2aCWSqfci5OagAyKJUNJ1IhYIGmSeRlMBVCI=
 github.com/openconfig/ygot v0.32.0 h1:zGYVk/T7hgcMuxhxH5bN5tFxy3VhHlLN6ZabSeTATtk=
 github.com/openconfig/ygot v0.32.0/go.mod h1:sMTAECRlEmETQ36XaAbWav5AFrR6EZlNNcHyZ7KHBDE=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=

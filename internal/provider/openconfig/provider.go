@@ -104,7 +104,7 @@ func (p *Provider) CreateInterface(ctx context.Context, iface *v1alpha1.Interfac
 	}
 	log.V(1).Info("Marshalled interface", "interface", string(b))
 
-	_, err = ygnmi.Update(ctx, client, Root().Interface(iface.Spec.Name).Config(), i, ygnmi.WithEncoding(gpb.Encoding_JSON), ygnmi.WithAppendModuleName(false))
+	_, err = ygnmi.Update(ctx, client, Root().Interface(iface.Spec.Name).Config(), i, ygnmi.WithEncoding(gpb.Encoding_JSON), ygnmi.WithSkipModuleNames())
 	return err
 }
 
@@ -137,7 +137,7 @@ func (p *Provider) DeleteInterface(ctx context.Context, iface *v1alpha1.Interfac
 		ygnmi.BatchDelete(sb, Root().Interface(iface.Spec.Name).SubinterfaceMap().Config())
 		ygnmi.BatchDelete(sb, Root().Interface(iface.Spec.Name).Ethernet().Config())
 		ygnmi.BatchDelete(sb, Root().Interface(iface.Spec.Name).Ethernet().SwitchedVlan().Config())
-		_, err = sb.Set(ctx, client, ygnmi.WithEncoding(gpb.Encoding_JSON), ygnmi.WithAppendModuleName(true))
+		_, err = sb.Set(ctx, client, ygnmi.WithEncoding(gpb.Encoding_JSON), ygnmi.WithSkipModuleNames())
 		return err
 	case v1alpha1.InterfaceTypeLoopback:
 		_, err = ygnmi.Delete(ctx, client, Root().Interface(iface.Spec.Name).Config())

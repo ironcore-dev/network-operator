@@ -11,7 +11,7 @@ require (
 	github.com/openconfig/gnmi v0.14.1
 	github.com/openconfig/gnoi v0.6.2
 	github.com/openconfig/goyang v1.6.2
-	github.com/openconfig/ygnmi v0.12.0
+	github.com/openconfig/ygnmi v0.13.1-0.20250924235719-646562b5d0c3
 	github.com/openconfig/ygot v0.32.0
 	github.com/sapcc/go-api-declarations v1.16.0
 	go.uber.org/automaxprocs v1.6.0
@@ -108,8 +108,6 @@ require (
 	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 )
-
-replace github.com/openconfig/ygnmi => github.com/felix-kaestner/ygnmi v0.0.0-20250709083711-68dcb70888a5
 
 // CVE-2025-22868
 replace golang.org/x/oauth2 => golang.org/x/oauth2 v0.27.0
