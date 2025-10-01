@@ -1,12 +1,18 @@
+// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-License-Identifier: Apache-2.0
+
 package iosxr
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+
 	"google.golang.org/grpc"
 )
 
@@ -43,11 +49,11 @@ func (p *Provider) Disconnect(ctx context.Context, conn *deviceutil.Connection) 
 
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) error {
 	if p.client == nil {
-		return fmt.Errorf("client is not connected")
+		return errors.New("client is not connected")
 	}
-	var name string = req.Interface.Spec.Name
+	var name = req.Interface.Spec.Name
 
-	var physif *PhisIf = NewIface(name)
+	var physif = NewIface(name)
 
 	physif.Name = req.Interface.Spec.Name
 	physif.Description = req.Interface.Spec.Description
@@ -55,9 +61,10 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 	physif.Statistics.LoadInterval = 30
 	owner, err := ExractMTUOwnerFromIfaceName(name)
 	if err != nil {
-		return fmt.Errorf("failed to extract MTU owner from interface name %s: %w", name, err)
+		message := "failed to extract MTU owner from interface name" + name
+		return errors.New(message)
 	}
-	physif.MTUs = MTUs{MTU: []MTU{{MTU: uint16(req.Interface.Spec.MTU), Owner: string(owner)}}}
+	physif.MTUs = MTUs{MTU: []MTU{{MTU: req.Interface.Spec.MTU, Owner: string(owner)}}}
 
 	// (fixme): for the moment it is enought to keep this static
 	// option1: extend existing interface spec
@@ -66,31 +73,30 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 	physif.Statistics.LoadInterval = uint8(30)
 
 	if len(req.Interface.Spec.IPv4.Addresses) == 0 {
-		return fmt.Errorf("no IPv4 address configured for interface %s", name)
+		message := "no IPv4 address configured for interface " + name
+		return errors.New(message)
 	}
 
 	if len(req.Interface.Spec.IPv4.Addresses) > 1 {
-		return fmt.Errorf("only a single primary IPv4 address is supported for interface %s", name)
+		message := "multiple IPv4 addresses configured for interface " + name
+		return errors.New(message)
 	}
 
 	// (fixme): support IPv6 addresses, IPv6 neighbor config
-	ip := req.Interface.Spec.IPv4.Addresses[0].Prefix.Addr().String()
-	ipNet := req.Interface.Spec.IPv4.Addresses[0].Prefix.Bits()
-	if err != nil {
-		return fmt.Errorf("failed to parse IPv4 address %s: %w", req.Interface.Spec.IPv4.Addresses[0], err)
-	}
+	ip := req.Interface.Spec.IPv4.Addresses[0].Addr().String()
+	ipNet := req.Interface.Spec.IPv4.Addresses[0].Bits()
 
 	physif.IPv4Network = IPv4Network{
 		Addresses: AddressesIPv4{
 			Primary: Primary{
 				Address: ip,
-				Netmask: string(ipNet),
+				Netmask: strconv.Itoa(ipNet),
 			},
 		},
 	}
 
 	// Check if interface exists otherwise patch will fail
-	var tmpiFace *PhisIf = NewIface(name)
+	var tmpiFace = NewIface(name)
 	err = p.client.GetConfig(ctx, tmpiFace)
 	if err != nil {
 		// Interface does not exist, create it
@@ -114,7 +120,7 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 	var iFace = NewIface(req.Interface.Spec.Name)
 
 	if p.client == nil {
-		return fmt.Errorf("client is not connected")
+		return errors.New("client is not connected")
 	}
 
 	err := p.client.Delete(ctx, iFace)
@@ -129,10 +135,10 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 	state.Name = req.Interface.Spec.Name
 
 	if p.client == nil {
-		return provider.InterfaceStatus{}, fmt.Errorf("client is not connected")
+		return provider.InterfaceStatus{}, errors.New("client is not connected")
 	}
 
-	states, err := p.client.GetStateWithMultipleUpdates(ctx, state)
+	err := p.client.GetState(ctx, state)
 
 	if err != nil {
 		return provider.InterfaceStatus{}, fmt.Errorf("failed to get interface status for %s: %w", req.Interface.Spec.Name, err)
@@ -141,13 +147,11 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 	providerStatus := provider.InterfaceStatus{
 		OperStatus: true,
 	}
-	for _, s := range *states {
-		currState := s.(*PhysIfState)
-		if stateMapping[currState.State] != StateUp {
-			providerStatus.OperStatus = false
-			break
-		}
+
+	if stateMapping[state.State] != StateUp {
+		providerStatus.OperStatus = false
 	}
+
 	return providerStatus, nil
 }
 

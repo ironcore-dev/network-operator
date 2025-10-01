@@ -1,0 +1,22 @@
+{
+  "interface-configuration": {
+    "description": "test",
+    "active": "act",
+     "Cisco-IOS-XR-ipv4-io-cfg:ipv4-network": {
+      "addresses": {
+        "primary": {
+          "address": "192.168.1.2",
+          "netmask": "255.255.255.0"
+        }
+      }
+    },
+    "mtus": {
+      "mtu": [
+          {
+              "mtu": 9026,
+              "owner": "TwentyFiveGigE"
+          }
+      ]
+    }
+  }
+}
