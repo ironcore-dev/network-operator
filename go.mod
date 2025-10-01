@@ -3,6 +3,7 @@ module github.com/ironcore-dev/network-operator
 go 1.25
 
 require (
+	github.com/felix-kaestner/copy v0.0.0-20240226161622-4773371af039
 	github.com/go-logr/logr v1.4.2
 	github.com/google/go-cmp v0.7.0
 	github.com/mitchellh/hashstructure/v2 v2.0.2
