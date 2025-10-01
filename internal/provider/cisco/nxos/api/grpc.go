@@ -5,7 +5,6 @@ package api
 
 import (
 	"context"
-	"errors"
 
 	"github.com/openconfig/ygot/ygot"
 
@@ -25,6 +24,8 @@ type GRPC struct {
 	Vrf string
 	// The certificate trustpoint ID.
 	Trustpoint string
+	// The certificate trustpoint used to verify the client certificates presented.
+	CertClientRoot string
 	// GNMI configuration.
 	GNMI *GNMI `json:"gnmi,omitempty"`
 }
@@ -79,6 +80,11 @@ func (g *GRPC) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, er
 		vrf = ygot.String(g.Vrf)
 	}
 
+	var certClientRoot *string
+	if g.CertClientRoot != "" {
+		certClientRoot = ygot.String(g.CertClientRoot)
+	}
+
 	return []gnmiext.Update{
 		gnmiext.EditingUpdate{
 			XPath: "System/fm-items/grpc-items",
@@ -87,9 +93,10 @@ func (g *GRPC) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, er
 		gnmiext.EditingUpdate{
 			XPath: "System/grpc-items",
 			Value: &nxos.Cisco_NX_OSDevice_System_GrpcItems{
-				Cert:   ygot.String(g.Trustpoint),
-				Port:   ygot.Uint32(g.Port),
-				UseVrf: vrf,
+				Cert:           ygot.String(g.Trustpoint),
+				Port:           ygot.Uint32(g.Port),
+				UseVrf:         vrf,
+				CertClientRoot: certClientRoot,
 				GnmiItems: &nxos.Cisco_NX_OSDevice_System_GrpcItems_GnmiItems{
 					MaxCalls:          ygot.Uint16(g.GNMI.MaxConcurrentCall),
 					KeepAliveTimeout:  ygot.Uint32(g.GNMI.KeepAliveTimeout),
@@ -100,7 +107,25 @@ func (g *GRPC) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, er
 	}, nil
 }
 
-// returns an empty update and an error indicating that the reset is not implemented
-func (v *GRPC) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
-	return []gnmiext.Update{}, errors.New("grpc: reset not implemented as it effectively disables management over gNMI")
+// Reset returns the default gRPC configuration as a slice of gNMI updates.
+func (g *GRPC) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
+	port := uint32(50051)
+	if g.Port != 0 {
+		port = g.Port
+	}
+
+	return []gnmiext.Update{
+		gnmiext.ReplacingUpdate{
+			XPath: "System/grpc-items",
+			Value: &nxos.Cisco_NX_OSDevice_System_GrpcItems{
+				Port:   ygot.Uint32(port),
+				UseVrf: ygot.String("default"),
+				GnmiItems: &nxos.Cisco_NX_OSDevice_System_GrpcItems_GnmiItems{
+					MaxCalls:          ygot.Uint16(8),
+					KeepAliveTimeout:  ygot.Uint32(600),
+					MinSampleInterval: ygot.Uint32(10),
+				},
+			},
+		},
+	}, nil
 }
