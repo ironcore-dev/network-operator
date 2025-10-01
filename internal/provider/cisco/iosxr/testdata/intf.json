@@ -1,0 +1,45 @@
+{
+  "interface-configuration": {
+    "description": "random interface test",
+    "active": "act",
+    "Cisco-IOS-XR-infra-rsi-cfg:vrf": "default",
+    "Cisco-IOS-XR-infra-statsd-cfg:statistics": {
+      "load-interval": 30
+    },
+    "Cisco-IOS-XR-ipv4-io-cfg:ipv4-network": {
+      "addresses": {
+        "primary": {
+          "address": "192.168.1.2",
+          "netmask": "255.255.255.0"
+        }
+      },
+      "mtu": 1000
+    },
+    "Cisco-IOS-XR-ipv6-ma-cfg:ipv6-network": {
+      "mtu": 2100,
+      "addresses": {
+        "regular-addresses": {
+          "regular-address": [
+            {
+              "address": "2001:db8::1",
+              "prefix-length": 64,
+              "zone": ""
+            }
+          ]
+        }
+      }
+    },
+    "Cisco-IOS-XR-ipv6-nd-cfg:ipv6-neighbor": {
+      "ra-suppress": false
+    },
+    "mtus": {
+      "mtu": [
+        {
+          "mtu": 9026,
+          "owner": "TwentyFiveGigE"
+        }
+      ]
+    },
+    "shutdown": [null]
+  }
+}

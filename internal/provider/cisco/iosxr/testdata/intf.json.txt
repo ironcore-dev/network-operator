@@ -1,0 +1,5 @@
+interface TwentyFiveGigE0/0/0/14
+  description test
+  mtu 9026
+  ipv4 address 192.168.1.2 255.255.255.0
+  load-interval 30
