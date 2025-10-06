@@ -1,0 +1,15 @@
+{
+  "acl-items": {
+    "ipv4-items": {
+      "policy-items": {
+        "ingress-items": {
+          "vty-items": {
+            "acl-items": {
+              "name": "TEST-ACL"
+            }
+          }
+        }
+      }
+    }
+  }
+}

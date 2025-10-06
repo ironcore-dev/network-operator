@@ -1,0 +1,8 @@
+{
+  "grpc-items": {
+    "cert": "trustpoint",
+    "certClientRoot": "client_trustpoint",
+    "port": 9339,
+    "useVrf": "default"
+  }
+}

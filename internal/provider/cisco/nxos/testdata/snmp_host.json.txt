@@ -1,0 +1,2 @@
+snmp-server host foo.bar traps version 2c snmpcollector
+snmp-server host foo.bar use-vrf management

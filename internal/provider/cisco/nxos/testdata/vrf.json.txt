@@ -1,0 +1,12 @@
+vrf context CC-CLOUD01
+  vni 101 l3
+  rd 4269539332:101
+  address-family ipv4 unicast
+    route-target import 65148:1101
+    route-target import 65148:1101 evpn
+    route-target import 65148:4101
+    route-target import 65148:4101 evpn
+    route-target export 65148:1101
+    route-target export 65148:1101 evpn
+    route-target export 65148:4101
+    route-target export 65148:4101 evpn

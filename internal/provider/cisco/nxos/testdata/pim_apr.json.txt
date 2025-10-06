@@ -1,0 +1,2 @@
+ip pim anycast-rp 10.0.0.100 10.0.0.1
+ip pim anycast-rp 10.0.0.100 10.0.0.2

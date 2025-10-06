@@ -1,0 +1,5 @@
+interface Ethernet1/10
+ description Leaf1 --> Host1
+ switchport mode trunk
+ switchport trunk allowed vlan 10
+ no shutdown

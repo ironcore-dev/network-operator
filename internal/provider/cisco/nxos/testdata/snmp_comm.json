@@ -1,0 +1,18 @@
+{
+  "snmp-items": {
+    "inst-items": {
+      "community-items": {
+        "CommSecP-list": [
+          {
+            "commAcess": "unspecified",
+            "grpName": "network-operator",
+            "name": "snmpcollector",
+            "acl-items": {
+              "useAclName": "TEST-ACL"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

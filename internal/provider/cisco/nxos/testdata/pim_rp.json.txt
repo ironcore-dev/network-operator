@@ -1,0 +1,1 @@
+ip pim rp-address 10.0.0.100 group-list 224.0.0.0/4

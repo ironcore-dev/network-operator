@@ -1,0 +1,4 @@
+ip domain-lookup
+ip domain-name example.com
+ip name-server 10.10.10.10 use-vrf management
+ip name-server 11.11.11.11 source-interface mgmt0

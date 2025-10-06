@@ -1,0 +1,30 @@
+{
+  "ipv4-items": {
+    "inst-items": {
+      "dom-items": {
+        "Dom-list": [
+          {
+            "name": "default",
+            "if-items": {
+              "If-list": [
+                {
+                  "id": "lo0",
+                  "addr-items": {
+                    "Addr-list": [
+                      {
+                        "addr": "10.0.0.10/32",
+                        "pref": 0,
+                        "tag": 0,
+                        "type": "primary"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "snmp-items": {
+    "inst-items": {
+      "lclUser-items": {
+        "LocalUser-list": [
+          {
+            "userName": "admin",
+            "ipv4AclName": "TEST-ACL"
+          }
+        ]
+      }
+    }
+  }
+}

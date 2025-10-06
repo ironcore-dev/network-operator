@@ -1,0 +1,8 @@
+{
+  "syslog-items": {
+    "source-items": {
+      "adminState": "enabled",
+      "ifName": "mgmt0"
+    }
+  }
+}

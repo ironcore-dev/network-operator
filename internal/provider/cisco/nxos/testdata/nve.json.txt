@@ -1,0 +1,8 @@
+interface nve1
+ no shutdown
+ advertise virtual-rmac
+ host-reachability protocol bgp
+ source-interface lo0 anycast lo1
+ global suppress-arp
+ global mcast-group 237.0.0.1 L2
+ source-interface hold-down-time 300

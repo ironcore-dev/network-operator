@@ -1,0 +1,11 @@
+{
+  "terml-items": {
+    "ln-items": {
+      "cons-items": {
+        "execTmeout-items": {
+          "timeout": 60
+        }
+      }
+    }
+  }
+}

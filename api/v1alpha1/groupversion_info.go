@@ -70,19 +70,4 @@ const (
 
 	// AllResourcesReadyReason indicates that all resources owned by the resource are ready.
 	AllResourcesReadyReason = "AllResourcesReady"
-
-	// ValidationFailedReason indicates that the resource failed validation checks.
-	ValidationFailedReason = "ValidationFailed"
-)
-
-// Device reasons that are used specifically for Device objects.
-const (
-	// UnreachableReason indicates that the device is not reachable over the network.
-	DeviceUnreachableReason string = "Unreachable"
-
-	// UnsupportedReason indicates that the device platform is not supported.
-	DeviceUnsupportedReason string = "Unsupported"
-
-	// UnauthenticatedReason indicates that the provided device credentials are not valid.
-	DeviceUnauthenticatedReason string = "Unauthenticated"
 )

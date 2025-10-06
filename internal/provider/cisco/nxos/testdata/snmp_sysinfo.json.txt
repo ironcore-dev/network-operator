@@ -1,0 +1,2 @@
+snmp-server contact johndoe@example.com
+snmp-server location rack123

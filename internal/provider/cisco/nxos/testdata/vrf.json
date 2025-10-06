@@ -1,0 +1,96 @@
+{
+  "inst-items": {
+    "Inst-list": [
+      {
+        "encap": "vxlan-101",
+        "l3vni": true,
+        "name": "CC-CLOUD01",
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "CC-CLOUD01",
+              "rd": "rd:as4-nn2:4269539332:101",
+              "af-items": {
+                "DomAf-list": [
+                  {
+                    "type": "ipv4-ucast",
+                    "ctrl-items": {
+                      "AfCtrl-list": [
+                        {
+                          "type": "l2vpn-evpn",
+                          "rttp-items": {
+                            "RttP-list": [
+                              {
+                                "type": "export",
+                                "ent-items": {
+                                  "RttEntry-list": [
+                                    {
+                                      "rtt": "route-target:as2-nn2:65148:4101"
+                                    },
+                                    {
+                                      "rtt": "route-target:as2-nn2:65148:1101"
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "type": "import",
+                                "ent-items": {
+                                  "RttEntry-list": [
+                                    {
+                                      "rtt": "route-target:as2-nn2:65148:4101"
+                                    },
+                                    {
+                                      "rtt": "route-target:as2-nn2:65148:1101"
+                                    }
+                                  ]
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "type": "ipv4-ucast",
+                          "rttp-items": {
+                            "RttP-list": [
+                              {
+                                "type": "export",
+                                "ent-items": {
+                                  "RttEntry-list": [
+                                    {
+                                      "rtt": "route-target:as2-nn2:65148:4101"
+                                    },
+                                    {
+                                      "rtt": "route-target:as2-nn2:65148:1101"
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "type": "import",
+                                "ent-items": {
+                                  "RttEntry-list": [
+                                    {
+                                      "rtt": "route-target:as2-nn2:65148:4101"
+                                    },
+                                    {
+                                      "rtt": "route-target:as2-nn2:65148:1101"
+                                    }
+                                  ]
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

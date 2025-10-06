@@ -1,0 +1,14 @@
+{
+  "terml-items": {
+    "ln-items": {
+      "vty-items": {
+        "execTmeout-items": {
+          "timeout": 60
+        },
+        "ssLmt-items": {
+          "sesLmt": 8
+        }
+      }
+    }
+  }
+}

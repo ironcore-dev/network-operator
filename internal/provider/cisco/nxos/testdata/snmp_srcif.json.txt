@@ -1,0 +1,1 @@
+snmp-server source-interface traps mgmt0

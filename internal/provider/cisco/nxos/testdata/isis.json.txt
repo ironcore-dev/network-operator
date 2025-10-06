@@ -1,0 +1,15 @@
+router isis UNDERLAY
+ net 49.0001.0000.0000.0010.00
+ is-type level-1
+ set-overload-bit on-startup 61
+ address-family ipv4 unicast
+ address-family ipv6 unicast
+ passive-interface default level-1
+
+interface Ethernet1/1-2
+ ip router isis UNDERLAY
+ isis network point-to-point
+ no isis passive-interface level-1
+
+interface loopback0-1
+ ip router isis UNDERLAY

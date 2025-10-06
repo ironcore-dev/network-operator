@@ -1,0 +1,14 @@
+{
+  "logging-items": {
+    "loglevel-items": {
+      "facility-items": {
+        "Facility-list": [
+          {
+            "facilityName": "aaa",
+            "severityLevel": "information"
+          }
+        ]
+      }
+    }
+  }
+}

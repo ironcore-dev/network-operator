@@ -1,0 +1,3 @@
+snmp-server community snmpcollector group network-operator
+snmp-server community snmpcollector use-acl TEST-ACL
+snmp-server community snmpcollector ro

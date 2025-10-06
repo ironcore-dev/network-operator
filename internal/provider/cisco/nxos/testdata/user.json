@@ -1,0 +1,33 @@
+{
+  "userext-items": {
+    "user-items": {
+      "User-list": [
+        {
+          "allowExpired": "no",
+          "expiration": "never",
+          "name": "johndoe",
+          "pwd": "Pa$$w0rd",
+          "passwordHash": "pbkdf2",
+          "pwdEncryptType": "clear",
+          "sshauth-items": {
+            "data": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDEgsAKZn/hxPMKyfwKboiOEeuL9bTqW79QfEQ8h0kpGhkFJJEWR1e3BvXpdT9KYQOaKQnNw32atULweSQQNGh6S73FvEIwYViuNCmygDxpiaJLIiYHAfs3NQ8wGG70l+DK6vPhkcO6uvq2XRP+y1W9gMAKlgMPj5BCl2LR6HUO9/Jzvi1yRX4w4E5shpvcVoUUB8ubFJ0IyfMTXb/sQrFvjq4ukH3wAV4CMrsP6fj5FoAQzJw3jlK5GCtK8FqkUkROBexwWGbFFjSbox5KXT2qludLocyQtw10rB6G/3af40tQJLHd0u6LnaCgHGfPod3Z9u2aL6DR1k5hBtGXGWxZ IronCore Test"
+          },
+          "userdomain-items": {
+            "UserDomain-list": [
+              {
+                "name": "all",
+                "role-items": {
+                  "UserRole-list": [
+                    {
+                      "name": "network-admin"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

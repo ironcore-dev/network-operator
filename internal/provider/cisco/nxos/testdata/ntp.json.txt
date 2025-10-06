@@ -1,0 +1,4 @@
+ntp logging
+ntp source-interface mgmt0
+ntp server de.pool.ntp.org prefer use-vrf management
+ntp server pool.ntp.org

@@ -244,7 +244,7 @@ func (c *Client) get(ctx context.Context, dt gpb.GetRequest_DataType, conf ...Co
 // configuration. Otherwise, a full replacement is done.
 // If the current configuration equals the desired configuration, the operation
 // is skipped.
-func (c *Client) set(ctx context.Context, patch bool, conf ...Configurable) (err error) {
+func (c *Client) set(ctx context.Context, patch bool, conf ...Configurable) error {
 	if len(conf) == 0 {
 		return nil
 	}
@@ -255,12 +255,13 @@ func (c *Client) set(ctx context.Context, patch bool, conf ...Configurable) (err
 			return err
 		}
 		got := cp.Deep(cf)
-		if err := c.GetConfig(ctx, got); err != nil && !errors.Is(err, ErrNil) {
+		err = c.GetConfig(ctx, got)
+		if err != nil && !errors.Is(err, ErrNil) {
 			return fmt.Errorf("gnmiext: failed to retrieve current config for %s: %w", cf.XPath(), err)
 		}
 		// If the current configuration is equal to the desired configuration, skip the update.
 		// This avoids unnecessary updates and potential disruptions.
-		if reflect.DeepEqual(cf, got) {
+		if err == nil && reflect.DeepEqual(cf, got) {
 			c.logger.V(1).Info("Configuration is already up-to-date", "path", cf.XPath())
 			continue
 		}
@@ -311,6 +312,20 @@ func (c *Client) Marshal(v any) (b []byte, err error) {
 // If the destination implements the [Marshaler] interface, it will be unmarshaled using that.
 // Otherwise, [json.Unmarshal] is used.
 func (c *Client) Unmarshal(b []byte, dst any) (err error) {
+	// NOTE: If you query for list elements on Cisco NX-OS, the encoded payload
+	// will be the wrapped in an array (even if only one element is requested), i.e.
+	//
+	// [
+	// 	{
+	// 		...
+	// 	}
+	// ]
+	_, ok := dst.(interface {
+		IsListItem()
+	})
+	if ok && b[0] == '[' && b[len(b)-1] == ']' {
+		b = b[1 : len(b)-1]
+	}
 	if um, ok := dst.(Marshaler); ok {
 		if err := um.UnmarshalYANG(c.capabilities, b); err != nil {
 			return fmt.Errorf("gnmiext: failed to unmarshal value: %w", err)

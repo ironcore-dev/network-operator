@@ -1,0 +1,33 @@
+{
+  "pim-items": {
+    "inst-items": {
+      "dom-items": {
+        "Dom-list": [
+          {
+            "name": "default",
+            "if-items": {
+              "If-list": [
+                {
+                  "id": "lo0",
+                  "pimSparseMode": true
+                },
+                {
+                  "id": "lo1",
+                  "pimSparseMode": true
+                },
+                {
+                  "id": "eth1/2",
+                  "pimSparseMode": true
+                },
+                {
+                  "id": "eth1/1",
+                  "pimSparseMode": true
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

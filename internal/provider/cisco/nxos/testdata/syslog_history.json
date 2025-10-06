@@ -1,0 +1,8 @@
+{
+  "syslog-items": {
+    "logginghistory-items": {
+      "level": "information",
+      "size": 500
+    }
+  }
+}

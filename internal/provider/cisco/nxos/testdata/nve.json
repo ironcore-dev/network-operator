@@ -1,0 +1,19 @@
+{
+  "eps-items": {
+    "epId-items": {
+      "Ep-list": [
+        {
+          "adminSt": "enabled",
+          "advertiseVmac": true,
+          "anycastIntf": "lo1",
+          "epId": 1,
+          "holdDownTime": 300,
+          "hostReach": "bgp",
+          "mcastGroupL2": "237.0.0.1",
+          "sourceInterface": "lo0",
+          "suppressARP": true
+        }
+      ]
+    }
+  }
+}

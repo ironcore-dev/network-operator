@@ -1,0 +1,20 @@
+{
+  "intf-items": {
+    "phys-items": {
+      "PhysIf-list": [
+        {
+          "accessVlan": "vlan-1",
+          "adminSt": "up",
+          "descr": "Leaf1 to Host1",
+          "id": "eth1/10",
+          "layer": "Layer2",
+          "medium": "broadcast",
+          "mode": "trunk",
+          "nativeVlan": "vlan-1",
+          "trunkVlans": "10",
+          "userCfgdFlags": "admin_state"
+        }
+      ]
+    }
+  }
+}

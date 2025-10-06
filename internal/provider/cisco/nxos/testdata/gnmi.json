@@ -1,0 +1,8 @@
+{
+  "grpc-items": {
+    "gnmi-items": {
+      "keepAliveTimeout": 1200,
+      "maxCalls": 4
+    }
+  }
+}

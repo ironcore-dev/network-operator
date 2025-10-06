@@ -1,0 +1,21 @@
+{
+  "intf-items": {
+    "phys-items": {
+      "PhysIf-list": [
+        {
+          "accessVlan": "vlan-1",
+          "adminSt": "up",
+          "descr": "Leaf1 to Spine1",
+          "id": "eth1/1",
+          "layer": "Layer3",
+          "mtu": 9216,
+          "medium": "p2p",
+          "mode": "access",
+          "nativeVlan": "vlan-1",
+          "trunkVlans": "1-4094",
+          "userCfgdFlags": "admin_layer,admin_mtu,admin_state"
+        }
+      ]
+    }
+  }
+}

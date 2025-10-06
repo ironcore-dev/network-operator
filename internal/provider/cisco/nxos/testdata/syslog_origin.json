@@ -1,0 +1,7 @@
+{
+  "syslog-items": {
+    "originid-items": {
+      "idtype": "hostname"
+    }
+  }
+}

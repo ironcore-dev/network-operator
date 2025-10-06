@@ -1,0 +1,33 @@
+{
+  "bgp-items": {
+    "inst-items": {
+      "adminSt": "enabled",
+      "asn": "65000",
+      "dom-items": {
+        "Dom-list": [
+          {
+            "name": "default",
+            "rtrId": "1.1.1.1",
+            "rtrIdAuto": "disabled",
+            "af-items": {
+              "DomAf-list": [
+                {
+                  "maxExtEcmp": 1,
+                  "retainRttAll": "enabled",
+                  "retainRttRtMap": "DME_UNSET_PROPERTY_MARKER",
+                  "type": "l2vpn-evpn"
+                },
+                {
+                  "type": "ipv6-ucast"
+                },
+                {
+                  "type": "ipv4-ucast"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

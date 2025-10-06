@@ -1,0 +1,8 @@
+{
+  "userext-items": {
+    "preloginbanner-items": {
+      "delimiter": "^",
+      "message": "Test Banner"
+    }
+  }
+}

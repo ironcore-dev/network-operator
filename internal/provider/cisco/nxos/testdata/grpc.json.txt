@@ -1,0 +1,4 @@
+grpc port 9339
+grpc use-vrf default
+grpc certificate trustpoint
+grpc client root certificate client_trustpoint

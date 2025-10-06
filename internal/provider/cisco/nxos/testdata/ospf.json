@@ -1,0 +1,79 @@
+{
+  "ospf-items": {
+    "inst-items": {
+      "Inst-list": [
+        {
+          "adminSt": "enabled",
+          "name": "UNDERLAY",
+          "dom-items": {
+            "Dom-list": [
+              {
+                "adjChangeLogLevel": "brief",
+                "adminSt": "enabled",
+                "bwRef": 40000,
+                "bwRefUnit": "mbps",
+                "dist": 110,
+                "name": "default",
+                "rtrId": "10.0.0.10",
+                "if-items": {
+                  "If-list": [
+                    {
+                      "adminSt": "enabled",
+                      "advertiseSecondaries": true,
+                      "area": "0.0.0.0",
+                      "id": "eth1/1",
+                      "nwT": "p2p",
+                      "passiveCtrl": "unspecified"
+                    },
+                    {
+                      "adminSt": "enabled",
+                      "advertiseSecondaries": true,
+                      "area": "0.0.0.0",
+                      "id": "lo1",
+                      "nwT": "unspecified",
+                      "passiveCtrl": "unspecified"
+                    },
+                    {
+                      "adminSt": "enabled",
+                      "advertiseSecondaries": true,
+                      "area": "0.0.0.0",
+                      "id": "eth1/2",
+                      "nwT": "p2p",
+                      "passiveCtrl": "unspecified"
+                    },
+                    {
+                      "adminSt": "enabled",
+                      "advertiseSecondaries": true,
+                      "area": "0.0.0.0",
+                      "id": "lo0",
+                      "nwT": "unspecified",
+                      "passiveCtrl": "unspecified"
+                    }
+                  ]
+                },
+                "maxlsap-items": {
+                  "action": "reject",
+                  "maxLsa": 12000
+                },
+                "interleak-items": {
+                  "InterLeakP-list": [
+                    {
+                      "asn": "none",
+                      "inst": "none",
+                      "proto": "direct",
+                      "rtMap": "REDIST-ALL"
+                    }
+                  ]
+                },
+                "defrtleak-items": {
+                  "always": "no",
+                  "rtMap": ""
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

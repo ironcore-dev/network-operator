@@ -1,0 +1,1 @@
+crypto ca trustpoint mytrustpoint

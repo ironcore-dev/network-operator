@@ -1,0 +1,74 @@
+{
+  "isis-items": {
+    "inst-items": {
+      "Inst-list": [
+        {
+          "adminSt": "enabled",
+          "name": "UNDERLAY",
+          "dom-items": {
+            "Dom-list": [
+              {
+                "isType": "l1",
+                "name": "default",
+                "net": "49.0001.0000.0000.0010.00",
+                "passiveDflt": "l1",
+                "af-items": {
+                  "DomAf-list": [
+                    {
+                      "type": "v6"
+                    },
+                    {
+                      "type": "v4"
+                    }
+                  ]
+                },
+                "overload-items": {
+                  "adminSt": "bootup",
+                  "bgpAsNumStr": "none",
+                  "startupTime": 61,
+                  "suppress": ""
+                },
+                "if-items": {
+                  "If-list": [
+                    {
+                      "id": "lo1",
+                      "networkTypeP2P": "off",
+                      "v4Bfd": "enabled",
+                      "v4enable": true,
+                      "v6Bfd": "enabled",
+                      "v6enable": true
+                    },
+                    {
+                      "id": "lo0",
+                      "networkTypeP2P": "off",
+                      "v4Bfd": "enabled",
+                      "v4enable": true,
+                      "v6Bfd": "enabled",
+                      "v6enable": true
+                    },
+                    {
+                      "id": "eth1/2",
+                      "networkTypeP2P": "on",
+                      "v4Bfd": "enabled",
+                      "v4enable": true,
+                      "v6Bfd": "enabled",
+                      "v6enable": true
+                    },
+                    {
+                      "id": "eth1/1",
+                      "networkTypeP2P": "on",
+                      "v4Bfd": "enabled",
+                      "v4enable": true,
+                      "v6Bfd": "enabled",
+                      "v6enable": true
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

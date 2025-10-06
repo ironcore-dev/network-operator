@@ -1,0 +1,4 @@
+interface Loopback0
+ no shutdown
+ description Test
+ vrf member management

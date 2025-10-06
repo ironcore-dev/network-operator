@@ -1,0 +1,27 @@
+{
+  "pim-items": {
+    "inst-items": {
+      "dom-items": {
+        "Dom-list": [
+          {
+            "name": "default",
+            "acastrpfunc-items": {
+              "peer-items": {
+                "AcastRPPeer-list": [
+                  {
+                    "addr": "10.0.0.100/32",
+                    "rpSetAddr": "10.0.0.2/32"
+                  },
+                  {
+                    "addr": "10.0.0.100/32",
+                    "rpSetAddr": "10.0.0.1/32"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

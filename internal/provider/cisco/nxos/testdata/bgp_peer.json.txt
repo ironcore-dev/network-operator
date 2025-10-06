@@ -1,0 +1,9 @@
+router bgp 65000
+  neighbor 1.1.1.1
+    description EVPN peering with spine
+    remote-as 65000
+    update-source loopback0
+    address-family l2vpn evpn
+      send-community
+      send-community extended
+      route-reflector-client

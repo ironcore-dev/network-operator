@@ -1,0 +1,34 @@
+{
+  "bgp-items": {
+    "inst-items": {
+      "dom-items": {
+        "Dom-list": [
+          {
+            "name": "default",
+            "peer-items": {
+              "Peer-list": [
+                {
+                  "addr": "1.1.1.1",
+                  "asn": "65000",
+                  "asnType": "none",
+                  "name": "EVPN peering with spine",
+                  "srcIf": "lo0",
+                  "af-items": {
+                    "PeerAf-list": [
+                      {
+                        "ctrl": "rr-client",
+                        "sendComExt": "enabled",
+                        "sendComStd": "enabled",
+                        "type": "l2vpn-evpn"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

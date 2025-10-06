@@ -1,0 +1,16 @@
+{
+  "syslog-items": {
+    "rdst-items": {
+      "RemoteDest-list": [
+        {
+          "forwardingFacility": "local7",
+          "host": "10.10.10.10",
+          "port": 514,
+          "severity": "information",
+          "transport": "udp",
+          "vrfName": "management"
+        }
+      ]
+    }
+  }
+}

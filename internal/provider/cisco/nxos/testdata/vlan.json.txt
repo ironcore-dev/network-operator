@@ -1,0 +1,4 @@
+vlan 10
+ no shutdown
+ vn-segment 100010
+ name Test

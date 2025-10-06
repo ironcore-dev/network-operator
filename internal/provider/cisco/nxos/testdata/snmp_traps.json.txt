@@ -1,0 +1,1 @@
+snmp-server enable traps cfs state-change-notif

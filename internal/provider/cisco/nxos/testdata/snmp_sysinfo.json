@@ -1,0 +1,10 @@
+{
+  "snmp-items": {
+    "inst-items": {
+      "sysinfo-items": {
+        "sysContact": "johndoe@example.com",
+        "sysLocation": "rack123"
+      }
+    }
+  }
+}

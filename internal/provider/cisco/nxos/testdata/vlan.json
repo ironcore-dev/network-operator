@@ -1,0 +1,14 @@
+{
+  "bd-items": {
+    "bd-items": {
+      "BD-list": [
+        {
+          "accEncap": "vxlan-100010",
+          "adminSt": "active",
+          "fabEncap": "vlan-10",
+          "name": "Test"
+        }
+      ]
+    }
+  }
+}

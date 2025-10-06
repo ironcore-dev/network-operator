@@ -1,0 +1,5 @@
+interface Ethernet1/1-2
+ ip pim sparse-mode
+
+interface loopback0-1
+ ip pim sparse-mode

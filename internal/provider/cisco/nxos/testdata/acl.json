@@ -1,0 +1,32 @@
+{
+  "acl-items": {
+    "ipv4-items": {
+      "name-items": {
+        "ACL-list": [
+          {
+            "name": "TEST-ACL",
+            "seq-items": {
+              "ACE-list": [
+                {
+                  "seqNum": 10,
+                  "action": "permit",
+                  "protocol": 0,
+                  "srcPrefix": "10.0.0.0",
+                  "srcPrefixLength": 8,
+                  "dstPrefix": "0.0.0.0"
+                },
+                {
+                  "seqNum": 999,
+                  "action": "deny",
+                  "protocol": 0,
+                  "srcPrefix": "0.0.0.0",
+                  "dstPrefix": "0.0.0.0"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "snmp-items": {
+    "inst-items": {
+      "host-items": {
+        "Host-list": [
+          {
+            "commName": "snmpcollector",
+            "hostName": "foo.bar",
+            "notifType": "traps",
+            "secLevel": "noauth",
+            "udpPortID": 162,
+            "version": "v2c",
+            "usevrf-items": {
+              "UseVrf-list": [
+                {
+                  "vrfname": "management"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

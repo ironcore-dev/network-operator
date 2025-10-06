@@ -1,0 +1,2 @@
+grpc gnmi keepalive-timeout 1200
+grpc gnmi max-concurrent-calls 4

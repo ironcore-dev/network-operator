@@ -1,0 +1,37 @@
+{
+  "dns-items": {
+    "adminSt": "enabled",
+    "prof-items": {
+      "Prof-list": [
+        {
+          "name": "default",
+          "prov-items": {
+            "Provider-list": [
+              {
+                "addr": "11.11.11.11",
+                "srcIf": "mgmt0"
+              }
+            ]
+          },
+          "vrf-items": {
+            "Vrf-list": [
+              {
+                "name": "management",
+                "prov-items": {
+                  "Provider-list": [
+                    {
+                      "addr": "10.10.10.10"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "dom-items": {
+            "name": "example.com"
+          }
+        }
+      ]
+    }
+  }
+}

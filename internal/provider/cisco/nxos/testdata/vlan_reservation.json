@@ -1,0 +1,8 @@
+{
+  "bd-items": {
+    "resvlan-items": {
+      "blockVal64": false,
+      "sysVlan": 3850
+    }
+  }
+}

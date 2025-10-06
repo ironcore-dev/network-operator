@@ -1,0 +1,16 @@
+{
+  "intf-items": {
+    "lb-items": {
+      "LbRtdIf-list": [
+        {
+          "adminSt": "up",
+          "descr": "Test",
+          "id": "lo0",
+          "rtvrfMbr-items": {
+            "tDn": "/System/inst-items/Inst-list[name='management']"
+          }
+        }
+      ]
+    }
+  }
+}

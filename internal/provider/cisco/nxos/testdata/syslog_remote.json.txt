@@ -1,0 +1,1 @@
+logging server 10.10.10.10 6 use-vrf management

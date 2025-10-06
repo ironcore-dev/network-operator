@@ -1,0 +1,13 @@
+{
+  "snmp-items": {
+    "inst-items": {
+      "traps-items": {
+        "cfs-items": {
+          "statechangenotif-items": {
+            "trapstatus": "enable"
+          }
+        }
+      }
+    }
+  }
+}

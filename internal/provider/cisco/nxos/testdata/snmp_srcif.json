@@ -1,0 +1,11 @@
+{
+  "snmp-items": {
+    "inst-items": {
+      "globals-items": {
+        "srcInterfaceTraps-items": {
+          "ifname": "mgmt0"
+        }
+      }
+    }
+  }
+}

@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
+
 package nxos
 
 import "github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"

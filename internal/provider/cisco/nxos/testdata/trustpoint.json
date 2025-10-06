@@ -1,0 +1,13 @@
+{
+  "userext-items": {
+    "pkiext-items": {
+      "tp-items": {
+        "TP-list": [
+          {
+            "name": "mytrustpoint"
+          }
+        ]
+      }
+    }
+  }
+}
