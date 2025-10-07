@@ -1,0 +1,145 @@
+version: "2"
+run:
+  allow-parallel-runners: true
+  timeout: 10m
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - containedctx
+    - copyloopvar
+    - dupword
+    - durationcheck
+    - errcheck
+    - errname
+    - errorlint
+    - exptostd
+    - forbidigo
+    - ginkgolinter
+    - gocheckcompilerdirectives
+    - goconst
+    - gocritic
+    - gosec
+    - govet
+    - ineffassign
+    - intrange
+    - misspell
+    - nilerr
+    - nolintlint
+    - nosprintfhostport
+    - perfsprint
+    - predeclared
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - usetesting
+    - whitespace
+  settings:
+    gomoddirectives:
+      toolchain-forbidden: true
+      go-version-pattern: 1\.\d+(\.0)?$
+    revive:
+      rules:
+        - name: comment-spacings
+        - name: import-shadowing
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - perfsprint
+          - nolintlint
+          - gosec
+          - forbidigo
+        path: test/
+      - linters:
+          - lll
+        path: api/*
+      - linters:
+          - dupl
+          - lll
+        path: internal/controller
+      - linters:
+          - lll
+        path: cmd/*
+      - linters:
+          - lll
+        path: test
+      - linters:
+          - lll
+          - gosec
+          - forbidigo
+        path: hack/provider
+      - linters:
+          - gocyclo
+          - dupl
+        path: internal/provider/cisco/nxos/vrf
+      - linters:
+          - whitespace
+        path: internal/provider/cisco/nxos/nve
+      - linters:
+          - lll
+          - goconst
+        path: internal/provider/cisco/nxos
+      - linters:
+          - goimports
+          - gosec
+          - perfsprint
+          - errcheck
+        path: internal/provider/cisco/nxos/isis
+      - linters:
+          - lll
+          - perfsprint
+          - gosec
+          - gocritic
+          - whitespace
+          - errorlint
+          - dupword
+        path: internal/provider/openconfig
+      - linters:
+          - staticcheck
+          - goconst
+          - unconvert
+          - misspell
+          - gofmt
+          - gocyclo
+          - dupl
+          - gocritic
+          - whitespace
+          - perfsprint
+          - errorlint
+        path: internal/provider/cisco/nxos/genyang
+      - linters:
+          - staticcheck
+          - goconst
+          - unused
+          - unconvert
+          - gofmt
+          - errcheck
+        path: internal/provider/openconfig
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      # Put local imports after 3rd-party packages
+      local-prefixes:
+        - github.com/ironcore-dev/network-operator
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 10
+  max-same-issues: 10
+

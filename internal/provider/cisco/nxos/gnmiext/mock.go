@@ -5,10 +5,11 @@ package gnmiext
 
 import (
 	"context"
+	"sync"
+
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ygot/ygot"
 	"google.golang.org/grpc"
-	"sync"
 )
 
 // Ensure, that GNMIClientMock does implement GNMIClient.

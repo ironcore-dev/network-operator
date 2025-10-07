@@ -1,0 +1,24 @@
+name: Kustomize Validation
+
+on:
+  pull_request:
+    types: [ assigned, opened, synchronize, reopened ]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+
+jobs:
+  kustomize-validation:
+    name: Run on Ubuntu
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v5
+
+      - name: Install Kustomize
+        run: |
+          make kustomize
+          mv ./bin/kustomize /usr/local/bin
+
+      - run: |
+          ./hack/validate-kustomize.sh

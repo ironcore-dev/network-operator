@@ -53,6 +53,7 @@ func Test_Interface_NewInterface(t *testing.T) {
 		})
 	}
 }
+
 func Test_Interface_toYGOT(t *testing.T) {
 	tests := []struct {
 		name      string

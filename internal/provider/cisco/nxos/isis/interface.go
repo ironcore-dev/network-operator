@@ -16,9 +16,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/iface"
 )
 
-var (
-	ErrUnsupported error = errors.New("isis: unsupported interface type for isis")
-)
+var ErrUnsupported error = errors.New("isis: unsupported interface type for isis")
 
 type Interface struct {
 	name     string // interface name, e.g., Ethernet1/1
@@ -76,6 +74,7 @@ func WithPointToPoint() IfOption {
 		return nil
 	}
 }
+
 func WithBFD() IfOption {
 	return func(i *Interface) error {
 		i.bfd = true

@@ -13,6 +13,8 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
 )
 
+const nxapiItems = "System/fm-items/nxapi-items"
+
 func Test_NXAPI(t *testing.T) {
 	nxapi := &NXAPI{
 		Enable: true,
@@ -31,8 +33,8 @@ func Test_NXAPI(t *testing.T) {
 		t.Errorf("expected value to be of type EditingUpdate")
 	}
 
-	if update.XPath != "System/fm-items/nxapi-items" {
-		t.Errorf("expected key 'System/fm-items/nxapi-items' to be present")
+	if update.XPath != nxapiItems {
+		t.Errorf("expected key '" + nxapiItems + "' to be present")
 	}
 
 	i, ok := update.Value.(*nxos.Cisco_NX_OSDevice_System_FmItems_NxapiItems)
@@ -64,8 +66,8 @@ func Test_NXAPI_Trustpoint(t *testing.T) {
 		t.Errorf("expected value to be of type EditingUpdate")
 	}
 
-	if update.XPath != "System/fm-items/nxapi-items" {
-		t.Errorf("expected key 'System/fm-items/nxapi-items' to be present")
+	if update.XPath != nxapiItems {
+		t.Errorf("expected key '" + nxapiItems + "' to be present")
 	}
 
 	i, ok := update.Value.(*nxos.Cisco_NX_OSDevice_System_FmItems_NxapiItems)
@@ -122,8 +124,8 @@ func Test_NXAPI_Cert(t *testing.T) {
 		t.Errorf("expected value to be of type EditingUpdate")
 	}
 
-	if update.XPath != "System/fm-items/nxapi-items" {
-		t.Errorf("expected key 'System/fm-items/nxapi-items' to be present")
+	if update.XPath != nxapiItems {
+		t.Errorf("expected key '" + nxapiItems + "' to be present")
 	}
 
 	i, ok := update.Value.(*nxos.Cisco_NX_OSDevice_System_FmItems_NxapiItems)
@@ -176,8 +178,8 @@ func Test_NXAPI_Disabled(t *testing.T) {
 		t.Errorf("expected value to be of type EditingUpdate")
 	}
 
-	if update.XPath != "System/fm-items/nxapi-items" {
-		t.Errorf("expected key 'System/fm-items/nxapi-items' to be present")
+	if update.XPath != nxapiItems {
+		t.Errorf("expected key '" + nxapiItems + "' to be present")
 	}
 
 	i, ok := update.Value.(*nxos.Cisco_NX_OSDevice_System_FmItems_NxapiItems)

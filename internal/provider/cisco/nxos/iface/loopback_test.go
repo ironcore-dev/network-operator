@@ -103,7 +103,6 @@ func Test_Loopback_ToYGOT_BaseConfig(t *testing.T) {
 }
 
 func Test_Loopback_ToYGOT_WithL3Config(t *testing.T) {
-
 	testAddressingL3Cfg, err := NewL3Config(
 		WithNumberedAddressingIPv4([]string{"10.0.0.1/24"}),
 	)
