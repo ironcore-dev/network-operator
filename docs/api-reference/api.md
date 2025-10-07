@@ -1056,6 +1056,35 @@ More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architec
 <table>
 <tr>
 <td>
+<code>deviceRef</code><br/>
+<em>
+<a href="#networking.cloud.sap/v1alpha1.LocalObjectReference">
+LocalObjectReference
+</a>
+</em>
+</td>
+<td>
+<p>DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
+Immutable.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>providerConfigRef</code><br/>
+<em>
+<a href="#networking.cloud.sap/v1alpha1.TypedLocalObjectReference">
+TypedLocalObjectReference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
+This reference is used to link the Interface to its provider-specific configuration.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>name</code><br/>
 <em>
 string
@@ -1149,7 +1178,7 @@ or as interface reference in the form of &ldquo;unnumbered:<source-interface>&rd
 </tr>
 <tr>
 <td>
-<code>status</code><br/>
+<code>status,omitempty,omitzero</code><br/>
 <em>
 <a href="#networking.cloud.sap/v1alpha1.InterfaceStatus">
 InterfaceStatus
@@ -1157,6 +1186,7 @@ InterfaceStatus
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Status of the resource. This is set and updated automatically.
 Read-only.
 More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status">https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status</a></p>
@@ -1180,6 +1210,35 @@ More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architec
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+<code>deviceRef</code><br/>
+<em>
+<a href="#networking.cloud.sap/v1alpha1.LocalObjectReference">
+LocalObjectReference
+</a>
+</em>
+</td>
+<td>
+<p>DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
+Immutable.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>providerConfigRef</code><br/>
+<em>
+<a href="#networking.cloud.sap/v1alpha1.TypedLocalObjectReference">
+TypedLocalObjectReference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
+This reference is used to link the Interface to its provider-specific configuration.</p>
+</td>
+</tr>
 <tr>
 <td>
 <code>name</code><br/>
@@ -1326,6 +1385,37 @@ or as interface reference in the form of &ldquo;unnumbered:<source-interface>&rd
 <td><p>InterfaceTypePhysical indicates that the interface is a physical/ethernet interface.</p>
 </td>
 </tr></tbody>
+</table>
+<h3 id="networking.cloud.sap/v1alpha1.LocalObjectReference">LocalObjectReference
+</h3>
+<p>
+(<em>Appears on:</em><a href="#networking.cloud.sap/v1alpha1.InterfaceSpec">InterfaceSpec</a>)
+</p>
+<div>
+<p>LocalObjectReference contains enough information to locate a
+referenced object inside the same namespace.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name of the referent.
+More info: <a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names">https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names</a></p>
+</td>
+</tr>
+</tbody>
 </table>
 <h3 id="networking.cloud.sap/v1alpha1.LogFacility">LogFacility
 </h3>
@@ -2107,6 +2197,60 @@ Kubernetes core/v1.ConfigMapKeySelector
 <td>
 <em>(Optional)</em>
 <p>Reference to a ConfigMap containing the template</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="networking.cloud.sap/v1alpha1.TypedLocalObjectReference">TypedLocalObjectReference
+</h3>
+<p>
+(<em>Appears on:</em><a href="#networking.cloud.sap/v1alpha1.InterfaceSpec">InterfaceSpec</a>)
+</p>
+<div>
+<p>TypedLocalObjectReference contains enough information to locate a
+typed referenced object inside the same namespace.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>kind</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Kind of the resource being referenced.
+Kind must consist of alphanumeric characters or &lsquo;-&rsquo;, start with an alphabetic character, and end with an alphanumeric character.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name of the resource being referenced.
+Name must consist of lower case alphanumeric characters, &lsquo;-&rsquo; or &lsquo;.&rsquo;, and must start and end with an alphanumeric character.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>APIVersion is the api group version of the resource being referenced.</p>
 </td>
 </tr>
 </tbody>

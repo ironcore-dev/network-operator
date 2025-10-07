@@ -276,6 +276,7 @@ func Test_PortChannel_ToYGOT(t *testing.T) {
 		})
 	}
 }
+
 func Test_PortChannel_Reset(t *testing.T) {
 	tests := []struct {
 		name            string

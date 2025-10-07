@@ -72,6 +72,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Get and Save Date
+        id: date_step
+        run: echo "current_datetime=$(date +'%Y-%m-%d %H:%M:%S')" >> "$GITHUB_OUTPUT"
+
       - name: Build and push
         timeout-minutes: 40
         uses: docker/build-push-action@v6
@@ -85,4 +89,4 @@ jobs:
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
             GIT_COMMIT=${{ github.sha }}
-            BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            BUILD_DATE="${{ steps.date_step.outputs.current_datetime }}"

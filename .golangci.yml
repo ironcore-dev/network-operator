@@ -78,9 +78,18 @@ linters:
           - dupl
         path: internal/provider/cisco/nxos/vrf
       - linters:
+          - whitespace
+        path: internal/provider/cisco/nxos/nve
+      - linters:
           - lll
           - goconst
         path: internal/provider/cisco/nxos
+      - linters:
+          - goimports
+          - gosec
+          - perfsprint
+          - errcheck
+        path: internal/provider/cisco/nxos/isis
       - linters:
           - lll
           - perfsprint
