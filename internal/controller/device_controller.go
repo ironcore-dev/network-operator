@@ -250,7 +250,7 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 
 	if ref := device.Spec.Endpoint.SecretRef; ref != nil {
 		secret := new(corev1.Secret)
-		if err := c.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: ref.Namespace}, secret); err != nil {
+		if err := c.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: device.Namespace}, secret); err != nil {
 			log.Error(err, "Failed to get endpoint secret for device")
 			return err
 		}
@@ -284,7 +284,7 @@ func (r *DeviceReconciler) finalize(ctx context.Context, device *v1alpha1.Device
 
 	if ref := device.Spec.Endpoint.SecretRef; ref != nil {
 		secret := new(corev1.Secret)
-		if err := c.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: ref.Namespace}, secret); err != nil {
+		if err := c.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: device.Namespace}, secret); err != nil {
 			log.Error(err, "Failed to get endpoint secret for device")
 			return err
 		}
