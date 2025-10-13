@@ -16,7 +16,7 @@ import (
 
 var _ = Describe("ManagementAccess Controller", func() {
 	Context("When reconciling a resource", func() {
-		const name = "test-dns"
+		const name = "test-managementaccess"
 		key := client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 
 		BeforeEach(func() {
