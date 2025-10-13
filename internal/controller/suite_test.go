@@ -97,6 +97,7 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
+		Provider: prov,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -232,6 +233,7 @@ func detectTestBinaryDir() string {
 
 var (
 	_ provider.Provider                 = (*Provider)(nil)
+	_ provider.DeviceProvider           = (*Provider)(nil)
 	_ provider.InterfaceProvider        = (*Provider)(nil)
 	_ provider.BannerProvider           = (*Provider)(nil)
 	_ provider.UserProvider             = (*Provider)(nil)
@@ -274,6 +276,15 @@ func NewProvider() *Provider {
 
 func (p *Provider) Connect(context.Context, *deviceutil.Connection) error    { return nil }
 func (p *Provider) Disconnect(context.Context, *deviceutil.Connection) error { return nil }
+
+func (p *Provider) GetDeviceInfo(context.Context) (*provider.DeviceInfo, error) {
+	return &provider.DeviceInfo{
+		Manufacturer:    "Manufacturer",
+		Model:           "Model",
+		SerialNumber:    "123456789",
+		FirmwareVersion: "1.0.0",
+	}, nil
+}
 
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) (provider.Result, error) {
 	p.Lock()

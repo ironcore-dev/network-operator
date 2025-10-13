@@ -28,6 +28,8 @@ import (
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/clientutil"
+	"github.com/ironcore-dev/network-operator/internal/deviceutil"
+	"github.com/ironcore-dev/network-operator/internal/provider"
 )
 
 const DefaultRequeueAfter = 30 * time.Second
@@ -43,6 +45,9 @@ type DeviceReconciler struct {
 	// Recorder is used to record events for the controller.
 	// More info: https://book.kubebuilder.io/reference/raising-events
 	Recorder record.EventRecorder
+
+	// Provider is the driver that will be used to create & delete the interface.
+	Provider provider.ProviderFunc
 }
 
 // +kubebuilder:rbac:groups=networking.cloud.sap,resources=devices,verbs=get;list;watch;create;update;patch;delete
@@ -240,7 +245,7 @@ func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Device) error {
+func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Device) (reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	c, ok := clientutil.FromContext(ctx)
@@ -262,6 +267,32 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 			}
 			log.Info("Added finalizer to endpoint secret")
 		}
+	}
+
+	if prov, ok := r.Provider().(provider.DeviceProvider); ok {
+		conn, err := deviceutil.GetDeviceConnection(ctx, r, device)
+		if err != nil {
+			return err
+		}
+
+		if err := prov.Connect(ctx, conn); err != nil {
+			return fmt.Errorf("failed to connect to provider: %w", err)
+		}
+		defer func() {
+			if err := prov.Disconnect(ctx, conn); err != nil {
+				reterr = kerrors.NewAggregate([]error{reterr, err})
+			}
+		}()
+
+		info, err := prov.GetDeviceInfo(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get device info from provider: %w", err)
+		}
+
+		device.Status.Manufacturer = info.Manufacturer
+		device.Status.Model = info.Model
+		device.Status.SerialNumber = info.SerialNumber
+		device.Status.FirmwareVersion = info.FirmwareVersion
 	}
 
 	meta.SetStatusCondition(&device.Status.Conditions, metav1.Condition{

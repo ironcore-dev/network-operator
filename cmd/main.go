@@ -216,6 +216,7 @@ func main() {
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorderFor("device-controller"),
 		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Device")
 		os.Exit(1)

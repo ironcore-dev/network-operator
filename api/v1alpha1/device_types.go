@@ -91,6 +91,22 @@ type DeviceStatus struct {
 	// +required
 	Phase DevicePhase `json:"phase,omitempty"`
 
+	// Manufacturer is the manufacturer of the Device.
+	// +optional
+	Manufacturer string `json:"manufacturer,omitempty"`
+
+	// Model is the model identifier of the Device.
+	// +optional
+	Model string `json:"model,omitempty"`
+
+	// SerialNumber is the serial number of the Device.
+	// +optional
+	SerialNumber string `json:"serialNumber,omitempty"`
+
+	// FirmwareVersion is the firmware version running on the Device.
+	// +optional
+	FirmwareVersion string `json:"firmwareVersion,omitempty"`
+
 	// The conditions are a list of status objects that describe the state of the Device.
 	//+listType=map
 	//+listMapKey=type
@@ -121,6 +137,10 @@ const (
 // +kubebuilder:resource:path=devices
 // +kubebuilder:resource:singular=device
 // +kubebuilder:printcolumn:name="Endpoint",type=string,JSONPath=`.spec.endpoint.address`
+// +kubebuilder:printcolumn:name="Manufacturer",type=string,JSONPath=".status.manufacturer",priority=1
+// +kubebuilder:printcolumn:name="Model",type=string,JSONPath=".status.model",priority=1
+// +kubebuilder:printcolumn:name="SerialNumber",type=string,JSONPath=".status.serialNumber",priority=1
+// +kubebuilder:printcolumn:name="FirmwareVersion",type=string,JSONPath=".status.firmwareVersion",priority=1
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"

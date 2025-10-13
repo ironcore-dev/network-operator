@@ -32,6 +32,7 @@ import (
 
 var (
 	_ provider.Provider                 = (*Provider)(nil)
+	_ provider.DeviceProvider           = (*Provider)(nil)
 	_ provider.ACLProvider              = (*Provider)(nil)
 	_ provider.BannerProvider           = (*Provider)(nil)
 	_ provider.CertificateProvider      = (*Provider)(nil)
@@ -69,6 +70,22 @@ func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (er
 
 func (p *Provider) Disconnect(_ context.Context, _ *deviceutil.Connection) error {
 	return p.conn.Close()
+}
+
+func (p *Provider) GetDeviceInfo(ctx context.Context) (*provider.DeviceInfo, error) {
+	m := new(Model)
+	s := new(SerialNumber)
+	fw := new(FirmwareVersion)
+	if err := p.client.GetState(ctx, m, s, fw); err != nil {
+		return nil, err
+	}
+
+	return &provider.DeviceInfo{
+		Manufacturer:    Manufacturer,
+		Model:           string(*m),
+		SerialNumber:    string(*s),
+		FirmwareVersion: string(*fw),
+	}, nil
 }
 
 func (p *Provider) EnsureACL(ctx context.Context, req *provider.EnsureACLRequest) (res provider.Result, reterr error) {
