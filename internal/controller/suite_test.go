@@ -172,6 +172,14 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&ManagementAccessReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -215,16 +223,17 @@ func detectTestBinaryDir() string {
 }
 
 var (
-	_ provider.Provider            = (*Provider)(nil)
-	_ provider.InterfaceProvider   = (*Provider)(nil)
-	_ provider.BannerProvider      = (*Provider)(nil)
-	_ provider.UserProvider        = (*Provider)(nil)
-	_ provider.DNSProvider         = (*Provider)(nil)
-	_ provider.NTPProvider         = (*Provider)(nil)
-	_ provider.ACLProvider         = (*Provider)(nil)
-	_ provider.CertificateProvider = (*Provider)(nil)
-	_ provider.SNMPProvider        = (*Provider)(nil)
-	_ provider.SyslogProvider      = (*Provider)(nil)
+	_ provider.Provider                 = (*Provider)(nil)
+	_ provider.InterfaceProvider        = (*Provider)(nil)
+	_ provider.BannerProvider           = (*Provider)(nil)
+	_ provider.UserProvider             = (*Provider)(nil)
+	_ provider.DNSProvider              = (*Provider)(nil)
+	_ provider.NTPProvider              = (*Provider)(nil)
+	_ provider.ACLProvider              = (*Provider)(nil)
+	_ provider.CertificateProvider      = (*Provider)(nil)
+	_ provider.SNMPProvider             = (*Provider)(nil)
+	_ provider.SyslogProvider           = (*Provider)(nil)
+	_ provider.ManagementAccessProvider = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -240,6 +249,7 @@ type Provider struct {
 	Certs  map[string]struct{}
 	SNMP   *v1alpha1.SNMP
 	Syslog *v1alpha1.Syslog
+	Access *v1alpha1.ManagementAccess
 }
 
 func NewProvider() *Provider {
@@ -377,5 +387,19 @@ func (p *Provider) DeleteSyslog(_ context.Context) error {
 	p.Lock()
 	defer p.Unlock()
 	p.Syslog = nil
+	return nil
+}
+
+func (p *Provider) EnsureManagementAccess(_ context.Context, req *provider.EnsureManagementAccessRequest) (provider.Result, error) {
+	p.Lock()
+	defer p.Unlock()
+	p.Access = req.ManagementAccess
+	return provider.Result{}, nil
+}
+
+func (p *Provider) DeleteManagementAccess(context.Context) error {
+	p.Lock()
+	defer p.Unlock()
+	p.Access = nil
 	return nil
 }

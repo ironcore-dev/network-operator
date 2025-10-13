@@ -10,4 +10,5 @@ resources:
 - v1alpha1_certificate.yaml
 - v1alpha1_snmp.yaml
 - v1alpha1_syslog.yaml
+- v1alpha1_managementaccess.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

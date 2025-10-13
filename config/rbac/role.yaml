@@ -37,6 +37,7 @@ rules:
   - devices
   - dns
   - interfaces
+  - managementaccesses
   - ntp
   - snmp
   - syslogs
@@ -58,6 +59,7 @@ rules:
   - devices/finalizers
   - dns/finalizers
   - interfaces/finalizers
+  - managementaccesses/finalizers
   - ntp/finalizers
   - snmp/finalizers
   - syslogs/finalizers
@@ -73,6 +75,7 @@ rules:
   - devices/status
   - dns/status
   - interfaces/status
+  - managementaccesses/status
   - ntp/status
   - snmp/status
   - syslogs/status
