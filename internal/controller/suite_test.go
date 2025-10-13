@@ -156,6 +156,14 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&SNMPReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -207,6 +215,7 @@ var (
 	_ provider.NTPProvider         = (*Provider)(nil)
 	_ provider.ACLProvider         = (*Provider)(nil)
 	_ provider.CertificateProvider = (*Provider)(nil)
+	_ provider.SNMPProvider        = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -220,6 +229,7 @@ type Provider struct {
 	NTP    *v1alpha1.NTP
 	ACLs   map[string]struct{}
 	Certs  map[string]struct{}
+	SNMP   *v1alpha1.SNMP
 }
 
 func NewProvider() *Provider {
@@ -329,5 +339,19 @@ func (p *Provider) DeleteCertificate(_ context.Context, req *provider.DeleteCert
 	p.Lock()
 	defer p.Unlock()
 	delete(p.Certs, req.ID)
+	return nil
+}
+
+func (p *Provider) EnsureSNMP(_ context.Context, req *provider.EnsureSNMPRequest) (provider.Result, error) {
+	p.Lock()
+	defer p.Unlock()
+	p.SNMP = req.SNMP
+	return provider.Result{}, nil
+}
+
+func (p *Provider) DeleteSNMP(_ context.Context, req *provider.DeleteSNMPRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.SNMP = nil
 	return nil
 }

@@ -46,3 +46,6 @@ resources:
 - certificate_admin_role.yaml
 - certificate_editor_role.yaml
 - certificate_viewer_role.yaml
+- snmp_admin_role.yaml
+- snmp_editor_role.yaml
+- snmp_viewer_role.yaml
