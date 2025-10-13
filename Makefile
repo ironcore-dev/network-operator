@@ -6,6 +6,15 @@
 # SPDX-FileCopyrightText: 2024 SAP SE or an SAP affiliate company
 # SPDX-License-Identifier: Apache-2.0
 
+# macOS ships with make 3.81 from 2006, which does not support all the features that we want (e.g. --warn-undefined-variables)
+ifeq ($(MAKE_VERSION),3.81)
+  ifeq (,$(shell which gmake 2>/dev/null))
+    $(error We do not support this "make" version ($(MAKE_VERSION)) which is two decades old. Please install a newer version, e.g. using "brew install make")
+  else
+    $(error We do not support this "make" version ($(MAKE_VERSION)) which is two decades old. You have a newer GNU make installed, so please run "gmake" instead)
+  endif
+endif
+
 MAKEFLAGS=--warn-undefined-variables
 # /bin/sh is dash on Debian which does not support all features of ash/bash
 # to fix that we use /bin/bash only on Debian to not break Alpine
@@ -42,7 +51,7 @@ install-kustomize: FORCE
 
 fmt: FORCE install-gofumpt
 	@printf "\e[1;36m>> gofumpt -l -w .\e[0m\n"
-	@gofumpt -l -w $(shell git ls-files '*.go' | grep -v '^internal/provider/openconfig|internal/provider/cisco/nxos/genyang')
+	@gofumpt -l -w $(shell git ls-files '*.go' | grep -v '^internal/provider/openconfig')
 
 # Run the e2e tests against a k8s cluster.
 test-e2e: FORCE
@@ -167,7 +176,7 @@ install-modernize: FORCE
 	@if ! hash modernize 2>/dev/null; then printf "\e[1;36m>> Installing modernize (this may take a while)...\e[0m\n"; go install golang.org/x/tools/gopls/internal/analysis/modernize/cmd/modernize@latest; fi
 
 install-shellcheck: FORCE
-	@if ! hash shellcheck 2>/dev/null; then printf "\e[1;36m>> Installing shellcheck...\e[0m\n"; SHELLCHECK_ARCH=$(shell uname -m); SHELLCHECK_OS=$(shell uname -s | tr '[:upper:]' '[:lower:]'); if [[ "$$SHELLCHECK_OS" == "darwin" ]]; then SHELLCHECK_OS=macos; fi; SHELLCHECK_VERSION="stable"; if command -v curl >/dev/null 2>&1; then GET="curl -sLo-"; elif command -v wget >/dev/null 2>&1; then GET="wget -O-"; else echo "Didn't find curl or wget to download shellcheck"; exit 2; fi; $$GET "https://github.com/koalaman/shellcheck/releases/download/$$SHELLCHECK_VERSION/shellcheck-$$SHELLCHECK_VERSION.$$SHELLCHECK_OS.$$SHELLCHECK_ARCH.tar.xz" | tar -Jxf -; BIN=$$(go env GOBIN); if [[ -z $$BIN ]]; then BIN=$$(go env GOPATH)/bin; fi; install -Dm755 shellcheck-$$SHELLCHECK_VERSION/shellcheck -t "$$BIN"; rm -rf shellcheck-$$SHELLCHECK_VERSION; fi
+	@if ! hash shellcheck 2>/dev/null; then printf "\e[1;36m>> Installing shellcheck...\e[0m\n"; SHELLCHECK_ARCH=$(shell uname -m); if [[ "$$SHELLCHECK_ARCH" == "arm64" ]]; then SHELLCHECK_ARCH=aarch64; fi; SHELLCHECK_OS=$(shell uname -s | tr '[:upper:]' '[:lower:]'); SHELLCHECK_VERSION="stable"; if command -v curl >/dev/null 2>&1; then GET="curl -sLo-"; elif command -v wget >/dev/null 2>&1; then GET="wget -O-"; else echo "Didn't find curl or wget to download shellcheck"; exit 2; fi; $$GET "https://github.com/koalaman/shellcheck/releases/download/$$SHELLCHECK_VERSION/shellcheck-$$SHELLCHECK_VERSION.$$SHELLCHECK_OS.$$SHELLCHECK_ARCH.tar.xz" | tar -Jxf -; BIN=$$(go env GOBIN); if [[ -z $$BIN ]]; then BIN=$$(go env GOPATH)/bin; fi; install -Dm755 shellcheck-$$SHELLCHECK_VERSION/shellcheck -t "$$BIN"; rm -rf shellcheck-$$SHELLCHECK_VERSION; fi
 
 install-go-licence-detector: FORCE
 	@if ! hash go-licence-detector 2>/dev/null; then printf "\e[1;36m>> Installing go-licence-detector (this may take a while)...\e[0m\n"; go install go.elastic.co/go-licence-detector@latest; fi
@@ -186,10 +195,13 @@ install-controller-gen: FORCE
 install-setup-envtest: FORCE
 	@if ! hash setup-envtest 2>/dev/null; then printf "\e[1;36m>> Installing setup-envtest (this may take a while)...\e[0m\n"; go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest; fi
 
-GO_BUILDFLAGS =
-GO_LDFLAGS =
-GO_TESTENV =
-GO_BUILDENV = CGO_ENABLED=0
+# To add additional flags or values (before the default ones), specify the variable in the environment, e.g. `GO_BUILDFLAGS='-tags experimental' make`.
+# To override the default flags or values, specify the variable on the command line, e.g. `make GO_BUILDFLAGS='-tags experimental'`.
+GO_BUILDFLAGS +=
+GO_LDFLAGS +=
+GO_TESTFLAGS +=
+GO_TESTENV +=
+GO_BUILDENV += CGO_ENABLED=0
 
 # These definitions are overridable, e.g. to provide fixed version/commit values when
 # no .git directory is present or to provide a fixed build date for reproducibility.
@@ -219,7 +231,7 @@ ifeq ($(GO_TESTPKGS),)
 GO_TESTPKGS := ./...
 endif
 # which packages to measure coverage for
-GO_COVERPKGS := $(shell go list ./... | grep -E '/internal' | grep -Ev '/internal/provider/openconfig|internal/provider/cisco/nxos/genyang')
+GO_COVERPKGS := $(shell go list ./... | grep -E '/internal')
 # to get around weird Makefile syntax restrictions, we need variables containing nothing, a space and comma
 null :=
 space := $(null) $(null)
@@ -248,8 +260,8 @@ run-shellcheck: FORCE install-shellcheck
 
 build/cover.out: FORCE generate install-setup-envtest | build
 	@printf "\e[1;36m>> Running tests\e[0m\n"
-	KUBEBUILDER_ASSETS=$$(setup-envtest use 1.32 -p path) go run github.com/onsi/ginkgo/v2/ginkgo run --randomize-all -output-dir=build $(GO_BUILDFLAGS) -ldflags '-s -w -X github.com/sapcc/go-api-declarations/bininfo.binName=network-operator -X github.com/sapcc/go-api-declarations/bininfo.version=$(BININFO_VERSION) -X github.com/sapcc/go-api-declarations/bininfo.commit=$(BININFO_COMMIT_HASH) -X github.com/sapcc/go-api-declarations/bininfo.buildDate=$(BININFO_BUILD_DATE) $(GO_LDFLAGS)' -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
-	@mv build/coverprofile.out build/cover.out
+	KUBEBUILDER_ASSETS=$$(setup-envtest use 1.32 -p path) go run github.com/onsi/ginkgo/v2/ginkgo run --randomize-all -output-dir=build $(GO_BUILDFLAGS) -ldflags '-s -w -X github.com/sapcc/go-api-declarations/bininfo.binName=network-operator -X github.com/sapcc/go-api-declarations/bininfo.version=$(BININFO_VERSION) -X github.com/sapcc/go-api-declarations/bininfo.commit=$(BININFO_COMMIT_HASH) -X github.com/sapcc/go-api-declarations/bininfo.buildDate=$(BININFO_BUILD_DATE) $(GO_LDFLAGS)' -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTFLAGS) $(GO_TESTPKGS)
+	@awk < build/coverprofile.out '$$1 != "mode:" { is_filename[$$1] = true; counts1[$$1]+=$$2; counts2[$$1]+=$$3 } END { for (filename in is_filename) { printf "%s %d %d\n", filename, counts1[filename], counts2[filename]; } }' | sort | $(SED) '1s/^/mode: count\n/' > $@
 
 build/cover.html: build/cover.out
 	@printf "\e[1;36m>> go tool cover > build/cover.html\e[0m\n"
@@ -310,8 +322,10 @@ vars: FORCE
 	@printf "GO_BUILDFLAGS=$(GO_BUILDFLAGS)\n"
 	@printf "GO_COVERPKGS=$(GO_COVERPKGS)\n"
 	@printf "GO_LDFLAGS=$(GO_LDFLAGS)\n"
+	@printf "GO_TESTFLAGS=$(GO_TESTFLAGS)\n"
 	@printf "GO_TESTPKGS=$(GO_TESTPKGS)\n"
 	@printf "MAKE=$(MAKE)\n"
+	@printf "MAKE_VERSION=$(MAKE_VERSION)\n"
 	@printf "PREFIX=$(PREFIX)\n"
 	@printf "SED=$(SED)\n"
 	@printf "UNAME_S=$(UNAME_S)\n"
