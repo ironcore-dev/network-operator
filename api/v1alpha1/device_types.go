@@ -53,10 +53,6 @@ type DeviceSpec struct {
 	// Currently, only a single "default" gRPC server is supported.
 	// +optional
 	GRPC *GRPC `json:"grpc,omitempty"`
-
-	// MOTD banner to display on login.
-	// +optional
-	Banner *TemplateSource `json:"banner,omitempty"`
 }
 
 func (d *DeviceSpec) Validate() error {

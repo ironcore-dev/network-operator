@@ -211,7 +211,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controller.DeviceReconciler{
+	if err := (&controller.DeviceReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorderFor("device-controller"),
@@ -221,7 +221,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controller.InterfaceReconciler{
+	if err := (&controller.InterfaceReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorderFor("interface-controller"),
@@ -232,6 +232,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&controller.BannerReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("banner-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Banner")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {

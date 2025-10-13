@@ -43,7 +43,7 @@ func (b *Banner) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, 
 	}
 
 	return []gnmiext.Update{
-		gnmiext.EditingUpdate{
+		gnmiext.ReplacingUpdate{
 			XPath: "System/userext-items/preloginbanner-items",
 			Value: &nxos.Cisco_NX_OSDevice_System_UserextItems_PreloginbannerItems{
 				Delimiter: ygot.String(b.Delimiter),
@@ -53,11 +53,11 @@ func (b *Banner) ToYGOT(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, 
 	}, nil
 }
 
-func (v *Banner) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
+func (b *Banner) Reset(_ context.Context, _ gnmiext.Client) ([]gnmiext.Update, error) {
 	banner := &nxos.Cisco_NX_OSDevice_System_UserextItems_PreloginbannerItems{}
 	banner.PopulateDefaults()
 	return []gnmiext.Update{
-		gnmiext.EditingUpdate{
+		gnmiext.ReplacingUpdate{
 			XPath: "System/userext-items/preloginbanner-items",
 			Value: banner,
 		},

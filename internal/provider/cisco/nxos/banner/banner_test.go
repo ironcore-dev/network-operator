@@ -28,9 +28,9 @@ func Test_Banner(t *testing.T) {
 		t.Errorf("expected 1 key, got %d", len(got))
 	}
 
-	update, ok := got[0].(gnmiext.EditingUpdate)
+	update, ok := got[0].(gnmiext.ReplacingUpdate)
 	if !ok {
-		t.Errorf("expected value to be of type EditingUpdate")
+		t.Errorf("expected value to be of type ReplacingUpdate")
 	}
 
 	if update.XPath != "System/userext-items/preloginbanner-items" {
