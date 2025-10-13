@@ -13,6 +13,7 @@ resources:
 - bases/networking.cloud.sap_snmp.yaml
 - bases/networking.cloud.sap_syslogs.yaml
 - bases/networking.cloud.sap_managementaccesses.yaml
+- bases/networking.cloud.sap_isis.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

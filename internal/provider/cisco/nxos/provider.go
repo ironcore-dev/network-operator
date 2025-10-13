@@ -30,6 +30,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/dns"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/gnmiext"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/iface"
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/isis"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/logging"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/ntp"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos/snmp"
@@ -49,6 +50,7 @@ var (
 	_ provider.SNMPProvider             = &Provider{}
 	_ provider.SyslogProvider           = &Provider{}
 	_ provider.ManagementAccessProvider = &Provider{}
+	_ provider.ISISProvider             = &Provider{}
 )
 
 type Provider struct {
@@ -494,6 +496,65 @@ func (p *Provider) DeleteManagementAccess(ctx context.Context) error {
 		}
 	}
 	return errors.Join(errs...)
+}
+
+func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISRequest) (res provider.Result, reterr error) {
+	defer func() {
+		res = WithErrorConditions(res, reterr)
+	}()
+
+	s := &isis.ISIS{
+		Name: req.ISIS.Spec.Instance,
+		NET:  req.ISIS.Spec.NetworkEntityTitle,
+	}
+	switch req.ISIS.Spec.Type {
+	case v1alpha1.ISISLevel1:
+		s.Level = isis.Level1
+	case v1alpha1.ISISLevel2:
+		s.Level = isis.Level2
+	case v1alpha1.ISISLevel12:
+		s.Level = isis.Level12
+	}
+	switch req.ISIS.Spec.OverloadBit {
+	case v1alpha1.OverloadBitNever:
+	case v1alpha1.OverloadBitAlways:
+	case v1alpha1.OverloadBitOnStartup:
+		s.OverloadBit = &isis.OverloadBit{OnStartup: 60} // seconds
+	}
+	var ipv4, ipv6 bool
+	for _, af := range req.ISIS.Spec.AddressFamilies {
+		switch af {
+		case v1alpha1.AddressFamilyIPv4Unicast:
+			s.AddressFamilies = append(s.AddressFamilies, isis.IPv4Unicast)
+			ipv4 = true
+		case v1alpha1.AddressFamilyIPv6Unicast:
+			s.AddressFamilies = append(s.AddressFamilies, isis.IPv6Unicast)
+			ipv6 = true
+		}
+	}
+	s.Interfaces = make([]*isis.Interface, 0, len(req.Interfaces))
+	for _, iface := range req.Interfaces {
+		var opts []isis.IfOption
+		opts = append(opts, isis.WithIPv4(ipv4))
+		opts = append(opts, isis.WithIPv6(ipv6))
+		if iface.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical {
+			opts = append(opts, isis.WithPointToPoint())
+		}
+		i, err := isis.NewInterface(iface.Interface.Spec.Name, opts...)
+		if err != nil {
+			return provider.Result{}, err
+		}
+		s.Interfaces = append(s.Interfaces, i)
+	}
+	if err := p.client.Update(ctx, s); err != nil {
+		return provider.Result{}, err
+	}
+	return provider.Result{}, nil
+}
+
+func (p *Provider) DeleteISIS(ctx context.Context, req *provider.DeleteISISRequest) error {
+	s := &isis.ISIS{Name: req.ISIS.Spec.Instance}
+	return p.client.Reset(ctx, s)
 }
 
 func WithErrorConditions(res provider.Result, err error) provider.Result {

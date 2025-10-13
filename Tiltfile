@@ -75,6 +75,9 @@ k8s_resource(new_name='syslog', objects=['syslog:syslog'], trigger_mode=TRIGGER_
 k8s_yaml('./config/samples/v1alpha1_managementaccess.yaml')
 k8s_resource(new_name='managementaccess', objects=['managementaccess:managementaccess'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
+k8s_yaml('./config/samples/v1alpha1_isis.yaml')
+k8s_resource(new_name='underlay', objects=['underlay:isis'], resource_deps=['lo0', 'lo1', 'eth1-1', 'eth1-2'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')
 print('👉 Tilt will automatically rebuild and redeploy when changes are detected')

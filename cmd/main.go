@@ -325,6 +325,17 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "ManagementAccess")
 		os.Exit(1)
 	}
+
+	if err := (&controller.ISISReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("isis-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ISIS")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {

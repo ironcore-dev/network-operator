@@ -180,6 +180,14 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&ISISReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -234,6 +242,7 @@ var (
 	_ provider.SNMPProvider             = (*Provider)(nil)
 	_ provider.SyslogProvider           = (*Provider)(nil)
 	_ provider.ManagementAccessProvider = (*Provider)(nil)
+	_ provider.ISISProvider             = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -250,6 +259,7 @@ type Provider struct {
 	SNMP   *v1alpha1.SNMP
 	Syslog *v1alpha1.Syslog
 	Access *v1alpha1.ManagementAccess
+	ISIS   map[string]struct{}
 }
 
 func NewProvider() *Provider {
@@ -258,6 +268,7 @@ func NewProvider() *Provider {
 		User:  make(map[string]struct{}),
 		ACLs:  make(map[string]struct{}),
 		Certs: make(map[string]struct{}),
+		ISIS:  make(map[string]struct{}),
 	}
 }
 
@@ -401,5 +412,19 @@ func (p *Provider) DeleteManagementAccess(context.Context) error {
 	p.Lock()
 	defer p.Unlock()
 	p.Access = nil
+	return nil
+}
+
+func (p *Provider) EnsureISIS(_ context.Context, req *provider.EnsureISISRequest) (provider.Result, error) {
+	p.Lock()
+	defer p.Unlock()
+	p.ISIS[req.ISIS.Spec.Instance] = struct{}{}
+	return provider.Result{}, nil
+}
+
+func (p *Provider) DeleteISIS(_ context.Context, req *provider.DeleteISISRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	delete(p.ISIS, req.ISIS.Spec.Instance)
 	return nil
 }
