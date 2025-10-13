@@ -11,12 +11,12 @@ kind: ClusterRole
 metadata:
   labels:
     {{- include "chart.labels" . | nindent 4 }}
-  name: interface-viewer-role
+  name: accesscontrollist-viewer-role
 rules:
 - apiGroups:
   - networking.cloud.sap
   resources:
-  - interfaces
+  - accesscontrollists
   verbs:
   - get
   - list
@@ -24,7 +24,7 @@ rules:
 - apiGroups:
   - networking.cloud.sap
   resources:
-  - interfaces/status
+  - accesscontrollists/status
   verbs:
   - get
 {{- end -}}

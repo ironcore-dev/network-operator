@@ -11,12 +11,12 @@ kind: ClusterRole
 metadata:
   labels:
     {{- include "chart.labels" . | nindent 4 }}
-  name: interface-viewer-role
+  name: dns-viewer-role
 rules:
 - apiGroups:
   - networking.cloud.sap
   resources:
-  - interfaces
+  - dns
   verbs:
   - get
   - list
@@ -24,7 +24,7 @@ rules:
 - apiGroups:
   - networking.cloud.sap
   resources:
-  - interfaces/status
+  - dns/status
   verbs:
   - get
 {{- end -}}
