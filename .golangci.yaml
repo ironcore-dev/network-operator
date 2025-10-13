@@ -55,6 +55,7 @@ linters:
     - govet
     - ineffassign
     - intrange
+    - iotamixing
     - misspell
     - nilerr
     - nolintlint
@@ -71,6 +72,9 @@ linters:
     - usetesting
     - whitespace
   settings:
+    dupword:
+      # Do not choke on SQL statements like `INSERT INTO things (foo, bar, baz) VALUES (TRUE, TRUE, TRUE)`.
+      ignore: [ "TRUE", "FALSE", "NULL" ]
     errcheck:
       check-type-assertions: false
       # Report about assignment of errors to blank identifier.
@@ -126,8 +130,6 @@ linters:
         - github.com/mdlayher/arp
         # for github.com/sapcc/vpa_butler
         - k8s.io/client-go
-        # until https://github.com/openconfig/ygnmi/pull/157 is merged
-        - github.com/openconfig/ygnmi
         # for CVE-2025-22868
         - golang.org/x/oauth2
       toolchain-forbidden: true
@@ -188,7 +190,6 @@ linters:
       - builtin$
       - examples$
       - internal/provider/openconfig
-      - internal/provider/cisco/nxos/genyang
 
 output:
   formats:

@@ -13,9 +13,6 @@ archives:
       - LICENSE
       - README.md
 
-checksum:
-  name_template: "checksums.txt"
-
 builds:
   - binary: 'network-operator'
     env:
@@ -40,9 +37,18 @@ builds:
     # Set the modified timestamp on the output binary to ensure that builds are reproducible.
     mod_timestamp: "{{ .CommitTimestamp }}"
 
+checksum:
+  name_template: "checksums.txt"
+
 release:
   make_latest: true
   prerelease: auto
+
+sboms:
+  - id: binary
+    artifacts: binary
+  - id: package
+    artifacts: package
 
 snapshot:
   version_template: "{{ .Tag }}-next"
