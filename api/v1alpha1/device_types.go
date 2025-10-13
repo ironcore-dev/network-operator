@@ -4,8 +4,6 @@
 package v1alpha1
 
 import (
-	"fmt"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -20,10 +18,6 @@ type DeviceSpec struct {
 	// It can be used to provide initial configuration templates or scripts that are applied during the device provisioning.
 	// +optional
 	Bootstrap *Bootstrap `json:"bootstrap,omitempty"`
-
-	// Access Control Lists (ACLs) configuration.
-	// +optional
-	ACL []*ACL `json:"acl,omitempty"`
 
 	// PKI configuration for managing certificates on the device.
 	// +optional
@@ -41,15 +35,6 @@ type DeviceSpec struct {
 	// Currently, only a single "default" gRPC server is supported.
 	// +optional
 	GRPC *GRPC `json:"grpc,omitempty"`
-}
-
-func (d *DeviceSpec) Validate() error {
-	for _, acl := range d.ACL {
-		if err := acl.Validate(); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 type Endpoint struct {
@@ -85,82 +70,6 @@ type Bootstrap struct {
 	// +required
 	Template *TemplateSource `json:"template"`
 }
-
-type ACL struct {
-	// The name of the access control list.
-	// +required
-	Name string `json:"name"`
-
-	// A list of rules/entries to apply.
-	// +kubebuilder:validation:MinItems=1
-	// +required
-	Entries []*ACLEntry `json:"entries"`
-}
-
-func (acl *ACL) Validate() error {
-	set := map[int]struct{}{}
-	for _, entry := range acl.Entries {
-		if _, exists := set[entry.Sequence]; exists {
-			return fmt.Errorf("duplicate sequence number %d in ACL %q", entry.Sequence, acl.Name)
-		}
-		set[entry.Sequence] = struct{}{}
-		if err := entry.Validate(); err != nil {
-			return fmt.Errorf("invalid entry in acl %q: %w", acl.Name, err)
-		}
-	}
-	return nil
-}
-
-type ACLEntry struct {
-	// The sequence number of the ACL entry.
-	// +required
-	Sequence int `json:"sequence,omitempty"`
-
-	// The forwarding action of the ACL entry.
-	// +required
-	Action ACLAction `json:"action"`
-
-	// The protocol to match. If not specified, defaults to "ip" (IPv4).
-	// +kubebuilder:validation:Enum=ahp;eigrp;esp;gre;icmp;igmp;ip;nos;ospf;pcp;pim;tcp;udf;udp
-	// +kubebuilder:default=ip
-	// +optional
-	Protocol string `json:"protocol,omitempty"`
-
-	// Source IPv4 address prefix. Use 0.0.0.0/0 to represent 'any'.
-	// +required
-	SourceAddress IPPrefix `json:"sourceAddress"`
-
-	// Destination IPv4 address prefix. Use 0.0.0.0/0 to represent 'any'.
-	// +required
-	DestinationAddress IPPrefix `json:"destinationAddress"`
-}
-
-func (e *ACLEntry) Validate() error {
-	if !e.SourceAddress.IsValid() {
-		return fmt.Errorf("invalid IP prefix: %s", e.SourceAddress.String())
-	}
-	if !e.SourceAddress.Addr().Is4() {
-		return fmt.Errorf("source address must be an IPv4 address: %s", e.SourceAddress.String())
-	}
-	if !e.DestinationAddress.IsValid() {
-		return fmt.Errorf("invalid IP prefix: %s", e.SourceAddress.String())
-	}
-	if !e.DestinationAddress.Addr().Is4() {
-		return fmt.Errorf("destination address must be an IPv4 address: %s", e.DestinationAddress.String())
-	}
-	return nil
-}
-
-// ACLAction represents the type of action that can be taken by an ACL rule.
-// +kubebuilder:validation:Enum=Permit;Deny
-type ACLAction string
-
-const (
-	// ActionPermit allows traffic that matches the rule.
-	ActionPermit ACLAction = "Permit"
-	// ActionDeny blocks traffic that matches the rule.
-	ActionDeny ACLAction = "Deny"
-)
 
 type PKI struct {
 	// Certificates is a list of certificates to be managed by the PKI.

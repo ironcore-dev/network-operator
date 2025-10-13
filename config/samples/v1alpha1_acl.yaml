@@ -1,0 +1,17 @@
+apiVersion: networking.cloud.sap/v1alpha1
+kind: AccessControlList
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.cloud.sap/device-name: leaf1
+  name: acl
+spec:
+  deviceRef:
+    name: leaf1
+  name: MGMT
+  entries:
+    - sequence: 10
+      action: Permit
+      sourceAddress: 10.0.0.0/8
+      destinationAddress: 0.0.0.0/0

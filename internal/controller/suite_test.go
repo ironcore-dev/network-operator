@@ -140,6 +140,14 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&AccessControlListReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -189,6 +197,7 @@ var (
 	_ provider.UserProvider      = (*Provider)(nil)
 	_ provider.DNSProvider       = (*Provider)(nil)
 	_ provider.NTPProvider       = (*Provider)(nil)
+	_ provider.ACLProvider       = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -200,12 +209,14 @@ type Provider struct {
 	Banner *string
 	DNS    *v1alpha1.DNS
 	NTP    *v1alpha1.NTP
+	ACLs   map[string]struct{}
 }
 
 func NewProvider() *Provider {
 	return &Provider{
 		Items: make(map[string]client.Object),
 		User:  make(map[string]struct{}),
+		ACLs:  make(map[string]struct{}),
 	}
 }
 
@@ -279,5 +290,19 @@ func (p *Provider) DeleteNTP(context.Context) error {
 	p.Lock()
 	defer p.Unlock()
 	p.NTP = nil
+	return nil
+}
+
+func (p *Provider) EnsureACL(_ context.Context, req *provider.EnsureACLRequest) (provider.Result, error) {
+	p.Lock()
+	defer p.Unlock()
+	p.ACLs[req.ACL.Spec.Name] = struct{}{}
+	return provider.Result{}, nil
+}
+
+func (p *Provider) DeleteACL(_ context.Context, req *provider.DeleteACLRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	delete(p.ACLs, req.Name)
 	return nil
 }

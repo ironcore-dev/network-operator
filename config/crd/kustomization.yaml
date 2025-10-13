@@ -8,6 +8,7 @@ resources:
 - bases/networking.cloud.sap_users.yaml
 - bases/networking.cloud.sap_dns.yaml
 - bases/networking.cloud.sap_ntp.yaml
+- bases/networking.cloud.sap_accesscontrollists.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:
