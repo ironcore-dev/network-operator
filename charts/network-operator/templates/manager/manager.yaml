@@ -34,6 +34,9 @@ spec:
           command:
             - /manager
           image: {{ .Values.controllerManager.container.image.repository }}:{{ .Values.controllerManager.container.image.tag }}
+          {{- if .Values.controllerManager.container.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.controllerManager.container.imagePullPolicy }}
+          {{- end }}
           {{- if .Values.controllerManager.container.env }}
           env:
             {{- range $key, $value := .Values.controllerManager.container.env }}
@@ -49,7 +52,7 @@ spec:
             {{- toYaml .Values.controllerManager.container.resources | nindent 12 }}
           securityContext:
             {{- toYaml .Values.controllerManager.container.securityContext | nindent 12 }}
-          {{- if and .Values.certmanager.enable (or .Values.webhook.enable .Values.metrics.enable) }}
+          {{- if and .Values.certmanager.enable .Values.metrics.enable }}
           volumeMounts:
             {{- if and .Values.metrics.enable .Values.certmanager.enable }}
             - name: metrics-certs
@@ -61,7 +64,7 @@ spec:
         {{- toYaml .Values.controllerManager.securityContext | nindent 8 }}
       serviceAccountName: {{ .Values.controllerManager.serviceAccountName }}
       terminationGracePeriodSeconds: {{ .Values.controllerManager.terminationGracePeriodSeconds }}
-      {{- if and .Values.certmanager.enable (or .Values.webhook.enable .Values.metrics.enable) }}
+      {{- if and .Values.certmanager.enable .Values.metrics.enable }}
       volumes:
         {{- if and .Values.metrics.enable .Values.certmanager.enable }}
         - name: metrics-certs

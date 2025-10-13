@@ -10,31 +10,17 @@ metadata:
     "helm.sh/resource-policy": keep
     {{- end }}
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: interfaces.networking.cloud.sap
+  name: isis.networking.cloud.sap
 spec:
   group: networking.cloud.sap
   names:
-    kind: Interface
-    listKind: InterfaceList
-    plural: interfaces
-    shortNames:
-    - int
-    singular: interface
+    kind: ISIS
+    listKind: ISISList
+    plural: isis
+    singular: isis
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.name
-      name: Interface
-      type: string
-    - jsonPath: .spec.adminState
-      name: Admin State
-      type: string
-    - jsonPath: .spec.description
-      name: Description
-      type: string
-    - jsonPath: .spec.mtu
-      name: MTU
-      type: string
     - jsonPath: .spec.deviceRef.name
       name: Device
       type: string
@@ -47,7 +33,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Interface is the Schema for the interfaces API.
+        description: ISIS is the Schema for the isis API
         properties:
           apiVersion:
             description: |-
@@ -71,18 +57,20 @@ spec:
               Specification of the desired state of the resource.
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
             properties:
-              adminState:
-                description: AdminState indicates whether the interface is administratively
-                  up or down.
-                enum:
-                - Up
-                - Down
-                type: string
-              description:
-                description: Description provides a human-readable description of
-                  the interface.
-                maxLength: 255
-                type: string
+              addressFamilies:
+                description: AddressFamilies is a list of address families for the
+                  ISIS instance.
+                items:
+                  description: AddressFamily represents the address family of an ISIS
+                    instance.
+                  enum:
+                  - IPv4Unicast
+                  - IPv6Unicast
+                  type: string
+                maxItems: 2
+                minItems: 1
+                type: array
+                x-kubernetes-list-type: set
               deviceRef:
                 description: |-
                   DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
@@ -102,25 +90,61 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
-              ipv4Addresses:
-                description: |-
-                  Ipv4Addresses is the list of IPv4 addresses assigned to the interface.
-                  Each address should be given either in CIDR notation (e.g., "10.0.0.1/32")
-                  or as interface reference in the form of "unnumbered:<source-interface>" (e.g., "unnumbered:lo0").
+              instance:
+                description: Instance is the name of the ISIS instance.
+                maxLength: 63
+                minLength: 1
+                type: string
+                x-kubernetes-validations:
+                - message: Instance is immutable
+                  rule: self == oldSelf
+              interfaces:
+                description: Interfaces is a list of interfaces that are part of the
+                  ISIS instance.
                 items:
-                  pattern: ^(?:(?:\d{1,3}\.){3}\d{1,3}\/\d{1,2}?|unnumbered:[\w-]+)$
-                  type: string
+                  properties:
+                    bfd:
+                      default: {}
+                      description: BFD contains BFD configuration for the interface.
+                      properties:
+                        enabled:
+                          default: false
+                          description: Enabled indicates whether BFD is enabled on
+                            the interface.
+                          type: boolean
+                      type: object
+                    ref:
+                      description: |-
+                        Ref is a reference to the interface object.
+                        The interface object must exist in the same namespace.
+                      properties:
+                        name:
+                          description: |-
+                            Name of the referent.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          maxLength: 63
+                          minLength: 1
+                          type: string
+                      required:
+                      - name
+                      type: object
+                      x-kubernetes-map-type: atomic
+                  required:
+                  - ref
+                  type: object
                 type: array
-              mtu:
-                description: MTU (Maximum Transmission Unit) specifies the size of
-                  the largest packet that can be sent over the interface.
-                format: int32
-                maximum: 9216
-                minimum: 576
-                type: integer
-              name:
-                description: Name is the name of the interface.
-                maxLength: 255
+                x-kubernetes-list-type: atomic
+              networkEntityTitle:
+                description: NetworkEntityTitle is the NET of the ISIS instance.
+                pattern: ^[a-fA-F0-9]{2}(\.[a-fA-F0-9]{4}){3,9}\.[a-fA-F0-9]{2}$
+                type: string
+              overloadBit:
+                default: Never
+                description: OverloadBit indicates the overload bit of the ISIS instance.
+                enum:
+                - Always
+                - Never
+                - OnStartup
                 type: string
               providerConfigRef:
                 description: |-
@@ -156,72 +180,20 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
-              switchport:
-                description: |-
-                  Switchport defines the switchport configuration for the interface.
-                  This is only applicable for interfaces that are switchports (e.g., Ethernet interfaces).
-                properties:
-                  accessVlan:
-                    description: |-
-                      AccessVlan specifies the VLAN ID for access mode switchports.
-                      Only applicable when Mode is set to "Access".
-                    format: int32
-                    maximum: 4094
-                    minimum: 1
-                    type: integer
-                  allowedVlans:
-                    description: |-
-                      AllowedVlans is a list of VLAN IDs that are allowed on the trunk port.
-                      Only applicable when Mode is set to "Trunk".
-                    items:
-                      format: int32
-                      maximum: 4094
-                      minimum: 1
-                      type: integer
-                    minItems: 1
-                    type: array
-                  mode:
-                    description: Mode defines the switchport mode, such as access
-                      or trunk.
-                    enum:
-                    - Access
-                    - Trunk
-                    type: string
-                  nativeVlan:
-                    description: |-
-                      NativeVlan specifies the native VLAN ID for trunk mode switchports.
-                      Only applicable when Mode is set to "Trunk".
-                    format: int32
-                    maximum: 4094
-                    minimum: 1
-                    type: integer
-                required:
-                - mode
-                type: object
-                x-kubernetes-validations:
-                - message: accessVlan must be specified when mode is Access
-                  rule: self.mode != 'Access' || has(self.accessVlan)
-                - message: nativeVlan must be specified when mode is Trunk
-                  rule: self.mode != 'Trunk' || has(self.nativeVlan)
-                - message: allowedVlans must be specified when mode is Trunk
-                  rule: self.mode != 'Trunk' || has(self.allowedVlans)
               type:
-                description: Type indicates the type of the interface.
+                description: Type indicates the level of the ISIS instance.
                 enum:
-                - Physical
-                - Loopback
+                - Level1
+                - Level2
+                - Level1-2
                 type: string
             required:
-            - adminState
+            - addressFamilies
             - deviceRef
-            - name
+            - instance
+            - networkEntityTitle
             - type
             type: object
-            x-kubernetes-validations:
-            - message: switchport and ipv4Addresses are mutually exclusive
-              rule: '!has(self.switchport) || !has(self.ipv4Addresses)'
-            - message: switchport must not be specified for interfaces of type Loopback
-              rule: self.type != 'Loopback' || !has(self.switchport)
           status:
             description: |-
               Status of the resource. This is set and updated automatically.
@@ -230,7 +202,7 @@ spec:
             properties:
               conditions:
                 description: The conditions are a list of status objects that describe
-                  the state of the Interface.
+                  the state of the ISIS.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
