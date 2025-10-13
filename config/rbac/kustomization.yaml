@@ -43,3 +43,6 @@ resources:
 - accesscontrollist_admin_role.yaml
 - accesscontrollist_editor_role.yaml
 - accesscontrollist_viewer_role.yaml
+- certificate_admin_role.yaml
+- certificate_editor_role.yaml
+- certificate_viewer_role.yaml

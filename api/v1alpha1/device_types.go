@@ -19,10 +19,6 @@ type DeviceSpec struct {
 	// +optional
 	Bootstrap *Bootstrap `json:"bootstrap,omitempty"`
 
-	// PKI configuration for managing certificates on the device.
-	// +optional
-	PKI *PKI `json:"pki,omitempty"`
-
 	// Top-level logging configuration for the device.
 	// +optional
 	Logging *Logging `json:"logging,omitempty"`
@@ -69,23 +65,6 @@ type Bootstrap struct {
 	// Template defines the multiline string template that contains the initial configuration for the device.
 	// +required
 	Template *TemplateSource `json:"template"`
-}
-
-type PKI struct {
-	// Certificates is a list of certificates to be managed by the PKI.
-	// +kubebuilder:validation:MinItems=1
-	// +required
-	Certificates []*Certificate `json:"certificates,omitempty"`
-}
-
-type Certificate struct {
-	// The name of the certificate.
-	// +required
-	Name string `json:"name"`
-
-	// The source of the certificate content.
-	// +required
-	Source *CertificateSource `json:"source,omitempty"`
 }
 
 type Logging struct {
@@ -370,13 +349,6 @@ func (d *Device) GetSecretRefs() []corev1.SecretReference {
 	if d.Spec.Bootstrap != nil && d.Spec.Bootstrap.Template != nil {
 		if d.Spec.Bootstrap.Template.SecretRef != nil {
 			refs = append(refs, corev1.SecretReference{Name: d.Spec.Bootstrap.Template.SecretRef.Name})
-		}
-	}
-	if d.Spec.PKI != nil {
-		for _, cert := range d.Spec.PKI.Certificates {
-			if cert.Source != nil && cert.Source.SecretRef != nil {
-				refs = append(refs, *cert.Source.SecretRef)
-			}
 		}
 	}
 	for i := range refs {
