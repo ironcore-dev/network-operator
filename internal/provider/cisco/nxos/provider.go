@@ -71,6 +71,7 @@ var (
 	_ provider.BannerProvider    = &Provider{}
 	_ provider.UserProvider      = &Provider{}
 	_ provider.DNSProvider       = &Provider{}
+	_ provider.NTPProvider       = &Provider{}
 )
 
 type Provider struct {
@@ -270,6 +271,42 @@ func (p *Provider) DeleteDNS(ctx context.Context) error {
 	return p.client.Reset(ctx, &dns.DNS{})
 }
 
+type NTPConfig struct {
+	Log struct {
+		Enable bool `json:"enable"`
+	} `json:"log"`
+}
+
+func (p *Provider) EnsureNTP(ctx context.Context, req *provider.EnsureNTPRequest) (res provider.Result, reterr error) {
+	defer func() {
+		res = WithErrorConditions(res, reterr)
+	}()
+
+	var cfg NTPConfig
+	if req.ProviderConfig != nil {
+		if err := req.ProviderConfig.Into(&cfg); err != nil {
+			return provider.Result{}, err
+		}
+	}
+	n := &ntp.NTP{
+		EnableLogging: cfg.Log.Enable,
+		SrcInterface:  req.NTP.Spec.SourceInterfaceName,
+		Servers:       make([]*ntp.Server, len(req.NTP.Spec.Servers)),
+	}
+	for i, s := range req.NTP.Spec.Servers {
+		n.Servers[i] = &ntp.Server{
+			Name:      s.Address,
+			Preferred: s.Prefer,
+			Vrf:       s.VrfName,
+		}
+	}
+	return provider.Result{}, p.client.Update(ctx, n)
+}
+
+func (p *Provider) DeleteNTP(ctx context.Context) error {
+	return p.client.Reset(ctx, &ntp.NTP{})
+}
+
 func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) error {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -355,7 +392,6 @@ func (p *Provider) CreateDevice(ctx context.Context, device *v1alpha1.Device) er
 			"vpc",
 		}},
 		// Steps that depend on the device spec
-		&NTP{Spec: device.Spec.NTP},
 		&ACL{Spec: device.Spec.ACL},
 		&Trustpoints{Spec: device.Spec.PKI, DryRun: isDryRun},
 		&SNMP{Spec: device.Spec.SNMP},
@@ -482,7 +518,6 @@ type Step interface {
 }
 
 var (
-	_ Step = (*NTP)(nil)
 	_ Step = (*VTY)(nil)
 	_ Step = (*Console)(nil)
 	_ Step = (*ACL)(nil)
@@ -495,26 +530,6 @@ var (
 	_ Step = (*Features)(nil)
 	_ Step = (*Copp)(nil)
 )
-
-type NTP struct{ Spec *v1alpha1.NTP }
-
-func (step *NTP) Name() string             { return "NTP" }
-func (step *NTP) Deps() []client.ObjectKey { return nil }
-func (step *NTP) Exec(ctx context.Context, s *Scope) error {
-	n := &ntp.NTP{
-		EnableLogging: false,
-		SrcInterface:  step.Spec.SrcIf,
-		Servers:       make([]*ntp.Server, len(step.Spec.Servers)),
-	}
-	for i, s := range step.Spec.Servers {
-		n.Servers[i] = &ntp.Server{
-			Name:      s.Address,
-			Preferred: s.Prefer,
-			Vrf:       s.NetworkInstance,
-		}
-	}
-	return s.GNMI.Update(ctx, n)
-}
 
 type VTY struct{}
 

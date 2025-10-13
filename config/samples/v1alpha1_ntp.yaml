@@ -1,0 +1,19 @@
+apiVersion: networking.cloud.sap/v1alpha1
+kind: NTP
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.cloud.sap/device-name: leaf1
+  name: ntp
+spec:
+  deviceRef:
+    name: leaf1
+  sourceInterfaceName: mgmt0
+  servers:
+    - address: de.pool.ntp.org
+      prefer: true
+      vrfName: management
+    - address: pool.ntp.org
+      prefer: false
+      vrfName: management
