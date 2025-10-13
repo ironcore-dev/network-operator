@@ -36,6 +36,19 @@ type Result struct {
 	Conditions []metav1.Condition
 }
 
+type DeviceProvider interface {
+	Provider
+
+	GetDeviceInfo(context.Context) (*DeviceInfo, error)
+}
+
+type DeviceInfo struct {
+	Manufacturer    string
+	Model           string
+	SerialNumber    string
+	FirmwareVersion string
+}
+
 // InterfaceProvider is the interface for the realization of the Interface objects over different providers.
 type InterfaceProvider interface {
 	Provider

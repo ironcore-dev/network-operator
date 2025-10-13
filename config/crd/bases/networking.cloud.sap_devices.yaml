@@ -18,6 +18,22 @@ spec:
     - jsonPath: .spec.endpoint.address
       name: Endpoint
       type: string
+    - jsonPath: .status.manufacturer
+      name: Manufacturer
+      priority: 1
+      type: string
+    - jsonPath: .status.model
+      name: Model
+      priority: 1
+      type: string
+    - jsonPath: .status.serialNumber
+      name: SerialNumber
+      priority: 1
+      type: string
+    - jsonPath: .status.firmwareVersion
+      name: FirmwareVersion
+      priority: 1
+      type: string
     - jsonPath: .status.phase
       name: Phase
       type: string
@@ -280,6 +296,16 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              firmwareVersion:
+                description: FirmwareVersion is the firmware version running on the
+                  Device.
+                type: string
+              manufacturer:
+                description: Manufacturer is the manufacturer of the Device.
+                type: string
+              model:
+                description: Model is the model identifier of the Device.
+                type: string
               phase:
                 default: Pending
                 description: Phase represents the current phase of the Device.
@@ -288,6 +314,9 @@ spec:
                 - Provisioning
                 - Active
                 - Failed
+                type: string
+              serialNumber:
+                description: SerialNumber is the serial number of the Device.
                 type: string
             required:
             - phase
