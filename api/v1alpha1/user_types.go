@@ -4,7 +4,6 @@
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -50,14 +49,14 @@ type UserSpec struct {
 type PasswordSource struct {
 	// Selects a key of a secret.
 	// +required
-	SecretKeyRef corev1.SecretKeySelector `json:"secretKeyRef"`
+	SecretKeyRef SecretKeySelector `json:"secretKeyRef"`
 }
 
 // SSHPublicKeySource represents a source for the value of an SSH public key.
 type SSHPublicKeySource struct {
 	// Selects a key of a secret.
 	// +required
-	SecretKeyRef corev1.SecretKeySelector `json:"secretKeyRef"`
+	SecretKeyRef SecretKeySelector `json:"secretKeyRef"`
 }
 
 // UserRole represents a role that can be assigned to a user.

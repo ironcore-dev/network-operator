@@ -28,7 +28,7 @@ var _ = Describe("ISIS Controller", func() {
 						Namespace: metav1.NamespaceDefault,
 					},
 					Spec: v1alpha1.DeviceSpec{
-						Endpoint: &v1alpha1.Endpoint{
+						Endpoint: v1alpha1.Endpoint{
 							Address: "192.168.10.2:9339",
 						},
 					},

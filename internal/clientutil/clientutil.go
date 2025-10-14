@@ -56,8 +56,8 @@ func (c *Client) List(ctx context.Context, list client.ObjectList, opts ...clien
 
 // Secret loads the referenced secret resource and returns the value of the specified key.
 // If the secret does not exist or the key is not found, an error is returned.
-func (c *Client) Secret(ctx context.Context, ref *corev1.SecretKeySelector) ([]byte, error) {
-	name := client.ObjectKey{Name: ref.Name}
+func (c *Client) Secret(ctx context.Context, ref *v1alpha1.SecretKeySelector) ([]byte, error) {
+	name := client.ObjectKey{Name: ref.Name, Namespace: ref.Namespace}
 
 	var secret corev1.Secret
 	if err := c.Get(ctx, name, &secret); err != nil {
@@ -78,8 +78,8 @@ func (c *Client) Secret(ctx context.Context, ref *corev1.SecretKeySelector) ([]b
 
 // ConfigMap loads the referenced ConfigMap resource and returns the value of the specified key.
 // If the ConfigMap does not exist or the key is not found, an error is returned.
-func (c *Client) ConfigMap(ctx context.Context, ref *corev1.ConfigMapKeySelector) ([]byte, error) {
-	name := client.ObjectKey{Name: ref.Name}
+func (c *Client) ConfigMap(ctx context.Context, ref *v1alpha1.ConfigMapKeySelector) ([]byte, error) {
+	name := client.ObjectKey{Name: ref.Name, Namespace: ref.Namespace}
 
 	var secret corev1.ConfigMap
 	if err := c.Get(ctx, name, &secret); err != nil {
@@ -100,7 +100,7 @@ func (c *Client) ConfigMap(ctx context.Context, ref *corev1.ConfigMapKeySelector
 
 // BasicAuth loads the username and password from the referenced secret resource.
 // The secret must by of type 'kubernetes.io/basic-auth' and contain the fields 'username' and 'password'.
-func (c *Client) BasicAuth(ctx context.Context, ref *corev1.SecretReference) (user, pass []byte, err error) {
+func (c *Client) BasicAuth(ctx context.Context, ref *v1alpha1.SecretReference) (user, pass []byte, err error) {
 	name := client.ObjectKey{Namespace: ref.Namespace, Name: ref.Name}
 
 	var secret corev1.Secret
@@ -127,7 +127,7 @@ func (c *Client) BasicAuth(ctx context.Context, ref *corev1.SecretReference) (us
 
 // Certificate loads a [tls.Certificate] from the referenced secret resource.
 // The secret must by of type 'kubernetes.io/tls' and contain the fields 'tls.crt' and 'tls.key'.
-func (c *Client) Certificate(ctx context.Context, ref *corev1.SecretReference) (*tls.Certificate, error) {
+func (c *Client) Certificate(ctx context.Context, ref *v1alpha1.SecretReference) (*tls.Certificate, error) {
 	name := client.ObjectKey{Namespace: ref.Namespace, Name: ref.Name}
 
 	var secret corev1.Secret

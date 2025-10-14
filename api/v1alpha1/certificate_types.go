@@ -4,7 +4,6 @@
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -32,7 +31,7 @@ type CertificateSpec struct {
 	// Secret containing the certificate source.
 	// The secret must be of type kubernetes.io/tls and as such contain the following keys: 'tls.crt' and 'tls.key'.
 	// +required
-	SecretRef corev1.SecretReference `json:"secretRef"`
+	SecretRef SecretReference `json:"secretRef"`
 }
 
 // CertificateStatus defines the observed state of Certificate.

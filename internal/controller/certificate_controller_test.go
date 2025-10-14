@@ -40,7 +40,7 @@ var _ = Describe("Certificate Controller", func() {
 						Namespace: metav1.NamespaceDefault,
 					},
 					Spec: v1alpha1.DeviceSpec{
-						Endpoint: &v1alpha1.Endpoint{
+						Endpoint: v1alpha1.Endpoint{
 							Address: "192.168.10.2:9339",
 						},
 					},
@@ -79,7 +79,7 @@ var _ = Describe("Certificate Controller", func() {
 					Spec: v1alpha1.CertificateSpec{
 						DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 						ID:        "cert1",
-						SecretRef: corev1.SecretReference{Name: name},
+						SecretRef: v1alpha1.SecretReference{Name: name},
 					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())

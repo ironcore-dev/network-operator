@@ -30,7 +30,7 @@ var _ = Describe("Banner Controller", func() {
 						Namespace: metav1.NamespaceDefault,
 					},
 					Spec: v1alpha1.DeviceSpec{
-						Endpoint: &v1alpha1.Endpoint{
+						Endpoint: v1alpha1.Endpoint{
 							Address: "192.168.10.2:9339",
 						},
 					},
@@ -48,7 +48,7 @@ var _ = Describe("Banner Controller", func() {
 					},
 					Spec: v1alpha1.BannerSpec{
 						DeviceRef: v1alpha1.LocalObjectReference{Name: name},
-						Message: &v1alpha1.TemplateSource{
+						Message: v1alpha1.TemplateSource{
 							Inline: ptr.To("Test Banner"),
 						},
 					},

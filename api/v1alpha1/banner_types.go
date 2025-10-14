@@ -22,7 +22,7 @@ type BannerSpec struct {
 
 	// Pre-Login banner to display on login.
 	// +required
-	Message *TemplateSource `json:"message"`
+	Message TemplateSource `json:"message"`
 }
 
 // BannerStatus defines the observed state of Banner.

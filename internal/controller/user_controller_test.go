@@ -31,7 +31,7 @@ var _ = Describe("User Controller", func() {
 						Namespace: metav1.NamespaceDefault,
 					},
 					Spec: v1alpha1.DeviceSpec{
-						Endpoint: &v1alpha1.Endpoint{
+						Endpoint: v1alpha1.Endpoint{
 							Address: "192.168.10.2:9339",
 						},
 					},
@@ -66,8 +66,8 @@ var _ = Describe("User Controller", func() {
 						DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 						Username:  username,
 						Password: v1alpha1.PasswordSource{
-							SecretKeyRef: corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{
+							SecretKeyRef: v1alpha1.SecretKeySelector{
+								SecretReference: v1alpha1.SecretReference{
 									Name: name,
 								},
 								Key: "password",

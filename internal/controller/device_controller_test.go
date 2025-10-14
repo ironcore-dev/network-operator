@@ -48,14 +48,14 @@ var _ = Describe("Device Controller", func() {
 						Namespace: metav1.NamespaceDefault,
 					},
 					Spec: v1alpha1.DeviceSpec{
-						Endpoint: &v1alpha1.Endpoint{
+						Endpoint: v1alpha1.Endpoint{
 							Address: "192.168.10.2:9339",
-							SecretRef: &corev1.SecretReference{
+							SecretRef: &v1alpha1.SecretReference{
 								Name: name,
 							},
 						},
 						Bootstrap: &v1alpha1.Bootstrap{
-							Template: &v1alpha1.TemplateSource{
+							Template: v1alpha1.TemplateSource{
 								Inline: ptr.To("device-template"),
 							},
 						},

@@ -79,8 +79,8 @@ func TestSecret(t *testing.T) {
 
 			c := NewClient(client, metav1.NamespaceDefault)
 
-			v, err := c.Secret(t.Context(), &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
+			v, err := c.Secret(t.Context(), &v1alpha1.SecretKeySelector{
+				SecretReference: v1alpha1.SecretReference{
 					Name: "test-secret",
 				},
 				Key: "foobar",
@@ -151,8 +151,8 @@ func TestConfigMap(t *testing.T) {
 
 			c := NewClient(client, metav1.NamespaceDefault)
 
-			v, err := c.ConfigMap(t.Context(), &corev1.ConfigMapKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
+			v, err := c.ConfigMap(t.Context(), &v1alpha1.ConfigMapKeySelector{
+				ConfigMapReference: v1alpha1.ConfigMapReference{
 					Name: "test-configmap",
 				},
 				Key: "foobar",
@@ -243,7 +243,7 @@ func TestBasicAuth(t *testing.T) {
 
 			c := NewClient(client, metav1.NamespaceDefault)
 
-			user, pass, err := c.BasicAuth(t.Context(), &corev1.SecretReference{Name: "test-secret"})
+			user, pass, err := c.BasicAuth(t.Context(), &v1alpha1.SecretReference{Name: "test-secret"})
 			if test.wantErr {
 				g.Expect(err).To(HaveOccurred())
 				g.Expect(user).To(BeNil())
@@ -357,7 +357,7 @@ func TestCertificate(t *testing.T) {
 
 			c := NewClient(client, metav1.NamespaceDefault)
 
-			cert, err := c.Certificate(t.Context(), &corev1.SecretReference{
+			cert, err := c.Certificate(t.Context(), &v1alpha1.SecretReference{
 				Name: "test-certificate",
 			})
 			if test.wantErr {
@@ -398,8 +398,8 @@ func TestTemplate(t *testing.T) {
 				},
 			},
 			src: &v1alpha1.TemplateSource{
-				SecretRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
+				SecretRef: &v1alpha1.SecretKeySelector{
+					SecretReference: v1alpha1.SecretReference{
 						Name: "test-secret",
 					},
 					Key: "poap.txt",
@@ -419,8 +419,8 @@ func TestTemplate(t *testing.T) {
 				},
 			},
 			src: &v1alpha1.TemplateSource{
-				ConfigMapRef: &corev1.ConfigMapKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
+				ConfigMapRef: &v1alpha1.ConfigMapKeySelector{
+					ConfigMapReference: v1alpha1.ConfigMapReference{
 						Name: "test-configmap",
 					},
 					Key: "poap.txt",

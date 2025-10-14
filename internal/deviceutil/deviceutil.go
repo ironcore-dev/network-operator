@@ -82,7 +82,7 @@ func GetDeviceConnection(ctx context.Context, r client.Reader, obj *v1alpha1.Dev
 
 	conf := &tls.Config{InsecureSkipVerify: true} //nolint:gosec
 	if obj.Spec.Endpoint.TLS != nil {
-		ca, err := c.Secret(ctx, obj.Spec.Endpoint.TLS.CA)
+		ca, err := c.Secret(ctx, &obj.Spec.Endpoint.TLS.CA)
 		if err != nil {
 			return nil, err
 		}
@@ -93,7 +93,7 @@ func GetDeviceConnection(ctx context.Context, r client.Reader, obj *v1alpha1.Dev
 			conf = &tls.Config{RootCAs: certPool, MinVersion: tls.VersionTLS12}
 
 			if obj.Spec.Endpoint.TLS.Certificate != nil {
-				cert, err := c.Certificate(ctx, obj.Spec.Endpoint.TLS.Certificate.SecretRef)
+				cert, err := c.Certificate(ctx, &obj.Spec.Endpoint.TLS.Certificate.SecretRef)
 				if err != nil {
 					return nil, err
 				}

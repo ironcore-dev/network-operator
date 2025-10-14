@@ -122,13 +122,20 @@ spec:
                   The secret must be of type kubernetes.io/tls and as such contain the following keys: 'tls.crt' and 'tls.key'.
                 properties:
                   name:
-                    description: name is unique within a namespace to reference a
+                    description: Name is unique within a namespace to reference a
                       secret resource.
+                    maxLength: 253
+                    minLength: 1
                     type: string
                   namespace:
-                    description: namespace defines the space within which the secret
-                      name must be unique.
+                    description: |-
+                      Namespace defines the space within which the secret name must be unique.
+                      If omitted, the namespace of the object being reconciled will be used.
+                    maxLength: 63
+                    minLength: 1
                     type: string
+                required:
+                - name
                 type: object
                 x-kubernetes-map-type: atomic
             required:

@@ -243,7 +243,7 @@ func (r *BannerReconciler) reconcile(ctx context.Context, s *bannerScope) (_ ctr
 		}
 	}()
 
-	msg, err := clientutil.NewClient(r, s.Banner.Namespace).Template(ctx, s.Banner.Spec.Message)
+	msg, err := clientutil.NewClient(r, s.Banner.Namespace).Template(ctx, &s.Banner.Spec.Message)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -302,7 +302,7 @@ func (r *BannerReconciler) secretToBanner(ctx context.Context, obj client.Object
 
 	requests := []ctrl.Request{}
 	for _, b := range banners.Items {
-		if b.Spec.Message != nil && b.Spec.Message.SecretRef != nil && b.Spec.Message.SecretRef.Name == secret.Name && b.Namespace == secret.Namespace {
+		if b.Spec.Message.SecretRef != nil && b.Spec.Message.SecretRef.Name == secret.Name && b.Namespace == secret.Namespace {
 			log.Info("Enqueuing Banner for reconciliation", "Banner", klog.KObj(&b))
 			requests = append(requests, ctrl.Request{
 				NamespacedName: client.ObjectKey{
@@ -334,7 +334,7 @@ func (r *BannerReconciler) configMapToBanner(ctx context.Context, obj client.Obj
 
 	requests := []ctrl.Request{}
 	for _, b := range banners.Items {
-		if b.Spec.Message != nil && b.Spec.Message.ConfigMapRef != nil && b.Spec.Message.ConfigMapRef.Name == cm.Name && b.Namespace == cm.Namespace {
+		if b.Spec.Message.ConfigMapRef != nil && b.Spec.Message.ConfigMapRef.Name == cm.Name && b.Namespace == cm.Namespace {
 			log.Info("Enqueuing Banner for reconciliation", "Banner", klog.KObj(&b))
 			requests = append(requests, ctrl.Request{
 				NamespacedName: client.ObjectKey{

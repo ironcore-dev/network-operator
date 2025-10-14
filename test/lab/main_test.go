@@ -226,9 +226,9 @@ func SetupK8s(t *testing.T) {
 			Namespace: metav1.NamespaceDefault,
 		},
 		Spec: v1alpha1.DeviceSpec{
-			Endpoint: &v1alpha1.Endpoint{
+			Endpoint: v1alpha1.Endpoint{
 				Address:   net.JoinHostPort(Endpoint.Addr, "9339"),
-				SecretRef: &corev1.SecretReference{Name: "secret", Namespace: metav1.NamespaceDefault},
+				SecretRef: &v1alpha1.SecretReference{Name: "secret", Namespace: metav1.NamespaceDefault},
 			},
 		},
 	})

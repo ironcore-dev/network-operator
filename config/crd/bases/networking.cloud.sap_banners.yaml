@@ -77,50 +77,60 @@ spec:
                     description: Reference to a ConfigMap containing the template
                     properties:
                       key:
-                        description: The key to select.
+                        description: |-
+                          Key is the of the entry in the configmap resource's `data` or `binaryData`
+                          field to be used.
+                        maxLength: 253
+                        minLength: 1
                         type: string
                       name:
-                        default: ""
-                        description: |-
-                          Name of the referent.
-                          This field is effectively required, but due to backwards compatibility is
-                          allowed to be empty. Instances of this type with an empty value here are
-                          almost certainly wrong.
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        description: Name is unique within a namespace to reference
+                          a configmap resource.
+                        maxLength: 253
+                        minLength: 1
                         type: string
-                      optional:
-                        description: Specify whether the ConfigMap or its key must
-                          be defined
-                        type: boolean
+                      namespace:
+                        description: |-
+                          Namespace defines the space within which the configmap name must be unique.
+                          If omitted, the namespace of the object being reconciled will be used.
+                        maxLength: 63
+                        minLength: 1
+                        type: string
                     required:
                     - key
+                    - name
                     type: object
                     x-kubernetes-map-type: atomic
                   inline:
                     description: Inline template content
+                    minLength: 1
                     type: string
                   secretRef:
                     description: Reference to a Secret containing the template
                     properties:
                       key:
-                        description: The key of the secret to select from.  Must be
-                          a valid secret key.
+                        description: |-
+                          Key is the of the entry in the secret resource's `data` or `stringData`
+                          field to be used.
+                        maxLength: 253
+                        minLength: 1
                         type: string
                       name:
-                        default: ""
-                        description: |-
-                          Name of the referent.
-                          This field is effectively required, but due to backwards compatibility is
-                          allowed to be empty. Instances of this type with an empty value here are
-                          almost certainly wrong.
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        description: Name is unique within a namespace to reference
+                          a secret resource.
+                        maxLength: 253
+                        minLength: 1
                         type: string
-                      optional:
-                        description: Specify whether the Secret or its key must be
-                          defined
-                        type: boolean
+                      namespace:
+                        description: |-
+                          Namespace defines the space within which the secret name must be unique.
+                          If omitted, the namespace of the object being reconciled will be used.
+                        maxLength: 63
+                        minLength: 1
+                        type: string
                     required:
                     - key
+                    - name
                     type: object
                     x-kubernetes-map-type: atomic
                 type: object

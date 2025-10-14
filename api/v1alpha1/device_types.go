@@ -4,7 +4,6 @@
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -12,7 +11,7 @@ import (
 type DeviceSpec struct {
 	// Endpoint contains the connection information for the device.
 	// +required
-	Endpoint *Endpoint `json:"endpoint"`
+	Endpoint Endpoint `json:"endpoint"`
 
 	// Bootstrap is an optional configuration for the device bootstrap process.
 	// It can be used to provide initial configuration templates or scripts that are applied during the device provisioning.
@@ -31,7 +30,7 @@ type Endpoint struct {
 	// SecretRef is name of the authentication secret for the device containing the username and password.
 	// The secret must be of type kubernetes.io/basic-auth and as such contain the following keys: 'username' and 'password'.
 	// +optional
-	SecretRef *corev1.SecretReference `json:"secretRef,omitempty"`
+	SecretRef *SecretReference `json:"secretRef,omitempty"`
 
 	// Transport credentials for grpc connection to the switch.
 	// +optional
@@ -41,7 +40,7 @@ type Endpoint struct {
 type TLS struct {
 	// The CA certificate to verify the server's identity.
 	// +required
-	CA *corev1.SecretKeySelector `json:"ca"`
+	CA SecretKeySelector `json:"ca"`
 
 	// The client certificate and private key to use for mutual TLS authentication.
 	// Leave empty if mTLS is not desired.
@@ -53,7 +52,7 @@ type TLS struct {
 type Bootstrap struct {
 	// Template defines the multiline string template that contains the initial configuration for the device.
 	// +required
-	Template *TemplateSource `json:"template"`
+	Template TemplateSource `json:"template"`
 }
 
 // TemplateSource defines a source for template content.
@@ -63,15 +62,16 @@ type Bootstrap struct {
 type TemplateSource struct {
 	// Inline template content
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Inline *string `json:"inline,omitempty"`
 
 	// Reference to a Secret containing the template
 	// +optional
-	SecretRef *corev1.SecretKeySelector `json:"secretRef,omitempty"`
+	SecretRef *SecretKeySelector `json:"secretRef,omitempty"`
 
 	// Reference to a ConfigMap containing the template
 	// +optional
-	ConfigMapRef *corev1.ConfigMapKeySelector `json:"configMapRef,omitempty"`
+	ConfigMapRef *ConfigMapKeySelector `json:"configMapRef,omitempty"`
 }
 
 // CertificateSource represents a source for the value of a certificate.
@@ -79,7 +79,7 @@ type CertificateSource struct {
 	// Secret containing the certificate.
 	// The secret must be of type kubernetes.io/tls and as such contain the following keys: 'tls.crt' and 'tls.key'.
 	// +required
-	SecretRef *corev1.SecretReference `json:"secretRef,omitempty"`
+	SecretRef SecretReference `json:"secretRef,omitempty"`
 }
 
 // DeviceStatus defines the observed state of Device.
@@ -159,20 +159,20 @@ type Device struct {
 }
 
 // GetSecretRefs returns the list of secrets referenced in the [Device] resource.
-func (d *Device) GetSecretRefs() []corev1.SecretReference {
-	refs := []corev1.SecretReference{}
+func (d *Device) GetSecretRefs() []SecretReference {
+	refs := []SecretReference{}
 	if d.Spec.Endpoint.SecretRef != nil {
 		refs = append(refs, *d.Spec.Endpoint.SecretRef)
 	}
 	if d.Spec.Endpoint.TLS != nil {
-		refs = append(refs, corev1.SecretReference{Name: d.Spec.Endpoint.TLS.CA.Name})
+		refs = append(refs, d.Spec.Endpoint.TLS.CA.SecretReference)
 		if d.Spec.Endpoint.TLS.Certificate != nil {
-			refs = append(refs, *d.Spec.Endpoint.TLS.Certificate.SecretRef)
+			refs = append(refs, d.Spec.Endpoint.TLS.Certificate.SecretRef)
 		}
 	}
-	if d.Spec.Bootstrap != nil && d.Spec.Bootstrap.Template != nil {
+	if d.Spec.Bootstrap != nil {
 		if d.Spec.Bootstrap.Template.SecretRef != nil {
-			refs = append(refs, corev1.SecretReference{Name: d.Spec.Bootstrap.Template.SecretRef.Name})
+			refs = append(refs, d.Spec.Bootstrap.Template.SecretRef.SecretReference)
 		}
 	}
 	for i := range refs {
@@ -184,11 +184,11 @@ func (d *Device) GetSecretRefs() []corev1.SecretReference {
 }
 
 // GetConfigMapRefs returns the list of configmaps referenced in the [Device] resource.
-func (d *Device) GetConfigMapRefs() []corev1.ObjectReference {
-	refs := []corev1.ObjectReference{}
-	if d.Spec.Bootstrap != nil && d.Spec.Bootstrap.Template != nil {
+func (d *Device) GetConfigMapRefs() []ConfigMapReference {
+	refs := []ConfigMapReference{}
+	if d.Spec.Bootstrap != nil {
 		if d.Spec.Bootstrap.Template.ConfigMapRef != nil {
-			refs = append(refs, corev1.ObjectReference{Name: d.Spec.Bootstrap.Template.ConfigMapRef.Name})
+			refs = append(refs, d.Spec.Bootstrap.Template.ConfigMapRef.ConfigMapReference)
 		}
 	}
 	for i := range refs {

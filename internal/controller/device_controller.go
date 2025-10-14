@@ -112,7 +112,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 
 		log.Info("Device is in pending phase, starting provisioning")
 		c := clientutil.NewClient(r.Client, req.Namespace)
-		tmpl, err := c.Template(ctx, obj.Spec.Bootstrap.Template)
+		tmpl, err := c.Template(ctx, &obj.Spec.Bootstrap.Template)
 		if err != nil {
 			log.Error(err, "Failed to get template for device provisioning")
 			meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
@@ -270,7 +270,7 @@ func (r *DeviceReconciler) secretToDevices(ctx context.Context, obj client.Objec
 
 	requests := []ctrl.Request{}
 	for _, dev := range devices.Items {
-		if slices.ContainsFunc(dev.GetSecretRefs(), func(ref corev1.SecretReference) bool {
+		if slices.ContainsFunc(dev.GetSecretRefs(), func(ref v1alpha1.SecretReference) bool {
 			return ref.Name == secret.Name && ref.Namespace == secret.Namespace
 		}) {
 			log.Info("Enqueuing Device for reconciliation", "Device", klog.KObj(&dev))
@@ -304,7 +304,7 @@ func (r *DeviceReconciler) configMapToDevices(ctx context.Context, obj client.Ob
 
 	requests := []ctrl.Request{}
 	for _, dev := range devices.Items {
-		if slices.ContainsFunc(dev.GetConfigMapRefs(), func(ref corev1.ObjectReference) bool {
+		if slices.ContainsFunc(dev.GetConfigMapRefs(), func(ref v1alpha1.ConfigMapReference) bool {
 			return ref.Name == cm.Name && ref.Namespace == cm.Namespace
 		}) {
 			log.Info("Enqueuing Device for reconciliation", "Device", klog.KObj(&dev))
