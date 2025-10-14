@@ -242,6 +242,27 @@ func Exists(ctx context.Context, client *gnmiext.Client, names ...string) (bool,
 	return err == nil, err
 }
 
+type Ports struct {
+	PhysIfList []*Port `json:"PhysIf-list"`
+}
+
+func (p Ports) XPath() string {
+	return "System/intf-items/phys-items"
+}
+
+type Port struct {
+	ID        string `json:"id"`
+	PhysItems struct {
+		FcotItems struct {
+			Description string `json:"description"`
+		} `json:"fcot-items"`
+		PortcapItems struct {
+			Speed string   `json:"speed"`
+			Type  ASCIIStr `json:"type"`
+		} `json:"portcap-items"`
+	} `json:"phys-items"`
+}
+
 type Layer string
 
 const (

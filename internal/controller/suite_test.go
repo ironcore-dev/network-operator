@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -251,7 +252,7 @@ var (
 type Provider struct {
 	sync.Mutex
 
-	Items  map[string]client.Object
+	Ports  map[string]client.Object
 	User   map[string]struct{}
 	Banner *string
 	DNS    *v1alpha1.DNS
@@ -266,7 +267,7 @@ type Provider struct {
 
 func NewProvider() *Provider {
 	return &Provider{
-		Items: make(map[string]client.Object),
+		Ports: make(map[string]client.Object),
 		User:  make(map[string]struct{}),
 		ACLs:  make(map[string]struct{}),
 		Certs: make(map[string]struct{}),
@@ -276,6 +277,18 @@ func NewProvider() *Provider {
 
 func (p *Provider) Connect(context.Context, *deviceutil.Connection) error    { return nil }
 func (p *Provider) Disconnect(context.Context, *deviceutil.Connection) error { return nil }
+
+func (p *Provider) ListPorts(context.Context) (ports []provider.DevicePort, err error) {
+	for i := range 8 {
+		ports = append(ports, provider.DevicePort{
+			ID:                  "eth1/" + strconv.Itoa(i+1),
+			Type:                "10g",
+			SupportedSpeedsGbps: []int32{1, 10},
+			Transceiver:         "QSFP-DD",
+		})
+	}
+	return
+}
 
 func (p *Provider) GetDeviceInfo(context.Context) (*provider.DeviceInfo, error) {
 	return &provider.DeviceInfo{
@@ -289,14 +302,14 @@ func (p *Provider) GetDeviceInfo(context.Context) (*provider.DeviceInfo, error) 
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) (provider.Result, error) {
 	p.Lock()
 	defer p.Unlock()
-	p.Items[req.Interface.Name] = req.Interface
+	p.Ports[req.Interface.Name] = req.Interface
 	return provider.Result{}, nil
 }
 
 func (p *Provider) DeleteInterface(_ context.Context, req *provider.InterfaceRequest) error {
 	p.Lock()
 	defer p.Unlock()
-	delete(p.Items, req.Interface.Name)
+	delete(p.Ports, req.Interface.Name)
 	return nil
 }
 

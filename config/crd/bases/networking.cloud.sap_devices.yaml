@@ -34,6 +34,10 @@ spec:
       name: FirmwareVersion
       priority: 1
       type: string
+    - jsonPath: .status.portSummary
+      name: Ports
+      priority: 1
+      type: string
     - jsonPath: .status.phase
       name: Phase
       type: string
@@ -339,6 +343,51 @@ spec:
                 - Active
                 - Failed
                 type: string
+              portSummary:
+                description: PostSummary shows a summary of the port configured, grouped
+                  by type, e.g. "1/4 (10g), 3/64 (100g)".
+                type: string
+              ports:
+                description: Ports is the list of ports on the Device.
+                items:
+                  properties:
+                    interfaceName:
+                      description: |-
+                        InterfaceRef is the reference to the corresponding Interface resource
+                        configuring this port, if any.
+                      properties:
+                        name:
+                          description: |-
+                            Name of the referent.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          maxLength: 63
+                          minLength: 1
+                          type: string
+                      required:
+                      - name
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    name:
+                      description: Name is the name of the port.
+                      type: string
+                    supportedSpeedsGbps:
+                      description: SupportedSpeedsGbps is the list of supported speeds
+                        in Gbps for this port.
+                      items:
+                        format: int32
+                        type: integer
+                      type: array
+                    transceiver:
+                      description: Transceiver is the type of transceiver plugged
+                        into the port, if any.
+                      type: string
+                    type:
+                      description: Type is the type of the port, e.g. "10g".
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
               serialNumber:
                 description: SerialNumber is the serial number of the Device.
                 type: string

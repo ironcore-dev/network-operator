@@ -72,6 +72,38 @@ func (p *Provider) Disconnect(_ context.Context, _ *deviceutil.Connection) error
 	return p.conn.Close()
 }
 
+func (p *Provider) ListPorts(ctx context.Context) ([]provider.DevicePort, error) {
+	ports := new(Ports)
+	if err := p.client.GetState(ctx, ports); err != nil {
+		return nil, err
+	}
+
+	//nolint:errcheck
+	slices.SortFunc(ports.PhysIfList, func(i, j *Port) int {
+		a, _ := strconv.Atoi(strings.SplitN(i.ID, "/", 2)[1])
+		b, _ := strconv.Atoi(strings.SplitN(j.ID, "/", 2)[1])
+		return cmp.Compare(a, b)
+	})
+
+	dp := make([]provider.DevicePort, len(ports.PhysIfList))
+	for i, p := range ports.PhysIfList {
+		var speeds []int32
+		for _, s := range strings.Split(p.PhysItems.PortcapItems.Speed, ",") {
+			if n, err := strconv.ParseInt(s, 10, 32); err == nil {
+				speeds = append(speeds, int32(n))
+			}
+		}
+		dp[i] = provider.DevicePort{
+			ID:                  p.ID,
+			Type:                p.PhysItems.PortcapItems.Type.String(),
+			SupportedSpeedsGbps: speeds,
+			Transceiver:         p.PhysItems.FcotItems.Description,
+		}
+	}
+
+	return dp, nil
+}
+
 func (p *Provider) GetDeviceInfo(ctx context.Context) (*provider.DeviceInfo, error) {
 	m := new(Model)
 	s := new(SerialNumber)

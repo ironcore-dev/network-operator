@@ -75,7 +75,7 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Ensuring the resource is deleted from the provider")
 			Eventually(func(g Gomega) {
-				_, ok := testProvider.Items[name]
+				_, ok := testProvider.Ports[name]
 				g.Expect(ok).To(BeFalse(), "Resource should not exist in the provider")
 			}).Should(Succeed())
 		})
@@ -115,7 +115,7 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				item, ok := testProvider.Items[name]
+				item, ok := testProvider.Ports[name]
 				g.Expect(ok).To(BeTrue(), "Resource should exist in the provider")
 				resource, ok := item.(*v1alpha1.Interface)
 				g.Expect(ok).To(BeTrue(), "Resource should be of type Interface")

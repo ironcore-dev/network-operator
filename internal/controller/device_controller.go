@@ -4,9 +4,11 @@
 package controller
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -211,6 +213,12 @@ func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.configMapToDevices),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
+		// Watches enqueues Devices for contained Interface resources.
+		Watches(
+			&v1alpha1.Interface{},
+			handler.EnqueueRequestsFromMapFunc(r.interfaceToDevices),
+			builder.WithPredicates(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.LabelChangedPredicate{})),
+		).
 		Complete(r)
 }
 
@@ -230,9 +238,45 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 			}
 		}()
 
+		ports, err := prov.ListPorts(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to list device ports: %w", err)
+		}
+
+		c := clientutil.NewClient(r.Client, device.Namespace)
+
+		interfaces := new(v1alpha1.InterfaceList)
+		if err := c.List(ctx, interfaces, client.InNamespace(device.Namespace), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name}); err != nil {
+			return fmt.Errorf("failed to list interface resources for device: %w", err)
+		}
+
+		m := make(map[string]string) // ID => Resource Name
+		for _, intf := range interfaces.Items {
+			m[intf.Spec.Name] = intf.Name
+		}
+
+		device.Status.Ports = make([]v1alpha1.DevicePort, len(ports))
+		n := int32(0)
+		for i, p := range ports {
+			var ref *v1alpha1.LocalObjectReference
+			if name, ok := m[p.ID]; ok {
+				ref = &v1alpha1.LocalObjectReference{Name: name}
+				n++
+			}
+			device.Status.Ports[i] = v1alpha1.DevicePort{
+				Name:                p.ID,
+				Type:                p.Type,
+				SupportedSpeedsGbps: p.SupportedSpeedsGbps,
+				Trasceiver:          p.Transceiver,
+				InterfaceRef:        ref,
+			}
+		}
+
+		device.Status.PostSummary = PortSummary(device.Status.Ports)
+
 		info, err := prov.GetDeviceInfo(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get device info from provider: %w", err)
+			return fmt.Errorf("failed to get device details: %w", err)
 		}
 
 		device.Status.Manufacturer = info.Manufacturer
@@ -318,4 +362,76 @@ func (r *DeviceReconciler) configMapToDevices(ctx context.Context, obj client.Ob
 	}
 
 	return requests
+}
+
+// interfaceToDevices is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for a Device to update when one of its contained Interfaces gets updated.
+func (r *DeviceReconciler) interfaceToDevices(ctx context.Context, obj client.Object) []ctrl.Request {
+	intf, ok := obj.(*v1alpha1.Interface)
+	if !ok {
+		panic(fmt.Sprintf("Expected a Interface but got a %T", obj))
+	}
+
+	if intf.GetLabels()[v1alpha1.DeviceLabel] != intf.Spec.DeviceRef.Name {
+		// If the device label is not set (yet), we skip the event.
+		return nil
+	}
+
+	log := ctrl.LoggerFrom(ctx, "Interface", klog.KObj(intf), "Device", klog.KRef(intf.Namespace, intf.Spec.DeviceRef.Name))
+
+	dev := new(v1alpha1.Device)
+	if err := r.Get(ctx, client.ObjectKey{Namespace: intf.Namespace, Name: intf.Spec.DeviceRef.Name}, dev); err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Info("Referenced Device not found, skipping")
+			return nil
+		}
+		log.Error(err, "Failed to get referenced Device")
+		return nil
+	}
+
+	log.Info("Enqueuing Device for reconciliation")
+	return []ctrl.Request{{NamespacedName: client.ObjectKeyFromObject(dev)}}
+}
+
+// PortSummary returns a summary string of the given ports in the format: "used/total (type), used/total (type), ..."
+func PortSummary(ports []v1alpha1.DevicePort) string {
+	type usage struct {
+		Type  string
+		Used  int
+		Total int
+	}
+
+	var g []*usage
+	for _, p := range ports {
+		// As we assume a relatively small number of port types, we use a simple
+		// linear search instead of a map for grouping/lookup.
+		u := &usage{Type: p.Type}
+		idx := slices.IndexFunc(g, func(u *usage) bool { return u.Type == p.Type })
+		if idx >= 0 {
+			u = g[idx]
+		}
+
+		u.Total++
+		if p.InterfaceRef != nil {
+			u.Used++
+		}
+
+		if idx < 0 {
+			g = append(g, u)
+		}
+	}
+
+	slices.SortFunc(g, func(a, b *usage) int {
+		return cmp.Compare(a.Type, b.Type)
+	})
+
+	var sb strings.Builder
+	for i, u := range g {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(fmt.Sprintf("%d/%d (%s)", u.Used, u.Total, u.Type))
+	}
+
+	return sb.String()
 }

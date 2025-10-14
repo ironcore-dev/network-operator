@@ -39,13 +39,33 @@ type Result struct {
 type DeviceProvider interface {
 	Provider
 
+	// ListPorts retrieves the list of available ports on the device.
+	// This can be used to validate port references in other resources.
+	ListPorts(context.Context) ([]DevicePort, error)
+	// GetDeviceInfo retrieves basic information about the device,
+	// such as manufacturer, model, serial number, and firmware version.
 	GetDeviceInfo(context.Context) (*DeviceInfo, error)
 }
 
+type DevicePort struct {
+	// ID is the unique identifier of the port on the device.
+	ID string
+	// Type is the type of the port, e.g. "10g".
+	Type string
+	// SupportedSpeedsGbps is the list of supported speeds for the port in Gbps.
+	SupportedSpeedsGbps []int32
+	// Trasceiver is the type of transceiver present on the port, e.g. "SFP" or "QSFP", if any.
+	Transceiver string
+}
+
 type DeviceInfo struct {
-	Manufacturer    string
-	Model           string
-	SerialNumber    string
+	// Manufacturer is the manufacturer of the device, e.g. "Cisco".
+	Manufacturer string
+	// Model is the model of the device, e.g. "N9K-C9332D-GX2B".
+	Model string
+	// SerialNumber is the serial number of the device.
+	SerialNumber string
+	// FirmwareVersion is the firmware version running on the device, e.g. "10.4(3)".
 	FirmwareVersion string
 }
 

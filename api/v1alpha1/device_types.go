@@ -105,6 +105,14 @@ type DeviceStatus struct {
 	// +optional
 	FirmwareVersion string `json:"firmwareVersion,omitempty"`
 
+	// Ports is the list of ports on the Device.
+	// +optional
+	Ports []DevicePort `json:"ports,omitempty"`
+
+	// PostSummary shows a summary of the port configured, grouped by type, e.g. "1/4 (10g), 3/64 (100g)".
+	// +optional
+	PostSummary string `json:"portSummary,omitempty"`
+
 	// The conditions are a list of status objects that describe the state of the Device.
 	//+listType=map
 	//+listMapKey=type
@@ -114,8 +122,30 @@ type DeviceStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
+type DevicePort struct {
+	// Name is the name of the port.
+	// +required
+	Name string `json:"name"`
+
+	// Type is the type of the port, e.g. "10g".
+	// +optional
+	Type string `json:"type,omitempty"`
+
+	// SupportedSpeedsGbps is the list of supported speeds in Gbps for this port.
+	// +optional
+	SupportedSpeedsGbps []int32 `json:"supportedSpeedsGbps,omitempty"`
+
+	// Transceiver is the type of transceiver plugged into the port, if any.
+	// +optional
+	Trasceiver string `json:"transceiver,omitempty"`
+
+	// InterfaceRef is the reference to the corresponding Interface resource
+	// configuring this port, if any.
+	// +optional
+	InterfaceRef *LocalObjectReference `json:"interfaceName,omitzero"`
+}
+
 // DevicePhase represents the current phase of the Device as it's being provisioned and managed by the operator.
-//
 // +kubebuilder:validation:Enum=Pending;Provisioning;Active;Failed
 type DevicePhase string
 
@@ -139,6 +169,7 @@ const (
 // +kubebuilder:printcolumn:name="Model",type=string,JSONPath=".status.model",priority=1
 // +kubebuilder:printcolumn:name="SerialNumber",type=string,JSONPath=".status.serialNumber",priority=1
 // +kubebuilder:printcolumn:name="FirmwareVersion",type=string,JSONPath=".status.firmwareVersion",priority=1
+// +kubebuilder:printcolumn:name="Ports",type=string,JSONPath=".status.portSummary",priority=1
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"

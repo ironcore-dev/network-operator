@@ -63,11 +63,38 @@ var _ = Describe("Device Controller", func() {
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}
+
+			By("Creating the custom resource for the Kind Interface")
+			iface := &v1alpha1.Interface{}
+			if err := k8sClient.Get(ctx, key, iface); errors.IsNotFound(err) {
+				resource := &v1alpha1.Interface{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      name,
+						Namespace: metav1.NamespaceDefault,
+					},
+					Spec: v1alpha1.InterfaceSpec{
+						DeviceRef:   v1alpha1.LocalObjectReference{Name: name},
+						Name:        "eth1/1",
+						AdminState:  "Up",
+						Description: "Test",
+						MTU:         9000,
+						Type:        "Physical",
+					},
+				}
+				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+			}
 		})
 
 		AfterEach(func() {
+			intf := &v1alpha1.Interface{}
+			err := k8sClient.Get(ctx, key, intf)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Cleanup the specific resource instance Interface")
+			Expect(k8sClient.Delete(ctx, intf)).To(Succeed())
+
 			device := &v1alpha1.Device{}
-			err := k8sClient.Get(ctx, key, device)
+			err = k8sClient.Get(ctx, key, device)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Cleanup the specific resource instance Device")
@@ -87,13 +114,24 @@ var _ = Describe("Device Controller", func() {
 				resource := &v1alpha1.Device{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
 				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseActive))
+
 				g.Expect(resource.Status.Conditions).To(HaveLen(1))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
+
 				g.Expect(resource.Status.Manufacturer).To(Equal("Manufacturer"))
 				g.Expect(resource.Status.Model).To(Equal("Model"))
 				g.Expect(resource.Status.SerialNumber).To(Equal("123456789"))
 				g.Expect(resource.Status.FirmwareVersion).To(Equal("1.0.0"))
+
+				g.Expect(resource.Status.Ports).To(HaveLen(8))
+				g.Expect(resource.Status.Ports[0].Name).To(Equal("eth1/1"))
+				g.Expect(resource.Status.Ports[0].Type).To(Equal("10g"))
+				g.Expect(resource.Status.Ports[0].SupportedSpeedsGbps).To(Equal([]int32{1, 10}))
+				g.Expect(resource.Status.Ports[0].Trasceiver).To(Equal("QSFP-DD"))
+				g.Expect(resource.Status.Ports[0].InterfaceRef).ToNot(BeNil())
+				g.Expect(resource.Status.Ports[0].InterfaceRef.Name).To(Equal(name))
+				g.Expect(resource.Status.PostSummary).To(Equal("1/8 (10g)"))
 			}).Should(Succeed())
 		})
 	})
