@@ -101,7 +101,7 @@ type RouteTarget struct {
 	//
 	// +required
 	// +kubebuilder:validation:MinItems=1
-	AddressFamilies []AddressFamily `json:"addressFamilies"`
+	AddressFamilies []VRFAddressFamily `json:"addressFamilies"`
 
 	// Action specifies how this RT should be used within the VRF.
 	//
@@ -111,13 +111,13 @@ type RouteTarget struct {
 }
 
 // +kubebuilder:validation:Enum=ipv4;ipv6;ipv4-evpn;ipv6-evpn
-type AddressFamily string
+type VRFAddressFamily string
 
 const (
-	AddressFamilyIPv4     AddressFamily = "ipv4"
-	AddressFamilyIPv6     AddressFamily = "ipv6"
-	AddressFamilyIPv4EVPN AddressFamily = "ipv4-evpn"
-	AddressFamilyIPv6EVPN AddressFamily = "ipv6-evpn"
+	AddressFamilyIPv4     VRFAddressFamily = "ipv4"
+	AddressFamilyIPv6     VRFAddressFamily = "ipv6"
+	AddressFamilyIPv4EVPN VRFAddressFamily = "ipv4-evpn"
+	AddressFamilyIPv6EVPN VRFAddressFamily = "ipv6-evpn"
 )
 
 type RTAction string
