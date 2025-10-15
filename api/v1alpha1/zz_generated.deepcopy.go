@@ -1222,7 +1222,7 @@ func (in *RouteTarget) DeepCopyInto(out *RouteTarget) {
 	*out = *in
 	if in.AddressFamilies != nil {
 		in, out := &in.AddressFamilies, &out.AddressFamilies
-		*out = make([]AddressFamily, len(*in))
+		*out = make([]VRFAddressFamily, len(*in))
 		copy(*out, *in)
 	}
 }
