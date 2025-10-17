@@ -112,6 +112,8 @@ func (IPv4Unnumbered) isIPv4() {}
 type InterfaceStatus struct {
 	// OperStatus indicates whether the interface is operationally up (true) or down (false).
 	OperStatus bool
+	// OperMessage provides additional information about the operational status of the interface.
+	OperMessage string
 }
 
 // BannerProvider is the interface for the realization of the Banner objects over different providers.

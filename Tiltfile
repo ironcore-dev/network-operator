@@ -22,7 +22,7 @@ local_resource('controller-gen', 'make generate', ignore=['**/*/zz_generated.dee
 
 docker_build('ghcr.io/ironcore-dev/gnmi-test-server:latest', './test/gnmi')
 
-provider = os.getenv('PROVIDER', 'openconfig')
+provider = os.getenv('PROVIDER', 'cisco-nxos-gnmi')
 
 manager = kustomize('config/develop')
 manager = str(manager).replace('--provider=openconfig', '--provider={}'.format(provider))
@@ -46,10 +46,9 @@ k8s_resource(new_name='lo0', objects=['lo0:interface'], trigger_mode=TRIGGER_MOD
 k8s_resource(new_name='lo1', objects=['lo1:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='eth1-1', objects=['eth1-1:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='eth1-2', objects=['eth1-2:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
-k8s_resource(new_name='eth1-10', objects=['eth1-10:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
-k8s_resource(new_name='po10', objects=['po-10:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='svi-10', objects=['svi-10:interface'], resource_deps=['vlan-10'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
-k8s_resource(new_name='eth1-30', objects=['eth1-30:interface'], resource_deps=['vrf-vpc-keepalive'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='eth1-10', objects=['eth1-10:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+# Interface resources relevant to vPC configuration are defined below in the "vpcdomain" sample
 
 k8s_yaml('./config/samples/v1alpha1_banner.yaml')
 k8s_resource(new_name='banner', objects=['banner:banner'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
@@ -79,12 +78,10 @@ k8s_yaml('./config/samples/v1alpha1_managementaccess.yaml')
 k8s_resource(new_name='managementaccess', objects=['managementaccess:managementaccess'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 k8s_yaml('./config/samples/v1alpha1_isis.yaml')
-k8s_resource(new_name='isis-underlay', objects=['underlay:isis'], resource_deps=['lo0', 'lo1', 'eth1-1', 'eth1-2'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='underlay', objects=['underlay:isis'], resource_deps=['lo0', 'lo1', 'eth1-1', 'eth1-2'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 k8s_yaml('./config/samples/v1alpha1_vrf.yaml')
 k8s_resource(new_name='vrf-admin', objects=['vrf-cc-admin:vrf'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
-k8s_resource(new_name='vrf-001', objects=['vrf-cc-prod-001:vrf'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
-k8s_resource(new_name='vrf-vpc-keepalive', objects=['vpc-keepalive:vrf'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 k8s_yaml('./config/samples/v1alpha1_pim.yaml')
 k8s_resource(new_name='pim', objects=['pim:pim'], resource_deps=['lo0', 'lo1', 'eth1-1', 'eth1-2'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
@@ -110,6 +107,9 @@ k8s_resource(new_name='ccloud-prefixset', objects=['ccloud-prefixset:prefixset']
 
 k8s_yaml('./config/samples/v1alpha1_routingpolicy.yaml')
 k8s_resource(new_name='bgp-import-policy', objects=['bgp-import-policy:routingpolicy', 'internal-networks:prefixset', 'partner-networks:prefixset', 'blocked-networks:prefixset'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+
+k8s_yaml('./config/samples/cisco/nx/v1alpha1_vpcdomain.yaml')
+k8s_resource(new_name='vpcdomain', objects=['leaf1-vpcdomain:vpcdomain', 'leaf1-vrfvpckeepalive:vrf', 'eth1-30:interface', 'eth1-31:interface','eth1-32:interface', 'po1:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')

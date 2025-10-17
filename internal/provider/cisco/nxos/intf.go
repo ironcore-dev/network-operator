@@ -130,8 +130,9 @@ func NewVrfMember(ifName, vrfName string) *VrfMember {
 
 // SpanningTree represents the spanning tree configuration for an interface.
 type SpanningTree struct {
-	Mode   SpanningTreeMode `json:"mode"`
-	IfName string           `json:"-"`
+	Mode   SpanningTreeMode      `json:"mode"`
+	IfName string                `json:"-"`
+	Bridge Option[BridgeControl] `json:"bridge"`
 }
 
 func (*SpanningTree) IsListItem() {}
@@ -142,6 +143,22 @@ func (s *SpanningTree) XPath() string {
 
 func (s *SpanningTree) Default() {
 	s.Mode = SpanningTreeModeDefault
+}
+
+type BridgeControl string
+
+const (
+	BridgeControlEnabled  BridgeControl = "enabled"
+	BridgeControlDisabled BridgeControl = "disabled"
+)
+
+func (b BridgeControl) IsValid() bool {
+	switch b {
+	case BridgeControlEnabled, BridgeControlDisabled:
+		return true
+	default:
+		return false
+	}
 }
 
 // PortChannel represents a port-channel (LAG) interface on a NX-OS device.
@@ -183,8 +200,9 @@ func (p *PortChannel) XPath() string {
 }
 
 type PortChannelOperItems struct {
-	ID     string `json:"-"`
-	OperSt OperSt `json:"operSt"`
+	ID         string `json:"-"`
+	OperSt     OperSt `json:"operSt"`
+	OperStQual string `json:"operStQual,omitempty"`
 }
 
 func (p *PortChannelOperItems) XPath() string {

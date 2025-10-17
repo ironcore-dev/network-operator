@@ -75,6 +75,11 @@ const (
 	// intended (e.g., a interface is up). It corresponds to the "oper-status" commonly found
 	// in the OpenConfig models (or "operSt" on Cisco).
 	OperationalCondition = "Operational"
+
+	// DegradedCondition indicates whether the resource is in a degraded state.
+	// This condition indicates whether the resource is experiencing issues that impact its performance
+	// or functionality, but does not render it completely non-functional.
+	DegradedCondition = "Degraded"
 )
 
 // Reasons that are used across different objects.
@@ -109,6 +114,12 @@ const (
 
 	// WaitingForDependenciesReason indicates that the resource is waiting for its dependencies to be ready.
 	WaitingForDependenciesReason = "WaitingForDependencies"
+
+	// IncompatibleProviderConfigRef indicates that the referenced provider configuration is not compatible with the target platform.
+	IncompatibleProviderConfigRef = "IncompatibleProviderConfigRef"
+
+	// ProviderConfigFoundReason indicates that the referenced provider configuration is already assigned.
+	ProviderConfigFoundReason = "ProviderConfigFound"
 )
 
 // Reasons that are specific to [Interface] objects.

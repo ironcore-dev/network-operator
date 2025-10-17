@@ -113,8 +113,12 @@ func WithLogger(logger logr.Logger) Option {
 	}
 }
 
-// ErrNil indicates that the value for a xpath is not defined.
-var ErrNil = errors.New("gnmiext: nil")
+var (
+	// ErrNil indicates that the value for a xpath is not defined.
+	ErrNil = errors.New("gnmiext: nil")
+	// ErrInterfaceNotFound indicates that the requested interface does not exist on the device.
+	ErrInterfaceNotFound = errors.New("gnmiext: The interface does not exist")
+)
 
 // GetConfig retrieves config and unmarshals it into the provided targets.
 // If some of the values for the given xpaths are not defined, [ErrNil] is returned.
