@@ -1,26 +1,38 @@
 apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: VRF
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: leaf1-vrfvpckeepalive
+spec:
+  deviceRef:
+    name: leaf1
+  name: VPC_KEEPALIVE
+  description: VRF for vPC Keepalive
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
 metadata:
   labels:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
     networking.metal.ironcore.dev/device-name: leaf1
-  name: lo0
+  name: eth1-30
 spec:
   deviceRef:
     name: leaf1
-  name: lo0
-  description: Router-ID Leaf1
+  name: eth1/30
+  description: vPC Keep-Alive
   adminState: Up
-  type: Loopback
+  type: Physical
   mtu: 1500
   ipv4:
     addresses:
-      - 10.0.0.10/32
-#   providerConfigRef:
-#     apiVersion: nxos.cisco.networking.metal.ironcore.dev/v1alpha1
-#     kind: InterfaceConfig
-#     name: leaf-interface-config
+      - 10.1.1.1/30
+  vrfRef:
+    name: leaf1-vrfvpckeepalive
 ---
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
@@ -29,82 +41,19 @@ metadata:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
     networking.metal.ironcore.dev/device-name: leaf1
-  name: lo1
+  annotations:
+    nx.cisco.networking.metal.ironcore.dev/spanning-tree-port-type: "network"
+  name: eth1-31
 spec:
   deviceRef:
     name: leaf1
-  name: lo1
-  description: VTEP Leaf1
-  adminState: Up
-  type: Loopback
-  mtu: 1500
-  ipv4:
-    addresses:
-      - 10.0.1.10/32
-      - 10.1.0.10/32
----
-apiVersion: networking.metal.ironcore.dev/v1alpha1
-kind: Interface
-metadata:
-  labels:
-    app.kubernetes.io/name: network-operator
-    app.kubernetes.io/managed-by: kustomize
-    networking.metal.ironcore.dev/device-name: leaf1
-  name: eth1-1
-spec:
-  deviceRef:
-    name: leaf1
-  name: eth1/1
-  description: Leaf1 to Spine1
-  adminState: Up
-  type: Physical
-  mtu: 9216
-  ipv4:
-    unnumbered:
-      interfaceRef:
-        name: lo0
----
-apiVersion: networking.metal.ironcore.dev/v1alpha1
-kind: Interface
-metadata:
-  labels:
-    app.kubernetes.io/name: network-operator
-    app.kubernetes.io/managed-by: kustomize
-    networking.metal.ironcore.dev/device-name: leaf1
-  name: eth1-2
-spec:
-  deviceRef:
-    name: leaf1
-  name: eth1/2
-  description: Leaf1 to Spine2
-  adminState: Up
-  type: Physical
-  mtu: 9216
-  ipv4:
-    unnumbered:
-      interfaceRef:
-        name: lo0
----
-apiVersion: networking.metal.ironcore.dev/v1alpha1
-kind: Interface
-metadata:
-  labels:
-    app.kubernetes.io/name: network-operator
-    app.kubernetes.io/managed-by: kustomize
-    networking.metal.ironcore.dev/device-name: leaf1
-  name: eth1-10
-spec:
-  deviceRef:
-    name: leaf1
-  name: eth1/10
-  description: vPC to Host1
+  name: eth1/31
+  description: vPC Peer-Link
   adminState: Up
   type: Physical
   mtu: 1500
   switchport:
     mode: Trunk
-    nativeVlan: 1
-    allowedVlans: [10]
 ---
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
@@ -113,47 +62,83 @@ metadata:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
     networking.metal.ironcore.dev/device-name: leaf1
-  name: po-10
+  annotations:
+    nx.cisco.networking.metal.ironcore.dev/spanning-tree-port-type: "network"
+  name: eth1-32
 spec:
   deviceRef:
     name: leaf1
-  name: po10
-  description: vPC to Host1
+  name: eth1/32
+  description: vPC Peer-Link
+  adminState: Up
+  type: Physical
+  mtu: 1500
+  switchport:
+    mode: Trunk
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  annotations:
+    nx.cisco.networking.metal.ironcore.dev/spanning-tree-port-type: "network"
+    nx.cisco.networking.metal.ironcore.dev/channel-group-force: ""
+  name: po1
+spec:
+  deviceRef:
+    name: leaf1
+  name: po1
+  description: vPC Peer-Link
   adminState: Up
   type: Aggregate
   mtu: 1500
   switchport:
     mode: Trunk
-    nativeVlan: 1
-    allowedVlans: [10]
   aggregation:
     controlProtocol:
       mode: Active
     memberInterfaceRefs:
-      - name: eth1-10
-    multichassis:
-      enabled: true
-      id: 2
+      - name: eth1-31
+      - name: eth1-32
 ---
-apiVersion: networking.metal.ironcore.dev/v1alpha1
-kind: Interface
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: VPCDomain
 metadata:
   labels:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
     networking.metal.ironcore.dev/device-name: leaf1
-  name: svi-10
+  name: leaf1-vpcdomain
 spec:
   deviceRef:
     name: leaf1
-  name: vlan10
-  description: SVI for VLAN 10
+  domainId: 5
   adminState: Up
-  type: RoutedVLAN
-  mtu: 1500
-  vlanRef:
-    name: vlan-10
-  ipv4:
-    addresses:
-      - 192.168.10.254/24
-    anycastGateway: true
+  rolePriority: 100
+  systemPriority: 10
+  delayRestoreSVI: 140
+  delayRestoreVPC: 150
+  peer:
+    vpcId: 1
+    adminState: Up
+    interfaceRef:
+      name: po1
+    switch:
+      enabled: true
+    gateway:
+      enabled: true
+    l3router:
+      enabled: true
+    keepalive:
+      source:  10.1.1.1
+      destination: 10.1.1.2
+      vrfRef:
+        name: leaf1-vrfvpckeepalive
+    autoRecovery:
+      enabled: true
+      reloadDelay: 360
+  fastConvergence:
+    enabled: true

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,6 +28,7 @@ import (
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -44,7 +46,7 @@ var (
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Controller Suite")
+	RunSpecs(t, "Cisco NXOS Controller Suite")
 }
 
 var _ = BeforeSuite(func() {
@@ -105,6 +107,14 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&VPCDomainReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   scheme.Scheme,
+		Recorder: recorder,
+		Provider: prov,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -150,7 +160,8 @@ func detectTestBinaryDir() string {
 type MockProvider struct {
 	sync.Mutex
 
-	Settings *nxv1alpha1.System
+	Settings  *nxv1alpha1.System
+	VPCDomain *nxv1alpha1.VPCDomain
 }
 
 var _ Provider = (*MockProvider)(nil)
@@ -174,4 +185,29 @@ func (p *MockProvider) ResetSystemSettings(ctx context.Context) error {
 	defer p.Unlock()
 	p.Settings = nil
 	return nil
+}
+
+func (p *MockProvider) EnsureVPCDomain(_ context.Context, vpc *nxv1alpha1.VPCDomain, _ *v1alpha1.VRF, _ *v1alpha1.Interface) error {
+	p.Lock()
+	defer p.Unlock()
+	p.VPCDomain = vpc
+	return nil
+}
+
+func (p *MockProvider) DeleteVPCDomain(_ context.Context) error {
+	p.Lock()
+	defer p.Unlock()
+	p.VPCDomain = nil
+	return nil
+}
+
+func (p *MockProvider) GetStatusVPCDomain(_ context.Context) (nxos.VPCDomainStatus, error) {
+	return nxos.VPCDomainStatus{
+		KeepAliveStatus:    true,
+		KeepAliveStatusMsg: []string{"operational"},
+		PeerStatus:         true,
+		PeerStatusMsg:      []string{"success"},
+		PeerUptime:         3600 * time.Second,
+		Role:               nxv1alpha1.VPCDomainRolePrimary,
+	}, nil
 }

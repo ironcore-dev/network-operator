@@ -116,7 +116,6 @@ const (
 
 // Switchport defines the switchport configuration for an interface.
 // +kubebuilder:validation:XValidation:rule="self.mode != 'Access' || has(self.accessVlan)", message="accessVlan must be specified when mode is Access"
-// +kubebuilder:validation:XValidation:rule="self.mode != 'Trunk' || has(self.nativeVlan)", message="nativeVlan must be specified when mode is Trunk"
 type Switchport struct {
 	// Mode defines the switchport mode, such as access or trunk.
 	// +required

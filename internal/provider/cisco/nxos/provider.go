@@ -686,7 +686,9 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				p.AccessVlan = fmt.Sprintf("vlan-%d", req.Interface.Spec.Switchport.AccessVlan)
 			case v1alpha1.SwitchportModeTrunk:
 				p.Mode = SwitchportModeTrunk
-				p.NativeVlan = fmt.Sprintf("vlan-%d", req.Interface.Spec.Switchport.NativeVlan)
+				if req.Interface.Spec.Switchport.NativeVlan != 0 {
+					p.NativeVlan = fmt.Sprintf("vlan-%d", req.Interface.Spec.Switchport.NativeVlan)
+				}
 				if len(req.Interface.Spec.Switchport.AllowedVlans) > 0 {
 					p.TrunkVlans = Range(req.Interface.Spec.Switchport.AllowedVlans)
 				}
@@ -764,7 +766,9 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				pc.AccessVlan = fmt.Sprintf("vlan-%d", req.Interface.Spec.Switchport.AccessVlan)
 			case v1alpha1.SwitchportModeTrunk:
 				pc.Mode = SwitchportModeTrunk
-				pc.NativeVlan = fmt.Sprintf("vlan-%d", req.Interface.Spec.Switchport.NativeVlan)
+				if req.Interface.Spec.Switchport.NativeVlan != 0 {
+					pc.NativeVlan = fmt.Sprintf("vlan-%d", req.Interface.Spec.Switchport.NativeVlan)
+				}
 				if len(req.Interface.Spec.Switchport.AllowedVlans) > 0 {
 					pc.TrunkVlans = Range(req.Interface.Spec.Switchport.AllowedVlans)
 				}
@@ -831,6 +835,11 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			conf = append(conf, v)
 		}
 
+		// cfg := new(nxv1alpha1.PortChannelConfig)
+		// if err = req.ProviderConfig.Into(cfg); err == nil {
+		// 	return fmt.Errorf("failed to parse port-channel provider config: %w", err)
+		// }
+
 	case v1alpha1.InterfaceTypeRoutedVLAN:
 		f := new(Feature)
 		f.Name = "ifvlan"
@@ -896,7 +905,6 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	if addr != nil {
 		conf = append(conf, addr)
 	}
-
 	return p.client.Update(ctx, conf...)
 }
 
@@ -919,13 +927,16 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
-		p := new(PhysIf)
-		p.ID = name
-		conf = append(conf, p)
+		i := new(PhysIf)
+		i.ID = name
+		conf = append(conf, i)
 
+		// Delete any spanning tree config associated with the interface.
 		stp := new(SpanningTree)
 		stp.IfName = name
-		conf = append(conf, stp)
+		if err = p.client.GetConfig(ctx, stp); err == nil {
+			conf = append(conf, stp)
+		}
 
 	case v1alpha1.InterfaceTypeLoopback:
 		lb := new(Loopback)
@@ -965,7 +976,10 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 		return provider.InterfaceStatus{}, err
 	}
 
-	var operSt OperSt
+	var (
+		operSt  OperSt
+		operMsg string
+	)
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
 		phys := new(PhysIfOperItems)
@@ -990,6 +1004,7 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 			return provider.InterfaceStatus{}, err
 		}
 		operSt = pc.OperSt
+		operMsg = pc.OperStQual
 
 	case v1alpha1.InterfaceTypeRoutedVLAN:
 		svi := new(SwitchVirtualInterfaceOperItems)
@@ -1004,7 +1019,8 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 	}
 
 	return provider.InterfaceStatus{
-		OperStatus: operSt == OperStUp,
+		OperStatus:  operSt == OperStUp,
+		OperMessage: operMsg,
 	}, nil
 }
 
@@ -2141,6 +2157,157 @@ func (p *Provider) ResetSystemSettings(ctx context.Context) error {
 		new(VLANReservation),
 		new(SystemJumboMTU),
 	)
+}
+
+// VPCDomainStatus represents the operational status of a vPC configuration on the device.
+type VPCDomainStatus struct {
+	// KeepAliveStatus indicates whether the keepalive link is operationally up (true) or down (false).
+	KeepAliveStatus bool
+	// KeepAliveStatusMsg provides additional human-readable information returned by the device
+	KeepAliveStatusMsg []string
+	// PeerStatus indicates whether the vPC peer is operationally up (true) or down (false).
+	PeerStatus bool
+	// PeerStatusMsg provides additional human-readable information about the vPC peer status.
+	PeerStatusMsg []string
+	// PeerUptime indicates the uptime of the vPC peer link in human-readable format provided by Cisco.
+	PeerUptime time.Duration
+	// Role represents the role of the vPC peer.
+	Role nxv1alpha1.VPCDomainRole
+}
+
+// EnsureVPC applies the vPC configuration on the device. It also ensures that the vPC feature
+// is enabled on the device.
+// `vrf` is a resource referencing the VRF to use in the keep-alive link configuration, can be nil.
+// `pc` is a resource referencing a port-channel interface to use as vPC peer-link, must not be nil.
+func (p *Provider) EnsureVPCDomain(ctx context.Context, vpcdomain *nxv1alpha1.VPCDomain, vrf *v1alpha1.VRF, pc *v1alpha1.Interface) (reterr error) {
+	f := new(Feature)
+	f.Name = "vpc"
+	f.AdminSt = AdminStEnabled
+
+	v := new(VPCDomain)
+	v.Id = uint16(vpcdomain.Spec.DomainID) // #nosec G115 -- kubebuilder
+
+	v.AdminSt = AdminStEnabled
+	if vpcdomain.Spec.AdminState == nxv1alpha1.AdminStateDown {
+		v.AdminSt = AdminStDisabled
+	}
+
+	if vpcdomain.Spec.RolePriority > 0 {
+		v.RolePrio = NewOption(uint16(vpcdomain.Spec.RolePriority)) // #nosec G115 -- kubebuilder validation
+	}
+
+	if vpcdomain.Spec.SystemPriority > 0 {
+		v.SysPrio = NewOption(uint16(vpcdomain.Spec.SystemPriority)) // #nosec G115 -- kubebuilder validation
+	}
+
+	if vpcdomain.Spec.DelayRestoreSVI > 0 {
+		v.DelayRestoreSVI = NewOption(uint16(vpcdomain.Spec.DelayRestoreSVI)) // #nosec G115 -- kubebuilder validation
+	}
+
+	if vpcdomain.Spec.DelayRestoreVPC > 0 {
+		v.DelayRestoreVPC = NewOption(uint16(vpcdomain.Spec.DelayRestoreVPC)) // #nosec G115 -- kubebuilder validation
+	}
+
+	v.FastConvergence = NewOption(AdminStDisabled)
+	if vpcdomain.Spec.FastConvergence.Enabled {
+		v.FastConvergence = NewOption(AdminStEnabled)
+	}
+
+	v.PeerSwitch = AdminStDisabled
+	if vpcdomain.Spec.Peer.Switch.Enabled {
+		v.PeerSwitch = AdminStEnabled
+	}
+
+	v.PeerGateway = AdminStDisabled
+	if vpcdomain.Spec.Peer.Gateway.Enabled {
+		v.PeerGateway = AdminStEnabled
+	}
+
+	v.L3PeerRouter = AdminStDisabled
+	if vpcdomain.Spec.Peer.L3Router.Enabled {
+		v.L3PeerRouter = AdminStEnabled
+	}
+
+	if vpcdomain.Spec.Peer.AutoRecovery != nil {
+		v.AutoRecovery = NewOption(AdminStDisabled)
+		if vpcdomain.Spec.Peer.AutoRecovery.Enabled {
+			v.AutoRecovery = NewOption(AdminStEnabled)
+		}
+		if vpcdomain.Spec.Peer.AutoRecovery.ReloadDelay > 0 {
+			v.AutoRecoveryReloadDelay = NewOption(uint16(vpcdomain.Spec.Peer.AutoRecovery.ReloadDelay)) // #nosec G115 -- kubebuilder validation
+		}
+	}
+
+	v.KeepAliveItems.DestIP = vpcdomain.Spec.Peer.KeepAlive.Destination
+
+	v.KeepAliveItems.SrcIP = vpcdomain.Spec.Peer.KeepAlive.Source
+
+	if vrf != nil {
+		v.KeepAliveItems.VRF = vrf.Spec.Name
+	}
+
+	pcName, err := ShortNamePortChannel(pc.Spec.Name)
+	if err != nil {
+		return fmt.Errorf("vpc: failed to get short name for the port-channel interface %q: %w", pc.Spec.Name, err)
+	}
+	v.KeepAliveItems.PeerLinkItems.Id = pcName
+
+	v.KeepAliveItems.PeerLinkItems.AdminSt = AdminStEnabled
+	if vpcdomain.Spec.Peer.AdminState == nxv1alpha1.AdminStateDown {
+		v.KeepAliveItems.PeerLinkItems.AdminSt = AdminStDisabled
+	}
+
+	return p.client.Patch(ctx, f, v)
+}
+
+func (p *Provider) DeleteVPCDomain(ctx context.Context) error {
+	v := new(VPCDomain)
+	return p.client.Delete(ctx, v)
+}
+
+// GetStatusVPC retrieves the current status of the vPC configuration on the device.
+func (p *Provider) GetStatusVPCDomain(ctx context.Context) (VPCDomainStatus, error) {
+	vdOper := new(VPCDomainOper)
+	if err := p.client.GetState(ctx, vdOper); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return VPCDomainStatus{}, err
+	}
+
+	vpcSt := VPCDomainStatus{}
+
+	// Cisco returns a string composed of values coming from a bitmask, see:
+	// https://pubhub.devnetcloud.com/media/dme-docs-10-4-3/docs/System/vpc%3AKeepalive/
+	// Healthy links have these values "operational,peer-was-alive"
+	vpcSt.KeepAliveStatus = false
+	vpcSt.KeepAliveStatusMsg = strings.Split(vdOper.KeepAliveItems.OperSt, ",")
+	if peerIsAlive(vdOper.KeepAliveItems.OperSt) {
+		vpcSt.KeepAliveStatus = true
+	}
+	if vdOper.KeepAliveItems.PeerUpTime != "Peer is not alive" {
+		if uptime, err := parsePeerUptime(vdOper.KeepAliveItems.PeerUpTime); err == nil {
+			vpcSt.PeerUptime = *uptime
+		}
+	}
+
+	vpcSt.PeerStatus = false
+	vpcSt.PeerStatusMsg = strings.Split(vdOper.PeerStQual, ",")
+	if vdOper.PeerStQual == "success" {
+		vpcSt.PeerStatus = true
+	}
+	switch vdOper.Role {
+	case vpcRoleElectionNotDone:
+		vpcSt.Role = nxv1alpha1.VPCDomainRoleUnknown
+	case vpcRolePrimary:
+		vpcSt.Role = nxv1alpha1.VPCDomainRolePrimary
+	case vpcRoleSecondary:
+		vpcSt.Role = nxv1alpha1.VPCDomainRoleSecondary
+	case vpcRolePrimaryOperationalSecondary:
+		vpcSt.Role = nxv1alpha1.VPCDomainRolePrimaryOperationalSecondary
+	case vpcRoleSecondaryOperationalPrimary:
+		vpcSt.Role = nxv1alpha1.VPCDomainRoleSecondaryOperationalPrimary
+	default:
+		vpcSt.Role = nxv1alpha1.VPCDomainRoleUnknown
+	}
+	return vpcSt, nil
 }
 
 func init() {

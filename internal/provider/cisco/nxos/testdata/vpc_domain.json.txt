@@ -1,0 +1,13 @@
+vpc domain 2
+  peer-switch
+  role priority 100
+  system-priority 10
+  peer-keepalive destination 10.114.235.156 source 10.114.235.155 vrf management
+  delay restore 150
+  peer-gateway
+  layer3 peer-router
+  auto-recovery reload-delay 360
+  delay restore interface-vlan 45
+  fast-convergence
+interface port-channel1
+  vpc peer-link

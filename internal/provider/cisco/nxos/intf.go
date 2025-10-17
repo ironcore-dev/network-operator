@@ -183,8 +183,9 @@ func (p *PortChannel) XPath() string {
 }
 
 type PortChannelOperItems struct {
-	ID     string `json:"-"`
-	OperSt OperSt `json:"operSt"`
+	ID         string `json:"-"`
+	OperSt     OperSt `json:"operSt"`
+	OperStQual string `json:"operStQual,omitempty"`
 }
 
 func (p *PortChannelOperItems) XPath() string {

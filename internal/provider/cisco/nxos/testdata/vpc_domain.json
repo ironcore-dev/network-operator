@@ -1,0 +1,29 @@
+{
+  "vpc-items": {
+    "inst-items": {
+      "dom-items": {
+        "adminSt": "enabled",
+        "autoRecovery": "enabled",
+        "autoRecoveryIntvl": 360,
+        "delayRestoreSVI": 45,
+        "delayRestoreVPC": 150,
+        "fastConvergence": "enabled",
+        "id": 2,
+        "l3PeerRouter": "enabled",
+        "peerGw": "enabled",
+        "peerSwitch": "enabled",
+        "rolePrio": 100,
+        "sysPrio": 10,
+        "keepalive-items": {
+          "destIp": "10.114.235.156",
+          "srcIp": "10.114.235.155",
+          "vrf": "management",
+          "peerlink-items": {
+            "adminSt": "enabled",
+            "id": "po1"
+          }
+        }
+      }
+    }
+  }
+}

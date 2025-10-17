@@ -19,12 +19,13 @@ resources:
 - bases/networking.metal.ironcore.dev_bgp.yaml
 - bases/networking.metal.ironcore.dev_bgppeers.yaml
 - bases/networking.metal.ironcore.dev_ospf.yaml
-- bases/nx.cisco.networking.metal.ironcore.dev_systems.yaml
-- bases/nx.cisco.networking.metal.ironcore.dev_managementaccessconfigs.yaml
 - bases/networking.metal.ironcore.dev_vlans.yaml
 - bases/networking.metal.ironcore.dev_evpninstances.yaml
 - bases/networking.metal.ironcore.dev_prefixsets.yaml
 - bases/networking.metal.ironcore.dev_routingpolicies.yaml
+- bases/nx.cisco.networking.metal.ironcore.dev_systems.yaml
+- bases/nx.cisco.networking.metal.ironcore.dev_managementaccessconfigs.yaml
+- bases/nx.cisco.networking.metal.ironcore.dev_vpcdomains.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

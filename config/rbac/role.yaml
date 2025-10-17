@@ -126,6 +126,7 @@ rules:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
   - systems
+  - vpcdomains
   verbs:
   - create
   - delete
@@ -138,12 +139,14 @@ rules:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
   - systems/finalizers
+  - vpcdomains/finalizers
   verbs:
   - update
 - apiGroups:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
   - systems/status
+  - vpcdomains/status
   verbs:
   - get
   - patch

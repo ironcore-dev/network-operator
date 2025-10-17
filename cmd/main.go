@@ -427,6 +427,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&nxcontroller.VPCDomainReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("vpcdomain-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+		RequeueInterval:  requeueInterval,
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "VPCDomain")
+		os.Exit(1)
+	}
+
 	if err := (&nxcontroller.SystemReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
