@@ -113,11 +113,75 @@ metadata:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
     networking.metal.ironcore.dev/device-name: leaf1
-  name: po-10
+  name: eth1-30
 spec:
   deviceRef:
     name: leaf1
-  name: po10
+  name: eth1/30
+  description: vPC Keep-Alive
+  adminState: Up
+  type: Physical
+  mtu: 1500
+  ipv4:
+    addresses:
+      - 10.1.1.1/30
+  vrfRef:
+    name: vpc-keepalive
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: eth1-31
+spec:
+  deviceRef:
+    name: leaf1
+  name: eth1/31
+  description: vPC Peer-Link
+  adminState: Up
+  type: Physical
+  mtu: 1500
+  switchport:
+    mode: Trunk
+    nativeVlan: 1
+    allowedVlans: [10]
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: eth1-32
+spec:
+  deviceRef:
+    name: leaf1
+  name: eth1/32
+  description: vPC Peer-Link
+  adminState: Up
+  type: Physical
+  mtu: 1500
+  switchport:
+    mode: Trunk
+    nativeVlan: 1
+    allowedVlans: [10]
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: po1
+spec:
+  deviceRef:
+    name: leaf1
+  name: po1
   description: vPC to Host1
   adminState: Up
   type: Aggregate
@@ -130,9 +194,11 @@ spec:
     controlProtocol:
       mode: Active
     memberInterfaceRefs:
-      - name: eth1-10
+      - name: eth1-31
+      - name: eth1-32
     multichassis:
       id: 10
+      enabled: true
 ---
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
@@ -163,16 +229,24 @@ metadata:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
     networking.metal.ironcore.dev/device-name: leaf1
-  name: eth1-30
+  name: po2
 spec:
   deviceRef:
     name: leaf1
-  name: eth1/30
-  description: vPC Keepalive
+  name: po2
+  description: vPC KeepAlive
   adminState: Up
-  type: Physical
-  ipv4:
-    addresses:
-      - 10.1.1.1/30
-  vrfRef:
-    name: vpc-keepalive
+  type: Aggregate
+  mtu: 1500
+  switchport:
+    mode: Trunk
+    nativeVlan: 1
+    allowedVlans: [10]
+  aggregation:
+    controlProtocol:
+      mode: Active
+    memberInterfaceRefs:
+      - name: eth1-10
+    multichassis:
+      enabled: true
+      id: 1
