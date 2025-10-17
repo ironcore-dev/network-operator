@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,6 +28,7 @@ import (
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -105,6 +107,14 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&VPCReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   scheme.Scheme,
+		Recorder: recorder,
+		Provider: prov,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -151,6 +161,7 @@ type MockProvider struct {
 	sync.Mutex
 
 	Settings *nxv1alpha1.System
+	VPC      *nxv1alpha1.VPC
 }
 
 var _ Provider = (*MockProvider)(nil)
@@ -174,4 +185,27 @@ func (p *MockProvider) ResetSystemSettings(ctx context.Context) error {
 	defer p.Unlock()
 	p.Settings = nil
 	return nil
+}
+
+func (p *MockProvider) EnsureVPC(_ context.Context, vpc *nxv1alpha1.VPC, _ *v1alpha1.VRF) error {
+	p.Lock()
+	defer p.Unlock()
+	p.VPC = vpc
+	return nil
+}
+
+func (p *MockProvider) DeleteVPC(_ context.Context) error {
+	p.Lock()
+	defer p.Unlock()
+	p.VPC = nil
+	return nil
+}
+
+func (p *MockProvider) GetStatusVPC(_ context.Context) (nxos.VPCStatus, error) {
+	return nxos.VPCStatus{
+		KeepAliveStatus:        true,
+		KeepAliveStatusMessage: "operational",
+		PeerUptime:             3600 * time.Second,
+		Role:                   nxv1alpha1.VPCRolePrimary,
+	}, nil
 }

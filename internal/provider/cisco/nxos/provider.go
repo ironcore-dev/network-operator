@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net"
 	"net/netip"
 	"reflect"
 	"slices"
@@ -743,14 +744,14 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		}
 
+		conf = append(conf, pc)
+
 		if req.MultiChassisID != nil {
 			v := new(VPCIf)
 			v.ID = int(*req.MultiChassisID)
 			v.SetPortChannel(name)
 			conf = append(conf, v)
 		}
-
-		conf = append(conf, pc)
 
 	case v1alpha1.InterfaceTypeRoutedVLAN:
 		f := new(Feature)
@@ -783,7 +784,6 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	if addr != nil {
 		conf = append(conf, addr)
 	}
-
 	return p.client.Update(ctx, conf...)
 }
 
@@ -852,7 +852,10 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 		return provider.InterfaceStatus{}, err
 	}
 
-	var operSt OperSt
+	var (
+		operSt  OperSt
+		operMsg string
+	)
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
 		phys := new(PhysIfOperItems)
@@ -877,6 +880,7 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 			return provider.InterfaceStatus{}, err
 		}
 		operSt = pc.OperSt
+		operMsg = pc.OperStQual
 
 	case v1alpha1.InterfaceTypeRoutedVLAN:
 		svi := new(SwitchVirtualInterfaceOperItems)
@@ -891,7 +895,8 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 	}
 
 	return provider.InterfaceStatus{
-		OperStatus: operSt == OperStUp,
+		OperStatus:  operSt == OperStUp,
+		OperMessage: operMsg,
 	}, nil
 }
 
@@ -1950,6 +1955,148 @@ func (p *Provider) ResetSystemSettings(ctx context.Context) error {
 		new(VLANReservation),
 		new(SystemJumboMTU),
 	)
+}
+
+// VPCStatus represents the operational status of a vPC configuration on the device.
+type VPCStatus struct {
+	// KeepAliveStatus indicates whether the keepalive link is operationally up (true) or down (false).
+	KeepAliveStatus bool
+	// KeepAliveStatusMessage provides additional human-readable information returned by the device
+	KeepAliveStatusMessage string
+	// Role represents the role of the vPC peer.
+	Role nxv1alpha1.VPCRole
+	// PeerUptime indicates the uptime of the vPC peer link in human-readable format provided by Cisco.
+	PeerUptime time.Duration
+}
+
+// EnsureVPC applies the vPC configuration on the device. It also ensures that the vPC feature
+// is enabled on the device. If vrf is not nil, the keep-alive link will be configured within the specified VRF.
+// The port-channel interface required to establish a vPC are managed by the Interface controller and are not
+// configured here. The port-channel status must not be made a dependency here, as they require the vPC domain
+// to be configured first (which is realized here).
+func (p *Provider) EnsureVPC(ctx context.Context, vpc *nxv1alpha1.VPC, vrf *v1alpha1.VRF) (reterr error) {
+	f := new(Feature)
+	f.Name = "vpc"
+	f.AdminSt = AdminStEnabled
+
+	v := new(VPC)
+	v.Id = vpc.Spec.DomainID
+
+	switch vpc.Spec.AdminState {
+	case "enabled":
+		v.AdminSt = AdminStEnabled
+	case "disabled":
+		v.AdminSt = AdminStDisabled
+		return fmt.Errorf("nxos-vpc: invalid admin state %q", vpc.Spec.AdminState)
+	default:
+	}
+
+	if vpc.Spec.RolePriority > 0 {
+		v.RolePrio = vpc.Spec.RolePriority
+	}
+
+	if vpc.Spec.SystemPriority > 0 {
+		v.SysPrio = vpc.Spec.SystemPriority
+	}
+
+	if vpc.Spec.DelayRestoreSVI > 0 {
+		v.DelayRestoreSVI = vpc.Spec.DelayRestoreSVI
+	}
+
+	if vpc.Spec.DelayRestoreVPC > 0 {
+		v.DelayRestoreVPC = vpc.Spec.DelayRestoreVPC
+	}
+
+	v.FastConvergence = AdminStDisabled
+	if vpc.Spec.FastConvergence.Enabled {
+		v.FastConvergence = AdminStEnabled
+	}
+
+	peer := vpc.Spec.Peer
+
+	v.PeerSwitch = AdminStDisabled
+	if peer.Switch.Enabled {
+		v.PeerSwitch = AdminStEnabled
+	}
+
+	v.PeerGateway = AdminStDisabled
+	if peer.Gateway.Enabled {
+		v.PeerGateway = AdminStEnabled
+	}
+
+	v.L3PeerRouter = AdminStDisabled
+	if peer.Router.Enabled {
+		v.L3PeerRouter = AdminStEnabled
+	}
+
+	v.AutoRecovery = AdminStDisabled
+	if peer.AutoRecovery.Enabled {
+		v.AutoRecovery = AdminStEnabled
+		v.AutoRecoveryReloadDelay = peer.AutoRecovery.ReloadDelay
+	}
+
+	ipaddr := net.ParseIP(peer.KeepAlive.Destination)
+	if ipaddr == nil {
+		return fmt.Errorf("nxos-vpc: invalid keep-alive destination IP address %q", peer.KeepAlive.Destination)
+	}
+	v.KeepAliveItems.DestIP = peer.KeepAlive.Destination
+
+	ipaddr = net.ParseIP(peer.KeepAlive.Source)
+	if ipaddr == nil {
+		return fmt.Errorf("nxos-vpc: invalid keep-alive source IP address %q", peer.KeepAlive.Source)
+	}
+	v.KeepAliveItems.SrcIP = peer.KeepAlive.Source
+
+	if vrf != nil {
+		v.KeepAliveItems.VRF = vrf.Spec.Name
+	}
+	// Patch operation required: Interface controller adds port-channels into a container within the vPC XPath.
+	return p.client.Patch(ctx, f, v)
+}
+
+func (p *Provider) DeleteVPC(ctx context.Context) error {
+	v := new(VPC)
+	return p.client.Delete(ctx, v)
+}
+
+// GetStatusVPC retrieves the current status of the vPC configuration on the device.
+func (p *Provider) GetStatusVPC(ctx context.Context) (VPCStatus, error) {
+	vpcOper := new(VPCOper)
+	if err := p.client.GetState(ctx, vpcOper); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return VPCStatus{}, err
+	}
+
+	vpcSt := VPCStatus{}
+	vpcSt.KeepAliveStatusMessage = vpcOper.KeepAliveItems.OperSt
+	vpcSt.KeepAliveStatus = false
+
+	// Cisco returns a string composed of values coming from a bitmask, which values are:
+	// https://pubhub.devnetcloud.com/media/dme-docs-10-4-3/docs/System/vpc%3AKeepalive/
+	// We only consider the "operational" value to indicate that the keep-alive link is up, any other
+	// combination indicates that the link is down or in an error state. This assumption might need to
+	// be revisited.
+	if vpcOper.KeepAliveItems.OperSt == "operational" {
+		vpcSt.KeepAliveStatus = true
+	}
+
+	if uptime, err := parsePeerUptime(vpcOper.KeepAliveItems.PeerUpTime); err == nil {
+		vpcSt.PeerUptime = uptime
+	}
+
+	switch vpcOper.Role {
+	case vpcRolePrimary:
+		vpcSt.Role = nxv1alpha1.VPCRolePrimary
+	case vpcRoleSecondary:
+		vpcSt.Role = nxv1alpha1.VPCRoleSecondary
+	case vpcRolePrimaryOperationalSecondary:
+		vpcSt.Role = nxv1alpha1.VPCRolePrimaryOperationalSecondary
+	case vpcRoleSecondaryOperationalPrimary:
+		vpcSt.Role = nxv1alpha1.VPCRoleSecondaryOperationalPrimary
+	default:
+		vpcSt.Role = nxv1alpha1.VPCRoleUnknown
+	}
+
+	return vpcSt, nil
 }
 
 func init() {

@@ -422,6 +422,9 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		cond.Reason = v1alpha1.DegradedReason
 		cond.Message = "Interface is operationally down"
 	}
+	if status.OperMessage != "" {
+		cond.Message = fmt.Sprintf("Device returned %q", status.OperMessage)
+	}
 	conditions.Set(s.Interface, cond)
 
 	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil

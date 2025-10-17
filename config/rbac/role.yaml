@@ -15,19 +15,20 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - events
-  verbs:
-  - create
-  - patch
-- apiGroups:
-  - ""
-  resources:
   - secrets
   verbs:
   - get
   - list
   - update
   - watch
+- apiGroups:
+  - ""
+  - nx.cisco.networking.metal.ironcore.dev
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
 - apiGroups:
   - networking.metal.ironcore.dev
   resources:
@@ -120,6 +121,7 @@ rules:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
   - systems
+  - vpcs
   verbs:
   - create
   - delete
@@ -132,12 +134,14 @@ rules:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
   - systems/finalizers
+  - vpcs/finalizers
   verbs:
   - update
 - apiGroups:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
   - systems/status
+  - vpcs/status
   verbs:
   - get
   - patch

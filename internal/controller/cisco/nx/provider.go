@@ -7,6 +7,7 @@ import (
 	"context"
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
+	v1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos"
 )
@@ -17,6 +18,10 @@ type Provider interface {
 
 	EnsureSystemSettings(ctx context.Context, s *nxv1alpha1.System) error
 	ResetSystemSettings(ctx context.Context) error
+
+	EnsureVPC(ctx context.Context, vpc *nxv1alpha1.VPC, vrf *v1alpha1.VRF) error
+	DeleteVPC(context.Context) error
+	GetStatusVPC(context.Context) (nxos.VPCStatus, error)
 }
 
 var _ Provider = (*nxos.Provider)(nil)
