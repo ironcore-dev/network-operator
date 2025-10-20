@@ -30,9 +30,7 @@ type Endpoint struct {
 
 	// SecretRef is name of the authentication secret for the device containing the username and password.
 	// The secret must be of type kubernetes.io/basic-auth and as such contain the following keys: 'username' and 'password'.
-	// Immutable after creation.
 	// +optional
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="SecretRef is immutable"
 	SecretRef *corev1.SecretReference `json:"secretRef,omitempty"`
 
 	// Transport credentials for grpc connection to the switch.

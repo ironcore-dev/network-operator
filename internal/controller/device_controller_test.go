@@ -10,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -22,16 +21,13 @@ var _ = Describe("Device Controller", func() {
 		const name = "test-device"
 		key := client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 
-		const secretName = "test-device-credentials"
-		secretKey := client.ObjectKey{Name: secretName, Namespace: metav1.NamespaceDefault}
-
 		BeforeEach(func() {
 			By("Creating the endpoint credentials as a Secret")
 			secret := &corev1.Secret{}
-			if err := k8sClient.Get(ctx, secretKey, secret); errors.IsNotFound(err) {
+			if err := k8sClient.Get(ctx, key, secret); errors.IsNotFound(err) {
 				resource := &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      secretName,
+						Name:      name,
 						Namespace: metav1.NamespaceDefault,
 					},
 					Data: map[string][]byte{
@@ -55,7 +51,7 @@ var _ = Describe("Device Controller", func() {
 						Endpoint: &v1alpha1.Endpoint{
 							Address: "192.168.10.2:9339",
 							SecretRef: &corev1.SecretReference{
-								Name: "test-device-credentials",
+								Name: name,
 							},
 						},
 						Bootstrap: &v1alpha1.Bootstrap{
@@ -78,34 +74,14 @@ var _ = Describe("Device Controller", func() {
 			Expect(k8sClient.Delete(ctx, device)).To(Succeed())
 
 			secret := &corev1.Secret{}
-			err = k8sClient.Get(ctx, secretKey, secret)
+			err = k8sClient.Get(ctx, key, secret)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Cleanup the specific resource instance Secret")
 			Expect(k8sClient.Delete(ctx, secret)).To(Succeed())
-
-			By("Ensuring the resource is deleted from the provider")
-			Eventually(func(g Gomega) {
-				_, ok := testProvider.Items[name]
-				g.Expect(ok).To(BeFalse(), "Resource should not exist in the provider")
-			}).Should(Succeed())
 		})
 
 		It("Should successfully reconcile the resource", func() {
-			By("Adding a finalizer to the resource")
-			Eventually(func(g Gomega) {
-				resource := &v1alpha1.Device{}
-				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
-				g.Expect(controllerutil.ContainsFinalizer(resource, v1alpha1.FinalizerName)).To(BeTrue())
-			}).Should(Succeed())
-
-			By("Adding a finalizer to the credentials secret")
-			Eventually(func(g Gomega) {
-				resource := &corev1.Secret{}
-				g.Expect(k8sClient.Get(ctx, secretKey, resource)).To(Succeed())
-				g.Expect(controllerutil.ContainsFinalizer(resource, v1alpha1.FinalizerName)).To(BeTrue())
-			}).Should(Succeed())
-
 			By("Updating the resource status")
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.Device{}

@@ -151,7 +151,6 @@ spec:
                     description: |-
                       SecretRef is name of the authentication secret for the device containing the username and password.
                       The secret must be of type kubernetes.io/basic-auth and as such contain the following keys: 'username' and 'password'.
-                      Immutable after creation.
                     properties:
                       name:
                         description: name is unique within a namespace to reference
@@ -163,9 +162,6 @@ spec:
                         type: string
                     type: object
                     x-kubernetes-map-type: atomic
-                    x-kubernetes-validations:
-                    - message: SecretRef is immutable
-                      rule: self == oldSelf
                   tls:
                     description: Transport credentials for grpc connection to the
                       switch.

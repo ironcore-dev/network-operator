@@ -67,7 +67,4 @@ const (
 
 	// ProvisioningReason indicates that the resource is being provisioned.
 	ProvisioningReason = "Provisioning"
-
-	// AllResourcesReadyReason indicates that all resources owned by the resource are ready.
-	AllResourcesReadyReason = "AllResourcesReady"
 )

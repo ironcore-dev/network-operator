@@ -5,7 +5,6 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -22,7 +21,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -82,36 +80,6 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, err
 	}
 
-	c := clientutil.NewClient(r.Client, req.Namespace)
-	ctx = clientutil.NewContext(ctx, c)
-
-	if !obj.DeletionTimestamp.IsZero() {
-		if controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
-			if err := r.finalize(ctx, obj); err != nil {
-				log.Error(err, "Failed to finalize resource")
-				return ctrl.Result{}, err
-			}
-			controllerutil.RemoveFinalizer(obj, v1alpha1.FinalizerName)
-			if err := r.Update(ctx, obj); err != nil {
-				log.Error(err, "Failed to remove finalizer from resource")
-				return ctrl.Result{}, err
-			}
-		}
-		log.Info("Resource is being deleted, skipping reconciliation")
-		return ctrl.Result{}, nil
-	}
-
-	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
-	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
-		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
-		if err := r.Update(ctx, obj); err != nil {
-			log.Error(err, "Failed to add finalizer to resource")
-			return ctrl.Result{}, err
-		}
-		log.Info("Added finalizer to resource")
-		return ctrl.Result{}, nil
-	}
-
 	orig := obj.DeepCopy()
 	if len(obj.Status.Conditions) == 0 {
 		log.Info("Initializing status conditions")
@@ -143,6 +111,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		}
 
 		log.Info("Device is in pending phase, starting provisioning")
+		c := clientutil.NewClient(r.Client, req.Namespace)
 		tmpl, err := c.Template(ctx, obj.Spec.Bootstrap.Template)
 		if err != nil {
 			log.Error(err, "Failed to get template for device provisioning")
@@ -246,29 +215,6 @@ func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Device) (reterr error) {
-	log := ctrl.LoggerFrom(ctx)
-
-	c, ok := clientutil.FromContext(ctx)
-	if !ok {
-		return errors.New("failed to get controller client from context")
-	}
-
-	if ref := device.Spec.Endpoint.SecretRef; ref != nil {
-		secret := new(corev1.Secret)
-		if err := c.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: device.Namespace}, secret); err != nil {
-			log.Error(err, "Failed to get endpoint secret for device")
-			return err
-		}
-		if !controllerutil.ContainsFinalizer(secret, v1alpha1.FinalizerName) {
-			controllerutil.AddFinalizer(secret, v1alpha1.FinalizerName)
-			if err := r.Update(ctx, secret); err != nil {
-				log.Error(err, "Failed to add finalizer to endpoint secret")
-				return err
-			}
-			log.Info("Added finalizer to endpoint secret")
-		}
-	}
-
 	if prov, ok := r.Provider().(provider.DeviceProvider); ok {
 		conn, err := deviceutil.GetDeviceConnection(ctx, r, device)
 		if err != nil {
@@ -298,36 +244,10 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 	meta.SetStatusCondition(&device.Status.Conditions, metav1.Condition{
 		Type:               v1alpha1.ReadyCondition,
 		Status:             metav1.ConditionTrue,
-		Reason:             v1alpha1.AllResourcesReadyReason,
-		Message:            "All owned resources are ready",
+		Reason:             v1alpha1.ReadyReason,
+		Message:            "Device is healthy",
 		ObservedGeneration: device.Generation,
 	})
-	return nil
-}
-
-func (r *DeviceReconciler) finalize(ctx context.Context, device *v1alpha1.Device) error {
-	log := ctrl.LoggerFrom(ctx)
-
-	c, ok := clientutil.FromContext(ctx)
-	if !ok {
-		return errors.New("failed to get controller client from context")
-	}
-
-	if ref := device.Spec.Endpoint.SecretRef; ref != nil {
-		secret := new(corev1.Secret)
-		if err := c.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: device.Namespace}, secret); err != nil {
-			log.Error(err, "Failed to get endpoint secret for device")
-			return err
-		}
-		if controllerutil.ContainsFinalizer(secret, v1alpha1.FinalizerName) {
-			controllerutil.RemoveFinalizer(secret, v1alpha1.FinalizerName)
-			if err := r.Update(ctx, secret); err != nil {
-				log.Error(err, "Failed to remove finalizer from endpoint secret")
-				return err
-			}
-			log.Info("Removed finalizer from endpoint secret")
-		}
-	}
 
 	return nil
 }
