@@ -131,6 +131,16 @@ type ManagementAccess struct {
 	Status ManagementAccessStatus `json:"status,omitempty,omitzero"`
 }
 
+// GetConditions implements conditions.Getter.
+func (ma *ManagementAccess) GetConditions() []metav1.Condition {
+	return ma.Status.Conditions
+}
+
+// SetConditions implements conditions.Setter.
+func (ma *ManagementAccess) SetConditions(conditions []metav1.Condition) {
+	ma.Status.Conditions = conditions
+}
+
 // +kubebuilder:object:root=true
 
 // ManagementAccessList contains a list of ManagementAccess

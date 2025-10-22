@@ -189,6 +189,16 @@ type Device struct {
 	Status DeviceStatus `json:"status,omitempty"`
 }
 
+// GetConditions implements conditions.Getter.
+func (d *Device) GetConditions() []metav1.Condition {
+	return d.Status.Conditions
+}
+
+// SetConditions implements conditions.Setter.
+func (d *Device) SetConditions(conditions []metav1.Condition) {
+	d.Status.Conditions = conditions
+}
+
 // GetSecretRefs returns the list of secrets referenced in the [Device] resource.
 func (d *Device) GetSecretRefs() []SecretReference {
 	refs := []SecretReference{}

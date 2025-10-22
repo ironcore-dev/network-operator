@@ -118,6 +118,16 @@ type Syslog struct {
 	Status SyslogStatus `json:"status,omitempty,omitzero"`
 }
 
+// GetConditions implements conditions.Getter.
+func (sl *Syslog) GetConditions() []metav1.Condition {
+	return sl.Status.Conditions
+}
+
+// SetConditions implements conditions.Setter.
+func (sl *Syslog) SetConditions(conditions []metav1.Condition) {
+	sl.Status.Conditions = conditions
+}
+
 // +kubebuilder:object:root=true
 
 // SyslogList contains a list of Syslog

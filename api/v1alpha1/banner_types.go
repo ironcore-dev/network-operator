@@ -61,6 +61,16 @@ type Banner struct {
 	Status BannerStatus `json:"status,omitempty,omitzero"`
 }
 
+// GetConditions implements conditions.Getter.
+func (b *Banner) GetConditions() []metav1.Condition {
+	return b.Status.Conditions
+}
+
+// SetConditions implements conditions.Setter.
+func (b *Banner) SetConditions(conditions []metav1.Condition) {
+	b.Status.Conditions = conditions
+}
+
 // +kubebuilder:object:root=true
 
 // BannerList contains a list of Banner
