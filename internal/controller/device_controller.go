@@ -14,7 +14,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -28,6 +27,7 @@ import (
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/clientutil"
+	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 )
@@ -83,14 +83,8 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 	}
 
 	orig := obj.DeepCopy()
-	if len(obj.Status.Conditions) == 0 {
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
 		log.Info("Initializing status conditions")
-		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
-			Status:  metav1.ConditionUnknown,
-			Reason:  v1alpha1.ReconcilePendingReason,
-			Message: "Starting reconciliation",
-		})
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
 
@@ -117,23 +111,21 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		tmpl, err := c.Template(ctx, &obj.Spec.Bootstrap.Template)
 		if err != nil {
 			log.Error(err, "Failed to get template for device provisioning")
-			meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-				Type:               v1alpha1.ReadyCondition,
-				Status:             metav1.ConditionFalse,
-				Reason:             v1alpha1.NotReadyReason,
-				Message:            fmt.Sprintf("Failed to get template for device provisioning: %v", err),
-				ObservedGeneration: obj.Generation,
+			conditions.Set(obj, metav1.Condition{
+				Type:    v1alpha1.ReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.NotReadyReason,
+				Message: fmt.Sprintf("Failed to get template for device provisioning: %v", err),
 			})
 			obj.Status.Phase = v1alpha1.DevicePhaseFailed
 			r.Recorder.Event(obj, "Warning", "ProvisioningFailed", "Device provisioning failed due to template retrieval error")
 			return ctrl.Result{}, err
 		}
-		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-			Type:               v1alpha1.ReadyCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             v1alpha1.ProvisioningReason,
-			Message:            "Device is being provisioned",
-			ObservedGeneration: obj.Generation,
+		conditions.Set(obj, metav1.Condition{
+			Type:    v1alpha1.ReadyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.ProvisioningReason,
+			Message: "Device is being provisioned",
 		})
 		obj.Status.Phase = v1alpha1.DevicePhaseProvisioning
 		r.Recorder.Event(obj, "Normal", "ProvisioningStarted", "Device provisioning has started")
@@ -150,12 +142,11 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 			return ctrl.Result{RequeueAfter: DefaultRequeueAfter}, nil
 		}
 		log.Info("Device provisioning is complete, updating status")
-		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-			Type:               v1alpha1.ReadyCondition,
-			Status:             metav1.ConditionTrue,
-			Reason:             v1alpha1.ReadyReason,
-			Message:            "Device is ready for use",
-			ObservedGeneration: obj.Generation,
+		conditions.Set(obj, metav1.Condition{
+			Type:    v1alpha1.ReadyCondition,
+			Status:  metav1.ConditionTrue,
+			Reason:  v1alpha1.ReadyReason,
+			Message: "Device is ready for use",
 		})
 		obj.Status.Phase = v1alpha1.DevicePhaseActive
 		r.Recorder.Event(obj, "Normal", "ProvisioningComplete", "Device provisioning has completed successfully")
@@ -169,12 +160,11 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		}
 
 	case v1alpha1.DevicePhaseFailed:
-		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-			Type:               v1alpha1.ReadyCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             v1alpha1.NotReadyReason,
-			Message:            "Device provisioning has failed",
-			ObservedGeneration: obj.Generation,
+		conditions.Set(obj, metav1.Condition{
+			Type:    v1alpha1.ReadyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.NotReadyReason,
+			Message: "Device provisioning has failed",
 		})
 
 	default:
@@ -285,12 +275,11 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 		device.Status.FirmwareVersion = info.FirmwareVersion
 	}
 
-	meta.SetStatusCondition(&device.Status.Conditions, metav1.Condition{
-		Type:               v1alpha1.ReadyCondition,
-		Status:             metav1.ConditionTrue,
-		Reason:             v1alpha1.ReadyReason,
-		Message:            "Device is healthy",
-		ObservedGeneration: device.Generation,
+	conditions.Set(device, metav1.Condition{
+		Type:    v1alpha1.ReadyCondition,
+		Status:  metav1.ConditionTrue,
+		Reason:  v1alpha1.ReadyReason,
+		Message: "Device is healthy",
 	})
 
 	return nil

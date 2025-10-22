@@ -8,6 +8,7 @@ import (
 	"cmp"
 	"slices"
 
+	grpcstatus "google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -134,4 +135,29 @@ func Sort(conditions []metav1.Condition) {
 			return cmp.Compare(i.Type, j.Type)
 		}
 	})
+}
+
+// FromError creates a [v1alpha1.ConfiguredCondition] from the given error.
+// If the error is nil, it returns a condition indicating success.
+// If the error is a gRPC status error, it extracts the code and message
+// to populate the condition's Reason and Message fields.
+func FromError(err error) metav1.Condition {
+	cond := metav1.Condition{
+		Type:    v1alpha1.ConfiguredCondition,
+		Status:  metav1.ConditionTrue,
+		Reason:  v1alpha1.ConfiguredReason,
+		Message: "Configured successfully",
+	}
+	if err != nil {
+		cond.Status = metav1.ConditionFalse
+		cond.Reason = v1alpha1.ErrorReason
+		cond.Message = err.Error()
+
+		// If the error is a gRPC status error, extract the code and message
+		if statusErr, ok := grpcstatus.FromError(err); ok {
+			cond.Reason = statusErr.Code().String()
+			cond.Message = statusErr.Message()
+		}
+	}
+	return cond
 }

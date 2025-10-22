@@ -44,10 +44,15 @@ const DeviceKind = "Device"
 
 // Condition types that are used across different objects.
 const (
-	// Ready is the top-level status condition that reports if an object is ready.
-	// This condition indicates whether the resource is ready to be used and will be calculated by the
-	// controller based on child conditions, if present.
+	// ReadyCondition is the top-level status condition that reports if an object is ready.
+	// This condition indicates whether the resource is ready to be used and will
+	// be calculated by the controller based on child conditions, if present.
 	ReadyCondition = "Ready"
+
+	// ConfiguredCondition indicates whether the resource has been successfully configured.
+	// This condition indicates whether the desired configuration has been applied to the device
+	// (i.e., all necessary API calls succeeded).
+	ConfiguredCondition = "Configured"
 )
 
 // Reasons that are used across different objects.
@@ -67,4 +72,10 @@ const (
 
 	// ProvisioningReason indicates that the resource is being provisioned.
 	ProvisioningReason = "Provisioning"
+
+	// ConfiguredReason indicates that the resource has been successfully configured.
+	ConfiguredReason = "Configured"
+
+	// ErrorReason indicates that an error occurred while reconciling the resource.
+	ErrorReason = "Error"
 )

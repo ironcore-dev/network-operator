@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 )
@@ -72,13 +73,15 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	prov, ok := r.Provider().(provider.InterfaceProvider)
 	if !ok {
-		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
+		if meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
 			Type:    v1alpha1.ReadyCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  v1alpha1.NotImplementedReason,
 			Message: "Provider does not implement provider.InterfaceProvider",
-		})
-		return ctrl.Result{}, r.Status().Update(ctx, obj)
+		}) {
+			return ctrl.Result{}, r.Status().Update(ctx, obj)
+		}
+		return ctrl.Result{}, nil
 	}
 
 	device, err := deviceutil.GetDeviceByName(ctx, r, obj.Namespace, obj.Spec.DeviceRef.Name)
@@ -135,14 +138,8 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	orig := obj.DeepCopy()
-	if len(obj.Status.Conditions) == 0 {
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition) {
 		log.Info("Initializing status conditions")
-		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
-			Status:  metav1.ConditionUnknown,
-			Reason:  v1alpha1.ReconcilePendingReason,
-			Message: "Starting reconciliation",
-		})
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
 
@@ -224,25 +221,22 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		}
 	}()
 
+	defer func() {
+		conditions.RecomputeReady(s.Interface)
+	}()
+
 	// Ensure the Interface is realized on the provider.
 	res, err := s.Provider.EnsureInterface(ctx, &provider.InterfaceRequest{
 		Interface:      s.Interface,
 		ProviderConfig: s.ProviderConfig,
 	})
-	for _, c := range res.Conditions {
-		meta.SetStatusCondition(&s.Interface.Status.Conditions, c)
-	}
+
+	cond := conditions.FromError(err)
+	conditions.Set(s.Interface, cond)
+
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
-	meta.SetStatusCondition(&s.Interface.Status.Conditions, metav1.Condition{
-		Type:               v1alpha1.ReadyCondition,
-		Status:             metav1.ConditionTrue,
-		Reason:             v1alpha1.ReadyReason,
-		Message:            "Interface configured successfully",
-		ObservedGeneration: s.Interface.Generation,
-	})
 
 	return ctrl.Result{RequeueAfter: res.RequeueAfter}, nil
 }
