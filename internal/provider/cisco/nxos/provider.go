@@ -20,8 +20,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/status"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
@@ -121,10 +119,6 @@ func (p *Provider) GetDeviceInfo(ctx context.Context) (*provider.DeviceInfo, err
 }
 
 func (p *Provider) EnsureACL(ctx context.Context, req *provider.EnsureACLRequest) (res provider.Result, reterr error) {
-	defer func() {
-		res = WithErrorConditions(res, reterr)
-	}()
-
 	a := new(ACL)
 	a.Name = req.ACL.Spec.Name
 	for i, entry := range req.ACL.Spec.Entries {
@@ -170,10 +164,6 @@ func (p *Provider) DeleteACL(ctx context.Context, req *provider.DeleteACLRequest
 }
 
 func (p *Provider) EnsureBanner(ctx context.Context, req *provider.BannerRequest) (res provider.Result, reterr error) {
-	defer func() {
-		res = WithErrorConditions(res, reterr)
-	}()
-
 	// See: https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/104x/configuration/fundamentals/cisco-nexus-9000-series-nx-os-fundamentals-configuration-guide-release-104x/m-basic-device-management.html#task_1174841
 	lines := strings.Split(req.Message, "\n")
 	if len(lines) > 40 {
@@ -217,10 +207,6 @@ type L2EVPN struct {
 }
 
 func (p *Provider) EnsureBGP(ctx context.Context, req *BGPRequest) (res provider.Result, reterr error) {
-	defer func() {
-		res = WithErrorConditions(res, reterr)
-	}()
-
 	if !req.RouterID.Is4() {
 		return provider.Result{}, fmt.Errorf("bgp: router ID must be an IPv4 address, got %q", req.RouterID)
 	}
@@ -302,10 +288,6 @@ type PeerL2EVPN struct {
 }
 
 func (p *Provider) EnsureBGPPeer(ctx context.Context, req *BGPPeerRequest) (res provider.Result, reterr error) {
-	defer func() {
-		res = WithErrorConditions(res, reterr)
-	}()
-
 	if !req.Addr.IsValid() {
 		return provider.Result{}, fmt.Errorf("bgp peer: neighbor address %q is not a valid IP address", req.Addr)
 	}
@@ -378,10 +360,6 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *BGPPeerRequest) (res 
 }
 
 func (p *Provider) EnsureCertificate(ctx context.Context, req *provider.EnsureCertificateRequest) (res provider.Result, reterr error) {
-	defer func() {
-		res = WithErrorConditions(res, reterr)
-	}()
-
 	tp := new(Trustpoint)
 	tp.Name = req.ID
 
@@ -416,10 +394,6 @@ func (p *Provider) DeleteCertificate(ctx context.Context, req *provider.DeleteCe
 }
 
 func (p *Provider) EnsureDNS(ctx context.Context, req *provider.EnsureDNSRequest) (res provider.Result, reterr error) {
-	defer func() {
-		res = WithErrorConditions(res, reterr)
-	}()
-
 	d := new(DNS)
 	d.AdminSt = AdminStEnabled
 	pf := new(DNSProf)
@@ -464,10 +438,6 @@ func (p *Provider) DeleteDNS(ctx context.Context) error {
 }
 
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) (res provider.Result, reterr error) {
-	defer func() {
-		res = WithErrorConditions(res, reterr)
-	}()
-
 	name, err := ShortName(req.Interface.Spec.Name)
 	if err != nil {
 		return provider.Result{}, err
@@ -722,10 +692,6 @@ func (p *Provider) EnsureInterfacesExist(ctx context.Context, interfaces []*v1al
 }
 
 func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISRequest) (res provider.Result, reterr error) {
-	defer func() {
-		res = WithErrorConditions(res, reterr)
-	}()
-
 	f := new(Feature)
 	f.Name = "isis"
 	f.AdminSt = AdminStEnabled
@@ -848,10 +814,6 @@ func (p *Provider) DeleteISIS(ctx context.Context, req *provider.DeleteISISReque
 }
 
 func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.EnsureManagementAccessRequest) (res provider.Result, reterr error) {
-	defer func() {
-		res = WithErrorConditions(res, reterr)
-	}()
-
 	gf := new(Feature)
 	gf.Name = "grpc"
 	gf.AdminSt = AdminStEnabled
@@ -920,10 +882,6 @@ type NTPConfig struct {
 }
 
 func (p *Provider) EnsureNTP(ctx context.Context, req *provider.EnsureNTPRequest) (res provider.Result, reterr error) {
-	defer func() {
-		res = WithErrorConditions(res, reterr)
-	}()
-
 	var cfg NTPConfig
 	if req.ProviderConfig != nil {
 		if err := req.ProviderConfig.Into(&cfg); err != nil {
@@ -988,10 +946,6 @@ type NVERequest struct {
 }
 
 func (p *Provider) EnsureNVE(ctx context.Context, req *NVERequest) (res provider.Result, reterr error) {
-	defer func() {
-		res = WithErrorConditions(res, reterr)
-	}()
-
 	f := new(Feature)
 	f.Name = "nvo"
 	f.AdminSt = AdminStEnabled
@@ -1109,10 +1063,6 @@ type EnsureOSPFRequest struct {
 }
 
 func (p *Provider) EnsureOSPF(ctx context.Context, req *EnsureOSPFRequest) (res provider.Result, reterr error) {
-	defer func() {
-		res = WithErrorConditions(res, reterr)
-	}()
-
 	f := new(Feature)
 	f.Name = "ospf"
 	f.AdminSt = AdminStEnabled
@@ -1245,10 +1195,6 @@ type EnsurePIMRequest struct {
 }
 
 func (p *Provider) EnsurePIM(ctx context.Context, req *EnsurePIMRequest) (res provider.Result, reterr error) {
-	defer func() {
-		res = WithErrorConditions(res, reterr)
-	}()
-
 	addr := req.RendezvousPoint.Addr
 	if !addr.IsValid() || !addr.Is4() {
 		return provider.Result{}, fmt.Errorf("pim: rendezvous point address %q is not a valid IPv4 address", addr)
@@ -1322,10 +1268,6 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *EnsurePIMRequest) (res pr
 }
 
 func (p *Provider) EnsureUser(ctx context.Context, req *provider.EnsureUserRequest) (res provider.Result, reterr error) {
-	defer func() {
-		res = WithErrorConditions(res, reterr)
-	}()
-
 	u := new(User)
 	u.AllowExpired = "no"
 	u.Expiration = "never"
@@ -1398,10 +1340,6 @@ func (p *Provider) DeleteUser(ctx context.Context, req *provider.DeleteUserReque
 // System Information:
 //   - Empty strings are converted to "DME_UNSET_PROPERTY_MARKER" for deletion
 func (p *Provider) EnsureSNMP(ctx context.Context, req *provider.EnsureSNMPRequest) (res provider.Result, reterr error) {
-	defer func() {
-		res = WithErrorConditions(res, reterr)
-	}()
-
 	sysInfo := new(SNMPSysInfo)
 	sysInfo.SysContact = NewOption(req.SNMP.Spec.Contact)
 	sysInfo.SysLocation = NewOption(req.SNMP.Spec.Location)
@@ -1508,10 +1446,6 @@ type SyslogConfig struct {
 }
 
 func (p *Provider) EnsureSyslog(ctx context.Context, req *provider.EnsureSyslogRequest) (res provider.Result, reterr error) {
-	defer func() {
-		res = WithErrorConditions(res, reterr)
-	}()
-
 	var cfg SyslogConfig
 	cfg.OriginID = req.Syslog.Name
 	cfg.SourceInterfaceName = "mgmt0"
@@ -1602,10 +1536,6 @@ type VRFRequest struct {
 
 //nolint:gocritic
 func (p *Provider) EnsureVRF(ctx context.Context, req *VRFRequest) (res provider.Result, reterr error) {
-	defer func() {
-		res = WithErrorConditions(res, reterr)
-	}()
-
 	v := new(VRF)
 	v.Name = req.Name
 	if req.VNI != nil {
@@ -1745,28 +1675,6 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *VRFRequest) (res provider
 	}
 
 	return provider.Result{}, p.client.Update(ctx, v)
-}
-
-func WithErrorConditions(res provider.Result, err error) provider.Result {
-	cond := metav1.Condition{
-		Type:    "Configured",
-		Status:  metav1.ConditionTrue,
-		Reason:  "Success",
-		Message: "Successfully applied configuration via gNMI",
-	}
-	if err != nil {
-		cond.Status = metav1.ConditionFalse
-		cond.Reason = "Error"
-		cond.Message = err.Error()
-
-		// If the error is a gRPC status error, extract the code and message
-		if statusErr, ok := status.FromError(err); ok {
-			cond.Reason = statusErr.Code().String()
-			cond.Message = statusErr.Message()
-		}
-	}
-	meta.SetStatusCondition(&res.Conditions, cond)
-	return res
 }
 
 func init() {

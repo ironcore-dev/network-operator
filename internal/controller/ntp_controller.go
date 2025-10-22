@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 )
@@ -72,13 +73,15 @@ func (r *NTPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 
 	prov, ok := r.Provider().(provider.NTPProvider)
 	if !ok {
-		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
+		if meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
 			Type:    v1alpha1.ReadyCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  v1alpha1.NotImplementedReason,
 			Message: "Provider does not implement provider.NTPProvider",
-		})
-		return ctrl.Result{}, r.Status().Update(ctx, obj)
+		}) {
+			return ctrl.Result{}, r.Status().Update(ctx, obj)
+		}
+		return ctrl.Result{}, nil
 	}
 
 	device, err := deviceutil.GetDeviceByName(ctx, r, obj.Namespace, obj.Spec.DeviceRef.Name)
@@ -135,14 +138,8 @@ func (r *NTPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 	}
 
 	orig := obj.DeepCopy()
-	if len(obj.Status.Conditions) == 0 {
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
 		log.Info("Initializing status conditions")
-		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
-			Status:  metav1.ConditionUnknown,
-			Reason:  v1alpha1.ReconcilePendingReason,
-			Message: "Starting reconciliation",
-		})
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
 
@@ -229,20 +226,15 @@ func (r *NTPReconciler) reconcile(ctx context.Context, s *ntpScope) (_ ctrl.Resu
 		NTP:            s.NTP,
 		ProviderConfig: s.ProviderConfig,
 	})
-	for _, c := range res.Conditions {
-		meta.SetStatusCondition(&s.NTP.Status.Conditions, c)
-	}
+
+	cond := conditions.FromError(err)
+	// As this resource is configuration only, we use the Configured condition as top-level Ready condition.
+	cond.Type = v1alpha1.ReadyCondition
+	conditions.Set(s.NTP, cond)
+
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
-	meta.SetStatusCondition(&s.NTP.Status.Conditions, metav1.Condition{
-		Type:               v1alpha1.ReadyCondition,
-		Status:             metav1.ConditionTrue,
-		Reason:             v1alpha1.ReadyReason,
-		Message:            "NTP configured successfully",
-		ObservedGeneration: s.NTP.Generation,
-	})
 
 	return ctrl.Result{RequeueAfter: res.RequeueAfter}, nil
 }

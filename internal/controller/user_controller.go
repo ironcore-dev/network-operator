@@ -25,6 +25,7 @@ import (
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/clientutil"
+	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 )
@@ -78,13 +79,15 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 
 	prov, ok := r.Provider().(provider.UserProvider)
 	if !ok {
-		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
+		if meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
 			Type:    v1alpha1.ReadyCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  v1alpha1.NotImplementedReason,
 			Message: "Provider does not implement provider.UserProvider",
-		})
-		return ctrl.Result{}, r.Status().Update(ctx, obj)
+		}) {
+			return ctrl.Result{}, r.Status().Update(ctx, obj)
+		}
+		return ctrl.Result{}, nil
 	}
 
 	device, err := deviceutil.GetDeviceByName(ctx, r, obj.Namespace, obj.Spec.DeviceRef.Name)
@@ -141,14 +144,8 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 	}
 
 	orig := obj.DeepCopy()
-	if len(obj.Status.Conditions) == 0 {
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
 		log.Info("Initializing status conditions")
-		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
-			Status:  metav1.ConditionUnknown,
-			Reason:  v1alpha1.ReconcilePendingReason,
-			Message: "Starting reconciliation",
-		})
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
 
@@ -264,20 +261,15 @@ func (r *UserReconciler) reconcile(ctx context.Context, s *userScope) (_ ctrl.Re
 		SSHKey:         sshKey,
 		ProviderConfig: s.ProviderConfig,
 	})
-	for _, c := range res.Conditions {
-		meta.SetStatusCondition(&s.User.Status.Conditions, c)
-	}
+
+	cond := conditions.FromError(err)
+	// As this resource is configuration only, we use the Configured condition as top-level Ready condition.
+	cond.Type = v1alpha1.ReadyCondition
+	conditions.Set(s.User, cond)
+
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
-	meta.SetStatusCondition(&s.User.Status.Conditions, metav1.Condition{
-		Type:               v1alpha1.ReadyCondition,
-		Status:             metav1.ConditionTrue,
-		Reason:             v1alpha1.ReadyReason,
-		Message:            "User configured successfully",
-		ObservedGeneration: s.User.Generation,
-	})
 
 	return ctrl.Result{RequeueAfter: res.RequeueAfter}, nil
 }
