@@ -14,7 +14,7 @@ type ASCIIStr string
 // String decodes the ASCIIStr into a regular string, stopping at the first null character (ASCII code 0).
 func (s ASCIIStr) String() string {
 	var runes []rune
-	for _, v := range strings.Split(string(s), ",") {
+	for v := range strings.SplitSeq(string(s), ",") {
 		if v == "0" {
 			break
 		}
