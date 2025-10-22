@@ -22,6 +22,7 @@ var (
 	_ gnmiext.Configurable = (*PhysIfOperItems)(nil)
 	_ gnmiext.Configurable = (*VrfMember)(nil)
 	_ gnmiext.Configurable = (*SpanningTree)(nil)
+	_ gnmiext.Defaultable  = (*SpanningTree)(nil)
 	_ gnmiext.Configurable = (*AddrItem)(nil)
 )
 
@@ -135,6 +136,11 @@ func (s *SpanningTree) IsListItem() {}
 
 func (s *SpanningTree) XPath() string {
 	return "System/stp-items/inst-items/if-items/If-list[id=" + s.IfName + "]"
+}
+
+func (s *SpanningTree) Default() {
+	s.AdminSt = AdminStDisabled
+	s.Mode = SpanningTreeModeDefault
 }
 
 // PortChannel represents a port-channel (LAG) interface on a NX-OS device.
@@ -307,6 +313,7 @@ const (
 type SpanningTreeMode string
 
 const (
+	SpanningTreeModeDefault SpanningTreeMode = "default"
 	SpanningTreeModeEdge    SpanningTreeMode = "edge"
 	SpanningTreeModeNetwork SpanningTreeMode = "network"
 	SpanningTreeModeTrunk   SpanningTreeMode = "trunk"

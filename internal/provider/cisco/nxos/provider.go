@@ -649,15 +649,16 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 	addr6.ID = name
 	addr6.Is6 = true
 
-	stp := new(SpanningTree)
-	stp.IfName = name
-
-	conf := []gnmiext.Configurable{addr, addr6, stp}
+	conf := []gnmiext.Configurable{addr, addr6}
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
 		p := new(PhysIf)
 		p.ID = name
 		conf = append(conf, p)
+
+		stp := new(SpanningTree)
+		stp.IfName = name
+		conf = append(conf, stp)
 	case v1alpha1.InterfaceTypeLoopback:
 		lb := new(Loopback)
 		lb.ID = name
