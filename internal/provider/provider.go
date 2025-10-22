@@ -77,11 +77,18 @@ type InterfaceProvider interface {
 	EnsureInterface(context.Context, *InterfaceRequest) (Result, error)
 	// DeleteInterface call is responsible for Interface deletion on the provider.
 	DeleteInterface(context.Context, *InterfaceRequest) error
+	// GetInterfaceStatus call is responsible for retrieving the current status of the Interface from the provider.
+	GetInterfaceStatus(context.Context, *InterfaceRequest) (InterfaceStatus, error)
 }
 
 type InterfaceRequest struct {
 	Interface      *v1alpha1.Interface
 	ProviderConfig *ProviderConfig
+}
+
+type InterfaceStatus struct {
+	// OperStatus indicates whether the interface is operationally up (true) or down (false).
+	OperStatus bool
 }
 
 // BannerProvider is the interface for the realization of the Banner objects over different providers.

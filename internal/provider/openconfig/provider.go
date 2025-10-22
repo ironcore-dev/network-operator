@@ -139,6 +139,10 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 	return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
 }
 
+func (p *Provider) GetInterfaceStatus(context.Context, *provider.InterfaceRequest) (provider.InterfaceStatus, error) {
+	return provider.InterfaceStatus{}, nil
+}
+
 func init() {
 	provider.Register("openconfig", NewProvider)
 }

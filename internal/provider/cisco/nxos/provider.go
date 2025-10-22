@@ -669,6 +669,34 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 	return p.client.Delete(ctx, conf...)
 }
 
+func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.InterfaceRequest) (provider.InterfaceStatus, error) {
+	var operSt AdminSt2
+	switch req.Interface.Spec.Type {
+	case v1alpha1.InterfaceTypePhysical:
+		phys := new(PhysIfOperItems)
+		phys.ID = req.Interface.Spec.Name
+		if err := p.client.GetState(ctx, phys); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return provider.InterfaceStatus{}, err
+		}
+		operSt = phys.OperSt
+
+	case v1alpha1.InterfaceTypeLoopback:
+		lb := new(LoopbackOperItems)
+		lb.ID = req.Interface.Spec.Name
+		if err := p.client.GetState(ctx, lb); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return provider.InterfaceStatus{}, err
+		}
+		operSt = lb.OperSt
+
+	default:
+		return provider.InterfaceStatus{}, fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
+	}
+
+	return provider.InterfaceStatus{
+		OperStatus: operSt == AdminStUp,
+	}, nil
+}
+
 var ErrInterfaceNotFound = errors.New("one or more interfaces do not exist")
 
 func (p *Provider) EnsureInterfacesExist(ctx context.Context, interfaces []*v1alpha1.Interface) (names []string, err error) {

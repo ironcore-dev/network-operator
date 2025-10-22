@@ -53,6 +53,12 @@ const (
 	// This condition indicates whether the desired configuration has been applied to the device
 	// (i.e., all necessary API calls succeeded).
 	ConfiguredCondition = "Configured"
+
+	// OperationalCondition indicates whether the resource is operational.
+	// This condition indicates whether the resource is in a state that allows it to function as
+	// intended (e.g., a interface is up). It corresponds to the "oper-status" commonly found
+	// in the OpenConfig models (or "operSt" on Cisco).
+	OperationalCondition = "Operational"
 )
 
 // Reasons that are used across different objects.
@@ -75,6 +81,12 @@ const (
 
 	// ConfiguredReason indicates that the resource has been successfully configured.
 	ConfiguredReason = "Configured"
+
+	// OperationalReason indicates that the resource is operational.
+	OperationalReason = "Operational"
+
+	// DegradedReason indicates that the resource is in a degraded state.
+	DegradedReason = "Degraded"
 
 	// ErrorReason indicates that an error occurred while reconciling the resource.
 	ErrorReason = "Error"

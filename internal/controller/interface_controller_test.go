@@ -108,11 +108,13 @@ var _ = Describe("Interface Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.Interface{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(2))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
 				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.OperationalCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionTrue))
 			}).Should(Succeed())
 
 			By("Ensuring the resource is created in the provider")

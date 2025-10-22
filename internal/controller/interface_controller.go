@@ -138,7 +138,7 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	orig := obj.DeepCopy()
-	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition) {
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition, v1alpha1.OperationalCondition) {
 		log.Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
@@ -237,6 +237,27 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	status, err := s.Provider.GetInterfaceStatus(ctx, &provider.InterfaceRequest{
+		Interface:      s.Interface,
+		ProviderConfig: s.ProviderConfig,
+	})
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to get interface status: %w", err)
+	}
+
+	cond = metav1.Condition{
+		Type:    v1alpha1.OperationalCondition,
+		Status:  metav1.ConditionTrue,
+		Reason:  v1alpha1.OperationalReason,
+		Message: "Interface is operationally up",
+	}
+	if !status.OperStatus {
+		cond.Status = metav1.ConditionFalse
+		cond.Reason = v1alpha1.DegradedReason
+		cond.Message = "Interface is operationally down"
+	}
+	conditions.Set(s.Interface, cond)
 
 	return ctrl.Result{RequeueAfter: res.RequeueAfter}, nil
 }

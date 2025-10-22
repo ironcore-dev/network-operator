@@ -313,6 +313,12 @@ func (p *Provider) DeleteInterface(_ context.Context, req *provider.InterfaceReq
 	return nil
 }
 
+func (p *Provider) GetInterfaceStatus(context.Context, *provider.InterfaceRequest) (provider.InterfaceStatus, error) {
+	return provider.InterfaceStatus{
+		OperStatus: true,
+	}, nil
+}
+
 func (p *Provider) EnsureBanner(_ context.Context, req *provider.BannerRequest) (provider.Result, error) {
 	p.Lock()
 	defer p.Unlock()

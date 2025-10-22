@@ -16,8 +16,10 @@ import (
 
 var (
 	_ gnmiext.Configurable = (*Loopback)(nil)
+	_ gnmiext.Configurable = (*LoopbackOperItems)(nil)
 	_ gnmiext.Configurable = (*PhysIf)(nil)
 	_ gnmiext.Defaultable  = (*PhysIf)(nil)
+	_ gnmiext.Configurable = (*PhysIfOperItems)(nil)
 	_ gnmiext.Configurable = (*VrfMember)(nil)
 	_ gnmiext.Configurable = (*SpanningTree)(nil)
 	_ gnmiext.Configurable = (*AddrItem)(nil)
@@ -35,6 +37,15 @@ func (l *Loopback) IsListItem() {}
 
 func (l *Loopback) XPath() string {
 	return "System/intf-items/lb-items/LbRtdIf-list[id=" + l.ID + "]"
+}
+
+type LoopbackOperItems struct {
+	ID     string   `json:"-"`
+	OperSt AdminSt2 `json:"operSt"`
+}
+
+func (l *LoopbackOperItems) XPath() string {
+	return "System/intf-items/lb-items/LbRtdIf-list[id=" + l.ID + "]/lbrtdif-items"
 }
 
 const (
@@ -82,6 +93,15 @@ func (p *PhysIf) Default() {
 	p.NativeVlan = DefaultVLAN
 	p.TrunkVlans = DefaultVLANRange
 	p.UserCfgdFlags = "admin_state"
+}
+
+type PhysIfOperItems struct {
+	ID     string   `json:"-"`
+	OperSt AdminSt2 `json:"operSt"`
+}
+
+func (p *PhysIfOperItems) XPath() string {
+	return "System/intf-items/phys-items/PhysIf-list[id=" + p.ID + "]/phys-items"
 }
 
 // VrfMember represents a VRF associtation for an interface.
