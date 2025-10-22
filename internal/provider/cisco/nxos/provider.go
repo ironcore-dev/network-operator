@@ -646,7 +646,7 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 	addr.ID = name
 
 	addr6 := new(AddrItem)
-	addr.ID = name
+	addr6.ID = name
 	addr6.Is6 = true
 
 	stp := new(SpanningTree)
