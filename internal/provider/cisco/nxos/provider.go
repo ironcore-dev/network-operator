@@ -86,7 +86,7 @@ func (p *Provider) ListPorts(ctx context.Context) ([]provider.DevicePort, error)
 	dp := make([]provider.DevicePort, len(ports.PhysIfList))
 	for i, p := range ports.PhysIfList {
 		var speeds []int32
-		for _, s := range strings.Split(p.PhysItems.PortcapItems.Speed, ",") {
+		for s := range strings.SplitSeq(p.PhysItems.PortcapItems.Speed, ",") {
 			if n, err := strconv.ParseInt(s, 10, 32); err == nil {
 				speeds = append(speeds, int32(n))
 			}
