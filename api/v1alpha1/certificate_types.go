@@ -71,6 +71,16 @@ type Certificate struct {
 	Status CertificateStatus `json:"status,omitempty,omitzero"`
 }
 
+// GetConditions implements conditions.Getter.
+func (cert *Certificate) GetConditions() []metav1.Condition {
+	return cert.Status.Conditions
+}
+
+// SetConditions implements conditions.Setter.
+func (cert *Certificate) SetConditions(conditions []metav1.Condition) {
+	cert.Status.Conditions = conditions
+}
+
 // +kubebuilder:object:root=true
 
 // CertificateList contains a list of Certificate

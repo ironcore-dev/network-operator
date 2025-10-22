@@ -137,6 +137,16 @@ type ISIS struct {
 	Status ISISStatus `json:"status,omitempty,omitzero"`
 }
 
+// GetConditions implements conditions.Getter.
+func (isis *ISIS) GetConditions() []metav1.Condition {
+	return isis.Status.Conditions
+}
+
+// SetConditions implements conditions.Setter.
+func (isis *ISIS) SetConditions(conditions []metav1.Condition) {
+	isis.Status.Conditions = conditions
+}
+
 // +kubebuilder:object:root=true
 
 // ISISList contains a list of ISIS

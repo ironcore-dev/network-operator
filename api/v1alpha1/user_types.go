@@ -104,6 +104,16 @@ type User struct {
 	Status UserStatus `json:"status,omitempty,omitzero"`
 }
 
+// GetConditions implements conditions.Getter.
+func (user *User) GetConditions() []metav1.Condition {
+	return user.Status.Conditions
+}
+
+// SetConditions implements conditions.Setter.
+func (user *User) SetConditions(conditions []metav1.Condition) {
+	user.Status.Conditions = conditions
+}
+
 // +kubebuilder:object:root=true
 
 // UserList contains a list of User

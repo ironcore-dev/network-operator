@@ -132,6 +132,16 @@ type AccessControlList struct {
 	Status AccessControlListStatus `json:"status,omitempty,omitzero"`
 }
 
+// GetConditions implements conditions.Getter.
+func (acl *AccessControlList) GetConditions() []metav1.Condition {
+	return acl.Status.Conditions
+}
+
+// SetConditions implements conditions.Setter.
+func (acl *AccessControlList) SetConditions(conditions []metav1.Condition) {
+	acl.Status.Conditions = conditions
+}
+
 // +kubebuilder:object:root=true
 
 // AccessControlListList contains a list of AccessControlList

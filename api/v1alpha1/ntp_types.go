@@ -88,6 +88,16 @@ type NTP struct {
 	Status NTPStatus `json:"status,omitempty,omitzero"`
 }
 
+// GetConditions implements conditions.Getter.
+func (ntp *NTP) GetConditions() []metav1.Condition {
+	return ntp.Status.Conditions
+}
+
+// SetConditions implements conditions.Setter.
+func (ntp *NTP) SetConditions(conditions []metav1.Condition) {
+	ntp.Status.Conditions = conditions
+}
+
 // +kubebuilder:object:root=true
 
 // NTPList contains a list of NTP

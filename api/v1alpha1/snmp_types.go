@@ -148,6 +148,16 @@ type SNMP struct {
 	Status SNMPStatus `json:"status,omitempty,omitzero"`
 }
 
+// GetConditions implements conditions.Getter.
+func (snmp *SNMP) GetConditions() []metav1.Condition {
+	return snmp.Status.Conditions
+}
+
+// SetConditions implements conditions.Setter.
+func (snmp *SNMP) SetConditions(conditions []metav1.Condition) {
+	snmp.Status.Conditions = conditions
+}
+
 // +kubebuilder:object:root=true
 
 // SNMPList contains a list of SNMP

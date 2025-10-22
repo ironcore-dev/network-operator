@@ -91,6 +91,16 @@ type DNS struct {
 	Status DNSStatus `json:"status,omitempty,omitzero"`
 }
 
+// GetConditions implements conditions.Getter.
+func (dns *DNS) GetConditions() []metav1.Condition {
+	return dns.Status.Conditions
+}
+
+// SetConditions implements conditions.Setter.
+func (dns *DNS) SetConditions(conditions []metav1.Condition) {
+	dns.Status.Conditions = conditions
+}
+
 // +kubebuilder:object:root=true
 
 // DNSList contains a list of DNS

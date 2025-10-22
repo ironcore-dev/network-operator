@@ -165,6 +165,16 @@ type Interface struct {
 	Status InterfaceStatus `json:"status,omitempty,omitzero"`
 }
 
+// GetConditions implements conditions.Getter.
+func (in *Interface) GetConditions() []metav1.Condition {
+	return in.Status.Conditions
+}
+
+// SetConditions implements conditions.Setter.
+func (in *Interface) SetConditions(conditions []metav1.Condition) {
+	in.Status.Conditions = conditions
+}
+
 // +kubebuilder:object:root=true
 
 // InterfaceList contains a list of Interface.
