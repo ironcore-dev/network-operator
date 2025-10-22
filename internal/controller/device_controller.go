@@ -6,7 +6,9 @@ package controller
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
+	"math/rand/v2"
 	"slices"
 	"strings"
 	"time"
@@ -32,8 +34,6 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider"
 )
 
-const DefaultRequeueAfter = 30 * time.Second
-
 // DeviceReconciler reconciles a Device object
 type DeviceReconciler struct {
 	client.Client
@@ -48,6 +48,10 @@ type DeviceReconciler struct {
 
 	// Provider is the driver that will be used to create & delete the interface.
 	Provider provider.ProviderFunc
+
+	// RequeueInterval is the duration after which the controller should requeue the reconciliation,
+	// regardless of changes.
+	RequeueInterval time.Duration
 }
 
 // +kubebuilder:rbac:groups=networking.cloud.sap,resources=devices,verbs=get;list;watch;create;update;patch;delete
@@ -131,7 +135,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		r.Recorder.Event(obj, "Normal", "ProvisioningStarted", "Device provisioning has started")
 		// TODO(swagner-de): Start POAP Process.
 		_ = tmpl // <-- Use the template.
-		return ctrl.Result{RequeueAfter: DefaultRequeueAfter}, nil
+		return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
 
 	case v1alpha1.DevicePhaseProvisioning:
 		log.Info("Device is in provisioning phase, checking completion")
@@ -139,7 +143,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		ready := true // <-- This should be replaced with actual readiness check logic.
 		if !ready {
 			// If the device is not ready yet, we requeue the request to check again later.
-			return ctrl.Result{RequeueAfter: DefaultRequeueAfter}, nil
+			return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
 		}
 		log.Info("Device provisioning is complete, updating status")
 		conditions.Set(obj, metav1.Condition{
@@ -177,6 +181,10 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.RequeueInterval == 0 {
+		return errors.New("requeue interval must not be 0")
+	}
+
 	labelSelector := metav1.LabelSelector{}
 	if r.WatchFilterValue != "" {
 		labelSelector.MatchLabels = map[string]string{v1alpha1.WatchLabel: r.WatchFilterValue}
@@ -207,7 +215,7 @@ func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(
 			&v1alpha1.Interface{},
 			handler.EnqueueRequestsFromMapFunc(r.interfaceToDevices),
-			builder.WithPredicates(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.LabelChangedPredicate{})),
+			builder.WithPredicates(predicate.Or(predicate.ResourceVersionChangedPredicate{}, predicate.LabelChangedPredicate{})),
 		).
 		Complete(r)
 }
@@ -423,4 +431,10 @@ func PortSummary(ports []v1alpha1.DevicePort) string {
 	}
 
 	return sb.String()
+}
+
+// Jitter returns a randomized duration within +/- 10% of the given duration.
+func Jitter(d time.Duration) time.Duration {
+	r := rand.Float64() // #nosec G404
+	return time.Duration(float64(d) * (0.9 + 0.2*r))
 }

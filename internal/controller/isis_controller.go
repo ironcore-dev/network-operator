@@ -5,7 +5,9 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -40,6 +42,10 @@ type ISISReconciler struct {
 
 	// Provider is the driver that will be used to create & delete the isis.
 	Provider provider.ProviderFunc
+
+	// RequeueInterval is the duration after which the controller should requeue the reconciliation,
+	// regardless of changes.
+	RequeueInterval time.Duration
 }
 
 // +kubebuilder:rbac:groups=networking.cloud.sap,resources=isis,verbs=get;list;watch;create;update;patch;delete
@@ -173,6 +179,10 @@ func (r *ISISReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ISISReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.RequeueInterval == 0 {
+		return errors.New("requeue interval must not be 0")
+	}
+
 	labelSelector := metav1.LabelSelector{}
 	if r.WatchFilterValue != "" {
 		labelSelector.MatchLabels = map[string]string{v1alpha1.WatchLabel: r.WatchFilterValue}
