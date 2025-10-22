@@ -223,15 +223,6 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (_ ctrl.Re
 		}
 	}
 
-	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
-	}
-	defer func() {
-		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
-			reterr = kerrors.NewAggregate([]error{reterr, err})
-		}
-	}()
-
 	c := clientutil.NewClient(r, s.ISIS.Namespace)
 
 	var interfaces []provider.ISISInterface
@@ -240,11 +231,31 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (_ ctrl.Re
 		if err := c.Get(ctx, client.ObjectKey{Name: iface.Ref.Name}, res); err != nil {
 			return ctrl.Result{}, err
 		}
+
+		if !conditions.IsReady(res) {
+			conditions.Set(s.ISIS, metav1.Condition{
+				Type:    v1alpha1.ReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.WaitingForDependenciesReason,
+				Message: "Waiting for referenced interfaces to become ready",
+			})
+			return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
+		}
+
 		interfaces = append(interfaces, provider.ISISInterface{
 			Interface: res,
 			BFD:       iface.BFD.Enabled,
 		})
 	}
+
+	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+	}
+	defer func() {
+		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+	}()
 
 	// Ensure the ISIS is realized on the provider.
 	res, err := s.Provider.EnsureISIS(ctx, &provider.EnsureISISRequest{

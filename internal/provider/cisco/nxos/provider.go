@@ -20,7 +20,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"google.golang.org/grpc"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
@@ -777,17 +776,6 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 
 	interfaceNames, err := p.EnsureInterfacesExist(ctx, interfaces)
 	if err != nil {
-		if errors.Is(err, ErrInterfaceNotFound) {
-			return provider.Result{
-				RequeueAfter: time.Second * 10,
-				Conditions: []metav1.Condition{{
-					Type:    "Configured",
-					Status:  metav1.ConditionFalse,
-					Reason:  "WaitingForInterfaces",
-					Message: "Waiting for referenced interfaces to be created",
-				}},
-			}, nil
-		}
 		return provider.Result{}, err
 	}
 
@@ -1135,17 +1123,6 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *EnsureOSPFRequest) (res 
 
 	interfaceNames, err := p.EnsureInterfacesExist(ctx, interfaces)
 	if err != nil {
-		if errors.Is(err, ErrInterfaceNotFound) {
-			return provider.Result{
-				RequeueAfter: time.Second * 10,
-				Conditions: []metav1.Condition{{
-					Type:    "Configured",
-					Status:  metav1.ConditionFalse,
-					Reason:  "WaitingForInterfaces",
-					Message: "Waiting for referenced interfaces to be created",
-				}},
-			}, nil
-		}
 		return provider.Result{}, err
 	}
 
@@ -1270,17 +1247,6 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *EnsurePIMRequest) (res pr
 
 	interfaceNames, err := p.EnsureInterfacesExist(ctx, req.Interfaces)
 	if err != nil {
-		if errors.Is(err, ErrInterfaceNotFound) {
-			return provider.Result{
-				RequeueAfter: time.Second * 10,
-				Conditions: []metav1.Condition{{
-					Type:    "Configured",
-					Status:  metav1.ConditionFalse,
-					Reason:  "WaitingForInterfaces",
-					Message: "Waiting for referenced interfaces to be created",
-				}},
-			}, nil
-		}
 		return provider.Result{}, err
 	}
 
