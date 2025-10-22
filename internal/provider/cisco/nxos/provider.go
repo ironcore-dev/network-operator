@@ -509,13 +509,6 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 	}
 
 	conf := make([]gnmiext.Configurable, 0, 4)
-	if len(addr.AddrItems.AddrList) > 0 {
-		conf = append(conf, addr)
-	}
-	if len(addr6.AddrItems.AddrList) > 0 {
-		conf = append(conf, addr6)
-	}
-
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
 		p := new(PhysIf)
@@ -630,6 +623,14 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 
 	default:
 		return provider.Result{}, fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
+	}
+
+	// Add the address items last, as they depend on the interface being created first.
+	if len(addr.AddrItems.AddrList) > 0 {
+		conf = append(conf, addr)
+	}
+	if len(addr6.AddrItems.AddrList) > 0 {
+		conf = append(conf, addr6)
 	}
 
 	return provider.Result{}, p.client.Update(ctx, conf...)
