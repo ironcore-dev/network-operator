@@ -317,7 +317,7 @@ spec:
 
 				// #nosec G204
 				cmd := exec.Command("kubectl", "wait", a.Files[0].Name,
-					"--for", "condition=Ready",
+					"--for", "condition=Configured",
 					"--namespace", "default",
 					"--timeout", "5m",
 				)
