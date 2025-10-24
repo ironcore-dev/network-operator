@@ -167,13 +167,12 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}()
 
-	res, err := r.reconcile(ctx, s)
-	if err != nil {
+	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
 		return ctrl.Result{}, err
 	}
 
-	return res, nil
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -210,7 +209,7 @@ type certificateScope struct {
 	Provider       provider.CertificateProvider
 }
 
-func (r *CertificateReconciler) reconcile(ctx context.Context, s *certificateScope) (_ ctrl.Result, reterr error) {
+func (r *CertificateReconciler) reconcile(ctx context.Context, s *certificateScope) (reterr error) {
 	if s.Certificate.Labels == nil {
 		s.Certificate.Labels = make(map[string]string)
 	}
@@ -220,12 +219,12 @@ func (r *CertificateReconciler) reconcile(ctx context.Context, s *certificateSco
 	// Ensure the Certificate is owned by the Device.
 	if !controllerutil.HasControllerReference(s.Certificate) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.Certificate, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
@@ -235,11 +234,11 @@ func (r *CertificateReconciler) reconcile(ctx context.Context, s *certificateSco
 
 	cert, err := clientutil.NewClient(r, s.Certificate.Namespace).Certificate(ctx, &s.Certificate.Spec.SecretRef)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	// Ensure the Certificate is realized on the provider.
-	res, err := s.Provider.EnsureCertificate(ctx, &provider.EnsureCertificateRequest{
+	err = s.Provider.EnsureCertificate(ctx, &provider.EnsureCertificateRequest{
 		ID:             s.Certificate.Spec.ID,
 		Certificate:    cert,
 		ProviderConfig: s.ProviderConfig,
@@ -250,11 +249,7 @@ func (r *CertificateReconciler) reconcile(ctx context.Context, s *certificateSco
 	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.Certificate, cond)
 
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{RequeueAfter: res.RequeueAfter}, nil
+	return err
 }
 
 func (r *CertificateReconciler) finalize(ctx context.Context, s *certificateScope) (reterr error) {

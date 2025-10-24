@@ -205,7 +205,7 @@ func main() {
 	case "create":
 		switch resource := obj.(type) {
 		case *v1alpha1.Interface:
-			_, err = ip.EnsureInterface(ctx, &provider.InterfaceRequest{
+			err = ip.EnsureInterface(ctx, &provider.InterfaceRequest{
 				Interface:      resource,
 				ProviderConfig: nil,
 			})

@@ -258,7 +258,7 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (_ ctrl.Re
 	}()
 
 	// Ensure the ISIS is realized on the provider.
-	res, err := s.Provider.EnsureISIS(ctx, &provider.EnsureISISRequest{
+	err := s.Provider.EnsureISIS(ctx, &provider.EnsureISISRequest{
 		ISIS:           s.ISIS,
 		Interfaces:     interfaces,
 		ProviderConfig: s.ProviderConfig,
@@ -269,11 +269,7 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (_ ctrl.Re
 	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.ISIS, cond)
 
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{RequeueAfter: res.RequeueAfter}, nil
+	return ctrl.Result{}, err
 }
 
 func (r *ISISReconciler) finalize(ctx context.Context, s *isisScope) (reterr error) {

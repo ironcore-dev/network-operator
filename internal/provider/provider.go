@@ -9,7 +9,6 @@ import (
 	"maps"
 	"slices"
 	"sync"
-	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -23,12 +22,6 @@ import (
 type Provider interface {
 	Connect(context.Context, *deviceutil.Connection) error
 	Disconnect(context.Context, *deviceutil.Connection) error
-}
-
-type Result struct {
-	// RequeueAfter if greater than 0, indicates that the caller should retry the request after the specified duration.
-	// This is useful for situations where the operation is pending and needs to be retried later.
-	RequeueAfter time.Duration
 }
 
 type DeviceProvider interface {
@@ -69,7 +62,7 @@ type InterfaceProvider interface {
 	Provider
 
 	// EnsureInterface call is responsible for Interface realization on the provider.
-	EnsureInterface(context.Context, *InterfaceRequest) (Result, error)
+	EnsureInterface(context.Context, *InterfaceRequest) error
 	// DeleteInterface call is responsible for Interface deletion on the provider.
 	DeleteInterface(context.Context, *InterfaceRequest) error
 	// GetInterfaceStatus call is responsible for retrieving the current status of the Interface from the provider.
@@ -91,7 +84,7 @@ type BannerProvider interface {
 	Provider
 
 	// EnsureBanner call is responsible for Banner realization on the provider.
-	EnsureBanner(context.Context, *BannerRequest) (Result, error)
+	EnsureBanner(context.Context, *BannerRequest) error
 	// DeleteBanner call is responsible for Banner deletion on the provider.
 	DeleteBanner(context.Context) error
 }
@@ -106,7 +99,7 @@ type UserProvider interface {
 	Provider
 
 	// EnsureUser call is responsible for User realization on the provider.
-	EnsureUser(context.Context, *EnsureUserRequest) (Result, error)
+	EnsureUser(context.Context, *EnsureUserRequest) error
 	// DeleteUser call is responsible for User deletion on the provider.
 	DeleteUser(context.Context, *DeleteUserRequest) error
 }
@@ -129,7 +122,7 @@ type DNSProvider interface {
 	Provider
 
 	// EnsureDNS call is responsible for DNS realization on the provider.
-	EnsureDNS(context.Context, *EnsureDNSRequest) (Result, error)
+	EnsureDNS(context.Context, *EnsureDNSRequest) error
 	// DeleteDNS call is responsible for DNS deletion on the provider.
 	DeleteDNS(context.Context) error
 }
@@ -144,7 +137,7 @@ type NTPProvider interface {
 	Provider
 
 	// EnsureNTP call is responsible for NTP realization on the provider.
-	EnsureNTP(context.Context, *EnsureNTPRequest) (Result, error)
+	EnsureNTP(context.Context, *EnsureNTPRequest) error
 	// DeleteNTP call is responsible for NTP deletion on the provider.
 	DeleteNTP(context.Context) error
 }
@@ -159,7 +152,7 @@ type ACLProvider interface {
 	Provider
 
 	// EnsureACL call is responsible for AccessControlList realization on the provider.
-	EnsureACL(context.Context, *EnsureACLRequest) (Result, error)
+	EnsureACL(context.Context, *EnsureACLRequest) error
 	// DeleteACL call is responsible for AccessControlList deletion on the provider.
 	DeleteACL(context.Context, *DeleteACLRequest) error
 }
@@ -179,7 +172,7 @@ type CertificateProvider interface {
 	Provider
 
 	// EnsureCertificate call is responsible for Certificate realization on the provider.
-	EnsureCertificate(context.Context, *EnsureCertificateRequest) (Result, error)
+	EnsureCertificate(context.Context, *EnsureCertificateRequest) error
 	// DeleteCertificate call is responsible for Certificate deletion on the provider.
 	DeleteCertificate(context.Context, *DeleteCertificateRequest) error
 }
@@ -200,7 +193,7 @@ type SNMPProvider interface {
 	Provider
 
 	// EnsureSNMP call is responsible for SNMP realization on the provider.
-	EnsureSNMP(context.Context, *EnsureSNMPRequest) (Result, error)
+	EnsureSNMP(context.Context, *EnsureSNMPRequest) error
 	// DeleteSNMP call is responsible for SNMP deletion on the provider.
 	DeleteSNMP(context.Context, *DeleteSNMPRequest) error
 }
@@ -219,7 +212,7 @@ type SyslogProvider interface {
 	Provider
 
 	// EnsureSyslog call is responsible for Syslog realization on the provider.
-	EnsureSyslog(context.Context, *EnsureSyslogRequest) (Result, error)
+	EnsureSyslog(context.Context, *EnsureSyslogRequest) error
 	// DeleteSyslog call is responsible for Syslog deletion on the provider.
 	DeleteSyslog(context.Context) error
 }
@@ -234,7 +227,7 @@ type ManagementAccessProvider interface {
 	Provider
 
 	// EnsureManagementAccess call is responsible for ManagementAccess realization on the provider.
-	EnsureManagementAccess(context.Context, *EnsureManagementAccessRequest) (Result, error)
+	EnsureManagementAccess(context.Context, *EnsureManagementAccessRequest) error
 	// DeleteManagementAccess call is responsible for ManagementAccess deletion on the provider.
 	DeleteManagementAccess(context.Context) error
 }
@@ -249,7 +242,7 @@ type ISISProvider interface {
 	Provider
 
 	// EnsureISIS call is responsible for ISIS realization on the provider.
-	EnsureISIS(context.Context, *EnsureISISRequest) (Result, error)
+	EnsureISIS(context.Context, *EnsureISISRequest) error
 	// DeleteISIS call is responsible for ISIS deletion on the provider.
 	DeleteISIS(context.Context, *DeleteISISRequest) error
 }

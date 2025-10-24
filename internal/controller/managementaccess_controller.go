@@ -161,13 +161,12 @@ func (r *ManagementAccessReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}()
 
-	res, err := r.reconcile(ctx, s)
-	if err != nil {
+	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
 		return ctrl.Result{}, err
 	}
 
-	return res, nil
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -198,7 +197,7 @@ type managementAccessScope struct {
 	Provider         provider.ManagementAccessProvider
 }
 
-func (r *ManagementAccessReconciler) reconcile(ctx context.Context, s *managementAccessScope) (_ ctrl.Result, reterr error) {
+func (r *ManagementAccessReconciler) reconcile(ctx context.Context, s *managementAccessScope) (reterr error) {
 	if s.ManagementAccess.Labels == nil {
 		s.ManagementAccess.Labels = make(map[string]string)
 	}
@@ -208,12 +207,12 @@ func (r *ManagementAccessReconciler) reconcile(ctx context.Context, s *managemen
 	// Ensure the ManagementAccess is owned by the Device.
 	if !controllerutil.HasControllerReference(s.ManagementAccess) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.ManagementAccess, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
@@ -222,7 +221,7 @@ func (r *ManagementAccessReconciler) reconcile(ctx context.Context, s *managemen
 	}()
 
 	// Ensure the ManagementAccess is realized on the provider.
-	res, err := s.Provider.EnsureManagementAccess(ctx, &provider.EnsureManagementAccessRequest{
+	err := s.Provider.EnsureManagementAccess(ctx, &provider.EnsureManagementAccessRequest{
 		ManagementAccess: s.ManagementAccess,
 		ProviderConfig:   s.ProviderConfig,
 	})
@@ -232,11 +231,7 @@ func (r *ManagementAccessReconciler) reconcile(ctx context.Context, s *managemen
 	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.ManagementAccess, cond)
 
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{RequeueAfter: res.RequeueAfter}, nil
+	return err
 }
 
 func (r *ManagementAccessReconciler) finalize(ctx context.Context, s *managementAccessScope) (reterr error) {

@@ -117,20 +117,20 @@ func (p *Provider) GetDeviceInfo(ctx context.Context) (*provider.DeviceInfo, err
 	}, nil
 }
 
-func (p *Provider) EnsureACL(ctx context.Context, req *provider.EnsureACLRequest) (res provider.Result, reterr error) {
+func (p *Provider) EnsureACL(ctx context.Context, req *provider.EnsureACLRequest) error {
 	a := new(ACL)
 	a.Name = req.ACL.Spec.Name
 	for i, entry := range req.ACL.Spec.Entries {
 		action, err := ActionFrom(entry.Action)
 		if err != nil {
-			return provider.Result{}, err
+			return err
 		}
 		if i > 0 && entry.SourceAddress.Addr().Is6() != a.Is6 {
-			return provider.Result{}, errors.New("acl: rule contains both ipv4 and ipv6 rules")
+			return errors.New("acl: rule contains both ipv4 and ipv6 rules")
 		}
 		a.Is6 = entry.SourceAddress.Addr().Is6()
 		if entry.SourceAddress.Addr().Is4() != entry.DestinationAddress.Addr().Is4() {
-			return provider.Result{}, errors.New("acl: rule contains mismatched ip versions in source and destination addresses")
+			return errors.New("acl: rule contains mismatched ip versions in source and destination addresses")
 		}
 		a.SeqItems.ACEList = append(a.SeqItems.ACEList, &ACLEntry{
 			SeqNum:          entry.Sequence,
@@ -148,7 +148,7 @@ func (p *Provider) EnsureACL(ctx context.Context, req *provider.EnsureACLRequest
 		return cmp.Compare(j.SeqNum, i.SeqNum)
 	})
 
-	return provider.Result{}, p.client.Update(ctx, a)
+	return p.client.Update(ctx, a)
 }
 
 func (p *Provider) DeleteACL(ctx context.Context, req *provider.DeleteACLRequest) error {
@@ -162,15 +162,15 @@ func (p *Provider) DeleteACL(ctx context.Context, req *provider.DeleteACLRequest
 	return p.client.Delete(ctx, a)
 }
 
-func (p *Provider) EnsureBanner(ctx context.Context, req *provider.BannerRequest) (res provider.Result, reterr error) {
+func (p *Provider) EnsureBanner(ctx context.Context, req *provider.BannerRequest) (reterr error) {
 	// See: https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/104x/configuration/fundamentals/cisco-nexus-9000-series-nx-os-fundamentals-configuration-guide-release-104x/m-basic-device-management.html#task_1174841
 	lines := strings.Split(req.Message, "\n")
 	if len(lines) > 40 {
-		return provider.Result{}, errors.New("banner: maximum of 40 lines allowed")
+		return errors.New("banner: maximum of 40 lines allowed")
 	}
 	for i, line := range lines {
 		if n := utf8.RuneCountInString(line); n > 255 {
-			return provider.Result{}, fmt.Errorf("banner: line %d exceeds 255 characters (%d)", i+1, n)
+			return fmt.Errorf("banner: line %d exceeds 255 characters (%d)", i+1, n)
 		}
 	}
 
@@ -178,7 +178,7 @@ func (p *Provider) EnsureBanner(ctx context.Context, req *provider.BannerRequest
 	b.Delimiter = "^"
 	b.Message = req.Message
 
-	return provider.Result{}, p.client.Patch(ctx, b)
+	return p.client.Patch(ctx, b)
 }
 
 func (p *Provider) DeleteBanner(ctx context.Context) error {
@@ -205,14 +205,14 @@ type L2EVPN struct {
 	RetainRouteTarget string
 }
 
-func (p *Provider) EnsureBGP(ctx context.Context, req *BGPRequest) (res provider.Result, reterr error) {
+func (p *Provider) EnsureBGP(ctx context.Context, req *BGPRequest) (reterr error) {
 	if !req.RouterID.Is4() {
-		return provider.Result{}, fmt.Errorf("bgp: router ID must be an IPv4 address, got %q", req.RouterID)
+		return fmt.Errorf("bgp: router ID must be an IPv4 address, got %q", req.RouterID)
 	}
 
 	// TODO: support ASNs like '65000.100', ideally with a custom type
 	if req.AsNumber <= 0 || req.AsNumber > 65535 {
-		return provider.Result{}, fmt.Errorf("bgp: asn %d is out of range (1-65535)", req.AsNumber)
+		return fmt.Errorf("bgp: asn %d is out of range (1-65535)", req.AsNumber)
 	}
 
 	f := new(Feature)
@@ -253,13 +253,13 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *BGPRequest) (res provider
 				}
 			}
 		default:
-			return provider.Result{}, fmt.Errorf("bgp: unsupported address family %q", af)
+			return fmt.Errorf("bgp: unsupported address family %q", af)
 		}
 		dom.AfItems.DomAfList = append(dom.AfItems.DomAfList, item)
 	}
 	b.DomItems.DomList = append(b.DomItems.DomList, dom)
 
-	return provider.Result{}, p.client.Update(ctx, f, f2, b)
+	return p.client.Update(ctx, f, f2, b)
 }
 
 type BGPPeerRequest struct {
@@ -286,18 +286,18 @@ type PeerL2EVPN struct {
 	RouteReflectorClient bool
 }
 
-func (p *Provider) EnsureBGPPeer(ctx context.Context, req *BGPPeerRequest) (res provider.Result, reterr error) {
+func (p *Provider) EnsureBGPPeer(ctx context.Context, req *BGPPeerRequest) error {
 	if !req.Addr.IsValid() {
-		return provider.Result{}, fmt.Errorf("bgp peer: neighbor address %q is not a valid IP address", req.Addr)
+		return fmt.Errorf("bgp peer: neighbor address %q is not a valid IP address", req.Addr)
 	}
 
 	// TODO: support ASNs like '65000.100', ideally with a custom type
 	if req.AsNumber <= 0 || req.AsNumber > 65535 {
-		return provider.Result{}, fmt.Errorf("bgp peer: asn %d is out of range (1-65535)", req.AsNumber)
+		return fmt.Errorf("bgp peer: asn %d is out of range (1-65535)", req.AsNumber)
 	}
 
 	if req.SrcIf == "" {
-		return provider.Result{}, errors.New("bgp peer: source interface cannot be empty")
+		return errors.New("bgp peer: source interface cannot be empty")
 	}
 
 	// Ensure that the BGP instance exists and is configured on the "default" domain
@@ -311,12 +311,12 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *BGPPeerRequest) (res 
 	bgp := new(BGPDom)
 	bgp.Name = DefaultVRFName
 	if err := p.client.GetConfig(ctx, bgp); err != nil {
-		return provider.Result{}, fmt.Errorf("bgp peer: failed to get bgp instance 'default': %w", err)
+		return fmt.Errorf("bgp peer: failed to get bgp instance 'default': %w", err)
 	}
 
 	srcIf, err := ShortNameLoopback(req.SrcIf)
 	if err != nil {
-		return provider.Result{}, fmt.Errorf("bgp peer: invalid source interface name %q: %w", req.SrcIf, err)
+		return fmt.Errorf("bgp peer: invalid source interface name %q: %w", req.SrcIf, err)
 	}
 
 	pe := new(BGPPeer)
@@ -350,36 +350,36 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *BGPPeerRequest) (res 
 				}
 			}
 		default:
-			return provider.Result{}, fmt.Errorf("bgp peer: unsupported address family %q", af)
+			return fmt.Errorf("bgp peer: unsupported address family %q", af)
 		}
 		pe.AfItems.PeerAfList = append(pe.AfItems.PeerAfList, item)
 	}
 
-	return provider.Result{}, p.client.Update(ctx, pe)
+	return p.client.Update(ctx, pe)
 }
 
-func (p *Provider) EnsureCertificate(ctx context.Context, req *provider.EnsureCertificateRequest) (res provider.Result, reterr error) {
+func (p *Provider) EnsureCertificate(ctx context.Context, req *provider.EnsureCertificateRequest) error {
 	tp := new(Trustpoint)
 	tp.Name = req.ID
 
 	if err := p.client.Patch(ctx, tp); err != nil {
-		return provider.Result{}, err
+		return err
 	}
 
 	key, ok := req.Certificate.PrivateKey.(*rsa.PrivateKey)
 	if !ok {
-		return provider.Result{}, fmt.Errorf("unsupported private key type: expected *rsa.PrivateKey, got %T", req.Certificate.PrivateKey)
+		return fmt.Errorf("unsupported private key type: expected *rsa.PrivateKey, got %T", req.Certificate.PrivateKey)
 	}
 
 	kp := new(KeyPair)
 	kp.Name = req.ID
 	if err := p.client.GetConfig(ctx, kp); !errors.Is(err, gnmiext.ErrNil) {
 		// If the key pair already exists, we cannot update it, so we skip the rest of the process.
-		return provider.Result{}, err
+		return err
 	}
 
 	cert := &Certificate{Key: key, Cert: req.Certificate.Leaf}
-	return provider.Result{}, cert.Load(ctx, p.conn, req.ID)
+	return cert.Load(ctx, p.conn, req.ID)
 }
 
 func (p *Provider) DeleteCertificate(ctx context.Context, req *provider.DeleteCertificateRequest) error {
@@ -392,7 +392,7 @@ func (p *Provider) DeleteCertificate(ctx context.Context, req *provider.DeleteCe
 	return p.client.Delete(ctx, tp, kp)
 }
 
-func (p *Provider) EnsureDNS(ctx context.Context, req *provider.EnsureDNSRequest) (res provider.Result, reterr error) {
+func (p *Provider) EnsureDNS(ctx context.Context, req *provider.EnsureDNSRequest) error {
 	d := new(DNS)
 	d.AdminSt = AdminStEnabled
 	pf := new(DNSProf)
@@ -428,7 +428,7 @@ func (p *Provider) EnsureDNS(ctx context.Context, req *provider.EnsureDNSRequest
 		})
 	}
 
-	return provider.Result{}, p.client.Update(ctx, d)
+	return p.client.Update(ctx, d)
 }
 
 func (p *Provider) DeleteDNS(ctx context.Context) error {
@@ -436,14 +436,14 @@ func (p *Provider) DeleteDNS(ctx context.Context) error {
 	return p.client.Delete(ctx, d)
 }
 
-func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) (res provider.Result, reterr error) {
+func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) error {
 	name, err := ShortName(req.Interface.Spec.Name)
 	if err != nil {
-		return provider.Result{}, err
+		return err
 	}
 
 	if req.Interface.Spec.Type == "PortChannel" && len(req.Interface.Spec.IPv4Addresses) > 0 {
-		return provider.Result{}, errors.New("port-channel interfaces do not support IP addresses")
+		return errors.New("port-channel interfaces do not support IP addresses")
 	}
 
 	addr := new(AddrItem)
@@ -457,17 +457,17 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 	for i, p := range req.Interface.Spec.IPv4Addresses {
 		if a, ok := strings.CutPrefix(p, "unnumbered:"); ok {
 			if req.Interface.Spec.Type == v1alpha1.InterfaceTypeLoopback {
-				return provider.Result{}, errors.New("unnumbered addressing mode is not supported for loopback interfaces")
+				return errors.New("unnumbered addressing mode is not supported for loopback interfaces")
 			}
 			addr.Unnumbered, err = ShortName(a)
 			if err != nil {
-				return provider.Result{}, fmt.Errorf("invalid unnumbered source interface name %q: %w", a, err)
+				return fmt.Errorf("invalid unnumbered source interface name %q: %w", a, err)
 			}
 			continue
 		}
 		prefix, err := netip.ParsePrefix(p)
 		if err != nil {
-			return provider.Result{}, fmt.Errorf("invalid IPv4 prefix %q: %w", p, err)
+			return fmt.Errorf("invalid IPv4 prefix %q: %w", p, err)
 		}
 		prefixes = append(prefixes, prefix)
 		nth := "primary"
@@ -490,7 +490,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 	for i, p := range prefixes {
 		for j := i + 1; j < len(prefixes); j++ {
 			if p.Overlaps(prefixes[j]) {
-				return provider.Result{}, fmt.Errorf("overlapping IP prefixes: %s and %s", p, prefixes[j])
+				return fmt.Errorf("overlapping IP prefixes: %s and %s", p, prefixes[j])
 			}
 		}
 	}
@@ -505,7 +505,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 
 	// Ensure to delete any leftover IPv4/IPv6 addresses if the spec does not contain any.
 	if err := p.client.Delete(ctx, del...); err != nil {
-		return provider.Result{}, err
+		return err
 	}
 
 	conf := make([]gnmiext.Configurable, 0, 4)
@@ -544,12 +544,12 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 					p.TrunkVlans = Range(req.Interface.Spec.Switchport.AllowedVlans)
 				}
 			default:
-				return provider.Result{}, fmt.Errorf("invalid switchport mode: %s", req.Interface.Spec.Switchport.Mode)
+				return fmt.Errorf("invalid switchport mode: %s", req.Interface.Spec.Switchport.Mode)
 			}
 		}
 
 		if err := p.Validate(); err != nil {
-			return provider.Result{}, err
+			return err
 		}
 
 		conf = append(conf, p)
@@ -574,10 +574,10 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 
 		pcNum, err := strconv.Atoi(name[2:])
 		if err != nil {
-			return provider.Result{}, fmt.Errorf("iface: invalid port-channel number in name %q: %w", name, err)
+			return fmt.Errorf("iface: invalid port-channel number in name %q: %w", name, err)
 		}
 		if pcNum < 1 || pcNum > 4096 {
-			return provider.Result{}, errors.New("iface: port-channel number must be between 1 and 4096")
+			return errors.New("iface: port-channel number must be between 1 and 4096")
 		}
 
 		pc := new(PortChannel)
@@ -606,7 +606,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 					pc.TrunkVlans = Range(req.Interface.Spec.Switchport.AllowedVlans)
 				}
 			default:
-				return provider.Result{}, fmt.Errorf("invalid switchport mode: %s", req.Interface.Spec.Switchport.Mode)
+				return fmt.Errorf("invalid switchport mode: %s", req.Interface.Spec.Switchport.Mode)
 			}
 		}
 
@@ -622,7 +622,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 		conf = append(conf, pc)
 
 	default:
-		return provider.Result{}, fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
+		return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
 	}
 
 	// Add the address items last, as they depend on the interface being created first.
@@ -633,7 +633,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 		conf = append(conf, addr6)
 	}
 
-	return provider.Result{}, p.client.Update(ctx, conf...)
+	return p.client.Update(ctx, conf...)
 }
 
 func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceRequest) error {
@@ -720,7 +720,7 @@ func (p *Provider) EnsureInterfacesExist(ctx context.Context, interfaces []*v1al
 	return names, nil
 }
 
-func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISRequest) (res provider.Result, reterr error) {
+func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISRequest) error {
 	f := new(Feature)
 	f.Name = "isis"
 	f.AdminSt = AdminStEnabled
@@ -778,7 +778,7 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 
 	interfaceNames, err := p.EnsureInterfacesExist(ctx, interfaces)
 	if err != nil {
-		return provider.Result{}, err
+		return err
 	}
 
 	// prevent bounds check in for the range loop below
@@ -822,7 +822,7 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 		return cmp.Compare(b.ID, a.ID)
 	})
 
-	return provider.Result{}, p.client.Update(ctx, conf...)
+	return p.client.Update(ctx, conf...)
 }
 
 func (p *Provider) DeleteISIS(ctx context.Context, req *provider.DeleteISISRequest) error {
@@ -831,7 +831,7 @@ func (p *Provider) DeleteISIS(ctx context.Context, req *provider.DeleteISISReque
 	return p.client.Delete(ctx, i)
 }
 
-func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.EnsureManagementAccessRequest) (res provider.Result, reterr error) {
+func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.EnsureManagementAccessRequest) error {
 	gf := new(Feature)
 	gf.Name = "grpc"
 	gf.AdminSt = AdminStEnabled
@@ -845,27 +845,27 @@ func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.Ens
 	g.UseVrf = req.ManagementAccess.Spec.GRPC.VrfName
 	g.Cert = req.ManagementAccess.Spec.GRPC.CertificateID
 	if err := g.Validate(); err != nil {
-		return provider.Result{}, err
+		return err
 	}
 
 	gn := new(GNMI)
 	gn.MaxCalls = 16
 	gn.KeepAliveTimeout = 600 // seconds
 	if err := gn.Validate(); err != nil {
-		return provider.Result{}, err
+		return err
 	}
 
 	con := new(Console)
 	con.Timeout = 10 // minutes
 	if err := con.Validate(); err != nil {
-		return provider.Result{}, err
+		return err
 	}
 
 	vty := new(VTY)
 	vty.SsLmtItems.SesLmt = 8
 	vty.ExecTmeoutItems.Timeout = 10 // minutes
 	if err := vty.Validate(); err != nil {
-		return provider.Result{}, err
+		return err
 	}
 
 	sysVlan := new(VLANSystem)
@@ -877,7 +877,7 @@ func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.Ens
 	copp := new(CoPP)
 	copp.Profile = Strict
 
-	return provider.Result{}, p.client.Update(ctx, gf, nf, g, gn, con, vty, sysVlan, resVlan, copp)
+	return p.client.Update(ctx, gf, nf, g, gn, con, vty, sysVlan, resVlan, copp)
 }
 
 func (p *Provider) DeleteManagementAccess(ctx context.Context) error {
@@ -899,11 +899,11 @@ type NTPConfig struct {
 	} `json:"log"`
 }
 
-func (p *Provider) EnsureNTP(ctx context.Context, req *provider.EnsureNTPRequest) (res provider.Result, reterr error) {
+func (p *Provider) EnsureNTP(ctx context.Context, req *provider.EnsureNTPRequest) error {
 	var cfg NTPConfig
 	if req.ProviderConfig != nil {
 		if err := req.ProviderConfig.Into(&cfg); err != nil {
-			return provider.Result{}, err
+			return err
 		}
 	}
 
@@ -935,7 +935,7 @@ func (p *Provider) EnsureNTP(ctx context.Context, req *provider.EnsureNTPRequest
 	f.Name = "ntpd"
 	f.AdminSt = AdminStEnabled
 
-	return provider.Result{}, p.client.Update(ctx, f, n)
+	return p.client.Update(ctx, f, n)
 }
 
 func (p *Provider) DeleteNTP(ctx context.Context) error {
@@ -963,7 +963,7 @@ type NVERequest struct {
 	HoldDownTime int16 // in seconds
 }
 
-func (p *Provider) EnsureNVE(ctx context.Context, req *NVERequest) (res provider.Result, reterr error) {
+func (p *Provider) EnsureNVE(ctx context.Context, req *NVERequest) error {
 	f := new(Feature)
 	f.Name = "nvo"
 	f.AdminSt = AdminStEnabled
@@ -974,12 +974,12 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *NVERequest) (res provider
 
 	srcIf, err := ShortNameLoopback(req.SourceInterface)
 	if err != nil {
-		return provider.Result{}, err
+		return err
 	}
 
 	anyIf, err := ShortNameLoopback(req.AnycastInterface)
 	if err != nil {
-		return provider.Result{}, err
+		return err
 	}
 
 	nve := new(NVE)
@@ -990,13 +990,13 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *NVERequest) (res provider
 	}
 
 	if srcIf == anyIf {
-		return provider.Result{}, errors.New("nve: source and anycast interfaces must be different")
+		return errors.New("nve: source and anycast interfaces must be different")
 	}
 	nve.SourceInterface = srcIf
 	nve.AnycastInterface = anyIf
 
 	if req.HostReach != HostReachBGP && req.HostReach != HostReachFloodAndLearn {
-		return provider.Result{}, fmt.Errorf("nve: invalid host reach type %q", req.HostReach)
+		return fmt.Errorf("nve: invalid host reach type %q", req.HostReach)
 	}
 	nve.HostReach = req.HostReach
 
@@ -1010,26 +1010,26 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *NVERequest) (res provider
 
 	if ip := req.McastL2; ip != nil {
 		if !ip.Is4() || !ip.IsMulticast() {
-			return provider.Result{}, fmt.Errorf("nve: invalid multicast IPv4 address: %s", ip)
+			return fmt.Errorf("nve: invalid multicast IPv4 address: %s", ip)
 		}
 		nve.McastGroupL2 = ip.String()
 	}
 
 	if ip := req.McastL3; ip != nil {
 		if !ip.Is4() || !ip.IsMulticast() {
-			return provider.Result{}, fmt.Errorf("nve: invalid multicast IPv4 address: %s", ip)
+			return fmt.Errorf("nve: invalid multicast IPv4 address: %s", ip)
 		}
 		nve.McastGroupL3 = ip.String()
 	}
 
 	if req.HoldDownTime != 0 {
 		if req.HoldDownTime < 1 || req.HoldDownTime > 1500 {
-			return provider.Result{}, fmt.Errorf("nve: hold down time %d is out of range (1-1500 seconds)", req.HoldDownTime)
+			return fmt.Errorf("nve: hold down time %d is out of range (1-1500 seconds)", req.HoldDownTime)
 		}
 		nve.HoldDownTime = req.HoldDownTime
 	}
 
-	return provider.Result{}, p.client.Update(ctx, f, f2, nve)
+	return p.client.Update(ctx, f, f2, nve)
 }
 
 type OSPFRouter struct {
@@ -1080,7 +1080,7 @@ type EnsureOSPFRequest struct {
 	Interfaces []*OSPFInterfaceItem
 }
 
-func (p *Provider) EnsureOSPF(ctx context.Context, req *EnsureOSPFRequest) (res provider.Result, reterr error) {
+func (p *Provider) EnsureOSPF(ctx context.Context, req *EnsureOSPFRequest) error {
 	f := new(Feature)
 	f.Name = "ospf"
 	f.AdminSt = AdminStEnabled
@@ -1090,7 +1090,7 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *EnsureOSPFRequest) (res 
 	o.Name = req.Router.Name
 
 	if !req.Router.RouterID.IsValid() || !req.Router.RouterID.Is4() {
-		return provider.Result{}, fmt.Errorf("ospf: router ID %q is not a valid IPv4 address", req.Router.RouterID)
+		return fmt.Errorf("ospf: router ID %q is not a valid IPv4 address", req.Router.RouterID)
 	}
 
 	dom := new(OSPFDom)
@@ -1104,14 +1104,14 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *EnsureOSPFRequest) (res 
 	dom.BwRefUnit = BwRefUnitMbps
 	if req.Router.ReferenceBandwidthMbps != 0 {
 		if req.Router.ReferenceBandwidthMbps < 1 || req.Router.ReferenceBandwidthMbps > 999999 {
-			return provider.Result{}, fmt.Errorf("ospf: reference bandwidth %d is out of range (1-999999 Mbps)", req.Router.ReferenceBandwidthMbps)
+			return fmt.Errorf("ospf: reference bandwidth %d is out of range (1-999999 Mbps)", req.Router.ReferenceBandwidthMbps)
 		}
 		dom.BwRef = req.Router.ReferenceBandwidthMbps
 	}
 	dom.Dist = DefaultDist
 	if req.Router.Distance != 0 {
 		if req.Router.Distance < 1 || req.Router.Distance > 255 {
-			return provider.Result{}, fmt.Errorf("ospf: distance %d is out of range (1-255)", req.Router.Distance)
+			return fmt.Errorf("ospf: distance %d is out of range (1-255)", req.Router.Distance)
 		}
 		dom.Dist = req.Router.Distance
 	}
@@ -1125,7 +1125,7 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *EnsureOSPFRequest) (res 
 
 	interfaceNames, err := p.EnsureInterfacesExist(ctx, interfaces)
 	if err != nil {
-		return provider.Result{}, err
+		return err
 	}
 
 	// prevent bounds check in for the range loop below
@@ -1139,7 +1139,7 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *EnsureOSPFRequest) (res 
 		intf.AdvertiseSecondaries = true
 		intf.Area = iface.Area
 		if !isValidOSPFArea(iface.Area) {
-			return provider.Result{}, fmt.Errorf("ospf: area %q is not valid, must be a decimal number or dotted decimal format", iface.Area)
+			return fmt.Errorf("ospf: area %q is not valid, must be a decimal number or dotted decimal format", iface.Area)
 		}
 		intf.NwT = NtwTypeUnspecified
 		if iface.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical {
@@ -1158,7 +1158,7 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *EnsureOSPFRequest) (res 
 
 	for _, rc := range req.Router.RedistributionConfigs {
 		if rc.RouteMapName == "" {
-			return provider.Result{}, errors.New("ospf: redistribution route map name cannot be empty")
+			return errors.New("ospf: redistribution route map name cannot be empty")
 		}
 		rd := new(InterLeakPList)
 		rd.Proto = rc.Protocol
@@ -1178,7 +1178,7 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *EnsureOSPFRequest) (res 
 		dom.MaxlsapItems.MaxLsa = req.Router.MaxLSA
 	}
 
-	return provider.Result{}, p.client.Update(ctx, f, o)
+	return p.client.Update(ctx, f, o)
 }
 
 type RendezvousPoint struct {
@@ -1201,21 +1201,21 @@ type EnsurePIMRequest struct {
 	Interfaces []*v1alpha1.Interface
 }
 
-func (p *Provider) EnsurePIM(ctx context.Context, req *EnsurePIMRequest) (res provider.Result, reterr error) {
+func (p *Provider) EnsurePIM(ctx context.Context, req *EnsurePIMRequest) error {
 	addr := req.RendezvousPoint.Addr
 	if !addr.IsValid() || !addr.Is4() {
-		return provider.Result{}, fmt.Errorf("pim: rendezvous point address %q is not a valid IPv4 address", addr)
+		return fmt.Errorf("pim: rendezvous point address %q is not a valid IPv4 address", addr)
 	}
 
 	if grp := req.RendezvousPoint.Group; grp != nil {
 		if !grp.IsValid() || !grp.Addr().Is4() {
-			return provider.Result{}, fmt.Errorf("pim: group list %q is not a valid IPv4 address prefix", grp)
+			return fmt.Errorf("pim: group list %q is not a valid IPv4 address prefix", grp)
 		}
 	}
 
 	prefix, err := addr.Prefix(32)
 	if err != nil {
-		return provider.Result{}, fmt.Errorf("pim: failed to create prefix for rendezvous point address %q: %w", addr, err)
+		return fmt.Errorf("pim: failed to create prefix for rendezvous point address %q: %w", addr, err)
 	}
 
 	f := new(Feature)
@@ -1233,12 +1233,12 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *EnsurePIMRequest) (res pr
 	ap := new(AnycastPeerItems)
 	for _, a := range req.AnycastPeers {
 		if !a.IsValid() || !a.Is4() {
-			return provider.Result{}, fmt.Errorf("pim: anycast rendezvous point address %q is not a valid IPv4 address", a)
+			return fmt.Errorf("pim: anycast rendezvous point address %q is not a valid IPv4 address", a)
 		}
 
 		addr, err := a.Prefix(32)
 		if err != nil {
-			return provider.Result{}, fmt.Errorf("pim: failed to create prefix for anycast rendezvous point address %q: %w", a, err)
+			return fmt.Errorf("pim: failed to create prefix for anycast rendezvous point address %q: %w", a, err)
 		}
 
 		peer := new(AnycastPeerAddr)
@@ -1249,7 +1249,7 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *EnsurePIMRequest) (res pr
 
 	interfaceNames, err := p.EnsureInterfacesExist(ctx, req.Interfaces)
 	if err != nil {
-		return provider.Result{}, err
+		return err
 	}
 
 	pi := new(PIMIfItems)
@@ -1260,10 +1260,10 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *EnsurePIMRequest) (res pr
 		pi.IfList = append(pi.IfList, intf)
 	}
 
-	return provider.Result{}, p.client.Update(ctx, f, rp, ap, pi)
+	return p.client.Update(ctx, f, rp, ap, pi)
 }
 
-func (p *Provider) EnsureUser(ctx context.Context, req *provider.EnsureUserRequest) (res provider.Result, reterr error) {
+func (p *Provider) EnsureUser(ctx context.Context, req *provider.EnsureUserRequest) error {
 	u := new(User)
 	u.AllowExpired = "no"
 	u.Expiration = "never"
@@ -1303,11 +1303,11 @@ func (p *Provider) EnsureUser(ctx context.Context, req *provider.EnsureUserReque
 
 	if req.Password != "" {
 		if err := u.SetPassword(req.Password, enc); err != nil {
-			return provider.Result{}, fmt.Errorf("user: failed to encode password for user %q: %w", req.Username, err)
+			return fmt.Errorf("user: failed to encode password for user %q: %w", req.Username, err)
 		}
 	}
 
-	return provider.Result{}, p.client.Patch(ctx, u)
+	return p.client.Patch(ctx, u)
 }
 
 func (p *Provider) DeleteUser(ctx context.Context, req *provider.DeleteUserRequest) error {
@@ -1335,7 +1335,7 @@ func (p *Provider) DeleteUser(ctx context.Context, req *provider.DeleteUserReque
 //
 // System Information:
 //   - Empty strings are converted to "DME_UNSET_PROPERTY_MARKER" for deletion
-func (p *Provider) EnsureSNMP(ctx context.Context, req *provider.EnsureSNMPRequest) (res provider.Result, reterr error) {
+func (p *Provider) EnsureSNMP(ctx context.Context, req *provider.EnsureSNMPRequest) error {
 	sysInfo := new(SNMPSysInfo)
 	sysInfo.SysContact = NewOption(req.SNMP.Spec.Contact)
 	sysInfo.SysLocation = NewOption(req.SNMP.Spec.Location)
@@ -1389,7 +1389,7 @@ func (p *Provider) EnsureSNMP(ctx context.Context, req *provider.EnsureSNMPReque
 	//       SNMP spec.
 	traps := new(SNMPTrapsItems)
 	if err := p.client.GetConfig(ctx, traps); err != nil && !errors.Is(err, gnmiext.ErrNil) {
-		return provider.Result{}, err
+		return err
 	}
 
 	for _, t := range req.SNMP.Spec.Traps {
@@ -1401,7 +1401,7 @@ func (p *Provider) EnsureSNMP(ctx context.Context, req *provider.EnsureSNMPReque
 			name = strings.ReplaceAll(name, "-", "")
 			rv = rv.FieldByName(name)
 			if !rv.IsValid() {
-				return provider.Result{}, fmt.Errorf("snmp: trap %q not found", t)
+				return fmt.Errorf("snmp: trap %q not found", t)
 			}
 			parts = parts[1:]
 			rv = rv.Elem()
@@ -1409,7 +1409,7 @@ func (p *Provider) EnsureSNMP(ctx context.Context, req *provider.EnsureSNMPReque
 		rv.Set(reflect.ValueOf(&SNMPTraps{Trapstatus: TrapstatusEnable}))
 	}
 
-	return provider.Result{}, p.client.Update(ctx, sysInfo, trapsSrcIf, informsSrcIf, communities, hosts, traps)
+	return p.client.Update(ctx, sysInfo, trapsSrcIf, informsSrcIf, communities, hosts, traps)
 }
 
 func (p *Provider) DeleteSNMP(ctx context.Context, req *provider.DeleteSNMPRequest) error {
@@ -1441,14 +1441,14 @@ type SyslogConfig struct {
 	HistoryLevel        v1alpha1.Severity
 }
 
-func (p *Provider) EnsureSyslog(ctx context.Context, req *provider.EnsureSyslogRequest) (res provider.Result, reterr error) {
+func (p *Provider) EnsureSyslog(ctx context.Context, req *provider.EnsureSyslogRequest) error {
 	var cfg SyslogConfig
 	cfg.OriginID = req.Syslog.Name
 	cfg.SourceInterfaceName = "mgmt0"
 	cfg.HistorySize = 500
 	if req.ProviderConfig != nil {
 		if err := req.ProviderConfig.Into(&cfg); err != nil {
-			return provider.Result{}, err
+			return err
 		}
 	}
 
@@ -1487,7 +1487,7 @@ func (p *Provider) EnsureSyslog(ctx context.Context, req *provider.EnsureSyslogR
 
 	fac := new(SyslogFacilityItems)
 	if err := p.client.GetConfig(ctx, fac); err != nil && !errors.Is(err, gnmiext.ErrNil) {
-		return provider.Result{}, err
+		return err
 	}
 
 OUTER:
@@ -1504,7 +1504,7 @@ OUTER:
 		fac.FacilityList = append(fac.FacilityList, f)
 	}
 
-	return provider.Result{}, p.client.Update(ctx, origin, srcIf, hist, re, fac)
+	return p.client.Update(ctx, origin, srcIf, hist, re, fac)
 }
 
 func (p *Provider) DeleteSyslog(ctx context.Context) error {
@@ -1531,7 +1531,7 @@ type VRFRequest struct {
 }
 
 //nolint:gocritic
-func (p *Provider) EnsureVRF(ctx context.Context, req *VRFRequest) (res provider.Result, reterr error) {
+func (p *Provider) EnsureVRF(ctx context.Context, req *VRFRequest) error {
 	v := new(VRF)
 	v.Name = req.Name
 	if req.VNI != nil {
@@ -1670,7 +1670,7 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *VRFRequest) (res provider
 		v.DomItems.DomList = append(v.DomItems.DomList, dom)
 	}
 
-	return provider.Result{}, p.client.Update(ctx, v)
+	return p.client.Update(ctx, v)
 }
 
 func init() {

@@ -161,13 +161,12 @@ func (r *AccessControlListReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		}
 	}()
 
-	res, err := r.reconcile(ctx, s)
-	if err != nil {
+	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
 		return ctrl.Result{}, err
 	}
 
-	return res, nil
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -198,7 +197,7 @@ type aclScope struct {
 	Provider       provider.ACLProvider
 }
 
-func (r *AccessControlListReconciler) reconcile(ctx context.Context, s *aclScope) (_ ctrl.Result, reterr error) {
+func (r *AccessControlListReconciler) reconcile(ctx context.Context, s *aclScope) (reterr error) {
 	if s.ACL.Labels == nil {
 		s.ACL.Labels = make(map[string]string)
 	}
@@ -208,12 +207,12 @@ func (r *AccessControlListReconciler) reconcile(ctx context.Context, s *aclScope
 	// Ensure the AccessControlList is owned by the Device.
 	if !controllerutil.HasControllerReference(s.ACL) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.ACL, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
@@ -222,7 +221,7 @@ func (r *AccessControlListReconciler) reconcile(ctx context.Context, s *aclScope
 	}()
 
 	// Ensure the AccessControlList is realized on the provider.
-	res, err := s.Provider.EnsureACL(ctx, &provider.EnsureACLRequest{
+	err := s.Provider.EnsureACL(ctx, &provider.EnsureACLRequest{
 		ACL:            s.ACL,
 		ProviderConfig: s.ProviderConfig,
 	})
@@ -232,11 +231,7 @@ func (r *AccessControlListReconciler) reconcile(ctx context.Context, s *aclScope
 	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.ACL, cond)
 
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{RequeueAfter: res.RequeueAfter}, nil
+	return err
 }
 
 func (r *AccessControlListReconciler) finalize(ctx context.Context, s *aclScope) (reterr error) {

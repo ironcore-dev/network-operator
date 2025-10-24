@@ -161,13 +161,12 @@ func (r *NTPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 		}
 	}()
 
-	res, err := r.reconcile(ctx, s)
-	if err != nil {
+	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
 		return ctrl.Result{}, err
 	}
 
-	return res, nil
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -198,7 +197,7 @@ type ntpScope struct {
 	Provider       provider.NTPProvider
 }
 
-func (r *NTPReconciler) reconcile(ctx context.Context, s *ntpScope) (_ ctrl.Result, reterr error) {
+func (r *NTPReconciler) reconcile(ctx context.Context, s *ntpScope) (reterr error) {
 	if s.NTP.Labels == nil {
 		s.NTP.Labels = make(map[string]string)
 	}
@@ -208,12 +207,12 @@ func (r *NTPReconciler) reconcile(ctx context.Context, s *ntpScope) (_ ctrl.Resu
 	// Ensure the NTP is owned by the Device.
 	if !controllerutil.HasControllerReference(s.NTP) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.NTP, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
@@ -222,7 +221,7 @@ func (r *NTPReconciler) reconcile(ctx context.Context, s *ntpScope) (_ ctrl.Resu
 	}()
 
 	// Ensure the NTP is realized on the provider.
-	res, err := s.Provider.EnsureNTP(ctx, &provider.EnsureNTPRequest{
+	err := s.Provider.EnsureNTP(ctx, &provider.EnsureNTPRequest{
 		NTP:            s.NTP,
 		ProviderConfig: s.ProviderConfig,
 	})
@@ -232,11 +231,7 @@ func (r *NTPReconciler) reconcile(ctx context.Context, s *ntpScope) (_ ctrl.Resu
 	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.NTP, cond)
 
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{RequeueAfter: res.RequeueAfter}, nil
+	return err
 }
 
 func (r *NTPReconciler) finalize(ctx context.Context, s *ntpScope) (reterr error) {

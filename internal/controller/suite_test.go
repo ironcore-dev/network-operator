@@ -303,11 +303,11 @@ func (p *Provider) GetDeviceInfo(context.Context) (*provider.DeviceInfo, error) 
 	}, nil
 }
 
-func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) (provider.Result, error) {
+func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.Ports[req.Interface.Name] = req.Interface
-	return provider.Result{}, nil
+	return nil
 }
 
 func (p *Provider) DeleteInterface(_ context.Context, req *provider.InterfaceRequest) error {
@@ -323,11 +323,11 @@ func (p *Provider) GetInterfaceStatus(context.Context, *provider.InterfaceReques
 	}, nil
 }
 
-func (p *Provider) EnsureBanner(_ context.Context, req *provider.BannerRequest) (provider.Result, error) {
+func (p *Provider) EnsureBanner(_ context.Context, req *provider.BannerRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.Banner = &req.Message
-	return provider.Result{}, nil
+	return nil
 }
 
 func (p *Provider) DeleteBanner(context.Context) error {
@@ -337,11 +337,11 @@ func (p *Provider) DeleteBanner(context.Context) error {
 	return nil
 }
 
-func (p *Provider) EnsureUser(_ context.Context, req *provider.EnsureUserRequest) (provider.Result, error) {
+func (p *Provider) EnsureUser(_ context.Context, req *provider.EnsureUserRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.User[req.Username] = struct{}{}
-	return provider.Result{}, nil
+	return nil
 }
 
 func (p *Provider) DeleteUser(_ context.Context, req *provider.DeleteUserRequest) error {
@@ -351,11 +351,11 @@ func (p *Provider) DeleteUser(_ context.Context, req *provider.DeleteUserRequest
 	return nil
 }
 
-func (p *Provider) EnsureDNS(_ context.Context, req *provider.EnsureDNSRequest) (provider.Result, error) {
+func (p *Provider) EnsureDNS(_ context.Context, req *provider.EnsureDNSRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.DNS = req.DNS
-	return provider.Result{}, nil
+	return nil
 }
 
 func (p *Provider) DeleteDNS(_ context.Context) error {
@@ -365,11 +365,11 @@ func (p *Provider) DeleteDNS(_ context.Context) error {
 	return nil
 }
 
-func (p *Provider) EnsureNTP(_ context.Context, req *provider.EnsureNTPRequest) (provider.Result, error) {
+func (p *Provider) EnsureNTP(_ context.Context, req *provider.EnsureNTPRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.NTP = req.NTP
-	return provider.Result{}, nil
+	return nil
 }
 
 func (p *Provider) DeleteNTP(context.Context) error {
@@ -379,11 +379,11 @@ func (p *Provider) DeleteNTP(context.Context) error {
 	return nil
 }
 
-func (p *Provider) EnsureACL(_ context.Context, req *provider.EnsureACLRequest) (provider.Result, error) {
+func (p *Provider) EnsureACL(_ context.Context, req *provider.EnsureACLRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.ACLs[req.ACL.Spec.Name] = struct{}{}
-	return provider.Result{}, nil
+	return nil
 }
 
 func (p *Provider) DeleteACL(_ context.Context, req *provider.DeleteACLRequest) error {
@@ -393,11 +393,11 @@ func (p *Provider) DeleteACL(_ context.Context, req *provider.DeleteACLRequest) 
 	return nil
 }
 
-func (p *Provider) EnsureCertificate(_ context.Context, req *provider.EnsureCertificateRequest) (provider.Result, error) {
+func (p *Provider) EnsureCertificate(_ context.Context, req *provider.EnsureCertificateRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.Certs[req.ID] = struct{}{}
-	return provider.Result{}, nil
+	return nil
 }
 
 func (p *Provider) DeleteCertificate(_ context.Context, req *provider.DeleteCertificateRequest) error {
@@ -407,11 +407,11 @@ func (p *Provider) DeleteCertificate(_ context.Context, req *provider.DeleteCert
 	return nil
 }
 
-func (p *Provider) EnsureSNMP(_ context.Context, req *provider.EnsureSNMPRequest) (provider.Result, error) {
+func (p *Provider) EnsureSNMP(_ context.Context, req *provider.EnsureSNMPRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.SNMP = req.SNMP
-	return provider.Result{}, nil
+	return nil
 }
 
 func (p *Provider) DeleteSNMP(_ context.Context, req *provider.DeleteSNMPRequest) error {
@@ -421,11 +421,11 @@ func (p *Provider) DeleteSNMP(_ context.Context, req *provider.DeleteSNMPRequest
 	return nil
 }
 
-func (p *Provider) EnsureSyslog(_ context.Context, req *provider.EnsureSyslogRequest) (provider.Result, error) {
+func (p *Provider) EnsureSyslog(_ context.Context, req *provider.EnsureSyslogRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.Syslog = req.Syslog
-	return provider.Result{}, nil
+	return nil
 }
 
 func (p *Provider) DeleteSyslog(_ context.Context) error {
@@ -435,11 +435,11 @@ func (p *Provider) DeleteSyslog(_ context.Context) error {
 	return nil
 }
 
-func (p *Provider) EnsureManagementAccess(_ context.Context, req *provider.EnsureManagementAccessRequest) (provider.Result, error) {
+func (p *Provider) EnsureManagementAccess(_ context.Context, req *provider.EnsureManagementAccessRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.Access = req.ManagementAccess
-	return provider.Result{}, nil
+	return nil
 }
 
 func (p *Provider) DeleteManagementAccess(context.Context) error {
@@ -449,11 +449,11 @@ func (p *Provider) DeleteManagementAccess(context.Context) error {
 	return nil
 }
 
-func (p *Provider) EnsureISIS(_ context.Context, req *provider.EnsureISISRequest) (provider.Result, error) {
+func (p *Provider) EnsureISIS(_ context.Context, req *provider.EnsureISISRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.ISIS[req.ISIS.Spec.Instance] = struct{}{}
-	return provider.Result{}, nil
+	return nil
 }
 
 func (p *Provider) DeleteISIS(_ context.Context, req *provider.DeleteISISRequest) error {

@@ -168,13 +168,12 @@ func (r *BannerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		}
 	}()
 
-	res, err := r.reconcile(ctx, s)
-	if err != nil {
+	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
 		return ctrl.Result{}, err
 	}
 
-	return res, nil
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -217,7 +216,7 @@ type bannerScope struct {
 	Provider       provider.BannerProvider
 }
 
-func (r *BannerReconciler) reconcile(ctx context.Context, s *bannerScope) (_ ctrl.Result, reterr error) {
+func (r *BannerReconciler) reconcile(ctx context.Context, s *bannerScope) (reterr error) {
 	if s.Banner.Labels == nil {
 		s.Banner.Labels = make(map[string]string)
 	}
@@ -227,12 +226,12 @@ func (r *BannerReconciler) reconcile(ctx context.Context, s *bannerScope) (_ ctr
 	// Ensure the Banner is owned by the Device.
 	if !controllerutil.HasControllerReference(s.Banner) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.Banner, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
@@ -242,11 +241,11 @@ func (r *BannerReconciler) reconcile(ctx context.Context, s *bannerScope) (_ ctr
 
 	msg, err := clientutil.NewClient(r, s.Banner.Namespace).Template(ctx, &s.Banner.Spec.Message)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	// Ensure the Banner is realized on the provider.
-	res, err := s.Provider.EnsureBanner(ctx, &provider.BannerRequest{
+	err = s.Provider.EnsureBanner(ctx, &provider.BannerRequest{
 		Message:        string(msg),
 		ProviderConfig: s.ProviderConfig,
 	})
@@ -256,11 +255,7 @@ func (r *BannerReconciler) reconcile(ctx context.Context, s *bannerScope) (_ ctr
 	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.Banner, cond)
 
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{RequeueAfter: res.RequeueAfter}, nil
+	return err
 }
 
 func (r *BannerReconciler) finalize(ctx context.Context, s *bannerScope) (reterr error) {

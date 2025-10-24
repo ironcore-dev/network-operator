@@ -49,7 +49,7 @@ func (p *Provider) Disconnect(context.Context, *deviceutil.Connection) error {
 	return p.conn.Close()
 }
 
-func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) (provider.Result, error) {
+func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) error {
 	log := ctrl.LoggerFrom(ctx)
 
 	i := &Interface{Name: ygot.String(req.Interface.Spec.Name)}
@@ -59,7 +59,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 	case v1alpha1.AdminStateDown:
 		i.Enabled = ygot.Bool(false)
 	default:
-		return provider.Result{}, fmt.Errorf("invalid admin state: %s", req.Interface.Spec.AdminState)
+		return fmt.Errorf("invalid admin state: %s", req.Interface.Spec.AdminState)
 	}
 	i.Description = ygot.String(req.Interface.Spec.Description)
 	switch req.Interface.Spec.Type {
@@ -68,7 +68,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 	case v1alpha1.InterfaceTypeLoopback:
 		i.Type = IETFInterfaces_InterfaceType_softwareLoopback
 	default:
-		return provider.Result{}, fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
+		return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
 	}
 	i.Mtu = ygot.Uint16(uint16(req.Interface.Spec.MTU))
 	for idx, addr := range req.Interface.Spec.IPv4Addresses {
@@ -81,7 +81,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 		default:
 			ip, err := netip.ParsePrefix(addr)
 			if err != nil {
-				return provider.Result{}, fmt.Errorf("failed to parse IPv4 address %q: %w", addr, err)
+				return fmt.Errorf("failed to parse IPv4 address %q: %w", addr, err)
 			}
 			i.GetOrCreateSubinterface(uint32(idx)).GetOrCreateIpv4().GetOrCreateAddress(ip.Addr().String()).SetPrefixLength(uint8(ip.Bits()))
 		}
@@ -99,23 +99,23 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 			for _, vlan := range req.Interface.Spec.Switchport.AllowedVlans {
 				union, err := port.To_Interface_Ethernet_SwitchedVlan_TrunkVlans_Union(vlan)
 				if err != nil {
-					return provider.Result{}, fmt.Errorf("failed to convert vlan %d to union type: %w", vlan, err)
+					return fmt.Errorf("failed to convert vlan %d to union type: %w", vlan, err)
 				}
 				port.TrunkVlans = append(port.TrunkVlans, union)
 			}
 		default:
-			return provider.Result{}, fmt.Errorf("invalid switchport mode: %s", req.Interface.Spec.Switchport.Mode)
+			return fmt.Errorf("invalid switchport mode: %s", req.Interface.Spec.Switchport.Mode)
 		}
 	}
 
 	b, err := ygot.Marshal7951(i)
 	if err != nil {
-		return provider.Result{}, fmt.Errorf("failed to marshal interface: %w", err)
+		return fmt.Errorf("failed to marshal interface: %w", err)
 	}
 	log.V(1).Info("Marshalled interface", "interface", string(b))
 
 	_, err = ygnmi.Update(ctx, p.client, Root().Interface(req.Interface.Spec.Name).Config(), i, ygnmi.WithEncoding(gpb.Encoding_JSON), ygnmi.WithSkipModuleNames())
-	return provider.Result{}, err
+	return err
 }
 
 func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceRequest) error {

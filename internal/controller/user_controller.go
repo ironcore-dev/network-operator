@@ -167,13 +167,12 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		}
 	}()
 
-	res, err := r.reconcile(ctx, s)
-	if err != nil {
+	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
 		return ctrl.Result{}, err
 	}
 
-	return res, nil
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -210,7 +209,7 @@ type userScope struct {
 	Provider       provider.UserProvider
 }
 
-func (r *UserReconciler) reconcile(ctx context.Context, s *userScope) (_ ctrl.Result, reterr error) {
+func (r *UserReconciler) reconcile(ctx context.Context, s *userScope) (reterr error) {
 	if s.User.Labels == nil {
 		s.User.Labels = make(map[string]string)
 	}
@@ -220,12 +219,12 @@ func (r *UserReconciler) reconcile(ctx context.Context, s *userScope) (_ ctrl.Re
 	// Ensure the User is owned by the Device.
 	if !controllerutil.HasControllerReference(s.User) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.User, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
@@ -236,7 +235,7 @@ func (r *UserReconciler) reconcile(ctx context.Context, s *userScope) (_ ctrl.Re
 	c := clientutil.NewClient(r, s.User.Namespace)
 	pwd, err := c.Secret(ctx, &s.User.Spec.Password.SecretKeyRef)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	roles := make([]string, 0, len(s.User.Spec.Roles))
@@ -248,13 +247,13 @@ func (r *UserReconciler) reconcile(ctx context.Context, s *userScope) (_ ctrl.Re
 	if s.User.Spec.SSHPublicKey != nil {
 		sshKeyBytes, err := c.Secret(ctx, &s.User.Spec.SSHPublicKey.SecretKeyRef)
 		if err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 		sshKey = string(sshKeyBytes)
 	}
 
 	// Ensure the User is realized on the provider.
-	res, err := s.Provider.EnsureUser(ctx, &provider.EnsureUserRequest{
+	err = s.Provider.EnsureUser(ctx, &provider.EnsureUserRequest{
 		Username:       s.User.Spec.Username,
 		Password:       string(pwd),
 		Roles:          roles,
@@ -267,11 +266,7 @@ func (r *UserReconciler) reconcile(ctx context.Context, s *userScope) (_ ctrl.Re
 	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.User, cond)
 
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{RequeueAfter: res.RequeueAfter}, nil
+	return err
 }
 
 func (r *UserReconciler) finalize(ctx context.Context, s *userScope) (reterr error) {

@@ -161,13 +161,12 @@ func (r *SNMPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		}
 	}()
 
-	res, err := r.reconcile(ctx, s)
-	if err != nil {
+	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
 		return ctrl.Result{}, err
 	}
 
-	return res, nil
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -198,7 +197,7 @@ type snmpScope struct {
 	Provider       provider.SNMPProvider
 }
 
-func (r *SNMPReconciler) reconcile(ctx context.Context, s *snmpScope) (_ ctrl.Result, reterr error) {
+func (r *SNMPReconciler) reconcile(ctx context.Context, s *snmpScope) (reterr error) {
 	if s.SNMP.Labels == nil {
 		s.SNMP.Labels = make(map[string]string)
 	}
@@ -208,12 +207,12 @@ func (r *SNMPReconciler) reconcile(ctx context.Context, s *snmpScope) (_ ctrl.Re
 	// Ensure the SNMP is owned by the Device.
 	if !controllerutil.HasControllerReference(s.SNMP) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.SNMP, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
@@ -222,7 +221,7 @@ func (r *SNMPReconciler) reconcile(ctx context.Context, s *snmpScope) (_ ctrl.Re
 	}()
 
 	// Ensure the SNMP is realized on the provider.
-	res, err := s.Provider.EnsureSNMP(ctx, &provider.EnsureSNMPRequest{
+	err := s.Provider.EnsureSNMP(ctx, &provider.EnsureSNMPRequest{
 		SNMP:           s.SNMP,
 		ProviderConfig: s.ProviderConfig,
 	})
@@ -232,11 +231,7 @@ func (r *SNMPReconciler) reconcile(ctx context.Context, s *snmpScope) (_ ctrl.Re
 	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.SNMP, cond)
 
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{RequeueAfter: res.RequeueAfter}, nil
+	return err
 }
 
 func (r *SNMPReconciler) finalize(ctx context.Context, s *snmpScope) (reterr error) {

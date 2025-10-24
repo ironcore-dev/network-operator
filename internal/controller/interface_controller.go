@@ -236,7 +236,7 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 	}()
 
 	// Ensure the Interface is realized on the provider.
-	res, err := s.Provider.EnsureInterface(ctx, &provider.InterfaceRequest{
+	err := s.Provider.EnsureInterface(ctx, &provider.InterfaceRequest{
 		Interface:      s.Interface,
 		ProviderConfig: s.ProviderConfig,
 	})
@@ -246,10 +246,6 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 
 	if err != nil {
 		return ctrl.Result{}, err
-	}
-
-	if res.RequeueAfter > 0 {
-		return ctrl.Result{RequeueAfter: res.RequeueAfter}, nil
 	}
 
 	status, err := s.Provider.GetInterfaceStatus(ctx, &provider.InterfaceRequest{
