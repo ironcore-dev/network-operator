@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"net/netip"
 	"reflect"
 	"slices"
@@ -41,6 +42,7 @@ var (
 	_ provider.SNMPProvider             = (*Provider)(nil)
 	_ provider.SyslogProvider           = (*Provider)(nil)
 	_ provider.UserProvider             = (*Provider)(nil)
+	_ provider.VRFProvider              = (*Provider)(nil)
 )
 
 type Provider struct {
@@ -1518,159 +1520,165 @@ func (p *Provider) DeleteSyslog(ctx context.Context) error {
 	)
 }
 
-// VRFRequest represents a Virtual Routing and Forwarding instance or context as per Cisco definition
-type VRFRequest struct {
-	// Name is the display Name of the VRF.
-	Name string
-	// VNI is the Virtual Network Identifier for the VRF. It is assumed to be L3 VNI if set.
-	VNI *uint32
-	// rd is the Route Distinguisher for the VRF.
-	RouteDistinguiser *VPNIPv4Address
-	// rts is a list of Route Targets associated with the VRF.
-	RouteTargets []RouteTarget
-}
-
-//nolint:gocritic
-func (p *Provider) EnsureVRF(ctx context.Context, req *VRFRequest) error {
+func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) error {
 	v := new(VRF)
-	v.Name = req.Name
-	if req.VNI != nil {
+	v.Name = req.VRF.Spec.Name
+
+	if req.VRF.Spec.VNI > 0 {
 		v.L3Vni = true
-		v.Encap = "vxlan-" + strconv.FormatUint(uint64(*req.VNI), 10)
+		v.Encap = "vxlan-" + strconv.FormatUint(uint64(req.VRF.Spec.VNI), 10)
 	}
-	if len(req.RouteTargets) > 0 || req.RouteDistinguiser != nil {
-		dom := new(VRFDom)
-		dom.Name = req.Name
-		if req.RouteDistinguiser != nil {
-			dom.Rd = "rd:" + req.RouteDistinguiser.String()
-		}
-		ipv4Af := new(VRFDomAf)
-		ipv4Af.Type = AddressFamilyIPv4Unicast
+	var dom *VRFDom
 
-		ipv6Af := new(VRFDomAf)
-		ipv6Af.Type = AddressFamilyIPv6Unicast
-
-		ipv4AfItems := new(VRFDomAfCtrl)
-		ipv4AfItems.Type = AddressFamilyIPv4Unicast
-
-		ipv4AfEVPNItems := new(VRFDomAfCtrl)
-		ipv4AfEVPNItems.Type = AddressFamilyL2EVPN
-
-		ipv6AfItems := new(VRFDomAfCtrl)
-		ipv6AfItems.Type = AddressFamilyIPv6Unicast
-
-		ipv6AfEVPNItems := new(VRFDomAfCtrl)
-		ipv6AfEVPNItems.Type = AddressFamilyL2EVPN
-
-		ipv4AfImports := new(RttEntry)
-		ipv4AfImports.Type = RttEntryTypeImport
-
-		ipv4AfExports := new(RttEntry)
-		ipv4AfExports.Type = RttEntryTypeExport
-
-		ipv4AfEVPNImports := new(RttEntry)
-		ipv4AfEVPNImports.Type = RttEntryTypeImport
-
-		ipv4AfEVPNExports := new(RttEntry)
-		ipv4AfEVPNExports.Type = RttEntryTypeExport
-
-		ipv6AfImports := new(RttEntry)
-		ipv6AfImports.Type = RttEntryTypeImport
-
-		ipv6AfExports := new(RttEntry)
-		ipv6AfExports.Type = RttEntryTypeExport
-
-		ipv6AfEVPNImports := new(RttEntry)
-		ipv6AfEVPNImports.Type = RttEntryTypeImport
-
-		ipv6AfEVPNExports := new(RttEntry)
-		ipv6AfEVPNExports.Type = RttEntryTypeExport
-
-		for _, rt := range req.RouteTargets {
-			rtt := new(Rtt)
-			rtt.Rtt = "route-target:" + rt.Addr.String()
-			if rt.AddressFamilyIPv4 {
-				if rt.AddEVPN && (rt.Action == RTImport || rt.Action == RTBoth) {
-					ipv4AfEVPNImports.EntItems.RttEntryList = append(ipv4AfEVPNImports.EntItems.RttEntryList, rtt)
-				}
-				if rt.AddEVPN && (rt.Action == RTExport || rt.Action == RTBoth) {
-					ipv4AfEVPNExports.EntItems.RttEntryList = append(ipv4AfEVPNImports.EntItems.RttEntryList, rtt)
-				}
-				if !rt.AddEVPN && (rt.Action == RTImport || rt.Action == RTBoth) {
-					ipv4AfImports.EntItems.RttEntryList = append(ipv4AfEVPNImports.EntItems.RttEntryList, rtt)
-				}
-				if !rt.AddEVPN && (rt.Action == RTExport || rt.Action == RTBoth) {
-					ipv4AfExports.EntItems.RttEntryList = append(ipv4AfEVPNImports.EntItems.RttEntryList, rtt)
-				}
+	// pre: RD format has been already been validated by VRFCustomValidator
+	if req.VRF.Spec.RouteDistinguisher != "" {
+		dom = &VRFDom{Name: req.VRF.Spec.Name}
+		tokens := strings.Split(req.VRF.Spec.RouteDistinguisher, ":")
+		if strings.Contains(tokens[0], ".") {
+			dom.Rd = "rd:ipv4-nn2:" + req.VRF.Spec.RouteDistinguisher
+		} else {
+			asn, err := strconv.ParseUint(tokens[0], 10, 32)
+			if err != nil {
+				return fmt.Errorf("invalid ASN in route distinguisher: %w", err)
 			}
-			if rt.AddressFamilyIPv6 {
-				if rt.AddEVPN && (rt.Action == RTImport || rt.Action == RTBoth) {
-					ipv6AfEVPNImports.EntItems.RttEntryList = append(ipv4AfEVPNImports.EntItems.RttEntryList, rtt)
+			dom.Rd = "rd:asn2-nn4:" + req.VRF.Spec.RouteDistinguisher
+			if asn > math.MaxUint16 {
+				dom.Rd = "rd:asn4-nn2:" + req.VRF.Spec.RouteDistinguisher
+			}
+		}
+		v.DomItems = &VRFDomItems{DomList: []*VRFDom{dom}}
+	}
+
+	// configure route targets
+	importEntryIPv4 := &RttEntry{Type: RttEntryTypeImport}
+	exportEntryIPv4 := &RttEntry{Type: RttEntryTypeExport}
+	importEntryIPv6 := &RttEntry{Type: RttEntryTypeImport}
+	exportEntryIPv6 := &RttEntry{Type: RttEntryTypeExport}
+
+	importEntryIPv4EVPN := &RttEntry{Type: RttEntryTypeImport}
+	exportEntryIPv4EVPN := &RttEntry{Type: RttEntryTypeExport}
+	importEntryIPv6EVPN := &RttEntry{Type: RttEntryTypeImport}
+	exportEntryIPv6EVPN := &RttEntry{Type: RttEntryTypeExport}
+
+	importEntryIPv4.EntItems = new(RttEntItems)
+	exportEntryIPv4.EntItems = new(RttEntItems)
+	importEntryIPv6.EntItems = new(RttEntItems)
+	exportEntryIPv6.EntItems = new(RttEntItems)
+
+	importEntryIPv4EVPN.EntItems = new(RttEntItems)
+	exportEntryIPv4EVPN.EntItems = new(RttEntItems)
+	importEntryIPv6EVPN.EntItems = new(RttEntItems)
+	exportEntryIPv6EVPN.EntItems = new(RttEntItems)
+
+	// route targets are already validated by VRFCustomValidator
+	for _, rt := range req.VRF.Spec.RouteTargets {
+		rttValue := "route-target:"
+		tokens := strings.Split(rt.Value, ":")
+		if strings.Contains(tokens[0], ".") {
+			rttValue += "ipv4-nn2:" + rt.Value
+		} else {
+			asn, err := strconv.ParseUint(tokens[0], 10, 32)
+			if err != nil {
+				return fmt.Errorf("invalid ASN in route target: %w", err)
+			}
+			if asn > math.MaxUint16 {
+				rttValue += "as4-nn2:" + rt.Value
+			} else {
+				nn, err := strconv.ParseUint(tokens[1], 10, 32)
+				if err != nil {
+					return fmt.Errorf("invalid number in route target: %w", err)
 				}
-				if rt.AddEVPN && (rt.Action == RTExport || rt.Action == RTBoth) {
-					ipv6AfEVPNExports.EntItems.RttEntryList = append(ipv4AfEVPNImports.EntItems.RttEntryList, rtt)
-				}
-				if !rt.AddEVPN && (rt.Action == RTImport || rt.Action == RTBoth) {
-					ipv6AfImports.EntItems.RttEntryList = append(ipv4AfEVPNImports.EntItems.RttEntryList, rtt)
-				}
-				if !rt.AddEVPN && (rt.Action == RTExport || rt.Action == RTBoth) {
-					ipv6AfExports.EntItems.RttEntryList = append(ipv4AfEVPNImports.EntItems.RttEntryList, rtt)
+				rttValue += "as2-nn2:" + rt.Value
+				if nn > math.MaxUint16 {
+					rttValue += "as2-nn4:" + rt.Value
 				}
 			}
 		}
+		rtt := Rtt{Rtt: rttValue}
 
-		if len(ipv4AfImports.EntItems.RttEntryList) > 0 {
-			ipv4AfItems.RttpItems.RttPList = append(ipv4AfItems.RttpItems.RttPList, ipv4AfImports)
+		for _, af := range rt.AddressFamilies {
+			switch af {
+			case v1alpha1.IPv4:
+				if rt.Action == v1alpha1.RouteTargetActionImport || rt.Action == v1alpha1.RouteTargetActionBoth {
+					importEntryIPv4.EntItems.RttEntryList = append(importEntryIPv4.EntItems.RttEntryList, &rtt)
+				}
+				if rt.Action == v1alpha1.RouteTargetActionExport || rt.Action == v1alpha1.RouteTargetActionBoth {
+					exportEntryIPv4.EntItems.RttEntryList = append(exportEntryIPv4.EntItems.RttEntryList, &rtt)
+				}
+			case v1alpha1.IPv6:
+				if rt.Action == v1alpha1.RouteTargetActionImport || rt.Action == v1alpha1.RouteTargetActionBoth {
+					importEntryIPv6.EntItems.RttEntryList = append(importEntryIPv6.EntItems.RttEntryList, &rtt)
+				}
+				if rt.Action == v1alpha1.RouteTargetActionExport || rt.Action == v1alpha1.RouteTargetActionBoth {
+					exportEntryIPv6.EntItems.RttEntryList = append(exportEntryIPv6.EntItems.RttEntryList, &rtt)
+				}
+			case v1alpha1.IPv4EVPN:
+				if rt.Action == v1alpha1.RouteTargetActionImport || rt.Action == v1alpha1.RouteTargetActionBoth {
+					importEntryIPv4EVPN.EntItems.RttEntryList = append(importEntryIPv4EVPN.EntItems.RttEntryList, &rtt)
+				}
+				if rt.Action == v1alpha1.RouteTargetActionExport || rt.Action == v1alpha1.RouteTargetActionBoth {
+					exportEntryIPv4EVPN.EntItems.RttEntryList = append(exportEntryIPv4EVPN.EntItems.RttEntryList, &rtt)
+				}
+			case v1alpha1.IPv6EVPN:
+				if rt.Action == v1alpha1.RouteTargetActionImport || rt.Action == v1alpha1.RouteTargetActionBoth {
+					importEntryIPv6EVPN.EntItems.RttEntryList = append(importEntryIPv6EVPN.EntItems.RttEntryList, &rtt)
+				}
+				if rt.Action == v1alpha1.RouteTargetActionExport || rt.Action == v1alpha1.RouteTargetActionBoth {
+					exportEntryIPv6EVPN.EntItems.RttEntryList = append(exportEntryIPv6EVPN.EntItems.RttEntryList, &rtt)
+				}
+			default:
+				return fmt.Errorf("unsupported address family for route target: %v", af)
+			}
 		}
-		if len(ipv4AfExports.EntItems.RttEntryList) > 0 {
-			ipv4AfItems.RttpItems.RttPList = append(ipv4AfItems.RttpItems.RttPList, ipv4AfExports)
+	}
+
+	if len(req.VRF.Spec.RouteTargets) > 0 {
+		if dom == nil {
+			dom = &VRFDom{Name: req.VRF.Spec.Name}
+		}
+		dom.AfItems = &VRFDomAfItems{}
+
+		// Helper to add an AF with import/export entries
+		addAF := func(afType1, afType2 AddressFamily, importE, exportE *RttEntry) {
+			if (importE == nil || len(importE.EntItems.RttEntryList) == 0) &&
+				(exportE == nil || len(exportE.EntItems.RttEntryList) == 0) {
+				return
+			}
+			af := &VRFDomAf{Type: afType1}
+			af.CtrlItems = &VRFDomAfCtrlItems{}
+			ctrl := &VRFDomAfCtrl{Type: afType2}
+			ctrl.RttpItems = &VRFRttpItems{}
+
+			if importE != nil && len(importE.EntItems.RttEntryList) > 0 {
+				ctrl.RttpItems.RttPList = append(ctrl.RttpItems.RttPList, importE)
+			}
+			if exportE != nil && len(exportE.EntItems.RttEntryList) > 0 {
+				ctrl.RttpItems.RttPList = append(ctrl.RttpItems.RttPList, exportE)
+			}
+
+			if len(ctrl.RttpItems.RttPList) == 0 {
+				return
+			}
+			af.CtrlItems.AfCtrlList = append(af.CtrlItems.AfCtrlList, ctrl)
+			dom.AfItems.DomAfList = append(dom.AfItems.DomAfList, af)
 		}
 
-		if len(ipv4AfEVPNImports.EntItems.RttEntryList) > 0 {
-			ipv4AfEVPNItems.RttpItems.RttPList = append(ipv4AfEVPNItems.RttpItems.RttPList, ipv4AfEVPNImports)
-		}
-		if len(ipv4AfEVPNExports.EntItems.RttEntryList) > 0 {
-			ipv4AfEVPNItems.RttpItems.RttPList = append(ipv4AfEVPNItems.RttpItems.RttPList, ipv4AfEVPNExports)
-		}
+		addAF(AddressFamilyIPv4Unicast, AddressFamilyIPv4Unicast, importEntryIPv4, exportEntryIPv4)
+		addAF(AddressFamilyIPv6Unicast, AddressFamilyIPv6Unicast, importEntryIPv6, exportEntryIPv6)
+		addAF(AddressFamilyIPv4Unicast, AddressFamilyL2EVPN, importEntryIPv4EVPN, exportEntryIPv4EVPN)
+		addAF(AddressFamilyIPv6Unicast, AddressFamilyL2EVPN, importEntryIPv6EVPN, exportEntryIPv6EVPN)
+	}
 
-		if len(ipv6AfImports.EntItems.RttEntryList) > 0 {
-			ipv6AfItems.RttpItems.RttPList = append(ipv6AfItems.RttpItems.RttPList, ipv6AfImports)
-		}
-		if len(ipv6AfExports.EntItems.RttEntryList) > 0 {
-			ipv6AfItems.RttpItems.RttPList = append(ipv6AfItems.RttpItems.RttPList, ipv6AfExports)
-		}
-
-		if len(ipv6AfEVPNImports.EntItems.RttEntryList) > 0 {
-			ipv6AfEVPNItems.RttpItems.RttPList = append(ipv6AfEVPNItems.RttpItems.RttPList, ipv6AfEVPNImports)
-		}
-		if len(ipv6AfEVPNExports.EntItems.RttEntryList) > 0 {
-			ipv6AfEVPNItems.RttpItems.RttPList = append(ipv6AfEVPNItems.RttpItems.RttPList, ipv6AfEVPNExports)
-		}
-
-		if len(ipv4AfItems.RttpItems.RttPList) > 0 {
-			ipv4Af.CtrlItems.AfCtrlList = append(ipv4Af.CtrlItems.AfCtrlList, ipv4AfItems)
-		}
-		if len(ipv4AfEVPNItems.RttpItems.RttPList) > 0 {
-			ipv4Af.CtrlItems.AfCtrlList = append(ipv4Af.CtrlItems.AfCtrlList, ipv4AfEVPNItems)
-		}
-
-		if len(ipv6AfItems.RttpItems.RttPList) > 0 {
-			ipv6Af.CtrlItems.AfCtrlList = append(ipv6Af.CtrlItems.AfCtrlList, ipv6AfItems)
-		}
-		if len(ipv6AfEVPNItems.RttpItems.RttPList) > 0 {
-			ipv6Af.CtrlItems.AfCtrlList = append(ipv6Af.CtrlItems.AfCtrlList, ipv6AfEVPNItems)
-		}
-
-		if len(ipv4Af.CtrlItems.AfCtrlList) > 0 {
-			dom.AfItems.DomAfList = append(dom.AfItems.DomAfList, ipv4Af)
-		}
-		if len(ipv6Af.CtrlItems.AfCtrlList) > 0 {
-			dom.AfItems.DomAfList = append(dom.AfItems.DomAfList, ipv6Af)
-		}
+	if dom != nil {
 		v.DomItems.DomList = append(v.DomItems.DomList, dom)
 	}
-
 	return p.client.Update(ctx, v)
+}
+
+func (p *Provider) DeleteVRF(ctx context.Context, req *provider.VRFRequest) error {
+	v := new(VRF)
+	v.Name = req.VRF.Spec.Name
+	return p.client.Delete(ctx, v)
 }
 
 func init() {

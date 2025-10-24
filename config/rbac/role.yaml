@@ -43,6 +43,7 @@ rules:
   - snmp
   - syslogs
   - users
+  - vrfs
   verbs:
   - create
   - delete
@@ -66,6 +67,7 @@ rules:
   - snmp/finalizers
   - syslogs/finalizers
   - users/finalizers
+  - vrfs/finalizers
   verbs:
   - update
 - apiGroups:
@@ -83,6 +85,7 @@ rules:
   - snmp/status
   - syslogs/status
   - users/status
+  - vrfs/status
   verbs:
   - get
   - patch

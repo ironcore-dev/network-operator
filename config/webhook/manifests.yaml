@@ -1,0 +1,26 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-networking-cloud-sap-v1alpha1-vrf
+  failurePolicy: Fail
+  name: vrf-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - networking.cloud.sap
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - vrfs
+  sideEffects: None
