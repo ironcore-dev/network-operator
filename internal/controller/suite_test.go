@@ -195,6 +195,15 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&VRFReconciler{
+		Client:          k8sManager.GetClient(),
+		Scheme:          k8sManager.GetScheme(),
+		Recorder:        recorder,
+		Provider:        prov,
+		RequeueInterval: time.Second,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -251,6 +260,7 @@ var (
 	_ provider.SyslogProvider           = (*Provider)(nil)
 	_ provider.ManagementAccessProvider = (*Provider)(nil)
 	_ provider.ISISProvider             = (*Provider)(nil)
+	_ provider.VRFProvider              = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -268,6 +278,7 @@ type Provider struct {
 	Syslog *v1alpha1.Syslog
 	Access *v1alpha1.ManagementAccess
 	ISIS   sets.Set[string]
+	VRF    sets.Set[string]
 }
 
 func NewProvider() *Provider {
@@ -277,6 +288,7 @@ func NewProvider() *Provider {
 		ACLs:  sets.New[string](),
 		Certs: sets.New[string](),
 		ISIS:  sets.New[string](),
+		VRF:   sets.New[string](),
 	}
 }
 
@@ -461,5 +473,19 @@ func (p *Provider) DeleteISIS(_ context.Context, req *provider.DeleteISISRequest
 	p.Lock()
 	defer p.Unlock()
 	p.ISIS.Delete(req.ISIS.Spec.Instance)
+	return nil
+}
+
+func (p *Provider) EnsureVRF(_ context.Context, req *provider.VRFRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.VRF.Insert(req.VRF.Spec.Name)
+	return nil
+}
+
+func (p *Provider) DeleteVRF(_ context.Context, req *provider.VRFRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.VRF.Delete(req.VRF.Spec.Name)
 	return nil
 }

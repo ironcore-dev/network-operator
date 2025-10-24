@@ -1,0 +1,52 @@
+apiVersion: networking.cloud.sap/v1alpha1
+kind: VRF
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.cloud.sap/device-name: leaf1
+  name: vrf-cc-admin
+spec:
+  deviceRef:
+    name: leaf1
+  name: CC-ADMIN
+  routeDistinguisher: 127.0.0.1:30004
+  routeTargets:
+    - value: 1.2.3.4:100
+      addressFamilies:
+        - IPv4
+        - IPv6
+        - IPv4EVPN
+        - IPv6EVPN
+      action: Import
+    - value: 4231231:100
+      addressFamilies:
+        - IPv4
+        - IPv6
+      action: Export
+    - value: 65000:100
+      addressFamilies:
+        - IPv4
+        - IPv6
+      action: Both
+---
+apiVersion: networking.cloud.sap/v1alpha1
+kind: VRF
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.cloud.sap/device-name: leaf1
+  name: vrf-cc-prod-001
+spec:
+  deviceRef:
+    name: leaf1
+  name: CC-PROD-001
+  routeDistinguisher: 127.0.0.1:30000
+  vni: 100
+  routeTargets:
+    - value: 10.1.1.1:200
+      addressFamilies:
+        - IPv4
+        - IPv4EVPN
+      action: Both

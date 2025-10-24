@@ -263,6 +263,22 @@ type DeleteISISRequest struct {
 	ProviderConfig *ProviderConfig
 }
 
+// VRFProvider is the interface for the realization of the VRF objects over different providers.
+type VRFProvider interface {
+	Provider
+
+	// EnsureVRF call is responsible for VRF realization on the provider.
+	EnsureVRF(context.Context, *VRFRequest) error
+	// DeleteVRF call is responsible for VRF deletion on the provider.
+	DeleteVRF(context.Context, *VRFRequest) error
+}
+
+// VRFRequest is the request for handling a VRF on the provider.
+type VRFRequest struct {
+	VRF            *v1alpha1.VRF
+	ProviderConfig *ProviderConfig
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.
