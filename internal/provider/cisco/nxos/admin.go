@@ -26,3 +26,13 @@ const (
 	AdminStOff AdminSt3 = "off"
 	AdminStOn  AdminSt3 = "on"
 )
+
+// OperSt represents the operational state of a component.
+type OperSt string
+
+const (
+	OperStUp      OperSt = "up"
+	OperStDown    OperSt = "down"
+	OperStUnknown OperSt = "unknown"
+	OperStLinkUp  OperSt = "link-up"
+)

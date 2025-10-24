@@ -41,8 +41,8 @@ func (l *Loopback) XPath() string {
 }
 
 type LoopbackOperItems struct {
-	ID     string   `json:"-"`
-	OperSt AdminSt2 `json:"operSt"`
+	ID     string `json:"-"`
+	OperSt OperSt `json:"operSt"`
 }
 
 func (l *LoopbackOperItems) XPath() string {
@@ -97,8 +97,8 @@ func (p *PhysIf) Default() {
 }
 
 type PhysIfOperItems struct {
-	ID     string   `json:"-"`
-	OperSt AdminSt2 `json:"operSt"`
+	ID     string `json:"-"`
+	OperSt OperSt `json:"operSt"`
 }
 
 func (p *PhysIfOperItems) XPath() string {

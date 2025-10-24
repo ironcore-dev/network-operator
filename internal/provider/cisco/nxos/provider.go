@@ -671,7 +671,7 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 }
 
 func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.InterfaceRequest) (provider.InterfaceStatus, error) {
-	var operSt AdminSt2
+	var operSt OperSt
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
 		phys := new(PhysIfOperItems)
@@ -694,7 +694,7 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 	}
 
 	return provider.InterfaceStatus{
-		OperStatus: operSt == AdminStUp,
+		OperStatus: operSt == OperStUp,
 	}, nil
 }
 
