@@ -24,6 +24,26 @@ spec:
     - jsonPath: .spec.endpoint.address
       name: Endpoint
       type: string
+    - jsonPath: .status.manufacturer
+      name: Manufacturer
+      priority: 1
+      type: string
+    - jsonPath: .status.model
+      name: Model
+      priority: 1
+      type: string
+    - jsonPath: .status.serialNumber
+      name: SerialNumber
+      priority: 1
+      type: string
+    - jsonPath: .status.firmwareVersion
+      name: FirmwareVersion
+      priority: 1
+      type: string
+    - jsonPath: .status.portSummary
+      name: Ports
+      priority: 1
+      type: string
     - jsonPath: .status.phase
       name: Phase
       type: string
@@ -73,50 +93,60 @@ spec:
                         description: Reference to a ConfigMap containing the template
                         properties:
                           key:
-                            description: The key to select.
+                            description: |-
+                              Key is the of the entry in the configmap resource's `data` or `binaryData`
+                              field to be used.
+                            maxLength: 253
+                            minLength: 1
                             type: string
                           name:
-                            default: ""
-                            description: |-
-                              Name of the referent.
-                              This field is effectively required, but due to backwards compatibility is
-                              allowed to be empty. Instances of this type with an empty value here are
-                              almost certainly wrong.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            description: Name is unique within a namespace to reference
+                              a configmap resource.
+                            maxLength: 253
+                            minLength: 1
                             type: string
-                          optional:
-                            description: Specify whether the ConfigMap or its key
-                              must be defined
-                            type: boolean
+                          namespace:
+                            description: |-
+                              Namespace defines the space within which the configmap name must be unique.
+                              If omitted, the namespace of the object being reconciled will be used.
+                            maxLength: 63
+                            minLength: 1
+                            type: string
                         required:
                         - key
+                        - name
                         type: object
                         x-kubernetes-map-type: atomic
                       inline:
                         description: Inline template content
+                        minLength: 1
                         type: string
                       secretRef:
                         description: Reference to a Secret containing the template
                         properties:
                           key:
-                            description: The key of the secret to select from.  Must
-                              be a valid secret key.
+                            description: |-
+                              Key is the of the entry in the secret resource's `data` or `stringData`
+                              field to be used.
+                            maxLength: 253
+                            minLength: 1
                             type: string
                           name:
-                            default: ""
-                            description: |-
-                              Name of the referent.
-                              This field is effectively required, but due to backwards compatibility is
-                              allowed to be empty. Instances of this type with an empty value here are
-                              almost certainly wrong.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            description: Name is unique within a namespace to reference
+                              a secret resource.
+                            maxLength: 253
+                            minLength: 1
                             type: string
-                          optional:
-                            description: Specify whether the Secret or its key must
-                              be defined
-                            type: boolean
+                          namespace:
+                            description: |-
+                              Namespace defines the space within which the secret name must be unique.
+                              If omitted, the namespace of the object being reconciled will be used.
+                            maxLength: 63
+                            minLength: 1
+                            type: string
                         required:
                         - key
+                        - name
                         type: object
                         x-kubernetes-map-type: atomic
                     type: object
@@ -141,21 +171,24 @@ spec:
                     description: |-
                       SecretRef is name of the authentication secret for the device containing the username and password.
                       The secret must be of type kubernetes.io/basic-auth and as such contain the following keys: 'username' and 'password'.
-                      Immutable after creation.
                     properties:
                       name:
-                        description: name is unique within a namespace to reference
+                        description: Name is unique within a namespace to reference
                           a secret resource.
+                        maxLength: 253
+                        minLength: 1
                         type: string
                       namespace:
-                        description: namespace defines the space within which the
-                          secret name must be unique.
+                        description: |-
+                          Namespace defines the space within which the secret name must be unique.
+                          If omitted, the namespace of the object being reconciled will be used.
+                        maxLength: 63
+                        minLength: 1
                         type: string
+                    required:
+                    - name
                     type: object
                     x-kubernetes-map-type: atomic
-                    x-kubernetes-validations:
-                    - message: SecretRef is immutable
-                      rule: self == oldSelf
                   tls:
                     description: Transport credentials for grpc connection to the
                       switch.
@@ -164,24 +197,28 @@ spec:
                         description: The CA certificate to verify the server's identity.
                         properties:
                           key:
-                            description: The key of the secret to select from.  Must
-                              be a valid secret key.
+                            description: |-
+                              Key is the of the entry in the secret resource's `data` or `stringData`
+                              field to be used.
+                            maxLength: 253
+                            minLength: 1
                             type: string
                           name:
-                            default: ""
-                            description: |-
-                              Name of the referent.
-                              This field is effectively required, but due to backwards compatibility is
-                              allowed to be empty. Instances of this type with an empty value here are
-                              almost certainly wrong.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            description: Name is unique within a namespace to reference
+                              a secret resource.
+                            maxLength: 253
+                            minLength: 1
                             type: string
-                          optional:
-                            description: Specify whether the Secret or its key must
-                              be defined
-                            type: boolean
+                          namespace:
+                            description: |-
+                              Namespace defines the space within which the secret name must be unique.
+                              If omitted, the namespace of the object being reconciled will be used.
+                            maxLength: 63
+                            minLength: 1
+                            type: string
                         required:
                         - key
+                        - name
                         type: object
                         x-kubernetes-map-type: atomic
                       certificate:
@@ -195,13 +232,20 @@ spec:
                               The secret must be of type kubernetes.io/tls and as such contain the following keys: 'tls.crt' and 'tls.key'.
                             properties:
                               name:
-                                description: name is unique within a namespace to
+                                description: Name is unique within a namespace to
                                   reference a secret resource.
+                                maxLength: 253
+                                minLength: 1
                                 type: string
                               namespace:
-                                description: namespace defines the space within which
-                                  the secret name must be unique.
+                                description: |-
+                                  Namespace defines the space within which the secret name must be unique.
+                                  If omitted, the namespace of the object being reconciled will be used.
+                                maxLength: 63
+                                minLength: 1
                                 type: string
+                            required:
+                            - name
                             type: object
                             x-kubernetes-map-type: atomic
                         required:
@@ -286,6 +330,16 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              firmwareVersion:
+                description: FirmwareVersion is the firmware version running on the
+                  Device.
+                type: string
+              manufacturer:
+                description: Manufacturer is the manufacturer of the Device.
+                type: string
+              model:
+                description: Model is the model identifier of the Device.
+                type: string
               phase:
                 default: Pending
                 description: Phase represents the current phase of the Device.
@@ -294,6 +348,54 @@ spec:
                 - Provisioning
                 - Active
                 - Failed
+                type: string
+              portSummary:
+                description: PostSummary shows a summary of the port configured, grouped
+                  by type, e.g. "1/4 (10g), 3/64 (100g)".
+                type: string
+              ports:
+                description: Ports is the list of ports on the Device.
+                items:
+                  properties:
+                    interfaceName:
+                      description: |-
+                        InterfaceRef is the reference to the corresponding Interface resource
+                        configuring this port, if any.
+                      properties:
+                        name:
+                          description: |-
+                            Name of the referent.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          maxLength: 63
+                          minLength: 1
+                          type: string
+                      required:
+                      - name
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    name:
+                      description: Name is the name of the port.
+                      type: string
+                    supportedSpeedsGbps:
+                      description: SupportedSpeedsGbps is the list of supported speeds
+                        in Gbps for this port.
+                      items:
+                        format: int32
+                        type: integer
+                      type: array
+                    transceiver:
+                      description: Transceiver is the type of transceiver plugged
+                        into the port, if any.
+                      type: string
+                    type:
+                      description: Type is the type of the port, e.g. "10g".
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              serialNumber:
+                description: SerialNumber is the serial number of the Device.
                 type: string
             required:
             - phase
