@@ -103,7 +103,7 @@ var _ = Describe("Certificate Controller", func() {
 
 			By("Ensuring the resource is deleted from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.Certs).NotTo(HaveKey("cert1"), "Certificate should be deleted from the provider")
+				g.Expect(testProvider.Certs.Has("cert1")).To(BeFalse(), "Certificate should be deleted from the provider")
 			}).Should(Succeed())
 		})
 
@@ -142,7 +142,7 @@ var _ = Describe("Certificate Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.Certs).To(HaveKey("cert1"), "Certificate should be present in the provider")
+				g.Expect(testProvider.Certs.Has("cert1")).To(BeTrue(), "Certificate should be present in the provider")
 			}).Should(Succeed())
 		})
 	})

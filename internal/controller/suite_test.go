@@ -17,6 +17,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -256,26 +257,26 @@ var (
 type Provider struct {
 	sync.Mutex
 
-	Ports  map[string]client.Object
-	User   map[string]struct{}
+	Ports  sets.Set[string]
+	User   sets.Set[string]
 	Banner *string
 	DNS    *v1alpha1.DNS
 	NTP    *v1alpha1.NTP
-	ACLs   map[string]struct{}
-	Certs  map[string]struct{}
+	ACLs   sets.Set[string]
+	Certs  sets.Set[string]
 	SNMP   *v1alpha1.SNMP
 	Syslog *v1alpha1.Syslog
 	Access *v1alpha1.ManagementAccess
-	ISIS   map[string]struct{}
+	ISIS   sets.Set[string]
 }
 
 func NewProvider() *Provider {
 	return &Provider{
-		Ports: make(map[string]client.Object),
-		User:  make(map[string]struct{}),
-		ACLs:  make(map[string]struct{}),
-		Certs: make(map[string]struct{}),
-		ISIS:  make(map[string]struct{}),
+		Ports: sets.New[string](),
+		User:  sets.New[string](),
+		ACLs:  sets.New[string](),
+		Certs: sets.New[string](),
+		ISIS:  sets.New[string](),
 	}
 }
 
@@ -306,14 +307,14 @@ func (p *Provider) GetDeviceInfo(context.Context) (*provider.DeviceInfo, error) 
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) error {
 	p.Lock()
 	defer p.Unlock()
-	p.Ports[req.Interface.Name] = req.Interface
+	p.Ports.Insert(req.Interface.Spec.Name)
 	return nil
 }
 
 func (p *Provider) DeleteInterface(_ context.Context, req *provider.InterfaceRequest) error {
 	p.Lock()
 	defer p.Unlock()
-	delete(p.Ports, req.Interface.Name)
+	p.Ports.Delete(req.Interface.Spec.Name)
 	return nil
 }
 
@@ -340,14 +341,14 @@ func (p *Provider) DeleteBanner(context.Context) error {
 func (p *Provider) EnsureUser(_ context.Context, req *provider.EnsureUserRequest) error {
 	p.Lock()
 	defer p.Unlock()
-	p.User[req.Username] = struct{}{}
+	p.User.Insert(req.Username)
 	return nil
 }
 
 func (p *Provider) DeleteUser(_ context.Context, req *provider.DeleteUserRequest) error {
 	p.Lock()
 	defer p.Unlock()
-	delete(p.User, req.Username)
+	p.User.Delete(req.Username)
 	return nil
 }
 
@@ -382,28 +383,28 @@ func (p *Provider) DeleteNTP(context.Context) error {
 func (p *Provider) EnsureACL(_ context.Context, req *provider.EnsureACLRequest) error {
 	p.Lock()
 	defer p.Unlock()
-	p.ACLs[req.ACL.Spec.Name] = struct{}{}
+	p.ACLs.Insert(req.ACL.Spec.Name)
 	return nil
 }
 
 func (p *Provider) DeleteACL(_ context.Context, req *provider.DeleteACLRequest) error {
 	p.Lock()
 	defer p.Unlock()
-	delete(p.ACLs, req.Name)
+	p.ACLs.Delete(req.Name)
 	return nil
 }
 
 func (p *Provider) EnsureCertificate(_ context.Context, req *provider.EnsureCertificateRequest) error {
 	p.Lock()
 	defer p.Unlock()
-	p.Certs[req.ID] = struct{}{}
+	p.Certs.Insert(req.ID)
 	return nil
 }
 
 func (p *Provider) DeleteCertificate(_ context.Context, req *provider.DeleteCertificateRequest) error {
 	p.Lock()
 	defer p.Unlock()
-	delete(p.Certs, req.ID)
+	p.Certs.Delete(req.ID)
 	return nil
 }
 
@@ -452,13 +453,13 @@ func (p *Provider) DeleteManagementAccess(context.Context) error {
 func (p *Provider) EnsureISIS(_ context.Context, req *provider.EnsureISISRequest) error {
 	p.Lock()
 	defer p.Unlock()
-	p.ISIS[req.ISIS.Spec.Instance] = struct{}{}
+	p.ISIS.Insert(req.ISIS.Spec.Instance)
 	return nil
 }
 
 func (p *Provider) DeleteISIS(_ context.Context, req *provider.DeleteISISRequest) error {
 	p.Lock()
 	defer p.Unlock()
-	delete(p.ISIS, req.ISIS.Spec.Instance)
+	p.ISIS.Delete(req.ISIS.Spec.Instance)
 	return nil
 }

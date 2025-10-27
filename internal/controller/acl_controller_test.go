@@ -91,7 +91,7 @@ var _ = Describe("AccessControlList Controller", func() {
 
 			By("Ensuring the resource is deleted from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.ACLs).NotTo(HaveKey(name), "Provider shouldn't have AccessControlList configured anymore")
+				g.Expect(testProvider.ACLs.Has(name)).To(BeFalse(), "Provider shouldn't have AccessControlList configured anymore")
 			}).Should(Succeed())
 		})
 
@@ -130,7 +130,7 @@ var _ = Describe("AccessControlList Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.ACLs).To(HaveKey(name), "Provider should have AccessControlList configured")
+				g.Expect(testProvider.ACLs.Has(name)).To(BeTrue(), "Provider should have AccessControlList configured")
 			}).Should(Succeed())
 		})
 	})
