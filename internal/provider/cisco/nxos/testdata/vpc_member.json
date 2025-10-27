@@ -1,0 +1,18 @@
+{
+  "vpc-items": {
+    "inst-items": {
+      "dom-items": {
+        "if-items": {
+          "If-list": [
+            {
+              "id": 10,
+              "rsvpcConf-items": {
+                "tDn": "/System/intf-items/aggr-items/AggrIf-list[id='po10']"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

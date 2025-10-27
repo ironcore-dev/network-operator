@@ -1,0 +1,27 @@
+{
+  "intf-items": {
+    "aggr-items": {
+      "AggrIf-list": [
+        {
+          "accessVlan": "vlan-1",
+          "adminSt": "up",
+          "descr": "vPC Leaf1 to Host1",
+          "id": "po10",
+          "layer": "Layer2",
+          "mode": "trunk",
+          "pcMode": "active",
+          "nativeVlan": "vlan-1",
+          "trunkVlans": "10",
+          "userCfgdFlags": "admin_state",
+          "rsmbrIfs-items": {
+            "RsMbrIfs-list": [
+              {
+                "tDn": "/System/intf-items/phys-items/PhysIf-list[id='eth1/10']"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
