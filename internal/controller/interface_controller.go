@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"slices"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -182,7 +183,10 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	return res, nil
 }
 
-var interfaceUnnumberedRefKey = ".spec.ipv4.unnumbered.interfaceRef.name"
+var (
+	interfaceTypeKey          = ".spec.type"
+	interfaceUnnumberedRefKey = ".spec.ipv4.unnumbered.interfaceRef.name"
+)
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
@@ -198,6 +202,13 @@ func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 	filter, err := predicate.LabelSelectorPredicate(labelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to create label selector predicate: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.Interface{}, interfaceTypeKey, func(obj client.Object) []string {
+		intf := obj.(*v1alpha1.Interface)
+		return []string{string(intf.Spec.Type)}
+	}); err != nil {
+		return err
 	}
 
 	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.Interface{}, interfaceUnnumberedRefKey, func(obj client.Object) []string {
@@ -219,6 +230,19 @@ func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 		Watches(
 			&v1alpha1.Interface{},
 			handler.EnqueueRequestsFromMapFunc(r.interfaceToUnnumbered),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
+		// Watches enqueues Aggregate Interfaces for updates in referenced member resources.
+		Watches(
+			&v1alpha1.Interface{},
+			handler.EnqueueRequestsFromMapFunc(r.interfaceToAggregate),
 			builder.WithPredicates(predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					return false
@@ -258,6 +282,20 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		conditions.RecomputeReady(s.Interface)
 	}()
 
+	var members []*v1alpha1.Interface
+	if s.Interface.Spec.Aggregation != nil {
+		var err error
+		members, err = r.reconcileMemberInterfaces(ctx, s)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	var multiChassisID *int16
+	if s.Interface.Spec.Aggregation != nil && s.Interface.Spec.Aggregation.MultiChassis != nil {
+		multiChassisID = &s.Interface.Spec.Aggregation.MultiChassis.ID
+	}
+
 	ip, err := r.reconcileIPv4(ctx, s)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -277,6 +315,8 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		Interface:      s.Interface,
 		ProviderConfig: s.ProviderConfig,
 		IPv4:           ip,
+		Members:        members,
+		MultiChassisID: multiChassisID,
 	})
 
 	cond := conditions.FromError(err)
@@ -335,7 +375,7 @@ func (r *InterfaceReconciler) reconcileIPv4(ctx context.Context, s *scope) (ip p
 				conditions.Set(s.Interface, metav1.Condition{
 					Type:    v1alpha1.ConfiguredCondition,
 					Status:  metav1.ConditionFalse,
-					Reason:  v1alpha1.UnnumberedSourceInterfaceNotFoundReason,
+					Reason:  v1alpha1.InterfaceNotFoundReason,
 					Message: fmt.Sprintf("referenced interface %q for unnumbered ipv4 configuration not found", key),
 				})
 				return nil, reconcile.TerminalError(fmt.Errorf("referenced interface %q for unnumbered ipv4 configuration not found", key))
@@ -347,7 +387,7 @@ func (r *InterfaceReconciler) reconcileIPv4(ctx context.Context, s *scope) (ip p
 			conditions.Set(s.Interface, metav1.Condition{
 				Type:    v1alpha1.ConfiguredCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  v1alpha1.UnnumberedCrossDeviceReferenceReason,
+				Reason:  v1alpha1.CrossDeviceReferenceReason,
 				Message: fmt.Sprintf("referenced interface %q for unnumbered ipv4 configuration does not belong to device %q", intf.Name, s.Device.Name),
 			})
 			return nil, reconcile.TerminalError(fmt.Errorf("referenced interface %q for unnumbered ipv4 configuration does not belong to device %q", intf.Name, s.Device.Name))
@@ -357,7 +397,7 @@ func (r *InterfaceReconciler) reconcileIPv4(ctx context.Context, s *scope) (ip p
 			conditions.Set(s.Interface, metav1.Condition{
 				Type:    v1alpha1.ConfiguredCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  v1alpha1.UnnumberedInvalidInterfaceTypeReason,
+				Reason:  v1alpha1.InvalidInterfaceTypeReason,
 				Message: fmt.Sprintf("referenced interface %q for unnumbered ipv4 configuration is not of type Loopback, got %q", intf.Name, intf.Spec.Type),
 			})
 			return nil, reconcile.TerminalError(fmt.Errorf("referenced interface %q for unnumbered ipv4 configuration is not of type Loopback, got %q", intf.Name, intf.Spec.Type))
@@ -369,7 +409,86 @@ func (r *InterfaceReconciler) reconcileIPv4(ctx context.Context, s *scope) (ip p
 	return
 }
 
+// reconcileMemberInterfaces ensures that all member interfaces exist and belong to the same device as the aggregate interface.
+// It also updates the member interfaces to reference the aggregate interface by setting their MemberOf status field and [v1alpha1.AggregateLabel] label.
+func (r *InterfaceReconciler) reconcileMemberInterfaces(ctx context.Context, s *scope) ([]*v1alpha1.Interface, error) {
+	members := make([]*v1alpha1.Interface, 0, len(s.Interface.Spec.Aggregation.MemberInterfaceRefs))
+	for _, ref := range s.Interface.Spec.Aggregation.MemberInterfaceRefs {
+		intf := new(v1alpha1.Interface)
+		if err := r.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: s.Interface.Namespace}, intf); err != nil {
+			if apierrors.IsNotFound(err) {
+				conditions.Set(s.Interface, metav1.Condition{
+					Type:    v1alpha1.ConfiguredCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  v1alpha1.InterfaceNotFoundReason,
+					Message: fmt.Sprintf("member interface %q not found", ref.Name),
+				})
+				return nil, reconcile.TerminalError(fmt.Errorf("member interface %q not found", ref.Name))
+			}
+			return nil, fmt.Errorf("failed to get member interface %q: %w", ref.Name, err)
+		}
+
+		if intf.Spec.DeviceRef.Name != s.Device.Name {
+			conditions.Set(s.Interface, metav1.Condition{
+				Type:    v1alpha1.ConfiguredCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.CrossDeviceReferenceReason,
+				Message: fmt.Sprintf("member interface %q does not belong to device %q", intf.Name, s.Device.Name),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("member interface %q does not belong to device %q", intf.Name, s.Device.Name))
+		}
+
+		if intf.Status.MemberOf != nil && intf.Status.MemberOf.Name != s.Interface.Name {
+			conditions.Set(s.Interface, metav1.Condition{
+				Type:    v1alpha1.ConfiguredCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.MemberInterfaceAlreadyInUseReason,
+				Message: fmt.Sprintf("member interface %q is already part of aggregate interface %q", intf.Name, *intf.Status.MemberOf),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("member interface %q is already part of aggregate interface %q", intf.Name, *intf.Status.MemberOf))
+		}
+
+		if intf.Spec.Type != v1alpha1.InterfaceTypePhysical {
+			conditions.Set(s.Interface, metav1.Condition{
+				Type:    v1alpha1.ConfiguredCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.InvalidInterfaceTypeReason,
+				Message: fmt.Sprintf("member interface %q is not of type Physical", intf.Name),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("member interface %q is not of type Physical", intf.Name))
+		}
+
+		if intf.Status.MemberOf == nil {
+			intf.Status.MemberOf = &v1alpha1.LocalObjectReference{Name: s.Interface.Name}
+			if err := r.Status().Update(ctx, intf); err != nil {
+				return nil, fmt.Errorf("failed to update member interface %q status: %w", intf.Name, err)
+			}
+		}
+
+		if intf.Labels == nil {
+			intf.Labels = make(map[string]string)
+		}
+
+		if intf.Labels[v1alpha1.AggregateLabel] != s.Interface.Name {
+			intf.Labels[v1alpha1.AggregateLabel] = s.Interface.Name
+			if err := r.Update(ctx, intf); err != nil {
+				return nil, fmt.Errorf("failed to update member interface %q labels: %w", intf.Name, err)
+			}
+		}
+
+		members = append(members, intf)
+	}
+
+	return members, nil
+}
+
 func (r *InterfaceReconciler) finalize(ctx context.Context, s *scope) (reterr error) {
+	if s.Interface.Spec.Aggregation != nil {
+		if err := r.finalizeMemberInterfaces(ctx, s); err != nil {
+			return err
+		}
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -383,6 +502,35 @@ func (r *InterfaceReconciler) finalize(ctx context.Context, s *scope) (reterr er
 		Interface:      s.Interface,
 		ProviderConfig: s.ProviderConfig,
 	})
+}
+
+// finalizeMemberInterfaces removes the aggregate interface references from all member interfaces.
+func (r *InterfaceReconciler) finalizeMemberInterfaces(ctx context.Context, s *scope) error {
+	for _, ref := range s.Interface.Spec.Aggregation.MemberInterfaceRefs {
+		intf := new(v1alpha1.Interface)
+		if err := r.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: s.Interface.Namespace}, intf); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			return err
+		}
+
+		if intf.Status.MemberOf != nil && intf.Status.MemberOf.Name == s.Interface.Name {
+			intf.Status.MemberOf = nil
+			if err := r.Status().Update(ctx, intf); err != nil {
+				return fmt.Errorf("failed to update member interface %q status: %w", intf.Name, err)
+			}
+		}
+
+		if intf.Labels != nil && intf.Labels[v1alpha1.AggregateLabel] == s.Interface.Name {
+			delete(intf.Labels, v1alpha1.AggregateLabel)
+			if err := r.Update(ctx, intf); err != nil {
+				return fmt.Errorf("failed to update member interface %q labels: %w", intf.Name, err)
+			}
+		}
+	}
+
+	return nil
 }
 
 // interfaceToUnnumbered is a [handler.MapFunc] to be used to enqueue requests for reconciliation
@@ -405,6 +553,41 @@ func (r *InterfaceReconciler) interfaceToUnnumbered(ctx context.Context, obj cli
 	for _, i := range interfaces.Items {
 		if i.Spec.IPv4 != nil && i.Spec.IPv4.Unnumbered != nil && i.Spec.IPv4.Unnumbered.InterfaceRef.Name == intf.Name {
 			log.Info("Enqueuing Interface for reconciliation", "Interface", klog.KObj(&i))
+
+			requests = append(requests, ctrl.Request{
+				NamespacedName: client.ObjectKey{
+					Name:      i.Name,
+					Namespace: i.Namespace,
+				},
+			})
+		}
+	}
+
+	return requests
+}
+
+// interfaceToAggregate is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for a aggregate Interface to update when one of its referenced member interfaces gets updated.
+func (r *InterfaceReconciler) interfaceToAggregate(ctx context.Context, obj client.Object) []ctrl.Request {
+	intf, ok := obj.(*v1alpha1.Interface)
+	if !ok {
+		panic(fmt.Sprintf("Expected a Interface but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "Member", klog.KObj(intf))
+
+	interfaces := new(v1alpha1.InterfaceList)
+	if err := r.List(ctx, interfaces, client.InNamespace(intf.Namespace), client.MatchingFields{interfaceTypeKey: string(v1alpha1.InterfaceTypeAggregate)}); err != nil {
+		log.Error(err, "Failed to list Interfaces")
+		return nil
+	}
+
+	requests := []ctrl.Request{}
+	for _, i := range interfaces.Items {
+		if slices.ContainsFunc(i.Spec.Aggregation.MemberInterfaceRefs, func(member v1alpha1.LocalObjectReference) bool {
+			return member.Name == intf.Name
+		}) {
+			log.Info("Enqueuing Aggregate Interface for reconciliation", "Aggregate", klog.KObj(&i))
 			requests = append(requests, ctrl.Request{
 				NamespacedName: client.ObjectKey{
 					Name:      i.Name,

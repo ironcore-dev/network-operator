@@ -66,6 +66,9 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 		i.Type = IETFInterfaces_InterfaceType_ethernetCsmacd
 	case v1alpha1.InterfaceTypeLoopback:
 		i.Type = IETFInterfaces_InterfaceType_softwareLoopback
+	case v1alpha1.InterfaceTypeAggregate:
+		i.Type = IETFInterfaces_InterfaceType_ieee8023adLag
+		i.GetOrCreateAggregation().SetLagType(IfAggregate_AggregationType_LACP)
 	default:
 		return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
 	}
@@ -86,23 +89,50 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 	}
 	if req.Interface.Spec.Switchport != nil {
 		i.Tpid = VlanTypes_TPID_TYPES_TPID_0X8100
-		port := i.GetOrCreateEthernet().GetOrCreateSwitchedVlan()
-		switch req.Interface.Spec.Switchport.Mode {
-		case v1alpha1.SwitchportModeAccess:
-			port.InterfaceMode = VlanTypes_VlanModeType_ACCESS
-			port.AccessVlan = ygot.Uint16(uint16(req.Interface.Spec.Switchport.AccessVlan))
-		case v1alpha1.SwitchportModeTrunk:
-			port.InterfaceMode = VlanTypes_VlanModeType_TRUNK
-			port.NativeVlan = ygot.Uint16(uint16(req.Interface.Spec.Switchport.NativeVlan))
-			for _, vlan := range req.Interface.Spec.Switchport.AllowedVlans {
-				union, err := port.To_Interface_Ethernet_SwitchedVlan_TrunkVlans_Union(vlan)
-				if err != nil {
-					return fmt.Errorf("failed to convert vlan %d to union type: %w", vlan, err)
+
+		switch req.Interface.Spec.Type {
+		case v1alpha1.InterfaceTypePhysical:
+			port := i.GetOrCreateEthernet().GetOrCreateSwitchedVlan()
+			switch req.Interface.Spec.Switchport.Mode {
+			case v1alpha1.SwitchportModeAccess:
+				port.InterfaceMode = VlanTypes_VlanModeType_ACCESS
+				port.AccessVlan = ygot.Uint16(uint16(req.Interface.Spec.Switchport.AccessVlan))
+			case v1alpha1.SwitchportModeTrunk:
+				port.InterfaceMode = VlanTypes_VlanModeType_TRUNK
+				port.NativeVlan = ygot.Uint16(uint16(req.Interface.Spec.Switchport.NativeVlan))
+				for _, vlan := range req.Interface.Spec.Switchport.AllowedVlans {
+					union, err := port.To_Interface_Ethernet_SwitchedVlan_TrunkVlans_Union(vlan)
+					if err != nil {
+						return fmt.Errorf("failed to convert vlan %d to union type: %w", vlan, err)
+					}
+					port.TrunkVlans = append(port.TrunkVlans, union)
 				}
-				port.TrunkVlans = append(port.TrunkVlans, union)
+			default:
+				return fmt.Errorf("invalid switchport mode: %s", req.Interface.Spec.Switchport.Mode)
 			}
+
+		case v1alpha1.InterfaceTypeAggregate:
+			port := i.GetOrCreateAggregation().GetOrCreateSwitchedVlan()
+			switch req.Interface.Spec.Switchport.Mode {
+			case v1alpha1.SwitchportModeAccess:
+				port.InterfaceMode = VlanTypes_VlanModeType_ACCESS
+				port.AccessVlan = ygot.Uint16(uint16(req.Interface.Spec.Switchport.AccessVlan))
+			case v1alpha1.SwitchportModeTrunk:
+				port.InterfaceMode = VlanTypes_VlanModeType_TRUNK
+				port.NativeVlan = ygot.Uint16(uint16(req.Interface.Spec.Switchport.NativeVlan))
+				for _, vlan := range req.Interface.Spec.Switchport.AllowedVlans {
+					union, err := port.To_Interface_Aggregation_SwitchedVlan_TrunkVlans_Union(vlan)
+					if err != nil {
+						return fmt.Errorf("failed to convert vlan %d to union type: %w", vlan, err)
+					}
+					port.TrunkVlans = append(port.TrunkVlans, union)
+				}
+			default:
+				return fmt.Errorf("invalid switchport mode: %s", req.Interface.Spec.Switchport.Mode)
+			}
+
 		default:
-			return fmt.Errorf("invalid switchport mode: %s", req.Interface.Spec.Switchport.Mode)
+			return fmt.Errorf("switchport configuration is only supported on physical and aggregate interfaces")
 		}
 	}
 
@@ -112,7 +142,14 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 	}
 	log.V(1).Info("Marshalled interface", "interface", string(b))
 
-	_, err = ygnmi.Update(ctx, p.client, Root().Interface(req.Interface.Spec.Name).Config(), i, ygnmi.WithEncoding(gpb.Encoding_JSON), ygnmi.WithSkipModuleNames())
+	sb := new(ygnmi.SetBatch)
+	ygnmi.BatchUpdate(sb, Root().Interface(req.Interface.Spec.Name).Config(), i)
+
+	for _, member := range req.Members {
+		ygnmi.BatchUpdate(sb, Root().Interface(member.Spec.Name).Ethernet().AggregateId().Config(), req.Interface.Spec.Name)
+	}
+
+	_, err = sb.Set(ctx, p.client, ygnmi.WithEncoding(gpb.Encoding_JSON), ygnmi.WithSkipModuleNames())
 	return err
 }
 
@@ -130,6 +167,9 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 		_, err := sb.Set(ctx, p.client, ygnmi.WithEncoding(gpb.Encoding_JSON), ygnmi.WithSkipModuleNames())
 		return err
 	case v1alpha1.InterfaceTypeLoopback:
+		_, err := ygnmi.Delete(ctx, p.client, Root().Interface(req.Interface.Spec.Name).Config())
+		return err
+	case v1alpha1.InterfaceTypeAggregate:
 		_, err := ygnmi.Delete(ctx, p.client, Root().Interface(req.Interface.Spec.Name).Config())
 		return err
 	}

@@ -97,11 +97,39 @@ spec:
   deviceRef:
     name: leaf1
   name: eth1/10
-  description: Leaf1 to Host1
+  description: vPC to Host1
   adminState: Up
   type: Physical
-  mtu: 9216
+  mtu: 1500
   switchport:
     mode: Trunk
     nativeVlan: 1
     allowedVlans: [10]
+---
+apiVersion: networking.cloud.sap/v1alpha1
+kind: Interface
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.cloud.sap/device-name: leaf1
+  name: po-10
+spec:
+  deviceRef:
+    name: leaf1
+  name: po10
+  description: vPC to Host1
+  adminState: Up
+  type: Aggregate
+  mtu: 1500
+  switchport:
+    mode: Trunk
+    nativeVlan: 1
+    allowedVlans: [10]
+  aggregation:
+    controlProtocol:
+      mode: Active
+    memberInterfaceRefs:
+      - name: eth1-10
+    multichassis:
+      id: 10

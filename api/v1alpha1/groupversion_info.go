@@ -42,6 +42,10 @@ const DeviceLabel = "networking.cloud.sap/device-name"
 // DeviceKind represents the Kind of Device.
 const DeviceKind = "Device"
 
+// AggregateLabel is a label applied to member interfaces to indicate
+// the name of the aggregate interface they belong to.
+const AggregateLabel = "networking.cloud.sap/aggregate-name"
+
 // Condition types that are used across different objects.
 const (
 	// ReadyCondition is the top-level status condition that reports if an object is ready.
@@ -97,12 +101,15 @@ const (
 
 // Reasons that are specific to [Interface] objects.
 const (
-	// UnnumberedSourceInterfaceNotFoundReason indicates that the source interface for unnumbered IPv4 configuration was not found.
-	UnnumberedSourceInterfaceNotFoundReason = "UnnumberedSourceInterfaceNotFound"
+	// InterfaceNotFoundReason indicates that a referenced interface was not found.
+	InterfaceNotFoundReason = "InterfaceNotFound"
 
-	// UnnumberedCrossDeviceReferenceReason indicates that the unnumbered IPv4 configuration references an interface on a different device.
-	UnnumberedCrossDeviceReferenceReason = "UnnumberedCrossDeviceReference"
+	// InvalidInterfaceTypeReason indicates that a referenced interface is not of the expected type.
+	InvalidInterfaceTypeReason = "InvalidInterfaceType"
 
-	// UnnumberedInvalidInterfaceTypeReason indicates that the unnumbered IPv4 configuration references an interface that is not of type Loopback.
-	UnnumberedInvalidInterfaceTypeReason = "UnnumberedInvalidInterfaceType"
+	// CrossDeviceReferenceReason indicates that a referenced interface belongs to a different device.
+	CrossDeviceReferenceReason = "CrossDeviceReference"
+
+	// MemberInterfaceAlreadyInUseReason indicates that a member interface is already part of another aggregate.
+	MemberInterfaceAlreadyInUseReason = "MemberInterfaceAlreadyInUse"
 )

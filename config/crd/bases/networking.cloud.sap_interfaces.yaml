@@ -20,6 +20,9 @@ spec:
     - jsonPath: .spec.name
       name: Interface
       type: string
+    - jsonPath: .spec.type
+      name: Type
+      type: string
     - jsonPath: .spec.adminState
       name: Admin State
       type: string
@@ -80,6 +83,70 @@ spec:
                 - Up
                 - Down
                 type: string
+              aggregation:
+                description: |-
+                  Aggregation defines the aggregation (bundle) configuration for the interface.
+                  This is only applicable for interfaces of type Aggregate.
+                properties:
+                  controlProtocol:
+                    default:
+                      mode: Active
+                    description: ControlProtocol defines the lacp configuration for
+                      the aggregate interface.
+                    properties:
+                      mode:
+                        description: Mode defines the LACP mode for the aggregate
+                          interface.
+                        enum:
+                        - Active
+                        - Passive
+                        type: string
+                    required:
+                    - mode
+                    type: object
+                  memberInterfaceRefs:
+                    description: MemberInterfaceRefs is a list of interface references
+                      that are part of the aggregate interface.
+                    items:
+                      description: |-
+                        LocalObjectReference contains enough information to locate a
+                        referenced object inside the same namespace.
+                      properties:
+                        name:
+                          description: |-
+                            Name of the referent.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          maxLength: 63
+                          minLength: 1
+                          type: string
+                      required:
+                      - name
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    maxItems: 32
+                    minItems: 1
+                    type: array
+                  multichassis:
+                    description: Multichassis defines the multichassis configuration
+                      for the aggregate interface.
+                    properties:
+                      enabled:
+                        default: true
+                        description: Enabled indicates whether the aggregate interface
+                          is part of a multichassis setup.
+                        type: boolean
+                      id:
+                        description: ID is the multichassis identifier.
+                        maximum: 4094
+                        minimum: 1
+                        type: integer
+                    required:
+                    - enabled
+                    - id
+                    type: object
+                required:
+                - memberInterfaceRefs
+                type: object
               description:
                 description: Description provides a human-readable description of
                   the interface.
@@ -156,7 +223,11 @@ spec:
               name:
                 description: Name is the name of the interface.
                 maxLength: 255
+                minLength: 1
                 type: string
+                x-kubernetes-validations:
+                - message: Name is immutable
+                  rule: self == oldSelf
               providerConfigRef:
                 description: |-
                   ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
@@ -194,7 +265,7 @@ spec:
               switchport:
                 description: |-
                   Switchport defines the switchport configuration for the interface.
-                  This is only applicable for interfaces that are switchports (e.g., Ethernet interfaces).
+                  This is only applicable for Ethernet and Aggregate interfaces.
                 properties:
                   accessVlan:
                     description: |-
@@ -245,7 +316,11 @@ spec:
                 enum:
                 - Physical
                 - Loopback
+                - Aggregate
                 type: string
+                x-kubernetes-validations:
+                - message: Type is immutable
+                  rule: self == oldSelf
             required:
             - adminState
             - deviceRef
@@ -260,6 +335,12 @@ spec:
             - message: unnumbered ipv4 configuration can only be used for interfaces
                 of type Physical
               rule: self.type == 'Physical' || !has(self.ipv4) || !has(self.ipv4.unnumbered)
+            - message: aggregation must be specified for interfaces of type Aggregate
+              rule: self.type != 'Aggregate' || has(self.aggregation)
+            - message: aggregation must only be specified on interfaces of type Aggregate
+              rule: self.type == 'Aggregate' || !has(self.aggregation)
+            - message: ipv4 must not be specified for interfaces of type Aggregate
+              rule: self.type != 'Aggregate' || !has(self.ipv4)
           status:
             description: |-
               Status of the resource. This is set and updated automatically.
@@ -327,6 +408,22 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              memberOf:
+                description: |-
+                  MemberOf references the aggregate interface this interface is a member of, if any.
+                  This field only applies to physical interfaces that are part of an aggregate interface.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
             type: object
         required:
         - spec

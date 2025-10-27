@@ -74,6 +74,12 @@ type InterfaceRequest struct {
 	Interface      *v1alpha1.Interface
 	ProviderConfig *ProviderConfig
 	IPv4           IPv4
+
+	// Members is the list of member interfaces for aggregated interfaces.
+	// This field is only applicable if the interface type is Aggregate.
+	Members []*v1alpha1.Interface
+	// MultiChassisID is the multi-chassis identifier for multi-chassis link aggregation.
+	MultiChassisID *int16
 }
 
 type IPv4 interface {

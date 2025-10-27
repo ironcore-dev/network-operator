@@ -11,6 +11,9 @@ import (
 // +kubebuilder:validation:XValidation:rule="!has(self.switchport) || !has(self.ipv4)", message="switchport and ipv4 are mutually exclusive"
 // +kubebuilder:validation:XValidation:rule="self.type != 'Loopback' || !has(self.switchport)", message="switchport must not be specified for interfaces of type Loopback"
 // +kubebuilder:validation:XValidation:rule="self.type == 'Physical' || !has(self.ipv4) || !has(self.ipv4.unnumbered)", message="unnumbered ipv4 configuration can only be used for interfaces of type Physical"
+// +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || has(self.aggregation)", message="aggregation must be specified for interfaces of type Aggregate"
+// +kubebuilder:validation:XValidation:rule="self.type == 'Aggregate' || !has(self.aggregation)", message="aggregation must only be specified on interfaces of type Aggregate"
+// +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || !has(self.ipv4)", message="ipv4 must not be specified for interfaces of type Aggregate"
 type InterfaceSpec struct {
 	// DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
 	// Immutable.
@@ -25,7 +28,9 @@ type InterfaceSpec struct {
 
 	// Name is the name of the interface.
 	// +required
+	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Name is immutable"
 	Name string `json:"name"`
 
 	// AdminState indicates whether the interface is administratively up or down.
@@ -39,6 +44,7 @@ type InterfaceSpec struct {
 
 	// Type indicates the type of the interface.
 	// +required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Type is immutable"
 	Type InterfaceType `json:"type"`
 
 	// MTU (Maximum Transmission Unit) specifies the size of the largest packet that can be sent over the interface.
@@ -48,13 +54,18 @@ type InterfaceSpec struct {
 	MTU int32 `json:"mtu,omitempty"`
 
 	// Switchport defines the switchport configuration for the interface.
-	// This is only applicable for interfaces that are switchports (e.g., Ethernet interfaces).
+	// This is only applicable for Ethernet and Aggregate interfaces.
 	// +optional
 	Switchport *Switchport `json:"switchport,omitempty"`
 
 	// IPv4 defines the IPv4 configuration for the interface.
 	// +optional
 	IPv4 *InterfaceIPv4 `json:"ipv4,omitempty"`
+
+	// Aggregation defines the aggregation (bundle) configuration for the interface.
+	// This is only applicable for interfaces of type Aggregate.
+	// +optional
+	Aggregation *Aggregation `json:"aggregation,omitempty"`
 }
 
 // AdminState represents the administrative state of the interface.
@@ -69,7 +80,7 @@ const (
 )
 
 // InterfaceType represents the type of the interface.
-// +kubebuilder:validation:Enum=Physical;Loopback
+// +kubebuilder:validation:Enum=Physical;Loopback;Aggregate
 type InterfaceType string
 
 const (
@@ -77,6 +88,8 @@ const (
 	InterfaceTypePhysical InterfaceType = "Physical"
 	// InterfaceTypeLoopback indicates that the interface is a loopback interface.
 	InterfaceTypeLoopback InterfaceType = "Loopback"
+	// InterfaceTypeAggregate indicates that the interface is an aggregate (bundle) interface.
+	InterfaceTypeAggregate InterfaceType = "Aggregate"
 )
 
 // Switchport defines the switchport configuration for an interface.
@@ -149,6 +162,53 @@ type InterfaceIPv4Unnumbered struct {
 	InterfaceRef LocalObjectReference `json:"interfaceRef"`
 }
 
+type Aggregation struct {
+	// MemberInterfaceRefs is a list of interface references that are part of the aggregate interface.
+	// +required
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=32
+	MemberInterfaceRefs []LocalObjectReference `json:"memberInterfaceRefs"`
+
+	// ControlProtocol defines the lacp configuration for the aggregate interface.
+	// +optional
+	// +kubebuilder:default={mode: Active}
+	ControlProtocol ControlProtocol `json:"controlProtocol"`
+
+	// Multichassis defines the multichassis configuration for the aggregate interface.
+	// +optional
+	MultiChassis *MultiChassis `json:"multichassis,omitempty"`
+}
+
+type ControlProtocol struct {
+	// Mode defines the LACP mode for the aggregate interface.
+	// +required
+	Mode LACPMode `json:"mode"`
+}
+
+// LACPMode represents the LACP mode of an interface.
+// +kubebuilder:validation:Enum=Active;Passive
+type LACPMode string
+
+const (
+	// LACPModeActive indicates that LACP is in active mode.
+	LACPModeActive LACPMode = "Active"
+	// LACPModePassive indicates that LACP is in passive mode.
+	LACPModePassive LACPMode = "Passive"
+)
+
+type MultiChassis struct {
+	// Enabled indicates whether the aggregate interface is part of a multichassis setup.
+	// +required
+	// +kubebuilder:default=true
+	Enabled bool `json:"enabled"`
+
+	// ID is the multichassis identifier.
+	// +required
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4094
+	ID int16 `json:"id"`
+}
+
 // InterfaceStatus defines the observed state of Interface.
 type InterfaceStatus struct {
 	// The conditions are a list of status objects that describe the state of the Interface.
@@ -158,6 +218,11 @@ type InterfaceStatus struct {
 	//+patchMergeKey=type
 	//+optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// MemberOf references the aggregate interface this interface is a member of, if any.
+	// This field only applies to physical interfaces that are part of an aggregate interface.
+	// +optional
+	MemberOf *LocalObjectReference `json:"memberOf,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -166,6 +231,7 @@ type InterfaceStatus struct {
 // +kubebuilder:resource:singular=interface
 // +kubebuilder:resource:shortName=int
 // +kubebuilder:printcolumn:name="Interface",type=string,JSONPath=`.spec.name`
+// +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type`
 // +kubebuilder:printcolumn:name="Admin State",type=string,JSONPath=`.spec.adminState`
 // +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.spec.description`
 // +kubebuilder:printcolumn:name="MTU",type=string,JSONPath=`.spec.mtu`
