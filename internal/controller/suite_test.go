@@ -111,7 +111,7 @@ var _ = BeforeSuite(func() {
 		Recorder:        recorder,
 		Provider:        prov,
 		RequeueInterval: time.Second,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&BannerReconciler{

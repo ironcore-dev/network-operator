@@ -42,6 +42,10 @@ const DeviceLabel = "networking.cloud.sap/device-name"
 // DeviceKind represents the Kind of Device.
 const DeviceKind = "Device"
 
+// AggregateLabel is a label applied to member interfaces to indicate
+// the name of the aggregate interface they belong to.
+const AggregateLabel = "networking.cloud.sap/aggregate-name"
+
 // Condition types that are used across different objects.
 const (
 	// ReadyCondition is the top-level status condition that reports if an object is ready.
@@ -105,4 +109,7 @@ const (
 
 	// UnnumberedSourceInterfaceNoIPv4Reason indicates that the source interface for unnumbered IPv4 configuration has no IPv4 addresses configured.
 	UnnumberedSourceInterfaceNoIPv4Reason = "UnnumberedSourceInterfaceNoIPv4"
+
+	// InvalidMemberInterfaceReason indicates that a referenced member interface of an aggregate interface is invalid.
+	InvalidMemberInterfaceReason = "InvalidMemberInterfaceReason"
 )
