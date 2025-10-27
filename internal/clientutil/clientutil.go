@@ -196,21 +196,3 @@ func (c *Client) ListResourceVersions(ctx context.Context, key ...client.ObjectK
 	}
 	return rv, nil
 }
-
-type key struct{}
-
-// FromContext returns the [Client] value stored in ctx, if any.
-func FromContext(ctx context.Context) (c *Client, ok bool) {
-	c, ok = ctx.Value(key{}).(*Client)
-	return
-}
-
-// NewContext returns a new [context.Context] that carries the provided [Client] value.
-func NewContext(ctx context.Context, c *Client) context.Context {
-	return context.WithValue(ctx, key{}, c)
-}
-
-// IntoContext is a convenience function to add a newly create [Client] to a context.
-func IntoContext(ctx context.Context, r client.Reader, ns string) context.Context {
-	return NewContext(ctx, NewClient(r, ns))
-}
