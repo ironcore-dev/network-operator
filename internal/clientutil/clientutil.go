@@ -182,17 +182,3 @@ func (c *Client) Template(ctx context.Context, src *v1alpha1.TemplateSource) (ra
 
 	return nil, errors.New("no template source specified")
 }
-
-// ListResourceVersions returns the resource versions of the given secrets.
-// The returned resource versions are in the same order as the keys provided.
-func (c *Client) ListResourceVersions(ctx context.Context, key ...client.ObjectKey) ([]string, error) {
-	rv := make([]string, 0, len(key))
-	for _, k := range key {
-		var secret corev1.Secret
-		if err := c.Get(ctx, k, &secret); err != nil {
-			return nil, fmt.Errorf("failed to get secret %q: %w", k.String(), err)
-		}
-		rv = append(rv, secret.ResourceVersion)
-	}
-	return rv, nil
-}
