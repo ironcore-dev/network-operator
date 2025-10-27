@@ -1,0 +1,2 @@
+interface Port-channel1
+ vpc 10

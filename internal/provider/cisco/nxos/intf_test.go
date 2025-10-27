@@ -15,13 +15,13 @@ func init() {
 		AdminSt:       AdminStUp,
 		ID:            "eth1/1",
 		Descr:         "Leaf1 to Spine1",
-		Layer:         "Layer3",
+		Layer:         Layer3,
 		MTU:           9216,
-		Medium:        "p2p",
-		Mode:          "access",
-		AccessVlan:    "vlan-1",
-		NativeVlan:    "vlan-1",
-		TrunkVlans:    "1-4094",
+		Medium:        MediumPointToPoint,
+		Mode:          SwitchportModeAccess,
+		AccessVlan:    DefaultVLAN,
+		NativeVlan:    DefaultVLAN,
+		TrunkVlans:    DefaultVLANRange,
 		UserCfgdFlags: "admin_layer,admin_mtu,admin_state",
 	})
 
@@ -29,11 +29,11 @@ func init() {
 		AdminSt:       AdminStUp,
 		ID:            "eth1/10",
 		Descr:         "Leaf1 to Host1",
-		Layer:         "Layer2",
-		Medium:        "broadcast",
-		Mode:          "trunk",
-		AccessVlan:    "vlan-1",
-		NativeVlan:    "vlan-1",
+		Layer:         Layer2,
+		Medium:        MediumBroadcast,
+		Mode:          SwitchportModeTrunk,
+		AccessVlan:    DefaultVLAN,
+		NativeVlan:    DefaultVLAN,
 		TrunkVlans:    "10",
 		UserCfgdFlags: "admin_state",
 	})
@@ -46,4 +46,19 @@ func init() {
 		Type: "primary",
 	}}
 	Register("intf_addr4", intfAddr4)
+
+	pc := &PortChannel{
+		AccessVlan:    DefaultVLAN,
+		AdminSt:       AdminStUp,
+		Descr:         "vPC Leaf1 to Host1",
+		ID:            "po10",
+		Layer:         Layer2,
+		Mode:          SwitchportModeTrunk,
+		PcMode:        PortChannelModeActive,
+		NativeVlan:    DefaultVLAN,
+		TrunkVlans:    "10",
+		UserCfgdFlags: "admin_state",
+	}
+	pc.RsmbrIfsItems.RsMbrIfsList = append(pc.RsmbrIfsItems.RsMbrIfsList, NewPortChannelMember("eth1/10"))
+	Register("pc", pc)
 }
