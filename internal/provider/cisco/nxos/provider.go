@@ -484,17 +484,19 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 		}
 	}
 
-	del := make([]gnmiext.Configurable, 0, 2)
-	if len(addr.AddrItems.AddrList) == 0 {
-		del = append(del, addr)
-	}
-	if len(addr6.AddrItems.AddrList) == 0 {
-		del = append(del, addr6)
-	}
+	if req.Interface.Spec.Type != v1alpha1.InterfaceTypeAggregate {
+		del := make([]gnmiext.Configurable, 0, 2)
+		if len(addr.AddrItems.AddrList) == 0 {
+			del = append(del, addr)
+		}
+		if len(addr6.AddrItems.AddrList) == 0 {
+			del = append(del, addr6)
+		}
 
-	// Ensure to delete any leftover IPv4/IPv6 addresses if the spec does not contain any.
-	if err := p.client.Delete(ctx, del...); err != nil {
-		return err
+		// Ensure to delete any leftover IPv4/IPv6 addresses if the spec does not contain any.
+		if err := p.client.Delete(ctx, del...); err != nil {
+			return err
+		}
 	}
 
 	conf := make([]gnmiext.Configurable, 0, 4)
@@ -554,8 +556,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 		lb.RtvrfMbrItems = NewVrfMember(name, DefaultVRFName)
 		conf = append(conf, lb)
 
-	// case v1alpha1.InterfaceTypePortChannel:
-	case "PortChannel":
+	case v1alpha1.InterfaceTypeAggregate:
 		f := new(Feature)
 		f.Name = "lacp"
 		f.AdminSt = AdminStEnabled
@@ -572,17 +573,34 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 		pc := new(PortChannel)
 		pc.ID = name
 		pc.Descr = req.Interface.Spec.Description
-		pc.PcMode = PortChannelModeActive
-		pc.AccessVlan = DefaultVLAN
 		pc.AdminSt = AdminStDown
-		pc.Layer = Layer2
-		pc.Mode = SwitchportModeAccess
-		pc.NativeVlan = DefaultVLAN
-		pc.TrunkVlans = DefaultVLANRange
-		pc.UserCfgdFlags = "admin_layer,admin_state"
 		if req.Interface.Spec.AdminState == v1alpha1.AdminStateUp {
 			pc.AdminSt = AdminStUp
 		}
+		// Note: Layer 3 port-channel interfaces are not yet supported
+		pc.Layer = Layer2
+		pc.Mode = SwitchportModeAccess
+		pc.AccessVlan = DefaultVLAN
+		pc.NativeVlan = DefaultVLAN
+		pc.TrunkVlans = DefaultVLANRange
+		pc.UserCfgdFlags = "admin_state"
+
+		pc.MTU = DefaultMTU
+		if req.Interface.Spec.MTU != 0 {
+			pc.MTU = req.Interface.Spec.MTU
+			pc.UserCfgdFlags = "admin_mtu," + pc.UserCfgdFlags
+		}
+
+		pc.PcMode = PortChannelModeActive
+		switch m := req.Interface.Spec.Aggregation.ControlProtocol.Mode; m {
+		case v1alpha1.LACPModeActive:
+			pc.PcMode = PortChannelModeActive
+		case v1alpha1.LACPModePassive:
+			pc.PcMode = PortChannelModePassive
+		default:
+			return fmt.Errorf("iface: unknown LACP mode: %s", m)
+		}
+
 		if req.Interface.Spec.Switchport != nil {
 			switch req.Interface.Spec.Switchport.Mode {
 			case v1alpha1.SwitchportModeAccess:
@@ -599,14 +617,34 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 			}
 		}
 
-		// for _, ifc := range req.Interface.Spec.PhysicalInterfaces {
-		// 	name, err := ShortName(ifc.Name)
-		// 	if err != nil {
-		// 		return provider.Result{}, err
-		// 	}
-		//  tdn := "System/intf-items/phys-items/PhysIf-list[id=" + name + "]"
-		//  pc.RsmbrIfsItems.RsMbrIfsList = append(pc.RsmbrIfsItems.RsMbrIfsList, &PortChannelMember{TDn: tdn})
-		// }
+		for _, member := range req.Members {
+			n, err := ShortNamePhysicalInterface(member.Spec.Name)
+			if err != nil {
+				return err
+			}
+			pc.RsmbrIfsItems.RsMbrIfsList = append(pc.RsmbrIfsItems.RsMbrIfsList, NewPortChannelMember(n))
+		}
+
+		v := new(VPCIfItems)
+		if err := p.client.GetConfig(ctx, v); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+
+		// Delete the existing VPC interface entry if the MultiChassisID has changed or got removed.
+		if vpc := v.GetListItemByInterface(name); vpc != nil {
+			if req.MultiChassisID == nil || int(*req.MultiChassisID) != vpc.ID {
+				if err := p.client.Delete(ctx, vpc); err != nil {
+					return err
+				}
+			}
+		}
+
+		if req.MultiChassisID != nil {
+			v := new(VPCIf)
+			v.ID = int(*req.MultiChassisID)
+			v.SetPortChannel(name)
+			conf = append(conf, v)
+		}
 
 		conf = append(conf, pc)
 
@@ -614,12 +652,14 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 		return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
 	}
 
-	// Add the address items last, as they depend on the interface being created first.
-	if len(addr.AddrItems.AddrList) > 0 {
-		conf = append(conf, addr)
-	}
-	if len(addr6.AddrItems.AddrList) > 0 {
-		conf = append(conf, addr6)
+	if req.Interface.Spec.Type != v1alpha1.InterfaceTypeAggregate {
+		// Add the address items last, as they depend on the interface being created first.
+		if len(addr.AddrItems.AddrList) > 0 {
+			conf = append(conf, addr)
+		}
+		if len(addr6.AddrItems.AddrList) > 0 {
+			conf = append(conf, addr6)
+		}
 	}
 
 	return p.client.Update(ctx, conf...)
@@ -631,14 +671,18 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 		return err
 	}
 
-	addr := new(AddrItem)
-	addr.ID = name
+	conf := make([]gnmiext.Configurable, 0, 4)
+	if req.Interface.Spec.Type != v1alpha1.InterfaceTypeAggregate {
+		addr := new(AddrItem)
+		addr.ID = name
 
-	addr6 := new(AddrItem)
-	addr6.ID = name
-	addr6.Is6 = true
+		addr6 := new(AddrItem)
+		addr6.ID = name
+		addr6.Is6 = true
 
-	conf := []gnmiext.Configurable{addr, addr6}
+		conf = append(conf, addr, addr6)
+	}
+
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
 		p := new(PhysIf)
@@ -648,10 +692,27 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 		stp := new(SpanningTree)
 		stp.IfName = name
 		conf = append(conf, stp)
+
 	case v1alpha1.InterfaceTypeLoopback:
 		lb := new(Loopback)
 		lb.ID = name
 		conf = append(conf, lb)
+
+	case v1alpha1.InterfaceTypeAggregate:
+		pc := new(PortChannel)
+		pc.ID = name
+		conf = append(conf, pc)
+
+		v := new(VPCIfItems)
+		if err := p.client.GetConfig(ctx, v); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+
+		// Make sure to delete any associated VPC interface.
+		if vpc := v.GetListItemByInterface(name); vpc != nil {
+			conf = append(conf, vpc)
+		}
+
 	default:
 		return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
 	}
@@ -660,11 +721,16 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 }
 
 func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.InterfaceRequest) (provider.InterfaceStatus, error) {
+	name, err := ShortName(req.Interface.Spec.Name)
+	if err != nil {
+		return provider.InterfaceStatus{}, err
+	}
+
 	var operSt OperSt
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
 		phys := new(PhysIfOperItems)
-		phys.ID = req.Interface.Spec.Name
+		phys.ID = name
 		if err := p.client.GetState(ctx, phys); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 			return provider.InterfaceStatus{}, err
 		}
@@ -672,11 +738,19 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 
 	case v1alpha1.InterfaceTypeLoopback:
 		lb := new(LoopbackOperItems)
-		lb.ID = req.Interface.Spec.Name
+		lb.ID = name
 		if err := p.client.GetState(ctx, lb); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 			return provider.InterfaceStatus{}, err
 		}
 		operSt = lb.OperSt
+
+	case v1alpha1.InterfaceTypeAggregate:
+		pc := new(PortChannelOperItems)
+		pc.ID = name
+		if err := p.client.GetState(ctx, pc); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return provider.InterfaceStatus{}, err
+		}
+		operSt = pc.OperSt
 
 	default:
 		return provider.InterfaceStatus{}, fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)

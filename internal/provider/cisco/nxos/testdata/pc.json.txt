@@ -1,0 +1,7 @@
+interface Ethernet1/10
+ channel-group 10 mode active
+
+interface Port-channel10
+ description vPC Leaf1 --> Host1
+ switchport mode trunk
+ switchport trunk allowed vlan 10

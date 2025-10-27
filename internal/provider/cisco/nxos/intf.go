@@ -23,6 +23,8 @@ var (
 	_ gnmiext.Configurable = (*VrfMember)(nil)
 	_ gnmiext.Configurable = (*SpanningTree)(nil)
 	_ gnmiext.Defaultable  = (*SpanningTree)(nil)
+	_ gnmiext.Configurable = (*PortChannel)(nil)
+	_ gnmiext.Configurable = (*PortChannelOperItems)(nil)
 	_ gnmiext.Configurable = (*AddrItem)(nil)
 )
 
@@ -150,6 +152,7 @@ type PortChannel struct {
 	Descr         string          `json:"descr,omitempty"`
 	ID            string          `json:"id"`
 	Layer         Layer           `json:"layer"`
+	MTU           int32           `json:"mtu,omitempty"`
 	Mode          SwitchportMode  `json:"mode"`
 	PcMode        PortChannelMode `json:"pcMode"`
 	NativeVlan    string          `json:"nativeVlan"`
@@ -164,10 +167,25 @@ type PortChannelMember struct {
 	TDn string `json:"tDn"`
 }
 
+func NewPortChannelMember(name string) *PortChannelMember {
+	return &PortChannelMember{
+		TDn: fmt.Sprintf("/System/intf-items/phys-items/PhysIf-list[id='%s']", name),
+	}
+}
+
 func (p *PortChannel) IsListItem() {}
 
 func (p *PortChannel) XPath() string {
 	return "System/intf-items/aggr-items/AggrIf-list[id=" + p.ID + "]"
+}
+
+type PortChannelOperItems struct {
+	ID     string `json:"-"`
+	OperSt OperSt `json:"operSt"`
+}
+
+func (p *PortChannelOperItems) XPath() string {
+	return "System/intf-items/aggr-items/AggrIf-list[id=" + p.ID + "]/aggrif-items"
 }
 
 // AddrItem represents the IP address configuration for an interface.
