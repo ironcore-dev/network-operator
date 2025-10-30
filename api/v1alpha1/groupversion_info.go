@@ -94,3 +94,15 @@ const (
 	// WaitingForDependenciesReason indicates that the resource is waiting for its dependencies to be ready.
 	WaitingForDependenciesReason = "WaitingForDependencies"
 )
+
+// Reasons that are specific to [Interface] objects.
+const (
+	// UnnumberedSourceInterfaceNotFoundReason indicates that the source interface for unnumbered IPv4 configuration was not found.
+	UnnumberedSourceInterfaceNotFoundReason = "UnnumberedSourceInterfaceNotFound"
+
+	// UnnumberedCrossDeviceReferenceReason indicates that the unnumbered IPv4 configuration references an interface on a different device.
+	UnnumberedCrossDeviceReferenceReason = "UnnumberedCrossDeviceReference"
+
+	// UnnumberedSourceInterfaceNoIPv4Reason indicates that the source interface for unnumbered IPv4 configuration has no IPv4 addresses configured.
+	UnnumberedSourceInterfaceNoIPv4Reason = "UnnumberedSourceInterfaceNoIPv4"
+)

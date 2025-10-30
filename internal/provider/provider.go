@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"maps"
+	"net/netip"
 	"slices"
 	"sync"
 
@@ -72,7 +73,22 @@ type InterfaceProvider interface {
 type InterfaceRequest struct {
 	Interface      *v1alpha1.Interface
 	ProviderConfig *ProviderConfig
+	IPv4           IPv4
 }
+
+type IPv4 interface {
+	isIPv4()
+}
+
+type IPv4AddressList []netip.Prefix
+
+func (a IPv4AddressList) isIPv4() {}
+
+type IPv4Unnumbered struct {
+	SourceInterface string
+}
+
+func (IPv4Unnumbered) isIPv4() {}
 
 type InterfaceStatus struct {
 	// OperStatus indicates whether the interface is operationally up (true) or down (false).

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -20,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
@@ -222,6 +224,15 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		}
 	}
 
+	defer func() {
+		conditions.RecomputeReady(s.Interface)
+	}()
+
+	ip, err := r.reconcileIPv4(ctx, s)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -231,14 +242,11 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		}
 	}()
 
-	defer func() {
-		conditions.RecomputeReady(s.Interface)
-	}()
-
 	// Ensure the Interface is realized on the provider.
-	err := s.Provider.EnsureInterface(ctx, &provider.InterfaceRequest{
+	err = s.Provider.EnsureInterface(ctx, &provider.InterfaceRequest{
 		Interface:      s.Interface,
 		ProviderConfig: s.ProviderConfig,
+		IPv4:           ip,
 	})
 
 	cond := conditions.FromError(err)
@@ -270,6 +278,65 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 	conditions.Set(s.Interface, cond)
 
 	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
+}
+
+func (r *InterfaceReconciler) reconcileIPv4(ctx context.Context, s *scope) (ip provider.IPv4, _ error) {
+	if s.Interface.Spec.IPv4 == nil {
+		return nil, nil
+	}
+
+	switch {
+	case len(s.Interface.Spec.IPv4.Addresses) > 0:
+		addrs := make([]netip.Prefix, len(s.Interface.Spec.IPv4.Addresses))
+		for i, addr := range s.Interface.Spec.IPv4.Addresses {
+			addrs[i] = addr.Prefix
+		}
+		ip = provider.IPv4AddressList(addrs)
+
+	case s.Interface.Spec.IPv4.Unnumbered != nil:
+		key := client.ObjectKey{
+			Name:      s.Interface.Spec.IPv4.Unnumbered.InterfaceRef.Name,
+			Namespace: s.Interface.Namespace,
+		}
+
+		intf := new(v1alpha1.Interface)
+		if err := r.Get(ctx, key, intf); err != nil {
+			if apierrors.IsNotFound(err) {
+				conditions.Set(s.Interface, metav1.Condition{
+					Type:    v1alpha1.ConfiguredCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  v1alpha1.UnnumberedSourceInterfaceNotFoundReason,
+					Message: fmt.Sprintf("referenced interface %q for unnumbered ipv4 configuration not found", key),
+				})
+				return nil, reconcile.TerminalError(fmt.Errorf("referenced interface %q for unnumbered ipv4 configuration not found", key))
+			}
+			return nil, fmt.Errorf("failed to get referenced interface %q for unnumbered ipv4 configuration: %w", key, err)
+		}
+
+		if intf.Spec.DeviceRef.Name != s.Device.Name {
+			conditions.Set(s.Interface, metav1.Condition{
+				Type:    v1alpha1.ConfiguredCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.UnnumberedCrossDeviceReferenceReason,
+				Message: fmt.Sprintf("referenced interface %q for unnumbered ipv4 configuration does not belong to device %q", intf.Name, s.Device.Name),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("referenced interface %q for unnumbered ipv4 configuration does not belong to device %q", intf.Name, s.Device.Name))
+		}
+
+		if intf.Spec.IPv4 == nil || len(intf.Spec.IPv4.Addresses) == 0 {
+			conditions.Set(s.Interface, metav1.Condition{
+				Type:    v1alpha1.ConfiguredCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.UnnumberedSourceInterfaceNoIPv4Reason,
+				Message: fmt.Sprintf("referenced interface %q for unnumbered ipv4 configuration has no ipv4 address configured", intf.Name),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("referenced interface %q for unnumbered ipv4 configuration has no ipv4 address configured", intf.Name))
+		}
+
+		ip = provider.IPv4Unnumbered{SourceInterface: intf.Spec.Name}
+	}
+
+	return
 }
 
 func (r *InterfaceReconciler) finalize(ctx context.Context, s *scope) (reterr error) {

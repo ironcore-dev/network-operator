@@ -14,8 +14,9 @@ spec:
   adminState: Up
   type: Loopback
   mtu: 1500
-  ipv4Addresses:
-    - 10.0.0.10/32
+  ipv4:
+    addresses:
+      - 10.0.0.10/32
 #   providerConfigRef:
 #     apiVersion: nxos.cisco.networking.cloud.sap/v1alpha1
 #     kind: InterfaceConfig
@@ -37,8 +38,10 @@ spec:
   adminState: Up
   type: Loopback
   mtu: 1500
-  ipv4Addresses:
-    - 10.0.1.10/32
+  ipv4:
+    addresses:
+      - 10.0.1.10/32
+      - 10.1.0.10/32
 ---
 apiVersion: networking.cloud.sap/v1alpha1
 kind: Interface
@@ -56,8 +59,10 @@ spec:
   adminState: Up
   type: Physical
   mtu: 9216
-  ipv4Addresses:
-    - unnumbered:lo0
+  ipv4:
+    unnumbered:
+      interfaceRef:
+        name: lo0
 ---
 apiVersion: networking.cloud.sap/v1alpha1
 kind: Interface
@@ -75,8 +80,10 @@ spec:
   adminState: Up
   type: Physical
   mtu: 9216
-  ipv4Addresses:
-    - unnumbered:lo0
+  ipv4:
+    unnumbered:
+      interfaceRef:
+        name: lo0
 ---
 apiVersion: networking.cloud.sap/v1alpha1
 kind: Interface

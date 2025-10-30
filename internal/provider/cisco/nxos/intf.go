@@ -194,11 +194,18 @@ func (a *AddrItem) XPath() string {
 }
 
 type IntfAddr struct {
-	Addr string `json:"addr"`
-	Pref int    `json:"pref"`
-	Tag  int    `json:"tag"`
-	Type string `json:"type"`
+	Addr string       `json:"addr"`
+	Pref int          `json:"pref"`
+	Tag  int          `json:"tag"`
+	Type IntfAddrType `json:"type"`
 }
+
+type IntfAddrType string
+
+const (
+	IntfAddrTypePrimary   IntfAddrType = "primary"
+	IntfAddrTypeSecondary IntfAddrType = "secondary"
+)
 
 // Range provides a string representation of identifiers (typically VLAN IDs) that formats the range in a human-readable way.
 // Consecutive IDs are represented as a range (e.g., "10-12"), while single IDs are shown individually (e.g., "15").
