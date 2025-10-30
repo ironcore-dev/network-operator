@@ -142,6 +142,18 @@ func (acl *AccessControlList) SetConditions(conditions []metav1.Condition) {
 	acl.Status.Conditions = conditions
 }
 
+func (acl *AccessControlList) GetDeviceRef() LocalObjectReference {
+	return acl.Spec.DeviceRef
+}
+
+func (acl *AccessControlList) GetProviderConfigRef() *TypedLocalObjectReference {
+	return acl.Spec.ProviderConfigRef
+}
+
+func (acl *AccessControlList) GetStatus() any {
+	return acl.Status
+}
+
 // +kubebuilder:object:root=true
 
 // AccessControlListList contains a list of AccessControlList
