@@ -444,49 +444,33 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 		return err
 	}
 
-	if req.Interface.Spec.Type == "PortChannel" && len(req.Interface.Spec.IPv4Addresses) > 0 {
-		return errors.New("port-channel interfaces do not support IP addresses")
-	}
-
 	addr := new(AddrItem)
 	addr.ID = name
 
-	addr6 := new(AddrItem)
-	addr6.ID = name
-	addr6.Is6 = true
-
 	var prefixes []netip.Prefix
-	for i, p := range req.Interface.Spec.IPv4Addresses {
-		if a, ok := strings.CutPrefix(p, "unnumbered:"); ok {
-			if req.Interface.Spec.Type == v1alpha1.InterfaceTypeLoopback {
-				return errors.New("unnumbered addressing mode is not supported for loopback interfaces")
+	switch v := req.IPv4.(type) {
+	case provider.IPv4AddressList:
+		for i, p := range v {
+			prefixes = append(prefixes, p)
+			nth := IntfAddrTypePrimary
+			if i > 0 {
+				nth = IntfAddrTypeSecondary
 			}
-			addr.Unnumbered, err = ShortName(a)
-			if err != nil {
-				return fmt.Errorf("invalid unnumbered source interface name %q: %w", a, err)
+			ip := &IntfAddr{
+				Addr: p.String(),
+				Type: nth,
 			}
-			continue
+			if p.Addr().Is6() {
+				return fmt.Errorf("invalid ipv4 address %q: not an ipv4 address", p.String())
+			}
+			addr.AddrItems.AddrList = append(addr.AddrItems.AddrList, ip)
 		}
-		prefix, err := netip.ParsePrefix(p)
+
+	case provider.IPv4Unnumbered:
+		addr.Unnumbered, err = ShortName(v.SourceInterface)
 		if err != nil {
-			return fmt.Errorf("invalid IPv4 prefix %q: %w", p, err)
+			return fmt.Errorf("invalid unnumbered source interface name %q: %w", v.SourceInterface, err)
 		}
-		prefixes = append(prefixes, prefix)
-		nth := "primary"
-		if i > 0 {
-			nth = "secondary"
-		}
-		ip := &IntfAddr{
-			Addr: prefix.String(),
-			Pref: 0,
-			Tag:  0,
-			Type: nth,
-		}
-		if prefix.Addr().Is6() {
-			addr6.AddrItems.AddrList = append(addr6.AddrItems.AddrList, ip)
-			continue
-		}
-		addr.AddrItems.AddrList = append(addr.AddrItems.AddrList, ip)
 	}
 
 	for i, p := range prefixes {
@@ -497,17 +481,11 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 		}
 	}
 
-	del := make([]gnmiext.Configurable, 0, 2)
-	if len(addr.AddrItems.AddrList) == 0 {
-		del = append(del, addr)
-	}
-	if len(addr6.AddrItems.AddrList) == 0 {
-		del = append(del, addr6)
-	}
-
-	// Ensure to delete any leftover IPv4/IPv6 addresses if the spec does not contain any.
-	if err := p.client.Delete(ctx, del...); err != nil {
-		return err
+	if req.IPv4 == nil {
+		// Ensure to delete any leftover IPv4 addresses if the spec does not contain any.
+		if err := p.client.Delete(ctx, addr); err != nil {
+			return err
+		}
 	}
 
 	conf := make([]gnmiext.Configurable, 0, 4)
@@ -524,7 +502,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 			p.MTU = req.Interface.Spec.MTU
 			p.UserCfgdFlags = "admin_mtu," + p.UserCfgdFlags
 		}
-		if len(req.Interface.Spec.IPv4Addresses) > 0 {
+		if req.IPv4 != nil {
 			p.Layer = Layer3
 			p.UserCfgdFlags = "admin_layer," + p.UserCfgdFlags
 		}
@@ -628,11 +606,11 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 	}
 
 	// Add the address items last, as they depend on the interface being created first.
-	if len(addr.AddrItems.AddrList) > 0 {
+	if req.IPv4 != nil {
+		slices.SortFunc(addr.AddrItems.AddrList, func(a, b *IntfAddr) int {
+			return strings.Compare(b.Addr, a.Addr)
+		})
 		conf = append(conf, addr)
-	}
-	if len(addr6.AddrItems.AddrList) > 0 {
-		conf = append(conf, addr6)
 	}
 
 	return p.client.Update(ctx, conf...)
@@ -647,11 +625,7 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 	addr := new(AddrItem)
 	addr.ID = name
 
-	addr6 := new(AddrItem)
-	addr6.ID = name
-	addr6.Is6 = true
-
-	conf := []gnmiext.Configurable{addr, addr6}
+	conf := []gnmiext.Configurable{addr}
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
 		p := new(PhysIf)

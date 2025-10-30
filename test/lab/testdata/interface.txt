@@ -14,8 +14,9 @@ spec:
   adminState: Up
   type: Loopback
   mtu: 1500
-  ipv4Addresses:
-    - 10.0.0.10/32
+  ipv4:
+    addresses:
+      - 10.0.0.10/32
 
 -- running-config.txt --
 interface loopback0

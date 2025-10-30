@@ -15,8 +15,9 @@ spec:
   adminState: Up
   type: Loopback
   mtu: 1500
-  ipv4Addresses:
-    - 10.0.0.10/32
+  ipv4:
+    addresses:
+      - 10.0.0.10/32
 -- state --
 {
   "interfaces": {
@@ -43,7 +44,8 @@ spec:
                     {
                       "config": {
                         "ip": "10.0.0.10",
-                        "prefix-length": 32
+                        "prefix-length": 32,
+                        "type": "PRIMARY"
                       },
                       "ip": "10.0.0.10"
                     }

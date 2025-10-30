@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -16,10 +17,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/ironcore-dev/network-operator/api/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
@@ -176,8 +182,10 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	return res, nil
 }
 
+var interfaceUnnumberedRefKey = ".spec.ipv4.unnumbered.interfaceRef.name"
+
 // SetupWithManager sets up the controller with the Manager.
-func (r *InterfaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	if r.RequeueInterval == 0 {
 		return errors.New("requeue interval must not be 0")
 	}
@@ -192,10 +200,34 @@ func (r *InterfaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to create label selector predicate: %w", err)
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.Interface{}, interfaceUnnumberedRefKey, func(obj client.Object) []string {
+		intf := obj.(*v1alpha1.Interface)
+		if intf.Spec.IPv4 == nil || intf.Spec.IPv4.Unnumbered == nil {
+			return nil
+		}
+		return []string{intf.Spec.IPv4.Unnumbered.InterfaceRef.Name}
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Interface{}).
 		Named("interface").
 		WithEventFilter(filter).
+		// Watches enqueues Interfaces for updates in referenced ipv4 unnumbered resources.
+		// Only triggers on create and delete events since interface names are immutable.
+		Watches(
+			&v1alpha1.Interface{},
+			handler.EnqueueRequestsFromMapFunc(r.interfaceToUnnumbered),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
 		Complete(r)
 }
 
@@ -222,6 +254,15 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		}
 	}
 
+	defer func() {
+		conditions.RecomputeReady(s.Interface)
+	}()
+
+	ip, err := r.reconcileIPv4(ctx, s)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -231,14 +272,11 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		}
 	}()
 
-	defer func() {
-		conditions.RecomputeReady(s.Interface)
-	}()
-
 	// Ensure the Interface is realized on the provider.
-	err := s.Provider.EnsureInterface(ctx, &provider.InterfaceRequest{
+	err = s.Provider.EnsureInterface(ctx, &provider.InterfaceRequest{
 		Interface:      s.Interface,
 		ProviderConfig: s.ProviderConfig,
+		IPv4:           ip,
 	})
 
 	cond := conditions.FromError(err)
@@ -272,6 +310,65 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
 }
 
+func (r *InterfaceReconciler) reconcileIPv4(ctx context.Context, s *scope) (ip provider.IPv4, _ error) {
+	if s.Interface.Spec.IPv4 == nil {
+		return nil, nil
+	}
+
+	switch {
+	case len(s.Interface.Spec.IPv4.Addresses) > 0:
+		addrs := make([]netip.Prefix, len(s.Interface.Spec.IPv4.Addresses))
+		for i, addr := range s.Interface.Spec.IPv4.Addresses {
+			addrs[i] = addr.Prefix
+		}
+		ip = provider.IPv4AddressList(addrs)
+
+	case s.Interface.Spec.IPv4.Unnumbered != nil:
+		key := client.ObjectKey{
+			Name:      s.Interface.Spec.IPv4.Unnumbered.InterfaceRef.Name,
+			Namespace: s.Interface.Namespace,
+		}
+
+		intf := new(v1alpha1.Interface)
+		if err := r.Get(ctx, key, intf); err != nil {
+			if apierrors.IsNotFound(err) {
+				conditions.Set(s.Interface, metav1.Condition{
+					Type:    v1alpha1.ConfiguredCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  v1alpha1.UnnumberedSourceInterfaceNotFoundReason,
+					Message: fmt.Sprintf("referenced interface %q for unnumbered ipv4 configuration not found", key),
+				})
+				return nil, reconcile.TerminalError(fmt.Errorf("referenced interface %q for unnumbered ipv4 configuration not found", key))
+			}
+			return nil, fmt.Errorf("failed to get referenced interface %q for unnumbered ipv4 configuration: %w", key, err)
+		}
+
+		if intf.Spec.DeviceRef.Name != s.Device.Name {
+			conditions.Set(s.Interface, metav1.Condition{
+				Type:    v1alpha1.ConfiguredCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.UnnumberedCrossDeviceReferenceReason,
+				Message: fmt.Sprintf("referenced interface %q for unnumbered ipv4 configuration does not belong to device %q", intf.Name, s.Device.Name),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("referenced interface %q for unnumbered ipv4 configuration does not belong to device %q", intf.Name, s.Device.Name))
+		}
+
+		if intf.Spec.Type != v1alpha1.InterfaceTypeLoopback {
+			conditions.Set(s.Interface, metav1.Condition{
+				Type:    v1alpha1.ConfiguredCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.UnnumberedInvalidInterfaceTypeReason,
+				Message: fmt.Sprintf("referenced interface %q for unnumbered ipv4 configuration is not of type Loopback, got %q", intf.Name, intf.Spec.Type),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("referenced interface %q for unnumbered ipv4 configuration is not of type Loopback, got %q", intf.Name, intf.Spec.Type))
+		}
+
+		ip = provider.IPv4Unnumbered{SourceInterface: intf.Spec.Name}
+	}
+
+	return
+}
+
 func (r *InterfaceReconciler) finalize(ctx context.Context, s *scope) (reterr error) {
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
@@ -286,4 +383,36 @@ func (r *InterfaceReconciler) finalize(ctx context.Context, s *scope) (reterr er
 		Interface:      s.Interface,
 		ProviderConfig: s.ProviderConfig,
 	})
+}
+
+// interfaceToUnnumbered is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for a Interface to update when its referenced unnumbered source Interface changes.
+func (r *InterfaceReconciler) interfaceToUnnumbered(ctx context.Context, obj client.Object) []ctrl.Request {
+	intf, ok := obj.(*v1alpha1.Interface)
+	if !ok {
+		panic(fmt.Sprintf("Expected a Interface but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "Unnumbered Reference", klog.KObj(intf))
+
+	interfaces := new(v1alpha1.InterfaceList)
+	if err := r.List(ctx, interfaces, client.InNamespace(intf.Namespace), client.MatchingFields{interfaceUnnumberedRefKey: intf.Spec.Name}); err != nil {
+		log.Error(err, "Failed to list Interfaces")
+		return nil
+	}
+
+	requests := []ctrl.Request{}
+	for _, i := range interfaces.Items {
+		if i.Spec.IPv4 != nil && i.Spec.IPv4.Unnumbered != nil && i.Spec.IPv4.Unnumbered.InterfaceRef.Name == intf.Name {
+			log.Info("Enqueuing Interface for reconciliation", "Interface", klog.KObj(&i))
+			requests = append(requests, ctrl.Request{
+				NamespacedName: client.ObjectKey{
+					Name:      i.Name,
+					Namespace: i.Namespace,
+				},
+			})
+		}
+	}
+
+	return requests
 }

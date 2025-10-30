@@ -8,8 +8,9 @@ import (
 )
 
 // InterfaceSpec defines the desired state of Interface.
-// +kubebuilder:validation:XValidation:rule="!has(self.switchport) || !has(self.ipv4Addresses)", message="switchport and ipv4Addresses are mutually exclusive"
+// +kubebuilder:validation:XValidation:rule="!has(self.switchport) || !has(self.ipv4)", message="switchport and ipv4 are mutually exclusive"
 // +kubebuilder:validation:XValidation:rule="self.type != 'Loopback' || !has(self.switchport)", message="switchport must not be specified for interfaces of type Loopback"
+// +kubebuilder:validation:XValidation:rule="self.type == 'Physical' || !has(self.ipv4) || !has(self.ipv4.unnumbered)", message="unnumbered ipv4 configuration can only be used for interfaces of type Physical"
 type InterfaceSpec struct {
 	// DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
 	// Immutable.
@@ -51,12 +52,9 @@ type InterfaceSpec struct {
 	// +optional
 	Switchport *Switchport `json:"switchport,omitempty"`
 
-	// Ipv4Addresses is the list of IPv4 addresses assigned to the interface.
-	// Each address should be given either in CIDR notation (e.g., "10.0.0.1/32")
-	// or as interface reference in the form of "unnumbered:<source-interface>" (e.g., "unnumbered:lo0").
+	// IPv4 defines the IPv4 configuration for the interface.
 	// +optional
-	// +kubebuilder:validation:items:Pattern=`^(?:(?:\d{1,3}\.){3}\d{1,3}\/\d{1,2}?|unnumbered:[\w-]+)$`
-	IPv4Addresses []string `json:"ipv4Addresses,omitempty"`
+	IPv4 *InterfaceIPv4 `json:"ipv4,omitempty"`
 }
 
 // AdminState represents the administrative state of the interface.
@@ -123,6 +121,33 @@ const (
 	// SwitchportModeTrunk indicates that the switchport is in trunk mode.
 	SwitchportModeTrunk SwitchportMode = "Trunk"
 )
+
+// InterfaceIPv4 defines the IPv4 configuration for an interface.
+// +kubebuilder:validation:XValidation:rule="!has(self.addresses) || !has(self.unnumbered)", message="addresses and unnumbered are mutually exclusive"
+type InterfaceIPv4 struct {
+	// Addresses defines the list of IPv4 addresses assigned to the interface.
+	// The first address in the list is considered the primary address,
+	// and any additional addresses are considered secondary addresses.
+	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:MinItems=1
+	Addresses []IPPrefix `json:"addresses,omitempty"`
+
+	// Unnumbered defines the unnumbered interface configuration.
+	// When specified, the interface borrows the IP address from another interface.
+	// +optional
+	Unnumbered *InterfaceIPv4Unnumbered `json:"unnumbered,omitempty"`
+}
+
+// InterfaceIPv4Unnumbered defines the unnumbered interface configuration.
+// An unnumbered interface borrows the IP address from another interface,
+// allowing the interface to function without its own IP address assignment.
+type InterfaceIPv4Unnumbered struct {
+	// InterfaceRef is a reference to the interface from which to borrow the IP address.
+	// The referenced interface must exist and have at least one IPv4 address configured.
+	// +required
+	InterfaceRef LocalObjectReference `json:"interfaceRef"`
+}
 
 // InterfaceStatus defines the observed state of Interface.
 type InterfaceStatus struct {

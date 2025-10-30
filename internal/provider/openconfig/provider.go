@@ -6,7 +6,6 @@ package openconfig
 import (
 	"context"
 	"fmt"
-	"net/netip"
 
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ygnmi/ygnmi"
@@ -71,20 +70,19 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 		return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
 	}
 	i.Mtu = ygot.Uint16(uint16(req.Interface.Spec.MTU))
-	for idx, addr := range req.Interface.Spec.IPv4Addresses {
-		switch {
-		case addr == "":
-			continue
-		case len(addr) >= 10 && addr[:10] == "unnumbered":
-			sourceIface := addr[11:] // Extract the source interface name
-			i.GetOrCreateSubinterface(uint32(idx)).GetOrCreateIpv4().GetOrCreateUnnumbered().GetOrCreateInterfaceRef().SetInterface(sourceIface)
-		default:
-			ip, err := netip.ParsePrefix(addr)
-			if err != nil {
-				return fmt.Errorf("failed to parse IPv4 address %q: %w", addr, err)
+	switch v := req.IPv4.(type) {
+	case provider.IPv4AddressList:
+		for j, ip := range v {
+			t := IfIp_Ipv4AddressType_PRIMARY
+			if j > 0 {
+				t = IfIp_Ipv4AddressType_SECONDARY
 			}
-			i.GetOrCreateSubinterface(uint32(idx)).GetOrCreateIpv4().GetOrCreateAddress(ip.Addr().String()).SetPrefixLength(uint8(ip.Bits()))
+			addr := i.GetOrCreateSubinterface(uint32(0)).GetOrCreateIpv4().GetOrCreateAddress(ip.Addr().String())
+			addr.SetPrefixLength(uint8(ip.Bits()))
+			addr.SetType(t)
 		}
+	case provider.IPv4Unnumbered:
+		i.GetOrCreateSubinterface(uint32(0)).GetOrCreateIpv4().GetOrCreateUnnumbered().GetOrCreateInterfaceRef().SetInterface(v.SourceInterface)
 	}
 	if req.Interface.Spec.Switchport != nil {
 		i.Tpid = VlanTypes_TPID_TYPES_TPID_0X8100
