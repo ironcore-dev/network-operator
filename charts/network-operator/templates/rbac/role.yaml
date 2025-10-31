@@ -43,6 +43,7 @@ rules:
   - isis
   - managementaccesses
   - ntp
+  - pim
   - snmp
   - syslogs
   - users
@@ -67,6 +68,7 @@ rules:
   - isis/finalizers
   - managementaccesses/finalizers
   - ntp/finalizers
+  - pim/finalizers
   - snmp/finalizers
   - syslogs/finalizers
   - users/finalizers
@@ -85,6 +87,7 @@ rules:
   - isis/status
   - managementaccesses/status
   - ntp/status
+  - pim/status
   - snmp/status
   - syslogs/status
   - users/status

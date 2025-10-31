@@ -61,3 +61,6 @@ resources:
 - vrf_admin_role.yaml
 - vrf_editor_role.yaml
 - vrf_viewer_role.yaml
+- pim_admin_role.yaml
+- pim_editor_role.yaml
+- pim_viewer_role.yaml

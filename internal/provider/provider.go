@@ -301,6 +301,32 @@ type VRFRequest struct {
 	ProviderConfig *ProviderConfig
 }
 
+// PIMProvider is the interface for the realization of the PIM objects over different providers.
+type PIMProvider interface {
+	Provider
+
+	// EnsurePIM call is responsible for PIM realization on the provider.
+	EnsurePIM(context.Context, *EnsurePIMRequest) error
+	// DeletePIM call is responsible for PIM deletion on the provider.
+	DeletePIM(context.Context, *DeletePIMRequest) error
+}
+
+type EnsurePIMRequest struct {
+	PIM            *v1alpha1.PIM
+	Interfaces     []PIMInterface
+	ProviderConfig *ProviderConfig
+}
+
+type PIMInterface struct {
+	Interface *v1alpha1.Interface
+	Mode      v1alpha1.PIMInterfaceMode
+}
+
+type DeletePIMRequest struct {
+	PIM            *v1alpha1.PIM
+	ProviderConfig *ProviderConfig
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.

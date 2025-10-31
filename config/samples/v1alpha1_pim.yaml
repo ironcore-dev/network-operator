@@ -1,0 +1,24 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: PIM
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: pim
+spec:
+  deviceRef:
+    name: leaf1
+  rendezvousPoints:
+    - address: 10.0.0.100
+      multicastGroups:
+        - 224.0.0.0/4
+  interfaceRefs:
+    - name: eth1-1
+      mode: Sparse
+    - name: lo1
+      mode: Sparse
+    - name: eth1-2
+      mode: Sparse
+    - name: lo0
+      mode: Sparse

@@ -204,6 +204,15 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&PIMReconciler{
+		Client:          k8sManager.GetClient(),
+		Scheme:          k8sManager.GetScheme(),
+		Recorder:        recorder,
+		Provider:        prov,
+		RequeueInterval: time.Second,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -261,6 +270,7 @@ var (
 	_ provider.ManagementAccessProvider = (*Provider)(nil)
 	_ provider.ISISProvider             = (*Provider)(nil)
 	_ provider.VRFProvider              = (*Provider)(nil)
+	_ provider.PIMProvider              = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -279,6 +289,7 @@ type Provider struct {
 	Access *v1alpha1.ManagementAccess
 	ISIS   sets.Set[string]
 	VRF    sets.Set[string]
+	PIM    *v1alpha1.PIM
 }
 
 func NewProvider() *Provider {
@@ -487,5 +498,19 @@ func (p *Provider) DeleteVRF(_ context.Context, req *provider.VRFRequest) error 
 	p.Lock()
 	defer p.Unlock()
 	p.VRF.Delete(req.VRF.Spec.Name)
+	return nil
+}
+
+func (p *Provider) EnsurePIM(_ context.Context, req *provider.EnsurePIMRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.PIM = req.PIM
+	return nil
+}
+
+func (p *Provider) DeletePIM(context.Context, *provider.DeletePIMRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.PIM = nil
 	return nil
 }

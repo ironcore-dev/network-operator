@@ -118,4 +118,13 @@ resources:
   webhooks:
     validation: true
     webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: metal.ironcore.dev
+  group: networking
+  kind: PIM
+  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
+  version: v1alpha1
 version: "3"

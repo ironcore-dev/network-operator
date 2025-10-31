@@ -39,6 +39,7 @@ var (
 	_ provider.ISISProvider             = (*Provider)(nil)
 	_ provider.ManagementAccessProvider = (*Provider)(nil)
 	_ provider.NTPProvider              = (*Provider)(nil)
+	_ provider.PIMProvider              = (*Provider)(nil)
 	_ provider.SNMPProvider             = (*Provider)(nil)
 	_ provider.SyslogProvider           = (*Provider)(nil)
 	_ provider.UserProvider             = (*Provider)(nil)
@@ -1227,86 +1228,94 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *EnsureOSPFRequest) error
 	return p.client.Update(ctx, f, o)
 }
 
-type RendezvousPoint struct {
-	// Addr is the IP address of the rendezvous point.
-	Addr netip.Addr
-	// Group is the static multicast address range for which this rendezvous point is configured.
-	Group *netip.Prefix
-}
-
-type EnsurePIMRequest struct {
-	// RendezvousPoint represents the PIM rendezvous point configuration.
-	RendezvousPoint *RendezvousPoint
-
-	// AnycastPeer represents a PIM anycast rendezvous point peer configuration.
-	// It is used to configure anycast rendezvous point peers for redundancy.
-	AnycastPeers []netip.Addr
-
-	// Interfaces is a list of interfaces that should have PIM enabled.
-	// If empty, PIM will not be enabled on any interfaces.
-	Interfaces []*v1alpha1.Interface
-}
-
-func (p *Provider) EnsurePIM(ctx context.Context, req *EnsurePIMRequest) error {
-	addr := req.RendezvousPoint.Addr
-	if !addr.IsValid() || !addr.Is4() {
-		return fmt.Errorf("pim: rendezvous point address %q is not a valid IPv4 address", addr)
-	}
-
-	if grp := req.RendezvousPoint.Group; grp != nil {
-		if !grp.IsValid() || !grp.Addr().Is4() {
-			return fmt.Errorf("pim: group list %q is not a valid IPv4 address prefix", grp)
-		}
-	}
-
-	prefix, err := addr.Prefix(32)
-	if err != nil {
-		return fmt.Errorf("pim: failed to create prefix for rendezvous point address %q: %w", addr, err)
-	}
-
+func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest) error {
 	f := new(Feature)
 	f.Name = "pim"
 	f.AdminSt = AdminStEnabled
 
-	rp := new(StaticRP)
-	rp.Addr = prefix.String()
-	if req.RendezvousPoint.Group != nil {
-		grp := new(StaticRPGrp)
-		grp.GrpListName = req.RendezvousPoint.Group.String()
-		rp.RpgrplistItems.RPGrpListList = append(rp.RpgrplistItems.RPGrpListList, grp)
+	rpItems := new(StaticRPItems)
+	apItems := new(AnycastPeerItems)
+
+	for _, rendezvousPoint := range req.PIM.Spec.RendezvousPoints {
+		rp := new(StaticRP)
+		rp.Addr = rendezvousPoint.Address
+		for _, group := range rendezvousPoint.MulticastGroups {
+			if !group.IsValid() || !group.Addr().Is4() {
+				return fmt.Errorf("pim: group list %q is not a valid IPv4 address prefix", group)
+			}
+			grp := new(StaticRPGrp)
+			grp.GrpListName = group.String()
+			rp.RpgrplistItems.RPGrpListList = append(rp.RpgrplistItems.RPGrpListList, grp)
+		}
+		rpItems.StaticRPList = append(rpItems.StaticRPList, rp)
+
+		for _, addr := range rendezvousPoint.AnycastAddresses {
+			peer := new(AnycastPeerAddr)
+			peer.Addr = rendezvousPoint.Address
+			peer.RpSetAddr = addr
+			apItems.AcastRPPeerList = append(apItems.AcastRPPeerList, peer)
+		}
 	}
 
-	ap := new(AnycastPeerItems)
-	for _, a := range req.AnycastPeers {
-		if !a.IsValid() || !a.Is4() {
-			return fmt.Errorf("pim: anycast rendezvous point address %q is not a valid IPv4 address", a)
-		}
-
-		addr, err := a.Prefix(32)
-		if err != nil {
-			return fmt.Errorf("pim: failed to create prefix for anycast rendezvous point address %q: %w", a, err)
-		}
-
-		peer := new(AnycastPeerAddr)
-		peer.Addr = prefix.String()
-		peer.RpSetAddr = addr.String()
-		ap.AcastRPPeerList = append(ap.AcastRPPeerList, peer)
+	interfaces := make([]*v1alpha1.Interface, 0, len(req.Interfaces))
+	for _, iface := range req.Interfaces {
+		interfaces = append(interfaces, iface.Interface)
 	}
 
-	interfaceNames, err := p.EnsureInterfacesExist(ctx, req.Interfaces)
+	interfaceNames, err := p.EnsureInterfacesExist(ctx, interfaces)
 	if err != nil {
 		return err
 	}
 
-	pi := new(PIMIfItems)
-	for _, name := range interfaceNames {
+	// prevent bounds check in for the range loop below
+	// [Bounds Check Elimination]: https://go101.org/optimizations/5-bce.html
+	_ = req.Interfaces[len(interfaceNames)-1]
+
+	ifItems := new(PIMIfItems)
+	for i, name := range interfaceNames {
 		intf := new(PIMIf)
 		intf.ID = name
-		intf.PimSparseMode = true
-		pi.IfList = append(pi.IfList, intf)
+		switch req.Interfaces[i].Mode {
+		case v1alpha1.PIMModeDense:
+			return errors.New("pim: dense mode is not supported on Cisco NX-OS devices")
+		case v1alpha1.PIMModeSparse:
+			intf.PimSparseMode = true
+		}
+		ifItems.IfList = append(ifItems.IfList, intf)
 	}
 
-	return p.client.Update(ctx, f, rp, ap, pi)
+	conf := make([]gnmiext.Configurable, 0, 4)
+	conf = append(conf, f)
+
+	del := make([]gnmiext.Configurable, 0, 3)
+
+	if len(rpItems.StaticRPList) > 0 {
+		conf = append(conf, rpItems)
+	} else {
+		del = append(del, rpItems)
+	}
+
+	if len(apItems.AcastRPPeerList) > 0 {
+		conf = append(conf, apItems)
+	} else {
+		del = append(del, apItems)
+	}
+
+	if len(ifItems.IfList) > 0 {
+		conf = append(conf, ifItems)
+	} else {
+		del = append(del, ifItems)
+	}
+
+	if err := p.client.Update(ctx, conf...); err != nil {
+		return err
+	}
+
+	return p.client.Delete(ctx, del...)
+}
+
+func (p *Provider) DeletePIM(ctx context.Context, _ *provider.DeletePIMRequest) error {
+	return p.client.Delete(ctx, new(StaticRPItems), new(AnycastPeerItems), new(PIMIfItems))
 }
 
 func (p *Provider) EnsureUser(ctx context.Context, req *provider.EnsureUserRequest) error {
