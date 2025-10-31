@@ -164,8 +164,9 @@ func WithDefaultTimeout(timeout time.Duration) Option {
 }
 
 type auth struct {
-	Username string
-	Password string
+	Username             string
+	Password             string
+	SecureTransportCreds bool
 }
 
 var _ credentials.PerRPCCredentials = (*auth)(nil)
@@ -177,7 +178,10 @@ func (a *auth) GetRequestMetadata(_ context.Context, _ ...string) (map[string]st
 	}, nil
 }
 
-func (a *auth) RequireTransportSecurity() bool { return true }
+func (a *auth) RequireTransportSecurity() bool {
+	// Only called if the transport credentials are insecure.
+	return false
+}
 
 // UnaryDefaultTimeoutInterceptor returns a gRPC unary client interceptor that sets a default timeout
 // for each RPC. If a deadline is already present , it will not be modified.
