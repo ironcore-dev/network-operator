@@ -10,14 +10,14 @@ metadata:
     "helm.sh/resource-policy": keep
     {{- end }}
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: isis.networking.cloud.sap
+  name: users.networking.metal.ironcore.dev
 spec:
-  group: networking.cloud.sap
+  group: networking.metal.ironcore.dev
   names:
-    kind: ISIS
-    listKind: ISISList
-    plural: isis
-    singular: isis
+    kind: User
+    listKind: UserList
+    plural: users
+    singular: user
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -33,7 +33,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ISIS is the Schema for the isis API
+        description: User is the Schema for the users API
         properties:
           apiVersion:
             description: |-
@@ -57,20 +57,6 @@ spec:
               Specification of the desired state of the resource.
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
             properties:
-              addressFamilies:
-                description: AddressFamilies is a list of address families for the
-                  ISIS instance.
-                items:
-                  description: AddressFamily represents the address family of an ISIS
-                    instance.
-                  enum:
-                  - IPv4Unicast
-                  - IPv6Unicast
-                  type: string
-                maxItems: 2
-                minItems: 1
-                type: array
-                x-kubernetes-list-type: set
               deviceRef:
                 description: |-
                   DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
@@ -90,66 +76,44 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
-              instance:
-                description: Instance is the name of the ISIS instance.
-                maxLength: 63
-                minLength: 1
-                type: string
-                x-kubernetes-validations:
-                - message: Instance is immutable
-                  rule: self == oldSelf
-              interfaces:
-                description: Interfaces is a list of interfaces that are part of the
-                  ISIS instance.
-                items:
-                  properties:
-                    bfd:
-                      default: {}
-                      description: BFD contains BFD configuration for the interface.
-                      properties:
-                        enabled:
-                          default: false
-                          description: Enabled indicates whether BFD is enabled on
-                            the interface.
-                          type: boolean
-                      type: object
-                    ref:
-                      description: |-
-                        Ref is a reference to the interface object.
-                        The interface object must exist in the same namespace.
-                      properties:
-                        name:
-                          description: |-
-                            Name of the referent.
-                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          maxLength: 63
-                          minLength: 1
-                          type: string
-                      required:
-                      - name
-                      type: object
-                      x-kubernetes-map-type: atomic
-                  required:
-                  - ref
-                  type: object
-                type: array
-                x-kubernetes-list-type: atomic
-              networkEntityTitle:
-                description: NetworkEntityTitle is the NET of the ISIS instance.
-                pattern: ^[a-fA-F0-9]{2}(\.[a-fA-F0-9]{4}){3,9}\.[a-fA-F0-9]{2}$
-                type: string
-              overloadBit:
-                default: Never
-                description: OverloadBit indicates the overload bit of the ISIS instance.
-                enum:
-                - Always
-                - Never
-                - OnStartup
-                type: string
+              password:
+                description: The user password, supplied in cleartext.
+                properties:
+                  secretKeyRef:
+                    description: Selects a key of a secret.
+                    properties:
+                      key:
+                        description: |-
+                          Key is the of the entry in the secret resource's `data` or `stringData`
+                          field to be used.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      name:
+                        description: Name is unique within a namespace to reference
+                          a secret resource.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: |-
+                          Namespace defines the space within which the secret name must be unique.
+                          If omitted, the namespace of the object being reconciled will be used.
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
+                required:
+                - secretKeyRef
+                type: object
               providerConfigRef:
                 description: |-
                   ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
-                  This reference is used to link the Interface to its provider-specific configuration.
+                  This reference is used to link the User to its provider-specific configuration.
                 properties:
                   apiVersion:
                     description: APIVersion is the api group version of the resource
@@ -180,19 +144,75 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
-              type:
-                description: Type indicates the level of the ISIS instance.
-                enum:
-                - Level1
-                - Level2
-                - Level1-2
+              roles:
+                description: Role which the user is to be assigned to.
+                items:
+                  description: UserRole represents a role that can be assigned to
+                    a user.
+                  properties:
+                    name:
+                      description: The name of the role.
+                      maxLength: 63
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  type: object
+                maxItems: 64
+                minItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              sshPublicKey:
+                description: SSH public key for this user.
+                properties:
+                  secretKeyRef:
+                    description: Selects a key of a secret.
+                    properties:
+                      key:
+                        description: |-
+                          Key is the of the entry in the secret resource's `data` or `stringData`
+                          field to be used.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      name:
+                        description: Name is unique within a namespace to reference
+                          a secret resource.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: |-
+                          Namespace defines the space within which the secret name must be unique.
+                          If omitted, the namespace of the object being reconciled will be used.
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
+                required:
+                - secretKeyRef
+                type: object
+              username:
+                description: |-
+                  Assigned username for this user.
+                  Immutable.
+                maxLength: 63
+                minLength: 1
                 type: string
+                x-kubernetes-validations:
+                - message: Username is immutable
+                  rule: self == oldSelf
             required:
-            - addressFamilies
             - deviceRef
-            - instance
-            - networkEntityTitle
-            - type
+            - password
+            - roles
+            - username
             type: object
           status:
             description: |-
@@ -202,7 +222,7 @@ spec:
             properties:
               conditions:
                 description: The conditions are a list of status objects that describe
-                  the state of the ISIS.
+                  the state of the User.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.

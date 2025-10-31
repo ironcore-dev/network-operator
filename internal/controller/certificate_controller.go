@@ -46,9 +46,9 @@ type CertificateReconciler struct {
 	Provider provider.ProviderFunc
 }
 
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=certificates,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=certificates/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=certificates/finalizers,verbs=update
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=certificates,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=certificates/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=certificates/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
 

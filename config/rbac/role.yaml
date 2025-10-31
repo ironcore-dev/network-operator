@@ -29,7 +29,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - networking.cloud.sap
+  - networking.metal.ironcore.dev
   resources:
   - accesscontrollists
   - banners
@@ -53,7 +53,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - networking.cloud.sap
+  - networking.metal.ironcore.dev
   resources:
   - accesscontrollists/finalizers
   - banners/finalizers
@@ -71,7 +71,7 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - networking.cloud.sap
+  - networking.metal.ironcore.dev
   resources:
   - accesscontrollists/status
   - banners/status

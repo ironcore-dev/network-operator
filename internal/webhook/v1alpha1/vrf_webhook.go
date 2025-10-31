@@ -30,7 +30,7 @@ func SetupVRFWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// +kubebuilder:webhook:path=/validate-networking-cloud-sap-v1alpha1-vrf,mutating=false,failurePolicy=Fail,sideEffects=None,groups=networking.cloud.sap,resources=vrfs,verbs=create;update,versions=v1alpha1,name=vrf-v1alpha1.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-networking.metal.ironcore.dev-v1alpha1-vrf,mutating=false,failurePolicy=Fail,sideEffects=None,groups=networking.metal.ironcore.dev,resources=vrfs,verbs=create;update,versions=v1alpha1,name=vrf-v1alpha1.kb.io,admissionReviewVersions=v1
 
 // VRFCustomValidator struct is responsible for validating the VRF resource
 // when it is created, updated, or deleted.

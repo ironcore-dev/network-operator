@@ -1,12 +1,12 @@
 # Loopback Interface
 -- interfaces/lo0 --
-apiVersion: networking.cloud.sap/v1alpha1
+apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
 metadata:
   name: lo0
   namespace: default
   labels:
-    networking.cloud.sap/device-name: device
+    networking.metal.ironcore.dev/device-name: device
 spec:
   deviceRef:
     name: device

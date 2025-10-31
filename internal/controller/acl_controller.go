@@ -41,9 +41,9 @@ type AccessControlListReconciler struct {
 	Provider provider.ProviderFunc
 }
 
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=accesscontrollists,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=accesscontrollists/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=accesscontrollists/finalizers,verbs=update
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=accesscontrollists,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=accesscontrollists/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=accesscontrollists/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to

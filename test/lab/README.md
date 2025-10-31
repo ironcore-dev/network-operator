@@ -65,7 +65,7 @@ The `apply` command applies a Kubernetes manifest to the cluster and automatical
 **Behavior:**
 
 - Reads and applies the specified YAML manifest file to the Kubernetes cluster
-- Automatically sets the namespace to `default` and adds the device label `networking.cloud.sap/device: device`
+- Automatically sets the namespace to `default` and adds the device label `networking.metal.ironcore.dev/device: device`
 - Waits for the resource to reach a Ready state (checking for a `Ready` condition with status `True`)
 - Times out after 10 seconds if the resource doesn't become ready (with a polling rate of 1s)
 

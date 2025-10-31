@@ -60,7 +60,7 @@ rules:
   - delete
   - get
 - apiGroups:
-  - networking.cloud.sap
+  - networking.metal.ironcore.dev
   resources:
   - device
   - interfaces

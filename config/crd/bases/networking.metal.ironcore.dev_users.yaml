@@ -1,23 +1,17 @@
-{{- if .Values.crd.enable }}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  labels:
-    {{- include "chart.labels" . | nindent 4 }}
   annotations:
-    {{- if .Values.crd.keep }}
-    "helm.sh/resource-policy": keep
-    {{- end }}
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: dns.networking.cloud.sap
+  name: users.networking.metal.ironcore.dev
 spec:
-  group: networking.cloud.sap
+  group: networking.metal.ironcore.dev
   names:
-    kind: DNS
-    listKind: DNSList
-    plural: dns
-    singular: dns
+    kind: User
+    listKind: UserList
+    plural: users
+    singular: user
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -33,7 +27,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: DNS is the Schema for the dns API
+        description: User is the Schema for the users API
         properties:
           apiVersion:
             description: |-
@@ -76,17 +70,44 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
-              domain:
-                description: Default domain name that the device uses to complete
-                  unqualified hostnames.
-                format: hostname
-                maxLength: 253
-                minLength: 1
-                type: string
+              password:
+                description: The user password, supplied in cleartext.
+                properties:
+                  secretKeyRef:
+                    description: Selects a key of a secret.
+                    properties:
+                      key:
+                        description: |-
+                          Key is the of the entry in the secret resource's `data` or `stringData`
+                          field to be used.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      name:
+                        description: Name is unique within a namespace to reference
+                          a secret resource.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: |-
+                          Namespace defines the space within which the secret name must be unique.
+                          If omitted, the namespace of the object being reconciled will be used.
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
+                required:
+                - secretKeyRef
+                type: object
               providerConfigRef:
                 description: |-
                   ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
-                  This reference is used to link the DNS to its provider-specific configuration.
+                  This reference is used to link the User to its provider-specific configuration.
                 properties:
                   apiVersion:
                     description: APIVersion is the api group version of the resource
@@ -117,38 +138,75 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
-              servers:
-                description: A list of DNS servers to use for address resolution.
+              roles:
+                description: Role which the user is to be assigned to.
                 items:
+                  description: UserRole represents a role that can be assigned to
+                    a user.
                   properties:
-                    address:
-                      description: The Hostname or IP address of the DNS server.
-                      maxLength: 253
-                      minLength: 1
-                      type: string
-                    vrfName:
-                      description: The name of the vrf used to communicate with the
-                        DNS server.
+                    name:
+                      description: The name of the role.
                       maxLength: 63
                       minLength: 1
                       type: string
                   required:
-                  - address
+                  - name
                   type: object
-                maxItems: 6
+                maxItems: 64
                 minItems: 1
                 type: array
                 x-kubernetes-list-map-keys:
-                - address
+                - name
                 x-kubernetes-list-type: map
-              sourceInterfaceName:
-                description: Source interface for all DNS traffic.
+              sshPublicKey:
+                description: SSH public key for this user.
+                properties:
+                  secretKeyRef:
+                    description: Selects a key of a secret.
+                    properties:
+                      key:
+                        description: |-
+                          Key is the of the entry in the secret resource's `data` or `stringData`
+                          field to be used.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      name:
+                        description: Name is unique within a namespace to reference
+                          a secret resource.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: |-
+                          Namespace defines the space within which the secret name must be unique.
+                          If omitted, the namespace of the object being reconciled will be used.
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
+                required:
+                - secretKeyRef
+                type: object
+              username:
+                description: |-
+                  Assigned username for this user.
+                  Immutable.
                 maxLength: 63
                 minLength: 1
                 type: string
+                x-kubernetes-validations:
+                - message: Username is immutable
+                  rule: self == oldSelf
             required:
             - deviceRef
-            - domain
+            - password
+            - roles
+            - username
             type: object
           status:
             description: |-
@@ -158,7 +216,7 @@ spec:
             properties:
               conditions:
                 description: The conditions are a list of status objects that describe
-                  the state of the DNS.
+                  the state of the User.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -225,4 +283,3 @@ spec:
     storage: true
     subresources:
       status: {}
-{{- end -}}

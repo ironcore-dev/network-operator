@@ -4,7 +4,7 @@ vty show running-config | section "interface loopback0"
 cmp stdout running-config.txt
 
 -- manifest.yaml --
-apiVersion: networking.cloud.sap/v1alpha1
+apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
 metadata:
   name: lo0

@@ -47,9 +47,9 @@ type VRFReconciler struct {
 	RequeueInterval time.Duration
 }
 
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=vrfs,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=vrfs/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=vrfs/finalizers,verbs=update
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vrfs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vrfs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vrfs/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to

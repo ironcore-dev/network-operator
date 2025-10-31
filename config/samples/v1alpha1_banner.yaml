@@ -1,10 +1,10 @@
-apiVersion: networking.cloud.sap/v1alpha1
+apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Banner
 metadata:
   labels:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
-    networking.cloud.sap/device-name: leaf1
+    networking.metal.ironcore.dev/device-name: leaf1
   name: banner
 spec:
   deviceRef:

@@ -11,12 +11,12 @@ kind: ClusterRole
 metadata:
   labels:
     {{- include "chart.labels" . | nindent 4 }}
-  name: syslog-viewer-role
+  name: vrf-viewer-role
 rules:
 - apiGroups:
   - networking.metal.ironcore.dev
   resources:
-  - syslogs
+  - vrfs
   verbs:
   - get
   - list
@@ -24,7 +24,7 @@ rules:
 - apiGroups:
   - networking.metal.ironcore.dev
   resources:
-  - syslogs/status
+  - vrfs/status
   verbs:
   - get
 {{- end -}}

@@ -318,7 +318,7 @@ var _ = Describe("Manager", Ordered, func() {
 		DescribeTable("Should reconcile the api objects",
 			func(file string) {
 				device := `
-apiVersion: networking.cloud.sap/v1alpha1
+apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Device
 metadata:
   name: device

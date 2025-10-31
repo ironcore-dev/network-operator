@@ -1,7 +1,7 @@
 # This rule is not used by the project network-operator itself.
 # It is provided to allow the cluster admin to help manage permissions for users.
 #
-# Grants full permissions ('*') over networking.cloud.sap.
+# Grants full permissions ('*') over networking.metal.ironcore.dev.
 # This role is intended for users authorized to modify roles and bindings within the cluster,
 # enabling them to delegate specific permissions to other users or groups as needed.
 
@@ -14,13 +14,13 @@ metadata:
   name: vrf-admin-role
 rules:
 - apiGroups:
-  - networking.cloud.sap
+  - networking.metal.ironcore.dev
   resources:
   - vrfs
   verbs:
   - '*'
 - apiGroups:
-  - networking.cloud.sap
+  - networking.metal.ironcore.dev
   resources:
   - vrfs/status
   verbs:

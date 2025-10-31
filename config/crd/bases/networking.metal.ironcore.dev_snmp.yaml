@@ -4,22 +4,17 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: vrfs.networking.cloud.sap
+  name: snmp.networking.metal.ironcore.dev
 spec:
-  group: networking.cloud.sap
+  group: networking.metal.ironcore.dev
   names:
-    kind: VRF
-    listKind: VRFList
-    plural: vrfs
-    shortNames:
-    - vrf
-    singular: vrf
+    kind: SNMP
+    listKind: SNMPList
+    plural: snmp
+    singular: snmp
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.name
-      name: VRF
-      type: string
     - jsonPath: .spec.deviceRef.name
       name: Device
       type: string
@@ -32,7 +27,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: VRF is the Schema for the vrfs API
+        description: SNMP is the Schema for the snmp API
         properties:
           apiVersion:
             description: |-
@@ -53,9 +48,42 @@ spec:
             type: object
           spec:
             description: |-
-              spec defines the desired state of VRF
+              Specification of the desired state of the resource.
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
             properties:
+              communities:
+                description: SNMP communities for SNMPv1 or SNMPv2c.
+                items:
+                  properties:
+                    aclName:
+                      description: ACL name to filter SNMP requests.
+                      maxLength: 63
+                      minLength: 1
+                      type: string
+                    group:
+                      description: Group to which the community belongs.
+                      maxLength: 63
+                      minLength: 1
+                      type: string
+                    name:
+                      description: Name of the community.
+                      maxLength: 63
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  type: object
+                maxItems: 16
+                minItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              contact:
+                description: The contact information for the SNMP server.
+                maxLength: 63
+                minLength: 1
+                type: string
               deviceRef:
                 description: |-
                   DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
@@ -75,15 +103,59 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
-              name:
-                description: Name is the name of the VRF.
-                maxLength: 32
+              hosts:
+                description: SNMP destination hosts for SNMP traps or informs messages.
+                items:
+                  properties:
+                    address:
+                      description: The Hostname or IP address of the SNMP host to
+                        send notifications to.
+                      maxLength: 63
+                      minLength: 1
+                      type: string
+                    community:
+                      description: SNMP community or user name.
+                      maxLength: 63
+                      minLength: 1
+                      type: string
+                    type:
+                      default: Traps
+                      description: Type of message to send to host. Default is traps.
+                      enum:
+                      - Traps
+                      - Informs
+                      type: string
+                    version:
+                      default: v2c
+                      description: SNMP version. Default is v2c.
+                      enum:
+                      - v1
+                      - v2c
+                      - v3
+                      type: string
+                    vrfName:
+                      description: The name of the vrf instance to use to source traffic.
+                      maxLength: 63
+                      minLength: 1
+                      type: string
+                  required:
+                  - address
+                  type: object
+                maxItems: 16
+                minItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - address
+                x-kubernetes-list-type: map
+              location:
+                description: The location information for the SNMP server.
+                maxLength: 63
                 minLength: 1
                 type: string
               providerConfigRef:
                 description: |-
                   ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
-                  This reference is used to link the VRF to its provider-specific configuration.
+                  This reference is used to link the SNMP to its provider-specific configuration.
                 properties:
                   apiVersion:
                     description: APIVersion is the api group version of the resource
@@ -114,76 +186,33 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
-              routeDistinguisher:
-                description: |-
-                  RouteDistinguisher is the route distinguisher for the VRF.
-                  Formats supported:
-                   - Type 0: <asn(0-65535)>:<number(0-4294967295)>
-                   - Type 1: <ipv4>:<number(0-65535)>
-                   - Type 2: <asn(65536-4294967295)>:<number(0-65535)>
-
-                  Validation via admission webhook for the VRF type.
+              sourceInterfaceName:
+                description: The name of the interface to be used for sending out
+                  SNMP Trap/Inform notifications.
+                maxLength: 63
+                minLength: 1
                 type: string
-              routeTargets:
-                description: RouteTargets is the list of route targets for the VRF.
+              traps:
+                description: The list of trap notifications to enable.
                 items:
-                  properties:
-                    action:
-                      description: Action defines whether the route target is imported,
-                        exported, or both
-                      enum:
-                      - Import
-                      - Export
-                      - Both
-                      type: string
-                    addressFamilies:
-                      description: AddressFamilies is the list of address families
-                        for the route target.
-                      items:
-                        description: RouteTargetAF represents a supported address
-                          family value.
-                        enum:
-                        - IPv4
-                        - IPv6
-                        - IPv4EVPN
-                        - IPv6EVPN
-                        type: string
-                      minItems: 1
-                      type: array
-                      x-kubernetes-list-type: set
-                    value:
-                      description: |-
-                        Value is the route target value, must have the format as VRFSpec.RouteDistinguisher. Validation via
-                        admission webhook.
-                      type: string
-                  required:
-                  - action
-                  - addressFamilies
-                  - value
-                  type: object
+                  type: string
+                minItems: 1
                 type: array
-                x-kubernetes-list-map-keys:
-                - value
-                x-kubernetes-list-type: map
-              vni:
-                description: VNI is the VXLAN Network Identifier for the VRF (always
-                  an L3).
-                format: int32
-                maximum: 16777215
-                minimum: 1
-                type: integer
+                x-kubernetes-list-type: set
             required:
             - deviceRef
-            - name
+            - hosts
+            - sourceInterfaceName
             type: object
           status:
             description: |-
-              status of the resource. This is set and updated automatically.
+              Status of the resource. This is set and updated automatically.
+              Read-only.
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
             properties:
               conditions:
                 description: The conditions are a list of status objects that describe
-                  the state of the VRF.
+                  the state of the SNMP.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.

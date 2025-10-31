@@ -54,9 +54,9 @@ type DeviceReconciler struct {
 	RequeueInterval time.Duration
 }
 
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=devices,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=devices/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=devices/finalizers,verbs=update
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=devices,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=devices/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=devices/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;update;list;watch
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch

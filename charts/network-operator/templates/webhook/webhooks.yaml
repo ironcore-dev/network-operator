@@ -1,0 +1,34 @@
+{{- if .Values.webhook.enable }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: network-operator-validating-webhook-configuration
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    {{- if .Values.certmanager.enable }}
+    cert-manager.io/inject-ca-from: "{{ $.Release.Namespace }}/serving-cert"
+    {{- end }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+webhooks:
+  - name: vrf-v1alpha1.kb.io
+    clientConfig:
+      service:
+        name: network-operator-webhook-service
+        namespace: {{ .Release.Namespace }}
+        path: /validate-networking.metal.ironcore.dev-v1alpha1-vrf
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - networking.metal.ironcore.dev
+        apiVersions:
+          - v1alpha1
+        resources:
+          - vrfs
+{{- end }}

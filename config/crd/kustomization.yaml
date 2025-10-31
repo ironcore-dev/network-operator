@@ -2,19 +2,19 @@
 # since it depends on service name and namespace that are out of this kustomize package.
 # It should be run by config/default
 resources:
-- bases/networking.cloud.sap_devices.yaml
-- bases/networking.cloud.sap_interfaces.yaml
-- bases/networking.cloud.sap_banners.yaml
-- bases/networking.cloud.sap_users.yaml
-- bases/networking.cloud.sap_dns.yaml
-- bases/networking.cloud.sap_ntp.yaml
-- bases/networking.cloud.sap_accesscontrollists.yaml
-- bases/networking.cloud.sap_certificates.yaml
-- bases/networking.cloud.sap_snmp.yaml
-- bases/networking.cloud.sap_syslogs.yaml
-- bases/networking.cloud.sap_managementaccesses.yaml
-- bases/networking.cloud.sap_isis.yaml
-- bases/networking.cloud.sap_vrfs.yaml
+- bases/networking.metal.ironcore.dev_devices.yaml
+- bases/networking.metal.ironcore.dev_interfaces.yaml
+- bases/networking.metal.ironcore.dev_banners.yaml
+- bases/networking.metal.ironcore.dev_users.yaml
+- bases/networking.metal.ironcore.dev_dns.yaml
+- bases/networking.metal.ironcore.dev_ntp.yaml
+- bases/networking.metal.ironcore.dev_accesscontrollists.yaml
+- bases/networking.metal.ironcore.dev_certificates.yaml
+- bases/networking.metal.ironcore.dev_snmp.yaml
+- bases/networking.metal.ironcore.dev_syslogs.yaml
+- bases/networking.metal.ironcore.dev_managementaccesses.yaml
+- bases/networking.metal.ironcore.dev_isis.yaml
+- bases/networking.metal.ironcore.dev_vrfs.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

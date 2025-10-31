@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: devices.networking.cloud.sap
+  name: devices.networking.metal.ironcore.dev
 spec:
-  group: networking.cloud.sap
+  group: networking.metal.ironcore.dev
   names:
     kind: Device
     listKind: DeviceList

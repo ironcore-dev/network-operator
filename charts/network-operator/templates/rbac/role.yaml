@@ -32,7 +32,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - networking.cloud.sap
+  - networking.metal.ironcore.dev
   resources:
   - accesscontrollists
   - banners
@@ -46,6 +46,7 @@ rules:
   - snmp
   - syslogs
   - users
+  - vrfs
   verbs:
   - create
   - delete
@@ -55,7 +56,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - networking.cloud.sap
+  - networking.metal.ironcore.dev
   resources:
   - accesscontrollists/finalizers
   - banners/finalizers
@@ -69,10 +70,11 @@ rules:
   - snmp/finalizers
   - syslogs/finalizers
   - users/finalizers
+  - vrfs/finalizers
   verbs:
   - update
 - apiGroups:
-  - networking.cloud.sap
+  - networking.metal.ironcore.dev
   resources:
   - accesscontrollists/status
   - banners/status
@@ -86,6 +88,7 @@ rules:
   - snmp/status
   - syslogs/status
   - users/status
+  - vrfs/status
   verbs:
   - get
   - patch

@@ -4,14 +4,14 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: snmp.networking.cloud.sap
+  name: banners.networking.metal.ironcore.dev
 spec:
-  group: networking.cloud.sap
+  group: networking.metal.ironcore.dev
   names:
-    kind: SNMP
-    listKind: SNMPList
-    plural: snmp
-    singular: snmp
+    kind: Banner
+    listKind: BannerList
+    plural: banners
+    singular: banner
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -27,7 +27,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: SNMP is the Schema for the snmp API
+        description: Banner is the Schema for the banners API
         properties:
           apiVersion:
             description: |-
@@ -51,39 +51,6 @@ spec:
               Specification of the desired state of the resource.
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
             properties:
-              communities:
-                description: SNMP communities for SNMPv1 or SNMPv2c.
-                items:
-                  properties:
-                    aclName:
-                      description: ACL name to filter SNMP requests.
-                      maxLength: 63
-                      minLength: 1
-                      type: string
-                    group:
-                      description: Group to which the community belongs.
-                      maxLength: 63
-                      minLength: 1
-                      type: string
-                    name:
-                      description: Name of the community.
-                      maxLength: 63
-                      minLength: 1
-                      type: string
-                  required:
-                  - name
-                  type: object
-                maxItems: 16
-                minItems: 1
-                type: array
-                x-kubernetes-list-map-keys:
-                - name
-                x-kubernetes-list-type: map
-              contact:
-                description: The contact information for the SNMP server.
-                maxLength: 63
-                minLength: 1
-                type: string
               deviceRef:
                 description: |-
                   DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
@@ -103,59 +70,79 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
-              hosts:
-                description: SNMP destination hosts for SNMP traps or informs messages.
-                items:
-                  properties:
-                    address:
-                      description: The Hostname or IP address of the SNMP host to
-                        send notifications to.
-                      maxLength: 63
-                      minLength: 1
-                      type: string
-                    community:
-                      description: SNMP community or user name.
-                      maxLength: 63
-                      minLength: 1
-                      type: string
-                    type:
-                      default: Traps
-                      description: Type of message to send to host. Default is traps.
-                      enum:
-                      - Traps
-                      - Informs
-                      type: string
-                    version:
-                      default: v2c
-                      description: SNMP version. Default is v2c.
-                      enum:
-                      - v1
-                      - v2c
-                      - v3
-                      type: string
-                    vrfName:
-                      description: The name of the vrf instance to use to source traffic.
-                      maxLength: 63
-                      minLength: 1
-                      type: string
-                  required:
-                  - address
-                  type: object
-                maxItems: 16
-                minItems: 1
-                type: array
-                x-kubernetes-list-map-keys:
-                - address
-                x-kubernetes-list-type: map
-              location:
-                description: The location information for the SNMP server.
-                maxLength: 63
-                minLength: 1
-                type: string
+              message:
+                description: Pre-Login banner to display on login.
+                properties:
+                  configMapRef:
+                    description: Reference to a ConfigMap containing the template
+                    properties:
+                      key:
+                        description: |-
+                          Key is the of the entry in the configmap resource's `data` or `binaryData`
+                          field to be used.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      name:
+                        description: Name is unique within a namespace to reference
+                          a configmap resource.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: |-
+                          Namespace defines the space within which the configmap name must be unique.
+                          If omitted, the namespace of the object being reconciled will be used.
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  inline:
+                    description: Inline template content
+                    minLength: 1
+                    type: string
+                  secretRef:
+                    description: Reference to a Secret containing the template
+                    properties:
+                      key:
+                        description: |-
+                          Key is the of the entry in the secret resource's `data` or `stringData`
+                          field to be used.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      name:
+                        description: Name is unique within a namespace to reference
+                          a secret resource.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: |-
+                          Namespace defines the space within which the secret name must be unique.
+                          If omitted, the namespace of the object being reconciled will be used.
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
+                type: object
+                x-kubernetes-validations:
+                - message: exactly one of 'inline', 'secretRef', or 'configMapRef'
+                    must be specified
+                  rule: '[has(self.inline), has(self.secretRef), has(self.configMapRef)].filter(x,
+                    x).size() == 1'
               providerConfigRef:
                 description: |-
                   ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
-                  This reference is used to link the SNMP to its provider-specific configuration.
+                  This reference is used to link the Banner to its provider-specific configuration.
                 properties:
                   apiVersion:
                     description: APIVersion is the api group version of the resource
@@ -186,23 +173,9 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
-              sourceInterfaceName:
-                description: The name of the interface to be used for sending out
-                  SNMP Trap/Inform notifications.
-                maxLength: 63
-                minLength: 1
-                type: string
-              traps:
-                description: The list of trap notifications to enable.
-                items:
-                  type: string
-                minItems: 1
-                type: array
-                x-kubernetes-list-type: set
             required:
             - deviceRef
-            - hosts
-            - sourceInterfaceName
+            - message
             type: object
           status:
             description: |-
@@ -212,7 +185,7 @@ spec:
             properties:
               conditions:
                 description: The conditions are a list of status objects that describe
-                  the state of the SNMP.
+                  the state of the Banner.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.

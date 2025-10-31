@@ -2,7 +2,7 @@
 # This file is used to track the info used to scaffold your project
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
-domain: cloud.sap
+domain: metal.ironcore.dev
 layout:
 - go.kubebuilder.io/v4
 plugins:
@@ -14,7 +14,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: cloud.sap
+  domain: metal.ironcore.dev
   group: networking
   kind: Interface
   path: github.com/ironcore-dev/network-operator/api/v1alpha1
@@ -23,7 +23,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: cloud.sap
+  domain: metal.ironcore.dev
   group: networking
   kind: Device
   path: github.com/ironcore-dev/network-operator/api/v1alpha1
@@ -32,7 +32,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: cloud.sap
+  domain: metal.ironcore.dev
   group: networking
   kind: Banner
   path: github.com/ironcore-dev/network-operator/api/v1alpha1
@@ -41,7 +41,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: cloud.sap
+  domain: metal.ironcore.dev
   group: networking
   kind: User
   path: github.com/ironcore-dev/network-operator/api/v1alpha1
@@ -50,7 +50,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: cloud.sap
+  domain: metal.ironcore.dev
   group: networking
   kind: DNS
   path: github.com/ironcore-dev/network-operator/api/v1alpha1
@@ -59,7 +59,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: cloud.sap
+  domain: metal.ironcore.dev
   group: networking
   kind: NTP
   path: github.com/ironcore-dev/network-operator/api/v1alpha1
@@ -68,7 +68,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: cloud.sap
+  domain: metal.ironcore.dev
   group: networking
   kind: AccessControlList
   path: github.com/ironcore-dev/network-operator/api/v1alpha1
@@ -77,7 +77,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: cloud.sap
+  domain: metal.ironcore.dev
   group: networking
   kind: Certificate
   path: github.com/ironcore-dev/network-operator/api/v1alpha1
@@ -86,7 +86,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: cloud.sap
+  domain: metal.ironcore.dev
   group: networking
   kind: SNMP
   path: github.com/ironcore-dev/network-operator/api/v1alpha1
@@ -95,7 +95,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: cloud.sap
+  domain: metal.ironcore.dev
   group: networking
   kind: Syslog
   path: github.com/ironcore-dev/network-operator/api/v1alpha1
@@ -104,7 +104,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: cloud.sap
+  domain: metal.ironcore.dev
   group: networking
   kind: ManagementAccess
   path: github.com/ironcore-dev/network-operator/api/v1alpha1
@@ -113,7 +113,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: cloud.sap
+  domain: metal.ironcore.dev
   group: networking
   kind: ISIS
   path: github.com/ironcore-dev/network-operator/api/v1alpha1
@@ -122,7 +122,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: cloud.sap
+  domain: metal.ironcore.dev
   group: networking
   kind: VRF
   path: github.com/ironcore-dev/network-operator/api/v1alpha1

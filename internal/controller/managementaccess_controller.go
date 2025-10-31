@@ -41,9 +41,9 @@ type ManagementAccessReconciler struct {
 	Provider provider.ProviderFunc
 }
 
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=managementaccesses,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=managementaccesses/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=managementaccesses/finalizers,verbs=update
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=managementaccesses,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=managementaccesses/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=managementaccesses/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to

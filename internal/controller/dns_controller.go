@@ -41,9 +41,9 @@ type DNSReconciler struct {
 	Provider provider.ProviderFunc
 }
 
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=dns,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=dns/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=dns/finalizers,verbs=update
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=dns,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=dns/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=dns/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to

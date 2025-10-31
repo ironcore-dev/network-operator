@@ -41,9 +41,9 @@ type SyslogReconciler struct {
 	Provider provider.ProviderFunc
 }
 
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=syslogs,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=syslogs/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=syslogs/finalizers,verbs=update
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=syslogs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=syslogs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=syslogs/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to

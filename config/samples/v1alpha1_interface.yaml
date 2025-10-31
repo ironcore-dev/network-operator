@@ -1,10 +1,10 @@
-apiVersion: networking.cloud.sap/v1alpha1
+apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
 metadata:
   labels:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
-    networking.cloud.sap/device-name: leaf1
+    networking.metal.ironcore.dev/device-name: leaf1
   name: lo0
 spec:
   deviceRef:
@@ -18,17 +18,17 @@ spec:
     addresses:
       - 10.0.0.10/32
 #   providerConfigRef:
-#     apiVersion: nxos.cisco.networking.cloud.sap/v1alpha1
+#     apiVersion: nxos.cisco.networking.metal.ironcore.dev/v1alpha1
 #     kind: InterfaceConfig
 #     name: leaf-interface-config
 ---
-apiVersion: networking.cloud.sap/v1alpha1
+apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
 metadata:
   labels:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
-    networking.cloud.sap/device-name: leaf1
+    networking.metal.ironcore.dev/device-name: leaf1
   name: lo1
 spec:
   deviceRef:
@@ -43,13 +43,13 @@ spec:
       - 10.0.1.10/32
       - 10.1.0.10/32
 ---
-apiVersion: networking.cloud.sap/v1alpha1
+apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
 metadata:
   labels:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
-    networking.cloud.sap/device-name: leaf1
+    networking.metal.ironcore.dev/device-name: leaf1
   name: eth1-1
 spec:
   deviceRef:
@@ -64,13 +64,13 @@ spec:
       interfaceRef:
         name: lo0
 ---
-apiVersion: networking.cloud.sap/v1alpha1
+apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
 metadata:
   labels:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
-    networking.cloud.sap/device-name: leaf1
+    networking.metal.ironcore.dev/device-name: leaf1
   name: eth1-2
 spec:
   deviceRef:
@@ -85,13 +85,13 @@ spec:
       interfaceRef:
         name: lo0
 ---
-apiVersion: networking.cloud.sap/v1alpha1
+apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
 metadata:
   labels:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
-    networking.cloud.sap/device-name: leaf1
+    networking.metal.ironcore.dev/device-name: leaf1
   name: eth1-10
 spec:
   deviceRef:
@@ -106,13 +106,13 @@ spec:
     nativeVlan: 1
     allowedVlans: [10]
 ---
-apiVersion: networking.cloud.sap/v1alpha1
+apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
 metadata:
   labels:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
-    networking.cloud.sap/device-name: leaf1
+    networking.metal.ironcore.dev/device-name: leaf1
   name: po-10
 spec:
   deviceRef:

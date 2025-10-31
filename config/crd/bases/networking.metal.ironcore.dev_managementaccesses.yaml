@@ -1,25 +1,17 @@
-{{- if .Values.crd.enable }}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  labels:
-    {{- include "chart.labels" . | nindent 4 }}
   annotations:
-    {{- if .Values.crd.keep }}
-    "helm.sh/resource-policy": keep
-    {{- end }}
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: certificates.networking.cloud.sap
+  name: managementaccesses.networking.metal.ironcore.dev
 spec:
-  group: networking.cloud.sap
+  group: networking.metal.ironcore.dev
   names:
-    kind: Certificate
-    listKind: CertificateList
-    plural: certificates
-    shortNames:
-    - netcert
-    singular: certificate
+    kind: ManagementAccess
+    listKind: ManagementAccessList
+    plural: managementaccesses
+    singular: managementaccess
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -35,7 +27,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Certificate is the Schema for the certificates API
+        description: ManagementAccess is the Schema for the managementaccesses API
         properties:
           apiVersion:
             description: |-
@@ -78,20 +70,87 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
-              id:
+              grpc:
+                default:
+                  enabled: true
+                  port: 9339
                 description: |-
-                  The certificate management id.
-                  Immutable.
-                maxLength: 63
-                minLength: 1
-                type: string
-                x-kubernetes-validations:
-                - message: ID is immutable
-                  rule: self == oldSelf
+                  Configuration for the gRPC server on the device.
+                  Currently, only a single "default" gRPC server is supported.
+                properties:
+                  certificateId:
+                    description: |-
+                      Name of the certificate that is associated with the gRPC service.
+                      The certificate is provisioned through other interfaces on the device,
+                      such as e.g. the gNOI certificate management service.
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                  enabled:
+                    default: true
+                    description: |-
+                      Enable or disable the gRPC server on the device.
+                      If not specified, the gRPC server is enabled by default.
+                    type: boolean
+                  gnmi:
+                    default:
+                      keepAliveTimeout: 10m
+                      maxConcurrentCall: 8
+                      minSampleInterval: 10s
+                    description: |-
+                      Additional gNMI configuration for the gRPC server.
+                      This may not be supported by all devices.
+                    properties:
+                      keepAliveTimeout:
+                        default: 10m
+                        description: |-
+                          Configure the keepalive timeout for inactive or unauthorized connections.
+                          The gRPC agent is expected to periodically send an empty response to the client, on which the client is expected to respond with an empty request.
+                          If the client does not respond within the keepalive timeout, the gRPC agent should close the connection.
+                          The default interval value is 10 minutes.
+                        pattern: ^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$
+                        type: string
+                      maxConcurrentCall:
+                        default: 8
+                        description: |-
+                          The maximum number of concurrent gNMI calls that can be made to the gRPC server on the switch for each VRF.
+                          Configure a limit from 1 through 16. The default limit is 8.
+                        maximum: 16
+                        minimum: 1
+                        type: integer
+                      minSampleInterval:
+                        default: 10s
+                        description: |-
+                          Configure the minimum sample interval for the gNMI telemetry stream.
+                          Once per stream sample interval, the switch sends the current values for all specified paths.
+                          The default value is 10 seconds.
+                        pattern: ^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$
+                        type: string
+                    required:
+                    - minSampleInterval
+                    type: object
+                  port:
+                    default: 9339
+                    description: |-
+                      The TCP port on which the gRPC server should listen.
+                      The range of port-id is from 1024 to 65535.
+                      Port 9339 is the default.
+                    format: int32
+                    maximum: 65535
+                    minimum: 1024
+                    type: integer
+                  vrfName:
+                    default: default
+                    description: Enable the gRPC agent to accept incoming (dial-in)
+                      RPC requests from a given vrf.
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                type: object
               providerConfigRef:
                 description: |-
                   ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
-                  This reference is used to link the Certificate to its provider-specific configuration.
+                  This reference is used to link the Interface to its provider-specific configuration.
                 properties:
                   apiVersion:
                     description: APIVersion is the api group version of the resource
@@ -122,32 +181,8 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
-              secretRef:
-                description: |-
-                  Secret containing the certificate source.
-                  The secret must be of type kubernetes.io/tls and as such contain the following keys: 'tls.crt' and 'tls.key'.
-                properties:
-                  name:
-                    description: Name is unique within a namespace to reference a
-                      secret resource.
-                    maxLength: 253
-                    minLength: 1
-                    type: string
-                  namespace:
-                    description: |-
-                      Namespace defines the space within which the secret name must be unique.
-                      If omitted, the namespace of the object being reconciled will be used.
-                    maxLength: 63
-                    minLength: 1
-                    type: string
-                required:
-                - name
-                type: object
-                x-kubernetes-map-type: atomic
             required:
             - deviceRef
-            - id
-            - secretRef
             type: object
           status:
             description: |-
@@ -157,7 +192,7 @@ spec:
             properties:
               conditions:
                 description: The conditions are a list of status objects that describe
-                  the state of the Certificate.
+                  the state of the ManagementAccess.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -224,4 +259,3 @@ spec:
     storage: true
     subresources:
       status: {}
-{{- end -}}

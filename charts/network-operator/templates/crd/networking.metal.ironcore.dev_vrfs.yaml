@@ -1,20 +1,29 @@
+{{- if .Values.crd.enable }}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
   annotations:
+    {{- if .Values.crd.keep }}
+    "helm.sh/resource-policy": keep
+    {{- end }}
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: isis.networking.cloud.sap
+  name: vrfs.networking.metal.ironcore.dev
 spec:
-  group: networking.cloud.sap
+  group: networking.metal.ironcore.dev
   names:
-    kind: ISIS
-    listKind: ISISList
-    plural: isis
-    singular: isis
+    kind: VRF
+    listKind: VRFList
+    plural: vrfs
+    singular: vrf
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.name
+      name: VRF
+      type: string
     - jsonPath: .spec.deviceRef.name
       name: Device
       type: string
@@ -27,7 +36,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ISIS is the Schema for the isis API
+        description: VRF is the Schema for the vrfs API
         properties:
           apiVersion:
             description: |-
@@ -48,23 +57,9 @@ spec:
             type: object
           spec:
             description: |-
-              Specification of the desired state of the resource.
+              spec defines the desired state of VRF
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
             properties:
-              addressFamilies:
-                description: AddressFamilies is a list of address families for the
-                  ISIS instance.
-                items:
-                  description: AddressFamily represents the address family of an ISIS
-                    instance.
-                  enum:
-                  - IPv4Unicast
-                  - IPv6Unicast
-                  type: string
-                maxItems: 2
-                minItems: 1
-                type: array
-                x-kubernetes-list-type: set
               deviceRef:
                 description: |-
                   DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
@@ -84,66 +79,15 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
-              instance:
-                description: Instance is the name of the ISIS instance.
-                maxLength: 63
+              name:
+                description: Name is the name of the VRF.
+                maxLength: 32
                 minLength: 1
-                type: string
-                x-kubernetes-validations:
-                - message: Instance is immutable
-                  rule: self == oldSelf
-              interfaces:
-                description: Interfaces is a list of interfaces that are part of the
-                  ISIS instance.
-                items:
-                  properties:
-                    bfd:
-                      default: {}
-                      description: BFD contains BFD configuration for the interface.
-                      properties:
-                        enabled:
-                          default: false
-                          description: Enabled indicates whether BFD is enabled on
-                            the interface.
-                          type: boolean
-                      type: object
-                    ref:
-                      description: |-
-                        Ref is a reference to the interface object.
-                        The interface object must exist in the same namespace.
-                      properties:
-                        name:
-                          description: |-
-                            Name of the referent.
-                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          maxLength: 63
-                          minLength: 1
-                          type: string
-                      required:
-                      - name
-                      type: object
-                      x-kubernetes-map-type: atomic
-                  required:
-                  - ref
-                  type: object
-                type: array
-                x-kubernetes-list-type: atomic
-              networkEntityTitle:
-                description: NetworkEntityTitle is the NET of the ISIS instance.
-                pattern: ^[a-fA-F0-9]{2}(\.[a-fA-F0-9]{4}){3,9}\.[a-fA-F0-9]{2}$
-                type: string
-              overloadBit:
-                default: Never
-                description: OverloadBit indicates the overload bit of the ISIS instance.
-                enum:
-                - Always
-                - Never
-                - OnStartup
                 type: string
               providerConfigRef:
                 description: |-
                   ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
-                  This reference is used to link the Interface to its provider-specific configuration.
+                  This reference is used to link the VRF to its provider-specific configuration.
                 properties:
                   apiVersion:
                     description: APIVersion is the api group version of the resource
@@ -174,29 +118,76 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
-              type:
-                description: Type indicates the level of the ISIS instance.
-                enum:
-                - Level1
-                - Level2
-                - Level1-2
+              routeDistinguisher:
+                description: |-
+                  RouteDistinguisher is the route distinguisher for the VRF.
+                  Formats supported:
+                   - Type 0: <asn(0-65535)>:<number(0-4294967295)>
+                   - Type 1: <ipv4>:<number(0-65535)>
+                   - Type 2: <asn(65536-4294967295)>:<number(0-65535)>
+
+                  Validation via admission webhook for the VRF type.
                 type: string
+              routeTargets:
+                description: RouteTargets is the list of route targets for the VRF.
+                items:
+                  properties:
+                    action:
+                      description: Action defines whether the route target is imported,
+                        exported, or both
+                      enum:
+                      - Import
+                      - Export
+                      - Both
+                      type: string
+                    addressFamilies:
+                      description: AddressFamilies is the list of address families
+                        for the route target.
+                      items:
+                        description: RouteTargetAF represents a supported address
+                          family value.
+                        enum:
+                        - IPv4
+                        - IPv6
+                        - IPv4EVPN
+                        - IPv6EVPN
+                        type: string
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: set
+                    value:
+                      description: |-
+                        Value is the route target value, must have the format as VRFSpec.RouteDistinguisher. Validation via
+                        admission webhook.
+                      type: string
+                  required:
+                  - action
+                  - addressFamilies
+                  - value
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - value
+                x-kubernetes-list-type: map
+              vni:
+                description: VNI is the VXLAN Network Identifier for the VRF (always
+                  an L3).
+                format: int32
+                maximum: 16777215
+                minimum: 1
+                type: integer
             required:
-            - addressFamilies
             - deviceRef
-            - instance
-            - networkEntityTitle
-            - type
+            - name
             type: object
           status:
             description: |-
-              Status of the resource. This is set and updated automatically.
-              Read-only.
+              status of the resource. This is set and updated automatically.
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
             properties:
               conditions:
                 description: The conditions are a list of status objects that describe
-                  the state of the ISIS.
+                  the state of the VRF.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -263,3 +254,4 @@ spec:
     storage: true
     subresources:
       status: {}
+{{- end -}}

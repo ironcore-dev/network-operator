@@ -48,9 +48,9 @@ type ISISReconciler struct {
 	RequeueInterval time.Duration
 }
 
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=isis,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=isis/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=networking.cloud.sap,resources=isis/finalizers,verbs=update
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=isis,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=isis/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=isis/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to

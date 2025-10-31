@@ -102,14 +102,15 @@ type VRFStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Namespaced,shortName=vrf,path=vrfs
+// +kubebuilder:resource:path=vrfs
+// +kubebuilder:resource:singular=vrf
 // +kubebuilder:printcolumn:name="VRF",type=string,JSONPath=`.spec.name`
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // VRF is the Schema for the vrfs API
-// +kubebuilder:webhook:path=/validate-networking-cloud-sap-v1alpha1-vrf,mutating=false,failurePolicy=Fail,sideEffects=None,groups=networking.cloud.sap,resources=vrfs,verbs=create;update,versions=v1alpha1,name=vvrf.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-networking.metal.ironcore.dev-v1alpha1-vrf,mutating=false,failurePolicy=Fail,sideEffects=None,groups=networking.metal.ironcore.dev,resources=vrfs,verbs=create;update,versions=v1alpha1,name=vvrf.kb.io,admissionReviewVersions=v1
 type VRF struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty,omitzero"`

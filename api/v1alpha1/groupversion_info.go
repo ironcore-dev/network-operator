@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
-// Package v1alpha1 contains API Schema definitions for the networking.cloud.sap v1alpha1 API group.
+// Package v1alpha1 contains API Schema definitions for the networking.metal.ironcore.dev v1alpha1 API group.
 // +kubebuilder:validation:Required
 // +kubebuilder:object:generate=true
-// +groupName=networking.cloud.sap
+// +groupName=networking.metal.ironcore.dev
 package v1alpha1
 
 import (
@@ -14,7 +14,7 @@ import (
 
 var (
 	// GroupVersion is group version used to register these objects.
-	GroupVersion = schema.GroupVersion{Group: "networking.cloud.sap", Version: "v1alpha1"}
+	GroupVersion = schema.GroupVersion{Group: "networking.metal.ironcore.dev", Version: "v1alpha1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme.
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
@@ -27,24 +27,24 @@ var (
 //
 // Controllers which allow for selective reconciliation may check this label and proceed
 // with reconciliation of the object only if this label and a configured value is present.
-const WatchLabel = "networking.cloud.sap/watch-filter"
+const WatchLabel = "networking.metal.ironcore.dev/watch-filter"
 
 // FinalizerName is the identifier used by the controllers to perform cleanup before a resource is deleted.
 // It is added when the resource is created and ensures that the controller can handle teardown logic
 // (e.g., deleting external dependencies) before Kubernetes finalizes the deletion.
-const FinalizerName = "networking.cloud.sap/finalizer"
+const FinalizerName = "networking.metal.ironcore.dev/finalizer"
 
 // DeviceLabel is a label applied to any Network API object to indicate the device
 // it is associated with. This label is used by controllers to filter and manage resources
 // based on the device they are intended for.
-const DeviceLabel = "networking.cloud.sap/device-name"
+const DeviceLabel = "networking.metal.ironcore.dev/device-name"
 
 // DeviceKind represents the Kind of Device.
 const DeviceKind = "Device"
 
 // AggregateLabel is a label applied to member interfaces to indicate
 // the name of the aggregate interface they belong to.
-const AggregateLabel = "networking.cloud.sap/aggregate-name"
+const AggregateLabel = "networking.metal.ironcore.dev/aggregate-name"
 
 // Condition types that are used across different objects.
 const (

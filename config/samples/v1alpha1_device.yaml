@@ -1,12 +1,12 @@
-apiVersion: networking.cloud.sap/v1alpha1
+apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Device
 metadata:
   labels:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
-    networking.cloud.sap/role: leaf
-    networking.cloud.sap/site: test
-    networking.cloud.sap/rack: lab
+    networking.metal.ironcore.dev/role: leaf
+    networking.metal.ironcore.dev/site: test
+    networking.metal.ironcore.dev/rack: lab
   name: leaf1
 spec:
   endpoint:

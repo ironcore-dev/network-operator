@@ -86,7 +86,7 @@ func TestGetOwnerDevice(t *testing.T) {
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(d).NotTo(BeNil())
 
-	obj.OwnerReferences[0].APIVersion = "networking.cloud.sap/v1alpha1234"
+	obj.OwnerReferences[0].APIVersion = "networking.metal.ironcore.dev/v1alpha1234"
 	d, err = GetOwnerDevice(t.Context(), client, &obj)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(d).NotTo(BeNil())
