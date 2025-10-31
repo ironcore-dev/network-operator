@@ -127,15 +127,18 @@ func GetDeviceConnection(ctx context.Context, r client.Reader, obj *v1alpha1.Dev
 // If the [Connection.Username] and [Connection.Password] fields are set, basic authentication in the form of metadata will be used.
 func NewGrpcClient(ctx context.Context, conn *Connection, o ...Option) (*grpc.ClientConn, error) {
 	creds := insecure.NewCredentials()
+	secureTransportCreds := false
 	if conn.TLS != nil {
 		creds = credentials.NewTLS(conn.TLS)
+		secureTransportCreds = true
 	}
 
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(creds)}
 	if conn.Username != "" && conn.Password != "" {
 		opts = append(opts, grpc.WithPerRPCCredentials(&auth{
-			Username: conn.Username,
-			Password: conn.Password,
+			Username:             conn.Username,
+			Password:             conn.Password,
+			SecureTransportCreds: secureTransportCreds,
 		}))
 	}
 
@@ -164,8 +167,9 @@ func WithDefaultTimeout(timeout time.Duration) Option {
 }
 
 type auth struct {
-	Username string
-	Password string
+	Username             string
+	Password             string
+	SecureTransportCreds bool
 }
 
 var _ credentials.PerRPCCredentials = (*auth)(nil)
@@ -177,7 +181,9 @@ func (a *auth) GetRequestMetadata(_ context.Context, _ ...string) (map[string]st
 	}, nil
 }
 
-func (a *auth) RequireTransportSecurity() bool { return true }
+func (a *auth) RequireTransportSecurity() bool {
+	return a.SecureTransportCreds
+}
 
 // UnaryDefaultTimeoutInterceptor returns a gRPC unary client interceptor that sets a default timeout
 // for each RPC. If a deadline is already present , it will not be modified.
