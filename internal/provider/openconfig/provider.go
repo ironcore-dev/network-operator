@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/ironcore-dev/network-operator/api/v1alpha1"
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 )

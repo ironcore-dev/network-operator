@@ -12,11 +12,11 @@ allow_k8s_contexts(['minikube', 'kind-network'])
 load('ext://cert_manager', 'deploy_cert_manager')
 deploy_cert_manager(version='v1.18.2')
 
-docker_build('controller:latest', '.', ignore=['*/*/zz_generated.deepcopy.go', 'config/crd/bases/*'], only=[
+docker_build('controller:latest', '.', ignore=['**/*/zz_generated.deepcopy.go', 'config/crd/bases/*'], only=[
     'api/', 'cmd/', 'hack/', 'internal/', 'go.mod', 'go.sum', 'Makefile',
 ])
 
-local_resource('controller-gen', 'make generate', ignore=['*/*/zz_generated.deepcopy.go', 'config/crd/bases/*'], deps=[
+local_resource('controller-gen', 'make generate', ignore=['**/*/zz_generated.deepcopy.go', 'config/crd/bases/*'], deps=[
     'api/', 'cmd/', 'hack/', 'internal/', 'go.mod', 'go.sum', 'Makefile',
 ])
 

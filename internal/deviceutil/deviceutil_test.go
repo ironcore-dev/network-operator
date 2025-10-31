@@ -11,7 +11,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/ironcore-dev/network-operator/api/v1alpha1"
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
 
 func TestGetDeviceFromMetadata(t *testing.T) {

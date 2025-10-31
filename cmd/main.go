@@ -39,10 +39,10 @@ import (
 	_ "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos"
 	_ "github.com/ironcore-dev/network-operator/internal/provider/openconfig"
 
-	"github.com/ironcore-dev/network-operator/api/v1alpha1"
-	"github.com/ironcore-dev/network-operator/internal/controller"
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	corecontroller "github.com/ironcore-dev/network-operator/internal/controller/core"
 	"github.com/ironcore-dev/network-operator/internal/provider"
-	webhookv1alpha1 "github.com/ironcore-dev/network-operator/internal/webhook/v1alpha1"
+	webhookv1alpha1 "github.com/ironcore-dev/network-operator/internal/webhook/core/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -217,7 +217,7 @@ func main() {
 
 	ctx := ctrl.SetupSignalHandler()
 
-	if err := (&controller.DeviceReconciler{
+	if err := (&corecontroller.DeviceReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorderFor("device-controller"),
@@ -229,7 +229,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&controller.InterfaceReconciler{
+	if err := (&corecontroller.InterfaceReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorderFor("interface-controller"),
@@ -241,7 +241,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&controller.BannerReconciler{
+	if err := (&corecontroller.BannerReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorderFor("banner-controller"),
@@ -251,7 +251,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Banner")
 		os.Exit(1)
 	}
-	if err := (&controller.UserReconciler{
+	if err := (&corecontroller.UserReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorderFor("user-controller"),
@@ -261,7 +261,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "User")
 		os.Exit(1)
 	}
-	if err := (&controller.DNSReconciler{
+	if err := (&corecontroller.DNSReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorderFor("dns-controller"),
@@ -271,7 +271,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "DNS")
 		os.Exit(1)
 	}
-	if err := (&controller.NTPReconciler{
+	if err := (&corecontroller.NTPReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorderFor("ntp-controller"),
@@ -282,7 +282,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&controller.AccessControlListReconciler{
+	if err := (&corecontroller.AccessControlListReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorderFor("acl-controller"),
@@ -293,7 +293,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&controller.CertificateReconciler{
+	if err := (&corecontroller.CertificateReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorderFor("certificate-controller"),
@@ -303,7 +303,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Certificate")
 		os.Exit(1)
 	}
-	if err := (&controller.SNMPReconciler{
+	if err := (&corecontroller.SNMPReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorderFor("snmp-controller"),
@@ -313,7 +313,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "SNMP")
 		os.Exit(1)
 	}
-	if err := (&controller.SyslogReconciler{
+	if err := (&corecontroller.SyslogReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorderFor("syslog-controller"),
@@ -324,7 +324,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&controller.ManagementAccessReconciler{
+	if err := (&corecontroller.ManagementAccessReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorderFor("managementaccess-controller"),
@@ -335,7 +335,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&controller.ISISReconciler{
+	if err := (&corecontroller.ISISReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorderFor("isis-controller"),
@@ -346,7 +346,8 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "ISIS")
 		os.Exit(1)
 	}
-	if err := (&controller.VRFReconciler{
+
+	if err := (&corecontroller.VRFReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorderFor("vrf-controller"),
