@@ -11,7 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/ironcore-dev/network-operator/api/v1alpha1"
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
 
 var _ client.Reader = (*Client)(nil)

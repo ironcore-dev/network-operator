@@ -21,7 +21,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	_ "github.com/ironcore-dev/network-operator/internal/provider/openconfig"
 
-	"github.com/ironcore-dev/network-operator/api/v1alpha1"
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 )
 

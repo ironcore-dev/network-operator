@@ -2,9 +2,10 @@
 # This file is used to track the info used to scaffold your project
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
-domain: metal.ironcore.dev
+domain: networking.metal.ironcore.dev
 layout:
 - go.kubebuilder.io/v4
+multigroup: true
 plugins:
   helm.kubebuilder.io/v1-alpha: {}
 projectName: network-operator
@@ -14,118 +15,105 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: metal.ironcore.dev
-  group: networking
+  domain: networking.metal.ironcore.dev
   kind: Interface
-  path: github.com/ironcore-dev/network-operator/api/v1alpha1
+  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: metal.ironcore.dev
-  group: networking
+  domain: networking.metal.ironcore.dev
   kind: Device
-  path: github.com/ironcore-dev/network-operator/api/v1alpha1
+  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: metal.ironcore.dev
-  group: networking
+  domain: networking.metal.ironcore.dev
   kind: Banner
-  path: github.com/ironcore-dev/network-operator/api/v1alpha1
+  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: metal.ironcore.dev
-  group: networking
+  domain: networking.metal.ironcore.dev
   kind: User
-  path: github.com/ironcore-dev/network-operator/api/v1alpha1
+  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: metal.ironcore.dev
-  group: networking
+  domain: networking.metal.ironcore.dev
   kind: DNS
-  path: github.com/ironcore-dev/network-operator/api/v1alpha1
+  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: metal.ironcore.dev
-  group: networking
+  domain: networking.metal.ironcore.dev
   kind: NTP
-  path: github.com/ironcore-dev/network-operator/api/v1alpha1
+  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: metal.ironcore.dev
-  group: networking
+  domain: networking.metal.ironcore.dev
   kind: AccessControlList
-  path: github.com/ironcore-dev/network-operator/api/v1alpha1
+  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: metal.ironcore.dev
-  group: networking
+  domain: networking.metal.ironcore.dev
   kind: Certificate
-  path: github.com/ironcore-dev/network-operator/api/v1alpha1
+  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: metal.ironcore.dev
-  group: networking
+  domain: networking.metal.ironcore.dev
   kind: SNMP
-  path: github.com/ironcore-dev/network-operator/api/v1alpha1
+  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: metal.ironcore.dev
-  group: networking
+  domain: networking.metal.ironcore.dev
   kind: Syslog
-  path: github.com/ironcore-dev/network-operator/api/v1alpha1
+  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: metal.ironcore.dev
-  group: networking
+  domain: networking.metal.ironcore.dev
   kind: ManagementAccess
-  path: github.com/ironcore-dev/network-operator/api/v1alpha1
+  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: metal.ironcore.dev
-  group: networking
+  domain: networking.metal.ironcore.dev
   kind: ISIS
-  path: github.com/ironcore-dev/network-operator/api/v1alpha1
+  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: metal.ironcore.dev
-  group: networking
+  domain: networking.metal.ironcore.dev
   kind: VRF
-  path: github.com/ironcore-dev/network-operator/api/v1alpha1
+  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
   version: v1alpha1
   webhooks:
     validation: true
