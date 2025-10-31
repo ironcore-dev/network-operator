@@ -186,7 +186,7 @@ spec:
                       The first address in the list is considered the primary address,
                       and any additional addresses are considered secondary addresses.
                     items:
-                      pattern: ^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$
+                      format: cidr
                       type: string
                     minItems: 1
                     type: array

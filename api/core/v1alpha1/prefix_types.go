@@ -11,7 +11,7 @@ import (
 // It is used to define a range of IP addresses in a network.
 //
 // +kubebuilder:validation:Type=string
-// +kubebuilder:validation:Pattern=`^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$`
+// +kubebuilder:validation:Format=cidr
 // +kubebuilder:validation:Example="192.168.1.0/24"
 // +kubebuilder:validation:Example="2001:db8::/32"
 // +kubebuilder:object:generate=false

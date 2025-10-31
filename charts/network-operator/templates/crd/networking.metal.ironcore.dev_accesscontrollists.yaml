@@ -101,7 +101,7 @@ spec:
                       description: |-
                         Destination IP address prefix. Can be IPv4 or IPv6.
                         Use 0.0.0.0/0 (::/0) to represent 'any'.
-                      pattern: ^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$
+                      format: cidr
                       type: string
                     protocol:
                       default: IP
@@ -125,7 +125,7 @@ spec:
                       description: |-
                         Source IP address prefix. Can be IPv4 or IPv6.
                         Use 0.0.0.0/0 (::/0) to represent 'any'.
-                      pattern: ^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$
+                      format: cidr
                       type: string
                   required:
                   - action
