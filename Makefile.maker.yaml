@@ -48,7 +48,6 @@ githubWorkflow:
     defaultBranch: main
   ci:
     enabled: true
-    coveralls: false
     prepareMakeTarget: generate
   license:
     enabled: true
@@ -160,8 +159,9 @@ verbatim: |
   # Generate manifests e.g. CRD, RBAC etc.
   charts: FORCE generate
     @printf "\e[1;36m>> kubebuilder edit --plugins=helm/v1-alpha\e[0m\n"
+    @mkdir dist && mv charts/network-operator dist/chart
     @kubebuilder edit --plugins=helm/v1-alpha
-    @rm -rf charts/network-operator && mv dist/chart charts/network-operator && rm -rf dist
+    @mv dist/chart charts/network-operator && rm -rf dist
 
   netop-provider:
     @printf "\e[1;36m>> go build -o build/netop-provider ./hack/provider\e[0m\n"
