@@ -37,6 +37,7 @@ rules:
   - accesscontrollists
   - banners
   - bgp
+  - bgppeers
   - certificates
   - devices
   - dns
@@ -63,6 +64,7 @@ rules:
   - accesscontrollists/finalizers
   - banners/finalizers
   - bgp/finalizers
+  - bgppeers/finalizers
   - certificates/finalizers
   - devices/finalizers
   - dns/finalizers
@@ -83,6 +85,7 @@ rules:
   - accesscontrollists/status
   - banners/status
   - bgp/status
+  - bgppeers/status
   - certificates/status
   - devices/status
   - dns/status

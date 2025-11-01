@@ -17,6 +17,7 @@ resources:
 - bases/networking.metal.ironcore.dev_vrfs.yaml
 - bases/networking.metal.ironcore.dev_pim.yaml
 - bases/networking.metal.ironcore.dev_bgp.yaml
+- bases/networking.metal.ironcore.dev_bgppeers.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

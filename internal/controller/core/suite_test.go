@@ -222,6 +222,15 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&BGPPeerReconciler{
+		Client:          k8sManager.GetClient(),
+		Scheme:          k8sManager.GetScheme(),
+		Recorder:        recorder,
+		Provider:        prov,
+		RequeueInterval: time.Second,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -281,36 +290,39 @@ var (
 	_ provider.VRFProvider              = (*Provider)(nil)
 	_ provider.PIMProvider              = (*Provider)(nil)
 	_ provider.BGPProvider              = (*Provider)(nil)
+	_ provider.BGPPeerProvider          = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
 type Provider struct {
 	sync.Mutex
 
-	Ports  sets.Set[string]
-	User   sets.Set[string]
-	Banner *string
-	DNS    *v1alpha1.DNS
-	NTP    *v1alpha1.NTP
-	ACLs   sets.Set[string]
-	Certs  sets.Set[string]
-	SNMP   *v1alpha1.SNMP
-	Syslog *v1alpha1.Syslog
-	Access *v1alpha1.ManagementAccess
-	ISIS   sets.Set[string]
-	VRF    sets.Set[string]
-	PIM    *v1alpha1.PIM
-	BGP    *v1alpha1.BGP
+	Ports    sets.Set[string]
+	User     sets.Set[string]
+	Banner   *string
+	DNS      *v1alpha1.DNS
+	NTP      *v1alpha1.NTP
+	ACLs     sets.Set[string]
+	Certs    sets.Set[string]
+	SNMP     *v1alpha1.SNMP
+	Syslog   *v1alpha1.Syslog
+	Access   *v1alpha1.ManagementAccess
+	ISIS     sets.Set[string]
+	VRF      sets.Set[string]
+	PIM      *v1alpha1.PIM
+	BGP      *v1alpha1.BGP
+	BGPPeers sets.Set[string]
 }
 
 func NewProvider() *Provider {
 	return &Provider{
-		Ports: sets.New[string](),
-		User:  sets.New[string](),
-		ACLs:  sets.New[string](),
-		Certs: sets.New[string](),
-		ISIS:  sets.New[string](),
-		VRF:   sets.New[string](),
+		Ports:    sets.New[string](),
+		User:     sets.New[string](),
+		ACLs:     sets.New[string](),
+		Certs:    sets.New[string](),
+		ISIS:     sets.New[string](),
+		VRF:      sets.New[string](),
+		BGPPeers: sets.New[string](),
 	}
 }
 
@@ -538,4 +550,31 @@ func (p *Provider) DeleteBGP(context.Context, *provider.DeleteBGPRequest) error 
 	defer p.Unlock()
 	p.BGP = nil
 	return nil
+}
+
+func (p *Provider) EnsureBGPPeer(_ context.Context, req *provider.EnsureBGPPeerRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.BGPPeers.Insert(req.BGPPeer.Spec.Address)
+	return nil
+}
+
+func (p *Provider) DeleteBGPPeer(_ context.Context, req *provider.DeleteBGPPeerRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.BGPPeers.Delete(req.BGPPeer.Spec.Address)
+	return nil
+}
+
+func (p *Provider) GetPeerStatus(context.Context, *provider.BGPPeerStatusRequest) (provider.BGPPeerStatus, error) {
+	return provider.BGPPeerStatus{
+		SessionState:        v1alpha1.BGPPeerSessionStateEstablished,
+		LastEstablishedTime: time.Now().Add(-5 * time.Minute),
+		AddressFamilies: map[v1alpha1.BGPAddressFamilyType]*provider.PrefixStats{
+			v1alpha1.BGPAddressFamilyL2vpnEvpn: {
+				Accepted:   10,
+				Advertised: 10,
+			},
+		},
+	}, nil
 }

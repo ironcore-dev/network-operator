@@ -34,6 +34,7 @@ var (
 	_ provider.ACLProvider              = (*Provider)(nil)
 	_ provider.BannerProvider           = (*Provider)(nil)
 	_ provider.BGPProvider              = (*Provider)(nil)
+	_ provider.BGPPeerProvider          = (*Provider)(nil)
 	_ provider.CertificateProvider      = (*Provider)(nil)
 	_ provider.DNSProvider              = (*Provider)(nil)
 	_ provider.InterfaceProvider        = (*Provider)(nil)
@@ -246,7 +247,6 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 
 		if af := req.BGP.Spec.AddressFamilies.L2vpnEvpn; af != nil && af.Enabled {
 			item := new(BGPDomAfItem)
-			item.BGPDomAfItemRetainRtt = new(BGPDomAfItemRetainRtt)
 			item.Type = AddressFamilyL2EVPN
 			if err := item.SetMultipath(af.Multipath); err != nil {
 				return err
@@ -273,100 +273,96 @@ func (p *Provider) DeleteBGP(ctx context.Context, req *provider.DeleteBGPRequest
 	return p.client.Delete(ctx, new(BGP))
 }
 
-type BGPPeerRequest struct {
-	// The BGP Peer's address.
-	Addr netip.Addr
-	// Neighbor specific description.
-	Desc string
-	// The Autonomous System Number of the Neighbor
-	AsNumber int32
-	// The local source interface for the BGP session and update messages.
-	SrcIf string
-	// AddressFamilies is a list of address families configured for the BGP peer.
-	AddressFamilies []v1alpha1.AddressFamily
-	// Optional L2EVPN configuration.
-	L2EVPN *PeerL2EVPN
-}
-
-type PeerL2EVPN struct {
-	// SendStandardCommunity indicates whether to send the standard community attribute.
-	SendStandardCommunity bool
-	// SendExtendedCommunity indicates whether to send the extended community attribute.
-	SendExtendedCommunity bool
-	// RouteReflectorClient indicates whether to configure this peer as a route reflector client.
-	RouteReflectorClient bool
-}
-
-func (p *Provider) EnsureBGPPeer(ctx context.Context, req *BGPPeerRequest) error {
-	if !req.Addr.IsValid() {
-		return fmt.Errorf("bgp peer: neighbor address %q is not a valid IP address", req.Addr)
-	}
-
-	// TODO: support ASNs like '65000.100', ideally with a custom type
-	if req.AsNumber <= 0 || req.AsNumber > 65535 {
-		return fmt.Errorf("bgp peer: asn %d is out of range (1-65535)", req.AsNumber)
-	}
-
-	if req.SrcIf == "" {
-		return errors.New("bgp peer: source interface cannot be empty")
-	}
-
+func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPeerRequest) error {
 	// Ensure that the BGP instance exists and is configured on the "default" domain
 	// and return an error if it does not exist.
-	// Otherwise, by default of the gnmi specification, all missing nodes in the yang
-	// tree would be created, which would mean that we would create a new BGP instance,
-	// which is not what we want.
-	// Returning an error here allows us to handle the case where the BGP instance is not
-	// configured by requeuing the request for the BGP Peer on the k8s controller. This avoids
-	// a race condition where the BGP instance is created after the BGP Peer is created.
 	bgp := new(BGPDom)
 	bgp.Name = DefaultVRFName
 	if err := p.client.GetConfig(ctx, bgp); err != nil {
 		return fmt.Errorf("bgp peer: failed to get bgp instance 'default': %w", err)
 	}
 
-	srcIf, err := ShortNameLoopback(req.SrcIf)
-	if err != nil {
-		return fmt.Errorf("bgp peer: invalid source interface name %q: %w", req.SrcIf, err)
-	}
-
 	pe := new(BGPPeer)
-	pe.Addr = req.Addr.String()
-	pe.Asn = strconv.Itoa(int(req.AsNumber))
+	pe.Addr = req.BGPPeer.Spec.Address
+	pe.Asn = req.BGPPeer.Spec.ASNumber.String()
 	pe.AsnType = PeerAsnTypeNone
-	pe.Name = req.Desc
-	pe.SrcIf = srcIf
+	pe.Name = req.BGPPeer.Spec.Description
 
-	for _, af := range req.AddressFamilies {
-		item := new(BGPPeerAfItem)
-		switch af {
-		case v1alpha1.AddressFamilyIPv4Unicast:
-			item.Type = AddressFamilyIPv4Unicast
-		case v1alpha1.AddressFamilyIPv6Unicast:
-			item.Type = AddressFamilyIPv6Unicast
-		// case v1alpha1.AddressFamilyL2VPNEvpn:
-		case "L2EVPN":
-			item.Type = AddressFamilyL2EVPN
-			if req.L2EVPN != nil {
-				item.SendComStd = AdminStDisabled
-				if req.L2EVPN.SendStandardCommunity {
-					item.SendComStd = AdminStEnabled
-				}
-				item.SendComExt = AdminStDisabled
-				if req.L2EVPN.SendStandardCommunity {
-					item.SendComExt = AdminStEnabled
-				}
-				if req.L2EVPN.RouteReflectorClient {
-					item.Ctrl = NewOption(RouteReflectorClient)
-				}
-			}
-		default:
-			return fmt.Errorf("bgp peer: unsupported address family %q", af)
+	if req.SourceInterface != "" {
+		srcIf, err := ShortName(req.SourceInterface)
+		if err != nil {
+			return fmt.Errorf("bgp peer: invalid source interface name %q: %w", req.SourceInterface, err)
 		}
-		pe.AfItems.PeerAfList = append(pe.AfItems.PeerAfList, item)
+		pe.SrcIf = srcIf
 	}
+
+	if req.BGPPeer.Spec.AddressFamilies != nil {
+		for t, af := range map[AddressFamily]*v1alpha1.BGPPeerAddressFamily{
+			AddressFamilyIPv4Unicast: req.BGPPeer.Spec.AddressFamilies.Ipv4Unicast,
+			AddressFamilyIPv6Unicast: req.BGPPeer.Spec.AddressFamilies.Ipv6Unicast,
+			AddressFamilyL2EVPN:      req.BGPPeer.Spec.AddressFamilies.L2vpnEvpn,
+		} {
+			if af == nil || !af.Enabled {
+				continue
+			}
+			item := new(BGPPeerAfItem)
+			item.Type = t
+			item.SendComStd = AdminStDisabled
+			if af.SendCommunity == v1alpha1.BGPCommunityTypeStandard || af.SendCommunity == v1alpha1.BGPCommunityTypeBoth {
+				item.SendComStd = AdminStEnabled
+			}
+			item.SendComExt = AdminStDisabled
+			if af.SendCommunity == v1alpha1.BGPCommunityTypeExtended || af.SendCommunity == v1alpha1.BGPCommunityTypeBoth {
+				item.SendComExt = AdminStEnabled
+			}
+			if af.RouteReflectorClient {
+				item.Ctrl = NewOption(RouteReflectorClient)
+			}
+			pe.AfItems.PeerAfList = append(pe.AfItems.PeerAfList, item)
+		}
+	}
+
+	slices.SortFunc(pe.AfItems.PeerAfList, func(a, b *BGPPeerAfItem) int {
+		if a.Type == AddressFamilyL2EVPN || b.Type == AddressFamilyL2EVPN {
+			return strings.Compare(string(a.Type), string(b.Type))
+		}
+		return strings.Compare(string(b.Type), string(a.Type))
+	})
 
 	return p.client.Update(ctx, pe)
+}
+
+func (p *Provider) DeleteBGPPeer(ctx context.Context, req *provider.DeleteBGPPeerRequest) error {
+	b := new(BGPPeer)
+	b.Addr = req.BGPPeer.Spec.Address
+	return p.client.Delete(ctx, b)
+}
+
+func (p *Provider) GetPeerStatus(ctx context.Context, req *provider.BGPPeerStatusRequest) (provider.BGPPeerStatus, error) {
+	ps := new(BGPPeerOperItems)
+	ps.Addr = req.BGPPeer.Spec.Address
+	if err := p.client.GetState(ctx, ps); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return provider.BGPPeerStatus{}, err
+	}
+
+	res := provider.BGPPeerStatus{
+		SessionState:        ps.OperSt.ToSessionState(),
+		LastEstablishedTime: ps.LastFlapTime,
+		AddressFamilies:     make(map[v1alpha1.BGPAddressFamilyType]*provider.PrefixStats),
+	}
+
+	for _, af := range ps.AfItems.PeerAfList {
+		sent, err := strconv.ParseUint(af.PfxSent, 10, 32)
+		if err != nil {
+			return provider.BGPPeerStatus{}, fmt.Errorf("bgp peer status: failed to parse sent prefixes %q: %w", af.PfxSent, err)
+		}
+		res.AddressFamilies[af.Type.ToAddressFamilyType()] = &provider.PrefixStats{
+			Accepted:   af.AcceptedPaths,
+			Advertised: uint32(sent),
+		}
+	}
+
+	return res, nil
 }
 
 func (p *Provider) EnsureCertificate(ctx context.Context, req *provider.EnsureCertificateRequest) error {

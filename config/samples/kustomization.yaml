@@ -15,4 +15,5 @@ resources:
 - v1alpha1_vrf.yaml
 - v1alpha1_pim.yaml
 - v1alpha1_bgp.yaml
+- v1alpha1_bgppeer.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

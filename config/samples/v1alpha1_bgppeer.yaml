@@ -1,0 +1,39 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGPPeer
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: leaf1-spine1
+spec:
+  deviceRef:
+    name: leaf1
+  address: 10.0.0.1
+  asNumber: 65000
+  localAddress:
+    interfaceRef:
+      name: lo0
+  addressFamilies:
+    l2vpnEvpn:
+      enabled: true
+      sendCommunity: Both
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGPPeer
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: leaf1-spine2
+spec:
+  deviceRef:
+    name: leaf1
+  address: 10.0.0.2
+  asNumber: 65000
+  localAddress:
+    interfaceRef:
+      name: lo0
+  addressFamilies:
+    l2vpnEvpn:
+      enabled: true
+      sendCommunity: Both

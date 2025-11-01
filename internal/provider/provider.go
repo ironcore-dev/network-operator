@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"slices"
 	"sync"
+	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -345,6 +346,45 @@ type EnsureBGPRequest struct {
 type DeleteBGPRequest struct {
 	BGP            *v1alpha1.BGP
 	ProviderConfig *ProviderConfig
+}
+
+// BGPPeerProvider is the interface for the realization of the BGPPeer objects over different providers.
+type BGPPeerProvider interface {
+	Provider
+
+	// EnsureBGPPeer call is responsible for BGPPeer realization on the provider.
+	EnsureBGPPeer(context.Context, *EnsureBGPPeerRequest) error
+	// DeleteBGPPeer call is responsible for BGPPeer deletion on the provider.
+	DeleteBGPPeer(context.Context, *DeleteBGPPeerRequest) error
+	// GetPeerStatus call is responsible for retrieving the current status of the BGPPeer from the provider.
+	GetPeerStatus(context.Context, *BGPPeerStatusRequest) (BGPPeerStatus, error)
+}
+
+type EnsureBGPPeerRequest struct {
+	BGPPeer         *v1alpha1.BGPPeer
+	ProviderConfig  *ProviderConfig
+	SourceInterface string
+}
+
+type DeleteBGPPeerRequest struct {
+	BGPPeer        *v1alpha1.BGPPeer
+	ProviderConfig *ProviderConfig
+}
+
+type BGPPeerStatusRequest struct {
+	BGPPeer        *v1alpha1.BGPPeer
+	ProviderConfig *ProviderConfig
+}
+
+type BGPPeerStatus struct {
+	SessionState        v1alpha1.BGPPeerSessionState
+	LastEstablishedTime time.Time
+	AddressFamilies     map[v1alpha1.BGPAddressFamilyType]*PrefixStats
+}
+
+type PrefixStats struct {
+	Accepted   uint32
+	Advertised uint32
 }
 
 var mu sync.RWMutex

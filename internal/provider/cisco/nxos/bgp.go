@@ -6,6 +6,7 @@ package nxos
 import (
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
@@ -111,42 +112,79 @@ func (af *BGPDomAfItem) SetMultipath(m *v1alpha1.BGPMultipath) error {
 	return nil
 }
 
-type BGPDomAfItemRetainRtt struct {
-	RetainRttAll   AdminSt        `json:"retainRttAll,omitempty"`
-	RetainRttRtMap Option[string] `json:"retainRttRtMap,omitempty"`
-}
-
 type BGPPeer struct {
 	Addr    string      `json:"addr"`
 	Asn     string      `json:"asn"`
 	AsnType PeerAsnType `json:"asnType"`
-	Name    string      `json:"name"`
-	SrcIf   string      `json:"srcIf"`
+	Name    string      `json:"name,omitempty"`
+	SrcIf   string      `json:"srcIf,omitempty"`
 	AfItems struct {
-		PeerAfList []*BGPPeerAfItem `json:"PeerAf-list"`
-	} `json:"af-items"`
+		PeerAfList []*BGPPeerAfItem `json:"PeerAf-list,omitempty"`
+	} `json:"af-items,omitzero"`
 }
 
 func (*BGPPeer) IsListItem() {}
 
 func (p *BGPPeer) XPath() string {
-	return "System/bgp-items/inst-items/dom-items/Dom-list[name=default]/peer-items/Peer-list[name=" + p.Name + "]"
+	return "System/bgp-items/inst-items/dom-items/Dom-list[name=default]/peer-items/Peer-list[addr=" + p.Addr + "]"
 }
 
 type BGPPeerAfItem struct {
 	Ctrl       Option[string] `json:"ctrl"`
-	SendComExt AdminSt        `json:"sendComExt,omitempty"`
-	SendComStd AdminSt        `json:"sendComStd,omitempty"`
+	SendComExt AdminSt        `json:"sendComExt"`
+	SendComStd AdminSt        `json:"sendComStd"`
 	Type       AddressFamily  `json:"type"`
 }
 
 type BGPPeerOperItems struct {
-	Addr   string `json:"addr"`
-	OperSt OperSt `json:"operSt"`
+	Addr         string        `json:"addr"`
+	OperSt       BGPPeerOperSt `json:"operSt"`
+	LastFlapTime time.Time     `json:"lastFlapTs"`
+	AfItems      struct {
+		PeerAfList []*BGPPeerAfOperItems `json:"PeerAfEntry-list,omitempty"`
+	} `json:"af-items,omitzero"`
 }
+
+func (*BGPPeerOperItems) IsListItem() {}
 
 func (p *BGPPeerOperItems) XPath() string {
 	return "System/bgp-items/inst-items/dom-items/Dom-list[name=default]/peer-items/Peer-list[addr=" + p.Addr + "]/ent-items/PeerEntry-list[addr=" + p.Addr + "]"
+}
+
+type BGPPeerAfOperItems struct {
+	AcceptedPaths uint32        `json:"acceptedPaths"`
+	PfxSent       string        `json:"pfxSent"`
+	Type          AddressFamily `json:"type"`
+}
+
+type BGPPeerOperSt string
+
+const (
+	BGPPeerOperStIdle        BGPPeerOperSt = "idle"
+	BGPPeerOperStConnect     BGPPeerOperSt = "connect"
+	BGPPeerOperStActive      BGPPeerOperSt = "active"
+	BGPPeerOperStOpenSent    BGPPeerOperSt = "opensent"
+	BGPPeerOperStOpenConfirm BGPPeerOperSt = "openconfirm"
+	BGPPeerOperStEstablished BGPPeerOperSt = "established"
+)
+
+func (s BGPPeerOperSt) ToSessionState() v1alpha1.BGPPeerSessionState {
+	switch s {
+	case BGPPeerOperStIdle:
+		return v1alpha1.BGPPeerSessionStateIdle
+	case BGPPeerOperStConnect:
+		return v1alpha1.BGPPeerSessionStateConnect
+	case BGPPeerOperStActive:
+		return v1alpha1.BGPPeerSessionStateActive
+	case BGPPeerOperStOpenSent:
+		return v1alpha1.BGPPeerSessionStateOpenSent
+	case BGPPeerOperStOpenConfirm:
+		return v1alpha1.BGPPeerSessionStateOpenConfirm
+	case BGPPeerOperStEstablished:
+		return v1alpha1.BGPPeerSessionStateEstablished
+	default:
+		return v1alpha1.BGPPeerSessionStateUnknown
+	}
 }
 
 type AsFormat string

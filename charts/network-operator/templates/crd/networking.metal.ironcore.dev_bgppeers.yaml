@@ -1,0 +1,405 @@
+{{- if .Values.crd.enable }}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.crd.keep }}
+    "helm.sh/resource-policy": keep
+    {{- end }}
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: bgppeers.networking.metal.ironcore.dev
+spec:
+  group: networking.metal.ironcore.dev
+  names:
+    kind: BGPPeer
+    listKind: BGPPeerList
+    plural: bgppeers
+    singular: bgppeer
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.deviceRef.name
+      name: Device
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Configured")].status
+      name: Configured
+      priority: 1
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Operational")].status
+      name: Operational
+      priority: 1
+      type: string
+    - jsonPath: .status.sessionState
+      name: Session State
+      priority: 1
+      type: string
+    - jsonPath: .status.lastEstablishedTime
+      name: Last Established
+      priority: 1
+      type: date
+    - jsonPath: .status.advertisedPrefixesSummary
+      name: Advertised Prefixes
+      priority: 1
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: BGPPeer is the Schema for the bgppeers API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              Specification of the desired state of the resource.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              address:
+                description: Address is the IPv4 address of the BGP peer.
+                format: ipv4
+                type: string
+              addressFamilies:
+                description: |-
+                  AddressFamilies configures address family specific settings for this BGP peer.
+                  Controls which address families are enabled and their specific configuration.
+                properties:
+                  ipv4Unicast:
+                    description: |-
+                      Ipv4Unicast configures IPv4 unicast address family settings for this peer.
+                      Controls IPv4 unicast route exchange and peer-specific behavior.
+                    properties:
+                      enabled:
+                        description: |-
+                          Enabled determines whether this address family is activated for this specific peer.
+                          When false, the address family is not negotiated with this peer.
+                          Defaults to false.
+                        type: boolean
+                      routeReflectorClient:
+                        description: |-
+                          RouteReflectorClient indicates whether this peer should be treated as a route reflector client
+                          for this specific address family. Defaults to false.
+                        type: boolean
+                      sendCommunity:
+                        description: |-
+                          SendCommunity specifies which community attributes should be sent to this BGP peer
+                          for this address family. If not specified, no community attributes are sent.
+                        enum:
+                        - Standard
+                        - Extended
+                        - Both
+                        type: string
+                    type: object
+                  ipv6Unicast:
+                    description: |-
+                      Ipv6Unicast configures IPv6 unicast address family settings for this peer.
+                      Controls IPv6 unicast route exchange and peer-specific behavior.
+                    properties:
+                      enabled:
+                        description: |-
+                          Enabled determines whether this address family is activated for this specific peer.
+                          When false, the address family is not negotiated with this peer.
+                          Defaults to false.
+                        type: boolean
+                      routeReflectorClient:
+                        description: |-
+                          RouteReflectorClient indicates whether this peer should be treated as a route reflector client
+                          for this specific address family. Defaults to false.
+                        type: boolean
+                      sendCommunity:
+                        description: |-
+                          SendCommunity specifies which community attributes should be sent to this BGP peer
+                          for this address family. If not specified, no community attributes are sent.
+                        enum:
+                        - Standard
+                        - Extended
+                        - Both
+                        type: string
+                    type: object
+                  l2vpnEvpn:
+                    description: |-
+                      L2vpnEvpn configures L2VPN EVPN address family settings for this peer.
+                      Controls EVPN route exchange and peer-specific behavior.
+                    properties:
+                      enabled:
+                        description: |-
+                          Enabled determines whether this address family is activated for this specific peer.
+                          When false, the address family is not negotiated with this peer.
+                          Defaults to false.
+                        type: boolean
+                      routeReflectorClient:
+                        description: |-
+                          RouteReflectorClient indicates whether this peer should be treated as a route reflector client
+                          for this specific address family. Defaults to false.
+                        type: boolean
+                      sendCommunity:
+                        description: |-
+                          SendCommunity specifies which community attributes should be sent to this BGP peer
+                          for this address family. If not specified, no community attributes are sent.
+                        enum:
+                        - Standard
+                        - Extended
+                        - Both
+                        type: string
+                    type: object
+                type: object
+              asNumber:
+                anyOf:
+                - type: integer
+                - type: string
+                description: |-
+                  ASNumber is the autonomous system number (ASN) of the BGP peer.
+                  Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
+                x-kubernetes-int-or-string: true
+              description:
+                description: |-
+                  Description is an optional human-readable description for this BGP peer.
+                  This field is used for documentation purposes and may be displayed in management interfaces.
+                type: string
+              deviceRef:
+                description: |-
+                  DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
+                  Immutable.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+                x-kubernetes-validations:
+                - message: DeviceRef is immutable
+                  rule: self == oldSelf
+              localAddress:
+                description: |-
+                  LocalAddress specifies the local address configuration for the BGP session with this peer.
+                  This determines the source address/interface for BGP packets sent to this peer.
+                properties:
+                  interfaceRef:
+                    description: |-
+                      InterfaceRef is a reference to an Interface resource whose IP address will be used
+                      as the source address for BGP packets sent to this peer.
+                      The Interface object must exist in the same namespace.
+                    properties:
+                      name:
+                        description: |-
+                          Name of the referent.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
+                required:
+                - interfaceRef
+                type: object
+              providerConfigRef:
+                description: |-
+                  ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
+                  This reference is used to link the BGP to its provider-specific configuration.
+                properties:
+                  apiVersion:
+                    description: APIVersion is the api group version of the resource
+                      being referenced.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/)?([a-z0-9]([-a-z0-9]*[a-z0-9])?)$
+                    type: string
+                  kind:
+                    description: |-
+                      Kind of the resource being referenced.
+                      Kind must consist of alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                    type: string
+                  name:
+                    description: |-
+                      Name of the resource being referenced.
+                      Name must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+            required:
+            - address
+            - asNumber
+            - deviceRef
+            type: object
+          status:
+            description: |-
+              Status of the resource. This is set and updated automatically.
+              Read-only.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              addressFamilies:
+                description: |-
+                  AddressFamilies contains per-address-family statistics for this peer.
+                  Only address families that are enabled and negotiated with the peer are included.
+                items:
+                  description: AddressFamilyStatus defines the prefix exchange statistics
+                    for a single address family (e.g., IPv4-Unicast).
+                  properties:
+                    acceptedPrefixes:
+                      description: |-
+                        AcceptedPrefixes is the number of prefixes received from the peer that have passed the inbound policy
+                        and are stored in the neighbor-specific table (Adj-RIB-In).
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    advertisedPrefixes:
+                      description: |-
+                        AdvertisedPrefixes is the number of prefixes currently being advertised to the peer after passing
+                        the outbound policy. This reflects the state of the outbound routing table for the peer (Adj-RIB-Out).
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    afiSafi:
+                      description: AfiSafi identifies the address family and subsequent
+                        address family.
+                      enum:
+                      - IPv4Unicast
+                      - IPv6Unicast
+                      - L2vpnEvpn
+                      type: string
+                  required:
+                  - afiSafi
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - afiSafi
+                x-kubernetes-list-type: map
+              advertisedPrefixesSummary:
+                description: |-
+                  AdvertisedPrefixesSummary provides a human-readable summary of advertised prefixes
+                  across all address families (e.g., "10 (IPv4Unicast), 5 (IPv6Unicast)").
+                  This field is computed by the controller from the AddressFamilies field.
+                type: string
+              conditions:
+                description: The conditions are a list of status objects that describe
+                  the state of the BGP.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              lastEstablishedTime:
+                description: |-
+                  LastEstablishedTime is the timestamp when the BGP session last transitioned to the ESTABLISHED state.
+                  A frequently changing timestamp indicates session instability (flapping).
+                format: date-time
+                type: string
+              observedGeneration:
+                description: ObservedGeneration reflects the .metadata.generation
+                  that was last processed by the controller.
+                format: int64
+                type: integer
+              sessionState:
+                description: SessionState is the current operational state of the
+                  BGP session.
+                enum:
+                - Idle
+                - Connect
+                - Active
+                - OpenSent
+                - OpenConfirm
+                - Established
+                - Unknown
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+{{- end -}}

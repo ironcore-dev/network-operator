@@ -251,6 +251,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Banner")
 		os.Exit(1)
 	}
+
 	if err := (&corecontroller.UserReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
@@ -261,6 +262,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "User")
 		os.Exit(1)
 	}
+
 	if err := (&corecontroller.DNSReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
@@ -271,6 +273,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "DNS")
 		os.Exit(1)
 	}
+
 	if err := (&corecontroller.NTPReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
@@ -303,6 +306,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Certificate")
 		os.Exit(1)
 	}
+
 	if err := (&corecontroller.SNMPReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
@@ -313,6 +317,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "SNMP")
 		os.Exit(1)
 	}
+
 	if err := (&corecontroller.SyslogReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
@@ -368,6 +373,18 @@ func main() {
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BGP")
+		os.Exit(1)
+	}
+
+	if err := (&corecontroller.BGPPeerReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("bgppeer-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+		RequeueInterval:  requeueInterval,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "BGPPeer")
 		os.Exit(1)
 	}
 

@@ -67,3 +67,6 @@ resources:
 - bgp_admin_role.yaml
 - bgp_editor_role.yaml
 - bgp_viewer_role.yaml
+- bgppeer_admin_role.yaml
+- bgppeer_editor_role.yaml
+- bgppeer_viewer_role.yaml
