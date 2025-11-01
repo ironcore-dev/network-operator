@@ -1,0 +1,31 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGP
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: bgp
+spec:
+  deviceRef:
+    name: leaf1
+  asNumber: 65000
+  routerId: 10.0.0.10
+  addressFamilies:
+    ipv4Unicast:
+      enabled: true
+      multipath:
+        enabled: true
+        ebgp:
+          maximumPaths: 4
+    ipv6Unicast:
+      enabled: true
+      multipath:
+        enabled: true
+        ebgp:
+          maximumPaths: 2
+    l2vpnEvpn:
+      enabled: true
+      multipath:
+        enabled: false
+      routeTargetPolicy:
+        retainAll: true

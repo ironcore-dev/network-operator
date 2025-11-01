@@ -1,0 +1,8 @@
+router bgp 65000
+  router-id 1.1.1.1
+  address-family ipv4 unicast
+    maximum-paths 4
+  address-family ipv6 unicast
+    maximum-paths 2
+  address-family l2vpn evpn
+    retain route-target all

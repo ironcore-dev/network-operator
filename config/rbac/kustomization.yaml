@@ -64,3 +64,6 @@ resources:
 - pim_admin_role.yaml
 - pim_editor_role.yaml
 - pim_viewer_role.yaml
+- bgp_admin_role.yaml
+- bgp_editor_role.yaml
+- bgp_viewer_role.yaml

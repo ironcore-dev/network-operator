@@ -9,20 +9,21 @@ func init() {
 	bgpDom := &BGPDom{Name: DefaultVRFName, RtrID: "1.1.1.1", RtrIDAuto: AdminStDisabled}
 	bgpDom.AfItems.DomAfList = []*BGPDomAfItem{
 		{
-			Type:           AddressFamilyL2EVPN,
-			MaxExtEcmp:     1,
-			RetainRttAll:   AdminStEnabled,
-			RetainRttRtMap: "DME_UNSET_PROPERTY_MARKER",
+			Type:         AddressFamilyL2EVPN,
+			RetainRttAll: AdminStEnabled,
 		},
 		{
-			Type: AddressFamilyIPv6Unicast,
+			Type:       AddressFamilyIPv6Unicast,
+			MaxExtEcmp: 2,
 		},
 		{
-			Type: AddressFamilyIPv4Unicast,
+			Type:       AddressFamilyIPv4Unicast,
+			MaxExtEcmp: 4,
 		},
 	}
+	Register("bgp_dom", bgpDom)
+
 	bgp := &BGP{AdminSt: AdminStEnabled, Asn: "65000"}
-	bgp.DomItems.DomList = []*BGPDom{bgpDom}
 	Register("bgp", bgp)
 
 	bgpPeer := &BGPPeer{

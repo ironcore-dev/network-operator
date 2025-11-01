@@ -33,6 +33,7 @@ var (
 	_ provider.DeviceProvider           = (*Provider)(nil)
 	_ provider.ACLProvider              = (*Provider)(nil)
 	_ provider.BannerProvider           = (*Provider)(nil)
+	_ provider.BGPProvider              = (*Provider)(nil)
 	_ provider.CertificateProvider      = (*Provider)(nil)
 	_ provider.DNSProvider              = (*Provider)(nil)
 	_ provider.InterfaceProvider        = (*Provider)(nil)
@@ -189,35 +190,7 @@ func (p *Provider) DeleteBanner(ctx context.Context) error {
 	return p.client.Delete(ctx, b)
 }
 
-type BGPRequest struct {
-	// The Autonomous System Number of the BGP instance.
-	AsNumber int32
-	// The Router Identifier of the BGP instance, must be an IPv4 address.
-	RouterID netip.Addr
-	// AddressFamilies is a list of address families configured for the BGP instance.
-	AddressFamilies []v1alpha1.AddressFamily
-	// Optional L2EVPN configuration.
-	L2EVPN *L2EVPN
-}
-
-type L2EVPN struct {
-	// Forward packets over multipath paths
-	MaximumPaths uint8
-	// Retain the routes based on Target VPN Extended Communities.
-	// Can be "all" to retain all routes, or a specific route-map name.
-	RetainRouteTarget string
-}
-
-func (p *Provider) EnsureBGP(ctx context.Context, req *BGPRequest) (reterr error) {
-	if !req.RouterID.Is4() {
-		return fmt.Errorf("bgp: router ID must be an IPv4 address, got %q", req.RouterID)
-	}
-
-	// TODO: support ASNs like '65000.100', ideally with a custom type
-	if req.AsNumber <= 0 || req.AsNumber > 65535 {
-		return fmt.Errorf("bgp: asn %d is out of range (1-65535)", req.AsNumber)
-	}
-
+func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest) (reterr error) {
 	f := new(Feature)
 	f.Name = "bgp"
 	f.AdminSt = AdminStEnabled
@@ -228,41 +201,76 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *BGPRequest) (reterr error
 
 	b := new(BGP)
 	b.AdminSt = AdminStEnabled
-	b.Asn = strconv.Itoa(int(req.AsNumber))
+	b.Asn = req.BGP.Spec.ASNumber.String()
+
+	var asf AsFormat
+	if err := p.client.GetConfig(ctx, &asf); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+
+	var err error
+	switch {
+	case asf == "" && strings.Contains(b.Asn, "."):
+		asf = AsFormatAsDot
+		err = p.client.Update(ctx, &asf)
+	case asf != "" && !strings.Contains(b.Asn, "."):
+		err = p.client.Delete(ctx, &asf)
+	}
+	if err != nil {
+		return err
+	}
 
 	dom := new(BGPDom)
 	dom.Name = DefaultVRFName
-	dom.RtrID = req.RouterID.String()
+	dom.RtrID = req.BGP.Spec.RouterID
 	dom.RtrIDAuto = AdminStDisabled
 
-	for _, af := range req.AddressFamilies {
-		item := new(BGPDomAfItem)
-		switch af {
-		case v1alpha1.AddressFamilyIPv4Unicast:
+	if req.BGP.Spec.AddressFamilies != nil {
+		if af := req.BGP.Spec.AddressFamilies.Ipv4Unicast; af != nil && af.Enabled {
+			item := new(BGPDomAfItem)
 			item.Type = AddressFamilyIPv4Unicast
-		case v1alpha1.AddressFamilyIPv6Unicast:
-			item.Type = AddressFamilyIPv6Unicast
-		// case v1alpha1.AddressFamilyL2VPNEvpn:
-		case "L2EVPN":
-			item.Type = AddressFamilyL2EVPN
-			item.MaxExtEcmp = 1
-			if req.L2EVPN != nil {
-				item.MaxExtEcmp = req.L2EVPN.MaximumPaths
-				item.RetainRttAll = AdminStDisabled
-				item.RetainRttRtMap = req.L2EVPN.RetainRouteTarget
-				if req.L2EVPN.RetainRouteTarget == "all" {
-					item.RetainRttAll = AdminStEnabled
-					item.RetainRttRtMap = "DME_UNSET_PROPERTY_MARKER"
-				}
+			if err := item.SetMultipath(af.Multipath); err != nil {
+				return err
 			}
-		default:
-			return fmt.Errorf("bgp: unsupported address family %q", af)
+			dom.AfItems.DomAfList = append(dom.AfItems.DomAfList, item)
 		}
-		dom.AfItems.DomAfList = append(dom.AfItems.DomAfList, item)
-	}
-	b.DomItems.DomList = append(b.DomItems.DomList, dom)
 
-	return p.client.Update(ctx, f, f2, b)
+		if af := req.BGP.Spec.AddressFamilies.Ipv6Unicast; af != nil && af.Enabled {
+			item := new(BGPDomAfItem)
+			item.Type = AddressFamilyIPv6Unicast
+			if err := item.SetMultipath(af.Multipath); err != nil {
+				return err
+			}
+			dom.AfItems.DomAfList = append(dom.AfItems.DomAfList, item)
+		}
+
+		if af := req.BGP.Spec.AddressFamilies.L2vpnEvpn; af != nil && af.Enabled {
+			item := new(BGPDomAfItem)
+			item.BGPDomAfItemRetainRtt = new(BGPDomAfItemRetainRtt)
+			item.Type = AddressFamilyL2EVPN
+			if err := item.SetMultipath(af.Multipath); err != nil {
+				return err
+			}
+			item.RetainRttAll = AdminStDisabled
+			if af.RouteTargetPolicy != nil && af.RouteTargetPolicy.RetainAll {
+				item.RetainRttAll = AdminStEnabled
+			}
+			dom.AfItems.DomAfList = append(dom.AfItems.DomAfList, item)
+		}
+	}
+
+	slices.SortFunc(dom.AfItems.DomAfList, func(a, b *BGPDomAfItem) int {
+		if a.Type == AddressFamilyL2EVPN || b.Type == AddressFamilyL2EVPN {
+			return strings.Compare(string(a.Type), string(b.Type))
+		}
+		return strings.Compare(string(b.Type), string(a.Type))
+	})
+
+	return p.client.Patch(ctx, f, f2, b, dom)
+}
+
+func (p *Provider) DeleteBGP(ctx context.Context, req *provider.DeleteBGPRequest) error {
+	return p.client.Delete(ctx, new(BGP))
 }
 
 type BGPPeerRequest struct {

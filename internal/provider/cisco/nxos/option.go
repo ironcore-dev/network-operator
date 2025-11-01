@@ -6,7 +6,7 @@ package nxos
 import "encoding/json"
 
 var (
-	_ json.Marshaler   = (*Option[string])(nil)
+	_ json.Marshaler   = Option[string]{}
 	_ json.Unmarshaler = (*Option[string])(nil)
 )
 
@@ -25,7 +25,7 @@ func NewOption[T comparable](v T) Option[T] {
 	return Option[T]{Value: &v}
 }
 
-func (o *Option[T]) MarshalJSON() ([]byte, error) {
+func (o Option[T]) MarshalJSON() ([]byte, error) {
 	if o.Value == nil {
 		return []byte(`"DME_UNSET_PROPERTY_MARKER"`), nil
 	}

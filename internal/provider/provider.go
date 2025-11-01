@@ -327,6 +327,26 @@ type DeletePIMRequest struct {
 	ProviderConfig *ProviderConfig
 }
 
+// BGPProvider is the interface for the realization of the BGP objects over different providers.
+type BGPProvider interface {
+	Provider
+
+	// EnsureBGP call is responsible for BGP realization on the provider.
+	EnsureBGP(context.Context, *EnsureBGPRequest) error
+	// DeleteBGP call is responsible for BGP deletion on the provider.
+	DeleteBGP(context.Context, *DeleteBGPRequest) error
+}
+
+type EnsureBGPRequest struct {
+	BGP            *v1alpha1.BGP
+	ProviderConfig *ProviderConfig
+}
+
+type DeleteBGPRequest struct {
+	BGP            *v1alpha1.BGP
+	ProviderConfig *ProviderConfig
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.

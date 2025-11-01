@@ -359,6 +359,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&corecontroller.BGPReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("bgp-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+		RequeueInterval:  requeueInterval,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "BGP")
+		os.Exit(1)
+	}
+
 	if err := (&corecontroller.VRFReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),

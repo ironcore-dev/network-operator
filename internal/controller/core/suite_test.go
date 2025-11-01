@@ -213,6 +213,15 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&BGPReconciler{
+		Client:          k8sManager.GetClient(),
+		Scheme:          k8sManager.GetScheme(),
+		Recorder:        recorder,
+		Provider:        prov,
+		RequeueInterval: time.Second,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -271,6 +280,7 @@ var (
 	_ provider.ISISProvider             = (*Provider)(nil)
 	_ provider.VRFProvider              = (*Provider)(nil)
 	_ provider.PIMProvider              = (*Provider)(nil)
+	_ provider.BGPProvider              = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -290,6 +300,7 @@ type Provider struct {
 	ISIS   sets.Set[string]
 	VRF    sets.Set[string]
 	PIM    *v1alpha1.PIM
+	BGP    *v1alpha1.BGP
 }
 
 func NewProvider() *Provider {
@@ -512,5 +523,19 @@ func (p *Provider) DeletePIM(context.Context, *provider.DeletePIMRequest) error 
 	p.Lock()
 	defer p.Unlock()
 	p.PIM = nil
+	return nil
+}
+
+func (p *Provider) EnsureBGP(_ context.Context, req *provider.EnsureBGPRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.BGP = req.BGP
+	return nil
+}
+
+func (p *Provider) DeleteBGP(context.Context, *provider.DeleteBGPRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.BGP = nil
 	return nil
 }
