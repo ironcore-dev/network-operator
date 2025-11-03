@@ -33,7 +33,7 @@ k8s_resource('network-operator-controller-manager', resource_deps=['controller-g
 # Sample resources with manual trigger mode
 def device_yaml():
     decoded = read_yaml_stream('./config/samples/v1alpha1_device.yaml')
-    ip = str(local("docker run --rm busybox:1.37.0 nslookup host.docker.internal 2>/dev/null | grep 'Address:' | tail -n 1 | awk '{print $2}' || echo ''", quiet=True)).rstrip('\n')
+    ip = str(local("docker run --rm busybox:1.37.0 nslookup -type=a host.docker.internal 2>/dev/null | grep 'Address:' | tail -n 1 | awk '{print $2}' || echo ''", quiet=True)).rstrip('\n')
     if len(ip) > 0:
         decoded[0]['spec']['endpoint']['address'] = ip+':9339'
     return encode_yaml_stream(decoded)
