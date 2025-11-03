@@ -6,6 +6,8 @@ package gnmiext
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 )
 
 // Keyed represents a configuration item that can provide its key value.
@@ -50,18 +52,7 @@ type List[K comparable, V interface {
 // The order of elements in the resulting array is not guaranteed, but this
 // is acceptable for YANG list nodes where order does not matter.
 func (l List[K, V]) MarshalJSON() ([]byte, error) {
-	if l == nil {
-		return []byte("null"), nil
-	}
-
-	// Convert map values to a slice
-	slice := make([]V, 0, len(l))
-	for _, v := range l {
-		slice = append(slice, v)
-	}
-
-	// Marshal the slice as a JSON array
-	return json.Marshal(slice)
+	return json.Marshal(slices.Collect(maps.Values(l)))
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
@@ -116,24 +107,4 @@ func (l List[K, V]) Set(item V) {
 // Delete removes an item from the list by its key.
 func (l List[K, V]) Delete(key K) {
 	delete(l, key)
-}
-
-// Keys returns all keys in the list.
-// The order of keys is not guaranteed.
-func (l List[K, V]) Keys() []K {
-	keys := make([]K, 0, len(l))
-	for k := range l {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
-// Values returns all values in the list.
-// The order of values is not guaranteed.
-func (l List[K, V]) Values() []V {
-	values := make([]V, 0, len(l))
-	for _, v := range l {
-		values = append(values, v)
-	}
-	return values
 }

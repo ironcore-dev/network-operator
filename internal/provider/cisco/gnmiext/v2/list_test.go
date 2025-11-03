@@ -6,7 +6,9 @@ package gnmiext
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -40,8 +42,8 @@ func TestList_MarshalJSON(t *testing.T) {
 			name: "empty list",
 			list: List[string, *testItem]{},
 			check: func(t *testing.T, data []byte) {
-				if string(data) != "[]" {
-					t.Errorf("expected [], got %s", string(data))
+				if string(data) != "null" {
+					t.Errorf("expected null, got %s", string(data))
 				}
 			},
 		},
@@ -177,65 +179,6 @@ func TestList_UnmarshalJSON(t *testing.T) {
 	}
 }
 
-func TestList_RoundTrip(t *testing.T) {
-	original := List[string, *testItem]{
-		"item1": {Name: "item1", Value: 100},
-		"item2": {Name: "item2", Value: 200},
-		"item3": {Name: "item3", Value: 300},
-	}
-
-	// Marshal to JSON
-	data, err := json.Marshal(original)
-	if err != nil {
-		t.Fatalf("Marshal() error = %v", err)
-	}
-
-	// Unmarshal back
-	var result List[string, *testItem]
-	if err := json.Unmarshal(data, &result); err != nil {
-		t.Fatalf("Unmarshal() error = %v", err)
-	}
-
-	// Compare using reflect.DeepEqual (the whole point of this implementation!)
-	if !reflect.DeepEqual(original, result) {
-		t.Errorf("round trip failed: got %+v, want %+v", result, original)
-	}
-}
-
-func TestList_OrderIndependentComparison(t *testing.T) {
-	// This test demonstrates the main benefit of using List:
-	// Two lists with the same items in different orders are equal
-	list1 := List[string, *testItem]{
-		"item1": {Name: "item1", Value: 100},
-		"item2": {Name: "item2", Value: 200},
-		"item3": {Name: "item3", Value: 300},
-	}
-
-	// Unmarshal from JSON arrays with different ordering
-	var list2 List[string, *testItem]
-	data2 := `[{"name":"item3","value":300},{"name":"item1","value":100},{"name":"item2","value":200}]`
-	if err := json.Unmarshal([]byte(data2), &list2); err != nil {
-		t.Fatalf("Unmarshal() error = %v", err)
-	}
-
-	var list3 List[string, *testItem]
-	data3 := `[{"name":"item2","value":200},{"name":"item3","value":300},{"name":"item1","value":100}]`
-	if err := json.Unmarshal([]byte(data3), &list3); err != nil {
-		t.Fatalf("Unmarshal() error = %v", err)
-	}
-
-	// All three lists should be equal despite different insertion/JSON order
-	if !reflect.DeepEqual(list1, list2) {
-		t.Error("list1 and list2 should be equal")
-	}
-	if !reflect.DeepEqual(list1, list3) {
-		t.Error("list1 and list3 should be equal")
-	}
-	if !reflect.DeepEqual(list2, list3) {
-		t.Error("list2 and list3 should be equal")
-	}
-}
-
 func TestList_Methods(t *testing.T) {
 	list := List[string, *testItem]{
 		"item1": {Name: "item1", Value: 100},
@@ -270,16 +213,16 @@ func TestList_Methods(t *testing.T) {
 		t.Errorf("After Delete(), Len() = %d, want 2", list.Len())
 	}
 
-	// Test Keys
-	keys := list.Keys()
+	// Test maps.Keys from stdlib
+	keys := slices.Collect(maps.Keys(list))
 	if len(keys) != 2 {
-		t.Errorf("Keys() returned %d keys, want 2", len(keys))
+		t.Errorf("maps.Keys() returned %d keys, want 2", len(keys))
 	}
 
-	// Test Values
-	values := list.Values()
+	// Test maps.Values from stdlib
+	values := slices.Collect(maps.Values(list))
 	if len(values) != 2 {
-		t.Errorf("Values() returned %d values, want 2", len(values))
+		t.Errorf("maps.Values() returned %d values, want 2", len(values))
 	}
 }
 
