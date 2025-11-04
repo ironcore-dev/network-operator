@@ -42,8 +42,8 @@ func TestList_MarshalJSON(t *testing.T) {
 			name: "empty list",
 			list: List[string, *testItem]{},
 			check: func(t *testing.T, data []byte) {
-				if string(data) != "null" {
-					t.Errorf("expected null, got %s", string(data))
+				if string(data) != "[]" {
+					t.Errorf("expected [], got %s", string(data))
 				}
 			},
 		},

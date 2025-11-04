@@ -51,7 +51,18 @@ type List[K comparable, V interface {
 // It converts the map to a slice of values and marshals it as a JSON array.
 // The order of elements in the resulting array is not guaranteed, but this
 // is acceptable for YANG list nodes where order does not matter.
+//
+// Maintains the distinction between nil (marshals to "null") and an empty
+// initialized list (marshals to "[]").
 func (l List[K, V]) MarshalJSON() ([]byte, error) {
+	if l == nil {
+		return []byte("null"), nil
+	}
+
+	if len(l) == 0 {
+		return []byte("[]"), nil
+	}
+
 	return json.Marshal(slices.Collect(maps.Values(l)))
 }
 
