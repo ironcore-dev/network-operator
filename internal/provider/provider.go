@@ -99,6 +99,11 @@ func (IPv4Unnumbered) isIPv4() {}
 type InterfaceStatus struct {
 	// OperStatus indicates whether the interface is operationally up (true) or down (false).
 	OperStatus bool
+
+	// Number of LACP PDUs sent and received on the interface.
+	// This only applies to interfaces configured as members of an aggregated interface.
+	LACPDUsSent uint64
+	LACPDUsRecv uint64
 }
 
 // BannerProvider is the interface for the realization of the Banner objects over different providers.

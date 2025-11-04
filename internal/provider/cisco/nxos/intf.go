@@ -188,6 +188,16 @@ func (p *PortChannelOperItems) XPath() string {
 	return "System/intf-items/aggr-items/AggrIf-list[id=" + p.ID + "]/aggrif-items"
 }
 
+type LacpIfStats struct {
+	ID      string `json:"-"`
+	PduRcvd string `json:"pduRcvd"`
+	PduSent string `json:"pduSent"`
+}
+
+func (l *LacpIfStats) XPath() string {
+	return "System/lacp-items/inst-items/if-items/If-list[id=" + l.ID + "]/ifstats-items"
+}
+
 // AddrItem represents the IP address configuration for an interface.
 // It can hold either IPv4 or IPv6 addresses, determined by the Is6 field.
 type AddrItem struct {

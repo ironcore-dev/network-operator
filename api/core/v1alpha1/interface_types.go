@@ -209,6 +209,17 @@ type MultiChassis struct {
 	ID int16 `json:"id"`
 }
 
+// LACPStatus contains LACP-specific status information.
+type LACPStatus struct {
+	// LACPDUsSent is the number of LACP Data Units sent by this interface.
+	// +optional
+	LACPDUsSent *uint64 `json:"lacpdusSent,omitempty"`
+
+	// LACPDUsReceived is the number of LACP Data Units received by this interface.
+	// +optional
+	LACPDUsReceived *uint64 `json:"lacpdusReceived,omitempty"`
+}
+
 // InterfaceStatus defines the observed state of Interface.
 type InterfaceStatus struct {
 	// The conditions are a list of status objects that describe the state of the Interface.
@@ -223,6 +234,11 @@ type InterfaceStatus struct {
 	// This field only applies to physical interfaces that are part of an aggregate interface.
 	// +optional
 	MemberOf *LocalObjectReference `json:"memberOf,omitempty"`
+
+	// LACP contains LACP-specific status information for interfaces that are part of an aggregate.
+	// This field is only populated for interfaces that are members of an aggregate interface.
+	// +optional
+	LACP *LACPStatus `json:"lacp,omitempty"`
 }
 
 // +kubebuilder:object:root=true

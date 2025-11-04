@@ -408,6 +408,22 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              lacp:
+                description: |-
+                  LACP contains LACP-specific status information for interfaces that are part of an aggregate.
+                  This field is only populated for interfaces that are members of an aggregate interface.
+                properties:
+                  lacpdusReceived:
+                    description: LACPDUsReceived is the number of LACP Data Units
+                      received by this interface.
+                    format: int64
+                    type: integer
+                  lacpdusSent:
+                    description: LACPDUsSent is the number of LACP Data Units sent
+                      by this interface.
+                    format: int64
+                    type: integer
+                type: object
               memberOf:
                 description: |-
                   MemberOf references the aggregate interface this interface is a member of, if any.

@@ -347,6 +347,14 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 	}
 	conditions.Set(s.Interface, cond)
 
+	if status.LACPDUsSent > 0 || status.LACPDUsRecv > 0 {
+		if s.Interface.Status.LACP == nil {
+			s.Interface.Status.LACP = &v1alpha1.LACPStatus{}
+		}
+		s.Interface.Status.LACP.LACPDUsSent = &status.LACPDUsSent
+		s.Interface.Status.LACP.LACPDUsReceived = &status.LACPDUsRecv
+	}
+
 	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
 }
 

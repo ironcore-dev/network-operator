@@ -710,14 +710,30 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 	}
 
 	var operSt OperSt
+	var lacpDUsSent, lacpDUsRecv uint64
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
 		phys := new(PhysIfOperItems)
 		phys.ID = name
-		if err := p.client.GetState(ctx, phys); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+
+		lacpSt := new(LacpIfStats)
+		lacpSt.ID = name
+
+		if err := p.client.GetState(ctx, phys, lacpSt); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 			return provider.InterfaceStatus{}, err
 		}
+
 		operSt = phys.OperSt
+
+		lacpDUsSent, err = strconv.ParseUint(lacpSt.PduSent, 10, 64)
+		if err != nil {
+			return provider.InterfaceStatus{}, err
+		}
+
+		lacpDUsRecv, err = strconv.ParseUint(lacpSt.PduRcvd, 10, 64)
+		if err != nil {
+			return provider.InterfaceStatus{}, err
+		}
 
 	case v1alpha1.InterfaceTypeLoopback:
 		lb := new(LoopbackOperItems)
@@ -740,7 +756,9 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 	}
 
 	return provider.InterfaceStatus{
-		OperStatus: operSt == OperStUp,
+		OperStatus:  operSt == OperStUp,
+		LACPDUsSent: lacpDUsSent,
+		LACPDUsRecv: lacpDUsRecv,
 	}, nil
 }
 
