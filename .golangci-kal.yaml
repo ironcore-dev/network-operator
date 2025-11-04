@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company
+# SPDX-License-Identifier: Apache-2.0
+version: "2"
+linters:
+  default: none
+  enable:
+    - kubeapilinter # linter for Kube API conventions
+  settings:
+    custom:
+      kubeapilinter:
+        type: module
+        description: KAL is the Kube-API-Linter and lints Kubernetes APIs based on API conventions and best practices.
+        settings:
+          linters: {}
+          lintersConfig:
+            conditions:
+              useProtobuf: Forbid
+            optionalfields:
+              pointers:
+                preference: WhenRequired
+
+  exclusions:
+    generated: strict
+    paths:
+      - ".*_test.go"
+      - "zz_generated.*.go"
+    rules:
+      - path-except: "^api/"
+        linters:
+          - kubeapilinter
+issues:
+  max-same-issues: 0
+  max-issues-per-linter: 0

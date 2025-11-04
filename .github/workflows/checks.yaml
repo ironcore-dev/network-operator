@@ -36,6 +36,8 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version: latest
+      - name: Run kube-api-linter
+        run: make run-kubeapilinter
       - name: Delete pre-installed shellcheck
         run: sudo rm -f $(which shellcheck)
       - name: Run shellcheck
