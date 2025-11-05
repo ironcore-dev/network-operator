@@ -45,7 +45,7 @@ type SNMPUser struct {
 	Ipv4AclName Option[string] `json:"ipv4AclName"`
 }
 
-func (s *SNMPUser) IsListItem() {}
+func (*SNMPUser) IsListItem() {}
 
 func (s *SNMPUser) XPath() string {
 	return "System/snmp-items/inst-items/lclUser-items/LocalUser-list[userName=" + s.Username + "]"
@@ -72,7 +72,7 @@ type SNMPHost struct {
 	} `json:"usevrf-items,omitzero"`
 }
 
-func (s *SNMPHost) IsListItem() {}
+func (*SNMPHost) IsListItem() {}
 
 func (s *SNMPHost) XPath() string {
 	return "System/snmp-items/inst-items/host-items[hostName=" + s.HostName + "][udpPortID=" + strconv.Itoa(s.UDPPortID) + "]"
@@ -100,7 +100,7 @@ type SNMPCommunity struct {
 	} `json:"acl-items,omitzero"`
 }
 
-func (s *SNMPCommunity) IsListItem() {}
+func (*SNMPCommunity) IsListItem() {}
 
 func (s *SNMPCommunity) XPath() string {
 	return "System/snmp-items/inst-items/community-items/CommSecP-list[name=" + s.Name + "]"

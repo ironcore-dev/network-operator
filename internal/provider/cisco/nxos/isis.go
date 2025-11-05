@@ -19,7 +19,7 @@ type ISIS struct {
 	} `json:"dom-items"`
 }
 
-func (i *ISIS) IsListItem() {}
+func (*ISIS) IsListItem() {}
 
 func (i *ISIS) XPath() string {
 	return "System/isis-items/inst-items/Inst-list[name=" + i.Name + "]"

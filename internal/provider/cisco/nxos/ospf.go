@@ -21,7 +21,7 @@ type OSPF struct {
 	} `json:"dom-items"`
 }
 
-func (o *OSPF) IsListItem() {}
+func (*OSPF) IsListItem() {}
 
 func (o *OSPF) XPath() string {
 	return "System/ospf-items/inst-items/Inst-list[name=" + o.Name + "]"

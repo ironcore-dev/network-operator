@@ -73,7 +73,7 @@ type SyslogFacility struct {
 	SeverityLevel SeverityLevel `json:"severityLevel"`
 }
 
-func (s *SyslogFacility) IsListItem() {}
+func (*SyslogFacility) IsListItem() {}
 
 func (s *SyslogFacility) XPath() string {
 	return "System/logging-items/loglevel-items/facility-items[facilityName=" + s.FacilityName + "]"
