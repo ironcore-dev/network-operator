@@ -118,4 +118,26 @@ resources:
   webhooks:
     validation: true
     webhookVersion: v1
-version: "3"
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: networking.metal.ironcore.dev
+  kind: VTEP
+  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
+  version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: cisco.networking.metal.ironcore.dev
+  group: nx
+  kind: VTEPConfig
+  controller: false
+  path: github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1
+  version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1

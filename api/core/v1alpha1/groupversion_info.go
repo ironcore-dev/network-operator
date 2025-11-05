@@ -97,6 +97,9 @@ const (
 
 	// WaitingForDependenciesReason indicates that the resource is waiting for its dependencies to be ready.
 	WaitingForDependenciesReason = "WaitingForDependencies"
+
+	// ImcompatibleProviderConfigRef indicates that the referenced provider configuration is not compatible with the device.
+	IncompatibleProviderConfigRef = "IncompatibleProviderConfigRef"
 )
 
 // Reasons that are specific to [Interface] objects.

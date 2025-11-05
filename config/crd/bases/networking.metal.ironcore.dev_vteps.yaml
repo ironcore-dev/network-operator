@@ -4,22 +4,33 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: isis.networking.metal.ironcore.dev
+  name: vteps.networking.metal.ironcore.dev
 spec:
   group: networking.metal.ironcore.dev
   names:
-    kind: ISIS
-    listKind: ISISList
-    plural: isis
-    singular: isis
+    kind: VTEP
+    listKind: VTEPList
+    plural: vteps
+    singular: vtep
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.name
+      name: VTEP
+      type: string
     - jsonPath: .spec.deviceRef.name
       name: Device
       type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Configured")].status
+      name: Configured
+      priority: 1
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Operational")].status
+      name: Operational
+      priority: 1
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -27,7 +38,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ISIS is the Schema for the isis API
+        description: VTEP is the Schema for the vteps API
         properties:
           apiVersion:
             description: |-
@@ -47,24 +58,24 @@ spec:
           metadata:
             type: object
           spec:
-            description: |-
-              Specification of the desired state of the resource.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            description: VTEPSpec defines the desired state of a VXLAN Tunnel Endoint
+              (VTEP)
             properties:
-              addressFamilies:
-                description: AddressFamilies is a list of address families for the
-                  ISIS instance.
-                items:
-                  description: AddressFamily represents the address family of an ISIS
-                    instance.
-                  enum:
-                  - IPv4Unicast
-                  - IPv6Unicast
-                  type: string
-                maxItems: 2
-                minItems: 1
-                type: array
-                x-kubernetes-list-type: set
+              anycastInterfaceRef:
+                description: AnycastInterfaceRef is the reference to the loopback
+                  interface used for anycast VTEP IP address.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               deviceRef:
                 description: |-
                   DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
@@ -84,66 +95,52 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
-              instance:
-                description: Instance is the name of the ISIS instance.
-                maxLength: 63
-                minLength: 1
-                type: string
-                x-kubernetes-validations:
-                - message: Instance is immutable
-                  rule: self == oldSelf
-              interfaces:
-                description: Interfaces is a list of interfaces that are part of the
-                  ISIS instance.
-                items:
-                  properties:
-                    bfd:
-                      default: {}
-                      description: BFD contains BFD configuration for the interface.
-                      properties:
-                        enabled:
-                          default: false
-                          description: Enabled indicates whether BFD is enabled on
-                            the interface.
-                          type: boolean
-                      type: object
-                    ref:
-                      description: |-
-                        Ref is a reference to the interface object.
-                        The interface object must exist in the same namespace.
-                      properties:
-                        name:
-                          description: |-
-                            Name of the referent.
-                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          maxLength: 63
-                          minLength: 1
-                          type: string
-                      required:
-                      - name
-                      type: object
-                      x-kubernetes-map-type: atomic
-                  required:
-                  - ref
-                  type: object
-                type: array
-                x-kubernetes-list-type: atomic
-              networkEntityTitle:
-                description: NetworkEntityTitle is the NET of the ISIS instance.
-                pattern: ^[a-fA-F0-9]{2}(\.[a-fA-F0-9]{4}){3,9}\.[a-fA-F0-9]{2}$
-                type: string
-              overloadBit:
-                default: Never
-                description: OverloadBit indicates the overload bit of the ISIS instance.
+              enabled:
+                description: Enable indicates whether the interface is administratively
+                  up or down.
+                type: boolean
+              hostReachability:
+                description: HostReachability specifies the method used for host reachability.
                 enum:
-                - Always
-                - Never
-                - OnStartup
+                - FloodAndLearn
+                - BGP
                 type: string
+              multicastGroup:
+                description: MulticastGroup specifies the multicast group configuration
+                  for the VTEP.
+                properties:
+                  prefix:
+                    description: Prefix is the multicast group IP prefix.
+                    format: cidr
+                    type: string
+                  type:
+                    description: Type specifies the multicast group level (L2 or L3).
+                    enum:
+                    - L2
+                    - L3
+                    type: string
+                required:
+                - prefix
+                - type
+                type: object
+              primaryInterfaceRef:
+                description: PrimaryInterfaceRef is the reference to the loopback
+                  interface used for the primary VTEP IP address.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               providerConfigRef:
-                description: |-
-                  ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
-                  This reference is used to link the Interface to its provider-specific configuration.
+                description: ProviderConfigRef is a reference to a resource holding
+                  the provider-specific configuration for this VTEP.
                 properties:
                   apiVersion:
                     description: APIVersion is the api group version of the resource
@@ -174,29 +171,35 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
-              type:
-                description: Type indicates the level of the ISIS instance.
-                enum:
-                - Level1
-                - Level2
-                - Level1-2
-                type: string
+              suppressARP:
+                description: SuppressARP indicates whether ARP suppression is enabled
+                  for this VTEP.
+                type: boolean
             required:
-            - addressFamilies
+            - anycastInterfaceRef
             - deviceRef
-            - instance
-            - networkEntityTitle
-            - type
+            - enabled
+            - hostReachability
+            - primaryInterfaceRef
+            - suppressARP
             type: object
+            x-kubernetes-validations:
+            - message: anycastInterfaceRef.name must differ from primaryInterfaceRef.name
+              rule: self.anycastInterfaceRef.name != self.primaryInterfaceRef.name
           status:
-            description: |-
-              Status of the resource. This is set and updated automatically.
-              Read-only.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            description: VTEPStatus defines the observed state of VTEP.
             properties:
               conditions:
-                description: The conditions are a list of status objects that describe
-                  the state of the ISIS.
+                description: |-
+                  conditions represent the current state of the VTEP resource.
+                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
+
+                  Standard condition types include:
+                  - "Available": the resource is fully functional
+                  - "Progressing": the resource is being created or updated
+                  - "Degraded": the resource failed to reach or maintain its desired state
+
+                  The conditions are a list of status objects that describe the state of the VTEP.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.

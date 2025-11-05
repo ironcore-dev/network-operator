@@ -1,0 +1,14 @@
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: VTEPConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: vtep1-cfg
+spec:
+  holdDownTime: 300
+  advertiseVMAC: true
+  infraVLANs:
+    - rangeMin: 100
+      rangeMax: 105
+    - id: 200

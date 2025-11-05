@@ -10,6 +10,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-nx-cisco-networking-metal-ironcore-dev-v1alpha1-vtepconfig
+  failurePolicy: Fail
+  name: vtepconfig-cisco-nx-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - nx.cisco.networking.metal.ironcore.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - vtepconfigs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-networking.metal.ironcore.dev-v1alpha1-vrf
   failurePolicy: Fail
   name: vrf-v1alpha1.kb.io
@@ -23,4 +43,24 @@ webhooks:
     - UPDATE
     resources:
     - vrfs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-networking-metal-ironcore-dev-v1alpha1-vtep
+  failurePolicy: Fail
+  name: vtep-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - networking.metal.ironcore.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - vteps
   sideEffects: None

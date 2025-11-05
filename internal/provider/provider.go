@@ -301,6 +301,32 @@ type VRFRequest struct {
 	ProviderConfig *ProviderConfig
 }
 
+type VTEPProvider interface {
+	Provider
+
+	// EnsureVRF call is responsible for VRF realization on the provider.
+	EnsureVTEP(context.Context, *VTEPRequest) error
+	// DeleteVRF call is responsible for VRF deletion on the provider.
+	DeleteVTEP(context.Context, *VTEPRequest) error
+	// GetInterfaceStatus call is responsible for retrieving the current status of the Interface from the provider.
+	GetStatusVTEP(context.Context, *VTEPRequest) (VTEPStatus, error)
+}
+
+type VTEPRequest struct {
+	VTEP             *v1alpha1.VTEP
+	PrimaryInterface *v1alpha1.Interface
+	AnycastInterface *v1alpha1.Interface
+	ProviderConfig   *ProviderConfig
+}
+
+type VTEPStatus struct {
+	// OperStatus indicates whether the VTEP is operationally up (true) or down (false).
+	OperStatus bool
+	// OperStatus indicates if the primary and anycast interfaces are operationally up (true) or down (false).
+	OperStatusPrimaryInterface bool
+	OperStatusAnycastInterface bool
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.
