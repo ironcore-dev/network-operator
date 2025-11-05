@@ -44,6 +44,7 @@ import (
 	nxcontroller "github.com/ironcore-dev/network-operator/internal/controller/cisco/nx"
 	corecontroller "github.com/ironcore-dev/network-operator/internal/controller/core"
 	"github.com/ironcore-dev/network-operator/internal/provider"
+	webhooknxv1alpha1 "github.com/ironcore-dev/network-operator/internal/webhook/cisco/nx/v1alpha1"
 	webhookv1alpha1 "github.com/ironcore-dev/network-operator/internal/webhook/core/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
@@ -427,6 +428,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&corecontroller.NVEReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("nve-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+		RequeueInterval:  requeueInterval,
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "NVE")
+		os.Exit(1)
+	}
+
 	if err := (&nxcontroller.SystemReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
@@ -438,19 +451,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := webhookv1alpha1.SetupVRFWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "VRF")
-			os.Exit(1)
-		}
-	}
-
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := webhookv1alpha1.SetupInterfaceWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Interface")
-			os.Exit(1)
-		}
-	}
 	if err := (&corecontroller.EVPNInstanceReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
@@ -461,6 +461,29 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "EVPNInstance")
 		os.Exit(1)
 	}
+
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err := webhookv1alpha1.SetupInterfaceWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Interface")
+			os.Exit(1)
+		}
+
+		if err := webhookv1alpha1.SetupVRFWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "VRF")
+			os.Exit(1)
+		}
+
+		if err := webhookv1alpha1.SetupNVEWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "NVE")
+			os.Exit(1)
+		}
+
+		if err := webhooknxv1alpha1.SetupNVEConfigWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "NVEConfig")
+			os.Exit(1)
+		}
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {
