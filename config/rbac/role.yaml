@@ -44,6 +44,7 @@ rules:
   - syslogs
   - users
   - vrfs
+  - vteps
   verbs:
   - create
   - delete
@@ -68,6 +69,7 @@ rules:
   - syslogs/finalizers
   - users/finalizers
   - vrfs/finalizers
+  - vteps/finalizers
   verbs:
   - update
 - apiGroups:
@@ -86,7 +88,16 @@ rules:
   - syslogs/status
   - users/status
   - vrfs/status
+  - vteps/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - nx.cisco.networking.metal.ironcore.dev
+  resources:
+  - vtepconfigs
+  verbs:
+  - get
+  - list
+  - watch

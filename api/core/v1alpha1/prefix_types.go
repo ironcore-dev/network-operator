@@ -77,3 +77,50 @@ func (in *IPPrefix) DeepCopy() *IPPrefix {
 	in.DeepCopyInto(out)
 	return out
 }
+
+func (in *IPPrefix) First() netip.Addr {
+	if !in.IsValid() {
+		return netip.Addr{}
+	}
+	return in.Masked().Addr()
+}
+
+func (in *IPPrefix) Last() netip.Addr {
+	if !in.IsValid() {
+		return netip.Addr{}
+	}
+	net := in.Masked().Addr()
+	if in.Bits() == 0 {
+		if net.Is4() {
+			return netip.AddrFrom4([4]byte{255, 255, 255, 255})
+		}
+		return netip.AddrFrom16([16]byte{
+			0xff, 0xff, 0xff, 0xff,
+			0xff, 0xff, 0xff, 0xff,
+			0xff, 0xff, 0xff, 0xff,
+			0xff, 0xff, 0xff, 0xff,
+		})
+	}
+	if net.Is4() {
+		a4 := net.As4()
+		v := uint32(a4[0])<<24 | uint32(a4[1])<<16 | uint32(a4[2])<<8 | uint32(a4[3])
+		hostBits := 32 - in.Bits()
+		mask := uint32(1<<hostBits) - 1
+		v |= mask
+		return netip.AddrFrom4([4]byte{
+			byte(v >> 24),
+			byte(v >> 16),
+			byte(v >> 8),
+			byte(v),
+		})
+	}
+	a16 := net.As16()
+	hostBits := 128 - in.Bits()
+
+	for i := range hostBits {
+		byteIdx := 15 - i/8
+		bit := byte(1 << (i % 8))
+		a16[byteIdx] |= bit
+	}
+	return netip.AddrFrom16(a16)
+}

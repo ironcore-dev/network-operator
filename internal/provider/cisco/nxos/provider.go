@@ -22,6 +22,7 @@ import (
 	"github.com/go-logr/logr"
 	"google.golang.org/grpc"
 
+	nxosv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
@@ -43,6 +44,7 @@ var (
 	_ provider.SyslogProvider           = (*Provider)(nil)
 	_ provider.UserProvider             = (*Provider)(nil)
 	_ provider.VRFProvider              = (*Provider)(nil)
+	_ provider.VTEPProvider             = (*Provider)(nil)
 )
 
 type Provider struct {
@@ -1009,74 +1011,75 @@ type NVERequest struct {
 	HoldDownTime int16 // in seconds
 }
 
-func (p *Provider) EnsureNVE(ctx context.Context, req *NVERequest) error {
-	f := new(Feature)
-	f.Name = "nvo"
-	f.AdminSt = AdminStEnabled
+// func (p *Provider) EnsureNVE(ctx context.Context, req *NVERequest) error {
+// 	f := new(Feature)
+// 	f.Name = "nvo"
+// 	f.AdminSt = AdminStEnabled
 
-	f2 := new(Feature)
-	f2.Name = "ngmvpn"
-	f2.AdminSt = AdminStEnabled
+// 	f2 := new(Feature)
+// 	f2.Name = "ngmvpn"
+// 	f2.AdminSt = AdminStEnabled
 
-	srcIf, err := ShortNameLoopback(req.SourceInterface)
-	if err != nil {
-		return err
-	}
+// 	srcIf, err := ShortNameLoopback(req.SourceInterface)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	anyIf, err := ShortNameLoopback(req.AnycastInterface)
-	if err != nil {
-		return err
-	}
+// 	anyIf, err := ShortNameLoopback(req.AnycastInterface)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	nve := new(NVE)
-	nve.ID = 1
-	nve.AdminSt = AdminStDisabled
-	if req.AdminSt {
-		nve.AdminSt = AdminStEnabled
-	}
+// 	nve := new(NVE)
+// 	nve.ID = 1
+// 	nve.AdminSt = AdminStDisabled
+// 	if req.AdminSt {
+// 		nve.AdminSt = AdminStEnabled
+// 	}
 
-	if srcIf == anyIf {
-		return errors.New("nve: source and anycast interfaces must be different")
-	}
-	nve.SourceInterface = srcIf
-	nve.AnycastInterface = anyIf
+// 	if srcIf == anyIf {
+// 		return errors.New("nve: source and anycast interfaces must be different")
+// 	}
+// 	nve.SourceInterface = srcIf
+// 	nve.AnycastInterface = anyIf
 
-	if req.HostReach != HostReachBGP && req.HostReach != HostReachFloodAndLearn {
-		return fmt.Errorf("nve: invalid host reach type %q", req.HostReach)
-	}
-	nve.HostReach = req.HostReach
+// 	if req.HostReach != HostReachBGP && req.HostReach != HostReachFloodAndLearn {
+// 		return fmt.Errorf("nve: invalid host reach type %q", req.HostReach)
+// 	}
+// 	nve.HostReach = req.HostReach
 
-	if req.AdvertiseVirtualRmac != nil {
-		nve.AdvertiseVmac = *req.AdvertiseVirtualRmac
-	}
+// 	if req.AdvertiseVirtualRmac != nil {
+// 		nve.AdvertiseVmac = *req.AdvertiseVirtualRmac
+// 	}
 
-	if req.SuppressARP != nil {
-		nve.SuppressARP = *req.SuppressARP
-	}
+// 	// TODO: move to control plane
+// 	if req.SuppressARP != nil {
+// 		nve.SuppressARP = *req.SuppressARP
+// 	}
 
-	if ip := req.McastL2; ip != nil {
-		if !ip.Is4() || !ip.IsMulticast() {
-			return fmt.Errorf("nve: invalid multicast IPv4 address: %s", ip)
-		}
-		nve.McastGroupL2 = ip.String()
-	}
+// 	if ip := req.McastL2; ip != nil {
+// 		if !ip.Is4() || !ip.IsMulticast() {
+// 			return fmt.Errorf("nve: invalid multicast IPv4 address: %s", ip)
+// 		}
+// 		nve.McastGroupL2 = ip.String()
+// 	}
 
-	if ip := req.McastL3; ip != nil {
-		if !ip.Is4() || !ip.IsMulticast() {
-			return fmt.Errorf("nve: invalid multicast IPv4 address: %s", ip)
-		}
-		nve.McastGroupL3 = ip.String()
-	}
+// 	if ip := req.McastL3; ip != nil {
+// 		if !ip.Is4() || !ip.IsMulticast() {
+// 			return fmt.Errorf("nve: invalid multicast IPv4 address: %s", ip)
+// 		}
+// 		nve.McastGroupL3 = ip.String()
+// 	}
 
-	if req.HoldDownTime != 0 {
-		if req.HoldDownTime < 1 || req.HoldDownTime > 1500 {
-			return fmt.Errorf("nve: hold down time %d is out of range (1-1500 seconds)", req.HoldDownTime)
-		}
-		nve.HoldDownTime = req.HoldDownTime
-	}
+// 	if req.HoldDownTime != 0 {
+// 		if req.HoldDownTime < 1 || req.HoldDownTime > 1500 {
+// 			return fmt.Errorf("nve: hold down time %d is out of range (1-1500 seconds)", req.HoldDownTime)
+// 		}
+// 		nve.HoldDownTime = req.HoldDownTime
+// 	}
 
-	return p.client.Update(ctx, f, f2, nve)
-}
+// 	return p.client.Update(ctx, f, f2, nve)
+// }
 
 type OSPFRouter struct {
 	AdminSt bool
@@ -1726,6 +1729,108 @@ func (p *Provider) DeleteVRF(ctx context.Context, req *provider.VRFRequest) erro
 	v := new(VRF)
 	v.Name = req.VRF.Spec.Name
 	return p.client.Delete(ctx, v)
+}
+
+func (p *Provider) EnsureVTEP(ctx context.Context, req *provider.VTEPRequest) error {
+	if req.ProviderConfig == nil {
+		return errors.New("vtep: provider requires NVE config (ref is nil)")
+	}
+
+	n := new(NVE)
+	n.ID = 1
+
+	// generic settings
+	n.AdminSt = AdminStDisabled
+	if req.VTEP.Spec.Enabled {
+		n.AdminSt = AdminStEnabled
+	}
+
+	// TODO: check the interfaces exist?
+	// primaryinterface should have been validated
+
+	// TODO: implement admission webhook to validate interface types
+	if req.PrimaryInterface.Spec.Type != v1alpha1.InterfaceTypeLoopback {
+		return fmt.Errorf("vtep: primary interface %q is not a loopback interface", req.PrimaryInterface.Spec.Name)
+	}
+	n.SourceInterface = req.PrimaryInterface.Spec.Name
+
+	if req.AnycastInterface.Spec.Type != v1alpha1.InterfaceTypeLoopback {
+		return fmt.Errorf("vtep: anycast interface %q is not a loopback interface", req.AnycastInterface.Spec.Name)
+	}
+	n.AnycastInterface = req.AnycastInterface.Spec.Name
+
+	// TODO: implement this check in an admission webhook
+	if n.AnycastInterface == n.SourceInterface && n.AnycastInterface != "" {
+		return fmt.Errorf("vtep: anycast interface and primary interface cannot be the same (%q)", n.AnycastInterface)
+	}
+
+	if req.VTEP.Spec.MulticastGroup != nil {
+		switch req.VTEP.Spec.MulticastGroup.Type {
+		case v1alpha1.MulticastGroupTypeL2:
+			n.McastGroupL2 = req.VTEP.Spec.MulticastGroup.Prefix.Addr().String()
+		case v1alpha1.MulticastGroupTypeL3:
+			n.McastGroupL3 = req.VTEP.Spec.MulticastGroup.Prefix.Addr().String()
+		}
+	}
+
+	switch req.VTEP.Spec.HostReachability {
+	case v1alpha1.HostReachabilityBGP:
+		n.HostReach = HostReachBGP
+	case v1alpha1.HostReachabilityFloodAndLearn:
+		n.HostReach = HostReachFloodAndLearn
+	default:
+		return fmt.Errorf("vtep: invalid evpn host reachability type %q", req.VTEP.Spec.HostReachability)
+	}
+	n.SuppressARP = req.VTEP.Spec.SuppressARP
+
+	// provider-specific settings
+	vc := new(nxosv1alpha1.VTEPConfig)
+	if err := req.ProviderConfig.Into(vc); err != nil {
+		return fmt.Errorf("vtep: decode provider config: %w", err)
+	}
+
+	if vc.Spec.HoldDownTime > 0 {
+		n.HoldDownTime = vc.Spec.HoldDownTime
+	}
+
+	if vc.Spec.AdvertiseVMAC != nil {
+		n.AdvertiseVmac = *vc.Spec.AdvertiseVMAC
+	}
+
+	iv := new(NVEInfraVLANs)
+	for _, ivList := range vc.Spec.InfraVLANs {
+		// validation already occurred in admission webhook and CRD
+		if ivList.ID != 0 {
+			iv.InfraVLANList = append(iv.InfraVLANList, &NVEInfraVLAN{ID: uint32(ivList.ID)}) //nolint:gosec // G115: validated range
+			continue
+		}
+		for i := ivList.RangeMin; i <= ivList.RangeMax; i++ {
+			iv.InfraVLANList = append(iv.InfraVLANList, &NVEInfraVLAN{ID: uint32(i)}) //nolint:gosec // G115: validated range
+		}
+	}
+
+	return p.client.Update(ctx, n, iv)
+}
+
+func (p *Provider) DeleteVTEP(ctx context.Context, req *provider.VTEPRequest) error {
+	v := new(NVE)
+	v.ID = 1
+	return p.client.Delete(ctx, v)
+}
+
+func (p *Provider) GetStatusVTEP(ctx context.Context, req *provider.VTEPRequest) (provider.VTEPStatus, error) {
+	s := provider.VTEPStatus{}
+
+	op := new(NVEOper)
+	op.ID = 1
+	if err := p.client.GetState(ctx, op); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return provider.VTEPStatus{}, err
+	}
+	s.OperStatus = op.OperSt == OperStUp
+	// These are available directly at the same yang path as the OperStatus of the NVE
+	s.OperStatusPrimaryInterface = op.OperStPrimaryInterface == OperStUp
+	s.OperStatusAnycastInterface = op.OperStAnycastInterface == OperStUp
+	return s, nil
 }
 
 func init() {

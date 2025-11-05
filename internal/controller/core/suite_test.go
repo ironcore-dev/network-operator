@@ -26,6 +26,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	nxosv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
@@ -58,6 +59,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = v1alpha1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = nxosv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme
@@ -204,6 +208,15 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&VTEPReconciler{
+		Client:          k8sManager.GetClient(),
+		Scheme:          k8sManager.GetScheme(),
+		Recorder:        recorder,
+		Provider:        prov,
+		RequeueInterval: time.Second,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -261,11 +274,14 @@ var (
 	_ provider.ManagementAccessProvider = (*Provider)(nil)
 	_ provider.ISISProvider             = (*Provider)(nil)
 	_ provider.VRFProvider              = (*Provider)(nil)
+	_ provider.VTEPProvider             = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
 type Provider struct {
 	sync.Mutex
+	// Optional override; if nil default info is returned.
+	deviceInfoOverride *provider.DeviceInfo
 
 	Ports  sets.Set[string]
 	User   sets.Set[string]
@@ -279,6 +295,7 @@ type Provider struct {
 	Access *v1alpha1.ManagementAccess
 	ISIS   sets.Set[string]
 	VRF    sets.Set[string]
+	VTEP   *v1alpha1.VTEP
 }
 
 func NewProvider() *Provider {
@@ -308,12 +325,31 @@ func (p *Provider) ListPorts(context.Context) (ports []provider.DevicePort, err 
 }
 
 func (p *Provider) GetDeviceInfo(context.Context) (*provider.DeviceInfo, error) {
+	p.Lock()
+	defer p.Unlock()
+	if p.deviceInfoOverride != nil {
+		return p.deviceInfoOverride, nil
+	}
 	return &provider.DeviceInfo{
 		Manufacturer:    "Manufacturer",
 		Model:           "Model",
 		SerialNumber:    "123456789",
 		FirmwareVersion: "1.0.0",
 	}, nil
+}
+
+func (p *Provider) OverrideDeviceInfo(di provider.DeviceInfo) error {
+	p.Lock()
+	defer p.Unlock()
+	p.deviceInfoOverride = &di
+	return nil
+}
+
+func (p *Provider) ResetDeviceInfoOverride() error {
+	p.Lock()
+	defer p.Unlock()
+	p.deviceInfoOverride = nil
+	return nil
 }
 
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) error {
@@ -488,4 +524,27 @@ func (p *Provider) DeleteVRF(_ context.Context, req *provider.VRFRequest) error 
 	defer p.Unlock()
 	p.VRF.Delete(req.VRF.Spec.Name)
 	return nil
+}
+
+func (p *Provider) EnsureVTEP(_ context.Context, req *provider.VTEPRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.VTEP = req.VTEP
+	return nil
+}
+
+// TODO: check this is correct
+func (p *Provider) DeleteVTEP(_ context.Context, req *provider.VTEPRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.VTEP = nil
+	return nil
+}
+
+func (p *Provider) GetStatusVTEP(context.Context, *provider.VTEPRequest) (provider.VTEPStatus, error) {
+	return provider.VTEPStatus{
+		OperStatus:                 true,
+		OperStatusPrimaryInterface: true,
+		OperStatusAnycastInterface: true,
+	}, nil
 }

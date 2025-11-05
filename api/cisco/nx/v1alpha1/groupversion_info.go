@@ -22,3 +22,12 @@ var (
 	// AddToScheme adds the types in this group-version to the given scheme.
 	AddToScheme = SchemeBuilder.AddToScheme
 )
+
+// TODO: discuss with team if we want to use these constants in the provider to ensure
+// compatibility checks
+const CompatibleManufacturer = "Cisco"
+
+var (
+	CompatibleFirmwareVersions = []string{"10.4(3)"}
+	CompatibleModels           = []string{"N9K-C9300v"}
+)
