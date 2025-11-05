@@ -26,6 +26,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	nxosv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
@@ -58,6 +59,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = v1alpha1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = nxosv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme
@@ -204,6 +208,15 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&VTEPReconciler{
+		Client:          k8sManager.GetClient(),
+		Scheme:          k8sManager.GetScheme(),
+		Recorder:        recorder,
+		Provider:        prov,
+		RequeueInterval: time.Second,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -261,6 +274,7 @@ var (
 	_ provider.ManagementAccessProvider = (*Provider)(nil)
 	_ provider.ISISProvider             = (*Provider)(nil)
 	_ provider.VRFProvider              = (*Provider)(nil)
+	_ provider.VTEPProvider             = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -279,6 +293,7 @@ type Provider struct {
 	Access *v1alpha1.ManagementAccess
 	ISIS   sets.Set[string]
 	VRF    sets.Set[string]
+	VTEP   *v1alpha1.VTEP
 }
 
 func NewProvider() *Provider {
@@ -487,5 +502,21 @@ func (p *Provider) DeleteVRF(_ context.Context, req *provider.VRFRequest) error 
 	p.Lock()
 	defer p.Unlock()
 	p.VRF.Delete(req.VRF.Spec.Name)
+	return nil
+}
+
+// TODO: check this is correct
+func (p *Provider) EnsureVTEP(_ context.Context, req *provider.VTEPRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.VTEP = req.VTEP
+	return nil
+}
+
+// TODO: check this is correct
+func (p *Provider) DeleteVTEP(_ context.Context, req *provider.VTEPRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.VTEP = nil
 	return nil
 }

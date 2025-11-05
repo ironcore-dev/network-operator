@@ -4,22 +4,36 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: snmp.networking.metal.ironcore.dev
+  name: vteps.networking.metal.ironcore.dev
 spec:
   group: networking.metal.ironcore.dev
   names:
-    kind: SNMP
-    listKind: SNMPList
-    plural: snmp
-    singular: snmp
+    kind: VTEP
+    listKind: VTEPList
+    plural: vteps
+    singular: vtep
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.name
+      name: VTEP
+      type: string
     - jsonPath: .spec.deviceRef.name
       name: Device
       type: string
+    - jsonPath: .spec.nve
+      name: NVE
+      type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Configured")].status
+      name: Configured
+      priority: 1
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Operational")].status
+      name: Operational
+      priority: 1
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -27,7 +41,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: SNMP is the Schema for the snmp API
+        description: VTEP is the Schema for the vteps API
         properties:
           apiVersion:
             description: |-
@@ -47,43 +61,38 @@ spec:
           metadata:
             type: object
           spec:
-            description: |-
-              Specification of the desired state of the resource.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            description: VTEPSpec defines the desired state of a VXLAN Tunnel Endoint
+              (VTEP)
             properties:
-              communities:
-                description: SNMP communities for SNMPv1 or SNMPv2c.
-                items:
-                  properties:
-                    aclName:
-                      description: ACL name to filter SNMP requests.
-                      maxLength: 63
-                      minLength: 1
-                      type: string
-                    group:
-                      description: Group to which the community belongs.
-                      maxLength: 63
-                      minLength: 1
-                      type: string
-                    name:
-                      description: Name of the community.
-                      maxLength: 63
-                      minLength: 1
-                      type: string
-                  required:
-                  - name
-                  type: object
-                maxItems: 16
-                minItems: 1
-                type: array
-                x-kubernetes-list-map-keys:
+              anycastInterfaceRef:
+                description: Optional anycast source interface.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
                 - name
-                x-kubernetes-list-type: map
-              contact:
-                description: The contact information for the SNMP server.
-                maxLength: 63
-                minLength: 1
-                type: string
+                type: object
+                x-kubernetes-map-type: atomic
+              controlPlaneRef:
+                description: ControlPlaneRef is the reference to the EVPNControlPlane
+                  resource that manages the control plane for this VTEP.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               deviceRef:
                 description: |-
                   DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
@@ -103,59 +112,29 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
-              hosts:
-                description: SNMP destination hosts for SNMP traps or informs messages.
-                items:
-                  properties:
-                    address:
-                      description: The Hostname or IP address of the SNMP host to
-                        send notifications to.
-                      maxLength: 63
-                      minLength: 1
-                      type: string
-                    community:
-                      description: SNMP community or user name.
-                      maxLength: 63
-                      minLength: 1
-                      type: string
-                    type:
-                      default: Traps
-                      description: Type of message to send to host. Default is traps.
-                      enum:
-                      - Traps
-                      - Informs
-                      type: string
-                    version:
-                      default: v2c
-                      description: SNMP version. Default is v2c.
-                      enum:
-                      - v1
-                      - v2c
-                      - v3
-                      type: string
-                    vrfName:
-                      description: The name of the vrf instance to use to source traffic.
-                      maxLength: 63
-                      minLength: 1
-                      type: string
-                  required:
-                  - address
-                  type: object
-                maxItems: 16
-                minItems: 1
-                type: array
-                x-kubernetes-list-map-keys:
-                - address
-                x-kubernetes-list-type: map
-              location:
-                description: The location information for the SNMP server.
-                maxLength: 63
-                minLength: 1
-                type: string
+              enabled:
+                description: AdminState indicates whether the interface is administratively
+                  up or down.
+                type: boolean
+              primaryInterfaceRef:
+                description: Required non-anycast source interface.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               providerConfigRef:
                 description: |-
                   ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
-                  This reference is used to link the SNMP to its provider-specific configuration.
+                  This reference is used to link the Interface to its provider-specific configuration.
+                  For Cisco devices this can be the NVE API type
                 properties:
                   apiVersion:
                     description: |-
@@ -187,33 +166,26 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
-              sourceInterfaceName:
-                description: The name of the interface to be used for sending out
-                  SNMP Trap/Inform notifications.
-                maxLength: 63
-                minLength: 1
-                type: string
-              traps:
-                description: The list of trap notifications to enable.
-                items:
-                  type: string
-                minItems: 1
-                type: array
-                x-kubernetes-list-type: set
             required:
+            - controlPlaneRef
             - deviceRef
-            - hosts
-            - sourceInterfaceName
+            - enabled
+            - primaryInterfaceRef
             type: object
           status:
-            description: |-
-              Status of the resource. This is set and updated automatically.
-              Read-only.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            description: VTEPStatus defines the observed state of VTEP.
             properties:
               conditions:
-                description: The conditions are a list of status objects that describe
-                  the state of the SNMP.
+                description: |-
+                  conditions represent the current state of the VTEP resource.
+                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
+
+                  Standard condition types include:
+                  - "Available": the resource is fully functional
+                  - "Progressing": the resource is being created or updated
+                  - "Degraded": the resource failed to reach or maintain its desired state
+
+                  The conditions are a list of status objects that describe the state of the VTEP.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.

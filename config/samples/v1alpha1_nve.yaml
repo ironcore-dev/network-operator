@@ -1,0 +1,28 @@
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: NVE
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: nve1
+spec:
+  deviceRef:
+    name: leaf1
+  enabled: true
+  holdDownTime: 300
+  stormControl:
+    unicast: 10
+    broadcast: 10
+    multicast: 10
+  infraVLANs:
+    - "100-101"
+    - "200"
+  advertiseVMAC: true
+  globalMulticastGroups:
+    l2: "239.4.4.0/24"
+  multisite:
+    enabled: true
+    id: 123
+    borderGatewayInterfaceRef:
+      name: lo2

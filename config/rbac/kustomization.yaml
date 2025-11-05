@@ -22,6 +22,15 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the network-operator itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- nve_admin_role.yaml
+- nve_editor_role.yaml
+- nve_viewer_role.yaml
+- evpncontrolplane_admin_role.yaml
+- evpncontrolplane_editor_role.yaml
+- evpncontrolplane_viewer_role.yaml
+- vtep_admin_role.yaml
+- vtep_editor_role.yaml
+- vtep_viewer_role.yaml
 - device_admin_role.yaml
 - device_editor_role.yaml
 - device_viewer_role.yaml
@@ -61,3 +70,5 @@ resources:
 - vrf_admin_role.yaml
 - vrf_editor_role.yaml
 - vrf_viewer_role.yaml
+
+

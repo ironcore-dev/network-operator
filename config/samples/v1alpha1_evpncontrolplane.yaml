@@ -1,0 +1,35 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: EVPNControlPlane
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: evpn1
+spec:
+  name: evpn1
+  deviceRef:
+    name: leaf1
+  hostReachability: BGP
+  suppressArp: true
+  # openconfig has per-vni overrides
+  anycastGateway:
+    enabled: true
+    macAddress: 2a:bb:cc:dd:ee
+  # Cisco specific
+  #    advertiseVirtualRmac: true
+  # stormControl:
+  # unicast: "0-100"
+  # multicast: "0-100"
+  # broadcast: "0-100"
+  # multisite:
+  # enabled: true
+  # id: 123
+  # delayRestoreSeconds: 300
+  # duplicateHostDetection:
+  #   ipAddressDetection:
+  #     intervalSeconds: 200
+  #     maxRetries: 100
+  #   recoveryTimer:
+  #     intervalSeconds: 30
+  #     recoverCount: 10

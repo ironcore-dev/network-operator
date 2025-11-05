@@ -1,0 +1,29 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: VTEP
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: vtep1
+spec:
+  deviceRef:
+    name: leaf1
+  enabled: true
+  primaryInterfaceRef:
+    name: lo0
+  anycastInterfaceRef:
+    name: lo1
+
+    # multisite:
+    #   interfaceRef:
+    #     name: loopback3
+  controlPlaneRef:
+    name: evpn1
+  providerConfigRef:
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+    kind: NVE
+    name: nve1
+
+
+

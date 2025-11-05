@@ -106,11 +106,12 @@ spec:
                   This reference is used to link the Interface to its provider-specific configuration.
                 properties:
                   apiVersion:
-                    description: APIVersion is the api group version of the resource
-                      being referenced.
+                    description: |-
+                      APIVersion is the api group version of the resource being referenced.
+                      former ignore me:  kubebuilder:validation:Pattern=`^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/)?([a-z0-9]([-a-z0-9]*[a-z0-9])?)$`
                     maxLength: 253
                     minLength: 1
-                    pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/)?([a-z0-9]([-a-z0-9]*[a-z0-9])?)$
+                    pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(?:\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/)?([a-z0-9]([-a-z0-9]*[a-z0-9])?)$
                     type: string
                   kind:
                     description: |-

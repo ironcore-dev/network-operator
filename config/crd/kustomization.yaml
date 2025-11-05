@@ -15,6 +15,9 @@ resources:
 - bases/networking.metal.ironcore.dev_managementaccesses.yaml
 - bases/networking.metal.ironcore.dev_isis.yaml
 - bases/networking.metal.ironcore.dev_vrfs.yaml
+- bases/networking.metal.ironcore.dev_vteps.yaml
+- bases/networking.metal.ironcore.dev_evpncontrolplanes.yaml
+- bases/nx.cisco.networking.metal.ironcore.dev_nves.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

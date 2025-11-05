@@ -4,16 +4,16 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: certificates.networking.metal.ironcore.dev
+  name: nves.nx.cisco.networking.metal.ironcore.dev
 spec:
-  group: networking.metal.ironcore.dev
+  group: nx.cisco.networking.metal.ironcore.dev
   names:
-    kind: Certificate
-    listKind: CertificateList
-    plural: certificates
+    kind: NVE
+    listKind: NVEList
+    plural: nves
     shortNames:
-    - netcert
-    singular: certificate
+    - nve
+    singular: nve
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -29,7 +29,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Certificate is the Schema for the certificates API
+        description: NVE is the Schema for the NVE API
         properties:
           apiVersion:
             description: |-
@@ -49,10 +49,11 @@ spec:
           metadata:
             type: object
           spec:
-            description: |-
-              Specification of the desired state of the resource.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            description: spec defines the desired state of NVE
             properties:
+              advertiseVMAC:
+                description: 'AdvertiseVMAC is equivalent to: `advertise virtual-rmac`'
+                type: boolean
               deviceRef:
                 description: |-
                   DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
@@ -72,87 +73,118 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
-              id:
-                description: |-
-                  The certificate management id.
-                  Immutable.
-                maxLength: 63
-                minLength: 1
-                type: string
+              globalMulticastGroups:
+                description: GlobalMulticastGroups defines the multicast distribution
+                  tree
+                properties:
+                  l2:
+                    description: L2 configures the group for the Layer 2 VNI, equiv.
+                      to `global mcast-group ... L2`
+                    format: cidr
+                    type: string
+                  l3:
+                    description: L3 configures the global multicast group for the
+                      Layer 3 VNI, equiv. to `global mcast-group ... L3`
+                    format: cidr
+                    type: string
+                type: object
                 x-kubernetes-validations:
-                - message: ID is immutable
-                  rule: self == oldSelf
-              providerConfigRef:
+                - message: l2 and l3 are mutually exclusive
+                  rule: '!(has(self.l2) && has(self.l3))'
+              holdDownTime:
+                description: 'HoldDownTime is equivalent to: `source-interface hold-down-time`'
+                maximum: 1500
+                minimum: 1
+                type: integer
+              infraVLANs:
                 description: |-
-                  ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
-                  This reference is used to link the Certificate to its provider-specific configuration.
+                  InfraVLANs is the list of infrastructure VLANs for ingress replication, equivalent to: `system nve infra-vlan`
+                  - no overlapping ranges
+                  - range of vlans configured does must not exceed 512
+                items:
+                  description: VLANListItem represents a single VLAN ID or a range
+                    start-end (e.g. "100", "200-300").
+                  pattern: ^(\d{1,4}(-\d{1,4})?)$
+                  type: string
+                  x-kubernetes-validations:
+                  - message: Single VLAN 1-3967; range both 1-3967 and end > start
+                    rule: 'self.contains(''-'') ? (int(self.split(''-'')[0]) >= 1
+                      && int(self.split(''-'')[0]) <= 3967 && int(self.split(''-'')[1])
+                      >= 1 && int(self.split(''-'')[1]) <= 3967 && int(self.split(''-'')[1])
+                      > int(self.split(''-'')[0])) : (int(self) >= 1 && int(self)
+                      <= 3967)'
+                maxItems: 2
+                type: array
+              multisite:
+                description: MultiSite defines EVPN Multisite Border Gateway configuration.
                 properties:
-                  apiVersion:
+                  ID:
                     description: |-
-                      APIVersion is the api group version of the resource being referenced.
-                      former ignore me:  kubebuilder:validation:Pattern=`^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/)?([a-z0-9]([-a-z0-9]*[a-z0-9])?)$`
-                    maxLength: 253
-                    minLength: 1
-                    pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(?:\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/)?([a-z0-9]([-a-z0-9]*[a-z0-9])?)$
-                    type: string
-                  kind:
+                      ID is the site ID or unique identifier for the site in a multisite EVPN deployment.
+                      equiv. to: `evpn multisite border-gateway <id>`
+                    format: int32
+                    type: integer
+                  borderGatewayInterfaceRef:
                     description: |-
-                      Kind of the resource being referenced.
-                      Kind must consist of alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character.
-                    maxLength: 63
-                    minLength: 1
-                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
-                    type: string
-                  name:
-                    description: |-
-                      Name of the resource being referenced.
-                      Name must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character.
-                    maxLength: 253
-                    minLength: 1
-                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                    type: string
+                      BorderGatewayInterfaceRef is the reference to the interface used as Border Gateway Interface
+                      equiv. to.:
+                      ```
+                      interface nve1
+                      multisite border-gateway interface <interface-name>
+                      ```
+                    properties:
+                      name:
+                        description: |-
+                          Name of the referent.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  enabled:
+                    description: Enabled enables EVPN Multisite Border Gateway functionality.
+                    type: boolean
                 required:
-                - apiVersion
-                - kind
-                - name
+                - ID
+                - borderGatewayInterfaceRef
+                - enabled
                 type: object
-                x-kubernetes-map-type: atomic
-              secretRef:
-                description: |-
-                  Secret containing the certificate source.
-                  The secret must be of type kubernetes.io/tls and as such contain the following keys: 'tls.crt' and 'tls.key'.
+              stormControl:
+                description: StormControl defines storm-control parameters for the
+                  NVE interface.
                 properties:
-                  name:
-                    description: Name is unique within a namespace to reference a
-                      secret resource.
-                    maxLength: 253
-                    minLength: 1
-                    type: string
-                  namespace:
-                    description: |-
-                      Namespace defines the space within which the secret name must be unique.
-                      If omitted, the namespace of the object being reconciled will be used.
-                    maxLength: 63
-                    minLength: 1
-                    type: string
-                required:
-                - name
+                  broadcast:
+                    description: Broadcast is a sorm-control configuration parameter,
+                      as percentage of port capacity (an integer value).
+                    format: int32
+                    maximum: 100
+                    minimum: 0
+                    type: integer
+                  multicast:
+                    description: Multicast is a sorm-control configuration parameter,
+                      as percentage of port capacity (an integer value).
+                    format: int32
+                    maximum: 100
+                    minimum: 0
+                    type: integer
+                  unicast:
+                    description: Unicast is a sorm-control configuration parameter,
+                      as percentage of port capacity (an integer value).
+                    format: int32
+                    maximum: 100
+                    minimum: 0
+                    type: integer
                 type: object
-                x-kubernetes-map-type: atomic
             required:
             - deviceRef
-            - id
-            - secretRef
             type: object
           status:
-            description: |-
-              Status of the resource. This is set and updated automatically.
-              Read-only.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            description: status defines the observed state of NVE
             properties:
               conditions:
-                description: The conditions are a list of status objects that describe
-                  the state of the Certificate.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.

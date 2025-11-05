@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"maps"
 	"net/netip"
+	"reflect"
 	"slices"
 	"sync"
 
@@ -15,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	nxosv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 )
@@ -301,6 +303,25 @@ type VRFRequest struct {
 	ProviderConfig *ProviderConfig
 }
 
+type VTEPProvider interface {
+	Provider
+
+	// EnsureVRF call is responsible for VRF realization on the provider.
+	EnsureVTEP(context.Context, *VTEPRequest) error
+	// DeleteVRF call is responsible for VRF deletion on the provider.
+	DeleteVTEP(context.Context, *VTEPRequest) error
+}
+
+type VTEPRequest struct {
+	VTEP               *v1alpha1.VTEP
+	ControlPlaneConfig *v1alpha1.EVPNControlPlane
+	PrimaryInterface   *v1alpha1.Interface
+	AnycastInterface   *v1alpha1.Interface
+	MultisiteInterface *v1alpha1.Interface
+	// NVE is provider-specific config for the Cisco NXOS platform
+	NVE *nxosv1alpha1.NVE
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.
@@ -364,4 +385,23 @@ type ProviderConfig struct {
 // Into converts the underlying unstructured object into the specified type.
 func (p ProviderConfig) Into(v any) error {
 	return runtime.DefaultUnstructuredConverter.FromUnstructured(p.obj.Object, v)
+}
+
+func FetchTypedRef[T client.Object](ctx context.Context, r client.Reader, namespace, name string) (T, error) {
+	var zero T
+	if name == "" {
+		return zero, fmt.Errorf("reference name is empty")
+	}
+	// Create a new instance of the concrete type behind T (because zero may be nil).
+	t := reflect.TypeOf(zero)
+	if t.Kind() != reflect.Pointer {
+		return zero, fmt.Errorf("type parameter %T must be a pointer", zero)
+	}
+	obj := reflect.New(t.Elem()).Interface().(T)
+
+	key := client.ObjectKey{Namespace: namespace, Name: name}
+	if err := r.Get(ctx, key, obj); err != nil {
+		return zero, fmt.Errorf("get %T %s/%s: %w", obj, namespace, name, err)
+	}
+	return obj, nil
 }

@@ -43,6 +43,7 @@ var (
 	_ provider.SyslogProvider           = (*Provider)(nil)
 	_ provider.UserProvider             = (*Provider)(nil)
 	_ provider.VRFProvider              = (*Provider)(nil)
+	_ provider.VTEPProvider             = (*Provider)(nil)
 )
 
 type Provider struct {
@@ -1009,74 +1010,75 @@ type NVERequest struct {
 	HoldDownTime int16 // in seconds
 }
 
-func (p *Provider) EnsureNVE(ctx context.Context, req *NVERequest) error {
-	f := new(Feature)
-	f.Name = "nvo"
-	f.AdminSt = AdminStEnabled
+// func (p *Provider) EnsureNVE(ctx context.Context, req *NVERequest) error {
+// 	f := new(Feature)
+// 	f.Name = "nvo"
+// 	f.AdminSt = AdminStEnabled
 
-	f2 := new(Feature)
-	f2.Name = "ngmvpn"
-	f2.AdminSt = AdminStEnabled
+// 	f2 := new(Feature)
+// 	f2.Name = "ngmvpn"
+// 	f2.AdminSt = AdminStEnabled
 
-	srcIf, err := ShortNameLoopback(req.SourceInterface)
-	if err != nil {
-		return err
-	}
+// 	srcIf, err := ShortNameLoopback(req.SourceInterface)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	anyIf, err := ShortNameLoopback(req.AnycastInterface)
-	if err != nil {
-		return err
-	}
+// 	anyIf, err := ShortNameLoopback(req.AnycastInterface)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	nve := new(NVE)
-	nve.ID = 1
-	nve.AdminSt = AdminStDisabled
-	if req.AdminSt {
-		nve.AdminSt = AdminStEnabled
-	}
+// 	nve := new(NVE)
+// 	nve.ID = 1
+// 	nve.AdminSt = AdminStDisabled
+// 	if req.AdminSt {
+// 		nve.AdminSt = AdminStEnabled
+// 	}
 
-	if srcIf == anyIf {
-		return errors.New("nve: source and anycast interfaces must be different")
-	}
-	nve.SourceInterface = srcIf
-	nve.AnycastInterface = anyIf
+// 	if srcIf == anyIf {
+// 		return errors.New("nve: source and anycast interfaces must be different")
+// 	}
+// 	nve.SourceInterface = srcIf
+// 	nve.AnycastInterface = anyIf
 
-	if req.HostReach != HostReachBGP && req.HostReach != HostReachFloodAndLearn {
-		return fmt.Errorf("nve: invalid host reach type %q", req.HostReach)
-	}
-	nve.HostReach = req.HostReach
+// 	if req.HostReach != HostReachBGP && req.HostReach != HostReachFloodAndLearn {
+// 		return fmt.Errorf("nve: invalid host reach type %q", req.HostReach)
+// 	}
+// 	nve.HostReach = req.HostReach
 
-	if req.AdvertiseVirtualRmac != nil {
-		nve.AdvertiseVmac = *req.AdvertiseVirtualRmac
-	}
+// 	if req.AdvertiseVirtualRmac != nil {
+// 		nve.AdvertiseVmac = *req.AdvertiseVirtualRmac
+// 	}
 
-	if req.SuppressARP != nil {
-		nve.SuppressARP = *req.SuppressARP
-	}
+// 	// TODO: move to control plane
+// 	if req.SuppressARP != nil {
+// 		nve.SuppressARP = *req.SuppressARP
+// 	}
 
-	if ip := req.McastL2; ip != nil {
-		if !ip.Is4() || !ip.IsMulticast() {
-			return fmt.Errorf("nve: invalid multicast IPv4 address: %s", ip)
-		}
-		nve.McastGroupL2 = ip.String()
-	}
+// 	if ip := req.McastL2; ip != nil {
+// 		if !ip.Is4() || !ip.IsMulticast() {
+// 			return fmt.Errorf("nve: invalid multicast IPv4 address: %s", ip)
+// 		}
+// 		nve.McastGroupL2 = ip.String()
+// 	}
 
-	if ip := req.McastL3; ip != nil {
-		if !ip.Is4() || !ip.IsMulticast() {
-			return fmt.Errorf("nve: invalid multicast IPv4 address: %s", ip)
-		}
-		nve.McastGroupL3 = ip.String()
-	}
+// 	if ip := req.McastL3; ip != nil {
+// 		if !ip.Is4() || !ip.IsMulticast() {
+// 			return fmt.Errorf("nve: invalid multicast IPv4 address: %s", ip)
+// 		}
+// 		nve.McastGroupL3 = ip.String()
+// 	}
 
-	if req.HoldDownTime != 0 {
-		if req.HoldDownTime < 1 || req.HoldDownTime > 1500 {
-			return fmt.Errorf("nve: hold down time %d is out of range (1-1500 seconds)", req.HoldDownTime)
-		}
-		nve.HoldDownTime = req.HoldDownTime
-	}
+// 	if req.HoldDownTime != 0 {
+// 		if req.HoldDownTime < 1 || req.HoldDownTime > 1500 {
+// 			return fmt.Errorf("nve: hold down time %d is out of range (1-1500 seconds)", req.HoldDownTime)
+// 		}
+// 		nve.HoldDownTime = req.HoldDownTime
+// 	}
 
-	return p.client.Update(ctx, f, f2, nve)
-}
+// 	return p.client.Update(ctx, f, f2, nve)
+// }
 
 type OSPFRouter struct {
 	AdminSt bool
@@ -1722,6 +1724,146 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 func (p *Provider) DeleteVRF(ctx context.Context, req *provider.VRFRequest) error {
 	v := new(VRF)
 	v.Name = req.VRF.Spec.Name
+	return p.client.Delete(ctx, v)
+}
+
+func (p *Provider) EnsureVTEP(ctx context.Context, req *provider.VTEPRequest) error {
+	updates := []gnmiext.Configurable{}
+	if req.ControlPlaneConfig == nil {
+		return errors.New("vtep: provider requires evpn-control-plane config (ref is nil)")
+	}
+
+	if req.NVE == nil {
+		return errors.New("vtep: provider requires NVE config (ref is nil)")
+	}
+
+	n := new(NVE)
+	n.ID = 1
+
+	// generic settings: VTEP
+	n.AdminSt = AdminStDisabled
+	if req.VTEP.Spec.Enabled {
+		n.AdminSt = AdminStEnabled
+	}
+
+	if req.PrimaryInterface != nil {
+		if req.PrimaryInterface.Spec.Type != v1alpha1.InterfaceTypeLoopback {
+			return fmt.Errorf("vtep: primary interface %q is not a loopback interface", req.PrimaryInterface.Spec.Name)
+		}
+		n.SourceInterface = req.PrimaryInterface.Spec.Name
+	}
+
+	if req.AnycastInterface != nil {
+		if req.AnycastInterface.Spec.Type != v1alpha1.InterfaceTypeLoopback {
+			return fmt.Errorf("vtep: anycast interface %q is not a loopback interface", req.AnycastInterface.Spec.Name)
+		}
+		n.AnycastInterface = req.AnycastInterface.Spec.Name
+	}
+
+	if n.AnycastInterface == n.SourceInterface && n.AnycastInterface != "" {
+		return fmt.Errorf("vtep: anycast interface and primary interface cannot be the same (%q)", n.AnycastInterface)
+	}
+
+	// control plane settings
+	cp := req.ControlPlaneConfig
+	switch cp.Spec.HostReachability {
+	case v1alpha1.HostReachabilityBGP:
+		n.HostReach = HostReachBGP
+	case v1alpha1.HostReachabilityFloodAndLearn:
+		n.HostReach = HostReachFloodAndLearn
+	default:
+		return fmt.Errorf("vtep: invalid evpn host reachability type %q", cp.Spec.HostReachability)
+	}
+
+	n.SuppressARP = cp.Spec.SuppressARP
+
+	// provider specific settings: NVE
+	updates = append(updates, n)
+
+	if req.NVE.Spec.HoldDownTime > 0 {
+		n.HoldDownTime = req.NVE.Spec.HoldDownTime
+	}
+
+	if req.NVE.Spec.AdvertiseVMAC != nil {
+		n.AdvertiseVmac = *req.NVE.Spec.AdvertiseVMAC
+	}
+
+	if req.NVE.Spec.GlobalMulticastGroups != nil {
+		if req.NVE.Spec.GlobalMulticastGroups.L2 != nil {
+			n.McastGroupL2 = req.NVE.Spec.GlobalMulticastGroups.L2.Addr().String()
+		}
+		if req.NVE.Spec.GlobalMulticastGroups.L3 != nil {
+			n.McastGroupL3 = req.NVE.Spec.GlobalMulticastGroups.L3.Addr().String()
+		}
+	}
+
+	// storm control settings
+	if req.NVE.Spec.StormControl != nil {
+		sc := new(EVPNStormControl)
+		if req.NVE.Spec.StormControl.Multicast != nil {
+			sc.EvpnStormControlList = append(sc.EvpnStormControlList, &EVPNStormControlEntry{
+				FloatLevel: strconv.FormatUint(uint64(*req.NVE.Spec.StormControl.Multicast), 10),
+				Name:       EVPNStormControlMulticast,
+			})
+		}
+		if req.NVE.Spec.StormControl.Unicast != nil {
+			sc.EvpnStormControlList = append(sc.EvpnStormControlList, &EVPNStormControlEntry{
+				FloatLevel: strconv.FormatUint(uint64(*req.NVE.Spec.StormControl.Unicast), 10),
+				Name:       EVPNStormControlUnicast,
+			})
+		}
+		if req.NVE.Spec.StormControl.Broadcast != nil {
+			sc.EvpnStormControlList = append(sc.EvpnStormControlList, &EVPNStormControlEntry{
+				FloatLevel: strconv.FormatUint(uint64(*req.NVE.Spec.StormControl.Broadcast), 10),
+				Name:       EVPNStormControlBroadcast,
+			})
+		}
+		updates = append(updates, sc)
+	}
+
+	// infra-vlans are specified as a list of VLAN IDs or ranges, e.g., ["10", "20-30"].
+	// TODO: consider using an admission webhook or reject use of Cisco syntax in the CRD
+	if len(req.NVE.Spec.InfraVLANs) > 0 {
+		iv := new(NVEInfraVLANs)
+		// TODO: replace validation with an admission webhook
+		for _, vlanRange := range req.NVE.Spec.InfraVLANs {
+			tokens := strings.Split(string(vlanRange), "-")
+			switch len(tokens) {
+			case 1:
+				id, err := strconv.ParseUint(tokens[0], 10, 32)
+				if err != nil || id < 1 || id > 3967 {
+					return fmt.Errorf("vtep: invalid infra-vlan ID %q", id)
+				}
+				iv.InfraVLANList = append(iv.InfraVLANList, &NVEInfraVLAN{ID: uint32(id)})
+			case 2:
+				startID, err := strconv.ParseUint(tokens[0], 10, 16)
+				if err != nil || startID < 1 || startID > 3967 {
+					return fmt.Errorf("vtep: invalid infra-vlan start ID %q", tokens[0])
+				}
+				endID, err := strconv.ParseUint(tokens[1], 10, 16)
+				if err != nil || endID < 1 || endID > 3967 {
+					return fmt.Errorf("vtep: invalid infra-vlan end ID %q", tokens[1])
+				}
+				if endID < startID {
+					return fmt.Errorf("vtep: infra-vlan end ID %d is less than start ID %d", endID, startID)
+				}
+				for id := startID; id <= endID; id++ {
+					iv.InfraVLANList = append(iv.InfraVLANList, &NVEInfraVLAN{ID: uint32(id)})
+				}
+			default:
+				return fmt.Errorf("vtep: invalid infra-vlan range %q", vlanRange)
+			}
+		}
+		updates = append(updates, iv)
+	}
+
+	return p.client.Update(ctx, updates...)
+
+}
+
+func (p *Provider) DeleteVTEP(ctx context.Context, req *provider.VTEPRequest) error {
+	v := new(NVE)
+	v.ID = 1
 	return p.client.Delete(ctx, v)
 }
 

@@ -3,5 +3,5 @@
   value:
     - --leader-elect=false
     - --health-probe-bind-address=:8081
-    - --provider=openconfig
-    - --requeue-interval=10s
+    - --provider=cisco-nxos-gnmi
+    - --requeue-interval=60s
