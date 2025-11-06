@@ -388,6 +388,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&corecontroller.OSPFReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("ospf-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+		RequeueInterval:  requeueInterval,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "OSPF")
+		os.Exit(1)
+	}
+
 	if err := (&corecontroller.VRFReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),

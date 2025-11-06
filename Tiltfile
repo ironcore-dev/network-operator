@@ -77,7 +77,7 @@ k8s_yaml('./config/samples/v1alpha1_managementaccess.yaml')
 k8s_resource(new_name='managementaccess', objects=['managementaccess:managementaccess'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 k8s_yaml('./config/samples/v1alpha1_isis.yaml')
-k8s_resource(new_name='underlay', objects=['underlay:isis'], resource_deps=['lo0', 'lo1', 'eth1-1', 'eth1-2'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='isis-underlay', objects=['underlay:isis'], resource_deps=['lo0', 'lo1', 'eth1-1', 'eth1-2'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 k8s_yaml('./config/samples/v1alpha1_vrf.yaml')
 k8s_resource(new_name='vrf-admin', objects=['vrf-cc-admin:vrf'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
@@ -92,6 +92,9 @@ k8s_resource(new_name='bgp', objects=['bgp:bgp'], trigger_mode=TRIGGER_MODE_MANU
 k8s_yaml('./config/samples/v1alpha1_bgppeer.yaml')
 k8s_resource(new_name='peer-spine1', objects=['leaf1-spine1:bgppeer'], resource_deps=['bgp', 'lo0'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='peer-spine2', objects=['leaf1-spine2:bgppeer'], resource_deps=['bgp', 'lo0'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+
+k8s_yaml('./config/samples/v1alpha1_ospf.yaml')
+k8s_resource(new_name='ospf-underlay', objects=['underlay:ospf'], resource_deps=['lo0', 'lo1', 'eth1-1', 'eth1-2'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')

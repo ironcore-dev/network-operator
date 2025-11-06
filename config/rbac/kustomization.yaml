@@ -70,3 +70,6 @@ resources:
 - bgppeer_admin_role.yaml
 - bgppeer_editor_role.yaml
 - bgppeer_viewer_role.yaml
+- ospf_admin_role.yaml
+- ospf_editor_role.yaml
+- ospf_viewer_role.yaml

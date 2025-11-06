@@ -387,6 +387,57 @@ type PrefixStats struct {
 	Advertised uint32
 }
 
+// OSPFProvider is the interface for the realization of the OSPF objects over different providers.
+type OSPFProvider interface {
+	Provider
+
+	// EnsureOSPF call is responsible for OSPF realization on the provider.
+	EnsureOSPF(context.Context, *EnsureOSPFRequest) error
+	// DeleteOSPF call is responsible for OSPF deletion on the provider.
+	DeleteOSPF(context.Context, *DeleteOSPFRequest) error
+	// GetOSPFStatus call is responsible for retrieving the current status of the OSPF from the provider.
+	GetOSPFStatus(context.Context, *OSPFStatusRequest) (OSPFStatus, error)
+}
+
+type EnsureOSPFRequest struct {
+	OSPF           *v1alpha1.OSPF
+	ProviderConfig *ProviderConfig
+	Interfaces     []OSPFInterface
+}
+
+type OSPFInterface struct {
+	Interface *v1alpha1.Interface
+	Area      string
+	Passive   *bool
+}
+
+type DeleteOSPFRequest struct {
+	OSPF           *v1alpha1.OSPF
+	ProviderConfig *ProviderConfig
+}
+
+type OSPFStatusRequest struct {
+	OSPF           *v1alpha1.OSPF
+	ProviderConfig *ProviderConfig
+	Interfaces     []OSPFInterface
+}
+
+type OSPFStatus struct {
+	// OperStatus indicates whether the ospf instance is operationally up (true) or down (false).
+	OperStatus bool
+	// Neighbors is a list of OSPF neighbors and their adjacency states.
+	Neighbors []OSPFNeighbor
+}
+
+type OSPFNeighbor struct {
+	RouterID            string
+	Address             string
+	Interface           *v1alpha1.Interface
+	Priority            uint8
+	LastEstablishedTime time.Time
+	AdjacencyState      v1alpha1.OSPFNeighborState
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.

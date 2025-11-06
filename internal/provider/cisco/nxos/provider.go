@@ -41,6 +41,7 @@ var (
 	_ provider.ISISProvider             = (*Provider)(nil)
 	_ provider.ManagementAccessProvider = (*Provider)(nil)
 	_ provider.NTPProvider              = (*Provider)(nil)
+	_ provider.OSPFProvider             = (*Provider)(nil)
 	_ provider.PIMProvider              = (*Provider)(nil)
 	_ provider.SNMPProvider             = (*Provider)(nil)
 	_ provider.SyslogProvider           = (*Provider)(nil)
@@ -1083,19 +1084,11 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *NVERequest) error {
 	return p.client.Update(ctx, f, f2, nve)
 }
 
-type OSPFRouter struct {
-	AdminSt bool
-	// Name of the OSPF process, e.g., `UNDERLAY`
-	Name string
-	// RouterID is the router ID of the OSPF process, must be a valid IPv4 address and
-	// must exist on a configured interface in the system.
-	RouterID netip.Addr
+type NXOSPF struct {
 	// PropagateDefaultRoute is equivalent to the CLI command `default-information originate`
 	ProgateDefaultRoute bool
 	// RedistributionConfigs is a list of redistribution configurations for the OSPF process.
 	RedistributionConfigs []RedistributionConfig
-	// LogLevel is the logging level for OSPF adjacency changes. By default "none"
-	LogLevel AdjChangeLogLevel
 	// Distance is the adminitrative distance value (1-255) for OSPF routes. Cisco's default is 110.
 	Distance int16
 	// ReferenceBandwidthMbps is the reference bandwidth in Mbps used for OSPF calculations. By default Cisco NX-OS
@@ -1114,60 +1107,48 @@ type RedistributionConfig struct {
 	RouteMapName string
 }
 
-type OSPFInterfaceItem struct {
-	Interface *v1alpha1.Interface
-	// Area is the OSPF area for all interfaces, e.g., `0.0.0.0`.
-	Area string
-	// PassiveMode indicates the passive mode for the interface.
-	PassiveMode *bool
-}
+func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFRequest) error {
+	var cfg NXOSPF
+	if req.ProviderConfig != nil {
+		if err := req.ProviderConfig.Into(&cfg); err != nil {
+			return err
+		}
+	}
 
-type EnsureOSPFRequest struct {
-	// Router is the OSPF router configuration.
-	Router *OSPFRouter
-
-	// Interfaces is a list of interfaces that should have PIM enabled.
-	// If empty, PIM will not be enabled on any interfaces.
-	Interfaces []*OSPFInterfaceItem
-}
-
-func (p *Provider) EnsureOSPF(ctx context.Context, req *EnsureOSPFRequest) error {
 	f := new(Feature)
 	f.Name = "ospf"
 	f.AdminSt = AdminStEnabled
 
 	o := new(OSPF)
 	o.AdminSt = AdminStEnabled
-	o.Name = req.Router.Name
-
-	if !req.Router.RouterID.IsValid() || !req.Router.RouterID.Is4() {
-		return fmt.Errorf("ospf: router ID %q is not a valid IPv4 address", req.Router.RouterID)
-	}
+	o.Name = req.OSPF.Spec.Instance
 
 	dom := new(OSPFDom)
 	dom.Name = DefaultVRFName
 	dom.AdjChangeLogLevel = AdjChangeLogLevelNone
-	if req.Router.LogLevel != AdjChangeLogLevelNone {
-		dom.AdjChangeLogLevel = req.Router.LogLevel
+	if req.OSPF.Spec.LogAdjacencyChanges != nil && *req.OSPF.Spec.LogAdjacencyChanges {
+		dom.AdjChangeLogLevel = AdjChangeLogLevelBrief
 	}
 	dom.AdminSt = AdminStEnabled
 	dom.BwRef = DefaultBwRef // default 40 Gbps
 	dom.BwRefUnit = BwRefUnitMbps
-	if req.Router.ReferenceBandwidthMbps != 0 {
-		if req.Router.ReferenceBandwidthMbps < 1 || req.Router.ReferenceBandwidthMbps > 999999 {
-			return fmt.Errorf("ospf: reference bandwidth %d is out of range (1-999999 Mbps)", req.Router.ReferenceBandwidthMbps)
+	if cfg.ReferenceBandwidthMbps != 0 {
+		if cfg.ReferenceBandwidthMbps < 1 || cfg.ReferenceBandwidthMbps > 999999 {
+			return fmt.Errorf("ospf: reference bandwidth %d is out of range (1-999999 Mbps)", cfg.ReferenceBandwidthMbps)
 		}
-		dom.BwRef = req.Router.ReferenceBandwidthMbps
+		dom.BwRef = cfg.ReferenceBandwidthMbps
 	}
 	dom.Dist = DefaultDist
-	if req.Router.Distance != 0 {
-		if req.Router.Distance < 1 || req.Router.Distance > 255 {
-			return fmt.Errorf("ospf: distance %d is out of range (1-255)", req.Router.Distance)
+	if cfg.Distance != 0 {
+		if cfg.Distance < 1 || cfg.Distance > 255 {
+			return fmt.Errorf("ospf: distance %d is out of range (1-255)", cfg.Distance)
 		}
-		dom.Dist = req.Router.Distance
+		dom.Dist = cfg.Distance
 	}
-	dom.RtrID = req.Router.RouterID.String()
-	o.DomItems.DomList = append(o.DomItems.DomList, dom)
+	dom.RtrID = req.OSPF.Spec.RouterID
+	dom.Ctrl = "default-passive"
+	o.DomItems.DomList = make(gnmiext.List[string, *OSPFDom])
+	o.DomItems.DomList.Set(dom)
 
 	interfaces := make([]*v1alpha1.Interface, 0, len(req.Interfaces))
 	for _, iface := range req.Interfaces {
@@ -1183,53 +1164,95 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *EnsureOSPFRequest) error
 	// [Bounds Check Elimination]: https://go101.org/optimizations/5-bce.html
 	_ = req.Interfaces[len(interfaceNames)-1]
 
+	dom.IfItems.IfList = make(gnmiext.List[string, *OSPFInterface])
 	for i, iface := range req.Interfaces {
 		intf := new(OSPFInterface)
 		intf.ID = interfaceNames[i]
 		intf.AdminSt = AdminStEnabled
 		intf.AdvertiseSecondaries = true
 		intf.Area = iface.Area
-		if !isValidOSPFArea(iface.Area) {
-			return fmt.Errorf("ospf: area %q is not valid, must be a decimal number or dotted decimal format", iface.Area)
-		}
 		intf.NwT = NtwTypeUnspecified
 		if iface.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical {
 			intf.NwT = NtwTypePointToPoint
 		}
 		intf.PassiveCtrl = PassiveControlUnspecified
-		if iface.PassiveMode != nil {
-			if *iface.PassiveMode {
-				intf.PassiveCtrl = PassiveControlEnabled
-			} else {
-				intf.PassiveCtrl = PassiveControlDisabled
-			}
+		if iface.Passive == nil || !*iface.Passive {
+			intf.PassiveCtrl = PassiveControlDisabled
 		}
-		dom.IfItems.IfList = append(dom.IfItems.IfList, intf)
+		dom.IfItems.IfList.Set(intf)
 	}
 
-	for _, rc := range req.Router.RedistributionConfigs {
+	dom.InterleakItems.InterLeakPList = make(gnmiext.List[InterLeakPKey, *InterLeakP])
+	for _, rc := range cfg.RedistributionConfigs {
 		if rc.RouteMapName == "" {
 			return errors.New("ospf: redistribution route map name cannot be empty")
 		}
-		rd := new(InterLeakPList)
+		rd := new(InterLeakP)
 		rd.Proto = rc.Protocol
 		rd.Asn = "none"
 		rd.Inst = "none"
 		rd.RtMap = rc.RouteMapName
-		dom.InterleakItems.InterLeakPList = append(dom.InterleakItems.InterLeakPList, rd)
+		dom.InterleakItems.InterLeakPList.Set(rd)
 	}
 
 	dom.DefrtleakItems.Always = "no"
-	if req.Router.ProgateDefaultRoute {
+	if cfg.ProgateDefaultRoute {
 		dom.DefrtleakItems.Always = "yes"
 	}
 
-	if req.Router.MaxLSA != 0 {
+	if cfg.MaxLSA != 0 {
 		dom.MaxlsapItems.Action = MaxLSAActionReject
-		dom.MaxlsapItems.MaxLsa = req.Router.MaxLSA
+		dom.MaxlsapItems.MaxLsa = cfg.MaxLSA
 	}
 
 	return p.client.Update(ctx, f, o)
+}
+
+func (p *Provider) DeleteOSPF(ctx context.Context, req *provider.DeleteOSPFRequest) error {
+	o := new(OSPF)
+	o.Name = req.OSPF.Spec.Instance
+	return p.client.Delete(ctx, o)
+}
+
+func (p *Provider) GetOSPFStatus(ctx context.Context, req *provider.OSPFStatusRequest) (provider.OSPFStatus, error) {
+	name := make(map[string]*v1alpha1.Interface)
+	for _, iface := range req.Interfaces {
+		n, err := ShortName(iface.Interface.Spec.Name)
+		if err != nil {
+			return provider.OSPFStatus{}, err
+		}
+		name[n] = iface.Interface
+	}
+
+	st := new(OSPFOperItems)
+	st.Name = req.OSPF.Spec.Instance
+
+	if err := p.client.GetState(ctx, st); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return provider.OSPFStatus{}, err
+	}
+
+	neighbors := make([]provider.OSPFNeighbor, 0)
+	for _, intf := range st.IfItems.IfList {
+		i, ok := name[intf.ID]
+		if !ok {
+			continue
+		}
+		for _, adj := range intf.AdjItems.AdjList {
+			neighbors = append(neighbors, provider.OSPFNeighbor{
+				RouterID:            adj.ID,
+				Address:             adj.PeerIP,
+				Interface:           i,
+				Priority:            adj.Prio,
+				LastEstablishedTime: adj.AdjStatsItems.LastStChgTs,
+				AdjacencyState:      adj.OperSt.ToNeighborState(),
+			})
+		}
+	}
+
+	return provider.OSPFStatus{
+		OperStatus: st.OperSt == OperStUp,
+		Neighbors:  neighbors,
+	}, nil
 }
 
 func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest) error {

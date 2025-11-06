@@ -3,7 +3,11 @@
 
 package nxos
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+)
 
 func init() {
 	dom := &OSPFDom{
@@ -15,7 +19,8 @@ func init() {
 		Dist:              110,
 		RtrID:             "10.0.0.10",
 	}
-	for _, name := range []string{"eth1/1", "lo1", "eth1/2", "lo0"} {
+	dom.IfItems.IfList = make(gnmiext.List[string, *OSPFInterface])
+	for _, name := range []string{"eth1/1"} {
 		intf := &OSPFInterface{
 			ID:                   name,
 			AdminSt:              AdminStEnabled,
@@ -27,13 +32,16 @@ func init() {
 		if strings.HasPrefix(name, "eth") {
 			intf.NwT = NtwTypePointToPoint
 		}
-		dom.IfItems.IfList = append(dom.IfItems.IfList, intf)
+		dom.IfItems.IfList.Set(intf)
 	}
 	dom.MaxlsapItems.Action = MaxLSAActionReject
 	dom.MaxlsapItems.MaxLsa = 12000
-	dom.InterleakItems.InterLeakPList = []*InterLeakPList{{Proto: RtLeakProtoDirect, Asn: "none", Inst: "none", RtMap: "REDIST-ALL"}}
+	dom.InterleakItems.InterLeakPList = make(gnmiext.List[InterLeakPKey, *InterLeakP])
+	dom.InterleakItems.InterLeakPList.Set(&InterLeakP{InterLeakPKey: InterLeakPKey{Proto: RtLeakProtoDirect, Asn: "none", Inst: "none"}, RtMap: "REDIST-ALL"})
 	dom.DefrtleakItems.Always = "no"
+
 	ospf := &OSPF{Name: "UNDERLAY", AdminSt: AdminStEnabled}
-	ospf.DomItems.DomList = []*OSPFDom{dom}
+	ospf.DomItems.DomList = make(gnmiext.List[string, *OSPFDom])
+	ospf.DomItems.DomList.Set(dom)
 	Register("ospf", ospf)
 }
