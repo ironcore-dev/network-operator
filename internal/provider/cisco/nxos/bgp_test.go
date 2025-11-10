@@ -3,24 +3,19 @@
 
 package nxos
 
-import "k8s.io/utils/ptr"
+import (
+	"k8s.io/utils/ptr"
+
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+)
 
 func init() {
 	bgpDom := &BGPDom{Name: DefaultVRFName, RtrID: "1.1.1.1", RtrIDAuto: AdminStDisabled}
-	bgpDom.AfItems.DomAfList = []*BGPDomAfItem{
-		{
-			Type:         AddressFamilyL2EVPN,
-			RetainRttAll: AdminStEnabled,
-		},
-		{
-			Type:       AddressFamilyIPv6Unicast,
-			MaxExtEcmp: 2,
-		},
-		{
-			Type:       AddressFamilyIPv4Unicast,
-			MaxExtEcmp: 4,
-		},
-	}
+	bgpDom.AfItems.DomAfList = make(gnmiext.List[AddressFamily, *BGPDomAfItem])
+	bgpDom.AfItems.DomAfList.Set(&BGPDomAfItem{
+		Type:         AddressFamilyL2EVPN,
+		RetainRttAll: AdminStEnabled,
+	})
 	Register("bgp_dom", bgpDom)
 
 	bgp := &BGP{AdminSt: AdminStEnabled, Asn: "65000"}
@@ -33,13 +28,12 @@ func init() {
 		Name:    "EVPN peering with spine",
 		SrcIf:   "lo0",
 	}
-	bgpPeer.AfItems.PeerAfList = []*BGPPeerAfItem{
-		{
-			Ctrl:       Option[string]{Value: ptr.To(RouteReflectorClient)},
-			SendComExt: AdminStEnabled,
-			SendComStd: AdminStEnabled,
-			Type:       AddressFamilyL2EVPN,
-		},
-	}
+	bgpPeer.AfItems.PeerAfList = make(gnmiext.List[AddressFamily, *BGPPeerAfItem])
+	bgpPeer.AfItems.PeerAfList.Set(&BGPPeerAfItem{
+		Ctrl:       Option[string]{Value: ptr.To(RouteReflectorClient)},
+		SendComExt: AdminStEnabled,
+		SendComStd: AdminStEnabled,
+		Type:       AddressFamilyL2EVPN,
+	})
 	Register("bgp_peer", bgpPeer)
 }

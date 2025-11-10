@@ -14,13 +14,6 @@
                   "srcPrefix": "10.0.0.0",
                   "srcPrefixLength": 8,
                   "dstPrefix": "0.0.0.0"
-                },
-                {
-                  "seqNum": 999,
-                  "action": "deny",
-                  "protocol": 0,
-                  "srcPrefix": "0.0.0.0",
-                  "dstPrefix": "0.0.0.0"
                 }
               ]
             }

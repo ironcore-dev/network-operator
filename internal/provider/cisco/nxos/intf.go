@@ -159,7 +159,7 @@ type PortChannel struct {
 	TrunkVlans    string          `json:"trunkVlans"`
 	UserCfgdFlags string          `json:"userCfgdFlags"`
 	RsmbrIfsItems struct {
-		RsMbrIfsList []*PortChannelMember `json:"RsMbrIfs-list,omitzero"`
+		RsMbrIfsList gnmiext.List[string, *PortChannelMember] `json:"RsMbrIfs-list,omitzero"`
 	} `json:"rsmbrIfs-items,omitzero"`
 }
 
@@ -172,6 +172,8 @@ func NewPortChannelMember(name string) *PortChannelMember {
 		TDn: fmt.Sprintf("/System/intf-items/phys-items/PhysIf-list[id='%s']", name),
 	}
 }
+
+func (m *PortChannelMember) Key() string { return m.TDn }
 
 func (*PortChannel) IsListItem() {}
 
@@ -194,7 +196,7 @@ type AddrItem struct {
 	ID         string `json:"id"`
 	Unnumbered string `json:"unnumbered,omitempty"`
 	AddrItems  struct {
-		AddrList []*IntfAddr `json:"Addr-list,omitzero"`
+		AddrList gnmiext.List[string, *IntfAddr] `json:"Addr-list,omitzero"`
 	} `json:"addr-items,omitzero"`
 	// Is6 indicates whether the addresses are IPv6 (true) or IPv4 (false).
 	// This field is not serialized to JSON and is only used internally to
@@ -217,6 +219,8 @@ type IntfAddr struct {
 	Tag  int          `json:"tag"`
 	Type IntfAddrType `json:"type"`
 }
+
+func (a *IntfAddr) Key() string { return a.Addr }
 
 type IntfAddrType string
 

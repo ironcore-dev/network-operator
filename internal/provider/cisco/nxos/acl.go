@@ -20,7 +20,7 @@ type ACL struct {
 	Name string `json:"name"`
 	// SeqItems contains the list of ACE entries in the ACL.
 	SeqItems struct {
-		ACEList []*ACLEntry `json:"ACE-list,omitzero"`
+		ACEList gnmiext.List[int32, *ACLEntry] `json:"ACE-list,omitzero"`
 	} `json:"seq-items,omitzero"`
 	// Is6 indicates whether this is an IPv6 ACL. This field is not serialized to JSON
 	// and is only used internally to determine the correct XPath for the ACL.
@@ -46,6 +46,8 @@ type ACLEntry struct {
 	DstPrefix       string   `json:"dstPrefix"`
 	DstPrefixLength int      `json:"dstPrefixLength,omitempty"`
 }
+
+func (e *ACLEntry) Key() int32 { return e.SeqNum }
 
 type Action string
 

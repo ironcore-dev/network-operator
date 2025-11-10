@@ -1,3 +1,2 @@
 ip access-list ACL
  10 permit ip 10.0.0.0/8 any
- 90 deny ip any any

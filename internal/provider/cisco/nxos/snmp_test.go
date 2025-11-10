@@ -3,6 +3,8 @@
 
 package nxos
 
+import "github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+
 func init() {
 	host := &SNMPHost{
 		HostName:  "foo.bar",
@@ -13,16 +15,19 @@ func init() {
 		Version:   "v2c",
 	}
 	vrf := &SNMPHostVrf{Vrfname: "management"}
-	host.UsevrfItems.UseVrfList = []*SNMPHostVrf{vrf}
+	host.UsevrfItems.UseVrfList = make(gnmiext.List[string, *SNMPHostVrf])
+	host.UsevrfItems.UseVrfList.Set(vrf)
 
 	hosts := &SNMPHostItems{}
-	hosts.HostList = []*SNMPHost{host}
+	hosts.HostList = make(gnmiext.List[SNMPHostKey, *SNMPHost])
+	hosts.HostList.Set(host)
 	Register("snmp_host", hosts)
 
 	comm := &SNMPCommunity{Name: "snmpcollector", CommAcess: "unspecified", GrpName: "network-operator"}
 	comm.ACLItems.UseACLName = "TEST-ACL"
 	items := &SNMPCommunityItems{}
-	items.CommSecPList = []*SNMPCommunity{comm}
+	items.CommSecPList = make(gnmiext.List[string, *SNMPCommunity])
+	items.CommSecPList.Set(comm)
 	Register("snmp_comm", items)
 
 	srcIf := &SNMPSrcIf{Type: Traps, Ifname: NewOption("mgmt0")}

@@ -32,7 +32,7 @@ type User struct {
 		Data string `json:"data,omitempty"`
 	} `json:"sshauth-items,omitzero"`
 	UserdomainItems struct {
-		UserDomainList []*UserDomain `json:"UserDomain-list,omitzero"`
+		UserDomainList gnmiext.List[string, *UserDomain] `json:"UserDomain-list,omitzero"`
 	} `json:"userdomain-items,omitzero"`
 }
 
@@ -60,13 +60,17 @@ func (u *User) SetPassword(password string, encoder Encoder) error {
 type UserDomain struct {
 	Name      string `json:"name"`
 	RoleItems struct {
-		UserRoleList []*UserRole `json:"UserRole-list,omitzero"`
+		UserRoleList gnmiext.List[string, *UserRole] `json:"UserRole-list,omitzero"`
 	} `json:"role-items,omitzero"`
 }
+
+func (d *UserDomain) Key() string { return d.Name }
 
 type UserRole struct {
 	Name string `json:"name"`
 }
+
+func (r *UserRole) Key() string { return r.Name }
 
 type PwdEncryptType string
 

@@ -27,55 +27,6 @@
                                   "RttEntry-list": [
                                     {
                                       "rtt": "route-target:as2-nn2:65148:4101"
-                                    },
-                                    {
-                                      "rtt": "route-target:as2-nn2:65148:1101"
-                                    }
-                                  ]
-                                }
-                              },
-                              {
-                                "type": "import",
-                                "ent-items": {
-                                  "RttEntry-list": [
-                                    {
-                                      "rtt": "route-target:as2-nn2:65148:4101"
-                                    },
-                                    {
-                                      "rtt": "route-target:as2-nn2:65148:1101"
-                                    }
-                                  ]
-                                }
-                              }
-                            ]
-                          }
-                        },
-                        {
-                          "type": "ipv4-ucast",
-                          "rttp-items": {
-                            "RttP-list": [
-                              {
-                                "type": "export",
-                                "ent-items": {
-                                  "RttEntry-list": [
-                                    {
-                                      "rtt": "route-target:as2-nn2:65148:4101"
-                                    },
-                                    {
-                                      "rtt": "route-target:as2-nn2:65148:1101"
-                                    }
-                                  ]
-                                }
-                              },
-                              {
-                                "type": "import",
-                                "ent-items": {
-                                  "RttEntry-list": [
-                                    {
-                                      "rtt": "route-target:as2-nn2:65148:4101"
-                                    },
-                                    {
-                                      "rtt": "route-target:as2-nn2:65148:1101"
                                     }
                                   ]
                                 }

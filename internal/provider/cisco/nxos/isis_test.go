@@ -3,7 +3,9 @@
 
 package nxos
 
-import "strings"
+import (
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+)
 
 func init() {
 	dom := &ISISDom{
@@ -12,28 +14,22 @@ func init() {
 		IsType:      ISISLevel1,
 		PassiveDflt: ISISLevel1,
 	}
-	dom.AfItems.DomAfList = []*ISISDomAf{
-		{Type: ISISAfIPv6Unicast},
-		{Type: ISISAfIPv4Unicast},
-	}
+	dom.AfItems.DomAfList = make(gnmiext.List[ISISAddressFamily, *ISISDomAf])
+	dom.AfItems.DomAfList.Set(&ISISDomAf{Type: ISISAfIPv4Unicast})
 	dom.OverloadItems.AdminSt = "bootup"
 	dom.OverloadItems.BgpAsNumStr = "none"
 	dom.OverloadItems.StartupTime = 61
-	for _, name := range []string{"lo1", "lo0", "eth1/2", "eth1/1"} {
-		intf := &ISISInterface{
-			ID:             name,
-			NetworkTypeP2P: AdminStOff,
-			V4Enable:       true,
-			V4Bfd:          "enabled",
-			V6Enable:       true,
-			V6Bfd:          "enabled",
-		}
-		if strings.HasPrefix(name, "eth") {
-			intf.NetworkTypeP2P = AdminStOn
-		}
-		dom.IfItems.IfList = append(dom.IfItems.IfList, intf)
-	}
+	dom.IfItems.IfList = make(gnmiext.List[string, *ISISInterface])
+	dom.IfItems.IfList.Set(&ISISInterface{
+		ID:             "eth1/1",
+		NetworkTypeP2P: AdminStOn,
+		V4Enable:       true,
+		V4Bfd:          "enabled",
+		V6Enable:       true,
+		V6Bfd:          "enabled",
+	})
 	isis := &ISIS{Name: "UNDERLAY", AdminSt: AdminStEnabled}
-	isis.DomItems.DomList = []*ISISDom{dom}
+	isis.DomItems.DomList = make(gnmiext.List[string, *ISISDom])
+	isis.DomItems.DomList.Set(dom)
 	Register("isis", isis)
 }

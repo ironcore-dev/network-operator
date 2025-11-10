@@ -53,11 +53,16 @@ func (s *SNMPUser) XPath() string {
 
 // SNMPHostItems represents the SNMP host configuration on a NX-OS device.
 type SNMPHostItems struct {
-	HostList []*SNMPHost `json:"Host-list"`
+	HostList gnmiext.List[SNMPHostKey, *SNMPHost] `json:"Host-list,omitzero"`
 }
 
 func (*SNMPHostItems) XPath() string {
 	return "System/snmp-items/inst-items/host-items"
+}
+
+type SNMPHostKey struct {
+	HostName  string
+	UDPPortID int
 }
 
 type SNMPHost struct {
@@ -68,8 +73,12 @@ type SNMPHost struct {
 	UDPPortID   int            `json:"udpPortID"`
 	Version     string         `json:"version"`
 	UsevrfItems struct {
-		UseVrfList []*SNMPHostVrf `json:"UseVrf-list,omitzero"`
+		UseVrfList gnmiext.List[string, *SNMPHostVrf] `json:"UseVrf-list,omitzero"`
 	} `json:"usevrf-items,omitzero"`
+}
+
+func (s *SNMPHost) Key() SNMPHostKey {
+	return SNMPHostKey{HostName: s.HostName, UDPPortID: s.UDPPortID}
 }
 
 func (*SNMPHost) IsListItem() {}
@@ -82,9 +91,11 @@ type SNMPHostVrf struct {
 	Vrfname string `json:"vrfname,omitempty"`
 }
 
+func (s *SNMPHostVrf) Key() string { return s.Vrfname }
+
 // SNMPCommunityItems represents the SNMP community configuration on a NX-OS device.
 type SNMPCommunityItems struct {
-	CommSecPList []*SNMPCommunity `json:"CommSecP-list"`
+	CommSecPList gnmiext.List[string, *SNMPCommunity] `json:"CommSecP-list,omitzero"`
 }
 
 func (*SNMPCommunityItems) XPath() string {
@@ -99,6 +110,8 @@ type SNMPCommunity struct {
 		UseACLName string `json:"useAclName,omitempty"`
 	} `json:"acl-items,omitzero"`
 }
+
+func (s *SNMPCommunity) Key() string { return s.Name }
 
 func (*SNMPCommunity) IsListItem() {}
 

@@ -3,28 +3,19 @@
 
 package nxos
 
+import "github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+
 func init() {
 	acl := &ACL{Name: "TEST-ACL"}
-	acl.SeqItems.ACEList = []*ACLEntry{
-		{
-			SeqNum:          10,
-			Action:          ActionPermit,
-			Protocol:        ProtocolIP,
-			SrcPrefix:       "10.0.0.0",
-			SrcPrefixLength: 8,
-			DstPrefix:       "0.0.0.0",
-			DstPrefixLength: 0,
-		},
-
-		{
-			SeqNum:          999,
-			Action:          ActionDeny,
-			Protocol:        ProtocolIP,
-			SrcPrefix:       "0.0.0.0",
-			SrcPrefixLength: 0,
-			DstPrefix:       "0.0.0.0",
-			DstPrefixLength: 0,
-		},
-	}
+	acl.SeqItems.ACEList = make(gnmiext.List[int32, *ACLEntry])
+	acl.SeqItems.ACEList.Set(&ACLEntry{
+		SeqNum:          10,
+		Action:          ActionPermit,
+		Protocol:        ProtocolIP,
+		SrcPrefix:       "10.0.0.0",
+		SrcPrefixLength: 8,
+		DstPrefix:       "0.0.0.0",
+		DstPrefixLength: 0,
+	})
 	Register("acl", acl)
 }

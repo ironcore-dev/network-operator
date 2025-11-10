@@ -15,7 +15,7 @@ type NTP struct {
 	AdminSt   AdminSt `json:"adminSt"`
 	Logging   AdminSt `json:"logging"`
 	ProvItems struct {
-		NtpProviderList []*NTPProvider `json:"NtpProvider-list,omitzero"`
+		NtpProviderList gnmiext.List[string, *NTPProvider] `json:"NtpProvider-list,omitzero"`
 	} `json:"prov-items,omitzero"`
 	SrcIfItems struct {
 		SrcIf string `json:"srcIf,omitempty"`
@@ -39,6 +39,8 @@ type NTPProvider struct {
 	ProvT     ProvType `json:"provT"`
 	Vrf       string   `json:"vrf,omitempty"`
 }
+
+func (p *NTPProvider) Key() string { return p.Name }
 
 type ProvType string
 
