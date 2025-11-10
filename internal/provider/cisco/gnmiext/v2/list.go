@@ -43,7 +43,6 @@ type Keyed[K comparable] interface {
 //	    Domains List[string, *DomainItem]
 //	}
 type List[K comparable, V interface {
-	Configurable
 	Keyed[K]
 }] map[K]V
 
