@@ -27,7 +27,7 @@ type ACL struct {
 	Is6 bool `json:"-"`
 }
 
-func (a *ACL) IsListItem() {}
+func (*ACL) IsListItem() {}
 
 func (a *ACL) XPath() string {
 	if a.Is6 {

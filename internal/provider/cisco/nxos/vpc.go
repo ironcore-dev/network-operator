@@ -18,7 +18,7 @@ type VPCIf struct {
 	} `json:"rsvpcConf-items"`
 }
 
-func (v *VPCIf) IsListItem() {}
+func (*VPCIf) IsListItem() {}
 
 func (v *VPCIf) XPath() string {
 	return "System/vpc-items/inst-items/dom-items/if-items/If-list[id=" + strconv.Itoa(v.ID) + "]"

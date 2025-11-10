@@ -31,7 +31,7 @@ type BGPDom struct {
 	} `json:"af-items"`
 }
 
-func (d *BGPDom) IsListItem() {}
+func (*BGPDom) IsListItem() {}
 
 func (d *BGPDom) XPath() string {
 	return "System/bgp-items/inst-items/dom-items/Dom-list[name=" + d.Name + "]"
@@ -55,7 +55,7 @@ type BGPPeer struct {
 	} `json:"af-items"`
 }
 
-func (p *BGPPeer) IsListItem() {}
+func (*BGPPeer) IsListItem() {}
 
 func (p *BGPPeer) XPath() string {
 	return "System/bgp-items/inst-items/dom-items/Dom-list[name=default]/peer-items/Peer-list[name=" + p.Name + "]"

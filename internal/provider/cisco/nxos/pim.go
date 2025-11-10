@@ -19,7 +19,7 @@ type StaticRP struct {
 	} `json:"rpgrplist-items"`
 }
 
-func (s *StaticRP) IsListItem() {}
+func (*StaticRP) IsListItem() {}
 
 func (s *StaticRP) XPath() string {
 	return "System/pim-items/inst-items/dom-items/Dom-list[name=default]/staticrp-items/rp-items/StaticRP-list[addr=" + s.Addr + "]"
@@ -45,7 +45,7 @@ type AnycastPeerAddr struct {
 	RpSetAddr string `json:"rpSetAddr"`
 }
 
-func (a *AnycastPeerAddr) IsListItem() {}
+func (*AnycastPeerAddr) IsListItem() {}
 
 func (a *AnycastPeerAddr) XPath() string {
 	return "System/pim-items/inst-items/dom-items/Dom-list[name=default]/acastrpfunc-items/peer-items/AcastRPPeer-list[addr=" + a.Addr + "][rpSetAddr=" + a.RpSetAddr + "]"
@@ -66,7 +66,7 @@ type PIMIf struct {
 	PimSparseMode bool   `json:"pimSparseMode"`
 }
 
-func (i *PIMIf) IsListItem() {}
+func (*PIMIf) IsListItem() {}
 
 func (i *PIMIf) XPath() string {
 	return "System/pim-items/inst-items/dom-items/Dom-list[name=default]/if-items/If-list[id=" + i.ID + "]"

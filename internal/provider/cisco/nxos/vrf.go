@@ -17,7 +17,7 @@ type VRF struct {
 	DomItems *VRFDomItems `json:"dom-items,omitempty"`
 }
 
-func (v *VRF) IsListItem() {}
+func (*VRF) IsListItem() {}
 
 func (v *VRF) XPath() string {
 	return "System/inst-items/Inst-list[name=" + v.Name + "]"

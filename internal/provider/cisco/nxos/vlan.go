@@ -47,7 +47,7 @@ type VLAN struct {
 	Name     string `json:"name,omitempty"`
 }
 
-func (v *VLAN) IsListItem() {}
+func (*VLAN) IsListItem() {}
 
 func (v *VLAN) XPath() string {
 	return "System/bd-items/bd-items/BD-list[fabEncap=" + v.FabEncap + "]"

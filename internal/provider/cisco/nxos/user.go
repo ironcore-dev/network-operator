@@ -36,7 +36,7 @@ type User struct {
 	} `json:"userdomain-items,omitzero"`
 }
 
-func (u *User) IsListItem() {}
+func (*User) IsListItem() {}
 
 func (u *User) XPath() string {
 	return "System/userext-items/user-items/User-list[name=" + u.Name + "]"

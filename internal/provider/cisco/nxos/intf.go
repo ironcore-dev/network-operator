@@ -36,7 +36,7 @@ type Loopback struct {
 	RtvrfMbrItems *VrfMember `json:"rtvrfMbr-items,omitempty"`
 }
 
-func (l *Loopback) IsListItem() {}
+func (*Loopback) IsListItem() {}
 
 func (l *Loopback) XPath() string {
 	return "System/intf-items/lb-items/LbRtdIf-list[id=" + l.ID + "]"
@@ -73,7 +73,7 @@ type PhysIf struct {
 	RtvrfMbrItems *VrfMember     `json:"rtvrfMbr-items,omitempty"`
 }
 
-func (p *PhysIf) IsListItem() {}
+func (*PhysIf) IsListItem() {}
 
 func (p *PhysIf) XPath() string {
 	return "System/intf-items/phys-items/PhysIf-list[id=" + p.ID + "]"
@@ -134,7 +134,7 @@ type SpanningTree struct {
 	IfName  string           `json:"-"`
 }
 
-func (s *SpanningTree) IsListItem() {}
+func (*SpanningTree) IsListItem() {}
 
 func (s *SpanningTree) XPath() string {
 	return "System/stp-items/inst-items/if-items/If-list[id=" + s.IfName + "]"
@@ -173,7 +173,7 @@ func NewPortChannelMember(name string) *PortChannelMember {
 	}
 }
 
-func (p *PortChannel) IsListItem() {}
+func (*PortChannel) IsListItem() {}
 
 func (p *PortChannel) XPath() string {
 	return "System/intf-items/aggr-items/AggrIf-list[id=" + p.ID + "]"
@@ -202,7 +202,7 @@ type AddrItem struct {
 	Is6 bool `json:"-"`
 }
 
-func (a *AddrItem) IsListItem() {}
+func (*AddrItem) IsListItem() {}
 
 func (a *AddrItem) XPath() string {
 	if a.Is6 {

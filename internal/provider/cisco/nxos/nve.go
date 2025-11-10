@@ -25,7 +25,7 @@ type NVE struct {
 	SuppressARP      bool          `json:"suppressARP"`
 }
 
-func (n *NVE) IsListItem() {}
+func (*NVE) IsListItem() {}
 
 func (n *NVE) XPath() string {
 	return "System/eps-items/epId-items/Ep-list[epId=" + strconv.Itoa(n.ID) + "]"

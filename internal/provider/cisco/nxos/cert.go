@@ -100,7 +100,7 @@ type Trustpoint struct {
 	Name string `json:"name"`
 }
 
-func (t *Trustpoint) IsListItem() {}
+func (*Trustpoint) IsListItem() {}
 
 func (t *Trustpoint) XPath() string {
 	return "System/userext-items/pkiext-items/tp-items/TP-list[name=" + t.Name + "]"
@@ -110,7 +110,7 @@ type KeyPair struct {
 	Name string `json:"name"`
 }
 
-func (k *KeyPair) IsListItem() {}
+func (*KeyPair) IsListItem() {}
 
 func (k *KeyPair) XPath() string {
 	return "System/userext-items/pkiext-items/keyring-items/KeyRing-list[name=" + k.Name + "]"
