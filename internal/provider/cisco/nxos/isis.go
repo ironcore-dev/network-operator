@@ -15,8 +15,8 @@ type ISIS struct {
 	AdminSt  AdminSt `json:"adminSt"`
 	Name     string  `json:"name"`
 	DomItems struct {
-		DomList []*ISISDom `json:"Dom-list"`
-	} `json:"dom-items"`
+		DomList gnmiext.List[string, *ISISDom] `json:"Dom-list,omitzero"`
+	} `json:"dom-items,omitzero"`
 }
 
 func (*ISIS) IsListItem() {}
@@ -31,22 +31,26 @@ type ISISDom struct {
 	Net         string    `json:"net"`
 	PassiveDflt ISISLevel `json:"passiveDflt"`
 	AfItems     struct {
-		DomAfList []*ISISDomAf `json:"DomAf-list"`
-	} `json:"af-items"`
+		DomAfList gnmiext.List[ISISAddressFamily, *ISISDomAf] `json:"DomAf-list,omitzero"`
+	} `json:"af-items,omitzero"`
 	OverloadItems struct {
 		AdminSt     string `json:"adminSt"`
 		BgpAsNumStr string `json:"bgpAsNumStr"`
 		StartupTime int    `json:"startupTime"`
 		Suppress    string `json:"suppress"`
-	} `json:"overload-items"`
+	} `json:"overload-items,omitzero"`
 	IfItems struct {
-		IfList []*ISISInterface `json:"If-list"`
-	} `json:"if-items"`
+		IfList gnmiext.List[string, *ISISInterface] `json:"If-list,omitzero"`
+	} `json:"if-items,omitzero"`
 }
+
+func (d *ISISDom) Key() string { return d.Name }
 
 type ISISDomAf struct {
 	Type ISISAddressFamily `json:"type"`
 }
+
+func (a *ISISDomAf) Key() ISISAddressFamily { return a.Type }
 
 type ISISInterface struct {
 	ID             string   `json:"id"`
@@ -56,6 +60,8 @@ type ISISInterface struct {
 	V6Bfd          string   `json:"v6Bfd"`
 	V6Enable       bool     `json:"v6enable"`
 }
+
+func (i *ISISInterface) Key() string { return i.ID }
 
 type ISISLevel string
 

@@ -15,9 +15,6 @@
                 "af-items": {
                   "DomAf-list": [
                     {
-                      "type": "v6"
-                    },
-                    {
                       "type": "v4"
                     }
                   ]
@@ -30,30 +27,6 @@
                 },
                 "if-items": {
                   "If-list": [
-                    {
-                      "id": "lo1",
-                      "networkTypeP2P": "off",
-                      "v4Bfd": "enabled",
-                      "v4enable": true,
-                      "v6Bfd": "enabled",
-                      "v6enable": true
-                    },
-                    {
-                      "id": "lo0",
-                      "networkTypeP2P": "off",
-                      "v4Bfd": "enabled",
-                      "v4enable": true,
-                      "v6Bfd": "enabled",
-                      "v6enable": true
-                    },
-                    {
-                      "id": "eth1/2",
-                      "networkTypeP2P": "on",
-                      "v4Bfd": "enabled",
-                      "v4enable": true,
-                      "v6Bfd": "enabled",
-                      "v6enable": true
-                    },
                     {
                       "id": "eth1/1",
                       "networkTypeP2P": "on",

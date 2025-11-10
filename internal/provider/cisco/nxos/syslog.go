@@ -44,7 +44,7 @@ func (*SyslogHistory) XPath() string {
 }
 
 type SyslogRemoteItems struct {
-	RemoteDestList []*SyslogRemote `json:"RemoteDest-list"`
+	RemoteDestList gnmiext.List[string, *SyslogRemote] `json:"RemoteDest-list,omitzero"`
 }
 
 func (*SyslogRemoteItems) XPath() string {
@@ -60,8 +60,10 @@ type SyslogRemote struct {
 	VrfName            string        `json:"vrfName"`
 }
 
+func (r *SyslogRemote) Key() string { return r.Host }
+
 type SyslogFacilityItems struct {
-	FacilityList []*SyslogFacility `json:"Facility-list"`
+	FacilityList gnmiext.List[string, *SyslogFacility] `json:"Facility-list,omitzero"`
 }
 
 func (*SyslogFacilityItems) XPath() string {
@@ -72,6 +74,8 @@ type SyslogFacility struct {
 	FacilityName  string        `json:"facilityName"`
 	SeverityLevel SeverityLevel `json:"severityLevel"`
 }
+
+func (s *SyslogFacility) Key() string { return s.FacilityName }
 
 func (*SyslogFacility) IsListItem() {}
 

@@ -13,14 +13,6 @@
                   "type": "l2vpn-evpn",
                   "retainRttAll": "enabled",
                   "retainRttRtMap": "DME_UNSET_PROPERTY_MARKER"
-                },
-                {
-                  "maxExtEcmp": 2,
-                  "type": "ipv6-ucast"
-                },
-                {
-                  "maxExtEcmp": 4,
-                  "type": "ipv4-ucast"
                 }
               ]
             }

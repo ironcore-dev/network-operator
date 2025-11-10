@@ -31,8 +31,8 @@ type BGPDom struct {
 	RtrID     string  `json:"rtrId"`
 	RtrIDAuto AdminSt `json:"rtrIdAuto"`
 	AfItems   struct {
-		DomAfList []*BGPDomAfItem `json:"DomAf-list"`
-	} `json:"af-items"`
+		DomAfList gnmiext.List[AddressFamily, *BGPDomAfItem] `json:"DomAf-list,omitzero"`
+	} `json:"af-items,omitzero"`
 }
 
 func (*BGPDom) IsListItem() {}
@@ -119,7 +119,7 @@ type BGPPeer struct {
 	Name    string      `json:"name,omitempty"`
 	SrcIf   string      `json:"srcIf,omitempty"`
 	AfItems struct {
-		PeerAfList []*BGPPeerAfItem `json:"PeerAf-list,omitempty"`
+		PeerAfList gnmiext.List[AddressFamily, *BGPPeerAfItem] `json:"PeerAf-list,omitzero"`
 	} `json:"af-items,omitzero"`
 }
 
@@ -135,6 +135,8 @@ type BGPPeerAfItem struct {
 	SendComStd AdminSt        `json:"sendComStd"`
 	Type       AddressFamily  `json:"type"`
 }
+
+func (af *BGPPeerAfItem) Key() AddressFamily { return af.Type }
 
 type BGPPeerOperItems struct {
 	Addr         string        `json:"addr"`

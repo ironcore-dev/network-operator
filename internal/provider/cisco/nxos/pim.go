@@ -12,7 +12,7 @@ var (
 )
 
 type StaticRPItems struct {
-	StaticRPList []*StaticRP `json:"StaticRP-list"`
+	StaticRPList gnmiext.List[string, *StaticRP] `json:"StaticRP-list,omitzero"`
 }
 
 func (*StaticRPItems) XPath() string {
@@ -23,9 +23,11 @@ func (*StaticRPItems) XPath() string {
 type StaticRP struct {
 	Addr           string `json:"addr"`
 	RpgrplistItems struct {
-		RPGrpListList []*StaticRPGrp `json:"RPGrpList-list,omitempty"`
+		RPGrpListList gnmiext.List[string, *StaticRPGrp] `json:"RPGrpList-list,omitzero"`
 	} `json:"rpgrplist-items,omitzero"`
 }
+
+func (rp *StaticRP) Key() string { return rp.Addr }
 
 func (*StaticRP) IsListItem() {}
 
@@ -39,8 +41,10 @@ type StaticRPGrp struct {
 	Override    bool   `json:"override"`
 }
 
+func (g *StaticRPGrp) Key() string { return g.GrpListName }
+
 type AnycastPeerItems struct {
-	AcastRPPeerList []*AnycastPeerAddr `json:"AcastRPPeer-list,omitempty"`
+	AcastRPPeerList gnmiext.List[AnycastPeerAddr, *AnycastPeerAddr] `json:"AcastRPPeer-list,omitzero"`
 }
 
 func (*AnycastPeerItems) XPath() string {
@@ -55,6 +59,8 @@ type AnycastPeerAddr struct {
 
 func (*AnycastPeerAddr) IsListItem() {}
 
+func (a *AnycastPeerAddr) Key() AnycastPeerAddr { return *a }
+
 func (a *AnycastPeerAddr) XPath() string {
 	return "System/pim-items/inst-items/dom-items/Dom-list[name=default]/acastrpfunc-items/peer-items/AcastRPPeer-list[addr=" + a.Addr + "][rpSetAddr=" + a.RpSetAddr + "]"
 }
@@ -62,7 +68,7 @@ func (a *AnycastPeerAddr) XPath() string {
 // PIMIfItems represents the PIM interface configuration.
 // It is used to configure PIM on a specific interface.
 type PIMIfItems struct {
-	IfList []*PIMIf `json:"If-list,omitempty"`
+	IfList gnmiext.List[string, *PIMIf] `json:"If-list,omitzero"`
 }
 
 func (*PIMIfItems) XPath() string {
@@ -75,6 +81,8 @@ type PIMIf struct {
 }
 
 func (*PIMIf) IsListItem() {}
+
+func (i *PIMIf) Key() string { return i.ID }
 
 func (i *PIMIf) XPath() string {
 	return "System/pim-items/inst-items/dom-items/Dom-list[name=default]/if-items/If-list[id=" + i.ID + "]"

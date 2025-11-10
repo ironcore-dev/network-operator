@@ -12,14 +12,6 @@
           "preferred": true,
           "provT": "server",
           "vrf": "management"
-        },
-        {
-          "keyId": 0,
-          "maxPoll": 6,
-          "minPoll": 4,
-          "name": "pool.ntp.org",
-          "preferred": false,
-          "provT": "server"
         }
       ]
     },

@@ -11,7 +11,7 @@ var _ gnmiext.Configurable = (*DNS)(nil)
 type DNS struct {
 	AdminSt   AdminSt `json:"adminSt"`
 	ProfItems struct {
-		ProfList []*DNSProf `json:"Prof-list,omitzero"`
+		ProfList gnmiext.List[string, *DNSProf] `json:"Prof-list,omitzero"`
 	} `json:"prof-items,omitzero"`
 }
 
@@ -22,24 +22,30 @@ func (*DNS) XPath() string {
 type DNSProf struct {
 	Name      string `json:"name"`
 	ProvItems struct {
-		ProviderList []*DNSProv `json:"Provider-list,omitzero"`
+		ProviderList gnmiext.List[string, *DNSProv] `json:"Provider-list,omitzero"`
 	} `json:"prov-items,omitzero"`
 	VrfItems struct {
-		VrfList []*DNSVrf `json:"Vrf-list,omitzero"`
+		VrfList gnmiext.List[string, *DNSVrf] `json:"Vrf-list,omitzero"`
 	} `json:"vrf-items,omitzero"`
 	DomItems struct {
 		Name string `json:"name,omitempty"`
 	} `json:"dom-items,omitzero"`
 }
 
+func (p *DNSProf) Key() string { return p.Name }
+
 type DNSVrf struct {
 	Name      string `json:"name"`
 	ProvItems struct {
-		ProviderList []*DNSProv `json:"Provider-list,omitzero"`
+		ProviderList gnmiext.List[string, *DNSProv] `json:"Provider-list,omitzero"`
 	} `json:"prov-items,omitzero"`
 }
+
+func (v *DNSVrf) Key() string { return v.Name }
 
 type DNSProv struct {
 	Addr  string `json:"addr"`
 	SrcIf string `json:"srcIf,omitempty"`
 }
+
+func (p *DNSProv) Key() string { return p.Addr }
