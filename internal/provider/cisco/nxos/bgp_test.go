@@ -5,13 +5,10 @@ package nxos
 
 import (
 	"k8s.io/utils/ptr"
-
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
 )
 
 func init() {
 	bgpDom := &BGPDom{Name: DefaultVRFName, RtrID: "1.1.1.1", RtrIDAuto: AdminStDisabled}
-	bgpDom.AfItems.DomAfList = make(gnmiext.List[AddressFamily, *BGPDomAfItem])
 	bgpDom.AfItems.DomAfList.Set(&BGPDomAfItem{
 		Type:         AddressFamilyL2EVPN,
 		RetainRttAll: AdminStEnabled,
@@ -28,7 +25,6 @@ func init() {
 		Name:    "EVPN peering with spine",
 		SrcIf:   "lo0",
 	}
-	bgpPeer.AfItems.PeerAfList = make(gnmiext.List[AddressFamily, *BGPPeerAfItem])
 	bgpPeer.AfItems.PeerAfList.Set(&BGPPeerAfItem{
 		Ctrl:       Option[string]{Value: ptr.To(RouteReflectorClient)},
 		SendComExt: AdminStEnabled,

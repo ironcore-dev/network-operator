@@ -3,15 +3,12 @@
 
 package nxos
 
-import "github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
-
 func init() {
 	Register("syslog_origin", &SyslogOrigin{Idtype: "hostname"})
 	Register("syslog_history", &SyslogHistory{Level: Informational, Size: 500})
 	Register("syslog_srcif", &SyslogSrcIf{AdminSt: AdminStEnabled, IfName: "mgmt0"})
 
 	reItems := new(SyslogRemoteItems)
-	reItems.RemoteDestList = make(gnmiext.List[string, *SyslogRemote])
 	reItems.RemoteDestList.Set(&SyslogRemote{
 		ForwardingFacility: "local7",
 		Host:               "10.10.10.10",
@@ -23,7 +20,6 @@ func init() {
 	Register("syslog_remote", reItems)
 
 	facItems := new(SyslogFacilityItems)
-	facItems.FacilityList = make(gnmiext.List[string, *SyslogFacility])
 	facItems.FacilityList.Set(&SyslogFacility{FacilityName: "aaa", SeverityLevel: Informational})
 	Register("syslog_facility", facItems)
 }

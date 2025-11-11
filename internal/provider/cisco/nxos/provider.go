@@ -125,7 +125,6 @@ func (p *Provider) GetDeviceInfo(ctx context.Context) (*provider.DeviceInfo, err
 func (p *Provider) EnsureACL(ctx context.Context, req *provider.EnsureACLRequest) error {
 	a := new(ACL)
 	a.Name = req.ACL.Spec.Name
-	a.SeqItems.ACEList = make(gnmiext.List[int32, *ACLEntry])
 	for i, entry := range req.ACL.Spec.Entries {
 		action, err := ActionFrom(entry.Action)
 		if err != nil {
@@ -223,8 +222,6 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 	dom.RtrIDAuto = AdminStDisabled
 
 	if req.BGP.Spec.AddressFamilies != nil {
-		dom.AfItems.DomAfList = make(gnmiext.List[AddressFamily, *BGPDomAfItem])
-
 		if af := req.BGP.Spec.AddressFamilies.Ipv4Unicast; af != nil && af.Enabled {
 			item := new(BGPDomAfItem)
 			item.Type = AddressFamilyIPv4Unicast
@@ -288,8 +285,6 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 	}
 
 	if req.BGPPeer.Spec.AddressFamilies != nil {
-		pe.AfItems.PeerAfList = make(gnmiext.List[AddressFamily, *BGPPeerAfItem])
-
 		for t, af := range map[AddressFamily]*v1alpha1.BGPPeerAddressFamily{
 			AddressFamilyIPv4Unicast: req.BGPPeer.Spec.AddressFamilies.Ipv4Unicast,
 			AddressFamilyIPv6Unicast: req.BGPPeer.Spec.AddressFamilies.Ipv6Unicast,
@@ -388,7 +383,6 @@ func (p *Provider) DeleteCertificate(ctx context.Context, req *provider.DeleteCe
 func (p *Provider) EnsureDNS(ctx context.Context, req *provider.EnsureDNSRequest) error {
 	d := new(DNS)
 	d.AdminSt = AdminStEnabled
-	d.ProfItems.ProfList = make(gnmiext.List[string, *DNSProf])
 
 	pf := new(DNSProf)
 	pf.Name = DefaultVRFName
@@ -398,20 +392,13 @@ func (p *Provider) EnsureDNS(ctx context.Context, req *provider.EnsureDNSRequest
 		prov.Addr = s.Address
 		prov.SrcIf = req.DNS.Spec.SourceInterfaceName
 		if s.VrfName == "" {
-			if pf.ProvItems.ProviderList == nil {
-				pf.ProvItems.ProviderList = make(gnmiext.List[string, *DNSProv])
-			}
 			pf.ProvItems.ProviderList.Set(prov)
 			continue
-		}
-		if pf.VrfItems.VrfList == nil {
-			pf.VrfItems.VrfList = make(gnmiext.List[string, *DNSVrf])
 		}
 		vrf, ok := pf.VrfItems.VrfList.Get(s.VrfName)
 		if !ok {
 			vrf = new(DNSVrf)
 			vrf.Name = s.VrfName
-			vrf.ProvItems.ProviderList = make(gnmiext.List[string, *DNSProv])
 		}
 		vrf.ProvItems.ProviderList.Set(prov)
 		pf.VrfItems.VrfList.Set(vrf)
@@ -438,7 +425,6 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 	var prefixes []netip.Prefix
 	switch v := req.IPv4.(type) {
 	case provider.IPv4AddressList:
-		addr.AddrItems.AddrList = make(gnmiext.List[string, *IntfAddr])
 		for i, p := range v {
 			prefixes = append(prefixes, p)
 			nth := IntfAddrTypePrimary
@@ -562,7 +548,6 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 		pc.NativeVlan = DefaultVLAN
 		pc.TrunkVlans = DefaultVLANRange
 		pc.UserCfgdFlags = "admin_state"
-		pc.RsmbrIfsItems.RsMbrIfsList = make(gnmiext.List[string, *PortChannelMember])
 
 		pc.MTU = DefaultMTU
 		if req.Interface.Spec.MTU != 0 {
@@ -772,15 +757,12 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 	i := new(ISIS)
 	i.AdminSt = AdminStEnabled
 	i.Name = req.ISIS.Spec.Instance
-	i.DomItems.DomList = make(gnmiext.List[string, *ISISDom])
 
 	dom := new(ISISDom)
 	dom.Name = DefaultVRFName
 	dom.Net = req.ISIS.Spec.NetworkEntityTitle
 	dom.IsType = ISISLevelFrom(req.ISIS.Spec.Type)
 	dom.PassiveDflt = dom.IsType
-	dom.IfItems.IfList = make(gnmiext.List[string, *ISISInterface])
-	dom.AfItems.DomAfList = make(gnmiext.List[ISISAddressFamily, *ISISDomAf])
 	i.DomItems.DomList.Set(dom)
 
 	switch req.ISIS.Spec.OverloadBit {
@@ -941,7 +923,6 @@ func (p *Provider) EnsureNTP(ctx context.Context, req *provider.EnsureNTPRequest
 	if cfg.Log.Enable {
 		n.Logging = AdminStEnabled
 	}
-	n.ProvItems.NtpProviderList = make(gnmiext.List[string, *NTPProvider])
 	for _, s := range req.NTP.Spec.Servers {
 		prov := new(NTPProvider)
 		prov.KeyID = 0
@@ -1115,7 +1096,6 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 	}
 	dom.RtrID = req.OSPF.Spec.RouterID
 	dom.Ctrl = "default-passive"
-	o.DomItems.DomList = make(gnmiext.List[string, *OSPFDom])
 	o.DomItems.DomList.Set(dom)
 
 	interfaces := make([]*v1alpha1.Interface, 0, len(req.Interfaces))
@@ -1132,7 +1112,6 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 	// [Bounds Check Elimination]: https://go101.org/optimizations/5-bce.html
 	_ = req.Interfaces[len(interfaceNames)-1]
 
-	dom.IfItems.IfList = make(gnmiext.List[string, *OSPFInterface])
 	for i, iface := range req.Interfaces {
 		intf := new(OSPFInterface)
 		intf.ID = interfaceNames[i]
@@ -1159,9 +1138,6 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 		rd.Asn = "none"
 		rd.Inst = "none"
 		rd.RtMap = rc.RouteMapName
-		if dom.InterleakItems.InterLeakPList == nil {
-			dom.InterleakItems.InterLeakPList = make(gnmiext.List[InterLeakPKey, *InterLeakP])
-		}
 		dom.InterleakItems.InterLeakPList.Set(rd)
 	}
 
@@ -1231,15 +1207,11 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 	f.AdminSt = AdminStEnabled
 
 	rpItems := new(StaticRPItems)
-	rpItems.StaticRPList = make(gnmiext.List[string, *StaticRP])
-
 	apItems := new(AnycastPeerItems)
-	apItems.AcastRPPeerList = make(gnmiext.List[AnycastPeerAddr, *AnycastPeerAddr])
 
 	for _, rendezvousPoint := range req.PIM.Spec.RendezvousPoints {
 		rp := new(StaticRP)
 		rp.Addr = rendezvousPoint.Address
-		rp.RpgrplistItems.RPGrpListList = make(gnmiext.List[string, *StaticRPGrp])
 		for _, group := range rendezvousPoint.MulticastGroups {
 			if !group.IsValid() || !group.Addr().Is4() {
 				return fmt.Errorf("pim: group list %q is not a valid IPv4 address prefix", group)
@@ -1273,7 +1245,6 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 	_ = req.Interfaces[len(interfaceNames)-1]
 
 	ifItems := new(PIMIfItems)
-	ifItems.IfList = make(gnmiext.List[string, *PIMIf])
 	for i, name := range interfaceNames {
 		intf := new(PIMIf)
 		intf.ID = name
@@ -1326,11 +1297,9 @@ func (p *Provider) EnsureUser(ctx context.Context, req *provider.EnsureUserReque
 	u.Expiration = "never"
 	u.Name = req.Username
 	u.SshauthItems.Data = req.SSHKey
-	u.UserdomainItems.UserDomainList = make(gnmiext.List[string, *UserDomain])
 
 	d := new(UserDomain)
 	d.Name = "all"
-	d.RoleItems.UserRoleList = make(gnmiext.List[string, *UserRole])
 	for _, role := range req.Roles {
 		r := new(UserRole)
 		r.Name = role
@@ -1409,7 +1378,6 @@ func (p *Provider) EnsureSNMP(ctx context.Context, req *provider.EnsureSNMPReque
 	informsSrcIf.Ifname = NewOption(req.SNMP.Spec.SourceInterfaceName)
 
 	communities := new(SNMPCommunityItems)
-	communities.CommSecPList = make(gnmiext.List[string, *SNMPCommunity])
 	for _, c := range req.SNMP.Spec.Communities {
 		comm := new(SNMPCommunity)
 		comm.Name = c.Name
@@ -1424,7 +1392,6 @@ func (p *Provider) EnsureSNMP(ctx context.Context, req *provider.EnsureSNMPReque
 	}
 
 	hosts := new(SNMPHostItems)
-	hosts.HostList = make(gnmiext.List[SNMPHostKey, *SNMPHost])
 	for _, h := range req.SNMP.Spec.Hosts {
 		const port = 162
 		host := new(SNMPHost)
@@ -1437,7 +1404,6 @@ func (p *Provider) EnsureSNMP(ctx context.Context, req *provider.EnsureSNMPReque
 		if h.VrfName != "" {
 			vrf := new(SNMPHostVrf)
 			vrf.Vrfname = h.VrfName
-			host.UsevrfItems.UseVrfList = make(gnmiext.List[string, *SNMPHostVrf])
 			host.UsevrfItems.UseVrfList.Set(vrf)
 		}
 		if h.Version == "v3" {
@@ -1537,7 +1503,6 @@ func (p *Provider) EnsureSyslog(ctx context.Context, req *provider.EnsureSyslogR
 	hist.Level = SeverityLevelFrom(cfg.HistoryLevel)
 
 	re := new(SyslogRemoteItems)
-	re.RemoteDestList = make(gnmiext.List[string, *SyslogRemote])
 	for _, s := range req.Syslog.Spec.Servers {
 		r := new(SyslogRemote)
 		r.ForwardingFacility = "local7"
@@ -1596,7 +1561,6 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 
 	dom := new(VRFDom)
 	dom.Name = req.VRF.Spec.Name
-	dom.AfItems.DomAfList = make(gnmiext.List[AddressFamily, *VRFDomAf])
 
 	// pre: RD format has been already been validated by VRFCustomValidator
 	if req.VRF.Spec.RouteDistinguisher != "" {
@@ -1625,16 +1589,6 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 	exportEntryIPv4EVPN := &RttEntry{Type: RttEntryTypeExport}
 	importEntryIPv6EVPN := &RttEntry{Type: RttEntryTypeImport}
 	exportEntryIPv6EVPN := &RttEntry{Type: RttEntryTypeExport}
-
-	importEntryIPv4.EntItems.RttEntryList = make(gnmiext.List[string, *Rtt])
-	exportEntryIPv4.EntItems.RttEntryList = make(gnmiext.List[string, *Rtt])
-	importEntryIPv6.EntItems.RttEntryList = make(gnmiext.List[string, *Rtt])
-	exportEntryIPv6.EntItems.RttEntryList = make(gnmiext.List[string, *Rtt])
-
-	importEntryIPv4EVPN.EntItems.RttEntryList = make(gnmiext.List[string, *Rtt])
-	exportEntryIPv4EVPN.EntItems.RttEntryList = make(gnmiext.List[string, *Rtt])
-	importEntryIPv6EVPN.EntItems.RttEntryList = make(gnmiext.List[string, *Rtt])
-	exportEntryIPv6EVPN.EntItems.RttEntryList = make(gnmiext.List[string, *Rtt])
 
 	// route targets are already validated by VRFCustomValidator
 	for _, rt := range req.VRF.Spec.RouteTargets {
@@ -1707,11 +1661,9 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 
 			af := new(VRFDomAf)
 			af.Type = afType1
-			af.CtrlItems.AfCtrlList = make(gnmiext.List[AddressFamily, *VRFDomAfCtrl])
 
 			ctrl := new(VRFDomAfCtrl)
 			ctrl.Type = afType2
-			ctrl.RttpItems.RttPList = make(gnmiext.List[RttEntryType, *RttEntry])
 
 			if importE.EntItems.RttEntryList.Len() > 0 {
 				ctrl.RttpItems.RttPList.Set(importE)
@@ -1731,7 +1683,6 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 	}
 
 	if dom.Rd != "" || dom.AfItems.DomAfList.Len() > 0 {
-		v.DomItems.DomList = make(gnmiext.List[string, *VRFDom])
 		v.DomItems.DomList.Set(dom)
 	}
 

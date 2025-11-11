@@ -109,9 +109,13 @@ func (l List[K, V]) Get(key K) (V, bool) {
 
 // Set adds or updates an item in the list.
 // The key is extracted from the item using its Key() method.
-func (l List[K, V]) Set(item V) {
+// If the list is nil, it will be initialized first.
+func (l *List[K, V]) Set(item V) {
+	if *l == nil {
+		*l = make(List[K, V])
+	}
 	key := item.Key()
-	l[key] = item
+	(*l)[key] = item
 }
 
 // Delete removes an item from the list by its key.

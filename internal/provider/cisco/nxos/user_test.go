@@ -5,8 +5,6 @@ package nxos
 
 import (
 	"testing"
-
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
 )
 
 func TestEncoder(t *testing.T) {
@@ -59,7 +57,6 @@ func salt(t *testing.T, saltstr string) [10]byte {
 
 func init() {
 	dom := &UserDomain{Name: "all"}
-	dom.RoleItems.UserRoleList = make(gnmiext.List[string, *UserRole])
 	dom.RoleItems.UserRoleList.Set(&UserRole{Name: "network-admin"})
 	user := &User{
 		AllowExpired:   "no",
@@ -70,7 +67,6 @@ func init() {
 		PwdEncryptType: PwdEncryptTypeClear,
 	}
 	user.SshauthItems.Data = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDEgsAKZn/hxPMKyfwKboiOEeuL9bTqW79QfEQ8h0kpGhkFJJEWR1e3BvXpdT9KYQOaKQnNw32atULweSQQNGh6S73FvEIwYViuNCmygDxpiaJLIiYHAfs3NQ8wGG70l+DK6vPhkcO6uvq2XRP+y1W9gMAKlgMPj5BCl2LR6HUO9/Jzvi1yRX4w4E5shpvcVoUUB8ubFJ0IyfMTXb/sQrFvjq4ukH3wAV4CMrsP6fj5FoAQzJw3jlK5GCtK8FqkUkROBexwWGbFFjSbox5KXT2qludLocyQtw10rB6G/3af40tQJLHd0u6LnaCgHGfPod3Z9u2aL6DR1k5hBtGXGWxZ IronCore Test"
-	user.UserdomainItems.UserDomainList = make(gnmiext.List[string, *UserDomain])
 	user.UserdomainItems.UserDomainList.Set(dom)
 	Register("user", user)
 }

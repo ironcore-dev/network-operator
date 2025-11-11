@@ -3,8 +3,6 @@
 
 package nxos
 
-import "github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
-
 func init() {
 	Register("loopback", &Loopback{
 		ID:            "lo0",
@@ -41,7 +39,6 @@ func init() {
 	})
 
 	intfAddr4 := &AddrItem{ID: "lo0"}
-	intfAddr4.AddrItems.AddrList = make(gnmiext.List[string, *IntfAddr])
 	intfAddr4.AddrItems.AddrList.Set(&IntfAddr{
 		Addr: "10.0.0.10/32",
 		Pref: 0,
@@ -62,7 +59,6 @@ func init() {
 		TrunkVlans:    "10",
 		UserCfgdFlags: "admin_state",
 	}
-	pc.RsmbrIfsItems.RsMbrIfsList = make(gnmiext.List[string, *PortChannelMember])
 	pc.RsmbrIfsItems.RsMbrIfsList.Set(NewPortChannelMember("eth1/10"))
 	Register("pc", pc)
 }

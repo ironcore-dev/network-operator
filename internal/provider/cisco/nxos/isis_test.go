@@ -3,10 +3,6 @@
 
 package nxos
 
-import (
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
-)
-
 func init() {
 	dom := &ISISDom{
 		Name:        DefaultVRFName,
@@ -14,12 +10,10 @@ func init() {
 		IsType:      ISISLevel1,
 		PassiveDflt: ISISLevel1,
 	}
-	dom.AfItems.DomAfList = make(gnmiext.List[ISISAddressFamily, *ISISDomAf])
 	dom.AfItems.DomAfList.Set(&ISISDomAf{Type: ISISAfIPv4Unicast})
 	dom.OverloadItems.AdminSt = "bootup"
 	dom.OverloadItems.BgpAsNumStr = "none"
 	dom.OverloadItems.StartupTime = 61
-	dom.IfItems.IfList = make(gnmiext.List[string, *ISISInterface])
 	dom.IfItems.IfList.Set(&ISISInterface{
 		ID:             "eth1/1",
 		NetworkTypeP2P: AdminStOn,
@@ -29,7 +23,6 @@ func init() {
 		V6Bfd:          "enabled",
 	})
 	isis := &ISIS{Name: "UNDERLAY", AdminSt: AdminStEnabled}
-	isis.DomItems.DomList = make(gnmiext.List[string, *ISISDom])
 	isis.DomItems.DomList.Set(dom)
 	Register("isis", isis)
 }

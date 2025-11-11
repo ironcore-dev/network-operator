@@ -3,11 +3,8 @@
 
 package nxos
 
-import "github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
-
 func init() {
 	ntp := &NTP{AdminSt: AdminStEnabled, Logging: AdminStEnabled}
-	ntp.ProvItems.NtpProviderList = make(gnmiext.List[string, *NTPProvider])
 	ntp.ProvItems.NtpProviderList.Set(&NTPProvider{
 		KeyID:     0,
 		MaxPoll:   6,
