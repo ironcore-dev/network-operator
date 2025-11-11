@@ -43,6 +43,7 @@ func init() {
 		Name:     "CC-CLOUD01",
 		L3Vni:    true,
 		Encap:    "vxlan-101",
+		Descr:    NewOption("CC-CLOUD01 VRF"),
 		DomItems: &VRFDomItems{DomList: []*VRFDom{dom}},
 	}
 

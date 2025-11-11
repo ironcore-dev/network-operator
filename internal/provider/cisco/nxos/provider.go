@@ -1567,6 +1567,9 @@ func (p *Provider) DeleteSyslog(ctx context.Context) error {
 func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) error {
 	v := new(VRF)
 	v.Name = req.VRF.Spec.Name
+	if req.VRF.Spec.Description != "" {
+		v.Descr = NewOption(req.VRF.Spec.Description)
+	}
 
 	if req.VRF.Spec.VNI > 0 {
 		v.L3Vni = true

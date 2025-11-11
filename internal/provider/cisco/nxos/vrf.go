@@ -11,10 +11,11 @@ const DefaultVRFName = "default"
 var _ gnmiext.Configurable = (*VRF)(nil)
 
 type VRF struct {
-	Encap    string       `json:"encap"`
-	L3Vni    bool         `json:"l3vni"`
-	Name     string       `json:"name"`
-	DomItems *VRFDomItems `json:"dom-items,omitempty"`
+	Encap    string         `json:"encap"`
+	L3Vni    bool           `json:"l3vni"`
+	Name     string         `json:"name"`
+	Descr    Option[string] `json:"descr"`
+	DomItems *VRFDomItems   `json:"dom-items,omitempty"`
 }
 
 func (*VRF) IsListItem() {}

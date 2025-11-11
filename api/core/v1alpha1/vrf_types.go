@@ -26,6 +26,12 @@ type VRFSpec struct {
 	// +kubebuilder:validation:MaxLength=32
 	Name string `json:"name"`
 
+	// Description provides a human-readable description of the VRF.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=255
+	Description string `json:"description,omitempty"`
+
 	// VNI is the VXLAN Network Identifier for the VRF (always an L3).
 	// +optional
 	// +kubebuilder:validation:Minimum=1

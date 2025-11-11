@@ -54,6 +54,12 @@ spec:
               spec defines the desired state of VRF
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
             properties:
+              description:
+                description: Description provides a human-readable description of
+                  the VRF.
+                maxLength: 255
+                minLength: 1
+                type: string
               deviceRef:
                 description: |-
                   DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.

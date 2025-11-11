@@ -1,5 +1,6 @@
 vrf context CC-CLOUD01
   vni 101 l3
+  description CC-CLOUD01 VRF
   rd 4269539332:101
   address-family ipv4 unicast
     route-target import 65148:1101

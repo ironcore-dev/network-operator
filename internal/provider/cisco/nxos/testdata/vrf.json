@@ -5,6 +5,7 @@
         "encap": "vxlan-101",
         "l3vni": true,
         "name": "CC-CLOUD01",
+        "descr": "CC-CLOUD01 VRF",
         "dom-items": {
           "Dom-list": [
             {
