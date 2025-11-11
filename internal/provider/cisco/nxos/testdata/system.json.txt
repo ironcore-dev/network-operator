@@ -1,0 +1,2 @@
+system jumbomtu 9214
+no system default switchport shutdown

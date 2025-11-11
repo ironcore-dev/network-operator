@@ -8,10 +8,23 @@ import "github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext
 const Manufacturer = "Cisco"
 
 var (
+	_ gnmiext.Configurable = (*SystemJumboMTU)(nil)
+	_ gnmiext.Defaultable  = (*SystemJumboMTU)(nil)
 	_ gnmiext.Configurable = (*Model)(nil)
 	_ gnmiext.Configurable = (*SerialNumber)(nil)
 	_ gnmiext.Configurable = (*FirmwareVersion)(nil)
 )
+
+// System represents general system settings.
+type SystemJumboMTU int16
+
+func (s *SystemJumboMTU) XPath() string {
+	return "System/ethpm-items/inst-items/systemJumboMtu"
+}
+
+func (s *SystemJumboMTU) Default() {
+	*s = 9216
+}
 
 // Model is the chassis model of the device, e.g. "N9K-C9336C-FX2".
 type Model string

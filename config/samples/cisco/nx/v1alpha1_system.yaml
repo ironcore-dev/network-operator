@@ -1,0 +1,13 @@
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: System
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: leaf1
+spec:
+  deviceRef:
+    name: leaf1
+  jumboMtu: 9214
+  reservedVlan: 3850
+  vlanLongName: true

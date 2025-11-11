@@ -1,0 +1,8 @@
+{
+  "ethpm-items": {
+    "inst-items": {
+      "systemDefaultAdminSt": "up",
+      "systemJumboMtu": 9214
+    }
+  }
+}

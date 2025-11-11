@@ -102,3 +102,29 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - nx.cisco.networking.metal.ironcore.dev
+  resources:
+  - systems
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nx.cisco.networking.metal.ironcore.dev
+  resources:
+  - systems/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - nx.cisco.networking.metal.ironcore.dev
+  resources:
+  - systems/status
+  verbs:
+  - get
+  - patch
+  - update

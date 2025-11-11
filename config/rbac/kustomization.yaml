@@ -73,3 +73,6 @@ resources:
 - ospf_admin_role.yaml
 - ospf_editor_role.yaml
 - ospf_viewer_role.yaml
+- cisco/nx/system_admin_role.yaml
+- cisco/nx/system_editor_role.yaml
+- cisco/nx/system_viewer_role.yaml

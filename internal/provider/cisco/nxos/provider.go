@@ -21,6 +21,7 @@ import (
 	"github.com/go-logr/logr"
 	"google.golang.org/grpc"
 
+	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
@@ -874,16 +875,10 @@ func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.Ens
 		return err
 	}
 
-	sysVlan := new(VLANSystem)
-	sysVlan.LongName = true
-
-	resVlan := new(VLANReservation)
-	resVlan.SysVlan = 3850
-
 	copp := new(CoPP)
 	copp.Profile = Strict
 
-	return p.client.Update(ctx, gf, nf, g, gn, con, vty, sysVlan, resVlan, copp)
+	return p.client.Update(ctx, gf, nf, g, gn, con, vty, copp)
 }
 
 func (p *Provider) DeleteManagementAccess(ctx context.Context) error {
@@ -891,8 +886,6 @@ func (p *Provider) DeleteManagementAccess(ctx context.Context) error {
 		ctx,
 		new(GRPC),
 		new(GNMI),
-		new(VLANSystem),
-		new(VLANReservation),
 		new(CoPP),
 		new(Console),
 		new(VTY),
@@ -1693,6 +1686,28 @@ func (p *Provider) DeleteVRF(ctx context.Context, req *provider.VRFRequest) erro
 	v := new(VRF)
 	v.Name = req.VRF.Spec.Name
 	return p.client.Delete(ctx, v)
+}
+
+func (p *Provider) EnsureSystemSettings(ctx context.Context, s *nxv1alpha1.System) error {
+	long := new(VLANSystem)
+	long.LongName = s.Spec.VlanLongName
+
+	res := new(VLANReservation)
+	res.SysVlan = s.Spec.ReservedVlan
+
+	sys := new(SystemJumboMTU)
+	*sys = SystemJumboMTU(s.Spec.JumboMTU)
+
+	return p.client.Patch(ctx, long, res, sys)
+}
+
+func (p *Provider) ResetSystemSettings(ctx context.Context) error {
+	return p.client.Delete(
+		ctx,
+		new(VLANSystem),
+		new(VLANReservation),
+		new(SystemJumboMTU),
+	)
 }
 
 func init() {

@@ -11,6 +11,7 @@ import (
 
 var (
 	_ gnmiext.Configurable = (*VLANSystem)(nil)
+	_ gnmiext.Defaultable  = (*VLANSystem)(nil)
 	_ gnmiext.Configurable = (*VLANReservation)(nil)
 	_ gnmiext.Defaultable  = (*VLANReservation)(nil)
 )
@@ -24,10 +25,14 @@ func (*VLANSystem) XPath() string {
 	return "System/vlanmgr-items/inst-items"
 }
 
+func (v *VLANSystem) Default() {
+	v.LongName = false
+}
+
 // VLANReservation represents the settings for VLAN reservations
 type VLANReservation struct {
-	BlockVal64 bool `json:"blockVal64"`
-	SysVlan    int  `json:"sysVlan"`
+	BlockVal64 bool  `json:"blockVal64"`
+	SysVlan    int16 `json:"sysVlan"`
 }
 
 func (*VLANReservation) XPath() string {
