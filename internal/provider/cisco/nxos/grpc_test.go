@@ -4,6 +4,6 @@
 package nxos
 
 func init() {
-	Register("grpc", &GRPC{Cert: "trustpoint", CertClientRoot: "client_trustpoint", Port: 9339, UseVrf: DefaultVRFName})
+	Register("grpc", &GRPC{Cert: NewOption("trustpoint"), CertClientRoot: "client_trustpoint", Port: 9339, UseVrf: DefaultVRFName})
 	Register("gnmi", &GNMI{KeepAliveTimeout: 1200, MaxCalls: 4})
 }

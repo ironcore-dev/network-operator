@@ -24,7 +24,12 @@ type ManagementAccessSpec struct {
 	// Currently, only a single "default" gRPC server is supported.
 	// +optional
 	// +kubebuilder:default={enabled:true, port:9339}
-	GRPC GRPC `json:"grpc,omitempty"`
+	GRPC GRPC `json:"grpc,omitzero"`
+
+	// Configuration for the SSH server on the device.
+	// +optional
+	// +kubebuilder:default={enabled:true, timeout:"10m", sessionLimit:32}
+	SSH SSH `json:"ssh,omitzero"`
 }
 
 type GRPC struct {
@@ -54,7 +59,6 @@ type GRPC struct {
 
 	// Enable the gRPC agent to accept incoming (dial-in) RPC requests from a given vrf.
 	// +optional
-	// +kubebuilder:default="default"
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63
 	VrfName string `json:"vrfName"`
@@ -62,7 +66,7 @@ type GRPC struct {
 	// Additional gNMI configuration for the gRPC server.
 	// This may not be supported by all devices.
 	// +optional
-	// +kubebuilder:default={maxConcurrentCall:8, keepAliveTimeout:"10m", minSampleInterval:"10s"}
+	// +kubebuilder:default={maxConcurrentCall:8, keepAliveTimeout:"10m"}
 	GNMI GNMI `json:"gnmi,omitzero"`
 }
 
@@ -85,14 +89,30 @@ type GNMI struct {
 	// +kubebuilder:validation:Type=string
 	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
 	KeepAliveTimeout metav1.Duration `json:"keepAliveTimeout"`
+}
 
-	// Configure the minimum sample interval for the gNMI telemetry stream.
-	// Once per stream sample interval, the switch sends the current values for all specified paths.
-	// The default value is 10 seconds.
+type SSH struct {
+	// Enable or disable the SSH server on the device.
+	// If not specified, the SSH server is enabled by default.
+	// +optional
+	// +kubebuilder:default=true
+	Enabled bool `json:"enabled"`
+
+	// The timeout duration for SSH sessions.
+	// If not specified, the default timeout is 10 minutes.
+	// +optional
+	// +kubebuilder:default="10m"
 	// +kubebuilder:validation:Type=string
-	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
-	// +kubebuilder:default="10s"
-	MinSampleInterval metav1.Duration `json:"minSampleInterval"`
+	Timeout metav1.Duration `json:"timeout,omitzero"`
+
+	// The maximum number of concurrent SSH sessions allowed.
+	// If not specified, the default limit is 32.
+	// +optional
+	// +kubebuilder:default=32
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=64
+	// +kubebuilder:validation:ExclusiveMaximum=false
+	SessionLimit int8 `json:"sessionLimit,omitempty"`
 }
 
 // ManagementAccessStatus defines the observed state of ManagementAccess.
@@ -110,6 +130,7 @@ type ManagementAccessStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=managementaccesses
 // +kubebuilder:resource:singular=managementaccess
+// +kubebuilder:resource:shortName=mgmt;mgmtaccess
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"

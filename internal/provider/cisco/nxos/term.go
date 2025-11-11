@@ -48,7 +48,7 @@ type VTY struct {
 	} `json:"execTmeout-items"`
 	SsLmtItems struct {
 		// Maximum number of concurrent vsh sessions.
-		SesLmt int `json:"sesLmt"`
+		SesLmt int8 `json:"sesLmt"`
 	} `json:"ssLmt-items"`
 }
 

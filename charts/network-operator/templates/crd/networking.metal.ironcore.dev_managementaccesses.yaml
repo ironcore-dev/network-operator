@@ -17,6 +17,9 @@ spec:
     kind: ManagementAccess
     listKind: ManagementAccessList
     plural: managementaccesses
+    shortNames:
+    - mgmt
+    - mgmtaccess
     singular: managementaccess
   scope: Namespaced
   versions:
@@ -102,7 +105,6 @@ spec:
                     default:
                       keepAliveTimeout: 10m
                       maxConcurrentCall: 8
-                      minSampleInterval: 10s
                     description: |-
                       Additional gNMI configuration for the gRPC server.
                       This may not be supported by all devices.
@@ -124,16 +126,6 @@ spec:
                         maximum: 16
                         minimum: 1
                         type: integer
-                      minSampleInterval:
-                        default: 10s
-                        description: |-
-                          Configure the minimum sample interval for the gNMI telemetry stream.
-                          Once per stream sample interval, the switch sends the current values for all specified paths.
-                          The default value is 10 seconds.
-                        pattern: ^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$
-                        type: string
-                    required:
-                    - minSampleInterval
                     type: object
                   port:
                     default: 9339
@@ -146,7 +138,6 @@ spec:
                     minimum: 1024
                     type: integer
                   vrfName:
-                    default: default
                     description: Enable the gRPC agent to accept incoming (dial-in)
                       RPC requests from a given vrf.
                     maxLength: 63
@@ -187,6 +178,34 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
+              ssh:
+                default:
+                  enabled: true
+                  sessionLimit: 32
+                  timeout: 10m
+                description: Configuration for the SSH server on the device.
+                properties:
+                  enabled:
+                    default: true
+                    description: |-
+                      Enable or disable the SSH server on the device.
+                      If not specified, the SSH server is enabled by default.
+                    type: boolean
+                  sessionLimit:
+                    default: 32
+                    description: |-
+                      The maximum number of concurrent SSH sessions allowed.
+                      If not specified, the default limit is 32.
+                    maximum: 64
+                    minimum: 1
+                    type: integer
+                  timeout:
+                    default: 10m
+                    description: |-
+                      The timeout duration for SSH sessions.
+                      If not specified, the default timeout is 10 minutes.
+                    type: string
+                type: object
             required:
             - deviceRef
             type: object

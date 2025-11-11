@@ -842,23 +842,41 @@ func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.Ens
 	gf := new(Feature)
 	gf.Name = "grpc"
 	gf.AdminSt = AdminStEnabled
+	if !req.ManagementAccess.Spec.GRPC.Enabled {
+		return errors.New("management access: gRPC must be enabled")
+	}
 
-	nf := new(Feature)
-	nf.Name = "nxapi"
-	nf.AdminSt = AdminStEnabled
+	sf := new(Feature)
+	sf.Name = "ssh"
+	sf.AdminSt = AdminStDisabled
+	if req.ManagementAccess.Spec.SSH.Enabled {
+		sf.AdminSt = AdminStEnabled
+	}
 
 	g := new(GRPC)
 	g.Port = req.ManagementAccess.Spec.GRPC.Port
 	g.UseVrf = req.ManagementAccess.Spec.GRPC.VrfName
-	g.Cert = req.ManagementAccess.Spec.GRPC.CertificateID
+	if g.UseVrf == "" {
+		g.UseVrf = DefaultVRFName
+	}
+	if req.ManagementAccess.Spec.GRPC.CertificateID != "" {
+		g.Cert = NewOption(req.ManagementAccess.Spec.GRPC.CertificateID)
+	}
 	if err := g.Validate(); err != nil {
 		return err
 	}
 
 	gn := new(GNMI)
-	gn.MaxCalls = 16
-	gn.KeepAliveTimeout = 600 // seconds
+	gn.MaxCalls = req.ManagementAccess.Spec.GRPC.GNMI.MaxConcurrentCall
+	gn.KeepAliveTimeout = int(req.ManagementAccess.Spec.GRPC.GNMI.KeepAliveTimeout.Seconds())
 	if err := gn.Validate(); err != nil {
+		return err
+	}
+
+	vty := new(VTY)
+	vty.SsLmtItems.SesLmt = req.ManagementAccess.Spec.SSH.SessionLimit
+	vty.ExecTmeoutItems.Timeout = int(req.ManagementAccess.Spec.SSH.Timeout.Minutes())
+	if err := vty.Validate(); err != nil {
 		return err
 	}
 
@@ -868,23 +886,16 @@ func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.Ens
 		return err
 	}
 
-	vty := new(VTY)
-	vty.SsLmtItems.SesLmt = 8
-	vty.ExecTmeoutItems.Timeout = 10 // minutes
-	if err := vty.Validate(); err != nil {
-		return err
-	}
-
-	return p.client.Update(ctx, gf, nf, g, gn, con, vty)
+	return p.client.Patch(ctx, gf, sf, g, gn, vty, con)
 }
 
 func (p *Provider) DeleteManagementAccess(ctx context.Context) error {
-	return p.client.Update(
+	return p.client.Delete(
 		ctx,
 		new(GRPC),
 		new(GNMI),
-		new(Console),
 		new(VTY),
+		new(Console),
 	)
 }
 

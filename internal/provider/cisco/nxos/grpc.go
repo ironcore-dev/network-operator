@@ -19,10 +19,10 @@ var (
 
 // GRPC represents the gRPC configuration on a NX-OS device.
 type GRPC struct {
-	Cert           string `json:"cert,omitempty"`
-	CertClientRoot string `json:"certClientRoot,omitempty"`
-	Port           int32  `json:"port"`
-	UseVrf         string `json:"useVrf,omitempty"`
+	Cert           Option[string] `json:"cert,omitempty"`
+	CertClientRoot string         `json:"certClientRoot,omitempty"`
+	Port           int32          `json:"port"`
+	UseVrf         string         `json:"useVrf,omitempty"`
 }
 
 func (*GRPC) XPath() string {
@@ -51,7 +51,7 @@ type GNMI struct {
 	KeepAliveTimeout int `json:"keepAliveTimeout"`
 	// The maximum number of concurrent gNMI calls that can be made to the gRPC server on the switch for each VRF.
 	// Configure a limit from 1 through 16. The default limit is 8.
-	MaxCalls int `json:"maxCalls"`
+	MaxCalls int8 `json:"maxCalls"`
 }
 
 func (*GNMI) XPath() string {

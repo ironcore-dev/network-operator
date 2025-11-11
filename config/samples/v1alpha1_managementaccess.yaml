@@ -10,11 +10,12 @@ spec:
   deviceRef:
     name: leaf1
   grpc:
-    enabled: true
     port: 9339
     certificateId: mytrustpoint
     vrfName: default
     gnmi:
       maxConcurrentCall: 16
       keepAliveTimeout: 600s
-      minSampleInterval: 10s
+  ssh:
+    timeout: 120s
+    sessionLimit: 10
