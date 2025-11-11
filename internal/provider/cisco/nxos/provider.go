@@ -875,10 +875,7 @@ func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.Ens
 		return err
 	}
 
-	copp := new(CoPP)
-	copp.Profile = Strict
-
-	return p.client.Update(ctx, gf, nf, g, gn, con, vty, copp)
+	return p.client.Update(ctx, gf, nf, g, gn, con, vty)
 }
 
 func (p *Provider) DeleteManagementAccess(ctx context.Context) error {
@@ -886,7 +883,6 @@ func (p *Provider) DeleteManagementAccess(ctx context.Context) error {
 		ctx,
 		new(GRPC),
 		new(GNMI),
-		new(CoPP),
 		new(Console),
 		new(VTY),
 	)
