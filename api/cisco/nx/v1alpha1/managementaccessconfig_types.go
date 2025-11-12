@@ -5,6 +5,8 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
 
 // +kubebuilder:rbac:groups=nx.cisco.networking.metal.ironcore.dev,resources=managementaccessconfigs,verbs=get;list;watch
@@ -67,5 +69,6 @@ type ManagementAccessConfigList struct {
 }
 
 func init() {
+	v1alpha1.RegisterManagementAccessDependency(GroupVersion.WithKind("ManagementAccessConfig"))
 	SchemeBuilder.Register(&ManagementAccessConfig{}, &ManagementAccessConfigList{})
 }

@@ -4,7 +4,10 @@
 package v1alpha1
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // ManagementAccessSpec defines the desired state of ManagementAccess
@@ -169,6 +172,17 @@ type ManagementAccessList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ManagementAccess `json:"items"`
+}
+
+var (
+	ManagementAccessDependencies   []schema.GroupVersionKind
+	managementAccessDependenciesMu sync.Mutex
+)
+
+func RegisterManagementAccessDependency(gvk schema.GroupVersionKind) {
+	managementAccessDependenciesMu.Lock()
+	defer managementAccessDependenciesMu.Unlock()
+	ManagementAccessDependencies = append(ManagementAccessDependencies, gvk)
 }
 
 func init() {
