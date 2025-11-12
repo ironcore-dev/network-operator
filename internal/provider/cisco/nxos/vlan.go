@@ -4,8 +4,6 @@
 package nxos
 
 import (
-	"strconv"
-
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
 )
 
@@ -14,6 +12,8 @@ var (
 	_ gnmiext.Defaultable  = (*VLANSystem)(nil)
 	_ gnmiext.Configurable = (*VLANReservation)(nil)
 	_ gnmiext.Defaultable  = (*VLANReservation)(nil)
+	_ gnmiext.Configurable = (*VLAN)(nil)
+	_ gnmiext.Configurable = (*VLANOperItems)(nil)
 )
 
 // VLANSystem represents the settings shared among all VLANs
@@ -46,10 +46,11 @@ func (v *VLANReservation) Default() {
 
 // VLAN represents a VLAN configuration on the device
 type VLAN struct {
-	AccEncap string `json:"accEncap,omitempty"`
-	AdminSt  string `json:"adminSt"` // seems to be always "active" and not changed
-	FabEncap string `json:"fabEncap"`
-	Name     string `json:"name,omitempty"`
+	AccEncap string         `json:"accEncap,omitempty"`
+	AdminSt  BdState        `json:"adminSt"`
+	BdState  BdState        `json:"BdState"` // Note the capitalization of this fields JSON tag
+	FabEncap string         `json:"fabEncap"`
+	Name     Option[string] `json:"name"`
 }
 
 func (*VLAN) IsListItem() {}
@@ -58,10 +59,22 @@ func (v *VLAN) XPath() string {
 	return "System/bd-items/bd-items/BD-list[fabEncap=" + v.FabEncap + "]"
 }
 
-func (v *VLAN) SetID(id int) {
-	v.FabEncap = "vlan-" + strconv.Itoa(id)
+type VLANOperItems struct {
+	FabEncap string `json:"-"`
+	OperSt   OperSt `json:"operSt"`
 }
 
-func (v *VLAN) SetVNI(id int) {
-	v.AccEncap = "vxlan-" + strconv.Itoa(id)
+func (*VLANOperItems) IsListItem() {}
+
+func (v *VLANOperItems) XPath() string {
+	return "System/bd-items/bd-items/BD-list[fabEncap=" + v.FabEncap + "]"
 }
+
+type BdState string
+
+const (
+	// BdStateActive indicates that the bridge domain is active
+	BdStateActive BdState = "active"
+	// BdStateInactive indicates that the bridge domain is inactive/suspended
+	BdStateInactive BdState = "suspend"
+)

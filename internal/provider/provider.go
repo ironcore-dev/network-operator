@@ -438,6 +438,28 @@ type OSPFNeighbor struct {
 	AdjacencyState      v1alpha1.OSPFNeighborState
 }
 
+// VLANProvider is the interface for the realization of the VLAN objects over different providers.
+type VLANProvider interface {
+	Provider
+
+	// EnsureVLAN call is responsible for VLAN realization on the provider.
+	EnsureVLAN(context.Context, *VLANRequest) error
+	// DeleteVLAN call is responsible for VLAN deletion on the provider.
+	DeleteVLAN(context.Context, *VLANRequest) error
+	// GetVLANStatus call is responsible for retrieving the current status of the VLAN from the provider.
+	GetVLANStatus(context.Context, *VLANRequest) (VLANStatus, error)
+}
+
+type VLANStatus struct {
+	// OperStatus indicates whether the interface is operationally up (true) or down (false).
+	OperStatus bool
+}
+
+type VLANRequest struct {
+	VLAN           *v1alpha1.VLAN
+	ProviderConfig *ProviderConfig
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.
