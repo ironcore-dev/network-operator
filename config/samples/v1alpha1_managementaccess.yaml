@@ -9,6 +9,11 @@ metadata:
 spec:
   deviceRef:
     name: leaf1
+  # See: ./cisco/nx/v1alpha1_managementaccessconfig.yaml
+  # providerConfigRef:
+  #   apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+  #   kind: ManagementAccessConfig
+  #   name: nx-mgmt
   grpc:
     port: 9339
     certificateId: mytrustpoint

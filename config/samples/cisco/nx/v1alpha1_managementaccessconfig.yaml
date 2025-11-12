@@ -1,0 +1,12 @@
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: ManagementAccessConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: nx-mgmt
+spec:
+  console:
+    timeout: 10m
+  ssh:
+    accessControlListName: ACL-SNMP-VTY
