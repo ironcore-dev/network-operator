@@ -880,13 +880,35 @@ func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.Ens
 		return err
 	}
 
+	var cfg nxv1alpha1.ManagementAccessConfig
+	if req.ProviderConfig != nil {
+		if err := req.ProviderConfig.Into(&cfg); err != nil {
+			return err
+		}
+	}
+
 	con := new(Console)
-	con.Timeout = 10 // minutes
+	con.Timeout = int(cfg.Spec.Console.Timeout.Minutes())
 	if err := con.Validate(); err != nil {
 		return err
 	}
 
-	return p.client.Patch(ctx, gf, sf, g, gn, vty, con)
+	acl := new(VTYAccessClass)
+	acl.Name = cfg.Spec.SSH.AccessControlListName
+
+	if acl.Name == "" {
+		if err := p.client.Delete(ctx, acl); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+	}
+
+	conf := make([]gnmiext.Configurable, 0, 7)
+	conf = append(conf, gf, sf, g, gn, vty, con)
+	if acl.Name != "" {
+		conf = append(conf, acl)
+	}
+
+	return p.client.Patch(ctx, conf...)
 }
 
 func (p *Provider) DeleteManagementAccess(ctx context.Context) error {

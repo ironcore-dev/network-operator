@@ -105,6 +105,14 @@ rules:
 - apiGroups:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
+  - managementaccessconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - nx.cisco.networking.metal.ironcore.dev
+  resources:
   - systems
   verbs:
   - create

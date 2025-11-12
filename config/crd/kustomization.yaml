@@ -20,6 +20,7 @@ resources:
 - bases/networking.metal.ironcore.dev_bgppeers.yaml
 - bases/networking.metal.ironcore.dev_ospf.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_systems.yaml
+- bases/nx.cisco.networking.metal.ironcore.dev_managementaccessconfigs.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

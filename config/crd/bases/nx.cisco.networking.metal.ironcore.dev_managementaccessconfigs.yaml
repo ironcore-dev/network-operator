@@ -1,0 +1,80 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: managementaccessconfigs.nx.cisco.networking.metal.ironcore.dev
+spec:
+  group: nx.cisco.networking.metal.ironcore.dev
+  names:
+    kind: ManagementAccessConfig
+    listKind: ManagementAccessConfigList
+    plural: managementaccessconfigs
+    shortNames:
+    - nxmgmt
+    - nxmgmtaccess
+    singular: managementaccessconfig
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ManagementAccessConfig is the Schema for the managementaccessconfigs
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              Specification of the desired state of the resource.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              console:
+                default:
+                  timeout: 10m
+                description: Console defines the configuration for the terminal console
+                  access on the device.
+                properties:
+                  timeout:
+                    default: 10m
+                    description: |-
+                      Timeout defines the inactivity timeout for console sessions.
+                      If a session is inactive for the specified duration, it will be automatically disconnected.
+                      The format is a string representing a duration (e.g., "10m" for 10 minutes).
+                    pattern: ^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$
+                    type: string
+                type: object
+              ssh:
+                description: SSH defines the SSH server configuration for the VTY
+                  terminal access on the device.
+                properties:
+                  accessControlListName:
+                    description: |-
+                      AccessControlListName defines the name of the access control list (ACL) to apply for incoming
+                      SSH connections on the VTY terminal. The ACL must be configured separately on the device.
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                type: object
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true

@@ -76,3 +76,6 @@ resources:
 - cisco/nx/system_admin_role.yaml
 - cisco/nx/system_editor_role.yaml
 - cisco/nx/system_viewer_role.yaml
+- cisco/nx/managementaccessconfig_admin_role.yaml
+- cisco/nx/managementaccessconfig_editor_role.yaml
+- cisco/nx/managementaccessconfig_viewer_role.yaml
