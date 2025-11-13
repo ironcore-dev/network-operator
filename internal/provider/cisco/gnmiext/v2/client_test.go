@@ -502,7 +502,7 @@ func TestClient_GetConfig(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			client := &Client{
+			client := &client{
 				encoding: gpb.Encoding_JSON,
 				gnmi:     gpb.NewGNMIClient(test.conn),
 			}
@@ -582,7 +582,7 @@ func TestClient_GetState(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			client := &Client{
+			client := &client{
 				encoding: gpb.Encoding_JSON,
 				gnmi:     gpb.NewGNMIClient(test.conn),
 			}
@@ -853,7 +853,7 @@ func TestClient_Update(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			client := &Client{
+			client := &client{
 				encoding: gpb.Encoding_JSON,
 				gnmi:     gpb.NewGNMIClient(test.conn),
 			}
@@ -1015,7 +1015,7 @@ func TestClient_Patch(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			client := &Client{
+			client := &client{
 				encoding: gpb.Encoding_JSON_IETF,
 				gnmi:     gpb.NewGNMIClient(test.conn),
 			}
@@ -1133,7 +1133,7 @@ func TestClient_Delete(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			client := &Client{
+			client := &client{
 				encoding: gpb.Encoding_JSON,
 				gnmi:     gpb.NewGNMIClient(test.conn),
 			}
@@ -1231,7 +1231,7 @@ func TestClient_Marshal(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			client := &Client{
+			client := &client{
 				capabilities: &Capabilities{
 					SupportedModels: []Model{
 						{Name: "openconfig-interfaces", Organization: "OpenConfig working group", Version: "2.5.0"},
@@ -1288,7 +1288,7 @@ func TestClient_Unmarshal(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			client := &Client{
+			client := &client{
 				capabilities: &Capabilities{
 					SupportedModels: []Model{
 						{Name: "openconfig-interfaces", Organization: "OpenConfig working group", Version: "2.5.0"},

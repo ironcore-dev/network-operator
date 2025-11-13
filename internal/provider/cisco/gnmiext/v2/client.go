@@ -56,21 +56,33 @@ type Capabilities struct {
 	SupportedModels []Model
 }
 
+type Client interface {
+	GetState(ctx context.Context, conf ...Configurable) error
+	GetConfig(ctx context.Context, conf ...Configurable) error
+	Patch(ctx context.Context, conf ...Configurable) error
+	Update(ctx context.Context, conf ...Configurable) error
+	Delete(ctx context.Context, conf ...Configurable) error
+}
+
 // Client is a gNMI client offering convenience methods for device configuration
 // using gNMI.
-type Client struct {
+type client struct {
 	gnmi         gpb.GNMIClient
 	encoding     gpb.Encoding
 	capabilities *Capabilities
 	logger       logr.Logger
 }
 
+var (
+	_ Client = &client{}
+)
+
 // New creates a new Client by negotiating capabilities with the gNMI server by
 // carrying out a Capabilities RPC.
 // Returns an error if the device doesn't support JSON encoding.
 // By default, the client uses [slog.Default] for logging.
 // Use [WithLogger] to provide a custom logger.
-func New(ctx context.Context, conn grpc.ClientConnInterface, opts ...Option) (*Client, error) {
+func New(ctx context.Context, conn grpc.ClientConnInterface, opts ...Option) (Client, error) {
 	gnmi := gpb.NewGNMIClient(conn)
 	res, err := gnmi.Capabilities(ctx, &gpb.CapabilityRequest{})
 	if err != nil {
@@ -97,18 +109,18 @@ func New(ctx context.Context, conn grpc.ClientConnInterface, opts ...Option) (*C
 		}
 	}
 	logger := logr.FromSlogHandler(slog.Default().Handler())
-	client := &Client{gnmi, encoding, capabilities, logger}
+	c := &client{gnmi, encoding, capabilities, logger}
 	for _, opt := range opts {
-		opt(client)
+		opt(c)
 	}
-	return client, nil
+	return c, nil
 }
 
-type Option func(*Client)
+type Option func(*client)
 
 // WithLogger sets a custom logger for the client.
 func WithLogger(logger logr.Logger) Option {
-	return func(c *Client) {
+	return func(c *client) {
 		c.logger = logger
 	}
 }
@@ -118,36 +130,34 @@ var ErrNil = errors.New("gnmiext: nil")
 
 // GetConfig retrieves config and unmarshals it into the provided targets.
 // If some of the values for the given xpaths are not defined, [ErrNil] is returned.
-// Fields that are not present in the response are set to their zero value.
-func (c *Client) GetConfig(ctx context.Context, conf ...Configurable) error {
+func (c *client) GetConfig(ctx context.Context, conf ...Configurable) error {
 	return c.get(ctx, gpb.GetRequest_CONFIG, conf...)
 }
 
 // GetState retrieves state and unmarshals it into the provided targets.
 // If some of the values for the given xpaths are not defined, [ErrNil] is returned.
-// Fields that are not present in the response are set to their zero value.
-func (c *Client) GetState(ctx context.Context, conf ...Configurable) error {
+func (c *client) GetState(ctx context.Context, conf ...Configurable) error {
 	return c.get(ctx, gpb.GetRequest_STATE, conf...)
 }
 
-// Update replaces the configuration for the given set of items.
+// Update replaces the configuration for the given set of items.4c890d
 // If the current configuration equals the desired configuration, the operation is skipped.
 // For partial updates that merge changes, use [Client.Patch] instead.
-func (c *Client) Update(ctx context.Context, conf ...Configurable) error {
+func (c *client) Update(ctx context.Context, conf ...Configurable) error {
 	return c.set(ctx, false, conf...)
 }
 
 // Patch merges the configuration for the given set of items.
 // If the current configuration equals the desired configuration, the operation is skipped.
 // For full replacement of configuration, use [Client.Update] instead.
-func (c *Client) Patch(ctx context.Context, conf ...Configurable) error {
+func (c *client) Patch(ctx context.Context, conf ...Configurable) error {
 	return c.set(ctx, true, conf...)
 }
 
 // Delete resets the configuration for the given set of items.
 // If an item implements [Defaultable], it's reset to default value.
 // Otherwise, the configuration is deleted.
-func (c *Client) Delete(ctx context.Context, conf ...Configurable) error {
+func (c *client) Delete(ctx context.Context, conf ...Configurable) error {
 	if len(conf) == 0 {
 		return nil
 	}
@@ -182,7 +192,7 @@ func (c *Client) Delete(ctx context.Context, conf ...Configurable) error {
 // get retrieves data of the specified type (CONFIG or STATE) and unmarshals it
 // into the provided targets. If some of the values for the given xpaths are not
 // defined, [ErrNil] is returned.
-func (c *Client) get(ctx context.Context, dt gpb.GetRequest_DataType, conf ...Configurable) error {
+func (c *client) get(ctx context.Context, dt gpb.GetRequest_DataType, conf ...Configurable) error {
 	if len(conf) == 0 {
 		return nil
 	}
@@ -247,7 +257,7 @@ func (c *Client) get(ctx context.Context, dt gpb.GetRequest_DataType, conf ...Co
 // configuration. Otherwise, a full replacement is done.
 // If the current configuration equals the desired configuration, the operation
 // is skipped.
-func (c *Client) set(ctx context.Context, patch bool, conf ...Configurable) error {
+func (c *client) set(ctx context.Context, patch bool, conf ...Configurable) error {
 	if len(conf) == 0 {
 		return nil
 	}
@@ -296,7 +306,7 @@ func (c *Client) set(ctx context.Context, patch bool, conf ...Configurable) erro
 // Marshal marshals the provided value into a byte slice using the client's encoding.
 // If the value implements the [Marshaler] interface, it will be marshaled using that.
 // Otherwise, [json.Marshal] is used.
-func (c *Client) Marshal(v any) (b []byte, err error) {
+func (c *client) Marshal(v any) (b []byte, err error) {
 	if m, ok := v.(Marshaler); ok {
 		b, err = m.MarshalYANG(c.capabilities)
 		if err != nil {
@@ -341,9 +351,7 @@ func zeroUnknownFields(b []byte, rv reflect.Value) {
 // Unmarshal unmarshals the provided byte slice into the provided destination.
 // If the destination implements the [Marshaler] interface, it will be unmarshaled using that.
 // Otherwise, [json.Unmarshal] is used.
-// Additionally, if will ensure that fields not present in the JSON
-// are set to their zero value.
-func (c *Client) Unmarshal(b []byte, dst any) (err error) {
+func (c *client) Unmarshal(b []byte, dst any) (err error) {
 	// NOTE: If you query for list elements on Cisco NX-OS, the encoded payload
 	// will be the wrapped in an array (even if only one element is requested), i.e.
 	//
@@ -372,7 +380,7 @@ func (c *Client) Unmarshal(b []byte, dst any) (err error) {
 }
 
 // Encode encodes the provided byte slice into a [gpb.TypedValue] using the client's encoding.
-func (c *Client) Encode(b []byte) *gpb.TypedValue {
+func (c *client) Encode(b []byte) *gpb.TypedValue {
 	switch c.encoding {
 	case gpb.Encoding_JSON:
 		return &gpb.TypedValue{
@@ -392,7 +400,7 @@ func (c *Client) Encode(b []byte) *gpb.TypedValue {
 }
 
 // Decode decodes the provided [gpb.TypedValue] into the provided destination using the client's encoding.
-func (c *Client) Decode(val *gpb.TypedValue) ([]byte, error) {
+func (c *client) Decode(val *gpb.TypedValue) ([]byte, error) {
 	switch c.encoding {
 	case gpb.Encoding_JSON:
 		v, ok := val.Value.(*gpb.TypedValue_JsonVal)
