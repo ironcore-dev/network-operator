@@ -7,7 +7,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 name: goreleaser
-"on":
+on:
   push:
     tags:
       - '*'

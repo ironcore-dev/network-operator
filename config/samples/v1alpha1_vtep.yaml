@@ -10,20 +10,13 @@ spec:
   deviceRef:
     name: leaf1
   enabled: true
+  hostReachability: BGP
+  suppressArp: true
   primaryInterfaceRef:
     name: lo0
   anycastInterfaceRef:
     name: lo1
-
-    # multisite:
-    #   interfaceRef:
-    #     name: loopback3
-  controlPlaneRef:
-    name: evpn1
   providerConfigRef:
     apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
     kind: NVE
     name: nve1
-
-
-

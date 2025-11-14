@@ -314,12 +314,10 @@ type VTEPProvider interface {
 
 type VTEPRequest struct {
 	VTEP               *v1alpha1.VTEP
-	ControlPlaneConfig *v1alpha1.EVPNControlPlane
 	PrimaryInterface   *v1alpha1.Interface
 	AnycastInterface   *v1alpha1.Interface
 	MultisiteInterface *v1alpha1.Interface
-	// NVE is provider-specific config for the Cisco NXOS platform
-	NVE *nxosv1alpha1.NVE
+	ProviderConfig     *nxosv1alpha1.VTEPConfig
 }
 
 var mu sync.RWMutex

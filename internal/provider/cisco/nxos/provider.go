@@ -1729,11 +1729,11 @@ func (p *Provider) DeleteVRF(ctx context.Context, req *provider.VRFRequest) erro
 
 func (p *Provider) EnsureVTEP(ctx context.Context, req *provider.VTEPRequest) error {
 	updates := []gnmiext.Configurable{}
-	if req.ControlPlaneConfig == nil {
-		return errors.New("vtep: provider requires evpn-control-plane config (ref is nil)")
-	}
+	// if req.ControlPlaneConfig == nil {
+	// 	return errors.New("vtep: provider requires evpn-control-plane config (ref is nil)")
+	// }
 
-	if req.NVE == nil {
+	if req.ProviderConfig == nil {
 		return errors.New("vtep: provider requires NVE config (ref is nil)")
 	}
 
@@ -1765,68 +1765,68 @@ func (p *Provider) EnsureVTEP(ctx context.Context, req *provider.VTEPRequest) er
 	}
 
 	// control plane settings
-	cp := req.ControlPlaneConfig
-	switch cp.Spec.HostReachability {
-	case v1alpha1.HostReachabilityBGP:
-		n.HostReach = HostReachBGP
-	case v1alpha1.HostReachabilityFloodAndLearn:
-		n.HostReach = HostReachFloodAndLearn
-	default:
-		return fmt.Errorf("vtep: invalid evpn host reachability type %q", cp.Spec.HostReachability)
-	}
+	// cp := req.ControlPlaneConfig
+	// switch cp.Spec.HostReachability {
+	// case v1alpha1.HostReachabilityBGP:
+	// 	n.HostReach = HostReachBGP
+	// case v1alpha1.HostReachabilityFloodAndLearn:
+	// 	n.HostReach = HostReachFloodAndLearn
+	// default:
+	// 	return fmt.Errorf("vtep: invalid evpn host reachability type %q", cp.Spec.HostReachability)
+	// }
 
-	n.SuppressARP = cp.Spec.SuppressARP
+	n.SuppressARP = req.VTEP.Spec.SuppressARP
 
 	// provider specific settings: NVE
 	updates = append(updates, n)
 
-	if req.NVE.Spec.HoldDownTime > 0 {
-		n.HoldDownTime = req.NVE.Spec.HoldDownTime
+	if req.ProviderConfig.Spec.HoldDownTime > 0 {
+		n.HoldDownTime = req.ProviderConfig.Spec.HoldDownTime
 	}
 
-	if req.NVE.Spec.AdvertiseVMAC != nil {
-		n.AdvertiseVmac = *req.NVE.Spec.AdvertiseVMAC
+	if req.ProviderConfig.Spec.AdvertiseVMAC != nil {
+		n.AdvertiseVmac = *req.ProviderConfig.Spec.AdvertiseVMAC
 	}
 
-	if req.NVE.Spec.GlobalMulticastGroups != nil {
-		if req.NVE.Spec.GlobalMulticastGroups.L2 != nil {
-			n.McastGroupL2 = req.NVE.Spec.GlobalMulticastGroups.L2.Addr().String()
-		}
-		if req.NVE.Spec.GlobalMulticastGroups.L3 != nil {
-			n.McastGroupL3 = req.NVE.Spec.GlobalMulticastGroups.L3.Addr().String()
-		}
-	}
+	// if req.NVE.Spec.GlobalMulticastGroups != nil {
+	// 	if req.NVE.Spec.GlobalMulticastGroups.L2 != nil {
+	// 		n.McastGroupL2 = req.NVE.Spec.GlobalMulticastGroups.L2.Addr().String()
+	// 	}
+	// 	if req.NVE.Spec.GlobalMulticastGroups.L3 != nil {
+	// 		n.McastGroupL3 = req.NVE.Spec.GlobalMulticastGroups.L3.Addr().String()
+	// 	}
+	// }
 
 	// storm control settings
-	if req.NVE.Spec.StormControl != nil {
-		sc := new(EVPNStormControl)
-		if req.NVE.Spec.StormControl.Multicast != nil {
-			sc.EvpnStormControlList = append(sc.EvpnStormControlList, &EVPNStormControlEntry{
-				FloatLevel: strconv.FormatUint(uint64(*req.NVE.Spec.StormControl.Multicast), 10),
-				Name:       EVPNStormControlMulticast,
-			})
-		}
-		if req.NVE.Spec.StormControl.Unicast != nil {
-			sc.EvpnStormControlList = append(sc.EvpnStormControlList, &EVPNStormControlEntry{
-				FloatLevel: strconv.FormatUint(uint64(*req.NVE.Spec.StormControl.Unicast), 10),
-				Name:       EVPNStormControlUnicast,
-			})
-		}
-		if req.NVE.Spec.StormControl.Broadcast != nil {
-			sc.EvpnStormControlList = append(sc.EvpnStormControlList, &EVPNStormControlEntry{
-				FloatLevel: strconv.FormatUint(uint64(*req.NVE.Spec.StormControl.Broadcast), 10),
-				Name:       EVPNStormControlBroadcast,
-			})
-		}
-		updates = append(updates, sc)
-	}
+	// if req.VTEP.Spec.StormControl != nil {
+	// 	sc := new(EVPNStormControl)
+	// 	if req.NVE.Spec.StormControl.Multicast != nil {
+	// 		sc.EvpnStormControlList = append(sc.EvpnStormControlList, &EVPNStormControlEntry{
+	// 			FloatLevel: strconv.FormatUint(uint64(*req.NVE.Spec.StormControl.Multicast), 10),
+	// 			Name:       EVPNStormControlMulticast,
+	// 		})
+	// 	}
+	// 	if req.NVE.Spec.StormControl.Unicast != nil {
+	// 		sc.EvpnStormControlList = append(sc.EvpnStormControlList, &EVPNStormControlEntry{
+	// 			FloatLevel: strconv.FormatUint(uint64(*req.NVE.Spec.StormControl.Unicast), 10),
+	// 			Name:       EVPNStormControlUnicast,
+	// 		})
+	// 	}
+	// 	if req.NVE.Spec.StormControl.Broadcast != nil {
+	// 		sc.EvpnStormControlList = append(sc.EvpnStormControlList, &EVPNStormControlEntry{
+	// 			FloatLevel: strconv.FormatUint(uint64(*req.NVE.Spec.StormControl.Broadcast), 10),
+	// 			Name:       EVPNStormControlBroadcast,
+	// 		})
+	// 	}
+	// 	updates = append(updates, sc)
+	// }
 
 	// infra-vlans are specified as a list of VLAN IDs or ranges, e.g., ["10", "20-30"].
 	// TODO: consider using an admission webhook or reject use of Cisco syntax in the CRD
-	if len(req.NVE.Spec.InfraVLANs) > 0 {
+	if len(req.ProviderConfig.Spec.InfraVLANs) > 0 {
 		iv := new(NVEInfraVLANs)
 		// TODO: replace validation with an admission webhook
-		for _, vlanRange := range req.NVE.Spec.InfraVLANs {
+		for _, vlanRange := range req.ProviderConfig.Spec.InfraVLANs {
 			tokens := strings.Split(string(vlanRange), "-")
 			switch len(tokens) {
 			case 1:

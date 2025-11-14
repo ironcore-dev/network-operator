@@ -21,9 +21,6 @@ spec:
     - jsonPath: .spec.deviceRef.name
       name: Device
       type: string
-    - jsonPath: .spec.nve
-      name: NVE
-      type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
@@ -65,22 +62,9 @@ spec:
               (VTEP)
             properties:
               anycastInterfaceRef:
-                description: Optional anycast source interface.
-                properties:
-                  name:
-                    description: |-
-                      Name of the referent.
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                    maxLength: 63
-                    minLength: 1
-                    type: string
-                required:
-                - name
-                type: object
-                x-kubernetes-map-type: atomic
-              controlPlaneRef:
-                description: ControlPlaneRef is the reference to the EVPNControlPlane
-                  resource that manages the control plane for this VTEP.
+                description: |-
+                  LocalObjectReference contains enough information to locate a
+                  referenced object inside the same namespace.
                 properties:
                   name:
                     description: |-
@@ -116,8 +100,15 @@ spec:
                 description: AdminState indicates whether the interface is administratively
                   up or down.
                 type: boolean
+              hostReachability:
+                enum:
+                - FloodAndLearn
+                - BGP
+                type: string
               primaryInterfaceRef:
-                description: Required non-anycast source interface.
+                description: |-
+                  LocalObjectReference contains enough information to locate a
+                  referenced object inside the same namespace.
                 properties:
                   name:
                     description: |-
@@ -166,11 +157,15 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
+              suppressARP:
+                type: boolean
             required:
-            - controlPlaneRef
+            - anycastInterfaceRef
             - deviceRef
             - enabled
+            - hostReachability
             - primaryInterfaceRef
+            - suppressARP
             type: object
           status:
             description: VTEPStatus defines the observed state of VTEP.

@@ -129,16 +129,9 @@ resources:
 - api:
     crdVersion: v1
     namespaced: true
-  controller: true
-  domain: networking.metal.ironcore.dev
-  kind: EVPNControlPlane
-  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
+  domain: cisco.networking.metal.ironcore.dev
+  group: nx
+  kind: VTEPConfig
+  controller: false
+  path: github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1
   version: v1alpha1
-- api:
-    crdVersion: v1
-    namespaced: true
-  domain: nx.cisco.networking.metal.ironcore.dev
-  kind: NVE
-  path: github.com/ironcore-dev/network-operator/api/core/cisco/nx/v1alpha1
-  version: v1alpha1
-version: "3"

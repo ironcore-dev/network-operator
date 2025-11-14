@@ -239,25 +239,25 @@ func (r *VTEPReconciler) reconcile(ctx context.Context, s *vtepScope) (_ ctrl.Re
 	}
 
 	// get control plane config
-	req.ControlPlaneConfig = new(v1alpha1.EVPNControlPlane)
-	if err := r.Get(ctx, types.NamespacedName{Namespace: s.VTEP.Namespace, Name: s.VTEP.Spec.ControlPlaneRef.Name}, req.ControlPlaneConfig); err != nil {
-		if apierrors.IsNotFound(err) {
-			conditions.Set(s.VTEP, metav1.Condition{
-				Type:    v1alpha1.ConfiguredCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  v1alpha1.WaitingForDependenciesReason,
-				Message: fmt.Sprintf("EVPNControlPlane '%s' not found", s.VTEP.Spec.ControlPlaneRef.Name),
-			})
-			return ctrl.Result{}, fmt.Errorf("referenced EVPNControlPlane %q not found", s.VTEP.Spec.ControlPlaneRef.Name)
-		}
-		return ctrl.Result{}, fmt.Errorf("failed to get referenced EVPNControlPlane %q: %w", s.VTEP.Spec.ControlPlaneRef.Name, err)
-	}
+	// req.ControlPlaneConfig = new(v1alpha1.EVPNControlPlane)
+	// if err := r.Get(ctx, types.NamespacedName{Namespace: s.VTEP.Namespace, Name: s.VTEP.Spec.ControlPlaneRef.Name}, req.ControlPlaneConfig); err != nil {
+	// 	if apierrors.IsNotFound(err) {
+	// 		conditions.Set(s.VTEP, metav1.Condition{
+	// 			Type:    v1alpha1.ConfiguredCondition,
+	// 			Status:  metav1.ConditionFalse,
+	// 			Reason:  v1alpha1.WaitingForDependenciesReason,
+	// 			Message: fmt.Sprintf("EVPNControlPlane '%s' not found", s.VTEP.Spec.ControlPlaneRef.Name),
+	// 		})
+	// 		return ctrl.Result{}, fmt.Errorf("referenced EVPNControlPlane %q not found", s.VTEP.Spec.ControlPlaneRef.Name)
+	// 	}
+	// 	return ctrl.Result{}, fmt.Errorf("failed to get referenced EVPNControlPlane %q: %w", s.VTEP.Spec.ControlPlaneRef.Name, err)
+	// }
 
 	// get provider specific config (e.g. NVE for NX-OS)
 	switch p := s.VTEP.Spec.ProviderConfigRef.APIVersion; p {
 	case nxosv1alpha1.GroupVersion.String():
-		req.NVE = new(nxosv1alpha1.NVE)
-		if err := r.Get(ctx, types.NamespacedName{Namespace: s.VTEP.Namespace, Name: s.VTEP.Spec.ProviderConfigRef.Name}, req.NVE); err != nil {
+		req.ProviderConfig = new(nxosv1alpha1.VTEPConfig)
+		if err := r.Get(ctx, types.NamespacedName{Namespace: s.VTEP.Namespace, Name: s.VTEP.Spec.ProviderConfigRef.Name}, req.ProviderConfig); err != nil {
 			if apierrors.IsNotFound(err) {
 				conditions.Set(s.VTEP, metav1.Condition{
 					Type:    v1alpha1.ConfiguredCondition,
@@ -326,29 +326,29 @@ func (r *VTEPReconciler) setOwnerships(ctx context.Context, s *vtepScope) error 
 			return err
 		}
 		// check control plane has an owner ref
-		cp := new(v1alpha1.EVPNControlPlane)
-		if err := r.Get(ctx, client.ObjectKey{Namespace: s.VTEP.Namespace, Name: s.VTEP.Spec.ControlPlaneRef.Name}, cp); err != nil {
-			if apierrors.IsNotFound(err) {
-				conditions.Set(s.VTEP, metav1.Condition{
-					Type:    v1alpha1.ConfiguredCondition,
-					Status:  metav1.ConditionFalse,
-					Reason:  v1alpha1.WaitingForDependenciesReason,
-					Message: fmt.Sprintf("EVPNControlPlane '%s' not found", s.VTEP.Spec.ControlPlaneRef.Name),
-				})
-				return fmt.Errorf("referenced EVPNControlPlane %q not found", s.VTEP.Spec.ControlPlaneRef.Name)
-			}
-			return fmt.Errorf("failed to get referenced EVPNControlPlane %q: %w", s.VTEP.Spec.ControlPlaneRef.Name, err)
-		}
+		// cp := new(v1alpha1.EVPNControlPlane)
+		// if err := r.Get(ctx, client.ObjectKey{Namespace: s.VTEP.Namespace, Name: s.VTEP.Spec.ControlPlaneRef.Name}, cp); err != nil {
+		// 	if apierrors.IsNotFound(err) {
+		// 		conditions.Set(s.VTEP, metav1.Condition{
+		// 			Type:    v1alpha1.ConfiguredCondition,
+		// 			Status:  metav1.ConditionFalse,
+		// 			Reason:  v1alpha1.WaitingForDependenciesReason,
+		// 			Message: fmt.Sprintf("EVPNControlPlane '%s' not found", s.VTEP.Spec.ControlPlaneRef.Name),
+		// 		})
+		// 		return fmt.Errorf("referenced EVPNControlPlane %q not found", s.VTEP.Spec.ControlPlaneRef.Name)
+		// 	}
+		// 	return fmt.Errorf("failed to get referenced EVPNControlPlane %q: %w", s.VTEP.Spec.ControlPlaneRef.Name, err)
+		// }
 
-		if !controllerutil.HasControllerReference(cp) {
-			if err := controllerutil.SetOwnerReference(s.VTEP, cp, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-				return fmt.Errorf("failed to set owner reference on EVPNControlPlane %q: %w", cp.Name, err)
-			}
-		} // TODO: else check if its correct owner?
+		// if !controllerutil.HasControllerReference(cp) {
+		// 	if err := controllerutil.SetOwnerReference(s.VTEP, cp, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
+		// 		return fmt.Errorf("failed to set owner reference on EVPNControlPlane %q: %w", cp.Name, err)
+		// 	}
+		// } // TODO: else check if its correct owner?
 
 		// check porovider specific config has an owner
-		nve := new(nxosv1alpha1.NVE)
-		if err := r.Get(ctx, client.ObjectKey{Namespace: s.VTEP.Namespace, Name: s.VTEP.Spec.ProviderConfigRef.Name}, nve); err != nil {
+		v := new(nxosv1alpha1.VTEPConfig)
+		if err := r.Get(ctx, client.ObjectKey{Namespace: s.VTEP.Namespace, Name: s.VTEP.Spec.ProviderConfigRef.Name}, v); err != nil {
 			if apierrors.IsNotFound(err) {
 				conditions.Set(s.VTEP, metav1.Condition{
 					Type:    v1alpha1.ConfiguredCondition,
@@ -360,9 +360,9 @@ func (r *VTEPReconciler) setOwnerships(ctx context.Context, s *vtepScope) error 
 			}
 			return fmt.Errorf("failed to get referenced NVE %q: %w", s.VTEP.Spec.ProviderConfigRef.Name, err)
 		}
-		if !controllerutil.HasControllerReference(nve) {
-			if err := controllerutil.SetOwnerReference(s.VTEP, nve, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-				return fmt.Errorf("failed to set owner reference on NVE %q: %w", nve.Name, err)
+		if !controllerutil.HasControllerReference(v) {
+			if err := controllerutil.SetOwnerReference(s.VTEP, v, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
+				return fmt.Errorf("failed to set owner reference on NVE %q: %w", v.GetName(), err)
 			}
 		} // TODO: else check if its correct owner?
 	}
@@ -418,37 +418,37 @@ func (r *VTEPReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 		Named("vtep").
 		WithEventFilter(filter).
 		// Watches enqueues VTEPS whose referenced EVPNControlPlane spec has changed (ignoring status updates)
-		Watches(
-			&v1alpha1.EVPNControlPlane{},
-			handler.EnqueueRequestsFromMapFunc(r.mapEVPNControlPlaneToVTEPs),
-			builder.WithPredicates(predicate.Funcs{
-				CreateFunc: func(e event.CreateEvent) bool { return true },
-				DeleteFunc: func(e event.DeleteEvent) bool { return true },
-				UpdateFunc: func(e event.UpdateEvent) bool {
-					oldObj, ok1 := e.ObjectOld.(*v1alpha1.EVPNControlPlane)
-					newObj, ok2 := e.ObjectNew.(*v1alpha1.EVPNControlPlane)
-					if !ok1 || !ok2 {
-						return false
-					}
-					return !reflect.DeepEqual(oldObj.Spec, newObj.Spec)
-				},
-				GenericFunc: func(e event.GenericEvent) bool { return false },
-			}),
-		).
+		// Watches(
+		// 	&v1alpha1.EVPNControlPlane{},
+		// 	handler.EnqueueRequestsFromMapFunc(r.mapEVPNControlPlaneToVTEPs),
+		// 	builder.WithPredicates(predicate.Funcs{
+		// 		CreateFunc: func(e event.CreateEvent) bool { return true },
+		// 		DeleteFunc: func(e event.DeleteEvent) bool { return true },
+		// 		UpdateFunc: func(e event.UpdateEvent) bool {
+		// 			oldObj, ok1 := e.ObjectOld.(*v1alpha1.EVPNControlPlane)
+		// 			newObj, ok2 := e.ObjectNew.(*v1alpha1.EVPNControlPlane)
+		// 			if !ok1 || !ok2 {
+		// 				return false
+		// 			}
+		// 			return !reflect.DeepEqual(oldObj.Spec, newObj.Spec)
+		// 		},
+		// 		GenericFunc: func(e event.GenericEvent) bool { return false },
+		// 	}),
+		// ).
 		// Watches enqueues VTEPs whose provider config (NVE) spec has changed
 		Watches(
-			&nxosv1alpha1.NVE{},
+			&nxosv1alpha1.VTEPConfig{},
 			handler.EnqueueRequestsFromMapFunc(r.mapNVEToVTEPs),
 			builder.WithPredicates(predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool { return true },
 				DeleteFunc: func(e event.DeleteEvent) bool { return true },
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					oldObj, ok1 := e.ObjectOld.(*nxosv1alpha1.NVE)
-					newObj, ok2 := e.ObjectNew.(*nxosv1alpha1.NVE)
+					oldObj, ok1 := e.ObjectOld.(*nxosv1alpha1.VTEPConfig)
+					newObj, ok2 := e.ObjectNew.(*nxosv1alpha1.VTEPConfig)
 					if !ok1 || !ok2 {
 						return false
 					}
-					return !reflect.DeepEqual(oldObj.Spec, newObj.Spec)
+					return !reflect.DeepEqual(oldObj, newObj)
 				},
 				GenericFunc: func(e event.GenericEvent) bool { return false },
 			}),
@@ -457,43 +457,43 @@ func (r *VTEPReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 }
 
 // mapEVPNControlPlaneToVTEPs enqueues all VTEPs that reference the modified EVPNControlPlane
-func (r *VTEPReconciler) mapEVPNControlPlaneToVTEPs(ctx context.Context, obj client.Object) []ctrl.Request {
-	nve, ok := obj.(*v1alpha1.EVPNControlPlane)
-	if !ok {
-		return nil
-	}
-	var vtepList v1alpha1.VTEPList
-	if err := r.List(ctx, &vtepList,
-		client.InNamespace(nve.Namespace),
-		client.MatchingFields{
-			controlplaneVtepRefIndexKey: nve.Name,
-		},
-	); err != nil {
-		return nil
-	}
-	reqs := make([]ctrl.Request, 0, len(vtepList.Items))
-	// TODO: we shouldn't have more than one VTEP referencing the same control plane
-	// TODO: check is the same device
-	for i := range vtepList.Items {
-		reqs = append(reqs, ctrl.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      vtepList.Items[i].Name,
-				Namespace: vtepList.Items[i].Namespace,
-			},
-		})
-	}
-	return reqs
-}
+// func (r *VTEPReconciler) mapEVPNControlPlaneToVTEPs(ctx context.Context, obj client.Object) []ctrl.Request {
+// 	nve, ok := obj.(*v1alpha1.EVPNControlPlane)
+// 	if !ok {
+// 		return nil
+// 	}
+// 	var vtepList v1alpha1.VTEPList
+// 	if err := r.List(ctx, &vtepList,
+// 		client.InNamespace(nve.Namespace),
+// 		client.MatchingFields{
+// 			controlplaneVtepRefIndexKey: nve.Name,
+// 		},
+// 	); err != nil {
+// 		return nil
+// 	}
+// 	reqs := make([]ctrl.Request, 0, len(vtepList.Items))
+// 	// TODO: we shouldn't have more than one VTEP referencing the same control plane
+// 	// TODO: check is the same device
+// 	for i := range vtepList.Items {
+// 		reqs = append(reqs, ctrl.Request{
+// 			NamespacedName: types.NamespacedName{
+// 				Name:      vtepList.Items[i].Name,
+// 				Namespace: vtepList.Items[i].Namespace,
+// 			},
+// 		})
+// 	}
+// 	return reqs
+// }
 
 // mapProviderConfigToVTEPs enqueues reconcile requests for VTEPs with OwnerReference to the given provider config
 func (r *VTEPReconciler) mapNVEToVTEPs(ctx context.Context, obj client.Object) []ctrl.Request {
 	// nve is a cisco specific provider, add other types if needed
-	nve, ok := obj.(*nxosv1alpha1.NVE)
+	vc, ok := obj.(*nxosv1alpha1.VTEPConfig)
 	if !ok {
 		return nil
 	}
 
-	ownerRefs := nve.GetOwnerReferences()
+	ownerRefs := vc.GetOwnerReferences()
 	if len(ownerRefs) == 0 {
 		return nil
 	} else if len(ownerRefs) > 1 {
@@ -506,7 +506,7 @@ func (r *VTEPReconciler) mapNVEToVTEPs(ctx context.Context, obj client.Object) [
 			reqs = append(reqs, ctrl.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      owner.Name,
-					Namespace: nve.Namespace,
+					Namespace: vc.GetNamespace(),
 				},
 			})
 		}

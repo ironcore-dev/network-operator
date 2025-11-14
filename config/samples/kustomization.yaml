@@ -14,7 +14,5 @@ resources:
 - v1alpha1_isis.yaml
 - v1alpha1_vrf.yaml
 - v1alpha1_vtep.yaml
-- v1alpha1_evpncontrolplane.yaml
-- v1alpha1_evpncontrolplane.yaml
-- v1alpha1_nve.yaml
+- cisco/nx/v1alpha1_vtepconfig.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

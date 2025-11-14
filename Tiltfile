@@ -25,7 +25,7 @@ docker_build('ghcr.io/ironcore-dev/gnmi-test-server:latest', './test/gnmi')
 provider = os.getenv('PROVIDER', 'openconfig')
 
 manager = kustomize('config/develop')
-manager = str(manager).replace('--provider=openconfig', '--provider={}'.format(provider))
+manager = str(manager).replace('--provider=openconfig', '--provider={}'.format(provider), '')
 
 k8s_yaml(blob(manager))
 k8s_resource('network-operator-controller-manager', resource_deps=['controller-gen'])

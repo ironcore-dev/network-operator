@@ -4,7 +4,10 @@
 package v1alpha1
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // TODOs:
@@ -27,35 +30,30 @@ type VTEPSpec struct {
 	// +optional
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
 
-	// ControlPlaneRef is the reference to the EVPNControlPlane resource that manages the control plane for this VTEP.
-	// +required
-	ControlPlaneRef LocalObjectReference `json:"controlPlaneRef"`
-
 	// AdminState indicates whether the interface is administratively up or down.
 	// +required
 	Enabled bool `json:"enabled"`
 
-	// Required non-anycast source interface.
 	// +required
 	PrimaryInterfaceRef LocalObjectReference `json:"primaryInterfaceRef"`
-	// Optional anycast source interface.
-	// +optional
+
+	// +required
 	AnycastInterfaceRef *LocalObjectReference `json:"anycastInterfaceRef,omitempty"`
-	// Optional multisite (BGW) interface.
-	// +optional
-	// MultisiteInterfaceRef *LocalObjectReference `json:"multisiteInterfaceRef,omitempty"`
-
-	// +optional
-	// MultiSite *VTEPMultiSiteSpec `json:"multiSite,omitempty"`
-}
-
-type VTEPMultiSiteSpec struct {
-	// +required
-	ID uint32 `json:"id"`
 
 	// +required
-	Enabled bool `json:"enabled"`
+	SuppressARP bool `json:"suppressARP"`
+
+	// +required
+	// +kubebuilder:validation:Enum=FloodAndLearn;BGP
+	HostReachability HostReachabilityType `json:"hostReachability"`
 }
+
+type HostReachabilityType string
+
+const (
+	HostReachabilityBGP           HostReachabilityType = "BGP"
+	HostReachabilityFloodAndLearn HostReachabilityType = "FloodAndLearn"
+)
 
 // VTEPStatus defines the observed state of VTEP.
 type VTEPStatus struct {
@@ -85,7 +83,6 @@ type VTEPStatus struct {
 // +kubebuilder:resource:singular=vtep
 // +kubebuilder:printcolumn:name="VTEP",type=string,JSONPath=`.spec.name`
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
-// +kubebuilder:printcolumn:name="NVE",type=string,JSONPath=`.spec.nve`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Configured",type=string,JSONPath=`.status.conditions[?(@.type=="Configured")].status`,priority=1
 // +kubebuilder:printcolumn:name="Operational",type=string,JSONPath=`.status.conditions[?(@.type=="Operational")].status`,priority=1
@@ -120,6 +117,17 @@ type VTEPList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []VTEP `json:"items"`
+}
+
+var (
+	VTEPDependencies   []schema.GroupVersionKind
+	vtepDependenciesMu sync.Mutex
+)
+
+func RegisterVTEPDependency(gvk schema.GroupVersionKind) {
+	vtepDependenciesMu.Lock()
+	defer vtepDependenciesMu.Unlock()
+	VTEPDependencies = append(VTEPDependencies, gvk)
 }
 
 func init() {
