@@ -1,0 +1,76 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: vtepconfigs.nx.cisco.networking.metal.ironcore.dev
+spec:
+  group: nx.cisco.networking.metal.ironcore.dev
+  names:
+    kind: VTEPConfig
+    listKind: VTEPConfigList
+    plural: vtepconfigs
+    singular: vtepconfig
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: VTEPConfig is the Schema for the VTEP API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of VTEP
+            properties:
+              advertiseVMAC:
+                description: 'AdvertiseVMAC is equivalent to: `advertise virtual-rmac`'
+                type: boolean
+              holdDownTime:
+                description: 'HoldDownTime is equivalent to: `source-interface hold-down-time`'
+                maximum: 1500
+                minimum: 1
+                type: integer
+              infraVLANs:
+                description: |-
+                  InfraVLANs is the list of infrastructure VLANs for ingress replication, equivalent to: `system VTEP infra-vlan`
+                  - no overlapping ranges
+                  - range of vlans configured does must not exceed 512
+                items:
+                  description: VLANListItem represents a single VLAN ID or a range
+                    start-end (e.g. "100", "200-300").
+                  pattern: ^(\d{1,4}(-\d{1,4})?)$
+                  type: string
+                  x-kubernetes-validations:
+                  - message: Single VLAN 1-3967; range both 1-3967 and end > start
+                    rule: 'self.contains(''-'') ? (int(self.split(''-'')[0]) >= 1
+                      && int(self.split(''-'')[0]) <= 3967 && int(self.split(''-'')[1])
+                      >= 1 && int(self.split(''-'')[1]) <= 3967 && int(self.split(''-'')[1])
+                      > int(self.split(''-'')[0])) : (int(self) >= 1 && int(self)
+                      <= 3967)'
+                maxItems: 2
+                type: array
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

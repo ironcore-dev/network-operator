@@ -1,0 +1,19 @@
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: VTEPConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: vtep1-cisco-nx
+spec:
+  deviceRef:
+    name: leaf1
+  holdDownTime: 300
+  advertiseVMAC: true
+  infraVLANs:
+    - "100-101"
+    - "200"
+
+
+
