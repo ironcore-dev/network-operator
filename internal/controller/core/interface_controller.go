@@ -57,6 +57,8 @@ type InterfaceReconciler struct {
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=interfaces,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=interfaces/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=interfaces/finalizers,verbs=update
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vlans,verbs=get;list;watch
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vlans/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -186,6 +188,7 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 var (
 	interfaceTypeKey          = ".spec.type"
 	interfaceUnnumberedRefKey = ".spec.ipv4.unnumbered.interfaceRef.name"
+	interfaceVlanRefKey       = ".spec.vlanRef.name"
 )
 
 // SetupWithManager sets up the controller with the Manager.
@@ -221,6 +224,16 @@ func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 		return err
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.Interface{}, interfaceVlanRefKey, func(obj client.Object) []string {
+		intf := obj.(*v1alpha1.Interface)
+		if intf.Spec.VlanRef == nil {
+			return nil
+		}
+		return []string{intf.Spec.VlanRef.Name}
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Interface{}).
 		Named("interface").
@@ -243,6 +256,20 @@ func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 		Watches(
 			&v1alpha1.Interface{},
 			handler.EnqueueRequestsFromMapFunc(r.interfaceToAggregate),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
+		// Watches enqueues RoutedVLAN Interfaces for updates in referenced VLAN resources.
+		// Only triggers on create and delete events since VLAN IDs are immutable.
+		Watches(
+			&v1alpha1.VLAN{},
+			handler.EnqueueRequestsFromMapFunc(r.vlanToRoutedVLAN),
 			builder.WithPredicates(predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					return false
@@ -296,9 +323,22 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		multiChassisID = &s.Interface.Spec.Aggregation.MultiChassis.ID
 	}
 
-	ip, err := r.reconcileIPv4(ctx, s)
-	if err != nil {
-		return ctrl.Result{}, err
+	var vlan *v1alpha1.VLAN
+	if s.Interface.Spec.VlanRef != nil {
+		var err error
+		vlan, err = r.reconcileVLAN(ctx, s)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	var ip provider.IPv4
+	if s.Interface.Spec.IPv4 != nil {
+		var err error
+		ip, err = r.reconcileIPv4(ctx, s)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
@@ -311,12 +351,13 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 	}()
 
 	// Ensure the Interface is realized on the provider.
-	err = s.Provider.EnsureInterface(ctx, &provider.InterfaceRequest{
+	err := s.Provider.EnsureInterface(ctx, &provider.InterfaceRequest{
 		Interface:      s.Interface,
 		ProviderConfig: s.ProviderConfig,
 		IPv4:           ip,
 		Members:        members,
 		MultiChassisID: multiChassisID,
+		VLAN:           vlan,
 	})
 
 	cond := conditions.FromError(err)
@@ -350,18 +391,14 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
 }
 
-func (r *InterfaceReconciler) reconcileIPv4(ctx context.Context, s *scope) (ip provider.IPv4, _ error) {
-	if s.Interface.Spec.IPv4 == nil {
-		return nil, nil
-	}
-
+func (r *InterfaceReconciler) reconcileIPv4(ctx context.Context, s *scope) (provider.IPv4, error) {
 	switch {
 	case len(s.Interface.Spec.IPv4.Addresses) > 0:
 		addrs := make([]netip.Prefix, len(s.Interface.Spec.IPv4.Addresses))
 		for i, addr := range s.Interface.Spec.IPv4.Addresses {
 			addrs[i] = addr.Prefix
 		}
-		ip = provider.IPv4AddressList(addrs)
+		return provider.IPv4AddressList(addrs), nil
 
 	case s.Interface.Spec.IPv4.Unnumbered != nil:
 		key := client.ObjectKey{
@@ -403,10 +440,73 @@ func (r *InterfaceReconciler) reconcileIPv4(ctx context.Context, s *scope) (ip p
 			return nil, reconcile.TerminalError(fmt.Errorf("referenced interface %q for unnumbered ipv4 configuration is not of type Loopback, got %q", intf.Name, intf.Spec.Type))
 		}
 
-		ip = provider.IPv4Unnumbered{SourceInterface: intf.Spec.Name}
+		return provider.IPv4Unnumbered{SourceInterface: intf.Spec.Name}, nil
 	}
 
-	return
+	return nil, nil
+}
+
+// reconcileVLAN ensures that the referenced VLAN exists, belongs to the same device as the RoutedVLAN interface.
+// It also updates the VLAN to reference the RoutedVLAN interface by setting its RoutedBy status field.
+func (r *InterfaceReconciler) reconcileVLAN(ctx context.Context, s *scope) (*v1alpha1.VLAN, error) {
+	key := client.ObjectKey{
+		Name:      s.Interface.Spec.VlanRef.Name,
+		Namespace: s.Interface.Namespace,
+	}
+
+	vlan := new(v1alpha1.VLAN)
+	if err := r.Get(ctx, key, vlan); err != nil {
+		if apierrors.IsNotFound(err) {
+			conditions.Set(s.Interface, metav1.Condition{
+				Type:    v1alpha1.ConfiguredCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.VLANNotFoundReason,
+				Message: fmt.Sprintf("referenced VLAN %q not found", key),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("referenced VLAN %q not found", key))
+		}
+		return nil, fmt.Errorf("failed to get referenced VLAN %q: %w", key, err)
+	}
+
+	if vlan.Spec.DeviceRef.Name != s.Device.Name {
+		conditions.Set(s.Interface, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.CrossDeviceReferenceReason,
+			Message: fmt.Sprintf("referenced VLAN %q does not belong to device %q", vlan.Name, s.Device.Name),
+		})
+		return nil, reconcile.TerminalError(fmt.Errorf("referenced VLAN %q does not belong to device %q", vlan.Name, s.Device.Name))
+	}
+
+	if vlan.Status.RoutedBy != nil && vlan.Status.RoutedBy.Name != s.Interface.Name {
+		conditions.Set(s.Interface, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.VLANAlreadyInUseReason,
+			Message: fmt.Sprintf("VLAN %q is already in use by routed VLAN interface %q", vlan.Name, vlan.Status.RoutedBy.Name),
+		})
+		return nil, reconcile.TerminalError(fmt.Errorf("VLAN %q is already in use by routed VLAN interface %q", vlan.Name, vlan.Status.RoutedBy.Name))
+	}
+
+	if vlan.Status.RoutedBy == nil {
+		vlan.Status.RoutedBy = &v1alpha1.LocalObjectReference{Name: s.Interface.Name}
+		if err := r.Status().Update(ctx, vlan); err != nil {
+			return nil, fmt.Errorf("failed to update VLAN %q status: %w", vlan.Name, err)
+		}
+	}
+
+	if vlan.Labels == nil {
+		vlan.Labels = make(map[string]string)
+	}
+
+	if vlan.Labels[v1alpha1.RoutedVLANLabel] != s.Interface.Name {
+		vlan.Labels[v1alpha1.RoutedVLANLabel] = s.Interface.Name
+		if err := r.Update(ctx, vlan); err != nil {
+			return nil, fmt.Errorf("failed to update VLAN %q labels: %w", vlan.Name, err)
+		}
+	}
+
+	return vlan, nil
 }
 
 // reconcileMemberInterfaces ensures that all member interfaces exist and belong to the same device as the aggregate interface.
@@ -489,6 +589,10 @@ func (r *InterfaceReconciler) finalize(ctx context.Context, s *scope) (reterr er
 		}
 	}
 
+	if err := r.finalizeVLAN(ctx, s); err != nil {
+		return err
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -527,6 +631,37 @@ func (r *InterfaceReconciler) finalizeMemberInterfaces(ctx context.Context, s *s
 			if err := r.Update(ctx, intf); err != nil {
 				return fmt.Errorf("failed to update member interface %q labels: %w", intf.Name, err)
 			}
+		}
+	}
+
+	return nil
+}
+
+// finalizeVLAN removes the routed VLAN interface reference from the VLAN.
+func (r *InterfaceReconciler) finalizeVLAN(ctx context.Context, s *scope) error {
+	if s.Interface.Spec.VlanRef == nil {
+		return nil
+	}
+
+	vlan := new(v1alpha1.VLAN)
+	if err := r.Get(ctx, client.ObjectKey{Name: s.Interface.Spec.VlanRef.Name, Namespace: s.Interface.Namespace}, vlan); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	if vlan.Status.RoutedBy != nil && vlan.Status.RoutedBy.Name == s.Interface.Name {
+		vlan.Status.RoutedBy = nil
+		if err := r.Status().Update(ctx, vlan); err != nil {
+			return fmt.Errorf("failed to update VLAN %q status: %w", vlan.Name, err)
+		}
+	}
+
+	if vlan.Labels != nil && vlan.Labels[v1alpha1.RoutedVLANLabel] == s.Interface.Name {
+		delete(vlan.Labels, v1alpha1.RoutedVLANLabel)
+		if err := r.Update(ctx, vlan); err != nil {
+			return fmt.Errorf("failed to update VLAN %q labels: %w", vlan.Name, err)
 		}
 	}
 
@@ -588,6 +723,39 @@ func (r *InterfaceReconciler) interfaceToAggregate(ctx context.Context, obj clie
 			return member.Name == intf.Name
 		}) {
 			log.Info("Enqueuing Aggregate Interface for reconciliation", "Aggregate", klog.KObj(&i))
+			requests = append(requests, ctrl.Request{
+				NamespacedName: client.ObjectKey{
+					Name:      i.Name,
+					Namespace: i.Namespace,
+				},
+			})
+		}
+	}
+
+	return requests
+}
+
+// vlanToRoutedVLAN is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for a RoutedVLAN Interface when its referenced VLAN changes.
+func (r *InterfaceReconciler) vlanToRoutedVLAN(ctx context.Context, obj client.Object) []ctrl.Request {
+	vlan, ok := obj.(*v1alpha1.VLAN)
+	if !ok {
+		panic(fmt.Sprintf("Expected a VLAN but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "VLAN", klog.KObj(vlan))
+
+	interfaces := new(v1alpha1.InterfaceList)
+	if err := r.List(ctx, interfaces, client.InNamespace(vlan.Namespace), client.MatchingFields{interfaceVlanRefKey: vlan.Name}); err != nil {
+		log.Error(err, "Failed to list Interfaces")
+		return nil
+	}
+
+	requests := []ctrl.Request{}
+	for _, i := range interfaces.Items {
+		if i.Spec.VlanRef != nil && i.Spec.VlanRef.Name == vlan.Name {
+			log.Info("Enqueuing RoutedVLAN Interface for reconciliation", "Interface", klog.KObj(&i))
+
 			requests = append(requests, ctrl.Request{
 				NamespacedName: client.ObjectKey{
 					Name:      i.Name,

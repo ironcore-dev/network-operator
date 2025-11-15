@@ -709,6 +709,17 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 		}
 		operSt = pc.OperSt
 
+	case v1alpha1.InterfaceTypeRoutedVLAN:
+		svi := new(SwitchVirtualInterfaceOperItems)
+		svi.ID = name
+		if err := p.client.GetState(ctx, svi); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return provider.InterfaceStatus{}, err
+		}
+		operSt = OperStDown
+		if svi.OperAutoState {
+			operSt = OperStUp
+		}
+
 	default:
 		return provider.InterfaceStatus{}, fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
 	}

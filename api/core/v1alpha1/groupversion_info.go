@@ -46,6 +46,10 @@ const DeviceKind = "Device"
 // the name of the aggregate interface they belong to.
 const AggregateLabel = "networking.metal.ironcore.dev/aggregate-name"
 
+// RoutedVLANLabel is a label applied to VLANs to indicate
+// the name of the RoutedVLAN interface that provides Layer 3 routing for the VLAN.
+const RoutedVLANLabel = "networking.metal.ironcore.dev/routed-vlan-name"
+
 // Condition types that are used across different objects.
 const (
 	// ReadyCondition is the top-level status condition that reports if an object is ready.
@@ -112,4 +116,10 @@ const (
 
 	// MemberInterfaceAlreadyInUseReason indicates that a member interface is already part of another aggregate.
 	MemberInterfaceAlreadyInUseReason = "MemberInterfaceAlreadyInUse"
+
+	// VLANNotFoundReason indicates that a referenced VLAN was not found.
+	VLANNotFoundReason = "VLANNotFound"
+
+	// VLANAlreadyInUseReason indicates that a VLAN is already in use by another routed VLAN interface.
+	VLANAlreadyInUseReason = "VLANAlreadyInUse"
 )

@@ -323,10 +323,28 @@ spec:
                 - Physical
                 - Loopback
                 - Aggregate
+                - RoutedVLAN
                 type: string
                 x-kubernetes-validations:
                 - message: Type is immutable
                   rule: self == oldSelf
+              vlanRef:
+                description: |-
+                  VlanRef is a reference to the VLAN resource that this interface provides routing for.
+                  This is only applicable for interfaces of type RoutedVLAN.
+                  The referenced VLAN must exist in the same namespace.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
             required:
             - adminState
             - deviceRef
@@ -347,6 +365,14 @@ spec:
               rule: self.type == 'Aggregate' || !has(self.aggregation)
             - message: ipv4 must not be specified for interfaces of type Aggregate
               rule: self.type != 'Aggregate' || !has(self.ipv4)
+            - message: vlanRef must be specified for interfaces of type RoutedVLAN
+              rule: self.type != 'RoutedVLAN' || has(self.vlanRef)
+            - message: vlanRef must only be specified on interfaces of type RoutedVLAN
+              rule: self.type == 'RoutedVLAN' || !has(self.vlanRef)
+            - message: switchport must not be specified for interfaces of type RoutedVLAN
+              rule: self.type != 'RoutedVLAN' || !has(self.switchport)
+            - message: aggregation must not be specified for interfaces of type RoutedVLAN
+              rule: self.type != 'RoutedVLAN' || !has(self.aggregation)
           status:
             description: |-
               Status of the resource. This is set and updated automatically.

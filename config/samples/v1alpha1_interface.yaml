@@ -133,3 +133,25 @@ spec:
       - name: eth1-10
     multichassis:
       id: 10
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: svi-10
+spec:
+  deviceRef:
+    name: leaf1
+  name: vlan10
+  description: SVI for VLAN 10
+  adminState: Up
+  type: RoutedVLAN
+  mtu: 1500
+  vlanRef:
+    name: vlan-10
+  ipv4:
+    addresses:
+      - 192.168.10.254/24

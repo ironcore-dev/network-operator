@@ -81,6 +81,9 @@ type InterfaceRequest struct {
 	Members []*v1alpha1.Interface
 	// MultiChassisID is the multi-chassis identifier for multi-chassis link aggregation.
 	MultiChassisID *int16
+	// VLAN is the referenced VLAN for routed VLAN interfaces (SVI).
+	// This field is only applicable if the interface type is RoutedVLAN.
+	VLAN *v1alpha1.VLAN
 }
 
 type IPv4 interface {

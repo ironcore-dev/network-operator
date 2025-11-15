@@ -213,6 +213,22 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              routedBy:
+                description: |-
+                  RoutedBy references the interface that provides Layer 3 routing for this VLAN, if any.
+                  This field is set when an Interface of type RoutedVLAN references this VLAN.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
             type: object
         required:
         - spec

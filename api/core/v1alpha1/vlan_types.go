@@ -61,6 +61,11 @@ type VLANStatus struct {
 	//+patchMergeKey=type
 	//+optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// RoutedBy references the interface that provides Layer 3 routing for this VLAN, if any.
+	// This field is set when an Interface of type RoutedVLAN references this VLAN.
+	// +optional
+	RoutedBy *LocalObjectReference `json:"routedBy,omitempty"`
 }
 
 // +kubebuilder:object:root=true

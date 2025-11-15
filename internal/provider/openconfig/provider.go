@@ -69,6 +69,11 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 	case v1alpha1.InterfaceTypeAggregate:
 		i.Type = IETFInterfaces_InterfaceType_ieee8023adLag
 		i.GetOrCreateAggregation().SetLagType(IfAggregate_AggregationType_LACP)
+	case v1alpha1.InterfaceTypeRoutedVLAN:
+		i.Type = IETFInterfaces_InterfaceType_l3ipvlan
+		if req.VLAN != nil {
+			i.GetOrCreateRoutedVlan().SetVlan(UnionUint16(req.VLAN.Spec.ID))
+		}
 	default:
 		return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
 	}
@@ -121,11 +126,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 				port.InterfaceMode = VlanTypes_VlanModeType_TRUNK
 				port.NativeVlan = ygot.Uint16(uint16(req.Interface.Spec.Switchport.NativeVlan))
 				for _, vlan := range req.Interface.Spec.Switchport.AllowedVlans {
-					union, err := port.To_Interface_Aggregation_SwitchedVlan_TrunkVlans_Union(vlan)
-					if err != nil {
-						return fmt.Errorf("failed to convert vlan %d to union type: %w", vlan, err)
-					}
-					port.TrunkVlans = append(port.TrunkVlans, union)
+					port.TrunkVlans = append(port.TrunkVlans, UnionUint16(vlan))
 				}
 			default:
 				return fmt.Errorf("invalid switchport mode: %s", req.Interface.Spec.Switchport.Mode)
@@ -170,6 +171,9 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 		_, err := ygnmi.Delete(ctx, p.client, Root().Interface(req.Interface.Spec.Name).Config())
 		return err
 	case v1alpha1.InterfaceTypeAggregate:
+		_, err := ygnmi.Delete(ctx, p.client, Root().Interface(req.Interface.Spec.Name).Config())
+		return err
+	case v1alpha1.InterfaceTypeRoutedVLAN:
 		_, err := ygnmi.Delete(ctx, p.client, Root().Interface(req.Interface.Spec.Name).Config())
 		return err
 	}

@@ -14,6 +14,10 @@ import (
 // +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || has(self.aggregation)", message="aggregation must be specified for interfaces of type Aggregate"
 // +kubebuilder:validation:XValidation:rule="self.type == 'Aggregate' || !has(self.aggregation)", message="aggregation must only be specified on interfaces of type Aggregate"
 // +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || !has(self.ipv4)", message="ipv4 must not be specified for interfaces of type Aggregate"
+// +kubebuilder:validation:XValidation:rule="self.type != 'RoutedVLAN' || has(self.vlanRef)", message="vlanRef must be specified for interfaces of type RoutedVLAN"
+// +kubebuilder:validation:XValidation:rule="self.type == 'RoutedVLAN' || !has(self.vlanRef)", message="vlanRef must only be specified on interfaces of type RoutedVLAN"
+// +kubebuilder:validation:XValidation:rule="self.type != 'RoutedVLAN' || !has(self.switchport)", message="switchport must not be specified for interfaces of type RoutedVLAN"
+// +kubebuilder:validation:XValidation:rule="self.type != 'RoutedVLAN' || !has(self.aggregation)", message="aggregation must not be specified for interfaces of type RoutedVLAN"
 type InterfaceSpec struct {
 	// DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
 	// Immutable.
@@ -66,6 +70,12 @@ type InterfaceSpec struct {
 	// This is only applicable for interfaces of type Aggregate.
 	// +optional
 	Aggregation *Aggregation `json:"aggregation,omitempty"`
+
+	// VlanRef is a reference to the VLAN resource that this interface provides routing for.
+	// This is only applicable for interfaces of type RoutedVLAN.
+	// The referenced VLAN must exist in the same namespace.
+	// +optional
+	VlanRef *LocalObjectReference `json:"vlanRef,omitempty"`
 }
 
 // AdminState represents the administrative state of the interface.
@@ -80,7 +90,7 @@ const (
 )
 
 // InterfaceType represents the type of the interface.
-// +kubebuilder:validation:Enum=Physical;Loopback;Aggregate
+// +kubebuilder:validation:Enum=Physical;Loopback;Aggregate;RoutedVLAN
 type InterfaceType string
 
 const (
@@ -90,6 +100,8 @@ const (
 	InterfaceTypeLoopback InterfaceType = "Loopback"
 	// InterfaceTypeAggregate indicates that the interface is an aggregate (bundle) interface.
 	InterfaceTypeAggregate InterfaceType = "Aggregate"
+	// InterfaceTypeRoutedVLAN indicates that the interface is a routed VLAN interface (SVI/IRB).
+	InterfaceTypeRoutedVLAN InterfaceType = "RoutedVLAN"
 )
 
 // Switchport defines the switchport configuration for an interface.

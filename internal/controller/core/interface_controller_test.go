@@ -44,6 +44,12 @@ var _ = Describe("Interface Controller", func() {
 			By("Cleaning up all Interface resources")
 			Expect(k8sClient.DeleteAllOf(ctx, &v1alpha1.Interface{}, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
 
+			By("Cleaning up test VLAN resource")
+			vlan := &v1alpha1.VLAN{}
+			if err := k8sClient.Get(ctx, key, vlan); err == nil {
+				Expect(k8sClient.Delete(ctx, vlan)).To(Succeed())
+			}
+
 			device := &v1alpha1.Device{}
 			err := k8sClient.Get(ctx, key, device)
 			Expect(err).NotTo(HaveOccurred())
@@ -607,6 +613,155 @@ var _ = Describe("Interface Controller", func() {
 				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
 				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(resource.Status.Conditions[1].Reason).To(Equal(v1alpha1.InvalidInterfaceTypeReason))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.OperationalCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionUnknown))
+			}).Should(Succeed())
+		})
+
+		It("Should successfully reconcile a RoutedVLAN Interface with IPv4 addresses", func() {
+			By("Creating a VLAN resource")
+			vlan := &v1alpha1.VLAN{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.VLANSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
+					ID:         100,
+					Name:       "test-vlan",
+					AdminState: v1alpha1.VLANStateActive,
+				},
+			}
+			Expect(k8sClient.Create(ctx, vlan)).To(Succeed())
+
+			By("Creating a RoutedVLAN Interface with IPv4 addresses")
+			intf := &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:   v1alpha1.LocalObjectReference{Name: name},
+					Name:        name,
+					AdminState:  v1alpha1.AdminStateUp,
+					Description: "Test RoutedVLAN Interface",
+					MTU:         9000,
+					Type:        v1alpha1.InterfaceTypeRoutedVLAN,
+					VlanRef:     &v1alpha1.LocalObjectReference{Name: vlan.Name},
+					IPv4: &v1alpha1.InterfaceIPv4{
+						Addresses: []v1alpha1.IPPrefix{{Prefix: netip.MustParsePrefix("192.168.100.1/24")}},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, intf)).To(Succeed())
+
+			By("Verifying the controller updates the status conditions")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.OperationalCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionTrue))
+			}).Should(Succeed())
+
+			By("Verifying the VLAN status is updated with RoutedBy reference")
+			Eventually(func(g Gomega) {
+				vlanResource := &v1alpha1.VLAN{}
+				g.Expect(k8sClient.Get(ctx, key, vlanResource)).To(Succeed())
+				g.Expect(vlanResource.Status.RoutedBy).ToNot(BeNil())
+				g.Expect(vlanResource.Status.RoutedBy.Name).To(Equal(name))
+			}).Should(Succeed())
+
+			By("Verifying the Interface is configured in the provider")
+			Eventually(func(g Gomega) {
+				g.Expect(testProvider.Ports.Has(name)).To(BeTrue(), "Provider should have RoutedVLAN Interface configured")
+			}).Should(Succeed())
+		})
+
+		It("Should handle RoutedVLAN Interface referencing non-existent VLAN", func() {
+			By("Creating a RoutedVLAN Interface referencing a non-existent VLAN")
+			intf := &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
+					Name:       name,
+					AdminState: v1alpha1.AdminStateUp,
+					Type:       v1alpha1.InterfaceTypeRoutedVLAN,
+					VlanRef:    &v1alpha1.LocalObjectReference{Name: "non-existent-vlan"},
+					IPv4: &v1alpha1.InterfaceIPv4{
+						Addresses: []v1alpha1.IPPrefix{{Prefix: netip.MustParsePrefix("192.168.100.1/24")}},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, intf)).To(Succeed())
+
+			By("Verifying the controller sets VLAN not found status")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Reason).To(Equal(v1alpha1.VLANNotFoundReason))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.OperationalCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionUnknown))
+			}).Should(Succeed())
+		})
+
+		It("Should handle RoutedVLAN Interface referencing VLAN on different device", func() {
+			By("Creating a VLAN on a different device")
+			vlan := &v1alpha1.VLAN{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.VLANSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: "different-device"},
+					ID:         100,
+					Name:       "test-vlan",
+					AdminState: v1alpha1.VLANStateActive,
+				},
+			}
+			Expect(k8sClient.Create(ctx, vlan)).To(Succeed())
+
+			By("Creating a RoutedVLAN Interface referencing the cross-device VLAN")
+			intf := &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
+					Name:       name,
+					AdminState: v1alpha1.AdminStateUp,
+					Type:       v1alpha1.InterfaceTypeRoutedVLAN,
+					VlanRef:    &v1alpha1.LocalObjectReference{Name: vlan.Name},
+					IPv4: &v1alpha1.InterfaceIPv4{
+						Addresses: []v1alpha1.IPPrefix{{Prefix: netip.MustParsePrefix("192.168.100.1/24")}},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, intf)).To(Succeed())
+
+			By("Verifying the controller sets cross-device reference status")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Reason).To(Equal(v1alpha1.CrossDeviceReferenceReason))
 				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.OperationalCondition))
 				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionUnknown))
 			}).Should(Succeed())
