@@ -50,6 +50,12 @@ var _ = Describe("Interface Controller", func() {
 				Expect(k8sClient.Delete(ctx, vlan)).To(Succeed())
 			}
 
+			By("Cleaning up test VRF resource")
+			vrf := &v1alpha1.VRF{}
+			if err := k8sClient.Get(ctx, key, vrf); err == nil {
+				Expect(k8sClient.Delete(ctx, vrf)).To(Succeed())
+			}
+
 			device := &v1alpha1.Device{}
 			err := k8sClient.Get(ctx, key, device)
 			Expect(err).NotTo(HaveOccurred())
@@ -747,6 +753,151 @@ var _ = Describe("Interface Controller", func() {
 					VlanRef:    &v1alpha1.LocalObjectReference{Name: vlan.Name},
 					IPv4: &v1alpha1.InterfaceIPv4{
 						Addresses: []v1alpha1.IPPrefix{{Prefix: netip.MustParsePrefix("192.168.100.1/24")}},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, intf)).To(Succeed())
+
+			By("Verifying the controller sets cross-device reference status")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Reason).To(Equal(v1alpha1.CrossDeviceReferenceReason))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.OperationalCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionUnknown))
+			}).Should(Succeed())
+		})
+
+		It("Should successfully reconcile an Interface with VRF reference", func() {
+			By("Creating a VRF resource")
+			vrf := &v1alpha1.VRF{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.VRFSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
+					Name:      "test-vrf",
+					VNI:       1000,
+				},
+			}
+			Expect(k8sClient.Create(ctx, vrf)).To(Succeed())
+
+			By("Creating a Loopback Interface with VRF reference")
+			intf := &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:   v1alpha1.LocalObjectReference{Name: name},
+					Name:        name,
+					AdminState:  v1alpha1.AdminStateUp,
+					Description: "Test Interface with VRF",
+					Type:        v1alpha1.InterfaceTypeLoopback,
+					VrfRef:      &v1alpha1.LocalObjectReference{Name: vrf.Name},
+					IPv4: &v1alpha1.InterfaceIPv4{
+						Addresses: []v1alpha1.IPPrefix{{Prefix: netip.MustParsePrefix("10.1.1.1/32")}},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, intf)).To(Succeed())
+
+			By("Verifying the controller updates the status conditions")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.OperationalCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionTrue))
+			}).Should(Succeed())
+
+			By("Verifying the Interface has the VRF label")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Labels).To(HaveKeyWithValue(v1alpha1.VRFLabel, vrf.Name))
+			}).Should(Succeed())
+
+			By("Verifying the Interface is configured in the provider")
+			Eventually(func(g Gomega) {
+				g.Expect(testProvider.Ports.Has(name)).To(BeTrue(), "Provider should have Interface with VRF configured")
+			}).Should(Succeed())
+		})
+
+		It("Should handle Interface referencing non-existent VRF", func() {
+			By("Creating an Interface referencing a non-existent VRF")
+			intf := &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
+					Name:       name,
+					AdminState: v1alpha1.AdminStateUp,
+					Type:       v1alpha1.InterfaceTypeLoopback,
+					VrfRef:     &v1alpha1.LocalObjectReference{Name: "non-existent-vrf"},
+					IPv4: &v1alpha1.InterfaceIPv4{
+						Addresses: []v1alpha1.IPPrefix{{Prefix: netip.MustParsePrefix("10.1.1.1/32")}},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, intf)).To(Succeed())
+
+			By("Verifying the controller sets VRF not found status")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Reason).To(Equal(v1alpha1.VRFNotFoundReason))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.OperationalCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionUnknown))
+			}).Should(Succeed())
+		})
+
+		It("Should handle Interface referencing VRF on different device", func() {
+			By("Creating a VRF on a different device")
+			vrf := &v1alpha1.VRF{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.VRFSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: "different-device"},
+					Name:      "test-vrf",
+					VNI:       1000,
+				},
+			}
+			Expect(k8sClient.Create(ctx, vrf)).To(Succeed())
+
+			By("Creating an Interface referencing the cross-device VRF")
+			intf := &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
+					Name:       name,
+					AdminState: v1alpha1.AdminStateUp,
+					Type:       v1alpha1.InterfaceTypeLoopback,
+					VrfRef:     &v1alpha1.LocalObjectReference{Name: vrf.Name},
+					IPv4: &v1alpha1.InterfaceIPv4{
+						Addresses: []v1alpha1.IPPrefix{{Prefix: netip.MustParsePrefix("10.1.1.1/32")}},
 					},
 				},
 			}

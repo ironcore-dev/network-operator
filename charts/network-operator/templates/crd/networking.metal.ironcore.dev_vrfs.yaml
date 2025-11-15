@@ -86,10 +86,15 @@ spec:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
               name:
-                description: Name is the name of the VRF.
+                description: |-
+                  Name is the name of the VRF.
+                  Immutable.
                 maxLength: 32
                 minLength: 1
                 type: string
+                x-kubernetes-validations:
+                - message: Name is immutable
+                  rule: self == oldSelf
               providerConfigRef:
                 description: |-
                   ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.

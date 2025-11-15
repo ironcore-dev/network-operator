@@ -59,6 +59,7 @@ type InterfaceReconciler struct {
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=interfaces/finalizers,verbs=update
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vlans,verbs=get;list;watch
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vlans/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vrfs,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -189,6 +190,7 @@ var (
 	interfaceTypeKey          = ".spec.type"
 	interfaceUnnumberedRefKey = ".spec.ipv4.unnumbered.interfaceRef.name"
 	interfaceVlanRefKey       = ".spec.vlanRef.name"
+	interfaceVrfRefKey        = ".spec.vrfRef.name"
 )
 
 // SetupWithManager sets up the controller with the Manager.
@@ -234,6 +236,16 @@ func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 		return err
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.Interface{}, interfaceVrfRefKey, func(obj client.Object) []string {
+		intf := obj.(*v1alpha1.Interface)
+		if intf.Spec.VrfRef == nil {
+			return nil
+		}
+		return []string{intf.Spec.VrfRef.Name}
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Interface{}).
 		Named("interface").
@@ -270,6 +282,20 @@ func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 		Watches(
 			&v1alpha1.VLAN{},
 			handler.EnqueueRequestsFromMapFunc(r.vlanToRoutedVLAN),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
+		// Watches enqueues Interfaces for updates in referenced VRF resources.
+		// Only triggers on create and delete events since VRF names are immutable.
+		Watches(
+			&v1alpha1.VRF{},
+			handler.EnqueueRequestsFromMapFunc(r.vrfToInterface),
 			builder.WithPredicates(predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					return false
@@ -332,6 +358,15 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		}
 	}
 
+	var vrf *v1alpha1.VRF
+	if s.Interface.Spec.VrfRef != nil {
+		var err error
+		vrf, err = r.reconcileVRF(ctx, s)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	var ip provider.IPv4
 	if s.Interface.Spec.IPv4 != nil {
 		var err error
@@ -351,13 +386,14 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 	}()
 
 	// Ensure the Interface is realized on the provider.
-	err := s.Provider.EnsureInterface(ctx, &provider.InterfaceRequest{
+	err := s.Provider.EnsureInterface(ctx, &provider.EnsureInterfaceRequest{
 		Interface:      s.Interface,
 		ProviderConfig: s.ProviderConfig,
 		IPv4:           ip,
 		Members:        members,
 		MultiChassisID: multiChassisID,
 		VLAN:           vlan,
+		VRF:            vrf,
 	})
 
 	cond := conditions.FromError(err)
@@ -507,6 +543,50 @@ func (r *InterfaceReconciler) reconcileVLAN(ctx context.Context, s *scope) (*v1a
 	}
 
 	return vlan, nil
+}
+
+// reconcileVRF ensures that the referenced VRF exists and belongs to the same device as the Interface.
+// It also adds a label to the Interface indicating which VRF it belongs to. This can be used for lookup purposes.
+func (r *InterfaceReconciler) reconcileVRF(ctx context.Context, s *scope) (*v1alpha1.VRF, error) {
+	key := client.ObjectKey{
+		Name:      s.Interface.Spec.VrfRef.Name,
+		Namespace: s.Interface.Namespace,
+	}
+
+	vrf := new(v1alpha1.VRF)
+	if err := r.Get(ctx, key, vrf); err != nil {
+		if apierrors.IsNotFound(err) {
+			conditions.Set(s.Interface, metav1.Condition{
+				Type:    v1alpha1.ConfiguredCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.VRFNotFoundReason,
+				Message: fmt.Sprintf("referenced VRF %q not found", key),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("referenced VRF %q not found", key))
+		}
+		return nil, fmt.Errorf("failed to get referenced VRF %q: %w", key, err)
+	}
+
+	if vrf.Spec.DeviceRef.Name != s.Device.Name {
+		conditions.Set(s.Interface, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.CrossDeviceReferenceReason,
+			Message: fmt.Sprintf("referenced VRF %q does not belong to device %q", vrf.Name, s.Device.Name),
+		})
+		return nil, reconcile.TerminalError(fmt.Errorf("referenced VRF %q does not belong to device %q", vrf.Name, s.Device.Name))
+	}
+
+	// Add label to interface indicating which VRF it belongs to
+	if s.Interface.Labels == nil {
+		s.Interface.Labels = make(map[string]string)
+	}
+
+	if s.Interface.Labels[v1alpha1.VRFLabel] != vrf.Name {
+		s.Interface.Labels[v1alpha1.VRFLabel] = vrf.Name
+	}
+
+	return vrf, nil
 }
 
 // reconcileMemberInterfaces ensures that all member interfaces exist and belong to the same device as the aggregate interface.
@@ -755,6 +835,39 @@ func (r *InterfaceReconciler) vlanToRoutedVLAN(ctx context.Context, obj client.O
 	for _, i := range interfaces.Items {
 		if i.Spec.VlanRef != nil && i.Spec.VlanRef.Name == vlan.Name {
 			log.Info("Enqueuing RoutedVLAN Interface for reconciliation", "Interface", klog.KObj(&i))
+
+			requests = append(requests, ctrl.Request{
+				NamespacedName: client.ObjectKey{
+					Name:      i.Name,
+					Namespace: i.Namespace,
+				},
+			})
+		}
+	}
+
+	return requests
+}
+
+// vrfToInterface is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for Interfaces when their referenced VRF changes.
+func (r *InterfaceReconciler) vrfToInterface(ctx context.Context, obj client.Object) []ctrl.Request {
+	vrf, ok := obj.(*v1alpha1.VRF)
+	if !ok {
+		panic(fmt.Sprintf("Expected a VRF but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "VRF", klog.KObj(vrf))
+
+	interfaces := new(v1alpha1.InterfaceList)
+	if err := r.List(ctx, interfaces, client.InNamespace(vrf.Namespace), client.MatchingFields{interfaceVrfRefKey: vrf.Name}); err != nil {
+		log.Error(err, "Failed to list Interfaces")
+		return nil
+	}
+
+	requests := []ctrl.Request{}
+	for _, i := range interfaces.Items {
+		if i.Spec.VrfRef != nil && i.Spec.VrfRef.Name == vrf.Name {
+			log.Info("Enqueuing Interface for reconciliation", "Interface", klog.KObj(&i))
 
 			requests = append(requests, ctrl.Request{
 				NamespacedName: client.ObjectKey{

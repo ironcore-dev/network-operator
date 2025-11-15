@@ -64,14 +64,14 @@ type InterfaceProvider interface {
 	Provider
 
 	// EnsureInterface call is responsible for Interface realization on the provider.
-	EnsureInterface(context.Context, *InterfaceRequest) error
+	EnsureInterface(context.Context, *EnsureInterfaceRequest) error
 	// DeleteInterface call is responsible for Interface deletion on the provider.
 	DeleteInterface(context.Context, *InterfaceRequest) error
 	// GetInterfaceStatus call is responsible for retrieving the current status of the Interface from the provider.
 	GetInterfaceStatus(context.Context, *InterfaceRequest) (InterfaceStatus, error)
 }
 
-type InterfaceRequest struct {
+type EnsureInterfaceRequest struct {
 	Interface      *v1alpha1.Interface
 	ProviderConfig *ProviderConfig
 	IPv4           IPv4
@@ -84,6 +84,15 @@ type InterfaceRequest struct {
 	// VLAN is the referenced VLAN for routed VLAN interfaces (SVI).
 	// This field is only applicable if the interface type is RoutedVLAN.
 	VLAN *v1alpha1.VLAN
+	// VRF is the VRF to which the interface belongs.
+	// If unset, the interface is part of the default VRF.
+	// Only applicable for layer3 interfaces.
+	VRF *v1alpha1.VRF
+}
+
+type InterfaceRequest struct {
+	Interface      *v1alpha1.Interface
+	ProviderConfig *ProviderConfig
 }
 
 type IPv4 interface {

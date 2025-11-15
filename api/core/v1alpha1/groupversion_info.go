@@ -50,6 +50,10 @@ const AggregateLabel = "networking.metal.ironcore.dev/aggregate-name"
 // the name of the RoutedVLAN interface that provides Layer 3 routing for the VLAN.
 const RoutedVLANLabel = "networking.metal.ironcore.dev/routed-vlan-name"
 
+// VRFLabel is a label applied to interfaces to indicate
+// the name of the VRF they belong to.
+const VRFLabel = "networking.metal.ironcore.dev/vrf-name"
+
 // Condition types that are used across different objects.
 const (
 	// ReadyCondition is the top-level status condition that reports if an object is ready.
@@ -122,4 +126,7 @@ const (
 
 	// VLANAlreadyInUseReason indicates that a VLAN is already in use by another routed VLAN interface.
 	VLANAlreadyInUseReason = "VLANAlreadyInUse"
+
+	// VRFNotFoundReason indicates that a referenced VRF was not found.
+	VRFNotFoundReason = "VRFNotFound"
 )
