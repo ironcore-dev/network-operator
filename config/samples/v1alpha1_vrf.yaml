@@ -50,3 +50,17 @@ spec:
         - IPv4
         - IPv4EVPN
       action: Both
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: VRF
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: vpc-keepalive
+spec:
+  deviceRef:
+    name: leaf1
+  name: VPC_KEEPALIVE
+  description: VRF for vPC Keepalive

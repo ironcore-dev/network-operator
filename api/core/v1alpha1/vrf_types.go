@@ -21,9 +21,11 @@ type VRFSpec struct {
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
 
 	// Name is the name of the VRF.
+	// Immutable.
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=32
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Name is immutable"
 	Name string `json:"name"`
 
 	// Description provides a human-readable description of the VRF.

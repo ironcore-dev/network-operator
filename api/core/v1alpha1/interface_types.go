@@ -18,6 +18,8 @@ import (
 // +kubebuilder:validation:XValidation:rule="self.type == 'RoutedVLAN' || !has(self.vlanRef)", message="vlanRef must only be specified on interfaces of type RoutedVLAN"
 // +kubebuilder:validation:XValidation:rule="self.type != 'RoutedVLAN' || !has(self.switchport)", message="switchport must not be specified for interfaces of type RoutedVLAN"
 // +kubebuilder:validation:XValidation:rule="self.type != 'RoutedVLAN' || !has(self.aggregation)", message="aggregation must not be specified for interfaces of type RoutedVLAN"
+// +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || !has(self.vrfRef)", message="vrfRef must not be specified for interfaces of type Aggregate"
+// +kubebuilder:validation:XValidation:rule="self.type != 'Physical' || !has(self.switchport) || !has(self.vrfRef)", message="vrfRef must not be specified for Physical interfaces with switchport configuration"
 type InterfaceSpec struct {
 	// DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
 	// Immutable.
@@ -76,6 +78,13 @@ type InterfaceSpec struct {
 	// The referenced VLAN must exist in the same namespace.
 	// +optional
 	VlanRef *LocalObjectReference `json:"vlanRef,omitempty"`
+
+	// VrfRef is a reference to the VRF resource that this interface belongs to.
+	// If not specified, the interface will be part of the default VRF.
+	// This is only applicable for Layer 3 interfaces.
+	// The referenced VRF must exist in the same namespace.
+	// +optional
+	VrfRef *LocalObjectReference `json:"vrfRef,omitempty"`
 }
 
 // AdminState represents the administrative state of the interface.

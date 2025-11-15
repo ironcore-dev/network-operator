@@ -415,38 +415,47 @@ func (p *Provider) DeleteDNS(ctx context.Context) error {
 	return p.client.Delete(ctx, d)
 }
 
-func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) error {
+func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
 	name, err := ShortName(req.Interface.Spec.Name)
 	if err != nil {
 		return err
 	}
 
-	addr := new(AddrItem)
-	addr.ID = name
+	vrf := DefaultVRFName
+	if req.VRF != nil {
+		vrf = req.VRF.Spec.Name
+	}
 
+	var addr *AddrItem
 	var prefixes []netip.Prefix
-	switch v := req.IPv4.(type) {
-	case provider.IPv4AddressList:
-		for i, p := range v {
-			prefixes = append(prefixes, p)
-			nth := IntfAddrTypePrimary
-			if i > 0 {
-				nth = IntfAddrTypeSecondary
-			}
-			ip := &IntfAddr{
-				Addr: p.String(),
-				Type: nth,
-			}
-			if p.Addr().Is6() {
-				return fmt.Errorf("invalid ipv4 address %q: not an ipv4 address", p.String())
-			}
-			addr.AddrItems.AddrList.Set(ip)
-		}
+	if req.IPv4 != nil {
+		addr = new(AddrItem)
+		addr.ID = name
+		addr.Vrf = vrf
 
-	case provider.IPv4Unnumbered:
-		addr.Unnumbered, err = ShortName(v.SourceInterface)
-		if err != nil {
-			return fmt.Errorf("invalid unnumbered source interface name %q: %w", v.SourceInterface, err)
+		switch v := req.IPv4.(type) {
+		case provider.IPv4AddressList:
+			for i, p := range v {
+				prefixes = append(prefixes, p)
+				nth := IntfAddrTypePrimary
+				if i > 0 {
+					nth = IntfAddrTypeSecondary
+				}
+				ip := &IntfAddr{
+					Addr: p.String(),
+					Type: nth,
+				}
+				if p.Addr().Is6() {
+					return fmt.Errorf("invalid ipv4 address %q: not an ipv4 address", p.String())
+				}
+				addr.AddrItems.AddrList.Set(ip)
+			}
+
+		case provider.IPv4Unnumbered:
+			addr.Unnumbered, err = ShortName(v.SourceInterface)
+			if err != nil {
+				return fmt.Errorf("invalid unnumbered source interface name %q: %w", v.SourceInterface, err)
+			}
 		}
 	}
 
@@ -458,9 +467,18 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 		}
 	}
 
-	if req.Interface.Spec.Type != v1alpha1.InterfaceTypeAggregate && req.IPv4 == nil {
-		// Ensure to delete any leftover IPv4 addresses if the spec does not contain any.
-		if err := p.client.Delete(ctx, addr); err != nil {
+	if req.Interface.Spec.Type != v1alpha1.InterfaceTypeAggregate {
+		del := make([]gnmiext.Configurable, 0, 2)
+		addrs := new(AddrList)
+		if err := p.client.GetConfig(ctx, addrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+		for _, a := range addrs.GetAddrItemsByInterface(name) {
+			if addr == nil || a.Vrf != vrf {
+				del = append(del, a)
+			}
+		}
+		if err := p.client.Delete(ctx, del...); err != nil {
 			return err
 		}
 	}
@@ -483,10 +501,10 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 			p.Layer = Layer3
 			p.UserCfgdFlags = "admin_layer," + p.UserCfgdFlags
 		}
-		if addr.Unnumbered != "" {
+		if addr != nil && addr.Unnumbered != "" {
 			p.Medium = MediumPointToPoint
 		}
-		p.RtvrfMbrItems = NewVrfMember(name, DefaultVRFName)
+		p.RtvrfMbrItems = NewVrfMember(name, vrf)
 
 		if req.Interface.Spec.Switchport != nil {
 			p.RtvrfMbrItems = nil
@@ -519,7 +537,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 		if req.Interface.Spec.AdminState == v1alpha1.AdminStateUp {
 			lb.AdminSt = AdminStUp
 		}
-		lb.RtvrfMbrItems = NewVrfMember(name, DefaultVRFName)
+		lb.RtvrfMbrItems = NewVrfMember(name, vrf)
 		conf = append(conf, lb)
 
 	case v1alpha1.InterfaceTypeAggregate:
@@ -633,7 +651,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 			svi.MTU = req.Interface.Spec.MTU
 		}
 		svi.VlanID = req.VLAN.Spec.ID
-		svi.RtvrfMbrItems = NewVrfMember(name, DefaultVRFName)
+		svi.RtvrfMbrItems = NewVrfMember(name, vrf)
 
 		conf = append(conf, svi)
 
@@ -642,7 +660,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 	}
 
 	// Add the address items last, as they depend on the interface being created first.
-	if req.IPv4 != nil {
+	if addr != nil {
 		conf = append(conf, addr)
 	}
 
@@ -657,10 +675,13 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 
 	conf := make([]gnmiext.Configurable, 0, 3)
 	if req.Interface.Spec.Type != v1alpha1.InterfaceTypeAggregate {
-		addr := new(AddrItem)
-		addr.ID = name
-
-		conf = append(conf, addr)
+		addrs := new(AddrList)
+		if err := p.client.GetConfig(ctx, addrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+		for _, addr := range addrs.GetAddrItemsByInterface(name) {
+			conf = append(conf, addr)
+		}
 	}
 
 	switch req.Interface.Spec.Type {

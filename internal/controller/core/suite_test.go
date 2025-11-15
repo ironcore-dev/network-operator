@@ -374,7 +374,7 @@ func (p *Provider) GetDeviceInfo(context.Context) (*provider.DeviceInfo, error) 
 	}, nil
 }
 
-func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) error {
+func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.Ports.Insert(req.Interface.Spec.Name)

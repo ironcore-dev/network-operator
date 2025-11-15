@@ -38,7 +38,7 @@ func init() {
 		UserCfgdFlags: "admin_state",
 	})
 
-	intfAddr4 := &AddrItem{ID: "lo0"}
+	intfAddr4 := &AddrItem{ID: "lo0", Vrf: DefaultVRFName}
 	intfAddr4.AddrItems.AddrList.Set(&IntfAddr{
 		Addr: "10.0.0.10/32",
 		Pref: 0,
@@ -61,4 +61,14 @@ func init() {
 	}
 	pc.RsmbrIfsItems.RsMbrIfsList.Set(NewPortChannelMember("eth1/10"))
 	Register("pc", pc)
+
+	svi := &SwitchVirtualInterface{
+		AdminSt: AdminStUp,
+		Descr:   "Foo",
+		ID:      "vlan10",
+		Medium:  SVIMediumBroadcast,
+		MTU:     1500,
+		VlanID:  10,
+	}
+	Register("svi", svi)
 }

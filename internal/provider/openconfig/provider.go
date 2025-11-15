@@ -48,7 +48,7 @@ func (p *Provider) Disconnect(context.Context, *deviceutil.Connection) error {
 	return p.conn.Close()
 }
 
-func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) error {
+func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
 	log := ctrl.LoggerFrom(ctx)
 
 	i := &Interface{Name: ygot.String(req.Interface.Spec.Name)}

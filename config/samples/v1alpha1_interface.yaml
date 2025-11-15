@@ -155,3 +155,24 @@ spec:
   ipv4:
     addresses:
       - 192.168.10.254/24
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: eth1-30
+spec:
+  deviceRef:
+    name: leaf1
+  name: eth1/30
+  description: vPC Keepalive
+  adminState: Up
+  type: Physical
+  ipv4:
+    addresses:
+      - 10.1.1.1/30
+  vrfRef:
+    name: vpc-keepalive

@@ -219,6 +219,47 @@ func (s *SwitchVirtualInterfaceOperItems) XPath() string {
 	return "System/intf-items/svi-items/If-list[id=" + s.ID + "]"
 }
 
+type AddrList struct {
+	DomList gnmiext.List[string, *AddrDom] `json:"Dom-list,omitzero"`
+
+	// Is6 indicates whether the addresses are IPv6 (true) or IPv4 (false).
+	// This field is not serialized to JSON and is only used internally to
+	// determine the correct XPath for the address.
+	Is6 bool `json:"-"`
+}
+
+// GetAddrItemsByInterface retrieves the address items for a given interface name.
+func (a *AddrList) GetAddrItemsByInterface(name string) []*AddrItem {
+	items := make([]*AddrItem, 0)
+	for _, dom := range a.DomList {
+		for _, item := range dom.IfItems.IfList {
+			if item.ID == name {
+				i := *item
+				i.Is6 = a.Is6
+				i.Vrf = dom.Name
+				items = append(items, &i)
+			}
+		}
+	}
+	return items
+}
+
+func (a *AddrList) XPath() string {
+	if a.Is6 {
+		return "System/ipv6-items/inst-items/dom-items"
+	}
+	return "System/ipv4-items/inst-items/dom-items"
+}
+
+type AddrDom struct {
+	Name    string `json:"name"`
+	IfItems struct {
+		IfList gnmiext.List[string, *AddrItem] `json:"If-list,omitzero"`
+	} `json:"if-items,omitzero"`
+}
+
+func (d *AddrDom) Key() string { return d.Name }
+
 // AddrItem represents the IP address configuration for an interface.
 // It can hold either IPv4 or IPv6 addresses, determined by the Is6 field.
 type AddrItem struct {
@@ -227,19 +268,27 @@ type AddrItem struct {
 	AddrItems  struct {
 		AddrList gnmiext.List[string, *IntfAddr] `json:"Addr-list,omitzero"`
 	} `json:"addr-items,omitzero"`
+
 	// Is6 indicates whether the addresses are IPv6 (true) or IPv4 (false).
 	// This field is not serialized to JSON and is only used internally to
 	// determine the correct XPath for the address.
 	Is6 bool `json:"-"`
+
+	// Vrf is the VRF Domain in which the address is configured.
+	// This field is not serialized to JSON and is only used internally to
+	// determine the correct XPath for the address.
+	Vrf string `json:"-"`
 }
 
 func (*AddrItem) IsListItem() {}
 
+func (a *AddrItem) Key() string { return a.ID }
+
 func (a *AddrItem) XPath() string {
 	if a.Is6 {
-		return "System/ipv6-items/inst-items/dom-items/Dom-list[name=default]/if-items/If-list[id=" + a.ID + "]"
+		return "System/ipv6-items/inst-items/dom-items/Dom-list[name=" + a.Vrf + "]/if-items/If-list[id=" + a.ID + "]"
 	}
-	return "System/ipv4-items/inst-items/dom-items/Dom-list[name=default]/if-items/If-list[id=" + a.ID + "]"
+	return "System/ipv4-items/inst-items/dom-items/Dom-list[name=" + a.Vrf + "]/if-items/If-list[id=" + a.ID + "]"
 }
 
 type IntfAddr struct {
@@ -314,8 +363,11 @@ func Exists(ctx context.Context, client *gnmiext.Client, names ...string) (bool,
 		if matches := portchannelRe.FindStringSubmatch(name); matches != nil {
 			c = &PortChannel{ID: "po" + matches[2]}
 		}
+		if matches := vlanRe.FindStringSubmatch(name); matches != nil {
+			c = &SwitchVirtualInterface{ID: "vlan" + matches[2]}
+		}
 		if c == nil {
-			return false, fmt.Errorf("unsupported interface format %q, expected one of: %s, %s, %s, %s", name, mgmtRe.String(), ethernetRe.String(), loopbackRe.String(), portchannelRe.String())
+			return false, fmt.Errorf("unsupported interface format %q, expected one of: %s, %s, %s, %s, %s", name, mgmtRe.String(), ethernetRe.String(), loopbackRe.String(), portchannelRe.String(), vlanRe.String())
 		}
 		conf = append(conf, c)
 	}
