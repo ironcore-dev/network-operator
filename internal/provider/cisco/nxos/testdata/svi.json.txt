@@ -1,0 +1,5 @@
+interface Vlan10
+ no shutdown
+ mtu 1500
+ description Foo
+ medium broadcast

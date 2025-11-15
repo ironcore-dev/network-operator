@@ -614,6 +614,29 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 
 		conf = append(conf, pc)
 
+	case v1alpha1.InterfaceTypeRoutedVLAN:
+		f := new(Feature)
+		f.Name = "ifvlan"
+		f.AdminSt = AdminStEnabled
+		conf = append(conf, f)
+
+		svi := new(SwitchVirtualInterface)
+		svi.ID = name
+		svi.Descr = req.Interface.Spec.Description
+		svi.AdminSt = AdminStDown
+		if req.Interface.Spec.AdminState == v1alpha1.AdminStateUp {
+			svi.AdminSt = AdminStUp
+		}
+		svi.Medium = SVIMediumBroadcast
+		svi.MTU = DefaultMTU
+		if req.Interface.Spec.MTU != 0 {
+			svi.MTU = req.Interface.Spec.MTU
+		}
+		svi.VlanID = req.VLAN.Spec.ID
+		svi.RtvrfMbrItems = NewVrfMember(name, DefaultVRFName)
+
+		conf = append(conf, svi)
+
 	default:
 		return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
 	}
@@ -670,6 +693,11 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 			conf = append(conf, vpc)
 		}
 
+	case v1alpha1.InterfaceTypeRoutedVLAN:
+		svi := new(SwitchVirtualInterface)
+		svi.ID = name
+		conf = append(conf, svi)
+
 	default:
 		return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
 	}
@@ -715,10 +743,7 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 		if err := p.client.GetState(ctx, svi); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 			return provider.InterfaceStatus{}, err
 		}
-		operSt = OperStDown
-		if svi.OperAutoState {
-			operSt = OperStUp
-		}
+		operSt = svi.OperSt
 
 	default:
 		return provider.InterfaceStatus{}, fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
