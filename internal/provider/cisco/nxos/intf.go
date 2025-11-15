@@ -25,6 +25,8 @@ var (
 	_ gnmiext.Defaultable  = (*SpanningTree)(nil)
 	_ gnmiext.Configurable = (*PortChannel)(nil)
 	_ gnmiext.Configurable = (*PortChannelOperItems)(nil)
+	_ gnmiext.Configurable = (*SwitchVirtualInterface)(nil)
+	_ gnmiext.Configurable = (*SwitchVirtualInterfaceOperItems)(nil)
 	_ gnmiext.Configurable = (*AddrItem)(nil)
 )
 
@@ -190,6 +192,33 @@ func (p *PortChannelOperItems) XPath() string {
 	return "System/intf-items/aggr-items/AggrIf-list[id=" + p.ID + "]/aggrif-items"
 }
 
+type SwitchVirtualInterface struct {
+	AdminSt       AdminSt2   `json:"adminSt"`
+	Descr         string     `json:"descr"`
+	ID            string     `json:"id"`
+	Medium        SVIMedium  `json:"medium"`
+	MTU           int32      `json:"mtu,omitempty"`
+	RtvrfMbrItems *VrfMember `json:"rtvrfMbr-items,omitempty"`
+	VlanID        int16      `json:"vlanId"`
+}
+
+func (*SwitchVirtualInterface) IsListItem() {}
+
+func (s *SwitchVirtualInterface) XPath() string {
+	return "System/intf-items/svi-items/If-list[id=" + s.ID + "]"
+}
+
+type SwitchVirtualInterfaceOperItems struct {
+	ID     string `json:"-"`
+	OperSt OperSt `json:"operSt"`
+}
+
+func (*SwitchVirtualInterfaceOperItems) IsListItem() {}
+
+func (s *SwitchVirtualInterfaceOperItems) XPath() string {
+	return "System/intf-items/svi-items/If-list[id=" + s.ID + "]"
+}
+
 // AddrItem represents the IP address configuration for an interface.
 // It can hold either IPv4 or IPv6 addresses, determined by the Is6 field.
 type AddrItem struct {
@@ -330,6 +359,13 @@ type Medium string
 const (
 	MediumBroadcast    Medium = "broadcast"
 	MediumPointToPoint Medium = "p2p"
+)
+
+type SVIMedium string
+
+const (
+	SVIMediumBroadcast    SVIMedium = "bcast"
+	SVIMediumPointToPoint SVIMedium = "p2p"
 )
 
 type SwitchportMode string

@@ -1,0 +1,16 @@
+{
+  "intf-items": {
+    "svi-items": {
+      "If-list": [
+        {
+          "adminSt": "up",
+          "descr": "Foo",
+          "id": "vlan10",
+          "medium": "bcast",
+          "mtu": 1500,
+          "vlanId": 10
+        }
+      ]
+    }
+  }
+}
