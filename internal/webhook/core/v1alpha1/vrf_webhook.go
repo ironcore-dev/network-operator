@@ -25,12 +25,13 @@ var vrflog = logf.Log.WithName("vrf-resource")
 
 // SetupVRFWebhookWithManager registers the webhook for VRF in the manager.
 func SetupVRFWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&v1alpha1.VRF{}).
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha1.VRF{}).
 		WithValidator(&VRFCustomValidator{}).
 		Complete()
 }
 
-// +kubebuilder:webhook:path=/validate-networking.metal.ironcore.dev-v1alpha1-vrf,mutating=false,failurePolicy=Fail,sideEffects=None,groups=networking.metal.ironcore.dev,resources=vrfs,verbs=create;update,versions=v1alpha1,name=vrf-v1alpha1.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-networking-metal-ironcore-dev-v1alpha1-vrf,mutating=false,failurePolicy=Fail,sideEffects=None,groups=networking.metal.ironcore.dev,resources=vrfs,verbs=create;update,versions=v1alpha1,name=vrf-v1alpha1.kb.io,admissionReviewVersions=v1
 
 // VRFCustomValidator struct is responsible for validating the VRF resource
 // when it is created, updated, or deleted.
@@ -62,11 +63,6 @@ func (v *VRFCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj ru
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type VRF.
 func (v *VRFCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	_, ok := obj.(*v1alpha1.VRF)
-	if !ok {
-		return nil, fmt.Errorf("expected a VRF object but got %T", obj)
-	}
-
 	return nil, nil
 }
 
