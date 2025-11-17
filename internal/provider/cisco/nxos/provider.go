@@ -37,6 +37,7 @@ var (
 	_ provider.BGPPeerProvider          = (*Provider)(nil)
 	_ provider.CertificateProvider      = (*Provider)(nil)
 	_ provider.DNSProvider              = (*Provider)(nil)
+	_ provider.EVPNInstanceProvider     = (*Provider)(nil)
 	_ provider.InterfaceProvider        = (*Provider)(nil)
 	_ provider.ISISProvider             = (*Provider)(nil)
 	_ provider.ManagementAccessProvider = (*Provider)(nil)
@@ -413,6 +414,138 @@ func (p *Provider) EnsureDNS(ctx context.Context, req *provider.EnsureDNSRequest
 func (p *Provider) DeleteDNS(ctx context.Context) error {
 	d := new(DNS)
 	return p.client.Delete(ctx, d)
+}
+
+func (p *Provider) EnsureEVPNInstance(ctx context.Context, req *provider.EVPNInstanceRequest) (err error) {
+	f := new(Feature)
+	f.Name = "nvo"
+	f.AdminSt = AdminStEnabled
+
+	f2 := new(Feature)
+	f2.Name = "vnsegment"
+	f2.AdminSt = AdminStEnabled
+
+	if err := p.client.Update(ctx, f, f2); err != nil {
+		return err
+	}
+
+	// TODO: Remove hardcoded "evpn"/"bgp" feature and NVE instance when NVE is fully supported as a dedicated resource.
+	nve := new(NVE)
+	nve.ID = 1
+	if err := p.client.GetConfig(ctx, nve); err != nil {
+		if !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+
+		nve.AdminSt = AdminStEnabled
+		nve.HoldDownTime = 180
+		nve.HostReach = HostReachBGP
+		nve.SourceInterface = "lo1"
+
+		fe := new(Feature)
+		fe.Name = "evpn"
+		fe.AdminSt = AdminStEnabled
+
+		fb := new(Feature)
+		fb.Name = "bgp"
+		fb.AdminSt = AdminStEnabled
+
+		if err := p.client.Update(ctx, nve, fe, fb); err != nil {
+			return err
+		}
+	}
+
+	conf := make([]gnmiext.Configurable, 0, 3)
+	if req.EVPNInstance.Spec.Type == v1alpha1.EVPNInstanceTypeBridged {
+		v := new(VLAN)
+		v.FabEncap = "vlan-" + strconv.FormatInt(int64(req.VLAN.Spec.ID), 10)
+		if err := p.client.GetConfig(ctx, v); err != nil {
+			return fmt.Errorf("evpn instance: failed to get vlan %d: %w", req.VLAN.Spec.ID, err)
+		}
+
+		vxlan := new(VXLAN)
+		vxlan.AccEncap = "vxlan-" + strconv.FormatInt(int64(req.EVPNInstance.Spec.VNI), 10)
+		vxlan.FabEncap = v.FabEncap
+		conf = append(conf, vxlan)
+	}
+
+	vni := new(VNI)
+	vni.Vni = req.EVPNInstance.Spec.VNI
+	if req.EVPNInstance.Spec.MulticastGroupAddress != "" {
+		vni.McastGroup = NewOption(req.EVPNInstance.Spec.MulticastGroupAddress)
+	}
+	conf = append(conf, vni)
+
+	switch req.EVPNInstance.Spec.Type {
+	case v1alpha1.EVPNInstanceTypeBridged:
+		evi := new(BDEVI)
+		evi.Encap = "vxlan-" + strconv.FormatInt(int64(req.EVPNInstance.Spec.VNI), 10)
+		evi.Rd, err = RouteDistinguisher(req.EVPNInstance.Spec.RouteDistinguisher)
+		if err != nil {
+			return fmt.Errorf("evpn instance: invalid route distinguisher: %w", err)
+		}
+		imports := &RttEntry{Type: RttEntryTypeImport}
+		exports := &RttEntry{Type: RttEntryTypeExport}
+		targets := req.EVPNInstance.Spec.RouteTargets
+		if len(targets) == 0 {
+			// If no route targets are specified, use 'route-target:unknown:0:0' for both import and export.
+			// This is equivalent to 'route-target both auto' on the command line.
+			targets = append(targets, v1alpha1.EVPNRouteTarget{Action: v1alpha1.RouteTargetActionBoth})
+		}
+		for _, rt := range targets {
+			s, err := RouteTarget(rt.Value)
+			if err != nil {
+				return fmt.Errorf("evpn instance: invalid import route target: %w", err)
+			}
+			r := &Rtt{Rtt: s}
+			switch rt.Action {
+			case v1alpha1.RouteTargetActionImport:
+				imports.EntItems.RttEntryList.Set(r)
+			case v1alpha1.RouteTargetActionExport:
+				exports.EntItems.RttEntryList.Set(r)
+			case v1alpha1.RouteTargetActionBoth:
+				imports.EntItems.RttEntryList.Set(r)
+				exports.EntItems.RttEntryList.Set(r)
+			}
+		}
+		if imports.EntItems.RttEntryList.Len() > 0 {
+			evi.RttpItems.RttPList.Set(imports)
+		}
+		if exports.EntItems.RttEntryList.Len() > 0 {
+			evi.RttpItems.RttPList.Set(exports)
+		}
+		conf = append(conf, evi)
+
+	case v1alpha1.EVPNInstanceTypeRouted:
+		vni.AssociateVrfFlag = true
+	}
+
+	return p.client.Update(ctx, conf...)
+}
+
+func (p *Provider) DeleteEVPNInstance(ctx context.Context, req *provider.EVPNInstanceRequest) error {
+	conf := make([]gnmiext.Configurable, 0, 3)
+
+	evi := new(BDEVI)
+	evi.Encap = "vxlan-" + strconv.FormatInt(int64(req.EVPNInstance.Spec.VNI), 10)
+	conf = append(conf, evi)
+
+	vni := new(VNI)
+	vni.Vni = req.EVPNInstance.Spec.VNI
+	conf = append(conf, vni)
+
+	if req.EVPNInstance.Spec.Type == v1alpha1.EVPNInstanceTypeBridged {
+		bd := new(BDItems)
+		if err := p.client.GetConfig(ctx, bd); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+
+		if v := bd.GetByVXLAN(evi.Encap); v != nil {
+			conf = append(conf, v)
+		}
+	}
+
+	return p.client.Delete(ctx, conf...)
 }
 
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
@@ -1061,7 +1194,7 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *NVERequest) error {
 		return errors.New("nve: source and anycast interfaces must be different")
 	}
 	nve.SourceInterface = srcIf
-	nve.AnycastInterface = anyIf
+	nve.AnycastInterface = NewOption(anyIf)
 
 	if req.HostReach != HostReachBGP && req.HostReach != HostReachFloodAndLearn {
 		return fmt.Errorf("nve: invalid host reach type %q", req.HostReach)
@@ -1080,14 +1213,14 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *NVERequest) error {
 		if !ip.Is4() || !ip.IsMulticast() {
 			return fmt.Errorf("nve: invalid multicast IPv4 address: %s", ip)
 		}
-		nve.McastGroupL2 = ip.String()
+		nve.McastGroupL2 = NewOption(ip.String())
 	}
 
 	if ip := req.McastL3; ip != nil {
 		if !ip.Is4() || !ip.IsMulticast() {
 			return fmt.Errorf("nve: invalid multicast IPv4 address: %s", ip)
 		}
-		nve.McastGroupL3 = ip.String()
+		nve.McastGroupL3 = NewOption(ip.String())
 	}
 
 	if req.HoldDownTime != 0 {
@@ -1675,7 +1808,7 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 				return fmt.Errorf("invalid ASN in route distinguisher: %w", err)
 			}
 			dom.Rd = "rd:asn2-nn4:" + req.VRF.Spec.RouteDistinguisher
-			if asn > math.MaxUint16 {
+			if asn < math.MaxUint16 {
 				dom.Rd = "rd:asn4-nn2:" + req.VRF.Spec.RouteDistinguisher
 			}
 		}

@@ -249,6 +249,14 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&EVPNInstanceReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -311,6 +319,7 @@ var (
 	_ provider.BGPPeerProvider          = (*Provider)(nil)
 	_ provider.OSPFProvider             = (*Provider)(nil)
 	_ provider.VLANProvider             = (*Provider)(nil)
+	_ provider.EVPNInstanceProvider     = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -334,6 +343,7 @@ type Provider struct {
 	BGPPeers sets.Set[string]
 	OSPF     sets.Set[string]
 	VLANs    sets.Set[int16]
+	EVIs     sets.Set[int32]
 }
 
 func NewProvider() *Provider {
@@ -347,6 +357,7 @@ func NewProvider() *Provider {
 		BGPPeers: sets.New[string](),
 		OSPF:     sets.New[string](),
 		VLANs:    sets.New[int16](),
+		EVIs:     sets.New[int32](),
 	}
 }
 
@@ -641,4 +652,18 @@ func (p *Provider) GetVLANStatus(context.Context, *provider.VLANRequest) (provid
 	return provider.VLANStatus{
 		OperStatus: true,
 	}, nil
+}
+
+func (p *Provider) EnsureEVPNInstance(_ context.Context, req *provider.EVPNInstanceRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.EVIs.Insert(req.EVPNInstance.Spec.VNI)
+	return nil
+}
+
+func (p *Provider) DeleteEVPNInstance(_ context.Context, req *provider.EVPNInstanceRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.EVIs.Delete(req.EVPNInstance.Spec.VNI)
+	return nil
 }

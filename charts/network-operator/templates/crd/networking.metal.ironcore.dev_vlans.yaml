@@ -158,6 +158,22 @@ spec:
               Read-only.
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
             properties:
+              bridgedBy:
+                description: |-
+                  BridgedBy references the EVPNInstance that provides a L2VNI for this VLAN, if any.
+                  This field is set when an EVPNInstance of type Bridged references this VLAN.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               conditions:
                 description: The conditions are a list of status objects that describe
                   the state of the VLAN.

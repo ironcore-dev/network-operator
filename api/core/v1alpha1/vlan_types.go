@@ -66,6 +66,11 @@ type VLANStatus struct {
 	// This field is set when an Interface of type RoutedVLAN references this VLAN.
 	// +optional
 	RoutedBy *LocalObjectReference `json:"routedBy,omitempty"`
+
+	// BridgedBy references the EVPNInstance that provides a L2VNI for this VLAN, if any.
+	// This field is set when an EVPNInstance of type Bridged references this VLAN.
+	// +optional
+	BridgedBy *LocalObjectReference `json:"bridgedBy,omitempty"`
 }
 
 // +kubebuilder:object:root=true

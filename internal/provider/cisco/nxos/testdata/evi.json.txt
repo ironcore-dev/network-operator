@@ -1,0 +1,4 @@
+evpn
+ vni 100010 l2
+  rd 10.0.0.10:65000
+  route-target export 65000:100010
