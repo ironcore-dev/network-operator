@@ -4,7 +4,7 @@
 package nxos
 
 func init() {
-	Register("vlan", &VLAN{AccEncap: "vxlan-100010", AdminSt: BdStateActive, BdState: BdStateActive, FabEncap: "vlan-10", Name: NewOption("Test")})
+	Register("vlan", &VLAN{AdminSt: BdStateActive, BdState: BdStateActive, FabEncap: "vlan-10", Name: NewOption("Test")})
 	Register("vlan_reservation", &VLANReservation{SysVlan: 3850})
 	Register("vlan_system", &VLANSystem{LongName: true})
 }

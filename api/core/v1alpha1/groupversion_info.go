@@ -50,6 +50,10 @@ const AggregateLabel = "networking.metal.ironcore.dev/aggregate-name"
 // the name of the RoutedVLAN interface that provides Layer 3 routing for the VLAN.
 const RoutedVLANLabel = "networking.metal.ironcore.dev/routed-vlan-name"
 
+// L2VNILabel is a label applied to VLANs to indicate
+// the name of the EVPNInstance that maps the VLAN to a L2VNI in the VXLAN fabric.
+const L2VNILabel = "networking.metal.ironcore.dev/evi-name"
+
 // VRFLabel is a label applied to interfaces to indicate
 // the name of the VRF they belong to.
 const VRFLabel = "networking.metal.ironcore.dev/vrf-name"

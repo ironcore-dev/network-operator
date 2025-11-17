@@ -38,6 +38,7 @@ rules:
   - certificates
   - devices
   - dns
+  - evpninstances
   - interfaces
   - isis
   - managementaccesses
@@ -67,6 +68,7 @@ rules:
   - certificates/finalizers
   - devices/finalizers
   - dns/finalizers
+  - evpninstances/finalizers
   - interfaces/finalizers
   - isis/finalizers
   - managementaccesses/finalizers
@@ -90,6 +92,7 @@ rules:
   - certificates/status
   - devices/status
   - dns/status
+  - evpninstances/status
   - interfaces/status
   - isis/status
   - managementaccesses/status

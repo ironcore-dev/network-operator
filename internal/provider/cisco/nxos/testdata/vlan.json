@@ -3,7 +3,6 @@
     "bd-items": {
       "BD-list": [
         {
-          "accEncap": "vxlan-100010",
           "adminSt": "active",
           "BdState": "active",
           "fabEncap": "vlan-10",
