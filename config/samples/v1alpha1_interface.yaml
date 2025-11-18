@@ -155,6 +155,7 @@ spec:
   ipv4:
     addresses:
       - 192.168.10.254/24
+    anycastGateway: true
 ---
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface

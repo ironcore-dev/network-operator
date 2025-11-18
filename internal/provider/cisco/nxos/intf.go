@@ -329,6 +329,12 @@ const (
 	FwdModeProxyGateway   FwdMode = "proxyGW"
 )
 
+type FabricFwdAnycastMAC string
+
+func (*FabricFwdAnycastMAC) XPath() string {
+	return "System/hmm-items/fwdinst-items/amac"
+}
+
 // Range provides a string representation of identifiers (typically VLAN IDs) that formats the range in a human-readable way.
 // Consecutive IDs are represented as a range (e.g., "10-12"), while single IDs are shown individually (e.g., "15").
 // All values are joined in a comma-separated list of ranges and individual IDs, e.g. "10-12,15,20-22".

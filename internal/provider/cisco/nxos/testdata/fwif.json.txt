@@ -1,0 +1,2 @@
+interface Vlan10
+ fabric forwarding mode anycast-gateway

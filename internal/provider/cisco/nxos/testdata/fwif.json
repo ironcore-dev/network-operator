@@ -1,0 +1,15 @@
+{
+  "hmm-items": {
+    "fwdinst-items": {
+      "if-items": {
+        "FwdIf-list": [
+          {
+            "adminSt": "enabled",
+            "id": "vlan10",
+            "mode": "anycastGW"
+          }
+        ]
+      }
+    }
+  }
+}
