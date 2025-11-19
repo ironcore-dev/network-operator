@@ -16,6 +16,7 @@ import (
 	"github.com/go-logr/logr"
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ygot/ygot"
+	"github.com/tidwall/gjson"
 	"google.golang.org/grpc"
 )
 
@@ -308,6 +309,33 @@ func (c *Client) Marshal(v any) (b []byte, err error) {
 	return b, nil
 }
 
+// zeroUnknownFields sets struct fields to their zero value
+// if they are not present in the provided JSON byte slice.
+func zeroUnknownFields(b []byte, rv reflect.Value) {
+	switch rv.Kind() {
+	case reflect.Pointer:
+		zeroUnknownFields(b, rv.Elem())
+	case reflect.Struct:
+		rt := rv.Type()
+		for i := range rt.NumField() {
+			if tag, ok := rt.Field(i).Tag.Lookup("json"); ok {
+				parts := strings.Split(tag, ",")
+				if parts[0] != "" && parts[0] != "-" {
+					sf := rv.Field(i)
+					raw := gjson.GetBytes(b, parts[0]).Raw
+					if raw != "" {
+						zeroUnknownFields([]byte(raw), sf)
+						continue
+					}
+					if !sf.IsZero() && sf.CanSet() {
+						sf.Set(reflect.Zero(sf.Type()))
+					}
+				}
+			}
+		}
+	}
+}
+
 // Unmarshal unmarshals the provided byte slice into the provided destination.
 // If the destination implements the [Marshaler] interface, it will be unmarshaled using that.
 // Otherwise, [json.Unmarshal] is used.
@@ -326,6 +354,7 @@ func (c *Client) Unmarshal(b []byte, dst any) (err error) {
 	if ok && b[0] == '[' && b[len(b)-1] == ']' {
 		b = b[1 : len(b)-1]
 	}
+	zeroUnknownFields(b, reflect.ValueOf(dst))
 	if um, ok := dst.(Marshaler); ok {
 		if err := um.UnmarshalYANG(c.capabilities, b); err != nil {
 			return fmt.Errorf("gnmiext: failed to unmarshal value: %w", err)
