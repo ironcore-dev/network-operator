@@ -743,14 +743,14 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		}
 
+		conf = append(conf, pc)
+
 		if req.MultiChassisID != nil {
 			v := new(VPCIf)
 			v.ID = int(*req.MultiChassisID)
 			v.SetPortChannel(name)
 			conf = append(conf, v)
 		}
-
-		conf = append(conf, pc)
 
 	case v1alpha1.InterfaceTypeRoutedVLAN:
 		f := new(Feature)
