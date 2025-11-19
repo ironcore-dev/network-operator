@@ -28,6 +28,8 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
 )
 
+const SpanningTreePortTypeAnnotation = "nx.cisco.networking.metal.ironcore.dev/spanning-tree-port-type"
+
 var (
 	_ provider.Provider                 = (*Provider)(nil)
 	_ provider.DeviceProvider           = (*Provider)(nil)
@@ -808,6 +810,19 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 
 	default:
 		return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
+	}
+
+	if (req.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical && req.IPv4 == nil) || req.Interface.Spec.Type == v1alpha1.InterfaceTypeAggregate {
+		stp := new(SpanningTree)
+		stp.IfName = name
+		stp.Mode = SpanningTreeModeDefault
+
+		m, ok := req.Interface.GetAnnotations()[SpanningTreePortTypeAnnotation]
+		if mode := SpanningTreeMode(m); ok && mode.IsValid() {
+			stp.Mode = mode
+		}
+
+		conf = append(conf, stp)
 	}
 
 	// Add the address items last, as they depend on the interface being created first.
