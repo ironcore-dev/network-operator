@@ -772,6 +772,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 		svi.VlanID = req.VLAN.Spec.ID
 		svi.RtvrfMbrItems = NewVrfMember(name, vrf)
+		conf = append(conf, svi)
 
 		fwif := new(FabricFwdIf)
 		fwif.ID = name
@@ -794,8 +795,6 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				return err
 			}
 		}
-
-		conf = append(conf, svi)
 
 	default:
 		return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
