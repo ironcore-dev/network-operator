@@ -81,10 +81,8 @@ func (l *List[K, V]) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("failed to unmarshal list: %w", err)
 	}
 
-	// Initialize the map if needed
-	if *l == nil {
-		*l = make(List[K, V], len(slice))
-	}
+	// Initialize the map to an empty map with the appropriate capacity
+	*l = make(List[K, V], len(slice))
 
 	// Convert slice to map using the Key() method
 	for _, item := range slice {
