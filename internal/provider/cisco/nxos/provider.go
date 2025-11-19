@@ -1433,7 +1433,7 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 
 	for _, rendezvousPoint := range req.PIM.Spec.RendezvousPoints {
 		rp := new(StaticRP)
-		rp.Addr = rendezvousPoint.Address
+		rp.Addr = rendezvousPoint.Address + "/32"
 		for _, group := range rendezvousPoint.MulticastGroups {
 			if !group.IsValid() || !group.Addr().Is4() {
 				return fmt.Errorf("pim: group list %q is not a valid IPv4 address prefix", group)
@@ -1446,8 +1446,8 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 
 		for _, addr := range rendezvousPoint.AnycastAddresses {
 			peer := new(AnycastPeerAddr)
-			peer.Addr = rendezvousPoint.Address
-			peer.RpSetAddr = addr
+			peer.Addr = rendezvousPoint.Address + "/32"
+			peer.RpSetAddr = addr + "/32"
 			apItems.AcastRPPeerList.Set(peer)
 		}
 	}
