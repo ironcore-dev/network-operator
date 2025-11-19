@@ -22,7 +22,6 @@ var (
 	_ gnmiext.Configurable = (*PhysIfOperItems)(nil)
 	_ gnmiext.Configurable = (*VrfMember)(nil)
 	_ gnmiext.Configurable = (*SpanningTree)(nil)
-	_ gnmiext.Defaultable  = (*SpanningTree)(nil)
 	_ gnmiext.Configurable = (*PortChannel)(nil)
 	_ gnmiext.Configurable = (*PortChannelOperItems)(nil)
 	_ gnmiext.Configurable = (*SwitchVirtualInterface)(nil)
@@ -132,9 +131,8 @@ func NewVrfMember(ifName, vrfName string) *VrfMember {
 
 // SpanningTree represents the spanning tree configuration for an interface.
 type SpanningTree struct {
-	AdminSt AdminSt          `json:"adminSt"`
-	Mode    SpanningTreeMode `json:"mode"`
-	IfName  string           `json:"-"`
+	Mode   SpanningTreeMode `json:"mode"`
+	IfName string           `json:"-"`
 }
 
 func (*SpanningTree) IsListItem() {}
@@ -144,7 +142,6 @@ func (s *SpanningTree) XPath() string {
 }
 
 func (s *SpanningTree) Default() {
-	s.AdminSt = AdminStDisabled
 	s.Mode = SpanningTreeModeDefault
 }
 
@@ -465,6 +462,15 @@ const (
 	SpanningTreeModeNetwork SpanningTreeMode = "network"
 	SpanningTreeModeTrunk   SpanningTreeMode = "trunk"
 )
+
+func (s SpanningTreeMode) IsValid() bool {
+	switch s {
+	case SpanningTreeModeDefault, SpanningTreeModeEdge, SpanningTreeModeNetwork, SpanningTreeModeTrunk:
+		return true
+	default:
+		return false
+	}
+}
 
 type PortChannelMode string
 
