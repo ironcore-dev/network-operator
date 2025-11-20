@@ -1,0 +1,25 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: VTEP
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: vtep1
+spec:
+  deviceRef:
+    name: leaf1
+  enabled: true
+  hostReachability: BGP
+  suppressARP: true
+  primaryInterfaceRef:
+    name: lo0
+  anycastInterfaceRef:
+    name: lo1
+  multicastGroup:
+    type: L2
+    prefix: 224.0.0.0/24
+  providerConfigRef:
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+    kind: VTEPConfig
+    name: vtep1-cfg

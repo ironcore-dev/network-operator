@@ -25,7 +25,7 @@ docker_build('ghcr.io/ironcore-dev/gnmi-test-server:latest', './test/gnmi')
 provider = os.getenv('PROVIDER', 'openconfig')
 
 manager = kustomize('config/develop')
-manager = str(manager).replace('--provider=openconfig', '--provider={}'.format(provider))
+manager = str(manager).replace('--provider=openconfig', '--provider={}'.format(provider), 1)
 
 k8s_yaml(blob(manager))
 k8s_resource('network-operator-controller-manager', resource_deps=['controller-gen'])
@@ -82,6 +82,11 @@ k8s_resource(new_name='underlay', objects=['underlay:isis'], resource_deps=['lo0
 k8s_yaml('./config/samples/v1alpha1_vrf.yaml')
 k8s_resource(new_name='vrf-admin', objects=['vrf-cc-admin:vrf'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='vrf-001', objects=['vrf-cc-prod-001:vrf'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+
+k8s_yaml('./config/samples/v1alpha1_vtep.yaml')
+k8s_yaml('./config/samples/cisco/nx/v1alpha1_vtepconfig.yaml')
+k8s_resource(new_name='vtep1', objects=['vtep1:vtep'], trigger_mode=TRIGGER_MODE_MANUAL, resource_deps=['vtep1-cfg', 'lo0', 'lo1'], auto_init=False)
+k8s_resource(new_name='vtep1-cfg', objects=['vtep1-cfg:vtepconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')
