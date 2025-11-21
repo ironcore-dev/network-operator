@@ -288,6 +288,7 @@ spec:
                   allowedVlans:
                     description: |-
                       AllowedVlans is a list of VLAN IDs that are allowed on the trunk port.
+                      If not specified, all VLANs (1-4094) are allowed.
                       Only applicable when Mode is set to "Trunk".
                     items:
                       format: int32
@@ -319,8 +320,6 @@ spec:
                   rule: self.mode != 'Access' || has(self.accessVlan)
                 - message: nativeVlan must be specified when mode is Trunk
                   rule: self.mode != 'Trunk' || has(self.nativeVlan)
-                - message: allowedVlans must be specified when mode is Trunk
-                  rule: self.mode != 'Trunk' || has(self.allowedVlans)
               type:
                 description: Type indicates the type of the interface.
                 enum:
