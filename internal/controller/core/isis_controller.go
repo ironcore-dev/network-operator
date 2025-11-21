@@ -269,7 +269,7 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (_ ctrl.Re
 	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.ISIS, cond)
 
-	return ctrl.Result{}, err
+	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
 }
 
 func (r *ISISReconciler) finalize(ctx context.Context, s *isisScope) (reterr error) {

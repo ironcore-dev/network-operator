@@ -266,7 +266,7 @@ func (r *PIMReconciler) reconcile(ctx context.Context, s *pimScope) (_ ctrl.Resu
 	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.PIM, cond)
 
-	return ctrl.Result{}, err
+	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
 }
 
 func (r *PIMReconciler) finalize(ctx context.Context, s *pimScope) (reterr error) {
