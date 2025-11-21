@@ -167,12 +167,14 @@ type PortChannel struct {
 }
 
 type PortChannelMember struct {
-	TDn string `json:"tDn"`
+	TDn   string `json:"tDn"`
+	Force bool   `json:"isMbrForce,omitempty"`
 }
 
 func NewPortChannelMember(name string) *PortChannelMember {
 	return &PortChannelMember{
-		TDn: fmt.Sprintf("/System/intf-items/phys-items/PhysIf-list[id='%s']", name),
+		TDn:   fmt.Sprintf("/System/intf-items/phys-items/PhysIf-list[id='%s']", name),
+		Force: false,
 	}
 }
 
