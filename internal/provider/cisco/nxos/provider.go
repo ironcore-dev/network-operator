@@ -613,6 +613,10 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		if req.Interface.Spec.AdminState == v1alpha1.AdminStateUp {
 			p.AdminSt = AdminStUp
 		}
+		// TODO: If the interface is a member of a port-channel, do the following:
+		// 1) If the mtu has been explicitly configured on the port-channel and matches the mtu on the physical interface, adopt the "admin_mtu" flag.
+		// 2) If the mtu on the port-channel differs from the mtu on the physical interface, return an error.
+		// 3) If the mtu has not been explicitly configured on the port-channel, do not adopt the "admin_mtu" flag.
 		if req.Interface.Spec.MTU != 0 {
 			p.MTU = req.Interface.Spec.MTU
 			p.UserCfgdFlags = "admin_mtu," + p.UserCfgdFlags
