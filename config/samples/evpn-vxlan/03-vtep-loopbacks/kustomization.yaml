@@ -1,0 +1,6 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - leaf1-lo1.yaml
+  - leaf2-lo1.yaml
+  - leaf3-lo1.yaml

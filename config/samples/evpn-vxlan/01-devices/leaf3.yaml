@@ -1,0 +1,11 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Device
+metadata:
+  labels:
+    networking.metal.ironcore.dev/role: evpn-leaf
+  name: leaf3
+spec:
+  endpoint:
+    address: 192.168.5.2:50013
+    secretRef:
+      name: fabric-credentials

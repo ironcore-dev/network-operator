@@ -1,0 +1,12 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: EVPNInstance
+metadata:
+  name: leaf3-vxlan-100010
+spec:
+  deviceRef:
+    name: leaf3
+  vni: 100010
+  type: Bridged
+  multicastGroupAddress: 239.1.1.100
+  vlanRef:
+    name: leaf3-vlan-10
