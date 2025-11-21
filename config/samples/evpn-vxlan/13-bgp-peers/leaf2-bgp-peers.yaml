@@ -1,0 +1,33 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGPPeer
+metadata:
+  name: leaf2-spine1
+spec:
+  deviceRef:
+    name: leaf2
+  address: 10.0.0.1
+  asNumber: 65000
+  localAddress:
+    interfaceRef:
+      name: leaf2-lo0
+  addressFamilies:
+    l2vpnEvpn:
+      enabled: true
+      sendCommunity: Both
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGPPeer
+metadata:
+  name: leaf2-spine2
+spec:
+  deviceRef:
+    name: leaf2
+  address: 10.0.0.2
+  asNumber: 65000
+  localAddress:
+    interfaceRef:
+      name: leaf2-lo0
+  addressFamilies:
+    l2vpnEvpn:
+      enabled: true
+      sendCommunity: Both

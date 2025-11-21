@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - leaf1-pim.yaml
+  - leaf2-pim.yaml
+  - leaf3-pim.yaml
+  - spine1-pim.yaml
+  - spine2-pim.yaml

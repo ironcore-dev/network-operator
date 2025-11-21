@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - leaf1-bgp-peers.yaml
+  - leaf2-bgp-peers.yaml
+  - leaf3-bgp-peers.yaml
+  - spine1-bgp-peers.yaml
+  - spine2-bgp-peers.yaml
