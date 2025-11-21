@@ -15,7 +15,7 @@ var (
 	_ gnmiext.Configurable = (*FirmwareVersion)(nil)
 )
 
-// System represents general system settings.
+// SystemJumboMTU represents the jumbo MTU size configured on the system.
 type SystemJumboMTU int16
 
 func (s *SystemJumboMTU) XPath() string {
@@ -34,12 +34,11 @@ func (*Model) XPath() string {
 }
 
 // SerialNumber is the serial number of the device, e.g. "9VT9OHZBC3H".
-// This value should typically match the serial number
-// of the chassis under "System/ch-items/ser".
+// This value should typically match the serial number under "System/serial".
 type SerialNumber string
 
 func (*SerialNumber) XPath() string {
-	return "System/serial"
+	return "System/ch-items/ser"
 }
 
 // FirmwareVersion is the firmware version of the device, e.g. "10.4(3)".
