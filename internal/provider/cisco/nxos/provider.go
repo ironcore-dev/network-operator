@@ -1821,6 +1821,7 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 
 	dom := new(VRFDom)
 	dom.Name = req.VRF.Spec.Name
+	v.DomItems.DomList.Set(dom)
 
 	// pre: RD format has been already been validated by VRFCustomValidator
 	if req.VRF.Spec.RouteDistinguisher != "" {
@@ -1940,10 +1941,6 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 		addAF(AddressFamilyIPv6Unicast, AddressFamilyIPv6Unicast, importEntryIPv6, exportEntryIPv6)
 		addAF(AddressFamilyIPv4Unicast, AddressFamilyL2EVPN, importEntryIPv4EVPN, exportEntryIPv4EVPN)
 		addAF(AddressFamilyIPv6Unicast, AddressFamilyL2EVPN, importEntryIPv6EVPN, exportEntryIPv6EVPN)
-	}
-
-	if dom.Rd != "" || dom.AfItems.DomAfList.Len() > 0 {
-		v.DomItems.DomList.Set(dom)
 	}
 
 	return p.client.Update(ctx, v)
