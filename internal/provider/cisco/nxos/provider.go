@@ -624,10 +624,14 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		if addr != nil && addr.Unnumbered != "" {
 			p.Medium = MediumPointToPoint
 		}
+		p.AccessVlan = "unknown"
+		p.NativeVlan = "unknown"
 		p.RtvrfMbrItems = NewVrfMember(name, vrf)
 
 		if req.Interface.Spec.Switchport != nil {
 			p.RtvrfMbrItems = nil
+			p.AccessVlan = DefaultVLAN
+			p.NativeVlan = DefaultVLAN
 			switch req.Interface.Spec.Switchport.Mode {
 			case v1alpha1.SwitchportModeAccess:
 				p.Mode = SwitchportModeAccess
