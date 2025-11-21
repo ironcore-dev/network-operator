@@ -617,9 +617,9 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			p.MTU = req.Interface.Spec.MTU
 			p.UserCfgdFlags = "admin_mtu," + p.UserCfgdFlags
 		}
+		p.UserCfgdFlags = "admin_layer," + p.UserCfgdFlags
 		if req.IPv4 != nil {
 			p.Layer = Layer3
-			p.UserCfgdFlags = "admin_layer," + p.UserCfgdFlags
 		}
 		if addr != nil && addr.Unnumbered != "" {
 			p.Medium = MediumPointToPoint
@@ -698,6 +698,8 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			pc.MTU = req.Interface.Spec.MTU
 			pc.UserCfgdFlags = "admin_mtu," + pc.UserCfgdFlags
 		}
+
+		pc.UserCfgdFlags = "admin_layer," + pc.UserCfgdFlags
 
 		pc.PcMode = PortChannelModeActive
 		switch m := req.Interface.Spec.Aggregation.ControlProtocol.Mode; m {
