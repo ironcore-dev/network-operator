@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- 01-devices
+- 02-loopbacks
+- 03-vtep-loopbacks
+- 04-vpc-keepalive-vrf
+- 05-vpc-keepalive-link
+- 06-vpc-peerlink-member
+- 07-vpc-peerlink-port-channel
+- 08-fabric-links
+- 09-rendezvous-point
+- 10-underlay
+- 11-pim
+- 12-bgp-router
+- 13-bgp-peers
+- 14-vlan
+- 15-host-port
+- 16-host-vpc
+- 17-vxlan
