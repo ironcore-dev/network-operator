@@ -7,6 +7,7 @@ import (
 	"cmp"
 	"context"
 	"crypto/rsa"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -28,7 +29,10 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
 )
 
-const SpanningTreePortTypeAnnotation = "nx.cisco.networking.metal.ironcore.dev/spanning-tree-port-type"
+const (
+	SpanningTreePortTypeAnnotation = "nx.cisco.networking.metal.ironcore.dev/spanning-tree-port-type"
+	VPCDomainAnnotation            = "nx.cisco.networking.metal.ironcore.dev/vpc-domain"
+)
 
 var (
 	_ provider.Provider                 = (*Provider)(nil)
@@ -550,6 +554,28 @@ func (p *Provider) DeleteEVPNInstance(ctx context.Context, req *provider.EVPNIns
 	return p.client.Delete(ctx, conf...)
 }
 
+var _ gnmiext.Configurable = (*VPCDom)(nil)
+
+type VPCDom struct {
+	ID             int     `json:"id"`
+	AdminSt        AdminSt `json:"adminSt"`
+	PeerGw         AdminSt `json:"peerGw"`
+	PeerSwitch     AdminSt `json:"peerSwitch"`
+	KeepaliveItems struct {
+		DestIP        string `json:"destIp"`
+		SrcIP         string `json:"srcIp"`
+		Vrf           string `json:"vrf"`
+		PeerlinkItems struct {
+			AdminSt AdminSt `json:"adminSt"`
+			ID      string  `json:"id"`
+		} `json:"peerlink-items,omitzero"`
+	} `json:"keepalive-items,omitzero"`
+}
+
+func (v *VPCDom) XPath() string {
+	return "System/vpc-items/inst-items/dom-items"
+}
+
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
 	name, err := ShortName(req.Interface.Spec.Name)
 	if err != nil {
@@ -761,6 +787,33 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			v := new(VPCIf)
 			v.ID = int(*req.MultiChassisID)
 			v.SetPortChannel(name)
+			conf = append(conf, v)
+		}
+
+		if s, ok := req.Interface.GetAnnotations()[VPCDomainAnnotation]; ok {
+			f2 := new(Feature)
+			f2.Name = "vpc"
+			f2.AdminSt = AdminStEnabled
+			conf = append(conf, f2)
+
+			var dom struct {
+				Src string `json:"src"`
+				Dst string `json:"dst"`
+				Vrf string `json:"vrf"`
+			}
+			if err := json.Unmarshal([]byte(s), &dom); err != nil {
+				return err
+			}
+			v := new(VPCDom)
+			v.ID = 1
+			v.AdminSt = AdminStEnabled
+			v.PeerGw = AdminStEnabled
+			v.PeerSwitch = AdminStEnabled
+			v.KeepaliveItems.DestIP = dom.Dst
+			v.KeepaliveItems.SrcIP = dom.Src
+			v.KeepaliveItems.Vrf = dom.Vrf
+			v.KeepaliveItems.PeerlinkItems.ID = name
+			v.KeepaliveItems.PeerlinkItems.AdminSt = AdminStEnabled
 			conf = append(conf, v)
 		}
 
