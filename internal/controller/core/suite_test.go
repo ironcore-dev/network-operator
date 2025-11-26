@@ -231,6 +231,15 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&OSPFReconciler{
+		Client:          k8sManager.GetClient(),
+		Scheme:          k8sManager.GetScheme(),
+		Recorder:        recorder,
+		Provider:        prov,
+		RequeueInterval: time.Second,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -291,6 +300,7 @@ var (
 	_ provider.PIMProvider              = (*Provider)(nil)
 	_ provider.BGPProvider              = (*Provider)(nil)
 	_ provider.BGPPeerProvider          = (*Provider)(nil)
+	_ provider.OSPFProvider             = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -312,6 +322,7 @@ type Provider struct {
 	PIM      *v1alpha1.PIM
 	BGP      *v1alpha1.BGP
 	BGPPeers sets.Set[string]
+	OSPF     sets.Set[string]
 }
 
 func NewProvider() *Provider {
@@ -323,6 +334,7 @@ func NewProvider() *Provider {
 		ISIS:     sets.New[string](),
 		VRF:      sets.New[string](),
 		BGPPeers: sets.New[string](),
+		OSPF:     sets.New[string](),
 	}
 }
 
@@ -576,5 +588,25 @@ func (p *Provider) GetPeerStatus(context.Context, *provider.BGPPeerStatusRequest
 				Advertised: 10,
 			},
 		},
+	}, nil
+}
+
+func (p *Provider) EnsureOSPF(_ context.Context, req *provider.EnsureOSPFRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.OSPF.Insert(req.OSPF.Spec.Instance)
+	return nil
+}
+
+func (p *Provider) DeleteOSPF(_ context.Context, req *provider.DeleteOSPFRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.OSPF.Delete(req.OSPF.Spec.Instance)
+	return nil
+}
+
+func (p *Provider) GetOSPFStatus(context.Context, *provider.OSPFStatusRequest) (provider.OSPFStatus, error) {
+	return provider.OSPFStatus{
+		OperStatus: true,
 	}, nil
 }

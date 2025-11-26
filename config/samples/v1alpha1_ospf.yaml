@@ -1,0 +1,24 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: OSPF
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: underlay
+spec:
+  deviceRef:
+    name: leaf1
+  instance: UNDERLAY
+  routerId: 10.0.0.10
+  logAdjacencyChanges: true
+  interfaceRefs:
+    - name: lo0
+      area: 0.0.0.0
+      passive: true
+    - name: lo1
+      area: 0.0.0.0
+      passive: true
+    - name: eth1-1
+      area: 0.0.0.0
+    - name: eth1-2
+      area: 0.0.0.0
