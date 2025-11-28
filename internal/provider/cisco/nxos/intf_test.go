@@ -22,7 +22,7 @@ func init() {
 		AccessVlan:    DefaultVLAN,
 		NativeVlan:    DefaultVLAN,
 		TrunkVlans:    DefaultVLANRange,
-		UserCfgdFlags: "admin_layer,admin_mtu,admin_state",
+		UserCfgdFlags: UserFlagAdminState | UserFlagAdminLayer | UserFlagAdminMTU,
 	})
 
 	Register("physif_switchport", &PhysIf{
@@ -35,7 +35,7 @@ func init() {
 		AccessVlan:    DefaultVLAN,
 		NativeVlan:    DefaultVLAN,
 		TrunkVlans:    "10",
-		UserCfgdFlags: "admin_state",
+		UserCfgdFlags: UserFlagAdminState,
 	})
 
 	intfAddr4 := &AddrItem{ID: "lo0", Vrf: DefaultVRFName}
@@ -57,7 +57,7 @@ func init() {
 		PcMode:        PortChannelModeActive,
 		NativeVlan:    DefaultVLAN,
 		TrunkVlans:    "10",
-		UserCfgdFlags: "admin_state",
+		UserCfgdFlags: UserFlagAdminState,
 	}
 	pc.RsmbrIfsItems.RsMbrIfsList.Set(NewPortChannelMember("eth1/10"))
 	Register("pc", pc)
