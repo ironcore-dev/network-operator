@@ -427,7 +427,6 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	}
 
 	var addr *AddrItem
-	var prefixes []netip.Prefix
 	if req.IPv4 != nil {
 		addr = new(AddrItem)
 		addr.ID = name
@@ -436,7 +435,6 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		switch v := req.IPv4.(type) {
 		case provider.IPv4AddressList:
 			for i, p := range v {
-				prefixes = append(prefixes, p)
 				nth := IntfAddrTypePrimary
 				if i > 0 {
 					nth = IntfAddrTypeSecondary
@@ -445,9 +443,6 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 					Addr: p.String(),
 					Type: nth,
 				}
-				if p.Addr().Is6() {
-					return fmt.Errorf("invalid ipv4 address %q: not an ipv4 address", p.String())
-				}
 				addr.AddrItems.AddrList.Set(ip)
 			}
 
@@ -455,14 +450,6 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			addr.Unnumbered, err = ShortName(v.SourceInterface)
 			if err != nil {
 				return fmt.Errorf("invalid unnumbered source interface name %q: %w", v.SourceInterface, err)
-			}
-		}
-	}
-
-	for i, p := range prefixes {
-		for j := i + 1; j < len(prefixes); j++ {
-			if p.Overlaps(prefixes[j]) {
-				return fmt.Errorf("overlapping IP prefixes: %s and %s", p, prefixes[j])
 			}
 		}
 	}

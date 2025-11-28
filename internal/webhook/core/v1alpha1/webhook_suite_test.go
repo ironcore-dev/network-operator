@@ -98,6 +98,9 @@ var _ = BeforeSuite(func() {
 	err = SetupVRFWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = SetupInterfaceWebhookWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
 	// +kubebuilder:scaffold:webhook
 
 	go func() {
