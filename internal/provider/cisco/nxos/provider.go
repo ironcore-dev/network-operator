@@ -52,7 +52,7 @@ var (
 
 type Provider struct {
 	conn   *grpc.ClientConn
-	client *gnmiext.Client
+	client gnmiext.Client
 }
 
 func NewProvider() provider.Provider {
