@@ -1,0 +1,9 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: VLAN
+metadata:
+  name: leaf3-vlan-10
+spec:
+  deviceRef:
+    name: leaf3
+  id: 10
+  adminState: Active
