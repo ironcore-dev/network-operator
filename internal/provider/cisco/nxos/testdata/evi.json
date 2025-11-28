@@ -1,0 +1,27 @@
+{
+  "evpn-items": {
+    "adminSt": "enabled",
+    "bdevi-items": {
+      "BDEvi-list": [
+        {
+          "encap": "vxlan-100010",
+          "rd": "rd:ipv4-nn2:10.0.0.10:65000",
+          "rttp-items": {
+            "RttP-list": [
+              {
+                "type": "export",
+                "ent-items": {
+                  "RttEntry-list": [
+                    {
+                      "rtt": "route-target:as2-nn4:65000:100010"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

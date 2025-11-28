@@ -4,36 +4,31 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: vlans.networking.metal.ironcore.dev
+  name: evpninstances.networking.metal.ironcore.dev
 spec:
   group: networking.metal.ironcore.dev
   names:
-    kind: VLAN
-    listKind: VLANList
-    plural: vlans
-    singular: vlan
+    kind: EVPNInstance
+    listKind: EVPNInstanceList
+    plural: evpninstances
+    shortNames:
+    - evi
+    - vni
+    singular: evpninstance
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.id
-      name: VLAN-ID
-      type: string
-    - jsonPath: .spec.adminState
-      name: Admin State
-      type: string
     - jsonPath: .spec.deviceRef.name
       name: Device
       type: string
+    - jsonPath: .spec.type
+      name: Type
+      type: string
+    - jsonPath: .spec.vni
+      name: VNI
+      type: integer
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
-      type: string
-    - jsonPath: .status.conditions[?(@.type=="Configured")].status
-      name: Configured
-      priority: 1
-      type: string
-    - jsonPath: .status.conditions[?(@.type=="Operational")].status
-      name: Operational
-      priority: 1
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -41,7 +36,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: VLAN is the Schema for the vlans API
+        description: EVPNInstance is the Schema for the evpninstances API
         properties:
           apiVersion:
             description: |-
@@ -65,14 +60,6 @@ spec:
               Specification of the desired state of the resource.
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
             properties:
-              adminState:
-                default: Active
-                description: AdminState indicates whether the VLAN is administratively
-                  active or inactive/suspended.
-                enum:
-                - Active
-                - Suspended
-                type: string
               deviceRef:
                 description: |-
                   DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
@@ -92,26 +79,16 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
-              id:
+              multicastGroupAddress:
                 description: |-
-                  ID is the VLAN ID. Valid values are between 1 and 4094.
-                  Immutable.
-                maximum: 4094
-                minimum: 1
-                type: integer
-                x-kubernetes-validations:
-                - message: Name is immutable
-                  rule: self == oldSelf
-              name:
-                description: Name is the name of the VLAN.
-                maxLength: 128
-                minLength: 1
-                pattern: ^[^\s]+$
+                  MulticastGroupAddress specifies the IPv4 multicast group address used for BUM (Broadcast, Unknown unicast, Multicast) traffic.
+                  The address must be in the valid multicast range (224.0.0.0 - 239.255.255.255).
+                format: ipv4
                 type: string
               providerConfigRef:
                 description: |-
-                  ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this vlan.
-                  This reference is used to link the VLAN to its provider-specific configuration.
+                  ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
+                  This reference is used to link the BGP to its provider-specific configuration.
                 properties:
                   apiVersion:
                     description: APIVersion is the api group version of the resource
@@ -142,20 +119,57 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
-            required:
-            - deviceRef
-            - id
-            type: object
-          status:
-            description: |-
-              Status of the resource. This is set and updated automatically.
-              Read-only.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
-            properties:
-              bridgedBy:
+              routeDistinguisher:
                 description: |-
-                  BridgedBy references the EVPNInstance that provides a L2VNI for this VLAN, if any.
-                  This field is set when an EVPNInstance of type Bridged references this VLAN.
+                  RouteDistinguisher is the route distinguisher for the EVI.
+                  Formats supported:
+                   - Type 0: <asn(0-65535)>:<number(0-4294967295)>
+                   - Type 1: <ipv4>:<number(0-65535)>
+                   - Type 2: <asn(65536-4294967295)>:<number(0-65535)>
+                type: string
+              routeTargets:
+                description: RouteTargets is the list of route targets for the EVI.
+                items:
+                  properties:
+                    action:
+                      description: Action defines whether the route target is imported,
+                        exported, or both.
+                      enum:
+                      - Import
+                      - Export
+                      - Both
+                      type: string
+                    value:
+                      description: Value is the route target value, must have the
+                        format as RouteDistinguisher.
+                      minLength: 1
+                      type: string
+                  required:
+                  - action
+                  - value
+                  type: object
+                minItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - value
+                x-kubernetes-list-type: map
+              type:
+                description: |-
+                  Type specifies the EVPN instance type.
+                  Immutable.
+                enum:
+                - Bridged
+                - Routed
+                type: string
+                x-kubernetes-validations:
+                - message: Type is immutable
+                  rule: self == oldSelf
+              vlanRef:
+                description: |-
+                  VLANRef is a reference to a VLAN resource for which this EVPNInstance builds the MAC-VRF.
+                  This field is only applicable when Type is Bridged (L2VNI).
+                  The VLAN resource must exist in the same namespace.
+                  Immutable.
                 properties:
                   name:
                     description: |-
@@ -168,9 +182,37 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
+                x-kubernetes-validations:
+                - message: VLANRef is immutable
+                  rule: self.name == oldSelf.name
+              vni:
+                description: |-
+                  VNI is the VXLAN Network Identifier.
+                  Immutable.
+                format: int32
+                maximum: 16777214
+                minimum: 1
+                type: integer
+                x-kubernetes-validations:
+                - message: VNI is immutable
+                  rule: self == oldSelf
+            required:
+            - deviceRef
+            - type
+            - vni
+            type: object
+            x-kubernetes-validations:
+            - message: VLANRef must be specified when Type is Bridged
+              rule: self.type != 'Bridged' || has(self.vlanRef)
+          status:
+            description: |-
+              Status of the resource. This is set and updated automatically.
+              Read-only.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
               conditions:
                 description: The conditions are a list of status objects that describe
-                  the state of the VLAN.
+                  the state of the EVPNInstance.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -229,22 +271,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              routedBy:
-                description: |-
-                  RoutedBy references the interface that provides Layer 3 routing for this VLAN, if any.
-                  This field is set when an Interface of type RoutedVLAN references this VLAN.
-                properties:
-                  name:
-                    description: |-
-                      Name of the referent.
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                    maxLength: 63
-                    minLength: 1
-                    type: string
-                required:
-                - name
-                type: object
-                x-kubernetes-map-type: atomic
             type: object
         required:
         - spec

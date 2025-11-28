@@ -10,6 +10,7 @@
           "holdDownTime": 300,
           "hostReach": "bgp",
           "mcastGroupL2": "237.0.0.1",
+          "mcastGroupL3": "DME_UNSET_PROPERTY_MARKER",
           "sourceInterface": "lo0",
           "suppressARP": true
         }

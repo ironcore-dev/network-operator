@@ -82,3 +82,6 @@ resources:
 - cisco/nx/managementaccessconfig_admin_role.yaml
 - cisco/nx/managementaccessconfig_editor_role.yaml
 - cisco/nx/managementaccessconfig_viewer_role.yaml
+- evpninstance_admin_role.yaml
+- evpninstance_editor_role.yaml
+- evpninstance_viewer_role.yaml

@@ -472,6 +472,22 @@ type VLANRequest struct {
 	ProviderConfig *ProviderConfig
 }
 
+// EVPNInstanceProvider is the interface for the realization of the EVPNInstance objects over different providers.
+type EVPNInstanceProvider interface {
+	Provider
+
+	// EnsureEVPNInstance call is responsible for EVPNInstance realization on the provider.
+	EnsureEVPNInstance(context.Context, *EVPNInstanceRequest) error
+	// DeleteEVPNInstance call is responsible for EVPNInstance deletion on the provider.
+	DeleteEVPNInstance(context.Context, *EVPNInstanceRequest) error
+}
+
+type EVPNInstanceRequest struct {
+	EVPNInstance   *v1alpha1.EVPNInstance
+	ProviderConfig *ProviderConfig
+	VLAN           *v1alpha1.VLAN
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.

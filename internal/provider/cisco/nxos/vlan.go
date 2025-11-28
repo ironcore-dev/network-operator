@@ -4,6 +4,8 @@
 package nxos
 
 import (
+	"encoding/json"
+
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
 )
 
@@ -14,6 +16,7 @@ var (
 	_ gnmiext.Defaultable  = (*VLANReservation)(nil)
 	_ gnmiext.Configurable = (*VLAN)(nil)
 	_ gnmiext.Configurable = (*VLANOperItems)(nil)
+	_ gnmiext.Configurable = (*VXLAN)(nil)
 )
 
 // VLANSystem represents the settings shared among all VLANs
@@ -46,7 +49,6 @@ func (v *VLANReservation) Default() {
 
 // VLAN represents a VLAN configuration on the device
 type VLAN struct {
-	AccEncap string         `json:"accEncap,omitempty"`
 	AdminSt  BdState        `json:"adminSt"`
 	BdState  BdState        `json:"BdState"` // Note the capitalization of this fields JSON tag
 	FabEncap string         `json:"fabEncap"`
@@ -78,3 +80,55 @@ const (
 	// BdStateInactive indicates that the bridge domain is inactive/suspended
 	BdStateInactive BdState = "suspend"
 )
+
+type BDItems struct {
+	BdList []struct {
+		AccEncap string `json:"accEncap"`
+		FabEncap string `json:"fabEncap"`
+	} `json:"BD-list"`
+}
+
+func (*BDItems) XPath() string {
+	return "System/bd-items/bd-items"
+}
+
+func (b *BDItems) GetByVXLAN(v string) *VXLAN {
+	for _, bd := range b.BdList {
+		if bd.AccEncap == v {
+			return &VXLAN{
+				AccEncap: bd.AccEncap,
+				FabEncap: bd.FabEncap,
+			}
+		}
+	}
+	return nil
+}
+
+var (
+	_ json.Marshaler   = VXLAN{}
+	_ json.Unmarshaler = (*VXLAN)(nil)
+)
+
+// VXLAN represents VXLAN encapsulation settings for a VLAN.
+// It is part of the Bridge Domain configuration of a VLAN.
+type VXLAN struct {
+	AccEncap string `json:"-"`
+	FabEncap string `json:"-"`
+}
+
+func (v *VXLAN) XPath() string {
+	return "System/bd-items/bd-items/BD-list[fabEncap=" + v.FabEncap + "]/accEncap"
+}
+
+func (v VXLAN) MarshalJSON() ([]byte, error) {
+	return json.Marshal(v.AccEncap)
+}
+
+func (v *VXLAN) UnmarshalJSON(b []byte) error {
+	var encap string
+	if err := json.Unmarshal(b, &encap); err != nil {
+		return err
+	}
+	v.AccEncap = encap
+	return nil
+}

@@ -28,6 +28,7 @@ var (
 	_ gnmiext.Configurable = (*SwitchVirtualInterface)(nil)
 	_ gnmiext.Configurable = (*SwitchVirtualInterfaceOperItems)(nil)
 	_ gnmiext.Configurable = (*AddrItem)(nil)
+	_ gnmiext.Configurable = (*FabricFwdIf)(nil)
 )
 
 // Loopback represents a loopback interface on a NX-OS device.
@@ -305,6 +306,27 @@ type IntfAddrType string
 const (
 	IntfAddrTypePrimary   IntfAddrType = "primary"
 	IntfAddrTypeSecondary IntfAddrType = "secondary"
+)
+
+// FabricFwdIf that represents an Interface configured as part of the HMM Fabric Forwarding Instance.
+type FabricFwdIf struct {
+	AdminSt AdminSt `json:"adminSt"`
+	ID      string  `json:"id"`
+	Mode    FwdMode `json:"mode"`
+}
+
+func (*FabricFwdIf) IsListItem() {}
+
+func (f *FabricFwdIf) XPath() string {
+	return "System/hmm-items/fwdinst-items/if-items/FwdIf-list[id=" + f.ID + "]"
+}
+
+type FwdMode string
+
+const (
+	FwdModeStandard       FwdMode = "standard"
+	FwdModeAnycastGateway FwdMode = "anycastGW"
+	FwdModeProxyGateway   FwdMode = "proxyGW"
 )
 
 // Range provides a string representation of identifiers (typically VLAN IDs) that formats the range in a human-readable way.

@@ -1,0 +1,19 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: EVPNInstance
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: vxlan-100010
+spec:
+  deviceRef:
+    name: leaf1
+  vni: 100010
+  type: Bridged
+  multicastGroupAddress: 239.1.1.100
+  routeDistinguisher: 10.0.0.10:65000
+  routeTargets:
+    - value: 65000:100010
+      action: Both
+  vlanRef:
+    name: vlan-10

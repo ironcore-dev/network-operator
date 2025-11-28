@@ -1,0 +1,22 @@
+{
+  "eps-items": {
+    "epId-items": {
+      "Ep-list": [
+        {
+          "epId": "1",
+          "nws-items": {
+            "vni-items": {
+              "Nw-list": [
+                {
+                  "associateVrfFlag": false,
+                  "mcastGroup": "239.1.1.100",
+                  "vni": 100010
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}
