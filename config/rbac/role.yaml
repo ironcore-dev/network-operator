@@ -47,6 +47,7 @@ rules:
   - snmp
   - syslogs
   - users
+  - vlans
   - vrfs
   verbs:
   - create
@@ -75,6 +76,7 @@ rules:
   - snmp/finalizers
   - syslogs/finalizers
   - users/finalizers
+  - vlans/finalizers
   - vrfs/finalizers
   verbs:
   - update
@@ -97,6 +99,7 @@ rules:
   - snmp/status
   - syslogs/status
   - users/status
+  - vlans/status
   - vrfs/status
   verbs:
   - get

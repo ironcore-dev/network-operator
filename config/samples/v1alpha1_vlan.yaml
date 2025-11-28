@@ -1,0 +1,14 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: VLAN
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: vlan-10
+spec:
+  deviceRef:
+    name: leaf1
+  id: 10
+  name: MonteCarlo
+  adminState: Active

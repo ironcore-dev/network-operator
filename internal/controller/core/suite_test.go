@@ -240,6 +240,15 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&VLANReconciler{
+		Client:          k8sManager.GetClient(),
+		Scheme:          k8sManager.GetScheme(),
+		Recorder:        recorder,
+		Provider:        prov,
+		RequeueInterval: time.Second,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -301,6 +310,7 @@ var (
 	_ provider.BGPProvider              = (*Provider)(nil)
 	_ provider.BGPPeerProvider          = (*Provider)(nil)
 	_ provider.OSPFProvider             = (*Provider)(nil)
+	_ provider.VLANProvider             = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -323,6 +333,7 @@ type Provider struct {
 	BGP      *v1alpha1.BGP
 	BGPPeers sets.Set[string]
 	OSPF     sets.Set[string]
+	VLANs    sets.Set[int16]
 }
 
 func NewProvider() *Provider {
@@ -335,6 +346,7 @@ func NewProvider() *Provider {
 		VRF:      sets.New[string](),
 		BGPPeers: sets.New[string](),
 		OSPF:     sets.New[string](),
+		VLANs:    sets.New[int16](),
 	}
 }
 
@@ -607,6 +619,26 @@ func (p *Provider) DeleteOSPF(_ context.Context, req *provider.DeleteOSPFRequest
 
 func (p *Provider) GetOSPFStatus(context.Context, *provider.OSPFStatusRequest) (provider.OSPFStatus, error) {
 	return provider.OSPFStatus{
+		OperStatus: true,
+	}, nil
+}
+
+func (p *Provider) EnsureVLAN(_ context.Context, req *provider.VLANRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.VLANs.Insert(req.VLAN.Spec.ID)
+	return nil
+}
+
+func (p *Provider) DeleteVLAN(_ context.Context, req *provider.VLANRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.VLANs.Delete(req.VLAN.Spec.ID)
+	return nil
+}
+
+func (p *Provider) GetVLANStatus(context.Context, *provider.VLANRequest) (provider.VLANStatus, error) {
+	return provider.VLANStatus{
 		OperStatus: true,
 	}, nil
 }

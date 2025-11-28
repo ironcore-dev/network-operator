@@ -46,6 +46,7 @@ var (
 	_ provider.SNMPProvider             = (*Provider)(nil)
 	_ provider.SyslogProvider           = (*Provider)(nil)
 	_ provider.UserProvider             = (*Provider)(nil)
+	_ provider.VLANProvider             = (*Provider)(nil)
 	_ provider.VRFProvider              = (*Provider)(nil)
 )
 
@@ -1567,6 +1568,41 @@ func (p *Provider) DeleteSyslog(ctx context.Context) error {
 		new(SyslogRemoteItems),
 		new(SyslogFacilityItems),
 	)
+}
+
+func (p *Provider) EnsureVLAN(ctx context.Context, req *provider.VLANRequest) error {
+	v := new(VLAN)
+	v.FabEncap = fmt.Sprintf("vlan-%d", req.VLAN.Spec.ID)
+	v.AdminSt = BdStateActive
+	switch req.VLAN.Spec.AdminState {
+	case v1alpha1.VLANStateActive:
+		v.BdState = BdStateActive
+	case v1alpha1.VLANStateSuspended:
+		v.BdState = BdStateInactive
+	}
+	if req.VLAN.Spec.Name != "" {
+		v.Name = NewOption(req.VLAN.Spec.Name)
+	}
+
+	return p.client.Patch(ctx, v)
+}
+
+func (p *Provider) DeleteVLAN(ctx context.Context, req *provider.VLANRequest) error {
+	v := new(VLAN)
+	v.FabEncap = fmt.Sprintf("vlan-%d", req.VLAN.Spec.ID)
+	return p.client.Delete(ctx, v)
+}
+
+func (p *Provider) GetVLANStatus(ctx context.Context, req *provider.VLANRequest) (provider.VLANStatus, error) {
+	v := new(VLANOperItems)
+	v.FabEncap = fmt.Sprintf("vlan-%d", req.VLAN.Spec.ID)
+	if err := p.client.GetState(ctx, v); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return provider.VLANStatus{}, err
+	}
+
+	return provider.VLANStatus{
+		OperStatus: v.OperSt == OperStUp,
+	}, nil
 }
 
 func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) error {

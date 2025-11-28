@@ -403,6 +403,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&corecontroller.VLANReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("vlan-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+		RequeueInterval:  requeueInterval,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "VLAN")
+		os.Exit(1)
+	}
+
 	if err := (&corecontroller.VRFReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
@@ -432,6 +444,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "System")
 		os.Exit(1)
 	}
+
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {
