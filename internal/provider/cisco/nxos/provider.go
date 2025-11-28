@@ -773,6 +773,20 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		svi.VlanID = req.VLAN.Spec.ID
 		svi.RtvrfMbrItems = NewVrfMember(name, vrf)
 
+		fwif := new(FabricFwdIf)
+		fwif.ID = name
+
+		switch {
+		case req.Interface.Spec.IPv4 != nil && req.Interface.Spec.IPv4.AnycastGateway:
+			fwif.AdminSt = AdminStEnabled
+			fwif.Mode = FwdModeAnycastGateway
+			conf = append(conf, fwif)
+		default:
+			if err := p.client.Delete(ctx, fwif); err != nil {
+				return err
+			}
+		}
+
 		conf = append(conf, svi)
 
 	default:

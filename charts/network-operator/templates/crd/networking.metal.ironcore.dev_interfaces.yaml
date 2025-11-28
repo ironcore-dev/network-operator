@@ -191,6 +191,14 @@ spec:
                     minItems: 1
                     type: array
                     x-kubernetes-list-type: atomic
+                  anycastGateway:
+                    default: false
+                    description: |-
+                      AnycastGateway enables distributed anycast gateway functionality.
+                      When enabled, this interface uses the virtual MAC configured in the
+                      device's NVE resource for active-active default gateway redundancy.
+                      Only applicable for RoutedVLAN interfaces in EVPN/VXLAN fabrics.
+                    type: boolean
                   unnumbered:
                     description: |-
                       Unnumbered defines the unnumbered interface configuration.
@@ -219,6 +227,8 @@ spec:
                 x-kubernetes-validations:
                 - message: addresses and unnumbered are mutually exclusive
                   rule: '!has(self.addresses) || !has(self.unnumbered)'
+                - message: anycastGateway and unnumbered are mutually exclusive
+                  rule: '!has(self.unnumbered) || !self.anycastGateway'
               mtu:
                 description: MTU (Maximum Transmission Unit) specifies the size of
                   the largest packet that can be sent over the interface.
@@ -391,6 +401,8 @@ spec:
               rule: self.type != 'RoutedVLAN' || !has(self.switchport)
             - message: aggregation must not be specified for interfaces of type RoutedVLAN
               rule: self.type != 'RoutedVLAN' || !has(self.aggregation)
+            - message: anycastGateway can only be enabled for interfaces of type RoutedVLAN
+              rule: self.type == 'RoutedVLAN' || !has(self.ipv4) || !self.ipv4.anycastGateway
             - message: vrfRef must not be specified for interfaces of type Aggregate
               rule: self.type != 'Aggregate' || !has(self.vrfRef)
             - message: vrfRef must not be specified for Physical interfaces with switchport
