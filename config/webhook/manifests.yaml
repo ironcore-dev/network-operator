@@ -30,6 +30,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-networking-metal-ironcore-dev-v1alpha1-prefixset
+  failurePolicy: Fail
+  name: prefixset-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - networking.metal.ironcore.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - prefixsets
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-networking-metal-ironcore-dev-v1alpha1-vrf
   failurePolicy: Fail
   name: vrf-v1alpha1.kb.io
