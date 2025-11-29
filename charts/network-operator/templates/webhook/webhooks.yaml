@@ -31,6 +31,26 @@ webhooks:
           - v1alpha1
         resources:
           - interfaces
+  - name: prefixset-v1alpha1.kb.io
+    clientConfig:
+      service:
+        name: network-operator-webhook-service
+        namespace: {{ .Release.Namespace }}
+        path: /validate-networking-metal-ironcore-dev-v1alpha1-prefixset
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - networking.metal.ironcore.dev
+        apiVersions:
+          - v1alpha1
+        resources:
+          - prefixsets
   - name: vrf-v1alpha1.kb.io
     clientConfig:
       service:
