@@ -51,6 +51,7 @@ var (
 	_ provider.OSPFProvider             = (*Provider)(nil)
 	_ provider.PIMProvider              = (*Provider)(nil)
 	_ provider.SNMPProvider             = (*Provider)(nil)
+	_ provider.PrefixSetProvider        = (*Provider)(nil)
 	_ provider.SyslogProvider           = (*Provider)(nil)
 	_ provider.UserProvider             = (*Provider)(nil)
 	_ provider.VLANProvider             = (*Provider)(nil)
@@ -1588,6 +1589,36 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 
 func (p *Provider) DeletePIM(ctx context.Context, _ *provider.DeletePIMRequest) error {
 	return p.client.Delete(ctx, new(StaticRPItems), new(AnycastPeerItems), new(PIMIfItems))
+}
+
+func (p *Provider) EnsurePrefixSet(ctx context.Context, req *provider.PrefixSetRequest) error {
+	s := new(PrefixList)
+	s.Name = req.PrefixSet.Spec.Name
+	s.Is6 = req.PrefixSet.Is6()
+	for _, entry := range req.PrefixSet.Spec.Entries {
+		e := new(PrefixEntry)
+		e.Action = ActionPermit
+		e.Criteria = CriteriaExact
+		e.Order = entry.Sequence
+		e.Pfx = entry.Prefix.String()
+		bits := int8(entry.Prefix.Bits()) // #nosec G115
+		if entry.MaskLengthRange != nil && (entry.MaskLengthRange.Min != bits || entry.MaskLengthRange.Max != bits) {
+			e.Criteria = CriteriaInexact
+			e.ToPfxLen = entry.MaskLengthRange.Max
+			if entry.MaskLengthRange.Min != bits {
+				e.FromPfxLen = entry.MaskLengthRange.Min
+			}
+		}
+		s.EntItems.EntryList.Set(e)
+	}
+	return p.client.Update(ctx, s)
+}
+
+func (p *Provider) DeletePrefixSet(ctx context.Context, req *provider.PrefixSetRequest) error {
+	s := new(PrefixList)
+	s.Name = req.PrefixSet.Spec.Name
+	s.Is6 = req.PrefixSet.Is6()
+	return p.client.Delete(ctx, s)
 }
 
 func (p *Provider) EnsureUser(ctx context.Context, req *provider.EnsureUserRequest) error {
