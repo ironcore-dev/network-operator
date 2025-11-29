@@ -21,4 +21,5 @@ resources:
 - cisco/nx/v1alpha1_system.yaml
 - cisco/nx/v1alpha1_managementaccessconfig.yaml
 - v1alpha1_evi.yaml
+- v1alpha1_prefixset.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

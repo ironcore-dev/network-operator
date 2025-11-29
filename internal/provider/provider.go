@@ -488,6 +488,21 @@ type EVPNInstanceRequest struct {
 	VLAN           *v1alpha1.VLAN
 }
 
+// PrefixSetProvider is the interface for the realization of the PrefixSet objects over different providers.
+type PrefixSetProvider interface {
+	Provider
+
+	// EnsurePrefixSet call is responsible for PrefixSet realization on the provider.
+	EnsurePrefixSet(context.Context, *PrefixSetRequest) error
+	// DeletePrefixSet call is responsible for PrefixSet deletion on the provider.
+	DeletePrefixSet(context.Context, *PrefixSetRequest) error
+}
+
+type PrefixSetRequest struct {
+	PrefixSet      *v1alpha1.PrefixSet
+	ProviderConfig *ProviderConfig
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.

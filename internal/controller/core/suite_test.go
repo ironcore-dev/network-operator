@@ -257,6 +257,14 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&PrefixSetReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -320,44 +328,47 @@ var (
 	_ provider.OSPFProvider             = (*Provider)(nil)
 	_ provider.VLANProvider             = (*Provider)(nil)
 	_ provider.EVPNInstanceProvider     = (*Provider)(nil)
+	_ provider.PrefixSetProvider        = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
 type Provider struct {
 	sync.Mutex
 
-	Ports    sets.Set[string]
-	User     sets.Set[string]
-	Banner   *string
-	DNS      *v1alpha1.DNS
-	NTP      *v1alpha1.NTP
-	ACLs     sets.Set[string]
-	Certs    sets.Set[string]
-	SNMP     *v1alpha1.SNMP
-	Syslog   *v1alpha1.Syslog
-	Access   *v1alpha1.ManagementAccess
-	ISIS     sets.Set[string]
-	VRF      sets.Set[string]
-	PIM      *v1alpha1.PIM
-	BGP      *v1alpha1.BGP
-	BGPPeers sets.Set[string]
-	OSPF     sets.Set[string]
-	VLANs    sets.Set[int16]
-	EVIs     sets.Set[int32]
+	Ports      sets.Set[string]
+	User       sets.Set[string]
+	Banner     *string
+	DNS        *v1alpha1.DNS
+	NTP        *v1alpha1.NTP
+	ACLs       sets.Set[string]
+	Certs      sets.Set[string]
+	SNMP       *v1alpha1.SNMP
+	Syslog     *v1alpha1.Syslog
+	Access     *v1alpha1.ManagementAccess
+	ISIS       sets.Set[string]
+	VRF        sets.Set[string]
+	PIM        *v1alpha1.PIM
+	BGP        *v1alpha1.BGP
+	BGPPeers   sets.Set[string]
+	OSPF       sets.Set[string]
+	VLANs      sets.Set[int16]
+	EVIs       sets.Set[int32]
+	PrefixSets sets.Set[string]
 }
 
 func NewProvider() *Provider {
 	return &Provider{
-		Ports:    sets.New[string](),
-		User:     sets.New[string](),
-		ACLs:     sets.New[string](),
-		Certs:    sets.New[string](),
-		ISIS:     sets.New[string](),
-		VRF:      sets.New[string](),
-		BGPPeers: sets.New[string](),
-		OSPF:     sets.New[string](),
-		VLANs:    sets.New[int16](),
-		EVIs:     sets.New[int32](),
+		Ports:      sets.New[string](),
+		User:       sets.New[string](),
+		ACLs:       sets.New[string](),
+		Certs:      sets.New[string](),
+		ISIS:       sets.New[string](),
+		VRF:        sets.New[string](),
+		BGPPeers:   sets.New[string](),
+		OSPF:       sets.New[string](),
+		VLANs:      sets.New[int16](),
+		EVIs:       sets.New[int32](),
+		PrefixSets: sets.New[string](),
 	}
 }
 
@@ -665,5 +676,20 @@ func (p *Provider) DeleteEVPNInstance(_ context.Context, req *provider.EVPNInsta
 	p.Lock()
 	defer p.Unlock()
 	p.EVIs.Delete(req.EVPNInstance.Spec.VNI)
+	return nil
+}
+
+// EnsurePrefixSet implements provider.PrefixSetProvider.
+func (p *Provider) EnsurePrefixSet(_ context.Context, req *provider.PrefixSetRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.PrefixSets.Insert(req.PrefixSet.Spec.Name)
+	return nil
+}
+
+func (p *Provider) DeletePrefixSet(_ context.Context, req *provider.PrefixSetRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.PrefixSets.Delete(req.PrefixSet.Spec.Name)
 	return nil
 }

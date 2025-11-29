@@ -438,6 +438,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&corecontroller.PrefixSetReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("prefixset-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "PrefixSet")
+		os.Exit(1)
+	}
+
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err := webhookv1alpha1.SetupVRFWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "VRF")
