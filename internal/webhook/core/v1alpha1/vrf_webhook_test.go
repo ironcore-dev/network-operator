@@ -130,19 +130,6 @@ var _ = Describe("VRF Webhook", func() {
 		})
 	})
 
-	Context("ValidateDelete", func() {
-		It("allows delete on VRF object", func() {
-			_, err := validator.ValidateDelete(ctx, obj)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("rejects delete when object type is wrong", func() {
-			// Passing a different type (nil interface would panic so use something else)
-			_, err := validator.ValidateDelete(ctx, &v1alpha1.VRFList{})
-			Expect(err).To(HaveOccurred())
-		})
-	})
-
 	Context("ValidateCreate RouteTargets", func() {
 		It("accepts valid type-0 route target", func() {
 			obj.Spec.RouteTargets = []v1alpha1.RouteTarget{

@@ -22,6 +22,9 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the network-operator itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- cisco/nx/vpc_admin_role.yaml
+- cisco/nx/vpc_editor_role.yaml
+- cisco/nx/vpc_viewer_role.yaml
 - device_admin_role.yaml
 - device_editor_role.yaml
 - device_viewer_role.yaml
