@@ -23,6 +23,7 @@ resources:
 - bases/nx.cisco.networking.metal.ironcore.dev_managementaccessconfigs.yaml
 - bases/networking.metal.ironcore.dev_vlans.yaml
 - bases/networking.metal.ironcore.dev_evpninstances.yaml
+- bases/networking.metal.ironcore.dev_prefixsets.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

@@ -85,3 +85,6 @@ resources:
 - evpninstance_admin_role.yaml
 - evpninstance_editor_role.yaml
 - evpninstance_viewer_role.yaml
+- prefixset_admin_role.yaml
+- prefixset_editor_role.yaml
+- prefixset_viewer_role.yaml

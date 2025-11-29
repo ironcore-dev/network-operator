@@ -187,4 +187,12 @@ resources:
   kind: EVPNInstance
   path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: networking.metal.ironcore.dev
+  kind: PrefixSet
+  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
+  version: v1alpha1
 version: "3"
