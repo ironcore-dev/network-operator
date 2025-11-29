@@ -16,7 +16,7 @@ webhooks:
       service:
         name: network-operator-webhook-service
         namespace: {{ .Release.Namespace }}
-        path: /validate-networking.metal.ironcore.dev-v1alpha1-vrf
+        path: /validate-networking-metal-ironcore-dev-v1alpha1-vrf
     failurePolicy: Fail
     sideEffects: None
     admissionReviewVersions:

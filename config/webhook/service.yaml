@@ -5,6 +5,7 @@ metadata:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
   name: webhook-service
+  namespace: network-operator-system
 spec:
   ports:
     - port: 443

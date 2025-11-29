@@ -8,9 +8,9 @@ webhooks:
   - v1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: system
-      path: /validate-networking.metal.ironcore.dev-v1alpha1-vrf
+      name: network-operator-webhook-service
+      namespace: network-operator-system
+      path: /validate-networking-metal-ironcore-dev-v1alpha1-vrf
   failurePolicy: Fail
   name: vrf-v1alpha1.kb.io
   rules:
