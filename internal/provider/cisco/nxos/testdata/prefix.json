@@ -1,0 +1,23 @@
+{
+  "rpm-items": {
+    "pfxlistv4-items": {
+      "RuleV4-list": [
+        {
+          "name": "TEST",
+          "ent-items": {
+            "Entry-list": [
+              {
+                "action": "permit",
+                "criteria": "inexact",
+                "fromPfxLen": 24,
+                "order": 10,
+                "pfx": "10.0.0.0/8",
+                "toPfxLen": 24
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
