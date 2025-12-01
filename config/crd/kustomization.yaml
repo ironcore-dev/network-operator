@@ -24,6 +24,7 @@ resources:
 - bases/networking.metal.ironcore.dev_vlans.yaml
 - bases/networking.metal.ironcore.dev_evpninstances.yaml
 - bases/networking.metal.ironcore.dev_prefixsets.yaml
+- bases/networking.metal.ironcore.dev_routingpolicies.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

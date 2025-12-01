@@ -503,6 +503,40 @@ type PrefixSetRequest struct {
 	ProviderConfig *ProviderConfig
 }
 
+// RoutingPolicyProvider is the interface for the realization of the RoutingPolicy objects over different providers.
+type RoutingPolicyProvider interface {
+	Provider
+
+	// EnsureRoutingPolicy call is responsible for RoutingPolicy realization on the provider.
+	EnsureRoutingPolicy(context.Context, *EnsureRoutingPolicyRequest) error
+	// DeleteRoutingPolicy call is responsible for RoutingPolicy deletion on the provider.
+	DeleteRoutingPolicy(context.Context, *DeleteRoutingPolicyRequest) error
+}
+
+type EnsureRoutingPolicyRequest struct {
+	Name           string
+	Statements     []PolicyStatement
+	ProviderConfig *ProviderConfig
+}
+
+type PolicyStatement struct {
+	Sequence   int32
+	Conditions []PolicyCondition
+	Actions    v1alpha1.PolicyActions
+}
+
+type PolicyCondition interface{ isPolicyCondition() }
+
+type MatchPrefixSetCondition struct {
+	PrefixSet *v1alpha1.PrefixSet
+}
+
+func (MatchPrefixSetCondition) isPolicyCondition() {}
+
+type DeleteRoutingPolicyRequest struct {
+	Name string
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.
