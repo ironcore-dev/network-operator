@@ -88,3 +88,6 @@ resources:
 - prefixset_admin_role.yaml
 - prefixset_editor_role.yaml
 - prefixset_viewer_role.yaml
+- routingpolicy_admin_role.yaml
+- routingpolicy_editor_role.yaml
+- routingpolicy_viewer_role.yaml

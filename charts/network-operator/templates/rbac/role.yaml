@@ -49,6 +49,7 @@ rules:
   - ospf
   - pim
   - prefixsets
+  - routingpolicies
   - snmp
   - syslogs
   - users
@@ -80,6 +81,7 @@ rules:
   - ospf/finalizers
   - pim/finalizers
   - prefixsets/finalizers
+  - routingpolicies/finalizers
   - snmp/finalizers
   - syslogs/finalizers
   - users/finalizers
@@ -105,6 +107,7 @@ rules:
   - ospf/status
   - pim/status
   - prefixsets/status
+  - routingpolicies/status
   - snmp/status
   - syslogs/status
   - users/status

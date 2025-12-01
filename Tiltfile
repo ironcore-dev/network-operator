@@ -108,6 +108,9 @@ k8s_resource(new_name='vxlan-100010', objects=['vxlan-100010:evpninstance'], res
 k8s_yaml('./config/samples/v1alpha1_prefixset.yaml')
 k8s_resource(new_name='ccloud-prefixset', objects=['ccloud-prefixset:prefixset'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
+k8s_yaml('./config/samples/v1alpha1_routingpolicy.yaml')
+k8s_resource(new_name='bgp-import-policy', objects=['bgp-import-policy:routingpolicy', 'internal-networks:prefixset', 'partner-networks:prefixset', 'blocked-networks:prefixset'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')
 print('👉 Tilt will automatically rebuild and redeploy when changes are detected')
