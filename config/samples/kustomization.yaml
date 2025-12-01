@@ -22,4 +22,5 @@ resources:
 - cisco/nx/v1alpha1_managementaccessconfig.yaml
 - v1alpha1_evi.yaml
 - v1alpha1_prefixset.yaml
+- v1alpha1_routingpolicy.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

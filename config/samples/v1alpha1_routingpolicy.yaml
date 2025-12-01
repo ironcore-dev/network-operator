@@ -1,0 +1,103 @@
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: RoutingPolicy
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: bgp-import-policy
+spec:
+  deviceRef:
+    name: leaf1
+  name: BGP-IMPORT
+  statements:
+    - sequence: 10
+      conditions:
+        matchPrefixSet:
+          prefixSetRef:
+            name: internal-networks
+      actions:
+        routeDisposition: AcceptRoute
+        bgpActions:
+          setCommunity:
+            communities:
+              - "65137:100"
+              - "65137:200"
+          setExtCommunity:
+            communities:
+              - "65137:100"
+    - sequence: 20
+      conditions:
+        matchPrefixSet:
+          prefixSetRef:
+            name: partner-networks
+      actions:
+        routeDisposition: AcceptRoute
+        bgpActions:
+          setCommunity:
+            communities:
+              - "65137:300"
+    - sequence: 30
+      conditions:
+        matchPrefixSet:
+          prefixSetRef:
+            name: blocked-networks
+      actions:
+        routeDisposition: RejectRoute
+    - sequence: 100
+      actions:
+        routeDisposition: AcceptRoute
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: PrefixSet
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: internal-networks
+spec:
+  deviceRef:
+    name: leaf1
+  name: INTERNAL-NETWORKS
+  entries:
+    - sequence: 10
+      prefix: 10.0.0.0/8
+    - sequence: 20
+      prefix: 172.16.0.0/12
+    - sequence: 30
+      prefix: 192.168.0.0/16
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: PrefixSet
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: partner-networks
+spec:
+  deviceRef:
+    name: leaf1
+  name: PARTNER-NETWORKS
+  entries:
+    - sequence: 10
+      prefix: 198.51.100.0/24
+    - sequence: 20
+      prefix: 203.0.113.0/24
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: PrefixSet
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: blocked-networks
+spec:
+  deviceRef:
+    name: leaf1
+  name: BLOCKED-NETWORKS
+  entries:
+    - sequence: 10
+      prefix: 0.0.0.0/0
+      maskLengthRange:
+        min: 25
+        max: 32
