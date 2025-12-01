@@ -10,7 +10,7 @@ spec:
   deviceRef:
     name: leaf1
   domainId: 5
-  adminState: enabled
+  adminState:    enabled
   rolePriority: 100
   systemPriority: 10
   delayRestoreSVI: 140
@@ -27,6 +27,8 @@ spec:
     keepalive:
       source:  10.1.1.1
       destination: 10.1.1.2
+      vrfRef:
+        name: vpc-keepalive
     autoRecovery:
       enabled: true
       reloadDelay: 360
