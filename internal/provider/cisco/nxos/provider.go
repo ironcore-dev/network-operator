@@ -52,6 +52,7 @@ var (
 	_ provider.PIMProvider              = (*Provider)(nil)
 	_ provider.SNMPProvider             = (*Provider)(nil)
 	_ provider.PrefixSetProvider        = (*Provider)(nil)
+	_ provider.RoutingPolicyProvider    = (*Provider)(nil)
 	_ provider.SyslogProvider           = (*Provider)(nil)
 	_ provider.UserProvider             = (*Provider)(nil)
 	_ provider.VLANProvider             = (*Provider)(nil)
@@ -1619,6 +1620,55 @@ func (p *Provider) DeletePrefixSet(ctx context.Context, req *provider.PrefixSetR
 	s.Name = req.PrefixSet.Spec.Name
 	s.Is6 = req.PrefixSet.Is6()
 	return p.client.Delete(ctx, s)
+}
+
+func (p *Provider) EnsureRoutingPolicy(ctx context.Context, req *provider.EnsureRoutingPolicyRequest) error {
+	rm := new(RouteMap)
+	rm.Name = req.Name
+	for _, stmt := range req.Statements {
+		e := new(RouteMapEntry)
+		e.Order = stmt.Sequence
+
+		for _, cond := range stmt.Conditions {
+			switch v := cond.(type) {
+			case provider.MatchPrefixSetCondition:
+				e.SetPrefixSet(v.PrefixSet)
+			default:
+				return fmt.Errorf("routing policy: unsupported condition type %T", cond)
+			}
+		}
+
+		switch stmt.Actions.RouteDisposition {
+		case v1alpha1.AcceptRoute:
+			e.Action = ActionPermit
+		case v1alpha1.RejectRoute:
+			e.Action = ActionDeny
+		default:
+			return fmt.Errorf("routing policy: unsupported action %q", stmt.Actions.RouteDisposition)
+		}
+
+		if stmt.Actions.BgpActions != nil {
+			if stmt.Actions.BgpActions.SetCommunity != nil {
+				if err := e.SetCommunities(stmt.Actions.BgpActions.SetCommunity.Communities); err != nil {
+					return err
+				}
+			}
+			if stmt.Actions.BgpActions.SetExtCommunity != nil {
+				if err := e.SetExtCommunities(stmt.Actions.BgpActions.SetExtCommunity.Communities); err != nil {
+					return err
+				}
+			}
+		}
+
+		rm.EntItems.EntryList.Set(e)
+	}
+	return p.client.Update(ctx, rm)
+}
+
+func (p *Provider) DeleteRoutingPolicy(ctx context.Context, req *provider.DeleteRoutingPolicyRequest) error {
+	rm := new(RouteMap)
+	rm.Name = req.Name
+	return p.client.Delete(ctx, rm)
 }
 
 func (p *Provider) EnsureUser(ctx context.Context, req *provider.EnsureUserRequest) error {
