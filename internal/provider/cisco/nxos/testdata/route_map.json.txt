@@ -1,0 +1,4 @@
+route-map RM-REDIST permit 10
+ match ip address prefix-list PL-CLOUD07
+ set community 65137:107
+ set extcommunity rt 65137:107
