@@ -1,0 +1,48 @@
+{
+  "rpm-items": {
+    "rtmap-items": {
+      "Rule-list": [
+        {
+          "name": "RM-REDIST",
+          "ent-items": {
+            "Entry-list": [
+              {
+                "action": "permit",
+                "order": 10,
+                "srtt-items": {
+                  "item-items": {
+                    "Item-list": [
+                      {
+                        "community": "route-target:as2-nn2:65137:107",
+                        "scope": "transitive"
+                      }
+                    ]
+                  }
+                },
+                "sregcomm-items": {
+                  "noCommAttr": "disabled",
+                  "item-items": {
+                    "Item-list": [
+                      {
+                        "community": "regular:as2-nn2:65137:107"
+                      }
+                    ]
+                  }
+                },
+                "mrtdst-items": {
+                  "rsrtDstAtt-items": {
+                    "RsRtDstAtt-list": [
+                      {
+                        "tDn": "/System/rpm-items/pfxlistv4-items/RuleV4-list[name='PL-CLOUD07']"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
