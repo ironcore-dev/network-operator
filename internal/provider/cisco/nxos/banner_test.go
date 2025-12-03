@@ -4,5 +4,5 @@
 package nxos
 
 func init() {
-	Register("banner", &Banner{Delimiter: "^", Message: "Test Banner"})
+	Register("banner", &Banner{Delimiter: "^", Message: "Test Banner", Type: PreLogin})
 }

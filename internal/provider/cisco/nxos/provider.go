@@ -173,7 +173,7 @@ func (p *Provider) DeleteACL(ctx context.Context, req *provider.DeleteACLRequest
 	return p.client.Delete(ctx, a)
 }
 
-func (p *Provider) EnsureBanner(ctx context.Context, req *provider.BannerRequest) (reterr error) {
+func (p *Provider) EnsureBanner(ctx context.Context, req *provider.EnsureBannerRequest) (reterr error) {
 	// See: https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/104x/configuration/fundamentals/cisco-nexus-9000-series-nx-os-fundamentals-configuration-guide-release-104x/m-basic-device-management.html#task_1174841
 	lines := strings.Split(req.Message, "\n")
 	if len(lines) > 40 {
@@ -185,15 +185,27 @@ func (p *Provider) EnsureBanner(ctx context.Context, req *provider.BannerRequest
 		}
 	}
 
+	t, err := BannerTypeFrom(req.Type)
+	if err != nil {
+		return err
+	}
+
 	b := new(Banner)
 	b.Delimiter = "^"
 	b.Message = req.Message
+	b.Type = t
 
 	return p.client.Patch(ctx, b)
 }
 
-func (p *Provider) DeleteBanner(ctx context.Context) error {
+func (p *Provider) DeleteBanner(ctx context.Context, req *provider.DeleteBannerRequest) error {
+	t, err := BannerTypeFrom(req.Type)
+	if err != nil {
+		return err
+	}
+
 	b := new(Banner)
+	b.Type = t
 	return p.client.Delete(ctx, b)
 }
 
