@@ -1,5 +1,7 @@
 // SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
+
+// Package clientutil provides a client wrapper for the controller-runtime client with convenience functions.
 package clientutil
 
 import (
@@ -7,6 +9,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -50,7 +53,9 @@ func (c *Client) Get(ctx context.Context, key client.ObjectKey, obj client.Objec
 // returned from the Server. It will automatically restrict the request to the
 // namespace that is set in the Client.
 func (c *Client) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
-	opts = append(opts, client.InNamespace(c.DefaultNamespace))
+	if slices.ContainsFunc(opts, func(opt client.ListOption) bool { _, ok := opt.(client.InNamespace); return ok }) {
+		opts = append(opts, client.InNamespace(c.DefaultNamespace))
+	}
 	return c.r.List(ctx, list, opts...)
 }
 
