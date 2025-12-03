@@ -39,6 +39,11 @@ const FinalizerName = "networking.metal.ironcore.dev/finalizer"
 // based on the device they are intended for.
 const DeviceLabel = "networking.metal.ironcore.dev/device-name"
 
+// DeviceSerialLabel is a label applied to any Network API object to indicate the serial number
+// of the device it is associated with. This label is used by the http provisioning server
+// to find the device when a provisioning request is received.
+const DeviceSerialLabel = "networking.metal.ironcore.dev/device-serial"
+
 // DeviceKind represents the Kind of Device.
 const DeviceKind = "Device"
 

@@ -26,9 +26,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
-	"github.com/ironcore-dev/network-operator/internal/clientutil"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
@@ -104,27 +104,21 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 
 	switch obj.Status.Phase {
 	case v1alpha1.DevicePhasePending:
-		if obj.Spec.Bootstrap == nil {
-			// Skip provisioning if no bootstrap configuration is provided.
-			obj.Status.Phase = v1alpha1.DevicePhaseActive
+		if obj.Spec.Provisioning == nil {
+			// Skip provisioning if no provisioning configuration is provided.
+			obj.Status.Phase = v1alpha1.DevicePhaseRunning
 			return ctrl.Result{}, nil
 		}
 
-		log.Info("Device is in pending phase, starting provisioning")
-		c := clientutil.NewClient(r.Client, req.Namespace)
-		tmpl, err := c.Template(ctx, &obj.Spec.Bootstrap.Template)
-		if err != nil {
-			log.Error(err, "Failed to get template for device provisioning")
-			conditions.Set(obj, metav1.Condition{
-				Type:    v1alpha1.ReadyCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  v1alpha1.NotReadyReason,
-				Message: fmt.Sprintf("Failed to get template for device provisioning: %v", err),
-			})
+		if _, ok := r.Provider().(provider.ProvisioningProvider); !ok {
+			// Skip provisioning if the provider does not support it.
+			log.Info("Provider does not support provisioning, skipping")
 			obj.Status.Phase = v1alpha1.DevicePhaseFailed
-			r.Recorder.Event(obj, "Warning", "ProvisioningFailed", "Device provisioning failed due to template retrieval error")
-			return ctrl.Result{}, err
+			r.Recorder.Event(obj, "Warning", "Unsupported", "Provider does not support provisioning")
+			return ctrl.Result{}, reconcile.TerminalError(errors.New("provider does not support provisioning"))
 		}
+
+		log.Info("Device is in pending phase, starting provisioning")
 		conditions.Set(obj, metav1.Condition{
 			Type:    v1alpha1.ReadyCondition,
 			Status:  metav1.ConditionFalse,
@@ -133,31 +127,48 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		})
 		obj.Status.Phase = v1alpha1.DevicePhaseProvisioning
 		r.Recorder.Event(obj, "Normal", "ProvisioningStarted", "Device provisioning has started")
-		// TODO(swagner-de): Start POAP Process.
-		_ = tmpl // <-- Use the template.
-		return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
-
-	case v1alpha1.DevicePhaseProvisioning:
-		log.Info("Device is in provisioning phase, checking completion")
-		// TODO(swagner-de): Check if POAP Process is complete.
-		ready := true // <-- This should be replaced with actual readiness check logic.
-		if !ready {
-			// If the device is not ready yet, we requeue the request to check again later.
-			return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
-		}
-		log.Info("Device provisioning is complete, updating status")
-		conditions.Set(obj, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
-			Status:  metav1.ConditionTrue,
-			Reason:  v1alpha1.ReadyReason,
-			Message: "Device is ready for use",
-		})
-		obj.Status.Phase = v1alpha1.DevicePhaseActive
-		r.Recorder.Event(obj, "Normal", "ProvisioningComplete", "Device provisioning has completed successfully")
-		// Trigger a status update and let the controller requeue the request
 		return ctrl.Result{}, nil
 
-	case v1alpha1.DevicePhaseActive:
+	case v1alpha1.DevicePhaseProvisioning:
+		activeProv := obj.GetActiveProvisioning()
+		if activeProv == nil {
+			log.Info("Device has not made a provisioning request yet")
+			return ctrl.Result{RequeueAfter: 5 * time.Minute}, nil
+		}
+		if activeProv.StartTime.Add(time.Hour).Before(time.Now()) {
+			obj.Status.Phase = v1alpha1.DevicePhaseFailed
+			r.Recorder.Event(obj, "Warning", "ProvisioningFailed", "Device provisioning has timed out")
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{RequeueAfter: 20 * time.Minute}, nil
+
+	case v1alpha1.DevicePhaseProvisioned:
+		// we will finalize the provisioning here, either wait for the reboot to be initiated/completed
+		// or run post-provisioning checks instantly if no reboot is required
+		activeProv := obj.GetActiveProvisioning()
+		if activeProv == nil {
+			err := errors.New("device went into provisioning completed phase, but no active provisioning found")
+			log.Error(err, "Failed to finalize provisioning")
+			return ctrl.Result{}, reconcile.TerminalError(err)
+		}
+		if !activeProv.RebootTime.IsZero() && activeProv.RebootTime.Time.Add((time.Minute)).Before(time.Now()) {
+			log.Info("Device is rebooting, requeuing")
+			return ctrl.Result{RequeueAfter: time.Minute}, nil
+		}
+		log.Info("Device provisioning completed, running post provisioning checks")
+		prov, _ := r.Provider().(provider.ProvisioningProvider)
+		conn, err := deviceutil.GetDeviceConnection(ctx, r, obj)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to obtain device connection: %w", err)
+		}
+		if ok := prov.VerifyProvisioned(ctx, conn, obj); !ok {
+			return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
+		}
+		activeProv.EndTime = metav1.Now()
+		r.Recorder.Event(obj, "Normal", "Provisioned", "Device provisioning has completed successfully")
+		obj.Status.Phase = v1alpha1.DevicePhaseRunning
+
+	case v1alpha1.DevicePhaseRunning:
 		if err := r.reconcile(ctx, obj); err != nil {
 			log.Error(err, "Failed to reconcile resource")
 			return ctrl.Result{}, err
@@ -173,7 +184,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 
 	default:
 		log.Info("Device is in an unknown phase, resetting to active")
-		obj.Status.Phase = v1alpha1.DevicePhaseActive
+		obj.Status.Phase = v1alpha1.DevicePhaseRunning
 	}
 
 	return ctrl.Result{}, nil
@@ -263,7 +274,7 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 				Name:                p.ID,
 				Type:                p.Type,
 				SupportedSpeedsGbps: p.SupportedSpeedsGbps,
-				Trasceiver:          p.Transceiver,
+				Transceiver:         p.Transceiver,
 				InterfaceRef:        ref,
 			}
 			slices.Sort(device.Status.Ports[i].SupportedSpeedsGbps)

@@ -6,6 +6,7 @@ package nxos
 import (
 	"cmp"
 	"context"
+	"crypto/rand"
 	"crypto/rsa"
 	"errors"
 	"fmt"
@@ -38,6 +39,7 @@ const (
 var (
 	_ provider.Provider                 = (*Provider)(nil)
 	_ provider.DeviceProvider           = (*Provider)(nil)
+	_ provider.ProvisioningProvider     = (*Provider)(nil)
 	_ provider.ACLProvider              = (*Provider)(nil)
 	_ provider.BannerProvider           = (*Provider)(nil)
 	_ provider.BGPProvider              = (*Provider)(nil)
@@ -84,6 +86,27 @@ func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (er
 
 func (p *Provider) Disconnect(_ context.Context, _ *deviceutil.Connection) error {
 	return p.conn.Close()
+}
+
+func (p *Provider) HashProvisioningPassword(password string) (hashed, encryptType string, err error) {
+	s := [10]byte{}
+	if _, err := rand.Read(s[:]); err != nil {
+		return "", "", err
+	}
+	e := Scrypt{Salt: s}
+	hashed, pwdEncryptType, err := e.Encode(password)
+	if err != nil {
+		return "", "", err
+	}
+	return hashed, string(pwdEncryptType), nil
+}
+
+func (p *Provider) VerifyProvisioned(ctx context.Context, conn *deviceutil.Connection, device *v1alpha1.Device) bool {
+	if err := p.Connect(ctx, conn); err != nil {
+		return false
+	}
+	p.Disconnect(ctx, conn) //nolint:errcheck
+	return true
 }
 
 func (p *Provider) ListPorts(ctx context.Context) ([]provider.DevicePort, error) {

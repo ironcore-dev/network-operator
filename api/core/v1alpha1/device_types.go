@@ -4,6 +4,10 @@
 package v1alpha1
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -13,10 +17,10 @@ type DeviceSpec struct {
 	// +required
 	Endpoint Endpoint `json:"endpoint"`
 
-	// Bootstrap is an optional configuration for the device bootstrap process.
+	// Provisioning is an optional configuration for the device provisioning process.
 	// It can be used to provide initial configuration templates or scripts that are applied during the device provisioning.
 	// +optional
-	Bootstrap *Bootstrap `json:"bootstrap,omitempty"`
+	Provisioning *Provisioning `json:"provisioning,omitempty"`
 }
 
 // Endpoint contains the connection information for the device.
@@ -48,11 +52,40 @@ type TLS struct {
 	Certificate *CertificateSource `json:"certificate,omitempty"`
 }
 
-// Bootstrap defines the configuration for device bootstrap.
-type Bootstrap struct {
-	// Template defines the multiline string template that contains the initial configuration for the device.
+// Provisioning defines the configuration for device bootstrap.
+type Provisioning struct {
+	// Image defines the image to be used for provisioning the device.
 	// +required
-	Template TemplateSource `json:"template"`
+	Image Image `json:"image"`
+
+	// BootScript defines the script delivered by a TFTP server to the device during bootstrapping.
+	// +optional
+	BootScript TemplateSource `json:"bootScript"`
+}
+
+// ChecksumType defines the type of checksum used for image verification.
+// +kubebuilder:validation:Enum=SHA256;MD5
+type ChecksumType string
+
+const (
+	ChecksumTypeSHA256 ChecksumType = "SHA256"
+	ChecksumTypeMD5    ChecksumType = "MD5" //nolint: usestdlibvars
+)
+
+type Image struct {
+	// URL is the location of the image to be used for provisioning.
+	// +required
+	URL string `json:"url"`
+
+	// Checksum is the checksum of the image for verification.
+	// +required
+	// kubebuilder:validation:MinLength=1
+	Checksum string `json:"checksum"`
+
+	// ChecksumType is the type of the checksum (e.g., sha256, md5).
+	// +required
+	// +kubebuilder:default=MD5
+	ChecksumType ChecksumType `json:"checksumType"`
 }
 
 // TemplateSource defines a source for template content.
@@ -105,6 +138,14 @@ type DeviceStatus struct {
 	// +optional
 	FirmwareVersion string `json:"firmwareVersion,omitempty"`
 
+	// Provisioning is the list of provisioning attempts for the Device.
+	//+listType=map
+	//+listMapKey=startTime
+	//+patchStrategy=merge
+	//+patchMergeKey=startTime
+	//+optional
+	Provisioning []ProvisioningInfo `json:"provisioning,omitempty"`
+
 	// Ports is the list of ports on the Device.
 	// +optional
 	Ports []DevicePort `json:"ports,omitempty"`
@@ -122,6 +163,64 @@ type DeviceStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
+type ProvisioningInfo struct {
+	StartTime metav1.Time       `json:"startTime"`
+	Token     string            `json:"token"`
+	Phase     ProvisioningPhase `json:"phase"`
+	//+optional
+	EndTime metav1.Time `json:"endTime,omitzero"`
+	//+optional
+	RebootTime metav1.Time `json:"reboot,omitzero"`
+	//+optional
+	Error string `json:"error,omitempty"`
+}
+
+// ProvisioningPhase represents the reason for the current provisioning status.
+type ProvisioningPhase string
+
+const (
+	ProvisioningDataRetrieved                  ProvisioningPhase = "DataRetrieved"
+	ProvisioningScriptExecutionStarted         ProvisioningPhase = "ScriptExecutionStarted"
+	ProvisioningScriptExecutionFailed          ProvisioningPhase = "ScriptExecutionFailed"
+	ProvisioningInstallingCertificates         ProvisioningPhase = "InstallingCertificates"
+	ProvisioningDownloadingImage               ProvisioningPhase = "DownloadingImage"
+	ProvisioningImageDownloadFailed            ProvisioningPhase = "ImageDownloadFailed"
+	ProvisioningUpgradeStarting                ProvisioningPhase = "UpgradeStarting"
+	ProvisioningUpgradeFailed                  ProvisioningPhase = "UpgradeFailed"
+	ProvisioningRebootingDevice                ProvisioningPhase = "RebootingDevice"
+	ProvisioningExecutionFinishedWithoutReboot ProvisioningPhase = "ExecutionFinishedWithoutReboot"
+)
+
+func (d *Device) GetActiveProvisioning() *ProvisioningInfo {
+	for i := range d.Status.Provisioning {
+		if d.Status.Provisioning[i].EndTime.IsZero() {
+			return &d.Status.Provisioning[i]
+		}
+	}
+	return nil
+}
+
+func (d *Device) CreateProvisioningEntry() (*ProvisioningInfo, error) {
+	if d.Status.Phase != DevicePhaseProvisioning {
+		return nil, fmt.Errorf("device is in phase %s, expected %s", d.Status.Phase, DevicePhaseProvisioning)
+	}
+	active := d.GetActiveProvisioning()
+	if active != nil {
+		return nil, fmt.Errorf("device has an active provisioning with StartTime %s", active.StartTime.String())
+	}
+	token := make([]byte, 32)
+	_, err := rand.Read(token)
+	if err != nil {
+		return nil, err
+	}
+	entry := ProvisioningInfo{
+		StartTime: metav1.Now(),
+		Token:     hex.EncodeToString(token),
+	}
+	d.Status.Provisioning = append(d.Status.Provisioning, entry)
+	return &entry, nil
+}
+
 type DevicePort struct {
 	// Name is the name of the port.
 	// +required
@@ -137,7 +236,7 @@ type DevicePort struct {
 
 	// Transceiver is the type of transceiver plugged into the port, if any.
 	// +optional
-	Trasceiver string `json:"transceiver,omitempty"`
+	Transceiver string `json:"transceiver,omitempty"`
 
 	// InterfaceRef is the reference to the corresponding Interface resource
 	// configuring this port, if any.
@@ -146,7 +245,7 @@ type DevicePort struct {
 }
 
 // DevicePhase represents the current phase of the Device as it's being provisioned and managed by the operator.
-// +kubebuilder:validation:Enum=Pending;Provisioning;Active;Failed
+// +kubebuilder:validation:Enum=Pending;Provisioning;Running;Failed;Provisioned
 type DevicePhase string
 
 const (
@@ -154,8 +253,10 @@ const (
 	DevicePhasePending DevicePhase = "Pending"
 	// DevicePhaseProvisioning indicates that the device is being provisioned.
 	DevicePhaseProvisioning DevicePhase = "Provisioning"
-	// DevicePhaseActive indicates that the device has been successfully provisioned and is now ready for use.
-	DevicePhaseActive DevicePhase = "Active"
+	// DevicePhaseProvisioned indicates that the device provisioning has completed and the operator is performing post-provisioning tasks.
+	DevicePhaseProvisioned DevicePhase = "Provisioned"
+	// DevicePhaseRunning indicates that the device has been successfully provisioned and is now ready for use.
+	DevicePhaseRunning DevicePhase = "Running"
 	// DevicePhaseFailed indicates that the device provisioning has failed.
 	DevicePhaseFailed DevicePhase = "Failed"
 )
@@ -211,11 +312,6 @@ func (d *Device) GetSecretRefs() []SecretReference {
 			refs = append(refs, d.Spec.Endpoint.TLS.Certificate.SecretRef)
 		}
 	}
-	if d.Spec.Bootstrap != nil {
-		if d.Spec.Bootstrap.Template.SecretRef != nil {
-			refs = append(refs, d.Spec.Bootstrap.Template.SecretRef.SecretReference)
-		}
-	}
 	for i := range refs {
 		if refs[i].Namespace == "" {
 			refs[i].Namespace = d.Namespace
@@ -227,11 +323,6 @@ func (d *Device) GetSecretRefs() []SecretReference {
 // GetConfigMapRefs returns the list of configmaps referenced in the [Device] resource.
 func (d *Device) GetConfigMapRefs() []ConfigMapReference {
 	refs := []ConfigMapReference{}
-	if d.Spec.Bootstrap != nil {
-		if d.Spec.Bootstrap.Template.ConfigMapRef != nil {
-			refs = append(refs, d.Spec.Bootstrap.Template.ConfigMapRef.ConfigMapReference)
-		}
-	}
 	for i := range refs {
 		if refs[i].Namespace == "" {
 			refs[i].Namespace = d.Namespace

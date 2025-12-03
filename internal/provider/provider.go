@@ -37,6 +37,14 @@ type DeviceProvider interface {
 	GetDeviceInfo(context.Context) (*DeviceInfo, error)
 }
 
+// ProvisioningProvider is the interface for the realization of the provisioning-related operations over different providers.
+type ProvisioningProvider interface {
+	// HashedPassword takes a plaintext password and returns the hashed password along with the hash type. This is necessary to securely provision user accounts on devices using a potentially insecure channel.
+	HashProvisioningPassword(password string) (string, string, error)
+	// VerifyProvisioned checks if the provisioning process has been completed successfully on the device.
+	VerifyProvisioned(context.Context, *deviceutil.Connection, *v1alpha1.Device) bool
+}
+
 type DevicePort struct {
 	// ID is the unique identifier of the port on the device.
 	ID string

@@ -319,6 +319,7 @@ func detectTestBinaryDir() string {
 var (
 	_ provider.Provider                 = (*Provider)(nil)
 	_ provider.DeviceProvider           = (*Provider)(nil)
+	_ provider.ProvisioningProvider     = (*Provider)(nil)
 	_ provider.InterfaceProvider        = (*Provider)(nil)
 	_ provider.BannerProvider           = (*Provider)(nil)
 	_ provider.UserProvider             = (*Provider)(nil)
@@ -407,6 +408,14 @@ func (p *Provider) GetDeviceInfo(context.Context) (*provider.DeviceInfo, error) 
 		SerialNumber:    "123456789",
 		FirmwareVersion: "1.0.0",
 	}, nil
+}
+
+func (p *Provider) HashProvisioningPassword(password string) (hashed, encryptType string, err error) {
+	return password, "plain", nil
+}
+
+func (p *Provider) VerifyProvisioned(context.Context, *deviceutil.Connection, *v1alpha1.Device) bool {
+	return true
 }
 
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
