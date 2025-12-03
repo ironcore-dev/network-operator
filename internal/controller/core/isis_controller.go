@@ -22,7 +22,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
-	"github.com/ironcore-dev/network-operator/internal/clientutil"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
@@ -223,12 +222,10 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (_ ctrl.Re
 		}
 	}
 
-	c := clientutil.NewClient(r, s.ISIS.Namespace)
-
 	var interfaces []provider.ISISInterface
 	for _, iface := range s.ISIS.Spec.Interfaces {
 		res := new(v1alpha1.Interface)
-		if err := c.Get(ctx, client.ObjectKey{Name: iface.Ref.Name}, res); err != nil {
+		if err := r.Get(ctx, client.ObjectKey{Name: iface.Ref.Name, Namespace: s.ISIS.Namespace}, res); err != nil {
 			return ctrl.Result{}, err
 		}
 
