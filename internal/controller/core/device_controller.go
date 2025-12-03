@@ -104,27 +104,20 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 
 	switch obj.Status.Phase {
 	case v1alpha1.DevicePhasePending:
-		if obj.Spec.Bootstrap == nil {
-			// Skip provisioning if no bootstrap configuration is provided.
+		if obj.Spec.Provisioning == nil {
+			// Skip provisioning if no provisioning configuration is provided.
+			obj.Status.Phase = v1alpha1.DevicePhaseActive
+			return ctrl.Result{}, nil
+		}
+
+		if _, ok := r.Provider().(provider.ProvisioningProvider); !ok {
+			// Skip provisioning if the provider does not support it.
+			log.Info("Provider does not support provisioning, skipping")
 			obj.Status.Phase = v1alpha1.DevicePhaseActive
 			return ctrl.Result{}, nil
 		}
 
 		log.Info("Device is in pending phase, starting provisioning")
-		c := clientutil.NewClient(r.Client, req.Namespace)
-		tmpl, err := c.Template(ctx, &obj.Spec.Bootstrap.Template)
-		if err != nil {
-			log.Error(err, "Failed to get template for device provisioning")
-			conditions.Set(obj, metav1.Condition{
-				Type:    v1alpha1.ReadyCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  v1alpha1.NotReadyReason,
-				Message: fmt.Sprintf("Failed to get template for device provisioning: %v", err),
-			})
-			obj.Status.Phase = v1alpha1.DevicePhaseFailed
-			r.Recorder.Event(obj, "Warning", "ProvisioningFailed", "Device provisioning failed due to template retrieval error")
-			return ctrl.Result{}, err
-		}
 		conditions.Set(obj, metav1.Condition{
 			Type:    v1alpha1.ReadyCondition,
 			Status:  metav1.ConditionFalse,
@@ -133,29 +126,23 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		})
 		obj.Status.Phase = v1alpha1.DevicePhaseProvisioning
 		r.Recorder.Event(obj, "Normal", "ProvisioningStarted", "Device provisioning has started")
-		// TODO(swagner-de): Start POAP Process.
-		_ = tmpl // <-- Use the template.
 		return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
 
 	case v1alpha1.DevicePhaseProvisioning:
-		log.Info("Device is in provisioning phase, checking completion")
-		// TODO(swagner-de): Check if POAP Process is complete.
-		ready := true // <-- This should be replaced with actual readiness check logic.
-		if !ready {
-			// If the device is not ready yet, we requeue the request to check again later.
-			return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
-		}
-		log.Info("Device provisioning is complete, updating status")
-		conditions.Set(obj, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
-			Status:  metav1.ConditionTrue,
-			Reason:  v1alpha1.ReadyReason,
-			Message: "Device is ready for use",
-		})
-		obj.Status.Phase = v1alpha1.DevicePhaseActive
-		r.Recorder.Event(obj, "Normal", "ProvisioningComplete", "Device provisioning has completed successfully")
-		// Trigger a status update and let the controller requeue the request
+		log.Info("Device is in provisioning phase, waiting for status report")
 		return ctrl.Result{}, nil
+
+	case v1alpha1.DevicePhaseProvisioningCompleted:
+		log.Info("Device provisioning completed, running post provisioning checks")
+		prov, _ := r.Provider().(provider.ProvisioningProvider)
+		conn, err := deviceutil.GetDeviceConnection(ctx, r, obj)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to create obtain device connection: %w", err)
+		}
+		if ok := prov.VerifyProvisioningCompleted(ctx, conn, obj); !ok {
+			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		}
+		obj.Status.Phase = v1alpha1.DevicePhaseActive
 
 	case v1alpha1.DevicePhaseActive:
 		if err := r.reconcile(ctx, obj); err != nil {
@@ -265,7 +252,7 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 				Name:                p.ID,
 				Type:                p.Type,
 				SupportedSpeedsGbps: p.SupportedSpeedsGbps,
-				Trasceiver:          p.Transceiver,
+				Transceiver:         p.Transceiver,
 				InterfaceRef:        ref,
 			}
 		}
