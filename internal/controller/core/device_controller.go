@@ -241,10 +241,8 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 			return fmt.Errorf("failed to list device ports: %w", err)
 		}
 
-		c := clientutil.NewClient(r.Client, device.Namespace)
-
 		interfaces := new(v1alpha1.InterfaceList)
-		if err := c.List(ctx, interfaces, client.InNamespace(device.Namespace), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name}); err != nil {
+		if err := r.List(ctx, interfaces, client.InNamespace(device.Namespace), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name}); err != nil {
 			return fmt.Errorf("failed to list interface resources for device: %w", err)
 		}
 
