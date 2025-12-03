@@ -15,6 +15,7 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 
 	// Set runtime concurrency to match CPU limit imposed by Kubernetes
@@ -38,6 +39,7 @@ import (
 	// Import all supported provider implementations.
 	_ "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos"
 	_ "github.com/ironcore-dev/network-operator/internal/provider/openconfig"
+	"github.com/ironcore-dev/network-operator/internal/provisioning"
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
@@ -75,6 +77,8 @@ func main() {
 	var watchFilterValue string
 	var providerName string
 	var requeueInterval time.Duration
+	var provisioningHTTPPort int
+	var provisioningHTTPValidateSourceIP bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
@@ -89,6 +93,8 @@ func main() {
 	flag.StringVar(&watchFilterValue, "watch-filter", "", fmt.Sprintf("Label value that the controller watches to reconcile api objects. Label key is always %q. If unspecified, the controller watches for all api objects.", v1alpha1.WatchLabel))
 	flag.StringVar(&providerName, "provider", "openconfig", "The provider to use for the controller. If not specified, the default provider is used. Available providers: "+strings.Join(provider.Providers(), ", "))
 	flag.DurationVar(&requeueInterval, "requeue-interval", 30*time.Second, "The interval after which Kubernetes resources should be reconciled again regardless of whether they have changed.")
+	flag.IntVar(&provisioningHTTPPort, "provisioning-http-port", 8080, "The port on which the provisioning HTTP server listens.")
+	flag.BoolVar(&provisioningHTTPValidateSourceIP, "provisioning-http-validate-source-ip", false, "If set, the provisioning HTTP server will validate the source IP of incoming requests against the DeviceIPLabel of Device resources.")
 	opts := zap.Options{
 		Development: true,
 		TimeEncoder: zapcore.ISO8601TimeEncoder,
@@ -461,6 +467,25 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "EVPNInstance")
 		os.Exit(1)
 	}
+	provisioningProvider, ok := prov().(provider.ProvisioningProvider)
+	if provisioningHTTPPort != 0 && ok {
+		provisioningServer := provisioning.HTTPServer{
+			Client:           mgr.GetClient(),
+			Port:             provisioningHTTPPort,
+			Logger:           klog.NewKlogr().WithName("provisioning"),
+			Recorder:         mgr.GetEventRecorderFor("provisioning"),
+			ValidateSourceIP: provisioningHTTPValidateSourceIP,
+			Provider:         provisioningProvider,
+		}
+		setupLog.Info("Starting provisioning HTTP server", "port", provisioningHTTPPort, "validateSourceIP", provisioningHTTPValidateSourceIP)
+		go func() {
+			if err := provisioningServer.Start(ctx); err != nil {
+				setupLog.Error(err, "provisioning HTTP server failed")
+				os.Exit(1)
+			}
+		}()
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {
