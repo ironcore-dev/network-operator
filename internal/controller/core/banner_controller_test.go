@@ -37,24 +37,6 @@ var _ = Describe("Banner Controller", func() {
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}
-
-			By("Creating the custom resource for the Kind Banner")
-			banner := &v1alpha1.Banner{}
-			if err := k8sClient.Get(ctx, key, banner); errors.IsNotFound(err) {
-				resource := &v1alpha1.Banner{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: metav1.NamespaceDefault,
-					},
-					Spec: v1alpha1.BannerSpec{
-						DeviceRef: v1alpha1.LocalObjectReference{Name: name},
-						Message: v1alpha1.TemplateSource{
-							Inline: ptr.To("Test Banner"),
-						},
-					},
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
-			}
 		})
 
 		AfterEach(func() {
@@ -74,11 +56,28 @@ var _ = Describe("Banner Controller", func() {
 
 			By("Ensuring the resource is deleted from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.Banner).To(BeNil(), "Provider Banner should be nil")
+				g.Expect(testProvider.PreLoginBanner).To(BeNil(), "Provider PreLogin Banner should be nil")
+				g.Expect(testProvider.PostLoginBanner).To(BeNil(), "Provider PostLogin Banner should be nil")
 			}).Should(Succeed())
 		})
 
-		It("Should successfully reconcile the resource", func() {
+		It("Should successfully reconcile a PreLogin Banner", func() {
+			By("Creating a PreLogin Banner")
+			banner := &v1alpha1.Banner{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.BannerSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
+					Type:      v1alpha1.BannerTypePreLogin,
+					Message: v1alpha1.TemplateSource{
+						Inline: ptr.To("Test Banner"),
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, banner)).To(Succeed())
+
 			By("Adding a finalizer to the resource")
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.Banner{}
@@ -113,9 +112,69 @@ var _ = Describe("Banner Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.Banner).ToNot(BeNil(), "Provider Banner should not be nil")
-				if testProvider.Banner != nil {
-					g.Expect(*testProvider.Banner).To(Equal("Test Banner"))
+				g.Expect(testProvider.PreLoginBanner).ToNot(BeNil(), "Provider Banner should not be nil")
+				g.Expect(testProvider.PostLoginBanner).To(BeNil(), "Provider PostLogin Banner should be nil")
+				if testProvider.PreLoginBanner != nil {
+					g.Expect(*testProvider.PreLoginBanner).To(Equal("Test Banner"))
+				}
+			}).Should(Succeed())
+		})
+
+		It("Should successfully reconcile a PostLogin Banner", func() {
+			By("Creating a PostLogin Banner")
+			banner := &v1alpha1.Banner{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.BannerSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
+					Type:      v1alpha1.BannerTypePostLogin,
+					Message: v1alpha1.TemplateSource{
+						Inline: ptr.To("Test Banner"),
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, banner)).To(Succeed())
+
+			By("Adding a finalizer to the resource")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Banner{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(controllerutil.ContainsFinalizer(resource, v1alpha1.FinalizerName)).To(BeTrue())
+			}).Should(Succeed())
+
+			By("Adding the device label to the resource")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Banner{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Labels).To(HaveKeyWithValue(v1alpha1.DeviceLabel, name))
+			}).Should(Succeed())
+
+			By("Adding the device as a owner reference")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Banner{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.OwnerReferences).To(HaveLen(1))
+				g.Expect(resource.OwnerReferences[0].Kind).To(Equal("Device"))
+				g.Expect(resource.OwnerReferences[0].Name).To(Equal(name))
+			}).Should(Succeed())
+
+			By("Updating the resource status")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Banner{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Conditions).To(HaveLen(1))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
+			}).Should(Succeed())
+
+			By("Ensuring the resource is created in the provider")
+			Eventually(func(g Gomega) {
+				g.Expect(testProvider.PreLoginBanner).To(BeNil(), "Provider PreLogin Banner should be nil")
+				g.Expect(testProvider.PostLoginBanner).ToNot(BeNil(), "Provider PostLogin Banner should not be nil")
+				if testProvider.PostLoginBanner != nil {
+					g.Expect(*testProvider.PostLoginBanner).To(Equal("Test Banner"))
 				}
 			}).Should(Succeed())
 		})
