@@ -34,7 +34,7 @@ spec:
   deviceRef:
     name: leaf1
   name: lo1
-  description: VTEP Leaf1
+  description: NVE/VTEP Leaf1
   adminState: Up
   type: Loopback
   mtu: 1500

@@ -18,7 +18,8 @@ resources:
 - v1alpha1_bgppeer.yaml
 - v1alpha1_ospf.yaml
 - v1alpha1_vlan.yaml
+- v1alpha1_nve.yaml
 - cisco/nx/v1alpha1_system.yaml
 - cisco/nx/v1alpha1_managementaccessconfig.yaml
-- v1alpha1_evi.yaml
+- cisco/nx/v1alpha1_nveconfig.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

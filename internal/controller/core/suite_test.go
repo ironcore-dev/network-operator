@@ -46,7 +46,7 @@ var (
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Controller Suite")
+	RunSpecs(t, "Core Controller Suite")
 }
 
 var _ = BeforeSuite(func() {
@@ -257,6 +257,15 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&NVEReconciler{
+		Client:          k8sManager.GetClient(),
+		Scheme:          k8sManager.GetScheme(),
+		Recorder:        recorder,
+		Provider:        prov,
+		RequeueInterval: time.Second,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -320,6 +329,7 @@ var (
 	_ provider.OSPFProvider             = (*Provider)(nil)
 	_ provider.VLANProvider             = (*Provider)(nil)
 	_ provider.EVPNInstanceProvider     = (*Provider)(nil)
+	_ provider.NVEProvider              = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -344,6 +354,7 @@ type Provider struct {
 	OSPF     sets.Set[string]
 	VLANs    sets.Set[int16]
 	EVIs     sets.Set[int32]
+	NVE      *v1alpha1.NVE
 }
 
 func NewProvider() *Provider {
@@ -377,6 +388,8 @@ func (p *Provider) ListPorts(context.Context) (ports []provider.DevicePort, err 
 }
 
 func (p *Provider) GetDeviceInfo(context.Context) (*provider.DeviceInfo, error) {
+	p.Lock()
+	defer p.Unlock()
 	return &provider.DeviceInfo{
 		Manufacturer:    "Manufacturer",
 		Model:           "Model",
@@ -666,4 +679,33 @@ func (p *Provider) DeleteEVPNInstance(_ context.Context, req *provider.EVPNInsta
 	defer p.Unlock()
 	p.EVIs.Delete(req.EVPNInstance.Spec.VNI)
 	return nil
+}
+
+func (p *Provider) EnsureNVE(_ context.Context, req *provider.NVERequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.NVE = req.NVE
+	return nil
+}
+
+func (p *Provider) DeleteNVE(_ context.Context, req *provider.NVERequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.NVE = nil
+	return nil
+}
+
+func (p *Provider) GetNVEStatus(context.Context, *provider.NVERequest) (provider.NVEStatus, error) {
+	status := provider.NVEStatus{
+		OperStatus: true,
+	}
+	if p.NVE != nil {
+		if p.NVE.Spec.SourceInterfaceRef.Name != "" {
+			status.SourceInterfaceName = p.NVE.Spec.SourceInterfaceRef.Name
+		}
+		if p.NVE.Spec.AnycastSourceInterfaceRef != nil {
+			status.AnycastSourceInterfaceName = p.NVE.Spec.AnycastSourceInterfaceRef.Name
+		}
+	}
+	return status, nil
 }

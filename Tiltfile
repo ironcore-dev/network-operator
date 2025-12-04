@@ -105,6 +105,11 @@ k8s_resource(new_name='vlan-10', objects=['vlan-10:vlan'], trigger_mode=TRIGGER_
 k8s_yaml('./config/samples/v1alpha1_evi.yaml')
 k8s_resource(new_name='vxlan-100010', objects=['vxlan-100010:evpninstance'], resource_deps=['vlan-10'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
+k8s_yaml('./config/samples/v1alpha1_nve.yaml')
+k8s_yaml('./config/samples/cisco/nx/v1alpha1_nveconfig.yaml')
+k8s_resource(new_name='nve1', objects=['nve1:nve'], trigger_mode=TRIGGER_MODE_MANUAL, resource_deps=['lo0', 'lo1'], auto_init=False)
+k8s_resource(new_name='nve1-cfg', objects=['nve1-cfg:nveconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')
 print('👉 Tilt will automatically rebuild and redeploy when changes are detected')

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,6 +26,7 @@ import (
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	corecontroller "github.com/ironcore-dev/network-operator/internal/controller/core"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	// +kubebuilder:scaffold:imports
@@ -44,7 +46,7 @@ var (
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Controller Suite")
+	RunSpecs(t, "Cisco NX Controller Suite")
 }
 
 var _ = BeforeSuite(func() {
@@ -105,6 +107,15 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&corecontroller.NVEReconciler{
+		Client:          k8sManager.GetClient(),
+		Scheme:          k8sManager.GetScheme(),
+		Recorder:        recorder,
+		Provider:        prov,
+		RequeueInterval: time.Second,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -133,7 +144,7 @@ var _ = AfterSuite(func() {
 // setting the 'KUBEBUILDER_ASSETS' environment variable. To ensure the binaries are
 // properly set up, run 'make setup-envtest' beforehand.
 func detectTestBinaryDir() string {
-	basePath := filepath.Join("..", "..", "bin", "k8s")
+	basePath := filepath.Join("..", "..", "..", "..", "bin", "k8s")
 	entries, err := os.ReadDir(basePath)
 	if err != nil {
 		logf.Log.Error(err, "Failed to read directory", "path", basePath)
@@ -150,7 +161,9 @@ func detectTestBinaryDir() string {
 type MockProvider struct {
 	sync.Mutex
 
-	Settings *nxv1alpha1.System
+	Settings       *nxv1alpha1.System
+	NVE            *v1alpha1.NVE
+	EnsureNVECalls uint16
 }
 
 var _ Provider = (*MockProvider)(nil)
@@ -174,4 +187,34 @@ func (p *MockProvider) ResetSystemSettings(ctx context.Context) error {
 	defer p.Unlock()
 	p.Settings = nil
 	return nil
+}
+
+func (p *MockProvider) EnsureNVE(_ context.Context, req *provider.NVERequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.NVE = req.NVE
+	p.EnsureNVECalls++
+	return nil
+}
+
+func (p *MockProvider) DeleteNVE(_ context.Context, req *provider.NVERequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.NVE = nil
+	return nil
+}
+
+func (p *MockProvider) GetNVEStatus(_ context.Context, req *provider.NVERequest) (provider.NVEStatus, error) {
+	status := provider.NVEStatus{
+		OperStatus: true,
+	}
+	if p.NVE != nil {
+		if p.NVE.Spec.SourceInterfaceRef.Name != "" {
+			status.SourceInterfaceName = p.NVE.Spec.SourceInterfaceRef.Name
+		}
+		if p.NVE.Spec.AnycastSourceInterfaceRef != nil {
+			status.AnycastSourceInterfaceName = p.NVE.Spec.AnycastSourceInterfaceRef.Name
+		}
+	}
+	return status, nil
 }
