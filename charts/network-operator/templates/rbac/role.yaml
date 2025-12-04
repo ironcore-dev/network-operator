@@ -48,6 +48,7 @@ rules:
   - ntp
   - ospf
   - pim
+  - prefixsets
   - snmp
   - syslogs
   - users
@@ -78,6 +79,7 @@ rules:
   - ntp/finalizers
   - ospf/finalizers
   - pim/finalizers
+  - prefixsets/finalizers
   - snmp/finalizers
   - syslogs/finalizers
   - users/finalizers
@@ -102,6 +104,7 @@ rules:
   - ntp/status
   - ospf/status
   - pim/status
+  - prefixsets/status
   - snmp/status
   - syslogs/status
   - users/status

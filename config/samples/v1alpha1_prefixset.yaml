@@ -1,0 +1,17 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: PrefixSet
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: ccloud-prefixset
+spec:
+  deviceRef:
+    name: leaf1
+  name: CCLOUD
+  entries:
+    - sequence: 10
+      prefix: 10.3.192.0/21
+      maskLengthRange:
+        min: 21
+        max: 24

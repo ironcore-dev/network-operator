@@ -1,0 +1,1 @@
+ip prefix-list TEST seq 10 permit 10.0.0.0/8 eq 24
