@@ -7,6 +7,7 @@ import (
 	"cmp"
 	"context"
 	"crypto/rsa"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -26,6 +27,11 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+)
+
+const (
+	SpanningTreePortTypeAnnotation = "nx.cisco.networking.metal.ironcore.dev/spanning-tree-port-type"
+	VPCDomainAnnotation            = "nx.cisco.networking.metal.ironcore.dev/vpc-domain"
 )
 
 var (
@@ -548,6 +554,28 @@ func (p *Provider) DeleteEVPNInstance(ctx context.Context, req *provider.EVPNIns
 	return p.client.Delete(ctx, conf...)
 }
 
+var _ gnmiext.Configurable = (*VPCDom)(nil)
+
+type VPCDom struct {
+	ID             int     `json:"id"`
+	AdminSt        AdminSt `json:"adminSt"`
+	PeerGw         AdminSt `json:"peerGw"`
+	PeerSwitch     AdminSt `json:"peerSwitch"`
+	KeepaliveItems struct {
+		DestIP        string `json:"destIp"`
+		SrcIP         string `json:"srcIp"`
+		Vrf           string `json:"vrf"`
+		PeerlinkItems struct {
+			AdminSt AdminSt `json:"adminSt"`
+			ID      string  `json:"id"`
+		} `json:"peerlink-items,omitzero"`
+	} `json:"keepalive-items,omitzero"`
+}
+
+func (v *VPCDom) XPath() string {
+	return "System/vpc-items/inst-items/dom-items"
+}
+
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
 	name, err := ShortName(req.Interface.Spec.Name)
 	if err != nil {
@@ -613,21 +641,29 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		if req.Interface.Spec.AdminState == v1alpha1.AdminStateUp {
 			p.AdminSt = AdminStUp
 		}
+		// TODO: If the interface is a member of a port-channel, do the following:
+		// 1) If the mtu has been explicitly configured on the port-channel and matches the mtu on the physical interface, adopt the "admin_mtu" flag.
+		// 2) If the mtu on the port-channel differs from the mtu on the physical interface, return an error.
+		// 3) If the mtu has not been explicitly configured on the port-channel, do not adopt the "admin_mtu" flag.
 		if req.Interface.Spec.MTU != 0 {
 			p.MTU = req.Interface.Spec.MTU
 			p.UserCfgdFlags = "admin_mtu," + p.UserCfgdFlags
 		}
+		p.UserCfgdFlags = "admin_layer," + p.UserCfgdFlags
 		if req.IPv4 != nil {
 			p.Layer = Layer3
-			p.UserCfgdFlags = "admin_layer," + p.UserCfgdFlags
 		}
 		if addr != nil && addr.Unnumbered != "" {
 			p.Medium = MediumPointToPoint
 		}
+		p.AccessVlan = "unknown"
+		p.NativeVlan = "unknown"
 		p.RtvrfMbrItems = NewVrfMember(name, vrf)
 
 		if req.Interface.Spec.Switchport != nil {
 			p.RtvrfMbrItems = nil
+			p.AccessVlan = DefaultVLAN
+			p.NativeVlan = DefaultVLAN
 			switch req.Interface.Spec.Switchport.Mode {
 			case v1alpha1.SwitchportModeAccess:
 				p.Mode = SwitchportModeAccess
@@ -695,6 +731,8 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			pc.UserCfgdFlags = "admin_mtu," + pc.UserCfgdFlags
 		}
 
+		pc.UserCfgdFlags = "admin_layer," + pc.UserCfgdFlags
+
 		pc.PcMode = PortChannelModeActive
 		switch m := req.Interface.Spec.Aggregation.ControlProtocol.Mode; m {
 		case v1alpha1.LACPModeActive:
@@ -743,6 +781,8 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		}
 
+		conf = append(conf, pc)
+
 		if req.MultiChassisID != nil {
 			v := new(VPCIf)
 			v.ID = int(*req.MultiChassisID)
@@ -750,7 +790,32 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			conf = append(conf, v)
 		}
 
-		conf = append(conf, pc)
+		if s, ok := req.Interface.GetAnnotations()[VPCDomainAnnotation]; ok {
+			f2 := new(Feature)
+			f2.Name = "vpc"
+			f2.AdminSt = AdminStEnabled
+			conf = append(conf, f2)
+
+			var dom struct {
+				Src string `json:"src"`
+				Dst string `json:"dst"`
+				Vrf string `json:"vrf"`
+			}
+			if err := json.Unmarshal([]byte(s), &dom); err != nil {
+				return err
+			}
+			v := new(VPCDom)
+			v.ID = 1
+			v.AdminSt = AdminStEnabled
+			v.PeerGw = AdminStEnabled
+			v.PeerSwitch = AdminStEnabled
+			v.KeepaliveItems.DestIP = dom.Dst
+			v.KeepaliveItems.SrcIP = dom.Src
+			v.KeepaliveItems.Vrf = dom.Vrf
+			v.KeepaliveItems.PeerlinkItems.ID = name
+			v.KeepaliveItems.PeerlinkItems.AdminSt = AdminStEnabled
+			conf = append(conf, v)
+		}
 
 	case v1alpha1.InterfaceTypeRoutedVLAN:
 		f := new(Feature)
@@ -772,6 +837,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 		svi.VlanID = req.VLAN.Spec.ID
 		svi.RtvrfMbrItems = NewVrfMember(name, vrf)
+		conf = append(conf, svi)
 
 		fwif := new(FabricFwdIf)
 		fwif.ID = name
@@ -795,10 +861,21 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		}
 
-		conf = append(conf, svi)
-
 	default:
 		return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
+	}
+
+	if (req.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical && req.IPv4 == nil) || req.Interface.Spec.Type == v1alpha1.InterfaceTypeAggregate {
+		stp := new(SpanningTree)
+		stp.IfName = name
+		stp.Mode = SpanningTreeModeDefault
+
+		m, ok := req.Interface.GetAnnotations()[SpanningTreePortTypeAnnotation]
+		if mode := SpanningTreeMode(m); ok && mode.IsValid() {
+			stp.Mode = mode
+		}
+
+		conf = append(conf, stp)
 	}
 
 	// Add the address items last, as they depend on the interface being created first.
@@ -1257,7 +1334,7 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *NVERequest) error {
 
 type NXOSPF struct {
 	// PropagateDefaultRoute is equivalent to the CLI command `default-information originate`
-	ProgateDefaultRoute bool
+	ProgateDefaultRoute *bool
 	// RedistributionConfigs is a list of redistribution configurations for the OSPF process.
 	RedistributionConfigs []RedistributionConfig
 	// Distance is the adminitrative distance value (1-255) for OSPF routes. Cisco's default is 110.
@@ -1363,9 +1440,11 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 		dom.InterleakItems.InterLeakPList.Set(rd)
 	}
 
-	dom.DefrtleakItems.Always = "no"
-	if cfg.ProgateDefaultRoute {
-		dom.DefrtleakItems.Always = "yes"
+	if cfg.ProgateDefaultRoute != nil {
+		dom.DefrtleakItems.Always = "no"
+		if *cfg.ProgateDefaultRoute {
+			dom.DefrtleakItems.Always = "yes"
+		}
 	}
 
 	if cfg.MaxLSA != 0 {
@@ -1433,7 +1512,7 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 
 	for _, rendezvousPoint := range req.PIM.Spec.RendezvousPoints {
 		rp := new(StaticRP)
-		rp.Addr = rendezvousPoint.Address
+		rp.Addr = rendezvousPoint.Address + "/32"
 		for _, group := range rendezvousPoint.MulticastGroups {
 			if !group.IsValid() || !group.Addr().Is4() {
 				return fmt.Errorf("pim: group list %q is not a valid IPv4 address prefix", group)
@@ -1446,8 +1525,8 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 
 		for _, addr := range rendezvousPoint.AnycastAddresses {
 			peer := new(AnycastPeerAddr)
-			peer.Addr = rendezvousPoint.Address
-			peer.RpSetAddr = addr
+			peer.Addr = rendezvousPoint.Address + "/32"
+			peer.RpSetAddr = addr + "/32"
 			apItems.AcastRPPeerList.Set(peer)
 		}
 	}
@@ -1810,7 +1889,7 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 	if req.VRF.Spec.Description != "" {
 		v.Descr = NewOption(req.VRF.Spec.Description)
 	}
-
+	v.Encap = "unknown"
 	if req.VRF.Spec.VNI > 0 {
 		v.L3Vni = true
 		v.Encap = "vxlan-" + strconv.FormatUint(uint64(req.VRF.Spec.VNI), 10)
@@ -1818,6 +1897,7 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 
 	dom := new(VRFDom)
 	dom.Name = req.VRF.Spec.Name
+	v.DomItems.DomList.Set(dom)
 
 	// pre: RD format has been already been validated by VRFCustomValidator
 	if req.VRF.Spec.RouteDistinguisher != "" {
@@ -1937,10 +2017,6 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 		addAF(AddressFamilyIPv6Unicast, AddressFamilyIPv6Unicast, importEntryIPv6, exportEntryIPv6)
 		addAF(AddressFamilyIPv4Unicast, AddressFamilyL2EVPN, importEntryIPv4EVPN, exportEntryIPv4EVPN)
 		addAF(AddressFamilyIPv6Unicast, AddressFamilyL2EVPN, importEntryIPv6EVPN, exportEntryIPv6EVPN)
-	}
-
-	if dom.Rd != "" || dom.AfItems.DomAfList.Len() > 0 {
-		v.DomItems.DomList.Set(dom)
 	}
 
 	return p.client.Update(ctx, v)
