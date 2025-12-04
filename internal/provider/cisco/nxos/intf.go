@@ -368,7 +368,7 @@ func Range(r []int32) string {
 }
 
 // Exists checks if all provided interface names exist on the device.
-func Exists(ctx context.Context, client *gnmiext.Client, names ...string) (bool, error) {
+func Exists(ctx context.Context, client gnmiext.Client, names ...string) (bool, error) {
 	if len(names) == 0 {
 		return false, errors.New("at least one interface name must be provided")
 	}
