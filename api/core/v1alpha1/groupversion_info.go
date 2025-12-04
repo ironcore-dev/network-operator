@@ -134,3 +134,9 @@ const (
 	// VRFNotFoundReason indicates that a referenced VRF was not found.
 	VRFNotFoundReason = "VRFNotFound"
 )
+
+// Reasons that are specific to [RoutingPolicy] objects.
+const (
+	// PrefixSetNotFoundReason indicates that a referenced PrefixSet was not found.
+	PrefixSetNotFoundReason = "PrefixSetNotFound"
+)

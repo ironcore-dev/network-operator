@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/netip"
 	"strconv"
 	"strings"
@@ -104,7 +105,7 @@ func validateRouteDistinguisher(rd string) error {
 	}
 	// type 1 check
 	if ip, err := netip.ParseAddr(admin); err == nil && ip.Is4() {
-		if assigned > 65535 {
+		if assigned > math.MaxUint16 {
 			return errors.New("type-1 'Assigned Number' is out of range (0–65535)")
 		}
 		return nil
@@ -118,16 +119,16 @@ func validateRouteDistinguisher(rd string) error {
 
 	// Reserved ASNs
 	switch asn {
-	case 0, 65535, 4294967295:
+	case 0, math.MaxUint16, math.MaxUint32:
 		return fmt.Errorf("ASN %d is reserved and cannot be used", asn)
 	}
 
 	// type 0:  ASN 0–65535 + 32-bit number (0–4294967295) with reserved previously checked
-	if asn <= 65535 && assigned <= 4294967295 {
+	if asn <= math.MaxUint16 && assigned <= math.MaxUint32 {
 		return nil
 	}
 	// type 2: ASN 65536–4294967295 + 16-bit number (0–65535) with reserved previously checked
-	if asn <= 4294967295 && assigned <= 65535 {
+	if asn <= math.MaxUint32 && assigned <= math.MaxUint16 {
 		return nil
 	}
 
