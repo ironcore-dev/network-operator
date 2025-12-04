@@ -117,7 +117,6 @@ const (
 // Switchport defines the switchport configuration for an interface.
 // +kubebuilder:validation:XValidation:rule="self.mode != 'Access' || has(self.accessVlan)", message="accessVlan must be specified when mode is Access"
 // +kubebuilder:validation:XValidation:rule="self.mode != 'Trunk' || has(self.nativeVlan)", message="nativeVlan must be specified when mode is Trunk"
-// +kubebuilder:validation:XValidation:rule="self.mode != 'Trunk' || has(self.allowedVlans)", message="allowedVlans must be specified when mode is Trunk"
 type Switchport struct {
 	// Mode defines the switchport mode, such as access or trunk.
 	// +required
@@ -138,6 +137,7 @@ type Switchport struct {
 	NativeVlan int32 `json:"nativeVlan,omitempty"`
 
 	// AllowedVlans is a list of VLAN IDs that are allowed on the trunk port.
+	// If not specified, all VLANs (1-4094) are allowed.
 	// Only applicable when Mode is set to "Trunk".
 	// +optional
 	// +kubebuilder:validation:MinItems=1
