@@ -1,0 +1,25 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: PIM
+metadata:
+  name: spine2-pim
+spec:
+  deviceRef:
+    name: spine2
+  rendezvousPoints:
+    - address: 10.0.0.100
+      multicastGroups:
+        - 224.0.0.0/4
+      anycastAddresses:
+        - 10.0.0.1
+        - 10.0.0.2
+  interfaceRefs:
+    - name: spine2-lo0
+      mode: Sparse
+    - name: spine2-lo1
+      mode: Sparse
+    - name: spine2-eth1-1
+      mode: Sparse
+    - name: spine2-eth1-2
+      mode: Sparse
+    - name: spine2-eth1-3
+      mode: Sparse
