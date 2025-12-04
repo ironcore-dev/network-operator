@@ -115,8 +115,6 @@ const (
 
 // Switchport defines the switchport configuration for an interface.
 // +kubebuilder:validation:XValidation:rule="self.mode != 'Access' || has(self.accessVlan)", message="accessVlan must be specified when mode is Access"
-// +kubebuilder:validation:XValidation:rule="self.mode != 'Trunk' || has(self.nativeVlan)", message="nativeVlan must be specified when mode is Trunk"
-// +kubebuilder:validation:XValidation:rule="self.mode != 'Trunk' || has(self.allowedVlans)", message="allowedVlans must be specified when mode is Trunk"
 type Switchport struct {
 	// Mode defines the switchport mode, such as access or trunk.
 	// +required
@@ -143,6 +141,10 @@ type Switchport struct {
 	// +kubebuilder:validation:items:Minimum=1
 	// +kubebuilder:validation:items:Maximum=4094
 	AllowedVlans []int32 `json:"allowedVlans,omitempty"`
+
+	// SpanningTreeMode defines the spanning tree mode for the switchport.
+	// +optional
+	SpanningTreeMode *SpanningTreeMode `json:"spanningTree,omitempty"`
 }
 
 // SwitchportMode represents the switchport mode of an interface.
@@ -154,6 +156,17 @@ const (
 	SwitchportModeAccess SwitchportMode = "Access"
 	// SwitchportModeTrunk indicates that the switchport is in trunk mode.
 	SwitchportModeTrunk SwitchportMode = "Trunk"
+)
+
+// SpanningTreeMode represents the spanning tree mode of a switchport.
+// +kubebuilder:validation:Enum=Edge;Network;Trunk;Default
+type SpanningTreeMode string
+
+const (
+	SpanningTreeModeEdge    SpanningTreeMode = "Edge"
+	SpanningTreeModeNetwork SpanningTreeMode = "Network"
+	SpanningTreeModeTrunk   SpanningTreeMode = "Trunk"
+	SpanningTreeModeDefault SpanningTreeMode = "Default"
 )
 
 // InterfaceIPv4 defines the IPv4 configuration for an interface.

@@ -146,8 +146,6 @@ spec:
   mtu: 1500
   switchport:
     mode: Trunk
-    nativeVlan: 1
-    allowedVlans: [10]
 ---
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
@@ -167,8 +165,6 @@ spec:
   mtu: 1500
   switchport:
     mode: Trunk
-    nativeVlan: 1
-    allowedVlans: [10]
 ---
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
@@ -188,8 +184,6 @@ spec:
   mtu: 1500
   switchport:
     mode: Trunk
-    nativeVlan: 1
-    allowedVlans: [10]
   aggregation:
     controlProtocol:
       mode: Active

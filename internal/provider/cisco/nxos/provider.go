@@ -635,7 +635,9 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				p.AccessVlan = fmt.Sprintf("vlan-%d", req.Interface.Spec.Switchport.AccessVlan)
 			case v1alpha1.SwitchportModeTrunk:
 				p.Mode = SwitchportModeTrunk
-				p.NativeVlan = fmt.Sprintf("vlan-%d", req.Interface.Spec.Switchport.NativeVlan)
+				if req.Interface.Spec.Switchport.NativeVlan != 0 {
+					p.NativeVlan = fmt.Sprintf("vlan-%d", req.Interface.Spec.Switchport.NativeVlan)
+				}
 				if len(req.Interface.Spec.Switchport.AllowedVlans) > 0 {
 					p.TrunkVlans = Range(req.Interface.Spec.Switchport.AllowedVlans)
 				}
@@ -713,12 +715,31 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				pc.AccessVlan = fmt.Sprintf("vlan-%d", req.Interface.Spec.Switchport.AccessVlan)
 			case v1alpha1.SwitchportModeTrunk:
 				pc.Mode = SwitchportModeTrunk
-				pc.NativeVlan = fmt.Sprintf("vlan-%d", req.Interface.Spec.Switchport.NativeVlan)
+				if req.Interface.Spec.Switchport.NativeVlan != 0 {
+					pc.NativeVlan = fmt.Sprintf("vlan-%d", req.Interface.Spec.Switchport.NativeVlan)
+				}
 				if len(req.Interface.Spec.Switchport.AllowedVlans) > 0 {
 					pc.TrunkVlans = Range(req.Interface.Spec.Switchport.AllowedVlans)
 				}
 			default:
 				return fmt.Errorf("invalid switchport mode: %s", req.Interface.Spec.Switchport.Mode)
+			}
+
+			if req.Interface.Spec.Switchport.SpanningTreeMode != nil {
+				stp := new(SpanningTree)
+				switch *req.Interface.Spec.Switchport.SpanningTreeMode {
+				case v1alpha1.SpanningTreeModeEdge:
+					stp.Mode = SpanningTreeModeEdge
+				case v1alpha1.SpanningTreeModeNetwork:
+					stp.Mode = SpanningTreeModeNetwork
+				case v1alpha1.SpanningTreeModeTrunk:
+					stp.Mode = SpanningTreeModeTrunk
+				case v1alpha1.SpanningTreeModeDefault:
+					stp.Mode = SpanningTreeModeDefault
+				default:
+					return fmt.Errorf("invalid spanning tree mode: %v", *req.Interface.Spec.Switchport.SpanningTreeMode)
+				}
+				conf = append(conf, stp)
 			}
 		}
 
@@ -736,9 +757,9 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 
 		// Delete the existing VPC interface entry if the MultiChassisID has changed or got removed.
-		if vpc := v.GetListItemByInterface(name); vpc != nil {
-			if req.MultiChassisID == nil || int(*req.MultiChassisID) != vpc.ID {
-				if err := p.client.Delete(ctx, vpc); err != nil {
+		if vpcdomain := v.GetListItemByInterface(name); vpcdomain != nil {
+			if req.MultiChassisID == nil || int(*req.MultiChassisID) != vpcdomain.ID {
+				if err := p.client.Delete(ctx, vpcdomain); err != nil {
 					return err
 				}
 			}
@@ -832,8 +853,8 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 		}
 
 		// Make sure to delete any associated VPC interface.
-		if vpc := v.GetListItemByInterface(name); vpc != nil {
-			conf = append(conf, vpc)
+		if vpcdomain := v.GetListItemByInterface(name); vpcdomain != nil {
+			conf = append(conf, vpcdomain)
 		}
 
 	case v1alpha1.InterfaceTypeRoutedVLAN:
@@ -1959,14 +1980,14 @@ func (p *Provider) ResetSystemSettings(ctx context.Context) error {
 	)
 }
 
-// VPCStatus represents the operational status of a vPC configuration on the device.
-type VPCStatus struct {
+// VPCDomainStatus represents the operational status of a vPC configuration on the device.
+type VPCDomainStatus struct {
 	// KeepAliveStatus indicates whether the keepalive link is operationally up (true) or down (false).
 	KeepAliveStatus bool
 	// KeepAliveStatusMessage provides additional human-readable information returned by the device
 	KeepAliveStatusMessage string
 	// Role represents the role of the vPC peer.
-	Role nxv1alpha1.VPCRole
+	Role nxv1alpha1.VPCDomainRole
 	// PeerUptime indicates the uptime of the vPC peer link in human-readable format provided by Cisco.
 	PeerUptime time.Duration
 }
@@ -1975,46 +1996,46 @@ type VPCStatus struct {
 // is enabled on the device. If vrf is not nil, the keep-alive link will be configured within the specified VRF.
 // The port-channel interface required to establish a vPC are managed by the Interface controller and are not
 // configured here. The port-channel status must not be made a dependency here, as they require the vPC domain
-// to be configured first (which is realized here).
-func (p *Provider) EnsureVPC(ctx context.Context, vpc *nxv1alpha1.VPC, vrf *v1alpha1.VRF) (reterr error) {
+// to be configured first (here).
+func (p *Provider) EnsureVPCDomain(ctx context.Context, vpcdomain *nxv1alpha1.VPCDomain, vrf *v1alpha1.VRF) (reterr error) {
 	f := new(Feature)
 	f.Name = "vpc"
 	f.AdminSt = AdminStEnabled
 
-	v := new(VPC)
-	v.Id = vpc.Spec.DomainID
+	v := new(VPCDomain)
+	v.Id = vpcdomain.Spec.DomainID
 
-	switch vpc.Spec.AdminState {
+	switch vpcdomain.Spec.AdminState {
 	case "enabled":
 		v.AdminSt = AdminStEnabled
 	case "disabled":
 		v.AdminSt = AdminStDisabled
-		return fmt.Errorf("nxos-vpc: invalid admin state %q", vpc.Spec.AdminState)
+		return fmt.Errorf("invalid admin state %q", vpcdomain.Spec.AdminState)
 	default:
 	}
-
-	if vpc.Spec.RolePriority > 0 {
-		v.RolePrio = vpc.Spec.RolePriority
+	// TODO: check defaults
+	if vpcdomain.Spec.RolePriority > 0 {
+		v.RolePrio = vpcdomain.Spec.RolePriority
 	}
 
-	if vpc.Spec.SystemPriority > 0 {
-		v.SysPrio = vpc.Spec.SystemPriority
+	if vpcdomain.Spec.SystemPriority > 0 {
+		v.SysPrio = vpcdomain.Spec.SystemPriority
 	}
 
-	if vpc.Spec.DelayRestoreSVI > 0 {
-		v.DelayRestoreSVI = vpc.Spec.DelayRestoreSVI
+	if vpcdomain.Spec.DelayRestoreSVI > 0 {
+		v.DelayRestoreSVI = vpcdomain.Spec.DelayRestoreSVI
 	}
 
-	if vpc.Spec.DelayRestoreVPC > 0 {
-		v.DelayRestoreVPC = vpc.Spec.DelayRestoreVPC
+	if vpcdomain.Spec.DelayRestoreVPC > 0 {
+		v.DelayRestoreVPC = vpcdomain.Spec.DelayRestoreVPC
 	}
 
 	v.FastConvergence = AdminStDisabled
-	if vpc.Spec.FastConvergence.Enabled {
+	if vpcdomain.Spec.FastConvergence.Enabled {
 		v.FastConvergence = AdminStEnabled
 	}
 
-	peer := vpc.Spec.Peer
+	peer := vpcdomain.Spec.Peer
 
 	v.PeerSwitch = AdminStDisabled
 	if peer.Switch.Enabled {
@@ -2039,13 +2060,13 @@ func (p *Provider) EnsureVPC(ctx context.Context, vpc *nxv1alpha1.VPC, vrf *v1al
 
 	ipaddr := net.ParseIP(peer.KeepAlive.Destination)
 	if ipaddr == nil {
-		return fmt.Errorf("nxos-vpc: invalid keep-alive destination IP address %q", peer.KeepAlive.Destination)
+		return fmt.Errorf("invalid keep-alive destination IP address %q", peer.KeepAlive.Destination)
 	}
 	v.KeepAliveItems.DestIP = peer.KeepAlive.Destination
 
 	ipaddr = net.ParseIP(peer.KeepAlive.Source)
 	if ipaddr == nil {
-		return fmt.Errorf("nxos-vpc: invalid keep-alive source IP address %q", peer.KeepAlive.Source)
+		return fmt.Errorf("invalid keep-alive source IP address %q", peer.KeepAlive.Source)
 	}
 	v.KeepAliveItems.SrcIP = peer.KeepAlive.Source
 
@@ -2056,20 +2077,20 @@ func (p *Provider) EnsureVPC(ctx context.Context, vpc *nxv1alpha1.VPC, vrf *v1al
 	return p.client.Patch(ctx, f, v)
 }
 
-func (p *Provider) DeleteVPC(ctx context.Context) error {
-	v := new(VPC)
+func (p *Provider) DeleteVPCDomain(ctx context.Context) error {
+	v := new(VPCDomain)
 	return p.client.Delete(ctx, v)
 }
 
 // GetStatusVPC retrieves the current status of the vPC configuration on the device.
-func (p *Provider) GetStatusVPC(ctx context.Context) (VPCStatus, error) {
-	vpcOper := new(VPCOper)
-	if err := p.client.GetState(ctx, vpcOper); err != nil && !errors.Is(err, gnmiext.ErrNil) {
-		return VPCStatus{}, err
+func (p *Provider) GetStatusVPCDomain(ctx context.Context) (VPCDomainStatus, error) {
+	vdOper := new(VPCDomainOper)
+	if err := p.client.GetState(ctx, vdOper); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return VPCDomainStatus{}, err
 	}
 
-	vpcSt := VPCStatus{}
-	vpcSt.KeepAliveStatusMessage = vpcOper.KeepAliveItems.OperSt
+	vpcSt := VPCDomainStatus{}
+	vpcSt.KeepAliveStatusMessage = vdOper.KeepAliveItems.OperSt
 	vpcSt.KeepAliveStatus = false
 
 	// Cisco returns a string composed of values coming from a bitmask, which values are:
@@ -2077,25 +2098,25 @@ func (p *Provider) GetStatusVPC(ctx context.Context) (VPCStatus, error) {
 	// We only consider the "operational" value to indicate that the keep-alive link is up, any other
 	// combination indicates that the link is down or in an error state. This assumption might need to
 	// be revisited.
-	if vpcOper.KeepAliveItems.OperSt == "operational" {
+	if vdOper.KeepAliveItems.OperSt == "operational" {
 		vpcSt.KeepAliveStatus = true
 	}
 
-	if uptime, err := parsePeerUptime(vpcOper.KeepAliveItems.PeerUpTime); err == nil {
+	if uptime, err := parsePeerUptime(vdOper.KeepAliveItems.PeerUpTime); err == nil {
 		vpcSt.PeerUptime = uptime
 	}
 
-	switch vpcOper.Role {
+	switch vdOper.Role {
 	case vpcRolePrimary:
-		vpcSt.Role = nxv1alpha1.VPCRolePrimary
+		vpcSt.Role = nxv1alpha1.VPCDomainRolePrimary
 	case vpcRoleSecondary:
-		vpcSt.Role = nxv1alpha1.VPCRoleSecondary
+		vpcSt.Role = nxv1alpha1.VPCDomainRoleSecondary
 	case vpcRolePrimaryOperationalSecondary:
-		vpcSt.Role = nxv1alpha1.VPCRolePrimaryOperationalSecondary
+		vpcSt.Role = nxv1alpha1.VPCDomainRolePrimaryOperationalSecondary
 	case vpcRoleSecondaryOperationalPrimary:
-		vpcSt.Role = nxv1alpha1.VPCRoleSecondaryOperationalPrimary
+		vpcSt.Role = nxv1alpha1.VPCDomainRoleSecondaryOperationalPrimary
 	default:
-		vpcSt.Role = nxv1alpha1.VPCRoleUnknown
+		vpcSt.Role = nxv1alpha1.VPCDomainRoleUnknown
 	}
 
 	return vpcSt, nil
