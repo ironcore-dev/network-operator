@@ -810,9 +810,11 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 		p.ID = name
 		conf = append(conf, p)
 
-		stp := new(SpanningTree)
-		stp.IfName = name
-		conf = append(conf, stp)
+		if req.Interface.Spec.Switchport != nil {
+			stp := new(SpanningTree)
+			stp.IfName = name
+			conf = append(conf, stp)
+		}
 
 	case v1alpha1.InterfaceTypeLoopback:
 		lb := new(Loopback)
