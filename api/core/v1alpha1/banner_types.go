@@ -20,10 +20,30 @@ type BannerSpec struct {
 	// +optional
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
 
-	// Pre-Login banner to display on login.
+	// Type specifies the banner type to configure, either PreLogin or PostLogin.
+	// Immutable.
+	// +optional
+	// +kubebuilder:default=PreLogin
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Type is immutable"
+	Type BannerType `json:"type,omitempty"`
+
+	// Message is the banner message to display.
 	// +required
 	Message TemplateSource `json:"message"`
 }
+
+// BannerType represents the type of banner to configure
+// +kubebuilder:validation:Enum=PreLogin;PostLogin
+type BannerType string
+
+const (
+	// BannerTypePreLogin represents the login banner displayed before user authentication.
+	// This corresponds to the openconfig-system login-banner leaf.
+	BannerTypePreLogin BannerType = "PreLogin"
+	// BannerTypePostLogin represents the message banner displayed after user authentication.
+	// This corresponds to the openconfig-system motd-banner leaf.
+	BannerTypePostLogin BannerType = "PostLogin"
+)
 
 // BannerStatus defines the observed state of Banner.
 type BannerStatus struct {

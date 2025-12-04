@@ -3,7 +3,12 @@
 
 package nxos
 
-import "github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+import (
+	"fmt"
+
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+)
 
 var (
 	_ gnmiext.Configurable = (*Banner)(nil)
@@ -16,13 +21,40 @@ type Banner struct {
 	Delimiter string `json:"delimiter"`
 	// String to be displayed as the banner message
 	Message string `json:"message"`
+	// Type indicates whether this is a pre-login or post-login banner.
+	// This field is not serialized to JSON and is only used internally
+	// to determine the correct XPath for the banner configuration.
+	Type BannerType `json:"-"`
 }
 
-func (*Banner) XPath() string {
+func (b *Banner) XPath() string {
+	if b.Type == PostLogin {
+		return "System/userext-items/postloginbanner-items"
+	}
 	return "System/userext-items/preloginbanner-items"
 }
 
 func (b *Banner) Default() {
 	b.Delimiter = "#"
-	b.Message = "User Access Verification\n"
+	if b.Type == PreLogin {
+		b.Message = "User Access Verification\n"
+	}
+}
+
+type BannerType string
+
+const (
+	PreLogin  BannerType = "prelogin"
+	PostLogin BannerType = "postlogin"
+)
+
+func BannerTypeFrom(bt v1alpha1.BannerType) (BannerType, error) {
+	switch bt {
+	case v1alpha1.BannerTypePreLogin:
+		return PreLogin, nil
+	case v1alpha1.BannerTypePostLogin:
+		return PostLogin, nil
+	default:
+		return "", fmt.Errorf("unknown banner type: %s", bt)
+	}
 }
