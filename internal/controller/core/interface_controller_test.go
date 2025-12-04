@@ -63,6 +63,13 @@ var _ = Describe("Interface Controller", func() {
 			By("Cleaning up the test Device resource")
 			Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
 
+			By("Verifying all Interfaces are deleted")
+			Eventually(func(g Gomega) {
+				intfList := &v1alpha1.InterfaceList{}
+				g.Expect(k8sClient.List(ctx, intfList, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+				g.Expect(intfList.Items).To(BeEmpty())
+			}).Should(Succeed())
+
 			By("Verifying the Interface is removed from the provider")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.Ports.Has(name)).To(BeFalse(), "Provider shouldn't have Interface configured anymore")

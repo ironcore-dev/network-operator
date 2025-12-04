@@ -773,6 +773,28 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		svi.VlanID = req.VLAN.Spec.ID
 		svi.RtvrfMbrItems = NewVrfMember(name, vrf)
 
+		fwif := new(FabricFwdIf)
+		fwif.ID = name
+
+		switch {
+		case req.Interface.Spec.IPv4 != nil && req.Interface.Spec.IPv4.AnycastGateway:
+			var mac FabricFwdAnycastMAC
+			if err := p.client.GetConfig(ctx, &mac); err != nil {
+				if errors.Is(err, gnmiext.ErrNil) {
+					return errors.New("anycast gateway: no anycast MAC address configured on device")
+				}
+				return err
+			}
+
+			fwif.AdminSt = AdminStEnabled
+			fwif.Mode = FwdModeAnycastGateway
+			conf = append(conf, fwif)
+		default:
+			if err := p.client.Delete(ctx, fwif); err != nil {
+				return err
+			}
+		}
+
 		conf = append(conf, svi)
 
 	default:

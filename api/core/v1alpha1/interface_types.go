@@ -18,6 +18,7 @@ import (
 // +kubebuilder:validation:XValidation:rule="self.type == 'RoutedVLAN' || !has(self.vlanRef)", message="vlanRef must only be specified on interfaces of type RoutedVLAN"
 // +kubebuilder:validation:XValidation:rule="self.type != 'RoutedVLAN' || !has(self.switchport)", message="switchport must not be specified for interfaces of type RoutedVLAN"
 // +kubebuilder:validation:XValidation:rule="self.type != 'RoutedVLAN' || !has(self.aggregation)", message="aggregation must not be specified for interfaces of type RoutedVLAN"
+// +kubebuilder:validation:XValidation:rule="self.type == 'RoutedVLAN' || !has(self.ipv4) || !self.ipv4.anycastGateway", message="anycastGateway can only be enabled for interfaces of type RoutedVLAN"
 // +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || !has(self.vrfRef)", message="vrfRef must not be specified for interfaces of type Aggregate"
 // +kubebuilder:validation:XValidation:rule="self.type != 'Physical' || !has(self.switchport) || !has(self.vrfRef)", message="vrfRef must not be specified for Physical interfaces with switchport configuration"
 type InterfaceSpec struct {
@@ -158,6 +159,7 @@ const (
 
 // InterfaceIPv4 defines the IPv4 configuration for an interface.
 // +kubebuilder:validation:XValidation:rule="!has(self.addresses) || !has(self.unnumbered)", message="addresses and unnumbered are mutually exclusive"
+// +kubebuilder:validation:XValidation:rule="!has(self.unnumbered) || !self.anycastGateway", message="anycastGateway and unnumbered are mutually exclusive"
 type InterfaceIPv4 struct {
 	// Addresses defines the list of IPv4 addresses assigned to the interface.
 	// The first address in the list is considered the primary address,
@@ -171,6 +173,14 @@ type InterfaceIPv4 struct {
 	// When specified, the interface borrows the IP address from another interface.
 	// +optional
 	Unnumbered *InterfaceIPv4Unnumbered `json:"unnumbered,omitempty"`
+
+	// AnycastGateway enables distributed anycast gateway functionality.
+	// When enabled, this interface uses the virtual MAC configured in the
+	// device's NVE resource for active-active default gateway redundancy.
+	// Only applicable for RoutedVLAN interfaces in EVPN/VXLAN fabrics.
+	// +optional
+	// +kubebuilder:default=false
+	AnycastGateway bool `json:"anycastGateway,omitempty"`
 }
 
 // InterfaceIPv4Unnumbered defines the unnumbered interface configuration.

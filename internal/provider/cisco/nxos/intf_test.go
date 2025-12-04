@@ -71,4 +71,11 @@ func init() {
 		VlanID:  10,
 	}
 	Register("svi", svi)
+
+	fwif := &FabricFwdIf{
+		AdminSt: AdminStEnabled,
+		ID:      "vlan10",
+		Mode:    FwdModeAnycastGateway,
+	}
+	Register("fwif", fwif)
 }
