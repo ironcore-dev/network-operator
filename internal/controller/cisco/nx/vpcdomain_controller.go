@@ -34,8 +34,8 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 )
 
-// VPCReconciler reconciles a VPC object
-type VPCReconciler struct {
+// VPCDomainReconciler reconciles a VPCDomain object
+type VPCDomainReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
@@ -55,18 +55,18 @@ type VPCReconciler struct {
 }
 
 // // scope holds the different objects that are read and used during the reconcile.
-type vpcScope struct {
+type vpcdomainScope struct {
 	Device     *corev1.Device
-	VPC        *nxv1.VPC
+	VPCDomain  *nxv1.VPCDomain
 	Connection *deviceutil.Connection
 	Provider   Provider
 	// VRF is the VRF referenced in the KeepAlive configuration
 	VRF *corev1.VRF
 }
 
-// +kubebuilder:rbac:groups=nx.cisco.networking.metal.ironcore.dev,resources=vpcs,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=nx.cisco.networking.metal.ironcore.dev,resources=vpcs/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=nx.cisco.networking.metal.ironcore.dev,resources=vpcs/finalizers,verbs=update
+// +kubebuilder:rbac:groups=nx.cisco.networking.metal.ironcore.dev,resources=vpcdomains,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=nx.cisco.networking.metal.ironcore.dev,resources=vpcdomains/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=nx.cisco.networking.metal.ironcore.dev,resources=vpcdomains/finalizers,verbs=update
 // +kubebuilder:rbac:groups=nx.cisco.networking.metal.ironcore.dev,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -74,14 +74,14 @@ type vpcScope struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.21.0/pkg/reconcile
-func (r *VPCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
+func (r *VPCDomainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := logf.FromContext(ctx)
 	log.Info("Reconciling resource")
 
-	obj := new(nxv1.VPC)
+	obj := new(nxv1.VPCDomain)
 	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Info("VPC resource not found. Ignoring since object must be deleted.")
+			log.Info("VPCDomain resource not found. Ignoring since object must be deleted.")
 			return ctrl.Result{}, nil
 		}
 		log.Error(err, "Failed to get resource")
@@ -94,7 +94,7 @@ func (r *VPCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 			Type:    corev1.ReadyCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  corev1.NotImplementedReason,
-			Message: "Provider does not implement provider.VPCProvider",
+			Message: "Provider does not implement provider.VPCDomainProvider",
 		})
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
@@ -109,9 +109,9 @@ func (r *VPCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 		return ctrl.Result{}, err
 	}
 
-	s := &vpcScope{
+	s := &vpcdomainScope{
 		Device:     device,
-		VPC:        obj,
+		VPCDomain:  obj,
 		Connection: conn,
 		Provider:   prov,
 	}
@@ -175,36 +175,36 @@ func (r *VPCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 	return ctrl.Result{RequeueAfter: controllercore.Jitter(r.RequeueInterval)}, nil
 }
 
-// reconcile contains the main reconciliation logic for the VPC resource.
-func (r *VPCReconciler) reconcile(ctx context.Context, s *vpcScope) (reterr error) {
-	if s.VPC.Labels == nil {
-		s.VPC.Labels = make(map[string]string)
+// reconcile contains the main reconciliation logic for the VPCDomain resource.
+func (r *VPCDomainReconciler) reconcile(ctx context.Context, s *vpcdomainScope) (reterr error) {
+	if s.VPCDomain.Labels == nil {
+		s.VPCDomain.Labels = make(map[string]string)
 	}
-	s.VPC.Labels[corev1.DeviceLabel] = s.Device.Name
+	s.VPCDomain.Labels[corev1.DeviceLabel] = s.Device.Name
 
 	// Ensure owner reference to device
-	if !controllerutil.HasControllerReference(s.VPC) {
-		if err := controllerutil.SetOwnerReference(s.Device, s.VPC, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
+	if !controllerutil.HasControllerReference(s.VPCDomain) {
+		if err := controllerutil.SetOwnerReference(s.Device, s.VPCDomain, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
 	}
 
 	defer func() {
-		conditions.RecomputeReady(s.VPC)
+		conditions.RecomputeReady(s.VPCDomain)
 	}()
 
-	// Validate refs but don't return early, we want to update .VPC.status fields with data from the remote device state
+	// Validate refs but don't return early, we want to update .VPCDomain.status fields with data from the remote device state
 	if err := r.validateInterfaceRef(ctx, s); err != nil {
-		reterr = kerrors.NewAggregate([]error{reterr, fmt.Errorf("vpc: failed to validate peer interface reference: %w", err)})
+		reterr = kerrors.NewAggregate([]error{reterr, fmt.Errorf("failed to validate peer interface reference: %w", err)})
 	}
 	if err := r.validateVRFRef(ctx, s); err != nil {
-		reterr = kerrors.NewAggregate([]error{reterr, fmt.Errorf("vpc: failed to validate KeepAlive VRF reference: %w", err)})
+		reterr = kerrors.NewAggregate([]error{reterr, fmt.Errorf("failed to validate KeepAlive VRF reference: %w", err)})
 	}
 
 	// Connect to remote device
 	var connErr error
 	if connErr = s.Provider.Connect(ctx, s.Connection); connErr != nil {
-		r.resetStatus(ctx, &s.VPC.Status)
+		r.resetStatus(ctx, &s.VPCDomain.Status)
 		return kerrors.NewAggregate([]error{reterr, fmt.Errorf("failed to connect to provider: %w", connErr)})
 	}
 	defer func() {
@@ -214,22 +214,22 @@ func (r *VPCReconciler) reconcile(ctx context.Context, s *vpcScope) (reterr erro
 	}()
 
 	//  Realize the vPC via the provider and update configuration status
-	err := s.Provider.EnsureVPC(ctx, s.VPC, s.VRF)
+	err := s.Provider.EnsureVPCDomain(ctx, s.VPCDomain, s.VRF)
 	cond := conditions.FromError(err)
-	conditions.Set(s.VPC, cond)
+	conditions.Set(s.VPCDomain, cond)
 	if err != nil {
-		reterr = kerrors.NewAggregate([]error{reterr, fmt.Errorf("vpc: failed to ensure vPC configuration: %w", err)})
+		reterr = kerrors.NewAggregate([]error{reterr, fmt.Errorf("vpc: failed to ensure vPC domain configuration: %w", err)})
 	}
 
 	// Retrieve and update operational status and nil out the status on error to avoid stale state
-	status, err := s.Provider.GetStatusVPC(ctx)
+	status, err := s.Provider.GetStatusVPCDomain(ctx)
 	if err != nil {
-		r.resetStatus(ctx, &s.VPC.Status)
+		r.resetStatus(ctx, &s.VPCDomain.Status)
 		return kerrors.NewAggregate([]error{reterr, fmt.Errorf("failed to get interface status: %w", err)})
 	}
 
-	s.VPC.Status.Role = status.Role
-	s.VPC.Status.PeerUptime = metav1.Duration{Duration: status.PeerUptime}
+	s.VPCDomain.Status.Role = status.Role
+	s.VPCDomain.Status.PeerUptime = metav1.Duration{Duration: status.PeerUptime}
 
 	cond = metav1.Condition{
 		Type:    corev1.OperationalCondition,
@@ -245,21 +245,21 @@ func (r *VPCReconciler) reconcile(ctx context.Context, s *vpcScope) (reterr erro
 	if status.KeepAliveStatusMessage != "" {
 		cond.Message = fmt.Sprintf("%s, device returned %q", cond.Message, status.KeepAliveStatusMessage)
 	}
-	conditions.Set(s.VPC, cond)
+	conditions.Set(s.VPCDomain, cond)
 
 	return reterr
 }
 
 // validateInterfaceRef validates that the peer's interface reference exists and is of type Aggregate.
 // Must ignore aggregate status: Port-channels require the domain to be configured first.
-func (r *VPCReconciler) validateInterfaceRef(ctx context.Context, s *vpcScope) error {
+func (r *VPCDomainReconciler) validateInterfaceRef(ctx context.Context, s *vpcdomainScope) error {
 	intf := new(corev1.Interface)
-	intf.Name = s.VPC.Spec.Peer.InterfaceAggregateRef.Name
-	intf.Namespace = s.VPC.Namespace
+	intf.Name = s.VPCDomain.Spec.Peer.InterfaceAggregateRef.Name
+	intf.Namespace = s.VPCDomain.Namespace
 
 	if err := r.Get(ctx, client.ObjectKey{Name: intf.Name, Namespace: intf.Namespace}, intf); err != nil {
 		if apierrors.IsNotFound(err) {
-			conditions.Set(s.VPC, metav1.Condition{
+			conditions.Set(s.VPCDomain, metav1.Condition{
 				Type:    corev1.ConfiguredCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  corev1.WaitingForDependenciesReason,
@@ -271,7 +271,7 @@ func (r *VPCReconciler) validateInterfaceRef(ctx context.Context, s *vpcScope) e
 	}
 
 	if intf.Spec.Type != corev1.InterfaceTypeAggregate {
-		conditions.Set(s.VPC, metav1.Condition{
+		conditions.Set(s.VPCDomain, metav1.Condition{
 			Type:    corev1.ConfiguredCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  corev1.InvalidInterfaceTypeReason,
@@ -280,31 +280,31 @@ func (r *VPCReconciler) validateInterfaceRef(ctx context.Context, s *vpcScope) e
 		return fmt.Errorf("interface referenced by '%s' must be of type %q", intf.Name, corev1.InterfaceTypeAggregate)
 	}
 
-	if s.VPC.Spec.DeviceRef.Name != intf.Spec.DeviceRef.Name {
-		conditions.Set(s.VPC, metav1.Condition{
+	if s.VPCDomain.Spec.DeviceRef.Name != intf.Spec.DeviceRef.Name {
+		conditions.Set(s.VPCDomain, metav1.Condition{
 			Type:    corev1.ConfiguredCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  corev1.CrossDeviceReferenceReason,
-			Message: fmt.Sprintf("interface '%s' deviceRef '%s' does not match vPC deviceRef '%s'", intf.Name, intf.Spec.DeviceRef.Name, s.VPC.Spec.DeviceRef.Name),
+			Message: fmt.Sprintf("interface '%s' deviceRef '%s' does not match vPC deviceRef '%s'", intf.Name, intf.Spec.DeviceRef.Name, s.VPCDomain.Spec.DeviceRef.Name),
 		})
-		return fmt.Errorf("interface '%s' deviceRef '%s' does not match vPC deviceRef '%s'", intf.Name, intf.Spec.DeviceRef.Name, s.VPC.Spec.DeviceRef.Name)
+		return fmt.Errorf("interface '%s' deviceRef '%s' does not match vPC deviceRef '%s'", intf.Name, intf.Spec.DeviceRef.Name, s.VPCDomain.Spec.DeviceRef.Name)
 	}
 	return nil
 }
 
 // validateVRFRef validates the VRF reference in the KeepAlive configuration, and updates the scope accordingly.
-func (r *VPCReconciler) validateVRFRef(ctx context.Context, s *vpcScope) error {
-	if s.VPC.Spec.Peer.KeepAlive.VRFRef == nil {
+func (r *VPCDomainReconciler) validateVRFRef(ctx context.Context, s *vpcdomainScope) error {
+	if s.VPCDomain.Spec.Peer.KeepAlive.VRFRef == nil {
 		return nil
 	}
 
 	vrf := new(corev1.VRF)
-	vrf.Name = s.VPC.Spec.Peer.KeepAlive.VRFRef.Name
-	vrf.Namespace = s.VPC.Namespace
+	vrf.Name = s.VPCDomain.Spec.Peer.KeepAlive.VRFRef.Name
+	vrf.Namespace = s.VPCDomain.Namespace
 
 	if err := r.Get(ctx, client.ObjectKey{Name: vrf.Name, Namespace: vrf.Namespace}, vrf); err != nil {
 		if apierrors.IsNotFound(err) {
-			conditions.Set(s.VPC, metav1.Condition{
+			conditions.Set(s.VPCDomain, metav1.Condition{
 				Type:    corev1.ConfiguredCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  corev1.WaitingForDependenciesReason,
@@ -315,27 +315,27 @@ func (r *VPCReconciler) validateVRFRef(ctx context.Context, s *vpcScope) error {
 		return fmt.Errorf("failed to get VRF %q: %w", vrf.Name, err)
 	}
 
-	if s.VPC.Spec.DeviceRef.Name != vrf.Spec.DeviceRef.Name {
-		conditions.Set(s.VPC, metav1.Condition{
+	if s.VPCDomain.Spec.DeviceRef.Name != vrf.Spec.DeviceRef.Name {
+		conditions.Set(s.VPCDomain, metav1.Condition{
 			Type:    corev1.ConfiguredCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  corev1.CrossDeviceReferenceReason,
-			Message: fmt.Sprintf("VRF '%s' deviceRef '%s' does not match VPC deviceRef '%s'", vrf.Name, vrf.Spec.DeviceRef.Name, s.VPC.Spec.DeviceRef.Name),
+			Message: fmt.Sprintf("VRF '%s' deviceRef '%s' does not match VPCDomain deviceRef '%s'", vrf.Name, vrf.Spec.DeviceRef.Name, s.VPCDomain.Spec.DeviceRef.Name),
 		})
-		return fmt.Errorf("VRF '%s' deviceRef '%s' does not match VPC deviceRef '%s'", vrf.Name, vrf.Spec.DeviceRef.Name, s.VPC.Spec.DeviceRef.Name)
+		return fmt.Errorf("VRF '%s' deviceRef '%s' does not match VPCDomain deviceRef '%s'", vrf.Name, vrf.Spec.DeviceRef.Name, s.VPCDomain.Spec.DeviceRef.Name)
 	}
 
 	s.VRF = vrf
 	return nil
 }
 
-func (r *VPCReconciler) resetStatus(_ context.Context, s *nxv1.VPCStatus) {
-	s.Role = nxv1.VPCRoleUnknown
+func (r *VPCDomainReconciler) resetStatus(_ context.Context, s *nxv1.VPCDomainStatus) {
+	s.Role = nxv1.VPCDomainRoleUnknown
 	s.PeerUptime = metav1.Duration{Duration: 0}
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *VPCReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
+func (r *VPCDomainReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	labelSelector := metav1.LabelSelector{}
 	if r.WatchFilterValue != "" {
 		labelSelector.MatchLabels = map[string]string{nxv1.WatchLabel: r.WatchFilterValue}
@@ -349,29 +349,29 @@ func (r *VPCReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 	// Note: interface type indexer already defined in a different controller
 
 	// Index vPCs by their peer interface reference
-	if err := mgr.GetFieldIndexer().IndexField(ctx, &nxv1.VPC{}, ".spec.peer.interfaceAggregateRef.name", func(obj client.Object) []string {
-		vpc := obj.(*nxv1.VPC)
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &nxv1.VPCDomain{}, ".spec.peer.interfaceAggregateRef.name", func(obj client.Object) []string {
+		vpc := obj.(*nxv1.VPCDomain)
 		return []string{vpc.Spec.Peer.InterfaceAggregateRef.Name}
 	}); err != nil {
 		return err
 	}
 
 	// Index vPCs by their device reference
-	if err := mgr.GetFieldIndexer().IndexField(ctx, &nxv1.VPC{}, ".spec.deviceRef.name", func(obj client.Object) []string {
-		vpc := obj.(*nxv1.VPC)
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &nxv1.VPCDomain{}, ".spec.deviceRef.name", func(obj client.Object) []string {
+		vpc := obj.(*nxv1.VPCDomain)
 		return []string{vpc.Spec.DeviceRef.Name}
 	}); err != nil {
 		return err
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&nxv1.VPC{}).
+		For(&nxv1.VPCDomain{}).
 		Named("vpc").
 		WithEventFilter(filter).
 		// Trigger reconciliation also for updates, e.g., if port-channel goes down
 		Watches(
 			&corev1.Interface{},
-			handler.EnqueueRequestsFromMapFunc(r.mapAggregateToVPC),
+			handler.EnqueueRequestsFromMapFunc(r.mapAggregateToVPCDomain),
 			builder.WithPredicates(predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {
 					// Only trigger for Aggregate type
@@ -396,7 +396,7 @@ func (r *VPCReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 		// Trigger reconciliation if the referenced VRF name changes
 		Watches(
 			&corev1.VRF{},
-			handler.EnqueueRequestsFromMapFunc(r.mapVRFToVPC),
+			handler.EnqueueRequestsFromMapFunc(r.mapVRFToVPCDomain),
 			builder.WithPredicates(predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {
 					return true
@@ -418,14 +418,14 @@ func (r *VPCReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 		Complete(r)
 }
 
-func (r *VPCReconciler) mapAggregateToVPC(ctx context.Context, obj client.Object) []ctrl.Request {
+func (r *VPCDomainReconciler) mapAggregateToVPCDomain(ctx context.Context, obj client.Object) []ctrl.Request {
 	iface, ok := obj.(*corev1.Interface)
 	if !ok {
 		panic(fmt.Sprintf("Expected a Interface but got a %T", obj))
 	}
 
-	vpc := new(nxv1.VPC)
-	var vpcs nxv1.VPCList
+	vpc := new(nxv1.VPCDomain)
+	var vpcs nxv1.VPCDomainList
 	if err := r.List(ctx, &vpcs,
 		client.InNamespace(vpc.Namespace),
 		client.MatchingFields{
@@ -445,14 +445,14 @@ func (r *VPCReconciler) mapAggregateToVPC(ctx context.Context, obj client.Object
 	return requests
 }
 
-func (r *VPCReconciler) mapVRFToVPC(ctx context.Context, obj client.Object) []ctrl.Request {
+func (r *VPCDomainReconciler) mapVRFToVPCDomain(ctx context.Context, obj client.Object) []ctrl.Request {
 	vrf, ok := obj.(*corev1.VRF)
 	if !ok {
 		panic(fmt.Sprintf("Expected a VRF but got a %T", obj))
 	}
 
-	vpc := new(nxv1.VPC)
-	var vpcs nxv1.VPCList
+	vpc := new(nxv1.VPCDomain)
+	var vpcs nxv1.VPCDomainList
 	if err := r.List(ctx, &vpcs,
 		client.InNamespace(vpc.Namespace),
 		client.MatchingFields{
@@ -472,7 +472,7 @@ func (r *VPCReconciler) mapVRFToVPC(ctx context.Context, obj client.Object) []ct
 	return requests
 }
 
-func (r *VPCReconciler) finalize(ctx context.Context, s *vpcScope) (reterr error) {
+func (r *VPCDomainReconciler) finalize(ctx context.Context, s *vpcdomainScope) (reterr error) {
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -481,5 +481,5 @@ func (r *VPCReconciler) finalize(ctx context.Context, s *vpcScope) (reterr error
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()
-	return s.Provider.DeleteVPC(ctx)
+	return s.Provider.DeleteVPCDomain(ctx)
 }

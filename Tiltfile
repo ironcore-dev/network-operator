@@ -108,8 +108,8 @@ k8s_resource(new_name='vlan-10', objects=['vlan-10:vlan'], trigger_mode=TRIGGER_
 k8s_yaml('./config/samples/v1alpha1_evi.yaml')
 k8s_resource(new_name='vxlan-100010', objects=['vxlan-100010:evpninstance'], resource_deps=['vlan-10'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
-k8s_yaml('./config/samples/cisco/nx/v1alpha1_vpc.yaml')
-k8s_resource(new_name='vpc', objects=['leaf1-vpc:vpc'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_yaml('./config/samples/cisco/nx/v1alpha1_vpcdomain.yaml')
+k8s_resource(new_name='vpcdomain', objects=['leaf1-vpcdomain:vpcdomain'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')

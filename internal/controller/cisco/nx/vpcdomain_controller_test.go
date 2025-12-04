@@ -16,7 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("VPC Controller", func() {
+var _ = Describe("VPCDomain Controller", func() {
 	Context("When reconciling a resource", func() {
 		const (
 			vpcName    = "vpc1"
@@ -109,15 +109,15 @@ var _ = Describe("VPC Controller", func() {
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}
 
-			By("Creating the custom resource for the Kind VPC")
-			vpc := &nxv1.VPC{}
+			By("Creating the custom resource for the Kind VPCDomain")
+			vpc := &nxv1.VPCDomain{}
 			if err := k8sClient.Get(ctx, vpcKey, vpc); errors.IsNotFound(err) {
-				resource := &nxv1.VPC{
+				resource := &nxv1.VPCDomain{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      vpcName,
 						Namespace: metav1.NamespaceDefault,
 					},
-					Spec: nxv1.VPCSpec{
+					Spec: nxv1.VPCDomainSpec{
 						DeviceRef:       corev1.LocalObjectReference{Name: deviceName},
 						DomainID:        2,
 						RolePriority:    100,
@@ -147,11 +147,11 @@ var _ = Describe("VPC Controller", func() {
 		})
 
 		AfterEach(func() {
-			var resource client.Object = &nxv1.VPC{}
+			var resource client.Object = &nxv1.VPCDomain{}
 			err := k8sClient.Get(ctx, vpcKey, resource)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Cleanup the specific resource instance VPC")
+			By("Cleanup the specific resource instance VPCDomain")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 
 			resource = &corev1.Device{}
@@ -163,28 +163,28 @@ var _ = Describe("VPC Controller", func() {
 
 			By("Ensuring the resource is deleted from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.VPC).To(BeNil(), "Provider VPC should be nil")
+				g.Expect(testProvider.VPCDomain).To(BeNil(), "Provider VPCDomain should be nil")
 			}).Should(Succeed())
 		})
 
 		It("Should successfully reconcile the resource", func() {
 			By("Adding a finalizer to the resource")
 			Eventually(func(g Gomega) {
-				resource := &nxv1.VPC{}
+				resource := &nxv1.VPCDomain{}
 				g.Expect(k8sClient.Get(ctx, vpcKey, resource)).To(Succeed())
 				g.Expect(controllerutil.ContainsFinalizer(resource, nxv1.FinalizerName)).To(BeTrue())
 			}).Should(Succeed())
 
 			By("Adding the device label to the resource")
 			Eventually(func(g Gomega) {
-				resource := &nxv1.VPC{}
+				resource := &nxv1.VPCDomain{}
 				g.Expect(k8sClient.Get(ctx, vpcKey, resource)).To(Succeed())
 				g.Expect(resource.Labels).To(HaveKeyWithValue(corev1.DeviceLabel, deviceName))
 			}).Should(Succeed())
 
 			By("Adding the device as a owner reference")
 			Eventually(func(g Gomega) {
-				resource := &nxv1.VPC{}
+				resource := &nxv1.VPCDomain{}
 				g.Expect(k8sClient.Get(ctx, vpcKey, resource)).To(Succeed())
 				g.Expect(resource.OwnerReferences).To(HaveLen(1))
 				g.Expect(resource.OwnerReferences[0].Kind).To(Equal("Device"))
@@ -193,7 +193,7 @@ var _ = Describe("VPC Controller", func() {
 
 			By("Updating the resource status")
 			Eventually(func(g Gomega) {
-				resource := &nxv1.VPC{}
+				resource := &nxv1.VPCDomain{}
 				g.Expect(k8sClient.Get(ctx, vpcKey, resource)).To(Succeed())
 				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(corev1.ReadyCondition))
@@ -207,9 +207,9 @@ var _ = Describe("VPC Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.VPC).ToNot(BeNil(), "Provider VPC should not be nil")
-				if testProvider.VPC != nil {
-					g.Expect(testProvider.VPC.Spec.DomainID).To(Equal(uint16(2)))
+				g.Expect(testProvider.VPCDomain).ToNot(BeNil(), "Provider VPCDomain should not be nil")
+				if testProvider.VPCDomain != nil {
+					g.Expect(testProvider.VPCDomain.Spec.DomainID).To(Equal(uint16(2)))
 				}
 			}).Should(Succeed())
 		})

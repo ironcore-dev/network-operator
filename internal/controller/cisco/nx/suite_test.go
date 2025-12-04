@@ -107,7 +107,7 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&VPCReconciler{
+	err = (&VPCDomainReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   scheme.Scheme,
 		Recorder: recorder,
@@ -160,8 +160,8 @@ func detectTestBinaryDir() string {
 type MockProvider struct {
 	sync.Mutex
 
-	Settings *nxv1alpha1.System
-	VPC      *nxv1alpha1.VPC
+	Settings  *nxv1alpha1.System
+	VPCDomain *nxv1alpha1.VPCDomain
 }
 
 var _ Provider = (*MockProvider)(nil)
@@ -187,25 +187,25 @@ func (p *MockProvider) ResetSystemSettings(ctx context.Context) error {
 	return nil
 }
 
-func (p *MockProvider) EnsureVPC(_ context.Context, vpc *nxv1alpha1.VPC, _ *v1alpha1.VRF) error {
+func (p *MockProvider) EnsureVPCDomain(_ context.Context, vpc *nxv1alpha1.VPCDomain, _ *v1alpha1.VRF) error {
 	p.Lock()
 	defer p.Unlock()
-	p.VPC = vpc
+	p.VPCDomain = vpc
 	return nil
 }
 
-func (p *MockProvider) DeleteVPC(_ context.Context) error {
+func (p *MockProvider) DeleteVPCDomain(_ context.Context) error {
 	p.Lock()
 	defer p.Unlock()
-	p.VPC = nil
+	p.VPCDomain = nil
 	return nil
 }
 
-func (p *MockProvider) GetStatusVPC(_ context.Context) (nxos.VPCStatus, error) {
-	return nxos.VPCStatus{
+func (p *MockProvider) GetStatusVPCDomain(_ context.Context) (nxos.VPCDomainStatus, error) {
+	return nxos.VPCDomainStatus{
 		KeepAliveStatus:        true,
 		KeepAliveStatusMessage: "operational",
 		PeerUptime:             3600 * time.Second,
-		Role:                   nxv1alpha1.VPCRolePrimary,
+		Role:                   nxv1alpha1.VPCDomainRolePrimary,
 	}, nil
 }

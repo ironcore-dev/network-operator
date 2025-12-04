@@ -12,18 +12,18 @@ import (
 )
 
 var (
-	_ gnmiext.Configurable = (*VPC)(nil)
+	_ gnmiext.Configurable = (*VPCDomain)(nil)
 )
 
-// VPC represents a virtual Port Channel (vPC)
-type VPC struct {
+// VPCDomain represents a virtual Port Channel (vPC)
+type VPCDomain struct {
 	AdminSt      AdminSt `json:"adminSt,omitempty"`
 	AutoRecovery AdminSt `json:"autoRecovery,omitempty"`
 	// AutoRecoveryReloadDelay is the time to wait before assuming peer dead and restoring vpcs
 	AutoRecoveryReloadDelay uint32 `json:"autoRecoveryIntvl,omitempty"`
 	// DelayRestoreSVI is the delay in bringing up the interface-vlan
 	DelayRestoreSVI uint16 `json:"delayRestoreSVI,omitempty"`
-	// DelayRestoreVPC is the delay in bringing up the vPC links after restoring the peer-link
+	// DelayRestoreVPC is the delay in bringing up the vPC links/interfaces of various instances after restoring the peer-link
 	DelayRestoreVPC uint16  `json:"delayRestoreVPC,omitempty"`
 	FastConvergence AdminSt `json:"fastConvergence,omitempty"`
 	Id              uint16  `json:"id"`
@@ -39,7 +39,7 @@ type VPC struct {
 	} `json:"keepalive-items,omitzero"`
 }
 
-func (v *VPC) XPath() string {
+func (v *VPCDomain) XPath() string {
 	return "System/vpc-items/inst-items/dom-items"
 }
 
@@ -80,27 +80,27 @@ func (v *VPCIfItems) GetListItemByInterface(name string) *VPCIf {
 }
 
 // VPCOper represents the operational status of a vPC domain
-type VPCOper struct {
+type VPCDomainOper struct {
 	KeepAliveItems struct {
 		OperSt     string `json:"operSt,omitempty"`
 		PeerUpTime string `json:"peerUpTime,omitempty"`
 	} `json:"keepalive-items,omitzero"`
-	Role VPCRole `json:"summOperRole,omitempty"`
+	Role VPCDomainRole `json:"summOperRole,omitempty"`
 }
 
-func (*VPCOper) XPath() string {
+func (*VPCDomainOper) XPath() string {
 	return "System/vpc-items/inst-items/dom-items"
 }
 
 // VPCRole represents the role of a vPC peer. The value `election-not-done`
 // will be ignored and mapped to `unknown` role.
-type VPCRole string
+type VPCDomainRole string
 
 const (
-	vpcRolePrimary                     VPCRole = "cfg-master-oper-master"
-	vpcRolePrimaryOperationalSecondary VPCRole = "cfg-master-oper-slave"
-	vpcRoleSecondary                   VPCRole = "cfg-slave-oper-slave"
-	vpcRoleSecondaryOperationalPrimary VPCRole = "cfg-slave-oper-master"
+	vpcRolePrimary                     VPCDomainRole = "cfg-master-oper-master"
+	vpcRolePrimaryOperationalSecondary VPCDomainRole = "cfg-master-oper-slave"
+	vpcRoleSecondary                   VPCDomainRole = "cfg-slave-oper-slave"
+	vpcRoleSecondaryOperationalPrimary VPCDomainRole = "cfg-slave-oper-master"
 )
 
 // parsePeerUptime parses the peerUpTime string returned by the device

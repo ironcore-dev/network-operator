@@ -8,7 +8,7 @@ func init() {
 	v.SetPortChannel("po10")
 	Register("vpc_member", v)
 
-	vpc := &VPC{
+	vd := &VPCDomain{
 		AdminSt:                 AdminStEnabled,
 		AutoRecovery:            AdminStEnabled,
 		AutoRecoveryReloadDelay: 360,
@@ -22,8 +22,8 @@ func init() {
 		RolePrio:                100,
 		SysPrio:                 10,
 	}
-	vpc.KeepAliveItems.DestIP = "10.114.235.156"
-	vpc.KeepAliveItems.SrcIP = "10.114.235.155"
-	vpc.KeepAliveItems.VRF = "management"
-	Register("vpc", vpc)
+	vd.KeepAliveItems.DestIP = "10.114.235.156"
+	vd.KeepAliveItems.SrcIP = "10.114.235.155"
+	vd.KeepAliveItems.VRF = "management"
+	Register("vpcdomain", vd)
 }

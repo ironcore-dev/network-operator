@@ -1,16 +1,16 @@
 apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
-kind: VPC
+kind: VPCDomain
 metadata:
   labels:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
     networking.metal.ironcore.dev/device-name: leaf1
-  name: leaf1-vpc
+  name: leaf1-vpcdomain
 spec:
   deviceRef:
     name: leaf1
   domainId: 5
-  adminState:    enabled
+  adminState: enabled
   rolePriority: 100
   systemPriority: 10
   delayRestoreSVI: 140

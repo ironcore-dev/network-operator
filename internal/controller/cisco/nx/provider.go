@@ -19,9 +19,9 @@ type Provider interface {
 	EnsureSystemSettings(ctx context.Context, s *nxv1alpha1.System) error
 	ResetSystemSettings(ctx context.Context) error
 
-	EnsureVPC(ctx context.Context, vpc *nxv1alpha1.VPC, vrf *v1alpha1.VRF) error
-	DeleteVPC(context.Context) error
-	GetStatusVPC(context.Context) (nxos.VPCStatus, error)
+	EnsureVPCDomain(ctx context.Context, vpc *nxv1alpha1.VPCDomain, vrf *v1alpha1.VRF) error
+	DeleteVPCDomain(context.Context) error
+	GetStatusVPCDomain(context.Context) (nxos.VPCDomainStatus, error)
 }
 
 var _ Provider = (*nxos.Provider)(nil)
