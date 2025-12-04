@@ -1,0 +1,36 @@
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: VPC
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: leaf1-vpc
+spec:
+  deviceRef:
+    name: leaf1
+  domainId: 5
+  adminState:    enabled
+  rolePriority: 100
+  systemPriority: 10
+  delayRestoreSVI: 140
+  delayRestoreVPC: 150
+  peer:
+    interfaceAggregateRef:
+      name: po1
+    switch:
+      enabled: true
+    gateway:
+      enabled: true
+    router:
+      enabled: true
+    keepalive:
+      source:  10.1.1.1
+      destination: 10.1.1.2
+      vrfRef:
+        name: vpc-keepalive
+    autoRecovery:
+      enabled: true
+      reloadDelay: 360
+  fastConvergence:
+    enabled: true

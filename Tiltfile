@@ -22,7 +22,7 @@ local_resource('controller-gen', 'make generate', ignore=['**/*/zz_generated.dee
 
 docker_build('ghcr.io/ironcore-dev/gnmi-test-server:latest', './test/gnmi')
 
-provider = os.getenv('PROVIDER', 'openconfig')
+provider = os.getenv('PROVIDER', 'cisco-nxos-gnmi')
 
 manager = kustomize('config/develop')
 manager = str(manager).replace('--provider=openconfig', '--provider={}'.format(provider))
@@ -47,9 +47,12 @@ k8s_resource(new_name='lo1', objects=['lo1:interface'], trigger_mode=TRIGGER_MOD
 k8s_resource(new_name='eth1-1', objects=['eth1-1:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='eth1-2', objects=['eth1-2:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='eth1-10', objects=['eth1-10:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
-k8s_resource(new_name='po10', objects=['po-10:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='eth1-30', objects=['eth1-30:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='eth1-31', objects=['eth1-31:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='eth1-32', objects=['eth1-32:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='svi-10', objects=['svi-10:interface'], resource_deps=['vlan-10'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
-k8s_resource(new_name='eth1-30', objects=['eth1-30:interface'], resource_deps=['vrf-vpc-keepalive'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='po1', objects=['po1:interface'],  trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='po2', objects=['po2:interface'],  trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 k8s_yaml('./config/samples/v1alpha1_banner.yaml')
 k8s_resource(new_name='banner', objects=['banner:banner'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
@@ -79,12 +82,11 @@ k8s_yaml('./config/samples/v1alpha1_managementaccess.yaml')
 k8s_resource(new_name='managementaccess', objects=['managementaccess:managementaccess'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 k8s_yaml('./config/samples/v1alpha1_isis.yaml')
-k8s_resource(new_name='isis-underlay', objects=['underlay:isis'], resource_deps=['lo0', 'lo1', 'eth1-1', 'eth1-2'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='underlay', objects=['underlay:isis'], resource_deps=['lo0', 'lo1', 'eth1-1', 'eth1-2'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 k8s_yaml('./config/samples/v1alpha1_vrf.yaml')
 k8s_resource(new_name='vrf-admin', objects=['vrf-cc-admin:vrf'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
-k8s_resource(new_name='vrf-001', objects=['vrf-cc-prod-001:vrf'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
-k8s_resource(new_name='vrf-vpc-keepalive', objects=['vpc-keepalive:vrf'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='vrf-vpckeepalive', objects=['vrf-vpckeepalive:vrf'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 k8s_yaml('./config/samples/v1alpha1_pim.yaml')
 k8s_resource(new_name='pim', objects=['pim:pim'], resource_deps=['lo0', 'lo1', 'eth1-1', 'eth1-2'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
@@ -101,6 +103,9 @@ k8s_resource(new_name='ospf-underlay', objects=['underlay:ospf'], resource_deps=
 
 k8s_yaml('./config/samples/v1alpha1_vlan.yaml')
 k8s_resource(new_name='vlan-10', objects=['vlan-10:vlan'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+
+k8s_yaml('./config/samples/cisco/nx/v1alpha1_vpc.yaml')
+k8s_resource(new_name='vpc', objects=['leaf1-vpc:vpc'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 k8s_yaml('./config/samples/v1alpha1_evi.yaml')
 k8s_resource(new_name='vxlan-100010', objects=['vxlan-100010:evpninstance'], resource_deps=['vlan-10'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
