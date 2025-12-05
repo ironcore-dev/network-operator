@@ -266,6 +266,7 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 				Trasceiver:          p.Transceiver,
 				InterfaceRef:        ref,
 			}
+			slices.Sort(device.Status.Ports[i].SupportedSpeedsGbps)
 		}
 
 		device.Status.PostSummary = PortSummary(device.Status.Ports)
