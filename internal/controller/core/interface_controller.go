@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
@@ -100,6 +101,15 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
+	var cfg *provider.ProviderConfig
+	var err error
+	if obj.Spec.ProviderConfigRef != nil {
+		cfg, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	device, err := deviceutil.GetDeviceByName(ctx, r, obj.Namespace, obj.Spec.DeviceRef.Name)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -108,14 +118,6 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	conn, err := deviceutil.GetDeviceConnection(ctx, r, device)
 	if err != nil {
 		return ctrl.Result{}, err
-	}
-
-	var cfg *provider.ProviderConfig
-	if obj.Spec.ProviderConfigRef != nil {
-		cfg, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
 	}
 
 	s := &scope{
@@ -334,6 +336,10 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 	defer func() {
 		conditions.RecomputeReady(s.Interface)
 	}()
+
+	if err := r.reconcileProviderConfig(ctx, s); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	var members []*v1alpha1.Interface
 	if s.Interface.Spec.Aggregation != nil {
@@ -663,6 +669,37 @@ func (r *InterfaceReconciler) reconcileMemberInterfaces(ctx context.Context, s *
 	}
 
 	return members, nil
+}
+
+func (r *InterfaceReconciler) reconcileProviderConfig(ctx context.Context, s *scope) error {
+	if s.Interface.Spec.ProviderConfigRef == nil {
+		return nil
+	}
+	gv, err := schema.ParseGroupVersion(s.Interface.Spec.ProviderConfigRef.APIVersion)
+	if err != nil {
+		conditions.Set(s.Interface, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.IncompatibleProviderConfigRef,
+			Message: fmt.Sprintf("ProviderConfigRef is not compatible with Device: %v", err),
+		})
+		return reconcile.TerminalError(fmt.Errorf("invalid apiVersion %q: %w", s.Interface.Spec.ProviderConfigRef.APIVersion, err))
+	}
+
+	if found := slices.Contains(v1alpha1.InterfaceDependencies[s.Interface.Spec.Type], schema.GroupVersionKind{
+		Group:   gv.Group,
+		Version: gv.Version,
+		Kind:    s.Interface.Spec.ProviderConfigRef.Kind,
+	}); !found {
+		conditions.Set(s.Interface, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.IncompatibleProviderConfigRef,
+			Message: fmt.Sprintf("ProviderConfigRef is not compatible with Interface: %v", err),
+		})
+		return reconcile.TerminalError(fmt.Errorf("Interface of type %q does not support `ProviderConfigRef` of kind %q", s.Interface.Spec.Type, gv))
+	}
+	return nil
 }
 
 func (r *InterfaceReconciler) finalize(ctx context.Context, s *scope) (reterr error) {

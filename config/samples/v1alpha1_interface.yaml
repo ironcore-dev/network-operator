@@ -126,7 +126,7 @@ spec:
     addresses:
       - 10.1.1.1/30
   vrfRef:
-    name: vrf-vpckeepalive
+    name: vrf-vpctkeepalive
 ---
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
@@ -175,6 +175,10 @@ metadata:
     networking.metal.ironcore.dev/device-name: leaf1
   name: po1
 spec:
+  providerConfigRef:
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+    kind: PortChannelConfig
+    name: po1-cfg
   deviceRef:
     name: leaf1
   name: po1

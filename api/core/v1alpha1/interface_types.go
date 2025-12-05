@@ -4,7 +4,10 @@
 package v1alpha1
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // InterfaceSpec defines the desired state of Interface.
@@ -309,6 +312,18 @@ type InterfaceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Interface `json:"items"`
+}
+
+var (
+	InterfaceDependencies   = make(map[InterfaceType][]schema.GroupVersionKind)
+	interfaceDependenciesMu sync.Mutex
+)
+
+// RegisterInterfaceDependency adds GVKs to the interface dependency registry.
+func RegisterInterfaceDependency(t InterfaceType, gvk schema.GroupVersionKind) {
+	interfaceDependenciesMu.Lock()
+	defer interfaceDependenciesMu.Unlock()
+	InterfaceDependencies[t] = append(InterfaceDependencies[t], gvk)
 }
 
 func init() {

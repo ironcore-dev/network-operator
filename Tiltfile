@@ -52,6 +52,7 @@ k8s_resource(new_name='eth1-10', objects=['eth1-10:interface'], trigger_mode=TRI
 k8s_resource(new_name='eth1-30', objects=['eth1-30:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='eth1-31', objects=['eth1-31:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='eth1-32', objects=['eth1-32:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='po1-cfg', objects=['po1-cfg:portchannelconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='po1', objects=['po1:interface'],  trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='po2', objects=['po2:interface'],  trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 

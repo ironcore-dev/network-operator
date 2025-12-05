@@ -113,6 +113,7 @@ rules:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
   - managementaccessconfigs
+  - portchannelconfigs
   verbs:
   - get
   - list

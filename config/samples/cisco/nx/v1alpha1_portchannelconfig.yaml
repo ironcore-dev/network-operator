@@ -1,0 +1,10 @@
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: PortChannelConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: po1-cfg
+spec:
+  vpcPeerLink: true
