@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,11 +51,6 @@ var _ = Describe("Device Controller", func() {
 							Address: "192.168.10.2:9339",
 							SecretRef: &v1alpha1.SecretReference{
 								Name: name,
-							},
-						},
-						Bootstrap: &v1alpha1.Bootstrap{
-							Template: v1alpha1.TemplateSource{
-								Inline: ptr.To("device-template"),
 							},
 						},
 					},
@@ -128,7 +122,7 @@ var _ = Describe("Device Controller", func() {
 				g.Expect(resource.Status.Ports[0].Name).To(Equal("eth1/1"))
 				g.Expect(resource.Status.Ports[0].Type).To(Equal("10g"))
 				g.Expect(resource.Status.Ports[0].SupportedSpeedsGbps).To(Equal([]int32{1, 10}))
-				g.Expect(resource.Status.Ports[0].Trasceiver).To(Equal("QSFP-DD"))
+				g.Expect(resource.Status.Ports[0].Transceiver).To(Equal("QSFP-DD"))
 				g.Expect(resource.Status.Ports[0].InterfaceRef).ToNot(BeNil())
 				g.Expect(resource.Status.Ports[0].InterfaceRef.Name).To(Equal(name))
 				g.Expect(resource.Status.PostSummary).To(Equal("1/8 (10g)"))
