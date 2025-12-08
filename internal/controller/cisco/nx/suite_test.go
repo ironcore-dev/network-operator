@@ -27,6 +27,7 @@ import (
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -105,6 +106,14 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&BorderGatewayReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -150,7 +159,8 @@ func detectTestBinaryDir() string {
 type MockProvider struct {
 	sync.Mutex
 
-	Settings *nxv1alpha1.System
+	Settings      *nxv1alpha1.System
+	BorderGateway *nxv1alpha1.BorderGateway
 }
 
 var _ Provider = (*MockProvider)(nil)
@@ -173,5 +183,19 @@ func (p *MockProvider) ResetSystemSettings(ctx context.Context) error {
 	p.Lock()
 	defer p.Unlock()
 	p.Settings = nil
+	return nil
+}
+
+func (p *MockProvider) EnsureBorderGatewaySettings(ctx context.Context, req *nxos.BorderGatewaySettingsRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.BorderGateway = req.BorderGateway
+	return nil
+}
+
+func (p *MockProvider) ResetBorderGatewaySettings(ctx context.Context) error {
+	p.Lock()
+	defer p.Unlock()
+	p.BorderGateway = nil
 	return nil
 }

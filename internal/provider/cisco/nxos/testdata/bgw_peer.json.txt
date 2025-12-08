@@ -1,0 +1,3 @@
+router bgp 65000
+ neighbor 1.1.1.1
+  peer-type fabric-external

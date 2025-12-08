@@ -32,4 +32,7 @@ func init() {
 		Type:       AddressFamilyL2EVPN,
 	})
 	Register("bgp_peer", bgpPeer)
+
+	bgwPeer := &MultisitePeer{Addr: "1.1.1.1", PeerType: BorderGatewayPeerTypeFabricExternal}
+	Register("bgw_peer", bgwPeer)
 }
