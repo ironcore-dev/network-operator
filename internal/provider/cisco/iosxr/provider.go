@@ -13,6 +13,8 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
 
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+
 	"google.golang.org/grpc"
 )
 
@@ -46,13 +48,19 @@ func (p *Provider) Disconnect(ctx context.Context, conn *deviceutil.Connection) 
 	return p.conn.Close()
 }
 
-func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceRequest) error {
+func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
 	if p.client == nil {
 		return errors.New("client is not connected")
 	}
-	var name = req.Interface.Spec.Name
 
-	var physif = NewIface(name)
+	if req.Interface.Spec.Type != v1alpha1.InterfaceTypePhysical {
+		message := "unsupported interface type for interface " + req.Interface.Spec.Name
+		return errors.New(message)
+	}
+
+	name := req.Interface.Spec.Name
+
+	physif := &PhysIf{}
 
 	physif.Name = req.Interface.Spec.Name
 	physif.Description = req.Interface.Spec.Description
@@ -68,7 +76,10 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 	// (fixme): for the moment it is enought to keep this static
 	// option1: extend existing interface spec
 	// option2: create a custom iosxr config
-	physif.Shutdown = Empty(false)
+	physif.Shutdown = gnmiext.Empty(false)
+	if req.Interface.Spec.AdminState == v1alpha1.AdminStateDown {
+		physif.Shutdown = gnmiext.Empty(true)
+	}
 	physif.Statistics.LoadInterval = uint8(30)
 
 	if len(req.Interface.Spec.IPv4.Addresses) == 0 {
@@ -95,19 +106,20 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 	}
 
 	// Check if interface exists otherwise patch will fail
-	var tmpiFace = NewIface(name)
-	err = p.client.GetConfig(ctx, tmpiFace)
+	tmpPhysif := &PhysIf{}
+	tmpPhysif.Name = name
+
+	err = p.client.GetConfig(ctx, tmpPhysif)
 	if err != nil {
 		// Interface does not exist, create it
 		err = p.client.Update(ctx, physif)
 		if err != nil {
 			return fmt.Errorf("failed to create interface %s: %w", req.Interface.Spec.Name, err)
 		}
-		fmt.Printf("Interface %s created successfully\n", req.Interface.Spec.Name)
 		return nil
 	}
 
-	err = p.client.Patch(ctx, physif)
+	err = p.client.Update(ctx, physif)
 	if err != nil {
 		return err
 	}
@@ -116,13 +128,14 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.InterfaceR
 }
 
 func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceRequest) error {
-	var iFace = NewIface(req.Interface.Spec.Name)
+	physif := &PhysIf{}
+	physif.Name = req.Interface.Spec.Name
 
 	if p.client == nil {
 		return errors.New("client is not connected")
 	}
 
-	err := p.client.Delete(ctx, iFace)
+	err := p.client.Delete(ctx, physif)
 	if err != nil {
 		return fmt.Errorf("failed to delete interface %s: %w", req.Interface.Spec.Name, err)
 	}
@@ -147,7 +160,7 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 		OperStatus: true,
 	}
 
-	if stateMapping[state.State] != StateUp {
+	if state.State != string(StateUp) {
 		providerStatus.OperStatus = false
 	}
 

@@ -152,7 +152,7 @@ func Test_EnsureInterface(t *testing.T) {
 		},
 	}
 
-	req := &provider.InterfaceRequest{
+	req := &provider.EnsureInterfaceRequest{
 		Interface: &v1alpha1.Interface{
 			Spec: v1alpha1.InterfaceSpec{
 				Name:        name,
