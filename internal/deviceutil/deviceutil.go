@@ -127,18 +127,15 @@ func GetDeviceConnection(ctx context.Context, r client.Reader, obj *v1alpha1.Dev
 // If the [Connection.Username] and [Connection.Password] fields are set, basic authentication in the form of metadata will be used.
 func NewGrpcClient(ctx context.Context, conn *Connection, o ...Option) (*grpc.ClientConn, error) {
 	creds := insecure.NewCredentials()
-	secureTransportCreds := false
 	if conn.TLS != nil {
 		creds = credentials.NewTLS(conn.TLS)
-		secureTransportCreds = true
 	}
 
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(creds)}
 	if conn.Username != "" && conn.Password != "" {
 		opts = append(opts, grpc.WithPerRPCCredentials(&auth{
-			Username:             conn.Username,
-			Password:             conn.Password,
-			SecureTransportCreds: secureTransportCreds,
+			Username: conn.Username,
+			Password: conn.Password,
 		}))
 	}
 
@@ -182,7 +179,8 @@ func (a *auth) GetRequestMetadata(_ context.Context, _ ...string) (map[string]st
 }
 
 func (a *auth) RequireTransportSecurity() bool {
-	return a.SecureTransportCreds
+	// Only called if the transport credentials are insecure.
+	return false
 }
 
 // UnaryDefaultTimeoutInterceptor returns a gRPC unary client interceptor that sets a default timeout
