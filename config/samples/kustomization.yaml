@@ -23,4 +23,5 @@ resources:
 - v1alpha1_evi.yaml
 - v1alpha1_prefixset.yaml
 - v1alpha1_routingpolicy.yaml
+- cisco/nx/v1alpha1_bordergateway.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

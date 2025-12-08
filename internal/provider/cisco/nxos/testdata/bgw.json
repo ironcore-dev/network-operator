@@ -1,0 +1,9 @@
+{
+  "eps-items": {
+    "multisite-items": {
+      "siteId": "1",
+      "state": "enabled",
+      "delayRestoreTime": 180
+    }
+  }
+}

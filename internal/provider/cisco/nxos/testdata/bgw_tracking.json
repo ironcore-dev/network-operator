@@ -1,0 +1,14 @@
+{
+  "intf-items": {
+    "phys-items": {
+      "PhysIf-list": [
+        {
+          "id": "eth1/1",
+          "multisiteiftracking-items": {
+            "tracking": "dci"
+          }
+        }
+      ]
+    }
+  }
+}
