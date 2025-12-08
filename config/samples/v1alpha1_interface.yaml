@@ -63,6 +63,11 @@ spec:
     unnumbered:
       interfaceRef:
         name: lo0
+  bfd:
+    enabled: true
+    desiredMinimumTxInterval: 300ms
+    requiredMinimumReceive: 300ms
+    detectionMultiplier: 3
 ---
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
@@ -84,6 +89,11 @@ spec:
     unnumbered:
       interfaceRef:
         name: lo0
+  bfd:
+    enabled: true
+    desiredMinimumTxInterval: 500ms
+    requiredMinimumReceive: 500ms
+    detectionMultiplier: 5
 ---
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
