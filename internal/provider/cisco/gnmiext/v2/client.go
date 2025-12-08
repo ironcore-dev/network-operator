@@ -65,7 +65,7 @@ type Client interface {
 
 // Client is a gNMI client offering convenience methods for device configuration
 // using gNMI.
-type ClientObj struct {
+type client struct {
 	gnmi         gpb.GNMIClient
 	encoding     gpb.Encoding
 	capabilities *Capabilities
@@ -73,7 +73,7 @@ type ClientObj struct {
 }
 
 var (
-	_ Client = &ClientObj{}
+	_ Client = &client{}
 )
 
 // New creates a new Client by negotiating capabilities with the gNMI server by
@@ -108,18 +108,18 @@ func New(ctx context.Context, conn grpc.ClientConnInterface, opts ...Option) (Cl
 		}
 	}
 	logger := logr.FromSlogHandler(slog.Default().Handler())
-	client := &ClientObj{gnmi, encoding, capabilities, logger}
+	c := &client{gnmi, encoding, capabilities, logger}
 	for _, opt := range opts {
-		opt(client)
+		opt(c)
 	}
-	return client, nil
+	return c, nil
 }
 
-type Option func(*ClientObj)
+type Option func(*client)
 
 // WithLogger sets a custom logger for the client.
 func WithLogger(logger logr.Logger) Option {
-	return func(c *ClientObj) {
+	return func(c *client) {
 		c.logger = logger
 	}
 }
@@ -129,34 +129,34 @@ var ErrNil = errors.New("gnmiext: nil")
 
 // GetConfig retrieves config and unmarshals it into the provided targets.
 // If some of the values for the given xpaths are not defined, [ErrNil] is returned.
-func (c *ClientObj) GetConfig(ctx context.Context, conf ...Configurable) error {
+func (c *client) GetConfig(ctx context.Context, conf ...Configurable) error {
 	return c.get(ctx, gpb.GetRequest_CONFIG, conf...)
 }
 
 // GetState retrieves state and unmarshals it into the provided targets.
 // If some of the values for the given xpaths are not defined, [ErrNil] is returned.
-func (c *ClientObj) GetState(ctx context.Context, conf ...Configurable) error {
+func (c *client) GetState(ctx context.Context, conf ...Configurable) error {
 	return c.get(ctx, gpb.GetRequest_STATE, conf...)
 }
 
 // Update replaces the configuration for the given set of items.
 // If the current configuration equals the desired configuration, the operation is skipped.
 // For partial updates that merge changes, use [Client.Patch] instead.
-func (c *ClientObj) Update(ctx context.Context, conf ...Configurable) error {
+func (c *client) Update(ctx context.Context, conf ...Configurable) error {
 	return c.set(ctx, false, conf...)
 }
 
 // Patch merges the configuration for the given set of items.
 // If the current configuration equals the desired configuration, the operation is skipped.
 // For full replacement of configuration, use [Client.Update] instead.
-func (c *ClientObj) Patch(ctx context.Context, conf ...Configurable) error {
+func (c *client) Patch(ctx context.Context, conf ...Configurable) error {
 	return c.set(ctx, true, conf...)
 }
 
 // Delete resets the configuration for the given set of items.
 // If an item implements [Defaultable], it's reset to default value.
 // Otherwise, the configuration is deleted.
-func (c *ClientObj) Delete(ctx context.Context, conf ...Configurable) error {
+func (c *client) Delete(ctx context.Context, conf ...Configurable) error {
 	if len(conf) == 0 {
 		return nil
 	}
@@ -191,7 +191,7 @@ func (c *ClientObj) Delete(ctx context.Context, conf ...Configurable) error {
 // get retrieves data of the specified type (CONFIG or STATE) and unmarshals it
 // into the provided targets. If some of the values for the given xpaths are not
 // defined, [ErrNil] is returned.
-func (c *ClientObj) get(ctx context.Context, dt gpb.GetRequest_DataType, conf ...Configurable) error {
+func (c *client) get(ctx context.Context, dt gpb.GetRequest_DataType, conf ...Configurable) error {
 	if len(conf) == 0 {
 		return nil
 	}
@@ -256,7 +256,7 @@ func (c *ClientObj) get(ctx context.Context, dt gpb.GetRequest_DataType, conf ..
 // configuration. Otherwise, a full replacement is done.
 // If the current configuration equals the desired configuration, the operation
 // is skipped.
-func (c *ClientObj) set(ctx context.Context, patch bool, conf ...Configurable) error {
+func (c *client) set(ctx context.Context, patch bool, conf ...Configurable) error {
 	if len(conf) == 0 {
 		return nil
 	}
@@ -305,7 +305,7 @@ func (c *ClientObj) set(ctx context.Context, patch bool, conf ...Configurable) e
 // Marshal marshals the provided value into a byte slice using the client's encoding.
 // If the value implements the [Marshaler] interface, it will be marshaled using that.
 // Otherwise, [json.Marshal] is used.
-func (c *ClientObj) Marshal(v any) (b []byte, err error) {
+func (c *client) Marshal(v any) (b []byte, err error) {
 	if m, ok := v.(Marshaler); ok {
 		b, err = m.MarshalYANG(c.capabilities)
 		if err != nil {
@@ -323,7 +323,7 @@ func (c *ClientObj) Marshal(v any) (b []byte, err error) {
 // Unmarshal unmarshals the provided byte slice into the provided destination.
 // If the destination implements the [Marshaler] interface, it will be unmarshaled using that.
 // Otherwise, [json.Unmarshal] is used.
-func (c *ClientObj) Unmarshal(b []byte, dst any) (err error) {
+func (c *client) Unmarshal(b []byte, dst any) (err error) {
 	// NOTE: If you query for list elements on Cisco NX-OS, the encoded payload
 	// will be the wrapped in an array (even if only one element is requested), i.e.
 	//
@@ -351,7 +351,7 @@ func (c *ClientObj) Unmarshal(b []byte, dst any) (err error) {
 }
 
 // Encode encodes the provided byte slice into a [gpb.TypedValue] using the client's encoding.
-func (c *ClientObj) Encode(b []byte) *gpb.TypedValue {
+func (c *client) Encode(b []byte) *gpb.TypedValue {
 	switch c.encoding {
 	case gpb.Encoding_JSON:
 		return &gpb.TypedValue{
@@ -371,7 +371,7 @@ func (c *ClientObj) Encode(b []byte) *gpb.TypedValue {
 }
 
 // Decode decodes the provided [gpb.TypedValue] into the provided destination using the client's encoding.
-func (c *ClientObj) Decode(val *gpb.TypedValue) ([]byte, error) {
+func (c *client) Decode(val *gpb.TypedValue) ([]byte, error) {
 	switch c.encoding {
 	case gpb.Encoding_JSON:
 		v, ok := val.Value.(*gpb.TypedValue_JsonVal)

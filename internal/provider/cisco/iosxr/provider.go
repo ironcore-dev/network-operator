@@ -39,7 +39,6 @@ func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (er
 	if err != nil {
 		return err
 	}
-	fmt.Println("Connected to IOSXR device:", conn.Address)
 	return nil
 }
 
