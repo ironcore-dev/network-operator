@@ -2302,6 +2302,162 @@ func (p *Provider) GetStatusVPCDomain(ctx context.Context) (VPCDomainStatus, err
 	return vpcSt, nil
 }
 
+type BorderGatewaySettingsRequest struct {
+	BorderGateway   *nxv1alpha1.BorderGateway
+	SourceInterface *v1alpha1.Interface
+	Interconnects   []BorderGatewayInterconnect
+	Peers           []BorderGatewayPeer
+}
+
+type BorderGatewayInterconnect struct {
+	Interface *v1alpha1.Interface
+	Tracking  nxv1alpha1.InterconnectTrackingType
+}
+
+type BorderGatewayPeer struct {
+	BGPPeer  *v1alpha1.BGPPeer
+	PeerType nxv1alpha1.BGPPeerType
+}
+
+func (p *Provider) EnsureBorderGatewaySettings(ctx context.Context, req *BorderGatewaySettingsRequest) error {
+	f := new(Feature)
+	f.Name = "bgp"
+	f.AdminSt = AdminStEnabled
+
+	f2 := new(Feature)
+	f2.Name = "ifvlan"
+	f2.AdminSt = AdminStEnabled
+
+	f3 := new(Feature)
+	f3.Name = "vnsegment"
+	f3.AdminSt = AdminStEnabled
+
+	f4 := new(Feature)
+	f4.Name = "evpn"
+	f4.AdminSt = AdminStEnabled
+
+	f5 := new(Feature)
+	f5.Name = "nvo"
+	f5.AdminSt = AdminStEnabled
+
+	if err := p.client.Patch(ctx, f, f2, f3, f4, f5); err != nil {
+		return err
+	}
+
+	conf := make([]gnmiext.Configurable, 0, 3)
+	bg := new(MultisiteItems)
+	bg.AdminSt = AdminStEnabled
+	bg.SiteID = strconv.FormatInt(req.BorderGateway.Spec.MultisiteID, 10)
+	bg.DelayRestoreSeconds = int64(math.Round(req.BorderGateway.Spec.DelayRestoreTime.Seconds()))
+	if bg.DelayRestoreSeconds < 30 || bg.DelayRestoreSeconds > 1000 {
+		return fmt.Errorf("border gateway: delay restore time %d seconds is out of range (30-1000)", bg.DelayRestoreSeconds)
+	}
+	conf = append(conf, bg)
+
+	bgi := MultisiteBorderGatewayInterface(req.SourceInterface.Spec.Name)
+	conf = append(conf, &bgi)
+
+	sc := new(StormControlItems)
+	for _, cfg := range req.BorderGateway.Spec.StormControl {
+		ctrl := new(StormControlItem)
+		f, err := strconv.ParseFloat(cfg.Level, 64)
+		if err != nil {
+			return fmt.Errorf("border gateway: invalid storm control level %q: %w", cfg.Level, err)
+		}
+		ctrl.Floatlevel = strconv.FormatFloat(f, 'f', 6, 64)
+		switch cfg.Traffic {
+		case nxv1alpha1.TrafficTypeBroadcast:
+			ctrl.Name = StormControlTypeBroadcast
+		case nxv1alpha1.TrafficTypeMulticast:
+			ctrl.Name = StormControlTypeMulticast
+		case nxv1alpha1.TrafficTypeUnicast:
+			ctrl.Name = StormControlTypeUnicast
+		default:
+			return fmt.Errorf("border gateway: unsupported storm control traffic type %q", cfg.Traffic)
+		}
+		sc.EvpnStormControlList.Set(ctrl)
+	}
+
+	del := make([]gnmiext.Configurable, 0, 1)
+	if sc.EvpnStormControlList.Len() == 0 {
+		del = append(del, sc)
+	} else {
+		conf = append(conf, sc)
+	}
+
+	peerItems := new(MultisitePeerItems)
+	trackingItems := new(MultisiteIfTrackingItems)
+	if err := p.client.GetConfig(ctx, trackingItems, peerItems); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+
+	interconnects := make(map[string]BorderGatewayInterconnect, len(req.Interconnects))
+	for _, ic := range req.Interconnects {
+		name, err := ShortName(ic.Interface.Spec.Name)
+		if err != nil {
+			return err
+		}
+		interconnects[name] = ic
+	}
+
+	for _, intf := range trackingItems.PhysIfList {
+		ic, ok := interconnects[intf.ID]
+		if !ok {
+			if intf.MultisiteIfTracking != nil {
+				del = append(del, intf.MultisiteIfTracking)
+			}
+			continue
+		}
+
+		if intf.MultisiteIfTracking == nil {
+			intf.MultisiteIfTracking = new(MultisiteIfTracking)
+		}
+		intf.MultisiteIfTracking.IfName = intf.ID
+		intf.MultisiteIfTracking.Tracking = MultisiteIfTrackingModeFrom(ic.Tracking)
+		conf = append(conf, intf.MultisiteIfTracking)
+	}
+
+	for _, peer := range peerItems.PeerList {
+		idx := slices.IndexFunc(req.Peers, func(p BorderGatewayPeer) bool {
+			return p.BGPPeer.Spec.Address == peer.Addr
+		})
+		if idx == -1 {
+			if peer.PeerType != "" {
+				del = append(del, &MultisitePeer{Addr: peer.Addr})
+			}
+			continue
+		}
+
+		conf = append(conf, &MultisitePeer{Addr: peer.Addr, PeerType: BorderGatewayPeerTypeFrom(req.Peers[idx].PeerType)})
+	}
+
+	if err := p.client.Delete(ctx, del...); err != nil {
+		return err
+	}
+
+	return p.client.Update(ctx, conf...)
+}
+
+func (p *Provider) ResetBorderGatewaySettings(ctx context.Context) error {
+	conf := []gnmiext.Configurable{new(MultisiteItems), new(MultisiteBorderGatewayInterface), new(StormControlItems)}
+	peerItems := new(MultisitePeerItems)
+	trackingItems := new(MultisiteIfTrackingItems)
+	if err := p.client.GetConfig(ctx, trackingItems, peerItems); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	for _, intf := range trackingItems.PhysIfList {
+		if intf.MultisiteIfTracking != nil {
+			conf = append(conf, intf.MultisiteIfTracking)
+		}
+	}
+	for _, peer := range peerItems.PeerList {
+		if peer.PeerType != "" {
+			conf = append(conf, &MultisitePeer{Addr: peer.Addr})
+		}
+	}
+	return p.client.Delete(ctx, conf...)
+}
+
 func init() {
 	provider.Register("cisco-nxos-gnmi", NewProvider)
 }

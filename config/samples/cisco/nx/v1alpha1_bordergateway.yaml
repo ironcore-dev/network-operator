@@ -1,0 +1,46 @@
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: BorderGateway
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: bgw
+spec:
+  deviceRef:
+    name: leaf1
+  multisiteId: 123
+  delayRestoreTime: 120s
+  sourceInterfaceRef:
+    name: lo100
+  interconnectInterfaceRefs:
+    - name: eth1-1
+      tracking: DataCenterInterconnect
+  bgpPeerRefs:
+    - name: leaf1-spine1
+      peerType: FabricExternal
+  stormControl:
+    - level: "10.5"
+      traffic: Broadcast
+    - level: "15.75"
+      traffic: Multicast
+    - level: "20.0"
+      traffic: Unicast
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: lo100
+spec:
+  deviceRef:
+    name: leaf1
+  name: lo100
+  description: BGW
+  adminState: Up
+  type: Loopback
+  mtu: 1500
+  ipv4:
+    addresses:
+      - 10.100.0.1/32

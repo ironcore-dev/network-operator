@@ -502,6 +502,18 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "RoutingPolicy")
 		os.Exit(1)
 	}
+
+	if err := (&nxcontroller.BorderGatewayReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("cisco-nx-border-gateway-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "BorderGateway")
+		os.Exit(1)
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {

@@ -1,0 +1,12 @@
+{
+  "eps-items": {
+    "stormcontrol-items": {
+      "EvpnStormControl-list": [
+        {
+          "floatlevel": "0.100000",
+          "name": "bcast"
+        }
+      ]
+    }
+  }
+}

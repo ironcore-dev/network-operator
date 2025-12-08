@@ -1,0 +1,21 @@
+{
+  "bgp-items": {
+    "inst-items": {
+      "dom-items": {
+        "Dom-list": [
+          {
+            "name": "default",
+            "peer-items": {
+              "Peer-list": [
+                {
+                  "addr": "1.1.1.1",
+                  "peerType": "fabric-external"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -94,3 +94,6 @@ resources:
 - routingpolicy_admin_role.yaml
 - routingpolicy_editor_role.yaml
 - routingpolicy_viewer_role.yaml
+- cisco/nx/bordergateway_admin_role.yaml
+- cisco/nx/bordergateway_editor_role.yaml
+- cisco/nx/bordergateway_viewer_role.yaml

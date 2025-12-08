@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
 )
 
@@ -145,6 +146,26 @@ func (s *SpanningTree) XPath() string {
 
 func (s *SpanningTree) Default() {
 	s.Mode = SpanningTreeModeDefault
+}
+
+type MultisiteIfTrackingItems struct {
+	PhysIfList []struct {
+		ID                  string               `json:"id"`
+		MultisiteIfTracking *MultisiteIfTracking `json:"multisiteiftracking-items"`
+	} `json:"PhysIf-list"`
+}
+
+func (*MultisiteIfTrackingItems) XPath() string {
+	return "System/intf-items/phys-items"
+}
+
+type MultisiteIfTracking struct {
+	IfName   string                  `json:"-"`
+	Tracking MultisiteIfTrackingMode `json:"tracking"`
+}
+
+func (m *MultisiteIfTracking) XPath() string {
+	return "System/intf-items/phys-items/PhysIf-list[id=" + m.IfName + "]/multisiteiftracking-items"
 }
 
 // PortChannel represents a port-channel (LAG) interface on a NX-OS device.
@@ -484,6 +505,24 @@ const (
 	PortChannelModeActive  PortChannelMode = "active"
 	PortChannelModePassive PortChannelMode = "passive"
 )
+
+type MultisiteIfTrackingMode string
+
+const (
+	MultisiteIfTrackingModeDCI    MultisiteIfTrackingMode = "dci"
+	MultisiteIfTrackingModeFabric MultisiteIfTrackingMode = "fabric"
+)
+
+func MultisiteIfTrackingModeFrom(t nxv1alpha1.InterconnectTrackingType) MultisiteIfTrackingMode {
+	switch t {
+	case nxv1alpha1.InterconnectTrackingTypeDCI:
+		return MultisiteIfTrackingModeDCI
+	case nxv1alpha1.InterconnectTrackingTypeFabric:
+		return MultisiteIfTrackingModeFabric
+	default:
+		return MultisiteIfTrackingModeDCI
+	}
+}
 
 // UserFlags represents the user configured flags for an interface.
 // It supports a combination of the following flags:

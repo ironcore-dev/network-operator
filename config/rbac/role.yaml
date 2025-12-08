@@ -117,14 +117,7 @@ rules:
 - apiGroups:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
-  - managementaccessconfigs
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - nx.cisco.networking.metal.ironcore.dev
-  resources:
+  - bordergateways
   - systems
   - vpcdomains
   verbs:
@@ -138,6 +131,7 @@ rules:
 - apiGroups:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
+  - bordergateways/finalizers
   - systems/finalizers
   - vpcdomains/finalizers
   verbs:
@@ -145,9 +139,18 @@ rules:
 - apiGroups:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
+  - bordergateways/status
   - systems/status
   - vpcdomains/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - nx.cisco.networking.metal.ironcore.dev
+  resources:
+  - managementaccessconfigs
+  verbs:
+  - get
+  - list
+  - watch

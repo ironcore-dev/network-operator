@@ -24,4 +24,5 @@ resources:
 - cisco/nx/v1alpha1_system.yaml
 - cisco/nx/v1alpha1_managementaccessconfig.yaml
 - cisco/nx/v1alpha1_vpcdomain.yaml
+- cisco/nx/v1alpha1_bordergateway.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

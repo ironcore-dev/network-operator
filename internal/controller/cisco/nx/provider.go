@@ -22,6 +22,9 @@ type Provider interface {
 	EnsureVPCDomain(ctx context.Context, vpc *nxv1alpha1.VPCDomain, vrf *v1alpha1.VRF, intf *v1alpha1.Interface) error
 	DeleteVPCDomain(context.Context) error
 	GetStatusVPCDomain(context.Context) (nxos.VPCDomainStatus, error)
+
+	EnsureBorderGatewaySettings(ctx context.Context, req *nxos.BorderGatewaySettingsRequest) error
+	ResetBorderGatewaySettings(ctx context.Context) error
 }
 
 var _ Provider = (*nxos.Provider)(nil)

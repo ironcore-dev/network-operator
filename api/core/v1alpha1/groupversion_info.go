@@ -145,3 +145,9 @@ const (
 	// PrefixSetNotFoundReason indicates that a referenced PrefixSet was not found.
 	PrefixSetNotFoundReason = "PrefixSetNotFound"
 )
+
+// Reasons that are specific to [BorderGateway] objects.
+const (
+	// BGPPeerNotFoundReason indicates that a referenced BGPPeer was not found.
+	BGPPeerNotFoundReason = "BGPPeerNotFound"
+)

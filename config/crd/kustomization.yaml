@@ -26,6 +26,7 @@ resources:
 - bases/nx.cisco.networking.metal.ironcore.dev_systems.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_managementaccessconfigs.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_vpcdomains.yaml
+- bases/nx.cisco.networking.metal.ironcore.dev_bordergateways.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

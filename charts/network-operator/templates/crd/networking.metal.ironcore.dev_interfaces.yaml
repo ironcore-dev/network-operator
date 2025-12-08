@@ -9,7 +9,7 @@ metadata:
     {{- if .Values.crd.keep }}
     "helm.sh/resource-policy": keep
     {{- end }}
-    controller-gen.kubebuilder.io/version: v0.19.0
+    controller-gen.kubebuilder.io/version: v0.20.0
   name: interfaces.networking.metal.ironcore.dev
 spec:
   group: networking.metal.ironcore.dev
@@ -324,8 +324,6 @@ spec:
                 x-kubernetes-validations:
                 - message: accessVlan must be specified when mode is Access
                   rule: self.mode != 'Access' || has(self.accessVlan)
-                - message: nativeVlan must be specified when mode is Trunk
-                  rule: self.mode != 'Trunk' || has(self.nativeVlan)
               type:
                 description: Type indicates the type of the interface.
                 enum:
