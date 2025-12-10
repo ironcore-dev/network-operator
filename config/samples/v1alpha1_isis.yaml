@@ -17,15 +17,7 @@ spec:
     - IPv4Unicast
     - IPv6Unicast
   interfaces:
-    - ref:
-        name: eth1-1
-      bfd:
-        enabled: true
-    - ref:
-        name: eth1-2
-      bfd:
-        enabled: true
-    - ref:
-        name: lo0
-    - ref:
-        name: lo1
+    - name: eth1-1
+    - name: eth1-2
+    - name: lo0
+    - name: lo1

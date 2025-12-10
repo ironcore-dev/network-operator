@@ -1078,8 +1078,8 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 
 	conf := append(make([]gnmiext.Configurable, 0, 3), f)
 
-	if slices.ContainsFunc(req.Interfaces, func(intf provider.ISISInterface) bool {
-		return intf.BFD
+	if slices.ContainsFunc(req.Interfaces, func(intf *v1alpha1.Interface) bool {
+		return intf.Spec.BFD.Enabled
 	}) {
 		f := new(Feature)
 		f.Name = "bfd"
@@ -1122,12 +1122,7 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 		dom.AfItems.DomAfList.Set(item)
 	}
 
-	interfaces := make([]*v1alpha1.Interface, 0, len(req.Interfaces))
-	for _, iface := range req.Interfaces {
-		interfaces = append(interfaces, iface.Interface)
-	}
-
-	interfaceNames, err := p.EnsureInterfacesExist(ctx, interfaces)
+	interfaceNames, err := p.EnsureInterfacesExist(ctx, req.Interfaces)
 	if err != nil {
 		return err
 	}
@@ -1140,20 +1135,20 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 		intf := new(ISISInterface)
 		intf.ID = interfaceNames[i]
 		intf.NetworkTypeP2P = AdminStOff
-		if iface.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical {
+		if iface.Spec.Type == v1alpha1.InterfaceTypePhysical {
 			intf.NetworkTypeP2P = AdminStOn
 		}
 		if ipv4 {
 			intf.V4Enable = true
 			intf.V4Bfd = "inheritVrf"
-			if iface.BFD {
+			if iface.Spec.BFD.Enabled {
 				intf.V4Bfd = "enabled"
 			}
 		}
 		if ipv6 {
 			intf.V6Enable = true
 			intf.V6Bfd = "inheritVrf"
-			if iface.BFD {
+			if iface.Spec.BFD.Enabled {
 				intf.V6Bfd = "enabled"
 			}
 		}

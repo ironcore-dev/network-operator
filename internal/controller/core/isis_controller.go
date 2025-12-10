@@ -222,14 +222,14 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (_ ctrl.Re
 		}
 	}
 
-	var interfaces []provider.ISISInterface
-	for _, iface := range s.ISIS.Spec.Interfaces {
-		res := new(v1alpha1.Interface)
-		if err := r.Get(ctx, client.ObjectKey{Name: iface.Ref.Name, Namespace: s.ISIS.Namespace}, res); err != nil {
+	var interfaces []*v1alpha1.Interface
+	for _, iface := range s.ISIS.Spec.InterfaceRefs {
+		intf := new(v1alpha1.Interface)
+		if err := r.Get(ctx, client.ObjectKey{Name: iface.Name, Namespace: s.ISIS.Namespace}, intf); err != nil {
 			return ctrl.Result{}, err
 		}
 
-		if !conditions.IsReady(res) {
+		if !conditions.IsReady(intf) {
 			conditions.Set(s.ISIS, metav1.Condition{
 				Type:    v1alpha1.ReadyCondition,
 				Status:  metav1.ConditionFalse,
@@ -239,10 +239,7 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (_ ctrl.Re
 			return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
 		}
 
-		interfaces = append(interfaces, provider.ISISInterface{
-			Interface: res,
-			BFD:       iface.BFD.Enabled,
-		})
+		interfaces = append(interfaces, intf)
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {

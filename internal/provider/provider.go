@@ -299,13 +299,8 @@ type ISISProvider interface {
 
 type EnsureISISRequest struct {
 	ISIS           *v1alpha1.ISIS
-	Interfaces     []ISISInterface
+	Interfaces     []*v1alpha1.Interface
 	ProviderConfig *ProviderConfig
-}
-
-type ISISInterface struct {
-	Interface *v1alpha1.Interface
-	BFD       bool
 }
 
 type DeleteISISRequest struct {
