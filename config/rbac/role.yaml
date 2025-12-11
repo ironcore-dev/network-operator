@@ -43,6 +43,7 @@ rules:
   - isis
   - managementaccesses
   - ntp
+  - nves
   - ospf
   - pim
   - snmp
@@ -73,6 +74,7 @@ rules:
   - isis/finalizers
   - managementaccesses/finalizers
   - ntp/finalizers
+  - nves/finalizers
   - ospf/finalizers
   - pim/finalizers
   - snmp/finalizers
@@ -97,6 +99,7 @@ rules:
   - isis/status
   - managementaccesses/status
   - ntp/status
+  - nves/status
   - ospf/status
   - pim/status
   - snmp/status
@@ -112,6 +115,7 @@ rules:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
   - managementaccessconfigs
+  - nveconfigs
   verbs:
   - get
   - list

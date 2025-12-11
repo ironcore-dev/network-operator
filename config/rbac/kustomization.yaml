@@ -22,6 +22,9 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the network-operator itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- nve_admin_role.yaml
+- nve_editor_role.yaml
+- nve_viewer_role.yaml
 - device_admin_role.yaml
 - device_editor_role.yaml
 - device_viewer_role.yaml
@@ -76,12 +79,15 @@ resources:
 - vlan_admin_role.yaml
 - vlan_editor_role.yaml
 - vlan_viewer_role.yaml
+- evpninstance_admin_role.yaml
+- evpninstance_editor_role.yaml
+- evpninstance_viewer_role.yaml
 - cisco/nx/system_admin_role.yaml
 - cisco/nx/system_editor_role.yaml
 - cisco/nx/system_viewer_role.yaml
 - cisco/nx/managementaccessconfig_admin_role.yaml
 - cisco/nx/managementaccessconfig_editor_role.yaml
 - cisco/nx/managementaccessconfig_viewer_role.yaml
-- evpninstance_admin_role.yaml
-- evpninstance_editor_role.yaml
-- evpninstance_viewer_role.yaml
+- cisco/nx/nveconfig_admin_role.yaml
+- cisco/nx/nveconfig_editor_role.yaml
+- cisco/nx/nveconfig_viewer_role.yaml

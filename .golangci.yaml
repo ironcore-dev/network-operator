@@ -130,8 +130,6 @@ linters:
         - github.com/mdlayher/arp
         # for github.com/sapcc/vpa_butler
         - k8s.io/client-go
-        # for CVE-2025-22868
-        - golang.org/x/oauth2
       toolchain-forbidden: true
       go-version-pattern: 1\.\d+(\.0)?$
     gosec:

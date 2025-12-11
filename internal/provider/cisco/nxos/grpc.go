@@ -19,7 +19,7 @@ var (
 
 // GRPC represents the gRPC configuration on a NX-OS device.
 type GRPC struct {
-	Cert           Option[string] `json:"cert,omitempty"`
+	Cert           Option[string] `json:"cert,omitzero"`
 	CertClientRoot string         `json:"certClientRoot,omitempty"`
 	Port           int32          `json:"port"`
 	UseVrf         string         `json:"useVrf,omitempty"`
