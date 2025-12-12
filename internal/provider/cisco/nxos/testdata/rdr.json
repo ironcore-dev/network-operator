@@ -1,0 +1,21 @@
+{
+  "icmpv4-items": {
+    "inst-items": {
+      "dom-items": {
+        "Dom-list": [
+          {
+            "name": "default",
+            "if-items": {
+              "If-list": [
+                {
+                  "id": "eth1/1",
+                  "ctrl": "port-unreachable"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

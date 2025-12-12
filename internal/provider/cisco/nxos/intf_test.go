@@ -87,4 +87,7 @@ func init() {
 	bfd.IfkaItems.MinRxIntvlMs = 100
 	bfd.IfkaItems.MinTxIntvlMs = 150
 	Register("bfd", bfd)
+
+	icmp := &ICMPIf{ID: "eth1/1", Ctrl: "port-unreachable"}
+	Register("rdr", icmp)
 }
