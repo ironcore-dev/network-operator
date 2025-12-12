@@ -26,6 +26,7 @@ var (
 	_ gnmiext.Configurable = (*SpanningTree)(nil)
 	_ gnmiext.Configurable = (*MultisiteIfTracking)(nil)
 	_ gnmiext.Configurable = (*BFD)(nil)
+	_ gnmiext.Configurable = (*ICMPIf)(nil)
 	_ gnmiext.Configurable = (*PortChannel)(nil)
 	_ gnmiext.Configurable = (*PortChannelOperItems)(nil)
 	_ gnmiext.Configurable = (*SwitchVirtualInterface)(nil)
@@ -197,6 +198,17 @@ func (b *BFD) Validate() error {
 		return fmt.Errorf("bfd: invalid min-tx-intvl %d: must be between 100 and 999", b.IfkaItems.MinTxIntvlMs)
 	}
 	return nil
+}
+
+type ICMPIf struct {
+	ID   string `json:"id"`
+	Ctrl string `json:"ctrl"`
+}
+
+func (*ICMPIf) IsListItem() {}
+
+func (i *ICMPIf) XPath() string {
+	return "System/icmpv4-items/inst-items/dom-items/Dom-list[name=default]/if-items/If-list[id=" + i.ID + "]"
 }
 
 // PortChannel represents a port-channel (LAG) interface on a NX-OS device.

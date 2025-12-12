@@ -906,6 +906,11 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		f.AdminSt = AdminStEnabled
 		conf = append(conf, f)
 
+		icmp := new(ICMPIf)
+		icmp.ID = name
+		icmp.Ctrl = "port-unreachable"
+		conf = append(conf, icmp)
+
 		bfd.AdminSt = AdminStDisabled
 		if req.Interface.Spec.BFD.Enabled {
 			bfd.AdminSt = AdminStEnabled
@@ -926,8 +931,21 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		}
 		conf = append(conf, bfd)
-	} else if err := p.client.Delete(ctx, bfd); err != nil {
-		return err
+	} else {
+		icmp := new(ICMPIf)
+		icmp.ID = name
+		switch req.Interface.Spec.Type {
+		case v1alpha1.InterfaceTypePhysical:
+			if err := p.client.Delete(ctx, icmp); err != nil {
+				return err
+			}
+		case v1alpha1.InterfaceTypeLoopback:
+			icmp.Ctrl = "port-unreachable,redirect"
+			conf = append(conf, icmp)
+		case v1alpha1.InterfaceTypeRoutedVLAN:
+			icmp.Ctrl = "port-unreachable"
+			conf = append(conf, icmp)
+		}
 	}
 
 	return p.client.Update(ctx, conf...)
@@ -950,6 +968,10 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 		}
 	}
 
+	bfd := new(BFD)
+	bfd.ID = name
+	conf = append(conf, bfd)
+
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
 		i := new(PhysIf)
@@ -962,6 +984,10 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 		if err = p.client.GetConfig(ctx, stp); err == nil {
 			conf = append(conf, stp)
 		}
+
+		icmp := new(ICMPIf)
+		icmp.ID = name
+		conf = append(conf, icmp)
 
 	case v1alpha1.InterfaceTypeLoopback:
 		lb := new(Loopback)
