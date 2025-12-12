@@ -5,6 +5,7 @@ package nxos
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -62,7 +63,7 @@ const (
 // PhysIf represents a physical (ethernet) interface on a NX-OS device.
 type PhysIf struct {
 	AccessVlan    string         `json:"accessVlan"`
-	AdminSt       AdminSt2       `json:"adminSt"`
+	AdminSt       AdminSt2       `json:"adminSt,omitempty"`
 	Descr         string         `json:"descr"`
 	ID            string         `json:"id"`
 	Layer         Layer          `json:"layer"`
@@ -71,7 +72,7 @@ type PhysIf struct {
 	Mode          SwitchportMode `json:"mode"`
 	NativeVlan    string         `json:"nativeVlan"`
 	TrunkVlans    string         `json:"trunkVlans"`
-	UserCfgdFlags string         `json:"userCfgdFlags"`
+	UserCfgdFlags UserFlags      `json:"userCfgdFlags"`
 	RtvrfMbrItems *VrfMember     `json:"rtvrfMbr-items,omitempty"`
 }
 
@@ -90,14 +91,12 @@ func (p *PhysIf) Validate() error {
 
 func (p *PhysIf) Default() {
 	p.AccessVlan = DefaultVLAN
-	p.AdminSt = AdminStDown
 	p.Layer = Layer2
 	p.MTU = DefaultMTU
 	p.Medium = MediumBroadcast
 	p.Mode = SwitchportModeAccess
 	p.NativeVlan = DefaultVLAN
 	p.TrunkVlans = DefaultVLANRange
-	p.UserCfgdFlags = "admin_state"
 }
 
 type PhysIfOperItems struct {
@@ -157,7 +156,7 @@ type PortChannel struct {
 	PcMode        PortChannelMode `json:"pcMode"`
 	NativeVlan    string          `json:"nativeVlan"`
 	TrunkVlans    string          `json:"trunkVlans"`
-	UserCfgdFlags string          `json:"userCfgdFlags"`
+	UserCfgdFlags UserFlags       `json:"userCfgdFlags"`
 	RsmbrIfsItems struct {
 		RsMbrIfsList gnmiext.List[string, *PortChannelMember] `json:"RsMbrIfs-list,omitzero"`
 	} `json:"rsmbrIfs-items,omitzero"`
@@ -478,3 +477,83 @@ const (
 	PortChannelModeActive  PortChannelMode = "active"
 	PortChannelModePassive PortChannelMode = "passive"
 )
+
+// UserFlags represents the user configured flags for an interface.
+// It supports a combination of the following flags:
+// 1 - admin_state
+// 2 - admin_layer
+// 4 - admin_router_mac
+// 8 - admin_dce_mode
+// 16 - admin_mtu
+type UserFlags uint8
+
+const (
+	UserFlagAdminState UserFlags = 1 << iota
+	UserFlagAdminLayer
+	UserFlagAdminRouterMac
+	UserFlagAdminDceMode
+	UserFlagAdminMTU
+)
+
+var (
+	_ fmt.Stringer     = UserFlags(0)
+	_ json.Marshaler   = UserFlags(0)
+	_ json.Unmarshaler = (*UserFlags)(nil)
+)
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (f *UserFlags) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+
+	var flags UserFlags
+	for flag := range strings.SplitSeq(s, ",") {
+		switch strings.TrimSpace(flag) {
+		case "admin_state":
+			flags |= UserFlagAdminState
+		case "admin_layer":
+			flags |= UserFlagAdminLayer
+		case "admin_router_mac":
+			flags |= UserFlagAdminRouterMac
+		case "admin_dce_mode":
+			flags |= UserFlagAdminDceMode
+		case "admin_mtu":
+			flags |= UserFlagAdminMTU
+		case "":
+			// ignore empty flag
+		default:
+			return fmt.Errorf("interface: unknown user flag %q", flag)
+		}
+	}
+	*f = flags
+	return nil
+}
+
+// MarshalJSON implements json.Marshaler.
+func (f UserFlags) MarshalJSON() ([]byte, error) {
+	return json.Marshal(f.String())
+}
+
+// String implements fmt.Stringer.
+func (f UserFlags) String() string {
+	var flags []string
+	if f&UserFlagAdminState != 0 {
+		flags = append(flags, "admin_state")
+	}
+	if f&UserFlagAdminLayer != 0 {
+		flags = append(flags, "admin_layer")
+	}
+	if f&UserFlagAdminRouterMac != 0 {
+		flags = append(flags, "admin_router_mac")
+	}
+	if f&UserFlagAdminDceMode != 0 {
+		flags = append(flags, "admin_dce_mode")
+	}
+	if f&UserFlagAdminMTU != 0 {
+		flags = append(flags, "admin_mtu")
+	}
+	slices.Sort(flags)
+	return strings.Join(flags, ",")
+}
