@@ -897,6 +897,39 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	if addr != nil {
 		conf = append(conf, addr)
 	}
+
+	bfd := new(BFD)
+	bfd.ID = name
+	if req.Interface.Spec.BFD != nil {
+		f := new(Feature)
+		f.Name = "bfd"
+		f.AdminSt = AdminStEnabled
+		conf = append(conf, f)
+
+		bfd.AdminSt = AdminStDisabled
+		if req.Interface.Spec.BFD.Enabled {
+			bfd.AdminSt = AdminStEnabled
+			bfd.IfkaItems.MinTxIntvlMs = 50
+			if req.Interface.Spec.BFD.DesiredMinimumTxInterval != nil {
+				bfd.IfkaItems.MinTxIntvlMs = req.Interface.Spec.BFD.DesiredMinimumTxInterval.Milliseconds()
+			}
+			bfd.IfkaItems.MinRxIntvlMs = 50
+			if req.Interface.Spec.BFD.RequiredMinimumReceive != nil {
+				bfd.IfkaItems.MinRxIntvlMs = req.Interface.Spec.BFD.RequiredMinimumReceive.Milliseconds()
+			}
+			bfd.IfkaItems.DetectMult = 3
+			if req.Interface.Spec.BFD.DetectionMultiplier != nil {
+				bfd.IfkaItems.DetectMult = *req.Interface.Spec.BFD.DetectionMultiplier
+			}
+			if err := bfd.Validate(); err != nil {
+				return err
+			}
+		}
+		conf = append(conf, bfd)
+	} else if err := p.client.Delete(ctx, bfd); err != nil {
+		return err
+	}
+
 	return p.client.Update(ctx, conf...)
 }
 

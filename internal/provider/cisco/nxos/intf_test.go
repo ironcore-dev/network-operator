@@ -81,4 +81,10 @@ func init() {
 
 	dci := &MultisiteIfTracking{IfName: "eth1/1", Tracking: MultisiteIfTrackingModeDCI}
 	Register("bgw_tracking", dci)
+
+	bfd := &BFD{AdminSt: AdminStEnabled, ID: "eth1/1"}
+	bfd.IfkaItems.DetectMult = 15
+	bfd.IfkaItems.MinRxIntvlMs = 100
+	bfd.IfkaItems.MinTxIntvlMs = 150
+	Register("bfd", bfd)
 }

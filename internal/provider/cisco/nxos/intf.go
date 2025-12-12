@@ -24,6 +24,8 @@ var (
 	_ gnmiext.Configurable = (*PhysIfOperItems)(nil)
 	_ gnmiext.Configurable = (*VrfMember)(nil)
 	_ gnmiext.Configurable = (*SpanningTree)(nil)
+	_ gnmiext.Configurable = (*MultisiteIfTracking)(nil)
+	_ gnmiext.Configurable = (*BFD)(nil)
 	_ gnmiext.Configurable = (*PortChannel)(nil)
 	_ gnmiext.Configurable = (*PortChannelOperItems)(nil)
 	_ gnmiext.Configurable = (*SwitchVirtualInterface)(nil)
@@ -166,6 +168,35 @@ type MultisiteIfTracking struct {
 
 func (m *MultisiteIfTracking) XPath() string {
 	return "System/intf-items/phys-items/PhysIf-list[id=" + m.IfName + "]/multisiteiftracking-items"
+}
+
+type BFD struct {
+	ID        string  `json:"id"`
+	AdminSt   AdminSt `json:"adminSt"`
+	IfkaItems struct {
+		DetectMult   int32 `json:"detectMult"`
+		MinRxIntvlMs int64 `json:"minRxIntvl"`
+		MinTxIntvlMs int64 `json:"minTxIntvl"`
+	} `json:"ifka-items,omitzero"`
+}
+
+func (*BFD) IsListItem() {}
+
+func (b *BFD) XPath() string {
+	return "System/bfd-items/inst-items/if-items/If-list[id=" + b.ID + "]"
+}
+
+func (b *BFD) Validate() error {
+	if b.IfkaItems.DetectMult < 1 || b.IfkaItems.DetectMult > 50 {
+		return fmt.Errorf("bfd: invalid detect-mult %d: must be between 1 and 50", b.IfkaItems.DetectMult)
+	}
+	if b.IfkaItems.MinRxIntvlMs < 100 || b.IfkaItems.MinRxIntvlMs > 999 {
+		return fmt.Errorf("bfd: invalid min-rx-intvl %d: must be between 100 and 999", b.IfkaItems.MinRxIntvlMs)
+	}
+	if b.IfkaItems.MinTxIntvlMs < 100 || b.IfkaItems.MinTxIntvlMs > 999 {
+		return fmt.Errorf("bfd: invalid min-tx-intvl %d: must be between 100 and 999", b.IfkaItems.MinTxIntvlMs)
+	}
+	return nil
 }
 
 // PortChannel represents a port-channel (LAG) interface on a NX-OS device.
