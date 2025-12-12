@@ -48,10 +48,10 @@ type ISISSpec struct {
 	// +kubebuilder:validation:MaxItems=2
 	AddressFamilies []AddressFamily `json:"addressFamilies"`
 
-	// Interfaces is a list of interfaces that are part of the ISIS instance.
+	// InterfaceRefs is a list of interfaces that are part of the ISIS instance.
 	// +optional
 	// +listType=atomic
-	Interfaces []ISISInterface `json:"interfaces,omitempty"`
+	InterfaceRefs []LocalObjectReference `json:"interfaceRefs,omitempty"`
 }
 
 // ISISLevel represents the level of an ISIS instance.
@@ -82,25 +82,6 @@ const (
 	AddressFamilyIPv4Unicast AddressFamily = "IPv4Unicast"
 	AddressFamilyIPv6Unicast AddressFamily = "IPv6Unicast"
 )
-
-type ISISInterface struct {
-	// Ref is a reference to the interface object.
-	// The interface object must exist in the same namespace.
-	// +required
-	Ref LocalObjectReference `json:"ref"`
-
-	// BFD contains BFD configuration for the interface.
-	// +optional
-	// +kubebuilder:default={}
-	BFD ISISBFD `json:"bfd,omitzero"`
-}
-
-type ISISBFD struct {
-	// Enabled indicates whether BFD is enabled on the interface.
-	// +optional
-	// +kubebuilder:default=false
-	Enabled bool `json:"enabled"`
-}
 
 // ISISStatus defines the observed state of ISIS.
 type ISISStatus struct {

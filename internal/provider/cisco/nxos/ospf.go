@@ -81,6 +81,7 @@ type OSPFInterface struct {
 	ID                   string         `json:"id"`
 	NwT                  NtwType        `json:"nwT"`
 	PassiveCtrl          PassiveControl `json:"passiveCtrl"`
+	BFDCtrl              OspfBfdCtrl    `json:"bfdCtrl"`
 }
 
 func (i *OSPFInterface) Key() string { return i.ID }
@@ -112,7 +113,7 @@ type OSPFIfAdjEpGroup struct {
 	OperSt        AdjOperSt `json:"operSt"` // Adjacency neighbor state
 	Prio          uint8     `json:"prio"`   // Priority, used in determining the designated router on this network
 	AdjStatsItems struct {
-		LastStChgTs time.Time `json:"lastStChgTs"` // Timestamp of the last state change
+		LastStChgTS time.Time `json:"lastStChgTs"` // Timestamp of the last state change
 	} `json:"adjstats-items,omitzero"`
 }
 
@@ -201,4 +202,12 @@ const (
 	PassiveControlUnspecified PassiveControl = "unspecified"
 	PassiveControlEnabled     PassiveControl = "enabled"
 	PassiveControlDisabled    PassiveControl = "disabled"
+)
+
+type OspfBfdCtrl string
+
+const (
+	OspfBfdCtrlUnspecified OspfBfdCtrl = "unspecified"
+	OspfBfdCtrlEnabled     OspfBfdCtrl = "enabled"
+	OspfBfdCtrlDisabled    OspfBfdCtrl = "disabled"
 )

@@ -92,40 +92,25 @@ spec:
                 x-kubernetes-validations:
                 - message: Instance is immutable
                   rule: self == oldSelf
-              interfaces:
-                description: Interfaces is a list of interfaces that are part of the
-                  ISIS instance.
+              interfaceRefs:
+                description: InterfaceRefs is a list of interfaces that are part of
+                  the ISIS instance.
                 items:
+                  description: |-
+                    LocalObjectReference contains enough information to locate a
+                    referenced object inside the same namespace.
                   properties:
-                    bfd:
-                      default: {}
-                      description: BFD contains BFD configuration for the interface.
-                      properties:
-                        enabled:
-                          default: false
-                          description: Enabled indicates whether BFD is enabled on
-                            the interface.
-                          type: boolean
-                      type: object
-                    ref:
+                    name:
                       description: |-
-                        Ref is a reference to the interface object.
-                        The interface object must exist in the same namespace.
-                      properties:
-                        name:
-                          description: |-
-                            Name of the referent.
-                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          maxLength: 63
-                          minLength: 1
-                          type: string
-                      required:
-                      - name
-                      type: object
-                      x-kubernetes-map-type: atomic
+                        Name of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      maxLength: 63
+                      minLength: 1
+                      type: string
                   required:
-                  - ref
+                  - name
                   type: object
+                  x-kubernetes-map-type: atomic
                 type: array
                 x-kubernetes-list-type: atomic
               networkEntityTitle:
