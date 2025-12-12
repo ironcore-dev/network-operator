@@ -23,6 +23,7 @@ func init() {
 			Area:                 "0.0.0.0",
 			NwT:                  NtwTypeUnspecified,
 			PassiveCtrl:          PassiveControlUnspecified,
+			BFDCtrl:              OspfBfdCtrlUnspecified,
 		}
 		if strings.HasPrefix(name, "eth") {
 			intf.NwT = NtwTypePointToPoint
