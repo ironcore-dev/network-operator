@@ -23,7 +23,8 @@
                       "area": "0.0.0.0",
                       "id": "eth1/1",
                       "nwT": "p2p",
-                      "passiveCtrl": "unspecified"
+                      "passiveCtrl": "unspecified",
+                      "bfdCtrl": "unspecified"
                     }
                   ]
                 },

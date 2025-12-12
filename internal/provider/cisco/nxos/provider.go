@@ -1439,13 +1439,17 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 		}
 	}
 
+	conf := make([]gnmiext.Configurable, 0, 3)
+
 	f := new(Feature)
 	f.Name = "ospf"
 	f.AdminSt = AdminStEnabled
+	conf = append(conf, f)
 
 	o := new(OSPF)
 	o.AdminSt = AdminStEnabled
 	o.Name = req.OSPF.Spec.Instance
+	conf = append(conf, o)
 
 	dom := new(OSPFDom)
 	dom.Name = DefaultVRFName
@@ -1501,6 +1505,18 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 		if iface.Passive == nil || !*iface.Passive {
 			intf.PassiveCtrl = PassiveControlDisabled
 		}
+		intf.BFDCtrl = OspfBfdCtrlUnspecified
+		if iface.Interface.Spec.BFD != nil {
+			fb := new(Feature)
+			fb.Name = "bfd"
+			fb.AdminSt = AdminStEnabled
+			conf = slices.Insert(conf, 1, gnmiext.Configurable(fb)) // insert before OSPF
+
+			intf.BFDCtrl = OspfBfdCtrlDisabled
+			if !iface.Interface.Spec.BFD.Enabled {
+				intf.BFDCtrl = OspfBfdCtrlEnabled
+			}
+		}
 		dom.IfItems.IfList.Set(intf)
 	}
 
@@ -1528,7 +1544,7 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 		dom.MaxlsapItems.MaxLsa = cfg.MaxLSA
 	}
 
-	return p.client.Update(ctx, f, o)
+	return p.client.Update(ctx, conf...)
 }
 
 func (p *Provider) DeleteOSPF(ctx context.Context, req *provider.DeleteOSPFRequest) error {
@@ -1566,7 +1582,7 @@ func (p *Provider) GetOSPFStatus(ctx context.Context, req *provider.OSPFStatusRe
 				Address:             adj.PeerIP,
 				Interface:           i,
 				Priority:            adj.Prio,
-				LastEstablishedTime: adj.AdjStatsItems.LastStChgTs,
+				LastEstablishedTime: adj.AdjStatsItems.LastStChgTS,
 				AdjacencyState:      adj.OperSt.ToNeighborState(),
 			})
 		}
