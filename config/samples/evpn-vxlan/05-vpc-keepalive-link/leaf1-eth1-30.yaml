@@ -1,0 +1,16 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: leaf1-eth1-30
+spec:
+  deviceRef:
+    name: leaf1
+  name: eth1/30
+  description: vPC Keepalive
+  adminState: Up
+  type: Physical
+  vrfRef:
+    name: leaf1-vpc-keepalive
+  ipv4:
+    addresses:
+      - 10.1.1.1/30

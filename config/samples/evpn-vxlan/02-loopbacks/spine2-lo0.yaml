@@ -1,0 +1,14 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: spine2-lo0
+spec:
+  deviceRef:
+    name: spine2
+  name: lo0
+  description: Router-ID Spine2
+  adminState: Up
+  type: Loopback
+  ipv4:
+    addresses:
+      - 10.0.0.2/32
