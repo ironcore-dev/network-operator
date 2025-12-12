@@ -9,6 +9,7 @@ metadata:
 spec:
   deviceRef:
     name: leaf1
+  type: PreLogin
   message:
     inline: |
       ###################################################

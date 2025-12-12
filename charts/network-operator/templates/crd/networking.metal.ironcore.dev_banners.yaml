@@ -77,7 +77,7 @@ spec:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
               message:
-                description: Pre-Login banner to display on login.
+                description: Message is the banner message to display.
                 properties:
                   configMapRef:
                     description: Reference to a ConfigMap containing the template
@@ -179,6 +179,18 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
+              type:
+                default: PreLogin
+                description: |-
+                  Type specifies the banner type to configure, either PreLogin or PostLogin.
+                  Immutable.
+                enum:
+                - PreLogin
+                - PostLogin
+                type: string
+                x-kubernetes-validations:
+                - message: Type is immutable
+                  rule: self == oldSelf
             required:
             - deviceRef
             - message
