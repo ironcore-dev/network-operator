@@ -1,0 +1,19 @@
+{
+  "bfd-items": {
+    "inst-items": {
+      "if-items": {
+        "If-list": [
+          {
+            "id": "eth1/1",
+            "adminSt": "enabled",
+            "ifka-items": {
+              "detectMult": 15,
+              "minRxIntvl": 100,
+              "minTxIntvl": 150
+            }
+          }
+        ]
+      }
+    }
+  }
+}
