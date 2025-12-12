@@ -82,6 +82,17 @@ const (
 	OperationalCondition = "Operational"
 )
 
+// DeviceMaintenanceAnnotation is an annotation that can be applied to a Device to
+// request the device controller to execute certain actions on the device. So far,
+// supported actions are "reprovision", "reboot" and "factory-reset".
+const DeviceMaintenanceAnnotation = "networking.metal.ironcore.dev/maintenance"
+
+const (
+	DeviceActionReprovision  = "reprovision"
+	DeviceActionReboot       = "reboot"
+	DeviceActionFactoryReset = "factory-reset"
+)
+
 // ProvisioningReasonType represents the reason for the current provisioning status.
 type ProvisioningReasonType string
 
