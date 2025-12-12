@@ -194,6 +194,15 @@ func (b *BFD) Validate() error {
 	return nil
 }
 
+type ICMPIf struct {
+	ID   string `json:"id"`
+	Ctrl string `json:"ctrl"`
+}
+
+func (i *ICMPIf) XPath() string {
+	return "System/icmpv4-items/inst-items/dom-items/Dom-list[name=default]/if-items/If-list[id=" + i.ID + "]"
+}
+
 // PortChannel represents a port-channel (LAG) interface on a NX-OS device.
 type PortChannel struct {
 	AccessVlan    string          `json:"accessVlan"`
