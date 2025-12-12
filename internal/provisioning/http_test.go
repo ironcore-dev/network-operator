@@ -81,8 +81,8 @@ func (m *MockProvider) HashProvisioningPassword(password string) (string, string
 	return "hashedpass", "sha256", nil
 }
 
-func (p *MockProvider) VerifyProvisioningCompleted(ctx context.Context, conn *deviceutil.Connection, device *v1alpha1.Device) (bool, error) {
-	return true, nil
+func (p *MockProvider) VerifyProvisioningCompleted(ctx context.Context, conn *deviceutil.Connection, device *v1alpha1.Device) bool {
+	return true
 }
 
 func TestGetClientIP(t *testing.T) {

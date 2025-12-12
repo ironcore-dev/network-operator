@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"google.golang.org/grpc"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
@@ -106,6 +107,30 @@ func (p *Provider) VerifyProvisioningCompleted(ctx context.Context, conn *device
 	}
 	p.Disconnect(ctx, conn) //nolint:errcheck
 	return true
+}
+
+func (p *Provider) Reboot(ctx context.Context, conn *deviceutil.Connection, force bool) error {
+	return Reboot(ctx, p.conn, force)
+}
+
+func (p *Provider) FactoryReset(ctx context.Context, conn *deviceutil.Connection) error {
+	return ResetToFactoryDefaults(ctx, p.conn)
+}
+
+func (p *Provider) Reprovision(ctx context.Context, conn *deviceutil.Connection) (reterr error) {
+	if err := p.Connect(ctx, conn); err != nil {
+		return err
+	}
+	defer func() {
+		if err := p.Disconnect(ctx, conn); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+	}()
+	poap := BootPOAP("enable")
+	if err := p.client.Update(ctx, &poap); err != nil {
+		return err
+	}
+	return Reboot(ctx, p.conn, true)
 }
 
 func (p *Provider) ListPorts(ctx context.Context) ([]provider.DevicePort, error) {

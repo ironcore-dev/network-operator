@@ -276,5 +276,80 @@ var _ = Describe("Device Controller", func() {
 			By("Cleanup")
 			Expect(k8sClient.Delete(ctx, device)).To(Succeed())
 		})
+
+		It("Should transition back to Pending then Provisioning when reset-phase-to-provisioning annotation is set", func() {
+			const testName = "test-device-reprovision-annotation"
+			testKey := client.ObjectKey{Name: testName, Namespace: metav1.NamespaceDefault}
+
+			By("Creating a Device with provisioning configuration")
+			inlineScript := "boot nxos.bin"
+			device := &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testName,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.6:9339",
+						SecretRef: &v1alpha1.SecretReference{
+							Name: name,
+						},
+					},
+					Provisioning: &v1alpha1.Provisioning{
+						Image: v1alpha1.Image{
+							URL:          "http://example.com/nxos.bin",
+							Checksum:     "d41d8cd98f00b204e9800998ecf8427e",
+							ChecksumType: v1alpha1.ChecksumTypeMD5,
+						},
+						BootScript: v1alpha1.TemplateSource{
+							Inline: &inlineScript,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+
+			By("Waiting for the device to reach Provisioning phase")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, testKey, resource)).To(Succeed())
+				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseProvisioning))
+			}).Should(Succeed())
+
+			By("Manually setting the device to Active phase to simulate completion")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, testKey, resource)).To(Succeed())
+				resource.Status.Phase = v1alpha1.DevicePhaseActive
+				g.Expect(k8sClient.Status().Update(ctx, resource)).To(Succeed())
+			}).Should(Succeed())
+
+			By("Verifying the device is in Active phase")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, testKey, resource)).To(Succeed())
+				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseActive))
+			}).Should(Succeed())
+
+			By("Setting the reset-phase-to-provisioning annotation")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, testKey, resource)).To(Succeed())
+				if resource.Annotations == nil {
+					resource.Annotations = make(map[string]string)
+				}
+				resource.Annotations[v1alpha1.DeviceMaintenanceAnnotation] = v1alpha1.DeviceActionResetPhaseToProvisioning
+				g.Expect(k8sClient.Update(ctx, resource)).To(Succeed())
+			}).Should(Succeed())
+
+			By("Verifying the device transitions back to Pending phase")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, testKey, resource)).To(Succeed())
+			}).Should(Succeed())
+
+			By("Cleanup")
+			Expect(k8sClient.Delete(ctx, device)).To(Succeed())
+		})
 	})
 })

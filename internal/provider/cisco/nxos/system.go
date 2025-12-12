@@ -3,7 +3,16 @@
 
 package nxos
 
-import "github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+import (
+	"context"
+	"fmt"
+
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/openconfig/gnoi/factory_reset"
+	"github.com/openconfig/gnoi/system"
+
+	"google.golang.org/grpc"
+)
 
 const Manufacturer = "Cisco"
 
@@ -46,4 +55,40 @@ type FirmwareVersion string
 
 func (*FirmwareVersion) XPath() string {
 	return "System/showversion-items/nxosVersion"
+}
+
+var _ gnmiext.Configurable = (*BootPOAP)(nil)
+
+type BootPOAP string
+
+func (*BootPOAP) XPath() string {
+	return "/System/boot-items/poap"
+}
+
+func Reboot(ctx context.Context, conn *grpc.ClientConn, force bool) error {
+	request := system.RebootRequest{
+		Method: system.RebootMethod_COLD,
+		// Message is not supported on NXOS
+		// Delay is not supported on NXOS
+		Force: true, // only Force true is supported
+	}
+	c := system.NewSystemClient(conn)
+	_, err := c.Reboot(ctx, &request, grpc.WaitForReady(true))
+	return err
+}
+
+func ResetToFactoryDefaults(ctx context.Context, conn *grpc.ClientConn) error {
+	request := factory_reset.StartRequest{
+		// True not supported on NXOS, NXOS makes sure running OS is preserved
+		FactoryOs:   false,
+		ZeroFill:    true,
+		RetainCerts: false,
+	}
+	c := factory_reset.NewFactoryResetClient(conn)
+	response, err := c.Start(ctx, &request, grpc.WaitForReady(true))
+	resetError := response.GetResetError()
+	if resetError != nil {
+		return fmt.Errorf("factory reset failed: %s", resetError.String())
+	}
+	return err
 }

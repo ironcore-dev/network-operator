@@ -99,6 +99,13 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 				log.Error(err, "Failed to update status")
 				reterr = kerrors.NewAggregate([]error{reterr, err})
 			}
+			return
+		}
+		if !equality.Semantic.DeepEqual(orig.ObjectMeta, obj.ObjectMeta) {
+			if err := r.Patch(ctx, obj, client.MergeFrom(orig)); err != nil {
+				log.Error(err, "Failed to update resource metadata")
+				reterr = kerrors.NewAggregate([]error{reterr, err})
+			}
 		}
 	}()
 
@@ -292,6 +299,10 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 		device.Status.Model = info.Model
 		device.Status.SerialNumber = info.SerialNumber
 		device.Status.FirmwareVersion = info.FirmwareVersion
+
+		if err := r.handleDeviceActions(ctx, device, prov, conn); err != nil {
+			return err
+		}
 	}
 
 	conditions.Set(device, metav1.Condition{
@@ -301,6 +312,40 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 		Message: "Device is healthy",
 	})
 
+	return nil
+}
+
+func (r *DeviceReconciler) handleDeviceActions(ctx context.Context, obj *v1alpha1.Device, prov provider.DeviceProvider, conn *deviceutil.Connection) error {
+	action, ok := obj.Annotations[v1alpha1.DeviceMaintenanceAnnotation]
+	if !ok {
+		return nil
+	}
+	delete(obj.Annotations, v1alpha1.DeviceMaintenanceAnnotation)
+	switch action {
+	case v1alpha1.DeviceActionReboot:
+		r.Recorder.Event(obj, "Normal", "RebootRequested", "Device reboot has been requested")
+		if err := prov.Reboot(ctx, conn, true); err != nil {
+			return fmt.Errorf("failed to reboot device: %w", err)
+		}
+
+	case v1alpha1.DeviceActionFactoryReset:
+		r.Recorder.Event(obj, "Normal", "FactoryResetRequested", "Device factory reset has been requested")
+		if err := prov.FactoryReset(ctx, conn); err != nil {
+			return fmt.Errorf("failed to reset device to factory defaults: %w", err)
+		}
+
+	case v1alpha1.DeviceActionReprovision:
+		r.Recorder.Event(obj, "Normal", "ReprovisioningRequested", "Device reprovisioning has been requested. Preparing the device.")
+		if err := prov.Reprovision(ctx, conn); err != nil {
+			return fmt.Errorf("failed to reset device to factory defaults: %w", err)
+		}
+		obj.Status.Phase = v1alpha1.DevicePhasePending
+	case v1alpha1.DeviceActionResetPhaseToProvisioning:
+		r.Recorder.Event(obj, "Normal", "ResetPhaseToProvisioningRequested", "Device phase reset to Pending has been requested.")
+		obj.Status.Phase = v1alpha1.DevicePhasePending
+	default:
+		return fmt.Errorf("unknown device action: %s", action)
+	}
 	return nil
 }
 
