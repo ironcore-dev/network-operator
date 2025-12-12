@@ -8,6 +8,7 @@ import (
 	"errors"
 	"time"
 
+	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
 )
@@ -113,12 +114,13 @@ func (af *BGPDomAfItem) SetMultipath(m *v1alpha1.BGPMultipath) error {
 }
 
 type BGPPeer struct {
-	Addr    string      `json:"addr"`
-	Asn     string      `json:"asn"`
-	AsnType PeerAsnType `json:"asnType"`
-	Name    string      `json:"name,omitempty"`
-	SrcIf   string      `json:"srcIf,omitempty"`
-	AfItems struct {
+	Addr                string      `json:"addr"`
+	Asn                 string      `json:"asn"`
+	AsnType             PeerAsnType `json:"asnType"`
+	Name                string      `json:"name,omitempty"`
+	SrcIf               string      `json:"srcIf,omitempty"`
+	InheritContPeerCtrl string      `json:"inheritContPeerCtrl"`
+	AfItems             struct {
 		PeerAfList gnmiext.List[AddressFamily, *BGPPeerAfItem] `json:"PeerAf-list,omitzero"`
 	} `json:"af-items,omitzero"`
 }
@@ -189,6 +191,44 @@ func (s BGPPeerOperSt) ToSessionState() v1alpha1.BGPPeerSessionState {
 	}
 }
 
+type MultisitePeerItems struct {
+	PeerList []struct {
+		Addr     string                `json:"addr"`
+		PeerType BorderGatewayPeerType `json:"peerType"`
+	} `json:"Peer-list"`
+}
+
+func (*MultisitePeerItems) XPath() string {
+	return "System/bgp-items/inst-items/dom-items/Dom-list[name=default]/peer-items"
+}
+
+var (
+	_ json.Marshaler   = MultisitePeer{}
+	_ json.Unmarshaler = (*MultisitePeer)(nil)
+)
+
+type MultisitePeer struct {
+	Addr     string                `json:"-"`
+	PeerType BorderGatewayPeerType `json:"-"`
+}
+
+func (p *MultisitePeer) XPath() string {
+	return "System/bgp-items/inst-items/dom-items/Dom-list[name=default]/peer-items/Peer-list[addr=" + p.Addr + "]/peerType"
+}
+
+func (p MultisitePeer) MarshalJSON() ([]byte, error) {
+	return json.Marshal(p.PeerType)
+}
+
+func (p *MultisitePeer) UnmarshalJSON(b []byte) error {
+	var t string
+	if err := json.Unmarshal(b, &t); err != nil {
+		return err
+	}
+	p.PeerType = BorderGatewayPeerType(t)
+	return nil
+}
+
 type AsFormat string
 
 func (AsFormat) XPath() string {
@@ -208,3 +248,21 @@ const (
 )
 
 const RouteReflectorClient = "rr-client"
+
+type BorderGatewayPeerType string
+
+const (
+	BorderGatewayPeerTypeFabricExternal   BorderGatewayPeerType = "fabric-external"
+	BorderGatewayPeerTypeFabricBorderLeaf BorderGatewayPeerType = "fabric-border-leaf"
+)
+
+func BorderGatewayPeerTypeFrom(t nxv1alpha1.BGPPeerType) BorderGatewayPeerType {
+	switch t {
+	case nxv1alpha1.BGPPeerTypeFabricExternal:
+		return BorderGatewayPeerTypeFabricExternal
+	case nxv1alpha1.BGPPeerTypeFabricBorderLeaf:
+		return BorderGatewayPeerTypeFabricBorderLeaf
+	default:
+		return BorderGatewayPeerTypeFabricExternal
+	}
+}

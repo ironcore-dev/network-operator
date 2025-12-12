@@ -120,14 +120,7 @@ rules:
 - apiGroups:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
-  - managementaccessconfigs
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - nx.cisco.networking.metal.ironcore.dev
-  resources:
+  - bordergateways
   - systems
   verbs:
   - create
@@ -140,15 +133,25 @@ rules:
 - apiGroups:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
+  - bordergateways/finalizers
   - systems/finalizers
   verbs:
   - update
 - apiGroups:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
+  - bordergateways/status
   - systems/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - nx.cisco.networking.metal.ironcore.dev
+  resources:
+  - managementaccessconfigs
+  verbs:
+  - get
+  - list
+  - watch
 {{- end -}}

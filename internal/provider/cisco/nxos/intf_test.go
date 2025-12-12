@@ -78,4 +78,7 @@ func init() {
 		Mode:    FwdModeAnycastGateway,
 	}
 	Register("fwif", fwif)
+
+	dci := &MultisiteIfTracking{IfName: "eth1/1", Tracking: MultisiteIfTrackingModeDCI}
+	Register("bgw_tracking", dci)
 }
