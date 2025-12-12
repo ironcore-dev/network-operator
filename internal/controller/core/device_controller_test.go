@@ -203,9 +203,8 @@ var _ = Describe("Device Controller", func() {
 				resource.Status.Phase = v1alpha1.DevicePhaseProvisioned
 				resource.Status.Provisioning = []v1alpha1.ProvisioningInfo{
 					{
-						Token:      "test-token",
-						StartTime:  metav1.NewTime(time.Now().Add(-3 * time.Minute)),
-						RebootTime: metav1.NewTime(time.Now().Add(-30 * time.Second)),
+						Token:     "test-token",
+						StartTime: metav1.NewTime(time.Now().Add(-3 * time.Minute)),
 					},
 				}
 				g.Expect(k8sClient.Status().Patch(ctx, resource, client.MergeFrom(device))).To(Succeed())
@@ -229,6 +228,69 @@ var _ = Describe("Device Controller", func() {
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(resource.Status.Conditions[0].Reason).To(Equal(v1alpha1.ReadyReason))
 			}).Should(Succeed())
+		})
+
+		It("Should transition from Active to Provisioning once the reset-phase-to-provisioning annotation is set", func() {
+			By("Creating a Device")
+			device := &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.5:9339",
+						SecretRef: &v1alpha1.SecretReference{
+							Name: name,
+						},
+					},
+					Provisioning: &v1alpha1.Provisioning{
+						BootScript: v1alpha1.TemplateSource{
+							Inline: ptr.To("boot nxos.bin"),
+						},
+						Image: v1alpha1.Image{
+							URL:          "https://best-vendor-images.to/windows98",
+							Checksum:     "d41d8cd98f00b204e9800998ecf8427e",
+							ChecksumType: v1alpha1.ChecksumTypeMD5,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+
+			By("Setting the device to Running phase")
+			orig := device.DeepCopy()
+			device.Status.Phase = v1alpha1.DevicePhaseRunning
+			Expect(k8sClient.Status().Patch(ctx, device, client.MergeFrom(orig))).To(Succeed())
+
+			By("Verifying the device transitions to Running phase")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseRunning))
+				g.Expect(resource.Status.Conditions).To(HaveLen(1))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+			}).Should(Succeed())
+
+			By("Adding the reset-phase-to-provisioning annotation to the device")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				patch := resource.DeepCopy()
+				annotations := make(map[string]string)
+				annotations[v1alpha1.DeviceMaintenanceAnnotation] = v1alpha1.DeviceMaintenanceResetPhaseToProvisioning
+				patch.SetAnnotations(annotations)
+				g.Expect(k8sClient.Patch(ctx, patch, client.MergeFrom(resource))).To(Succeed())
+			}).Should(Succeed())
+
+			By("Verifying the device transitions to Provisioning phase and the annotation is removed")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseProvisioning))
+				_, exists := resource.Annotations[v1alpha1.DeviceMaintenanceAnnotation]
+				g.Expect(exists).To(BeFalse(), "Maintenance annotation should be removed after processing")
+			}).WithTimeout(time.Second * 10).Should(Succeed())
 		})
 	})
 })

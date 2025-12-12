@@ -86,14 +86,33 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, err
 	}
 
+	prov, ok := r.Provider().(provider.DeviceProvider)
+	if !ok {
+		err := errors.New("provider does not implement DeviceProvider interface")
+		log.Error(err, "failed to reconcile resource")
+		return ctrl.Result{}, err
+	}
+	conn, err := deviceutil.GetDeviceConnection(ctx, r, obj)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to obtain device connection: %w", err)
+	}
+
 	orig := obj.DeepCopy()
+
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
 		log.Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
 
-	// Always attempt to update the status after reconciliation
+	// Always attempt to update the metadata/status after reconciliation
 	defer func() {
+		if !equality.Semantic.DeepEqual(orig.ObjectMeta, obj.ObjectMeta) {
+			// pass obj.DeepCopy() to avoid Patch() modifying obj and interfering with status update below
+			if err := r.Patch(ctx, obj.DeepCopy(), client.MergeFrom(orig)); err != nil {
+				log.Error(err, "Failed to update resource metadata")
+				reterr = kerrors.NewAggregate([]error{reterr, err})
+			}
+		}
 		if !equality.Semantic.DeepEqual(orig.Status, obj.Status) {
 			if err := r.Status().Patch(ctx, obj, client.MergeFrom(orig)); err != nil {
 				log.Error(err, "Failed to update status")
@@ -130,6 +149,9 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, nil
 
 	case v1alpha1.DevicePhaseProvisioning:
+		annotations := obj.GetAnnotations()
+		delete(annotations, v1alpha1.DeviceMaintenanceAnnotation)
+		obj.SetAnnotations(annotations)
 		activeProv := obj.GetActiveProvisioning()
 		if activeProv == nil {
 			log.Info("Device has not made a provisioning request yet")
@@ -157,10 +179,6 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		}
 		log.Info("Device provisioning completed, running post provisioning checks")
 		prov, _ := r.Provider().(provider.ProvisioningProvider)
-		conn, err := deviceutil.GetDeviceConnection(ctx, r, obj)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to obtain device connection: %w", err)
-		}
 		if ok := prov.VerifyProvisioned(ctx, conn, obj); !ok {
 			return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
 		}
@@ -169,7 +187,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		obj.Status.Phase = v1alpha1.DevicePhaseRunning
 
 	case v1alpha1.DevicePhaseRunning:
-		if err := r.reconcile(ctx, obj); err != nil {
+		if err := r.reconcile(ctx, obj, prov, conn); err != nil {
 			log.Error(err, "Failed to reconcile resource")
 			return ctrl.Result{}, err
 		}
@@ -185,6 +203,10 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 	default:
 		log.Info("Device is in an unknown phase, resetting to active")
 		obj.Status.Phase = v1alpha1.DevicePhaseRunning
+	}
+
+	if err := r.reconcileMaintenance(ctx, obj, prov, conn); err != nil {
+		return ctrl.Result{}, reconcile.TerminalError(err)
 	}
 
 	return ctrl.Result{}, nil
@@ -231,73 +253,67 @@ func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Device) (reterr error) {
-	if prov, ok := r.Provider().(provider.DeviceProvider); ok {
-		conn, err := deviceutil.GetDeviceConnection(ctx, r, device)
-		if err != nil {
-			return err
-		}
-
-		if err := prov.Connect(ctx, conn); err != nil {
-			conditions.Set(device, metav1.Condition{
-				Type:    v1alpha1.ReadyCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  v1alpha1.UnreachableReason,
-				Message: fmt.Sprintf("Failed to connect to provider: %v", err),
-			})
-			return fmt.Errorf("failed to connect to provider: %w", err)
-		}
-		defer func() {
-			if err := prov.Disconnect(ctx, conn); err != nil {
-				reterr = kerrors.NewAggregate([]error{reterr, err})
-			}
-		}()
-
-		ports, err := prov.ListPorts(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to list device ports: %w", err)
-		}
-
-		interfaces := new(v1alpha1.InterfaceList)
-		if err := r.List(ctx, interfaces, client.InNamespace(device.Namespace), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name}); err != nil {
-			return fmt.Errorf("failed to list interface resources for device: %w", err)
-		}
-
-		m := make(map[string]string) // ID => Resource Name
-		for _, intf := range interfaces.Items {
-			m[intf.Spec.Name] = intf.Name
-		}
-
-		device.Status.Ports = make([]v1alpha1.DevicePort, len(ports))
-		n := int32(0)
-		for i, p := range ports {
-			var ref *v1alpha1.LocalObjectReference
-			if name, ok := m[p.ID]; ok {
-				ref = &v1alpha1.LocalObjectReference{Name: name}
-				n++
-			}
-			device.Status.Ports[i] = v1alpha1.DevicePort{
-				Name:                p.ID,
-				Type:                p.Type,
-				SupportedSpeedsGbps: p.SupportedSpeedsGbps,
-				Transceiver:         p.Transceiver,
-				InterfaceRef:        ref,
-			}
-			slices.Sort(device.Status.Ports[i].SupportedSpeedsGbps)
-		}
-
-		device.Status.PostSummary = PortSummary(device.Status.Ports)
-
-		info, err := prov.GetDeviceInfo(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to get device details: %w", err)
-		}
-
-		device.Status.Manufacturer = info.Manufacturer
-		device.Status.Model = info.Model
-		device.Status.SerialNumber = info.SerialNumber
-		device.Status.FirmwareVersion = info.FirmwareVersion
+func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Device, prov provider.DeviceProvider, conn *deviceutil.Connection) (reterr error) {
+	if err := prov.Connect(ctx, conn); err != nil {
+		conditions.Set(device, metav1.Condition{
+			Type:    v1alpha1.ReadyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.UnreachableReason,
+			Message: fmt.Sprintf("Failed to connect to provider: %v", err),
+		})
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
+	defer func() {
+		if err := prov.Disconnect(ctx, conn); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+	}()
+
+	ports, err := prov.ListPorts(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list device ports: %w", err)
+	}
+
+	interfaces := new(v1alpha1.InterfaceList)
+	if err := r.List(ctx, interfaces, client.InNamespace(device.Namespace), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name}); err != nil {
+		return fmt.Errorf("failed to list interface resources for device: %w", err)
+	}
+
+	m := make(map[string]string) // ID => Resource Name
+	for _, intf := range interfaces.Items {
+		m[intf.Spec.Name] = intf.Name
+	}
+
+	device.Status.Ports = make([]v1alpha1.DevicePort, len(ports))
+	n := int32(0)
+	for i, p := range ports {
+		var ref *v1alpha1.LocalObjectReference
+		if name, ok := m[p.ID]; ok {
+			ref = &v1alpha1.LocalObjectReference{Name: name}
+			n++
+		}
+		device.Status.Ports[i] = v1alpha1.DevicePort{
+			Name:                p.ID,
+			Type:                p.Type,
+			SupportedSpeedsGbps: p.SupportedSpeedsGbps,
+			Transceiver:         p.Transceiver,
+			InterfaceRef:        ref,
+		}
+		slices.Sort(device.Status.Ports[i].SupportedSpeedsGbps)
+	}
+
+	device.Status.PostSummary = PortSummary(device.Status.Ports)
+
+	info, err := prov.GetDeviceInfo(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get device details: %w", err)
+	}
+
+	device.Status.Manufacturer = info.Manufacturer
+	device.Status.Model = info.Model
+	device.Status.SerialNumber = info.SerialNumber
+	device.Status.FirmwareVersion = info.FirmwareVersion
+
 	conditions.Set(device, metav1.Condition{
 		Type:    v1alpha1.ReadyCondition,
 		Status:  metav1.ConditionTrue,
@@ -305,6 +321,40 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 		Message: "Device is healthy",
 	})
 
+	return nil
+}
+
+func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alpha1.Device, prov provider.DeviceProvider, conn *deviceutil.Connection) error {
+	action, ok := obj.Annotations[v1alpha1.DeviceMaintenanceAnnotation]
+	if !ok {
+		return nil
+	}
+	delete(obj.Annotations, v1alpha1.DeviceMaintenanceAnnotation)
+	switch action {
+	case v1alpha1.DeviceMaintenanceReboot:
+		r.Recorder.Event(obj, "Normal", "RebootRequested", "Device reboot has been requested")
+		if err := prov.Reboot(ctx, conn); err != nil {
+			return fmt.Errorf("failed to reboot device: %w", err)
+		}
+
+	case v1alpha1.DeviceMaintenanceFactoryReset:
+		r.Recorder.Event(obj, "Normal", "FactoryResetRequested", "Device factory reset has been requested")
+		if err := prov.FactoryReset(ctx, conn); err != nil {
+			return fmt.Errorf("failed to reset device to factory defaults: %w", err)
+		}
+
+	case v1alpha1.DeviceMaintenanceReprovision:
+		r.Recorder.Event(obj, "Normal", "ReprovisioningRequested", "Device reprovisioning has been requested. Preparing the device.")
+		if err := prov.Reprovision(ctx, conn); err != nil {
+			return fmt.Errorf("failed to reset device to factory defaults: %w", err)
+		}
+		obj.Status.Phase = v1alpha1.DevicePhasePending
+	case v1alpha1.DeviceMaintenanceResetPhaseToProvisioning:
+		r.Recorder.Event(obj, "Normal", "ResetPhaseToProvisioningRequested", "Device phase reset to Pending has been requested.")
+		obj.Status.Phase = v1alpha1.DevicePhasePending
+	default:
+		return fmt.Errorf("unknown device action: %s", action)
+	}
 	return nil
 }
 

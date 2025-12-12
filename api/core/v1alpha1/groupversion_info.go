@@ -63,6 +63,23 @@ const L2VNILabel = "networking.metal.ironcore.dev/evi-name"
 // the name of the VRF they belong to.
 const VRFLabel = "networking.metal.ironcore.dev/vrf-name"
 
+// DeviceMaintenanceAnnotation is an annotation that can be applied to Device objects
+// to trigger certain disruptive operations, such as reboots or firmware upgrades.
+const DeviceMaintenanceAnnotation = "networking.metal.ironcore.dev/maintenance"
+
+// Device maintenance actions that can be requested via the DeviceMaintenanceAnnotation.
+const (
+	// DeviceMaintenanceReboot requests a device reboot.
+	DeviceMaintenanceReboot = "reboot"
+	// DeviceMaintenanceFactoryReset requests a factory reset of the device. A factory reset
+	// will erase all configuration and return the device to its original state.
+	DeviceMaintenanceFactoryReset = "factory-reset"
+	// DeviceMaintenanceReprovision requests reprovisioning of the device, without completely resetting it.
+	DeviceMaintenanceReprovision = "reprovision"
+	// DeviceMaintenanceResetPhaseToProvisioning requests resetting the device's maintenance phase to "provisioning" without rebooting or preparing the device.
+	DeviceMaintenanceResetPhaseToProvisioning = "reset-phase-to-provisioning"
+)
+
 // Condition types that are used across different objects.
 const (
 	// ReadyCondition is the top-level status condition that reports if an object is ready.

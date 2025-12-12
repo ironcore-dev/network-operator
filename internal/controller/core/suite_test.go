@@ -466,6 +466,18 @@ func (p *Provider) VerifyProvisioned(context.Context, *deviceutil.Connection, *v
 	return true
 }
 
+func (p *Provider) Reboot(ctx context.Context, conn *deviceutil.Connection) error {
+	return nil
+}
+
+func (p *Provider) FactoryReset(ctx context.Context, conn *deviceutil.Connection) error {
+	return nil
+}
+
+func (p *Provider) Reprovision(ctx context.Context, conn *deviceutil.Connection) (reterr error) {
+	return nil
+}
+
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
 	p.Lock()
 	defer p.Unlock()

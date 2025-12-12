@@ -35,6 +35,12 @@ type DeviceProvider interface {
 	// GetDeviceInfo retrieves basic information about the device,
 	// such as manufacturer, model, serial number, and firmware version.
 	GetDeviceInfo(context.Context) (*DeviceInfo, error)
+	// Reboot initiates a reboot of the device.
+	Reboot(context.Context, *deviceutil.Connection) error
+	// FactoryReset performs a factory reset of the device.
+	FactoryReset(context.Context, *deviceutil.Connection) error
+	// Reprovision prepares the device for reprovisioning by resetting it and reenabling provisioning mechanisms.
+	Reprovision(context.Context, *deviceutil.Connection) error
 }
 
 // ProvisioningProvider is the interface for the realization of the provisioning-related operations over different providers.
