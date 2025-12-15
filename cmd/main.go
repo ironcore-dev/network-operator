@@ -472,26 +472,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := webhookv1alpha1.SetupVRFWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "VRF")
-			os.Exit(1)
-		}
-	}
-
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := webhookv1alpha1.SetupInterfaceWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Interface")
-			os.Exit(1)
-		}
-	}
-
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := webhookv1alpha1.SetupPrefixSetWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "PrefixSet")
-			os.Exit(1)
-		}
-	}
 	if err := (&corecontroller.RoutingPolicyReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
@@ -512,6 +492,33 @@ func main() {
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BorderGateway")
 		os.Exit(1)
+	}
+
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err := webhookv1alpha1.SetupVRFWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "VRF")
+			os.Exit(1)
+		}
+
+		if err := webhookv1alpha1.SetupInterfaceWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Interface")
+			os.Exit(1)
+		}
+
+		if err := webhookv1alpha1.SetupPrefixSetWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "PrefixSet")
+			os.Exit(1)
+		}
+
+		if err := webhookv1alpha1.SetupBGPWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "BGP")
+			os.Exit(1)
+		}
+
+		if err := webhookv1alpha1.SetupBGPPeerWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "BGPPeer")
+			os.Exit(1)
+		}
 	}
 
 	// +kubebuilder:scaffold:builder
