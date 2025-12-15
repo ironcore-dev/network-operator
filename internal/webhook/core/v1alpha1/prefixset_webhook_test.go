@@ -15,7 +15,6 @@ import (
 
 var _ = Describe("PrefixSet Webhook", func() {
 	var (
-		ctx       context.Context
 		obj       *v1alpha1.PrefixSet
 		oldObj    *v1alpha1.PrefixSet
 		validator PrefixSetCustomValidator
