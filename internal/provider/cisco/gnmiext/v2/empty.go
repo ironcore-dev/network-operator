@@ -6,6 +6,7 @@ package gnmiext
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 )
 
 // NOTE: Use json.Marshaler and json.Unmarshaler interfaces instead of the
@@ -39,7 +40,10 @@ func (e *Empty) UnmarshalJSON(b []byte) error {
 		*e = false
 		return nil
 	}
-	if string(b) != "[null]" {
+
+	//Due to some Cisco IOSX ouptut we also match [ \n null \n]
+	nullTypeRe := regexp.MustCompile(`^\[\s*null\s*]$`)
+	if !nullTypeRe.MatchString(string(b)) {
 		return fmt.Errorf("gnmiext: invalid empty value: %s", string(b))
 	}
 	*e = true
