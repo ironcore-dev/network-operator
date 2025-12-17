@@ -109,6 +109,7 @@ func GetDeviceConnection(ctx context.Context, r client.Reader, obj *v1alpha1.Dev
 		if err != nil {
 			return nil, err
 		}
+		conf.InsecureSkipVerify = false
 
 		log := ctrl.LoggerFrom(ctx)
 		if certPool := x509.NewCertPool(); certPool.AppendCertsFromPEM(ca) {
