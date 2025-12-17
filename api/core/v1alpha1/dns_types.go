@@ -20,6 +20,11 @@ type DNSSpec struct {
 	// +optional
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
 
+	// AdminState indicates whether DNS is administratively up or down.
+	// +optional
+	// +kubebuilder:default=Up
+	AdminState AdminState `json:"adminState,omitempty"`
+
 	// Default domain name that the device uses to complete unqualified hostnames.
 	// +required
 	// +kubebuilder:validation:MinLength=1

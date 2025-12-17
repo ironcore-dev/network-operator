@@ -21,6 +21,11 @@ type BGPSpec struct {
 	// +optional
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
 
+	// AdminState indicates whether this BGP router is administratively up or down.
+	// +optional
+	// +kubebuilder:default=Up
+	AdminState AdminState `json:"adminState,omitempty"`
+
 	// ASNumber is the autonomous system number (ASN) for the BGP router.
 	// Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
 	// +required

@@ -9,6 +9,7 @@
               "Peer-list": [
                 {
                   "addr": "1.1.1.1",
+                  "adminSt": "enabled",
                   "asn": "65000",
                   "asnType": "none",
                   "name": "EVPN peering with spine",

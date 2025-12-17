@@ -20,6 +20,11 @@ type OSPFSpec struct {
 	// +optional
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
 
+	// AdminState indicates whether the OSPF instance is administratively up or down.
+	// +optional
+	// +kubebuilder:default=Up
+	AdminState AdminState `json:"adminState,omitempty"`
+
 	// Instance is the process tag of the OSPF instance.
 	// +required
 	// +kubebuilder:validation:MinLength=1

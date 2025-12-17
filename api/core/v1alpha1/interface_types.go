@@ -95,14 +95,16 @@ type InterfaceSpec struct {
 	BFD *BFD `json:"bfd,omitempty"`
 }
 
-// AdminState represents the administrative state of the interface.
+// AdminState represents the administrative state of a resource.
+// This type is used across multiple resources including interfaces, protocols (BGP, OSPF, ISIS, PIM),
+// and system services (NTP, DNS) to indicate whether these are administratively enabled or disabled.
 // +kubebuilder:validation:Enum=Up;Down
 type AdminState string
 
 const (
-	// AdminStateUp indicates that the interface is administratively set up.
+	// AdminStateUp indicates that the resource is administratively enabled.
 	AdminStateUp AdminState = "Up"
-	// AdminStateDown indicates that the interface is administratively set down.
+	// AdminStateDown indicates that the resource is administratively disabled.
 	AdminStateDown AdminState = "Down"
 )
 

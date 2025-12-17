@@ -28,6 +28,7 @@ func (*NTP) XPath() string {
 
 func (n *NTP) Default() {
 	n.AdminSt = AdminStDisabled
+	n.Logging = AdminStDisabled
 }
 
 type NTPProvider struct {

@@ -37,20 +37,9 @@ type VLANSpec struct {
 
 	// AdminState indicates whether the VLAN is administratively active or inactive/suspended.
 	// +optional
-	// +kubebuilder:default=Active
-	AdminState VLANState `json:"adminState"`
+	// +kubebuilder:default=Up
+	AdminState AdminState `json:"adminState,omitempty"`
 }
-
-// VLANState represents the administrative state of the VLAN.
-// +kubebuilder:validation:Enum=Active;Suspended
-type VLANState string
-
-const (
-	// VLANStateActive indicates that the VLAN is administratively active.
-	VLANStateActive VLANState = "Active"
-	// VLANStateSuspended indicates that the VLAN is administratively inactive/suspended.
-	VLANStateSuspended VLANState = "Suspended"
-)
 
 // VLANStatus defines the observed state of VLAN.
 type VLANStatus struct {

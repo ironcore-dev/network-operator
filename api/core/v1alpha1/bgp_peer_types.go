@@ -21,6 +21,12 @@ type BGPPeerSpec struct {
 	// +optional
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
 
+	// AdminState indicates whether this BGP peer is administratively up or down.
+	// When Down, the BGP session with this peer is administratively shut down.
+	// +optional
+	// +kubebuilder:default=Up
+	AdminState AdminState `json:"adminState,omitempty"`
+
 	// Address is the IPv4 address of the BGP peer.
 	// +required
 	// +kubebuilder:validation:Format=ipv4

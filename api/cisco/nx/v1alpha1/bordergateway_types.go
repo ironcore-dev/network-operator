@@ -17,6 +17,11 @@ type BorderGatewaySpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="DeviceRef is immutable"
 	DeviceRef v1alpha1.LocalObjectReference `json:"deviceRef"`
 
+	// AdminState indicates whether the BorderGateway instance is administratively up or down.
+	// +optional
+	// +kubebuilder:default=Up
+	AdminState v1alpha1.AdminState `json:"adminState,omitempty"`
+
 	// MultisiteID is the identifier for the multisite border gateway.
 	// +required
 	// +kubebuilder:validation:Minimum=1
