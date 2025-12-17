@@ -246,6 +246,9 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 
 	b := new(BGP)
 	b.AdminSt = AdminStEnabled
+	if req.BGP.Spec.AdminState == v1alpha1.AdminStateDown {
+		b.AdminSt = AdminStDisabled
+	}
 	b.Asn = req.BGP.Spec.ASNumber.String()
 
 	var asf AsFormat
@@ -321,6 +324,10 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 
 	pe := new(BGPPeer)
 	pe.Addr = req.BGPPeer.Spec.Address
+	pe.AdminSt = AdminStEnabled
+	if req.BGPPeer.Spec.AdminState == v1alpha1.AdminStateDown {
+		pe.AdminSt = AdminStDisabled
+	}
 	pe.Asn = req.BGPPeer.Spec.ASNumber.String()
 	pe.AsnType = PeerAsnTypeNone
 	pe.Name = req.BGPPeer.Spec.Description
@@ -432,6 +439,9 @@ func (p *Provider) DeleteCertificate(ctx context.Context, req *provider.DeleteCe
 func (p *Provider) EnsureDNS(ctx context.Context, req *provider.EnsureDNSRequest) error {
 	d := new(DNS)
 	d.AdminSt = AdminStEnabled
+	if req.DNS.Spec.AdminState == v1alpha1.AdminStateDown {
+		d.AdminSt = AdminStDisabled
+	}
 
 	pf := new(DNSProf)
 	pf.Name = DefaultVRFName
@@ -1115,6 +1125,9 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 
 	i := new(ISIS)
 	i.AdminSt = AdminStEnabled
+	if req.ISIS.Spec.AdminState == v1alpha1.AdminStateDown {
+		i.AdminSt = AdminStDisabled
+	}
 	i.Name = req.ISIS.Spec.Instance
 
 	dom := new(ISISDom)
@@ -1294,6 +1307,9 @@ func (p *Provider) EnsureNTP(ctx context.Context, req *provider.EnsureNTPRequest
 
 	n := new(NTP)
 	n.AdminSt = AdminStEnabled
+	if req.NTP.Spec.AdminState == v1alpha1.AdminStateDown {
+		n.AdminSt = AdminStDisabled
+	}
 	n.Logging = AdminStDisabled
 	if cfg.Log.Enable {
 		n.Logging = AdminStEnabled
@@ -1448,6 +1464,9 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 
 	o := new(OSPF)
 	o.AdminSt = AdminStEnabled
+	if req.OSPF.Spec.AdminState == v1alpha1.AdminStateDown {
+		o.AdminSt = AdminStDisabled
+	}
 	o.Name = req.OSPF.Spec.Instance
 	conf = append(conf, o)
 
@@ -1458,6 +1477,9 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 		dom.AdjChangeLogLevel = AdjChangeLogLevelBrief
 	}
 	dom.AdminSt = AdminStEnabled
+	if req.OSPF.Spec.AdminState == v1alpha1.AdminStateDown {
+		dom.AdminSt = AdminStDisabled
+	}
 	dom.BwRef = DefaultBwRef // default 40 Gbps
 	dom.BwRefUnit = BwRefUnitMbps
 	if cfg.ReferenceBandwidthMbps != 0 {
@@ -1598,6 +1620,25 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 	f := new(Feature)
 	f.Name = "pim"
 	f.AdminSt = AdminStEnabled
+
+	pim := new(PIM)
+	pim.AdminSt = AdminStEnabled
+	pim.InstItems.AdminSt = AdminStEnabled
+	if req.PIM.Spec.AdminState == v1alpha1.AdminStateDown {
+		pim.AdminSt = AdminStDisabled
+		pim.InstItems.AdminSt = AdminStDisabled
+	}
+
+	dom := new(PIMDom)
+	dom.Name = DefaultVRFName
+	dom.AdminSt = AdminStEnabled
+	if req.PIM.Spec.AdminState == v1alpha1.AdminStateDown {
+		dom.AdminSt = AdminStDisabled
+	}
+
+	if err := p.client.Patch(ctx, pim, dom); err != nil {
+		return err
+	}
 
 	rpItems := new(StaticRPItems)
 	apItems := new(AnycastPeerItems)
@@ -2023,10 +2064,8 @@ func (p *Provider) EnsureVLAN(ctx context.Context, req *provider.VLANRequest) er
 	v := new(VLAN)
 	v.FabEncap = fmt.Sprintf("vlan-%d", req.VLAN.Spec.ID)
 	v.AdminSt = BdStateActive
-	switch req.VLAN.Spec.AdminState {
-	case v1alpha1.VLANStateActive:
-		v.BdState = BdStateActive
-	case v1alpha1.VLANStateSuspended:
+	v.BdState = BdStateActive
+	if req.VLAN.Spec.AdminState == v1alpha1.AdminStateDown {
 		v.BdState = BdStateInactive
 	}
 	if req.VLAN.Spec.Name != "" {
@@ -2250,7 +2289,7 @@ func (p *Provider) EnsureVPCDomain(ctx context.Context, vpcdomain *nxv1alpha1.VP
 	v.Id = uint16(vpcdomain.Spec.DomainID) // #nosec G115 -- kubebuilder
 
 	v.AdminSt = AdminStEnabled
-	if vpcdomain.Spec.AdminState == nxv1alpha1.AdminStateDown {
+	if vpcdomain.Spec.AdminState == v1alpha1.AdminStateDown {
 		v.AdminSt = AdminStDisabled
 	}
 
@@ -2315,7 +2354,7 @@ func (p *Provider) EnsureVPCDomain(ctx context.Context, vpcdomain *nxv1alpha1.VP
 	v.KeepAliveItems.PeerLinkItems.Id = pcName
 
 	v.KeepAliveItems.PeerLinkItems.AdminSt = AdminStEnabled
-	if vpcdomain.Spec.Peer.AdminState == nxv1alpha1.AdminStateDown {
+	if vpcdomain.Spec.Peer.AdminState == v1alpha1.AdminStateDown {
 		v.KeepAliveItems.PeerLinkItems.AdminSt = AdminStDisabled
 	}
 
@@ -2417,6 +2456,9 @@ func (p *Provider) EnsureBorderGatewaySettings(ctx context.Context, req *BorderG
 	conf := make([]gnmiext.Configurable, 0, 3)
 	bg := new(MultisiteItems)
 	bg.AdminSt = AdminStEnabled
+	if req.BorderGateway.Spec.AdminState == v1alpha1.AdminStateDown {
+		bg.AdminSt = AdminStDisabled
+	}
 	bg.SiteID = strconv.FormatInt(req.BorderGateway.Spec.MultisiteID, 10)
 	bg.DelayRestoreSeconds = int64(math.Round(req.BorderGateway.Spec.DelayRestoreTime.Seconds()))
 	if bg.DelayRestoreSeconds < 30 || bg.DelayRestoreSeconds > 1000 {

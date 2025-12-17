@@ -77,6 +77,7 @@ spec:
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
             properties:
               adminState:
+                default: Up
                 description: AdminState indicates whether the interface is administratively
                   up or down.
                 enum:
@@ -401,7 +402,6 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
             required:
-            - adminState
             - deviceRef
             - name
             - type

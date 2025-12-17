@@ -184,7 +184,7 @@ spec:
                   rule: '!has(oldSelf.secretRef) || has(self.secretRef)'
               provisioning:
                 description: |-
-                  Bootstrap is an optional configuration for the device bootstrap process.
+                  Provisioning is an optional configuration for the device provisioning process.
                   It can be used to provide initial configuration templates or scripts that are applied during the device provisioning.
                 properties:
                   bootScript:
@@ -372,7 +372,7 @@ spec:
                 enum:
                 - Pending
                 - Provisioning
-                - Active
+                - Running
                 - Failed
                 - Provisioned
                 type: string
@@ -431,12 +431,20 @@ spec:
                       type: string
                     error:
                       type: string
+                    phase:
+                      description: ProvisioningPhase represents the reason for the
+                        current provisioning status.
+                      type: string
+                    reboot:
+                      format: date-time
+                      type: string
                     startTime:
                       format: date-time
                       type: string
                     token:
                       type: string
                   required:
+                  - phase
                   - startTime
                   - token
                   type: object

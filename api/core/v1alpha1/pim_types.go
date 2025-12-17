@@ -20,6 +20,11 @@ type PIMSpec struct {
 	// +optional
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
 
+	// AdminState indicates whether the PIM instance is administratively up or down.
+	// +optional
+	// +kubebuilder:default=Up
+	AdminState AdminState `json:"adminState,omitempty"`
+
 	// RendezvousPoints defines the list of rendezvous points for sparse mode multicast.
 	// +optional
 	// +listType=map

@@ -90,6 +90,7 @@ spec:
             description: spec defines the desired state of VPCDomain resource
             properties:
               adminState:
+                default: Up
                 description: |-
                   AdminState is the administrative state of the vPC domain (enabled/disabled).
                   When disabled, the vPC domain is administratively shut down.
@@ -154,6 +155,7 @@ spec:
                   peer-link, keepalive.
                 properties:
                   adminState:
+                    default: Up
                     description: AdminState defines the administrative state of the
                       peer-link.
                     enum:
@@ -281,7 +283,6 @@ spec:
                     - enabled
                     type: object
                 required:
-                - adminState
                 - interfaceRef
                 - keepalive
                 type: object
@@ -302,7 +303,6 @@ spec:
                 minimum: 1
                 type: integer
             required:
-            - adminState
             - deviceRef
             - domainId
             - peer

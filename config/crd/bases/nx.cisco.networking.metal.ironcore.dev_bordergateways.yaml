@@ -53,6 +53,14 @@ spec:
               Specification of the desired state of the resource.
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
             properties:
+              adminState:
+                default: Up
+                description: AdminState indicates whether the BorderGateway instance
+                  is administratively up or down.
+                enum:
+                - Up
+                - Down
+                type: string
               bgpPeerRefs:
                 description: |-
                   BGPPeerRefs is a list of BGP peers that are part of the border gateway configuration.

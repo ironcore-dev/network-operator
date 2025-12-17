@@ -115,6 +115,7 @@ func (af *BGPDomAfItem) SetMultipath(m *v1alpha1.BGPMultipath) error {
 
 type BGPPeer struct {
 	Addr                string      `json:"addr"`
+	AdminSt             AdminSt     `json:"adminSt"`
 	Asn                 string      `json:"asn"`
 	AsnType             PeerAsnType `json:"asnType"`
 	Name                string      `json:"name,omitempty"`

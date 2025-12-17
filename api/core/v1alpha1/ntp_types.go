@@ -20,6 +20,11 @@ type NTPSpec struct {
 	// +optional
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
 
+	// AdminState indicates whether NTP is administratively up or down.
+	// +optional
+	// +kubebuilder:default=Up
+	AdminState AdminState `json:"adminState,omitempty"`
+
 	// Source interface for all NTP traffic.
 	// +required
 	// +kubebuilder:validation:MinLength=1

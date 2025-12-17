@@ -66,12 +66,12 @@ spec:
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
             properties:
               adminState:
-                default: Active
+                default: Up
                 description: AdminState indicates whether the VLAN is administratively
                   active or inactive/suspended.
                 enum:
-                - Active
-                - Suspended
+                - Up
+                - Down
                 type: string
               deviceRef:
                 description: |-

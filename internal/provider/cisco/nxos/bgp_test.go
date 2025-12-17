@@ -20,6 +20,7 @@ func init() {
 
 	bgpPeer := &BGPPeer{
 		Addr:    "1.1.1.1",
+		AdminSt: AdminStEnabled,
 		Asn:     "65000",
 		AsnType: PeerAsnTypeNone,
 		Name:    "EVPN peering with spine",

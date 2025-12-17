@@ -165,6 +165,15 @@ spec:
                         type: string
                     type: object
                 type: object
+              adminState:
+                default: Up
+                description: |-
+                  AdminState indicates whether this BGP peer is administratively up or down.
+                  When Down, the BGP session with this peer is administratively shut down.
+                enum:
+                - Up
+                - Down
+                type: string
               asNumber:
                 anyOf:
                 - type: integer

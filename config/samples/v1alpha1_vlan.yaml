@@ -11,4 +11,3 @@ spec:
     name: leaf1
   id: 10
   name: MonteCarlo
-  adminState: Active

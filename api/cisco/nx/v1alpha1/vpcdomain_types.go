@@ -6,7 +6,7 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	corev1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
 
 // VPCDomainSpec defines the desired state of a vPC domain (Virtual Port Channel Domain)
@@ -15,7 +15,7 @@ type VPCDomainSpec struct {
 	// Immutable.
 	// +required
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="DeviceRef is immutable"
-	DeviceRef corev1.LocalObjectReference `json:"deviceRef"`
+	DeviceRef v1alpha1.LocalObjectReference `json:"deviceRef"`
 
 	// DomainID is the vPC domain ID (1-1000).
 	// This uniquely identifies the vPC domain and must match on both peer switches.
@@ -27,8 +27,9 @@ type VPCDomainSpec struct {
 
 	// AdminState is the administrative state of the vPC domain (enabled/disabled).
 	// When disabled, the vPC domain is administratively shut down.
-	// +required
-	AdminState AdminState `json:"adminState"`
+	// +optional
+	// +kubebuilder:default=Up
+	AdminState v1alpha1.AdminState `json:"adminState"`
 
 	// RolePriority is the role priority for this vPC domain (1-65535).
 	// The switch with the lower role priority becomes the operational primary.
@@ -67,17 +68,6 @@ type VPCDomainSpec struct {
 	Peer Peer `json:"peer"`
 }
 
-// AdminState represents the administrative state of the peer-link connection (Up/Down).
-// +kubebuilder:validation:Enum=Up;Down
-type AdminState string
-
-const (
-	// AdminStateUp indicates the connection to the peer is administratively enabled.
-	AdminStateUp AdminState = "Up"
-	// AdminStateDown indicates the connection to the peer is administratively disabled.
-	AdminStateDown AdminState = "Down"
-)
-
 // Enabled represents a simple enabled/disabled configuration.
 type Enabled struct {
 	// Enabled indicates whether a configuration property is administratively enabled (true) or disabled (false).
@@ -88,14 +78,15 @@ type Enabled struct {
 // Peer defines settings to configure peer settings
 type Peer struct {
 	// AdminState defines the administrative state of the peer-link.
-	// +required
-	AdminState AdminState `json:"adminState"`
+	// +optional
+	// +kubebuilder:default=Up
+	AdminState v1alpha1.AdminState `json:"adminState"`
 
 	// InterfaceRef is a reference to an Interface resource and identifies the interface to be used as the vPC domain's peer-link.
 	// This interface carries control and data traffic between the two vPC domain peers.
 	// It is usually dedicated port-channel, but it can also be a single physical interface.
 	// +required
-	InterfaceRef corev1.LocalObjectReference `json:"interfaceRef,omitempty"`
+	InterfaceRef v1alpha1.LocalObjectReference `json:"interfaceRef,omitempty"`
 
 	// KeepAlive defines the out-of-band keepalive configuration.
 	// +required
@@ -145,7 +136,7 @@ type KeepAlive struct {
 	// If specified, the switch sends keepalive packets throughout this VRF.
 	// If omitted, the management VRF is used.
 	// +optional
-	VRFRef *corev1.LocalObjectReference `json:"vrfRef,omitempty"`
+	VRFRef *v1alpha1.LocalObjectReference `json:"vrfRef,omitempty"`
 }
 
 // AutoRecovery holds settings to automatically restore vPC domain's operation after detecting

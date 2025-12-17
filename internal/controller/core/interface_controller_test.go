@@ -642,7 +642,7 @@ var _ = Describe("Interface Controller", func() {
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					ID:         100,
 					Name:       "test-vlan",
-					AdminState: v1alpha1.VLANStateActive,
+					AdminState: v1alpha1.AdminStateUp,
 				},
 			}
 			Expect(k8sClient.Create(ctx, vlan)).To(Succeed())
@@ -741,7 +741,7 @@ var _ = Describe("Interface Controller", func() {
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: "different-device"},
 					ID:         100,
 					Name:       "test-vlan",
-					AdminState: v1alpha1.VLANStateActive,
+					AdminState: v1alpha1.AdminStateUp,
 				},
 			}
 			Expect(k8sClient.Create(ctx, vlan)).To(Succeed())

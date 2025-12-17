@@ -73,7 +73,7 @@ var _ = Describe("EVPNInstance Controller", func() {
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					ID:         10,
 					Name:       "vlan-10",
-					AdminState: v1alpha1.VLANStateActive,
+					AdminState: v1alpha1.AdminStateUp,
 				},
 			}
 			Expect(k8sClient.Create(ctx, vlan)).To(Succeed())
@@ -200,7 +200,7 @@ var _ = Describe("EVPNInstance Controller", func() {
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: "different-device"},
 					ID:         10,
 					Name:       "vlan-10",
-					AdminState: v1alpha1.VLANStateActive,
+					AdminState: v1alpha1.AdminStateUp,
 				},
 			}
 			Expect(k8sClient.Create(ctx, vlan)).To(Succeed())
