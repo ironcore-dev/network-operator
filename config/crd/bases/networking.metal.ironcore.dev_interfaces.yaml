@@ -296,6 +296,13 @@ spec:
                       type: integer
                     minItems: 1
                     type: array
+                  innerVlan:
+                    description: InnerVlan specifies the VLAN id for QinQ access mode
+                      switchports.
+                    format: int32
+                    maximum: 4094
+                    minimum: 1
+                    type: integer
                   mode:
                     description: Mode defines the switchport mode, such as access
                       or trunk.

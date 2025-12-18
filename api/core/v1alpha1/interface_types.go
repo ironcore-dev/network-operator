@@ -130,6 +130,12 @@ type Switchport struct {
 	// +kubebuilder:validation:Maximum=4094
 	AccessVlan int32 `json:"accessVlan,omitempty"`
 
+	// InnerVlan specifies the VLAN id for QinQ access mode switchports.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4094
+	InnerVlan int32 `json:"innerVlan,omitempty"`
+
 	// NativeVlan specifies the native VLAN ID for trunk mode switchports.
 	// Only applicable when Mode is set to "Trunk".
 	// +optional
