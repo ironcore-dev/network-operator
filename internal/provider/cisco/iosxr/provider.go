@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"strconv"
 
+	cp "github.com/felix-kaestner/copy"
+
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
@@ -53,78 +55,175 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		return errors.New("client is not connected")
 	}
 
-	if req.Interface.Spec.Type != v1alpha1.InterfaceTypePhysical {
-		message := "unsupported interface type for interface " + req.Interface.Spec.Name
-		return errors.New(message)
-	}
-
 	name := req.Interface.Spec.Name
 
-	physif := &PhysIf{}
+	switch req.Interface.Spec.Type {
+	case v1alpha1.InterfaceTypePhysical:
+		conf := make([]gnmiext.Configurable, 0, 2)
 
-	physif.Name = req.Interface.Spec.Name
-	physif.Description = req.Interface.Spec.Description
+		iface := &PhysIf{}
+		iface.Name = name
+		iface.Description = req.Interface.Spec.Description
 
-	physif.Statistics.LoadInterval = 30
-	owner, err := ExractMTUOwnerFromIfaceName(name)
-	if err != nil {
-		message := "failed to extract MTU owner from interface name" + name
-		return errors.New(message)
-	}
-	physif.MTUs = MTUs{MTU: []MTU{{MTU: req.Interface.Spec.MTU, Owner: string(owner)}}}
+		//Check if interface is part of a bundle
+		//Bundle configuration needs to happen in a sperate gnmi call
+		bundle_name := req.Interface.GetAnnotations()[v1alpha1.AggregateLabel]
+		if bundle_name == "" {
+			iface.Statistics.LoadInterval = uint8(30)
 
-	// (fixme): for the moment it is enought to keep this static
-	// option1: extend existing interface spec
-	// option2: create a custom iosxr config
-	physif.Shutdown = gnmiext.Empty(false)
-	if req.Interface.Spec.AdminState == v1alpha1.AdminStateDown {
-		physif.Shutdown = gnmiext.Empty(true)
-	}
-	physif.Statistics.LoadInterval = uint8(30)
+			if req.Interface.Spec.MTU != 0 {
+				mtu, err := NewMTU(name, req.Interface.Spec.MTU)
+				if err != nil {
+					return err
+				}
+				iface.MTUs = mtu
+			}
 
-	if len(req.Interface.Spec.IPv4.Addresses) == 0 {
-		message := "no IPv4 address configured for interface " + name
-		return errors.New(message)
-	}
+			if !(req.Interface.Spec.IPv4 == nil) {
+				//if len(req.Interface.Spec.IPv4.Addresses) == 0 {
+				//	message := "no IPv4 address configured for interface " + name
+				//	return errors.New(message)
+				//}
+				if len(req.Interface.Spec.IPv4.Addresses) > 1 {
+					message := "multiple IPv4 addresses configured for interface " + name
+					return errors.New(message)
+				}
 
-	if len(req.Interface.Spec.IPv4.Addresses) > 1 {
-		message := "multiple IPv4 addresses configured for interface " + name
-		return errors.New(message)
-	}
+				// (fixme): support IPv6 addresses, IPv6 neighbor config
+				ip := req.Interface.Spec.IPv4.Addresses[0].Addr().String()
+				ipNet := req.Interface.Spec.IPv4.Addresses[0].Bits()
 
-	// (fixme): support IPv6 addresses, IPv6 neighbor config
-	ip := req.Interface.Spec.IPv4.Addresses[0].Addr().String()
-	ipNet := req.Interface.Spec.IPv4.Addresses[0].Bits()
-
-	physif.IPv4Network = IPv4Network{
-		Addresses: AddressesIPv4{
-			Primary: Primary{
-				Address: ip,
-				Netmask: strconv.Itoa(ipNet),
-			},
-		},
-	}
-
-	// Check if interface exists otherwise patch will fail
-	tmpPhysif := &PhysIf{}
-	tmpPhysif.Name = name
-
-	err = p.client.GetConfig(ctx, tmpPhysif)
-	if err != nil {
-		// Interface does not exist, create it
-		err = p.client.Update(ctx, physif)
-		if err != nil {
-			return fmt.Errorf("failed to create interface %s: %w", req.Interface.Spec.Name, err)
+				iface.IPv4Network = IPv4Network{
+					Addresses: AddressesIPv4{
+						Primary: Primary{
+							Address: ip,
+							Netmask: strconv.Itoa(ipNet),
+						},
+					},
+				}
+			}
 		}
-		return nil
-	}
 
-	err = p.client.Update(ctx, physif)
-	if err != nil {
-		return err
-	}
+		//Configure bundle member
+		ifaceBundeConf := &PhysIf{}
+		ifaceBundeConf.Name = name
+		if bundle_name != "" {
+			bundle_id, _ := ExtractBundleIdAndVlanTagsFromName(bundle_name)
+			ifaceBundeConf.BundleMember = BundleMember{
+				ID: BundleID{
+					BundleID:    bundle_id,
+					PortAcivity: string(PortActivityOn),
+				},
+			}
+			conf = append(conf, ifaceBundeConf)
+		}
 
+		// (fixme): for the moment it is enought to keep this static
+		// option1: extend existing interface spec
+		// option2: create a custom iosxr config
+		iface.Shutdown = gnmiext.Empty(false)
+		if req.Interface.Spec.AdminState == v1alpha1.AdminStateDown {
+			iface.Shutdown = gnmiext.Empty(true)
+		}
+		conf = append(conf, iface)
+
+		return updateInteface(ctx, p.client, conf...)
+
+	case v1alpha1.InterfaceTypeAggregate:
+		if err := CheckInterfaceNameTypeAggregate(name); err != nil {
+			return err
+		}
+
+		//Presence of an outerVlan Tag indicates a subinterface
+		//BE<id>.<VLAN_ID>
+		_, outerVlan := ExtractBundleIdAndVlanTagsFromName(name)
+
+		if outerVlan != req.Interface.Spec.Switchport.AccessVlan {
+			message := fmt.Sprintf("AccesVlan must match bundle-ether name pattern BE<id>.<ACCESS_VLAN>. %d != %d",
+				outerVlan, req.Interface.Spec.Switchport.AccessVlan)
+			return errors.New(message)
+		}
+
+		iface := &BundleInterface{}
+		iface.Name = name
+		iface.Description = req.Interface.Spec.Description
+
+		if outerVlan != 0 {
+			iface.ModeNoPhysical = "default"
+
+			iface.SubInterface = VlanSubInterface{
+				VlanIdentifier: VlanIdentifier{
+					FirstTag:  outerVlan,
+					SecondTag: req.Interface.Spec.Switchport.AccessVlan,
+					VlanType:  "vlan-type-dot1q",
+				},
+			}
+
+			//Subinterface configures QAndQ vlan
+			if req.Interface.Spec.Switchport.AccessVlan != 0 {
+				iface.SubInterface.VlanIdentifier.SecondTag = req.Interface.Spec.Switchport.AccessVlan
+				iface.SubInterface.VlanIdentifier.VlanType = "vlan-type-dot1ad"
+			}
+
+		} else {
+			//Set Interface mode to virtual for bundle interfaces
+			iface.Mode = gnmiext.Empty(true)
+
+			iface.Statistics.LoadInterval = uint8(30)
+
+			mtu, err := NewMTU(name, req.Interface.Spec.MTU)
+			if err != nil {
+				return err
+			}
+			iface.MTUs = mtu
+
+			iface.Bundle = Bundle{
+				MinAct: MinimumActive{
+					Links: 1,
+				},
+			}
+
+		}
+		return updateInteface(ctx, p.client, iface)
+	}
 	return nil
+}
+
+func NewMTU(intName string, mtu int32) (MTUs, error) {
+	owner, err := ExractMTUOwnerFromIfaceName(intName)
+	if err != nil {
+		message := "failed to extract MTU owner from interface name" + intName
+		return MTUs{}, errors.New(message)
+	}
+	return MTUs{MTU: []MTU{{
+		MTU:   mtu,
+		Owner: string(owner),
+	}}}, nil
+
+}
+
+func updateInteface(ctx context.Context, client gnmiext.Client, conf ...gnmiext.Configurable) error {
+	for _, cf := range conf {
+		// Check if an interface exists otherwise patch will fail
+		got := cp.Deep(cf)
+		err := client.GetConfig(ctx, got)
+		if err != nil {
+			// Interface does not exist, create it
+			err = client.Create(ctx, cf)
+			if err == nil {
+				continue
+			}
+			return err
+
+		}
+		err = client.Patch(ctx, cf)
+		if err != nil {
+			return err
+		}
+
+	}
+	return nil
+
 }
 
 func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceRequest) error {
