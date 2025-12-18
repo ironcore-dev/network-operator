@@ -280,7 +280,6 @@ func (c *client) set(ctx context.Context, patch bool, conf ...Configurable) erro
 		// If the current configuration does not exist, continue to set the desired configuration.
 		if status.Code(err) != codes.NotFound {
 			if err != nil && !errors.Is(err, ErrNil) {
-
 				return fmt.Errorf("gnmiext: failed to retrieve current config for %s: %w", cf.XPath(), err)
 			}
 			// If the current configuration is equal to the desired configuration, skip the update.

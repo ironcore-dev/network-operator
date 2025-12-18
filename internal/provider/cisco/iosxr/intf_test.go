@@ -11,7 +11,7 @@ func init() {
 		Owner: "TwentyFiveGigE",
 	}
 
-	Register("intf", &PhysIf{
+	Register("intf", &Iface{
 		Name:        name,
 		Description: "random interface test",
 		Active:      "act",
@@ -45,6 +45,9 @@ func init() {
 					},
 				},
 			},
+		},
+		IPv6Neighbor: IPv6Neighbor{
+			RASuppress: true,
 		},
 	})
 }
