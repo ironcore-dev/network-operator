@@ -118,6 +118,10 @@ func (m *MockClient) Delete(ctx context.Context, conf ...gnmiext.Configurable) e
 	return nil
 }
 
+func (m *MockClient) Create(ctx context.Context, conf ...gnmiext.Configurable) error {
+	return nil
+}
+
 func (m *MockClient) GetState(ctx context.Context, conf ...gnmiext.Configurable) error {
 	if m.GetStateFunc != nil {
 		return m.GetStateFunc(ctx, conf...)

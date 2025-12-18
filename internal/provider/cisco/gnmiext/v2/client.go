@@ -61,6 +61,7 @@ type Client interface {
 	Patch(ctx context.Context, conf ...Configurable) error
 	Update(ctx context.Context, conf ...Configurable) error
 	Delete(ctx context.Context, conf ...Configurable) error
+	Create(ctx context.Context, conf ...Configurable) error
 }
 
 // Client is a gNMI client offering convenience methods for device configuration
@@ -143,14 +144,18 @@ func (c *client) GetState(ctx context.Context, conf ...Configurable) error {
 // If the current configuration equals the desired configuration, the operation is skipped.
 // For partial updates that merge changes, use [Client.Patch] instead.
 func (c *client) Update(ctx context.Context, conf ...Configurable) error {
-	return c.set(ctx, false, conf...)
+	return c.set(ctx, false, true, conf...)
 }
 
 // Patch merges the configuration for the given set of items.
 // If the current configuration equals the desired configuration, the operation is skipped.
 // For full replacement of configuration, use [Client.Update] instead.
 func (c *client) Patch(ctx context.Context, conf ...Configurable) error {
-	return c.set(ctx, true, conf...)
+	return c.set(ctx, true, true, conf...)
+}
+
+func (c *client) Create(ctx context.Context, conf ...Configurable) error {
+	return c.set(ctx, false, false, conf...)
 }
 
 // Delete resets the configuration for the given set of items.
@@ -256,7 +261,7 @@ func (c *client) get(ctx context.Context, dt gpb.GetRequest_DataType, conf ...Co
 // configuration. Otherwise, a full replacement is done.
 // If the current configuration equals the desired configuration, the operation
 // is skipped.
-func (c *client) set(ctx context.Context, patch bool, conf ...Configurable) error {
+func (c *client) set(ctx context.Context, patch bool, retrieve bool, conf ...Configurable) error {
 	if len(conf) == 0 {
 		return nil
 	}
@@ -267,16 +272,20 @@ func (c *client) set(ctx context.Context, patch bool, conf ...Configurable) erro
 			return err
 		}
 		got := cp.Deep(cf)
-		err = c.GetConfig(ctx, got)
-		if err != nil && !errors.Is(err, ErrNil) {
-			return fmt.Errorf("gnmiext: failed to retrieve current config for %s: %w", cf.XPath(), err)
+
+		if retrieve {
+			err = c.GetConfig(ctx, got)
+			if err != nil && !errors.Is(err, ErrNil) {
+				return fmt.Errorf("gnmiext: failed to retrieve current config for %s: %w", cf.XPath(), err)
+			}
+			// If the current configuration is equal to the desired configuration, skip the update.
+			// This avoids unnecessary updates and potential disruptions.
+			if err == nil && reflect.DeepEqual(cf, got) {
+				c.logger.V(1).Info("Configuration is already up-to-date", "path", cf.XPath())
+				continue
+			}
 		}
-		// If the current configuration is equal to the desired configuration, skip the update.
-		// This avoids unnecessary updates and potential disruptions.
-		if err == nil && reflect.DeepEqual(cf, got) {
-			c.logger.V(1).Info("Configuration is already up-to-date", "path", cf.XPath())
-			continue
-		}
+
 		b, err := c.Marshal(cf)
 		if err != nil {
 			return err
