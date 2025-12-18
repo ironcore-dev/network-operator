@@ -18,6 +18,8 @@ import (
 	"github.com/openconfig/ygot/ygot"
 	"github.com/tidwall/gjson"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // Configurable represents a configuration item with a YANG path.
@@ -272,16 +274,23 @@ func (c *client) set(ctx context.Context, patch bool, conf ...Configurable) erro
 			return err
 		}
 		got := cp.Deep(cf)
+
 		err = c.GetConfig(ctx, got)
-		if err != nil && !errors.Is(err, ErrNil) {
-			return fmt.Errorf("gnmiext: failed to retrieve current config for %s: %w", cf.XPath(), err)
+
+		// If the current configuration does not exist, continue to set the desired configuration.
+		if status.Code(err) != codes.NotFound {
+			if err != nil && !errors.Is(err, ErrNil) {
+
+				return fmt.Errorf("gnmiext: failed to retrieve current config for %s: %w", cf.XPath(), err)
+			}
+			// If the current configuration is equal to the desired configuration, skip the update.
+			// This avoids unnecessary updates and potential disruptions.
+			if err == nil && reflect.DeepEqual(cf, got) {
+				c.logger.V(1).Info("Configuration is already up-to-date", "path", cf.XPath())
+				continue
+			}
 		}
-		// If the current configuration is equal to the desired configuration, skip the update.
-		// This avoids unnecessary updates and potential disruptions.
-		if err == nil && reflect.DeepEqual(cf, got) {
-			c.logger.V(1).Info("Configuration is already up-to-date", "path", cf.XPath())
-			continue
-		}
+
 		b, err := c.Marshal(cf)
 		if err != nil {
 			return err
