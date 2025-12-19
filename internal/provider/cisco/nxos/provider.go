@@ -103,7 +103,9 @@ func (p *Provider) ListPorts(ctx context.Context) ([]provider.DevicePort, error)
 		var speeds []int32
 		for s := range strings.SplitSeq(p.PhysItems.PortcapItems.Speed, ",") {
 			if n, err := strconv.ParseInt(s, 10, 32); err == nil {
-				speeds = append(speeds, int32(n))
+				if gbps := int32(n) / 1000; gbps > 0 && !slices.Contains(speeds, gbps) {
+					speeds = append(speeds, gbps)
+				}
 			}
 		}
 		dp[i] = provider.DevicePort{
