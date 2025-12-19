@@ -194,8 +194,10 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 	err := p.client.GetConfig(ctx, vrf)
 
 	if err != nil {
+		err = p.client.Create(ctx, vrf)
 		return err
 	}
+
 	fmt.Printf("Current VRF: %+v\n", vrf)
 	return nil
 }

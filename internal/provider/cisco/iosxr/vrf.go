@@ -20,8 +20,8 @@ type VRF struct {
 }
 
 type AddressFamily struct {
-	IPv4 UnicastFamily `json:"ipv4"`
-	IPv6 UnicastFamily `json:"ipv6"`
+	IPv4 UnicastFamily `json:"ipv4,omitzero"`
+	IPv6 UnicastFamily `json:"ipv6,omitzero"`
 }
 
 type UnicastFamily struct {
@@ -29,8 +29,8 @@ type UnicastFamily struct {
 }
 
 type Unicast struct {
-	Import RouteTarget `json:"Cisco-IOS-XR-um-router-bgp-cfg:import"`
-	Export RouteTarget `json:"Cisco-IOS-XR-um-router-bgp-cfg:export"`
+	Import RouteTarget `json:"Cisco-IOS-XR-um-router-bgp-cfg:import,omitzero"`
+	Export RouteTarget `json:"Cisco-IOS-XR-um-router-bgp-cfg:export,omitzero"`
 }
 
 type RouteTarget struct {
@@ -46,9 +46,9 @@ type FourByteAsRT struct {
 }
 
 type FourByteRT struct {
-	AsNumber uint32 `json:"as-number"`
-	Index    uint32 `json:"index"`
-	// Stitching bool   `json:"stitching"`
+	AsNumber  uint32 `json:"as-number"`
+	Index     uint32 `json:"index"`
+	Stitching bool   `json:"stitching"`
 }
 
 func (v *VRF) XPath() string {
@@ -75,8 +75,9 @@ func NewRouteTarget(rd string) (FourByteRT, error) {
 	}
 
 	t := FourByteRT{
-		AsNumber: uint32(asnInt),
-		Index:    uint32(indexInt),
+		AsNumber:  uint32(asnInt),
+		Index:     uint32(indexInt),
+		Stitching: false,
 	}
 
 	return t, nil
