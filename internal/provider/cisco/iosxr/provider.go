@@ -23,6 +23,7 @@ var (
 	_ provider.Provider          = &Provider{}
 	_ provider.DeviceProvider    = &Provider{}
 	_ provider.InterfaceProvider = &Provider{}
+	_ provider.VRFProvider       = &Provider{}
 )
 
 type Provider struct {
@@ -121,6 +122,8 @@ func (p *Provider) Reprovision(_ context.Context, conn *deviceutil.Connection) e
 }
 
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
+	// TODO(sven-rosenweig): Make use of the VRF information in the request to assign the interface to the correct VRF.
+	// FIXME(sven-rosenweig): Use the ExtractOwnerFromInterfaceName function in the ValidateInterfaceName function
 	if p.client == nil {
 		return errors.New("client is not connected")
 	}
@@ -380,6 +383,43 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 func (p *Provider) InterfaceNameEqual(_ context.Context, a, b string) (bool, error) {
 	// TODO: implement provider specific logic to compare interface names
 	return a == b, nil
+}
+
+func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) error {
+	vrf := &VRF{
+		Name:        req.VRF.Spec.Name,
+		Description: req.VRF.Spec.Description,
+	}
+
+	for _, routeTarget := range req.VRF.Spec.RouteTargets {
+		// Parse the route target value to extract ASN and index
+		// TODO(sven-rosenweig): Add support for two-byte (type 0) and IPv4 (type 1) route targets
+		// For now we assume that all route targets are in the format of four-byte ASNs with index: <asn>:<index>
+		rt, err := NewFourByteRT(routeTarget.Value)
+		if err != nil {
+			return fmt.Errorf("failed to parse route target %q for VRF %q: %w", routeTarget.Value, req.VRF.Spec.Name, err)
+		}
+		for _, af := range routeTarget.AddressFamilies {
+			switch af {
+			case v1alpha1.IPv4:
+				AppendAddressFamily(&vrf.AddrFamily.IPv4.Unicast, rt, routeTarget.Action)
+			case v1alpha1.IPv6:
+				AppendAddressFamily(&vrf.AddrFamily.IPv6.Unicast, rt, routeTarget.Action)
+			default:
+				return fmt.Errorf("unsupported address family %q for VRF %q", af, req.VRF.Spec.Name)
+			}
+		}
+	}
+
+	return p.client.Update(ctx, vrf)
+}
+
+func (p *Provider) DeleteVRF(ctx context.Context, req *provider.VRFRequest) error {
+	vrf := &VRF{
+		Name: req.VRF.Spec.Name,
+	}
+
+	return p.client.Delete(ctx, vrf)
 }
 
 func init() {

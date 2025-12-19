@@ -1,0 +1,68 @@
+{
+  "vrf": {
+    "vrf-name": "vrf-name",
+    "description": "vrf-description",
+    "address-family": {
+      "ipv4": {
+        "unicast": {
+          "Cisco-IOS-XR-um-router-bgp-cfg:export": {
+            "route-target": {
+              "four-byte-as-route-targets": {
+                "four-byte-as-route-target": [
+                  {
+                    "four-byte-as-number": 4268359684,
+                    "asn4-index": 1101,
+                    "stitching": "disable"
+                  }
+                ]
+              }
+            }
+          },
+          "Cisco-IOS-XR-um-router-bgp-cfg:import": {
+            "route-target": {
+              "four-byte-as-route-targets": {
+                "four-byte-as-route-target": [
+                  {
+                    "four-byte-as-number": 4268359684,
+                    "asn4-index": 1101,
+                    "stitching": "disable"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "ipv6": {
+        "unicast": {
+          "Cisco-IOS-XR-um-router-bgp-cfg:export": {
+            "route-target": {
+              "four-byte-as-route-targets": {
+                "four-byte-as-route-target": [
+                  {
+                    "four-byte-as-number": 4268359684,
+                    "asn4-index": 1101,
+                    "stitching": "disable"
+                  }
+                ]
+              }
+            }
+          },
+          "Cisco-IOS-XR-um-router-bgp-cfg:import": {
+            "route-target": {
+              "four-byte-as-route-targets": {
+                "four-byte-as-route-target": [
+                  {
+                    "four-byte-as-number": 4268359684,
+                    "asn4-index": 1101,
+                    "stitching": "disable"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
