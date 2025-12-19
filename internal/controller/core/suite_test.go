@@ -5,6 +5,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -346,7 +347,8 @@ type Provider struct {
 
 	Ports           sets.Set[string]
 	User            sets.Set[string]
-	Banner          *string
+	PreLoginBanner  *string
+	PostLoginBanner *string
 	DNS             *v1alpha1.DNS
 	NTP             *v1alpha1.NTP
 	ACLs            sets.Set[string]
@@ -427,17 +429,31 @@ func (p *Provider) GetInterfaceStatus(context.Context, *provider.InterfaceReques
 	}, nil
 }
 
-func (p *Provider) EnsureBanner(_ context.Context, req *provider.BannerRequest) error {
+func (p *Provider) EnsureBanner(_ context.Context, req *provider.EnsureBannerRequest) error {
 	p.Lock()
 	defer p.Unlock()
-	p.Banner = &req.Message
+	switch req.Type {
+	case v1alpha1.BannerTypePreLogin:
+		p.PreLoginBanner = &req.Message
+	case v1alpha1.BannerTypePostLogin:
+		p.PostLoginBanner = &req.Message
+	default:
+		return errors.New("unknown banner type")
+	}
 	return nil
 }
 
-func (p *Provider) DeleteBanner(context.Context) error {
+func (p *Provider) DeleteBanner(_ context.Context, req *provider.DeleteBannerRequest) error {
 	p.Lock()
 	defer p.Unlock()
-	p.Banner = nil
+	switch req.Type {
+	case v1alpha1.BannerTypePreLogin:
+		p.PreLoginBanner = nil
+	case v1alpha1.BannerTypePostLogin:
+		p.PostLoginBanner = nil
+	default:
+		return errors.New("unknown banner type")
+	}
 	return nil
 }
 

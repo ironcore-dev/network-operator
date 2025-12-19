@@ -119,14 +119,19 @@ type BannerProvider interface {
 	Provider
 
 	// EnsureBanner call is responsible for Banner realization on the provider.
-	EnsureBanner(context.Context, *BannerRequest) error
+	EnsureBanner(context.Context, *EnsureBannerRequest) error
 	// DeleteBanner call is responsible for Banner deletion on the provider.
-	DeleteBanner(context.Context) error
+	DeleteBanner(context.Context, *DeleteBannerRequest) error
 }
 
-type BannerRequest struct {
+type EnsureBannerRequest struct {
 	Message        string
+	Type           v1alpha1.BannerType
 	ProviderConfig *ProviderConfig
+}
+
+type DeleteBannerRequest struct {
+	Type v1alpha1.BannerType
 }
 
 // UserProvider is the interface for the realization of the User objects over different providers.

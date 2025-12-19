@@ -245,8 +245,9 @@ func (r *BannerReconciler) reconcile(ctx context.Context, s *bannerScope) (reter
 	}
 
 	// Ensure the Banner is realized on the provider.
-	err = s.Provider.EnsureBanner(ctx, &provider.BannerRequest{
+	err = s.Provider.EnsureBanner(ctx, &provider.EnsureBannerRequest{
 		Message:        string(msg),
+		Type:           s.Banner.Spec.Type,
 		ProviderConfig: s.ProviderConfig,
 	})
 
@@ -268,7 +269,9 @@ func (r *BannerReconciler) finalize(ctx context.Context, s *bannerScope) (reterr
 		}
 	}()
 
-	return s.Provider.DeleteBanner(ctx)
+	return s.Provider.DeleteBanner(ctx, &provider.DeleteBannerRequest{
+		Type: s.Banner.Spec.Type,
+	})
 }
 
 // secretToBanner is a [handler.MapFunc] to be used to enqueue requests for reconciliation
