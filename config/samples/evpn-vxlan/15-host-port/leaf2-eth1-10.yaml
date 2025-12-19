@@ -1,0 +1,15 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: leaf2-eth1-10
+spec:
+  deviceRef:
+    name: leaf2
+  name: eth1/10
+  description: Leaf2 to Host1
+  adminState: Up
+  type: Physical
+  switchport:
+    mode: Trunk
+    nativeVlan: 1
+    allowedVlans: [10]

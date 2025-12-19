@@ -1,0 +1,14 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: leaf3-lo0
+spec:
+  deviceRef:
+    name: leaf3
+  name: lo0
+  description: Router-ID Leaf3
+  adminState: Up
+  type: Loopback
+  ipv4:
+    addresses:
+      - 10.0.0.12/32

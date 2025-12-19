@@ -1,0 +1,22 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: leaf2-po-10
+spec:
+  deviceRef:
+    name: leaf2
+  name: po10
+  description: vPC Leaf2 to Host1
+  adminState: Up
+  type: Aggregate
+  switchport:
+    mode: Trunk
+    nativeVlan: 1
+    allowedVlans: [10]
+  aggregation:
+    controlProtocol:
+      mode: Active
+    memberInterfaceRefs:
+      - name: leaf2-eth1-10
+    multichassis:
+      id: 10

@@ -1,0 +1,16 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  annotations:
+    nx.cisco.networking.metal.ironcore.dev/spanning-tree-port-type: "network"
+  name: leaf1-eth1-31
+spec:
+  deviceRef:
+    name: leaf1
+  name: eth1/31
+  description: vPC Peer-Link
+  adminState: Up
+  type: Physical
+  switchport:
+    mode: Trunk
+    nativeVlan: 1

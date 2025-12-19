@@ -1,0 +1,21 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: OSPF
+metadata:
+  name: leaf1-underlay
+spec:
+  deviceRef:
+    name: leaf1
+  instance: UNDERLAY
+  routerId: 10.0.0.10
+  logAdjacencyChanges: true
+  interfaceRefs:
+    - name: leaf1-lo0
+      area: 0.0.0.0
+      passive: true
+    - name: leaf1-lo1
+      area: 0.0.0.0
+      passive: true
+    - name: leaf1-eth1-1
+      area: 0.0.0.0
+    - name: leaf1-eth1-2
+      area: 0.0.0.0

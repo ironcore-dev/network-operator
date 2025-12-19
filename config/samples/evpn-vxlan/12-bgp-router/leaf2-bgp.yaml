@@ -1,0 +1,12 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGP
+metadata:
+  name: leaf2-bgp
+spec:
+  deviceRef:
+    name: leaf2
+  asNumber: 65000
+  routerId: 10.0.0.11
+  addressFamilies:
+    ipv4Unicast:
+      enabled: true

@@ -1,0 +1,53 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGPPeer
+metadata:
+  name: spine1-leaf1
+spec:
+  deviceRef:
+    name: spine1
+  address: 10.0.0.10
+  asNumber: 65000
+  localAddress:
+    interfaceRef:
+      name: spine1-lo0
+  addressFamilies:
+    l2vpnEvpn:
+      enabled: true
+      sendCommunity: Both
+      routeReflectorClient: true
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGPPeer
+metadata:
+  name: spine1-leaf2
+spec:
+  deviceRef:
+    name: spine1
+  address: 10.0.0.11
+  asNumber: 65000
+  localAddress:
+    interfaceRef:
+      name: spine1-lo0
+  addressFamilies:
+    l2vpnEvpn:
+      enabled: true
+      sendCommunity: Both
+      routeReflectorClient: true
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGPPeer
+metadata:
+  name: spine1-leaf3
+spec:
+  deviceRef:
+    name: spine1
+  address: 10.0.0.12
+  asNumber: 65000
+  localAddress:
+    interfaceRef:
+      name: spine1-lo0
+  addressFamilies:
+    l2vpnEvpn:
+      enabled: true
+      sendCommunity: Both
+      routeReflectorClient: true

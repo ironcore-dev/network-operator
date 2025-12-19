@@ -1,0 +1,16 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: leaf3-eth1-2
+spec:
+  deviceRef:
+    name: leaf3
+  name: eth1/2
+  description: Leaf3 to Spine2
+  adminState: Up
+  type: Physical
+  mtu: 9216
+  ipv4:
+    unnumbered:
+      interfaceRef:
+        name: leaf3-lo0
