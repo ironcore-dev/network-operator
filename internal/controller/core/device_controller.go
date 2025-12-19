@@ -246,6 +246,12 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 		}
 
 		if err := prov.Connect(ctx, conn); err != nil {
+			conditions.Set(device, metav1.Condition{
+				Type:    v1alpha1.ReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.UnreachableReason,
+				Message: fmt.Sprintf("Failed to connect to provider: %v", err),
+			})
 			return fmt.Errorf("failed to connect to provider: %w", err)
 		}
 		defer func() {
@@ -304,7 +310,6 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 			return err
 		}
 	}
-
 	conditions.Set(device, metav1.Condition{
 		Type:    v1alpha1.ReadyCondition,
 		Status:  metav1.ConditionTrue,
