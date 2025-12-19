@@ -90,6 +90,9 @@ const (
 	// NotReadyReason indicates that the resource is not ready for use.
 	NotReadyReason = "NotReady"
 
+	// UnreachableReason indicates that the controller cannot reach the device.
+	UnreachableReason = "Unreachable"
+
 	// ReconcilePendingReason indicates that the controller is waiting for resources to be reconciled.
 	ReconcilePendingReason = "ReconcilePending"
 
