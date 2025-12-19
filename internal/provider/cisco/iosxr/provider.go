@@ -21,6 +21,7 @@ import (
 var (
 	_ provider.Provider          = &Provider{}
 	_ provider.InterfaceProvider = &Provider{}
+	_ provider.VRFProvider       = &Provider{}
 )
 
 type Provider struct {
@@ -159,6 +160,59 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 	return provider.InterfaceStatus{
 		OperStatus: state.State == string(StateUp),
 	}, nil
+}
+
+func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) error {
+	if p.client == nil {
+		return errors.New("client is not connected")
+	}
+
+	vrf := &VRF{}
+	vrf.Name = req.VRF.Spec.Name
+	vrf.Descr = req.VRF.Spec.Description
+
+	for _, routeTarget := range req.VRF.Spec.RouteTargets {
+		// Parse the route target value to extract ASN and index
+		localRT, err := NewRouteTarget(routeTarget.Value)
+		if err != nil {
+			return fmt.Errorf("failed to parse route target %s: %w", routeTarget.Value, err)
+		}
+		for _, af := range routeTarget.AddressFamilies {
+			switch af {
+			case v1alpha1.IPv4:
+				AppendAddressFamily(&vrf.AddrFamily.IPv4.Unicast, &localRT, routeTarget.Action)
+			case v1alpha1.IPv6:
+				AppendAddressFamily(&vrf.AddrFamily.IPv6.Unicast, &localRT, routeTarget.Action)
+			default:
+				return fmt.Errorf("unsupported address family %s for VRF %s", af, req.VRF.Spec.Name)
+			}
+		}
+
+	}
+
+	//ToDo - move to generic function
+	err := p.client.GetConfig(ctx, vrf)
+
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Current VRF: %+v\n", vrf)
+	return nil
+}
+
+func (p *Provider) DeleteVRF(ctx context.Context, req *provider.VRFRequest) error {
+	if p.client == nil {
+		return errors.New("client is not connected")
+	}
+
+	vrf := new(VRF)
+	vrf.Name = req.VRF.Spec.Name
+
+	err := p.client.Delete(ctx, vrf)
+	if err != nil {
+		return fmt.Errorf("failed to delete VRF %s: %w", req.VRF.Spec.Name, err)
+	}
+	return nil
 }
 
 func init() {
