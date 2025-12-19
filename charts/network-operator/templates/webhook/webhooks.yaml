@@ -11,6 +11,46 @@ metadata:
   labels:
     {{- include "chart.labels" . | nindent 4 }}
 webhooks:
+  - name: bgp-v1alpha1.kb.io
+    clientConfig:
+      service:
+        name: network-operator-webhook-service
+        namespace: {{ .Release.Namespace }}
+        path: /validate-networking-metal-ironcore-dev-v1alpha1-bgp
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - networking.metal.ironcore.dev
+        apiVersions:
+          - v1alpha1
+        resources:
+          - bgp
+  - name: bgppeer-v1alpha1.kb.io
+    clientConfig:
+      service:
+        name: network-operator-webhook-service
+        namespace: {{ .Release.Namespace }}
+        path: /validate-networking-metal-ironcore-dev-v1alpha1-bgppeer
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - networking.metal.ironcore.dev
+        apiVersions:
+          - v1alpha1
+        resources:
+          - bgppeers
   - name: interface-v1alpha1.kb.io
     clientConfig:
       service:
