@@ -13,6 +13,7 @@
                   "asnType": "none",
                   "name": "EVPN peering with spine",
                   "srcIf": "lo0",
+                  "inheritContPeerCtrl": "",
                   "af-items": {
                     "PeerAf-list": [
                       {

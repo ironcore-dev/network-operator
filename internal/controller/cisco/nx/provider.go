@@ -17,6 +17,9 @@ type Provider interface {
 
 	EnsureSystemSettings(ctx context.Context, s *nxv1alpha1.System) error
 	ResetSystemSettings(ctx context.Context) error
+
+	EnsureBorderGatewaySettings(ctx context.Context, req *nxos.BorderGatewaySettingsRequest) error
+	ResetBorderGatewaySettings(ctx context.Context) error
 }
 
 var _ Provider = (*nxos.Provider)(nil)
