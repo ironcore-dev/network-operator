@@ -897,6 +897,56 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		conf = append(conf, addr)
 	}
 
+	bfd := new(BFD)
+	bfd.ID = name
+	if req.Interface.Spec.BFD != nil {
+		f := new(Feature)
+		f.Name = "bfd"
+		f.AdminSt = AdminStEnabled
+		conf = append(conf, f)
+
+		icmp := new(ICMPIf)
+		icmp.ID = name
+		icmp.Ctrl = "port-unreachable"
+		conf = append(conf, icmp)
+
+		bfd.AdminSt = AdminStDisabled
+		if req.Interface.Spec.BFD.Enabled {
+			bfd.AdminSt = AdminStEnabled
+			bfd.IfkaItems.MinTxIntvlMs = 50
+			if req.Interface.Spec.BFD.DesiredMinimumTxInterval != nil {
+				bfd.IfkaItems.MinTxIntvlMs = req.Interface.Spec.BFD.DesiredMinimumTxInterval.Milliseconds()
+			}
+			bfd.IfkaItems.MinRxIntvlMs = 50
+			if req.Interface.Spec.BFD.RequiredMinimumReceive != nil {
+				bfd.IfkaItems.MinRxIntvlMs = req.Interface.Spec.BFD.RequiredMinimumReceive.Milliseconds()
+			}
+			bfd.IfkaItems.DetectMult = 3
+			if req.Interface.Spec.BFD.DetectionMultiplier != nil {
+				bfd.IfkaItems.DetectMult = *req.Interface.Spec.BFD.DetectionMultiplier
+			}
+			if err := bfd.Validate(); err != nil {
+				return err
+			}
+		}
+		conf = append(conf, bfd)
+	} else {
+		icmp := new(ICMPIf)
+		icmp.ID = name
+		switch req.Interface.Spec.Type {
+		case v1alpha1.InterfaceTypePhysical:
+			if err := p.client.Delete(ctx, icmp); err != nil {
+				return err
+			}
+		case v1alpha1.InterfaceTypeLoopback:
+			icmp.Ctrl = "port-unreachable,redirect"
+			conf = append(conf, icmp)
+		case v1alpha1.InterfaceTypeRoutedVLAN:
+			icmp.Ctrl = "port-unreachable"
+			conf = append(conf, icmp)
+		}
+	}
+
 	return p.client.Update(ctx, conf...)
 }
 
@@ -917,6 +967,10 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 		}
 	}
 
+	bfd := new(BFD)
+	bfd.ID = name
+	conf = append(conf, bfd)
+
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
 		p := new(PhysIf)
@@ -926,6 +980,10 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 		stp := new(SpanningTree)
 		stp.IfName = name
 		conf = append(conf, stp)
+
+		icmp := new(ICMPIf)
+		icmp.ID = name
+		conf = append(conf, icmp)
 
 	case v1alpha1.InterfaceTypeLoopback:
 		lb := new(Loopback)
@@ -1037,8 +1095,8 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 
 	conf := append(make([]gnmiext.Configurable, 0, 3), f)
 
-	if slices.ContainsFunc(req.Interfaces, func(intf provider.ISISInterface) bool {
-		return intf.BFD
+	if slices.ContainsFunc(req.Interfaces, func(intf *v1alpha1.Interface) bool {
+		return intf.Spec.BFD.Enabled
 	}) {
 		f := new(Feature)
 		f.Name = "bfd"
@@ -1081,12 +1139,7 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 		dom.AfItems.DomAfList.Set(item)
 	}
 
-	interfaces := make([]*v1alpha1.Interface, 0, len(req.Interfaces))
-	for _, iface := range req.Interfaces {
-		interfaces = append(interfaces, iface.Interface)
-	}
-
-	interfaceNames, err := p.EnsureInterfacesExist(ctx, interfaces)
+	interfaceNames, err := p.EnsureInterfacesExist(ctx, req.Interfaces)
 	if err != nil {
 		return err
 	}
@@ -1099,20 +1152,20 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 		intf := new(ISISInterface)
 		intf.ID = interfaceNames[i]
 		intf.NetworkTypeP2P = AdminStOff
-		if iface.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical {
+		if iface.Spec.Type == v1alpha1.InterfaceTypePhysical {
 			intf.NetworkTypeP2P = AdminStOn
 		}
 		if ipv4 {
 			intf.V4Enable = true
 			intf.V4Bfd = "inheritVrf"
-			if iface.BFD {
+			if iface.Spec.BFD.Enabled {
 				intf.V4Bfd = "enabled"
 			}
 		}
 		if ipv6 {
 			intf.V6Enable = true
 			intf.V6Bfd = "inheritVrf"
-			if iface.BFD {
+			if iface.Spec.BFD.Enabled {
 				intf.V6Bfd = "enabled"
 			}
 		}
@@ -1377,13 +1430,17 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 		}
 	}
 
+	conf := make([]gnmiext.Configurable, 0, 3)
+
 	f := new(Feature)
 	f.Name = "ospf"
 	f.AdminSt = AdminStEnabled
+	conf = append(conf, f)
 
 	o := new(OSPF)
 	o.AdminSt = AdminStEnabled
 	o.Name = req.OSPF.Spec.Instance
+	conf = append(conf, o)
 
 	dom := new(OSPFDom)
 	dom.Name = DefaultVRFName
@@ -1439,6 +1496,18 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 		if iface.Passive == nil || !*iface.Passive {
 			intf.PassiveCtrl = PassiveControlDisabled
 		}
+		intf.BFDCtrl = OspfBfdCtrlUnspecified
+		if iface.Interface.Spec.BFD != nil {
+			fb := new(Feature)
+			fb.Name = "bfd"
+			fb.AdminSt = AdminStEnabled
+			conf = slices.Insert(conf, 1, gnmiext.Configurable(fb)) // insert before OSPF
+
+			intf.BFDCtrl = OspfBfdCtrlDisabled
+			if !iface.Interface.Spec.BFD.Enabled {
+				intf.BFDCtrl = OspfBfdCtrlEnabled
+			}
+		}
 		dom.IfItems.IfList.Set(intf)
 	}
 
@@ -1466,7 +1535,7 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 		dom.MaxlsapItems.MaxLsa = cfg.MaxLSA
 	}
 
-	return p.client.Update(ctx, f, o)
+	return p.client.Update(ctx, conf...)
 }
 
 func (p *Provider) DeleteOSPF(ctx context.Context, req *provider.DeleteOSPFRequest) error {
@@ -1504,7 +1573,7 @@ func (p *Provider) GetOSPFStatus(ctx context.Context, req *provider.OSPFStatusRe
 				Address:             adj.PeerIP,
 				Interface:           i,
 				Priority:            adj.Prio,
-				LastEstablishedTime: adj.AdjStatsItems.LastStChgTs,
+				LastEstablishedTime: adj.AdjStatsItems.LastStChgTS,
 				AdjacencyState:      adj.OperSt.ToNeighborState(),
 			})
 		}
