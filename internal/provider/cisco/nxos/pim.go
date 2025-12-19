@@ -6,10 +6,34 @@ package nxos
 import "github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
 
 var (
+	_ gnmiext.Configurable = (*PIM)(nil)
+	_ gnmiext.Configurable = (*PIMDom)(nil)
 	_ gnmiext.Configurable = (*StaticRPItems)(nil)
 	_ gnmiext.Configurable = (*AnycastPeerItems)(nil)
 	_ gnmiext.Configurable = (*PIMIfItems)(nil)
 )
+
+type PIM struct {
+	AdminSt   AdminSt `json:"adminSt"`
+	InstItems struct {
+		AdminSt AdminSt `json:"adminSt"`
+	} `json:"inst-items"`
+}
+
+func (*PIM) XPath() string {
+	return "System/pim-items"
+}
+
+type PIMDom struct {
+	Name    string  `json:"name"`
+	AdminSt AdminSt `json:"adminSt"`
+}
+
+func (*PIMDom) IsListItem() {}
+
+func (p *PIMDom) XPath() string {
+	return "System/pim-items/inst-items/dom-items/Dom-list[name=" + p.Name + "]"
+}
 
 type StaticRPItems struct {
 	StaticRPList gnmiext.List[string, *StaticRP] `json:"StaticRP-list,omitzero"`

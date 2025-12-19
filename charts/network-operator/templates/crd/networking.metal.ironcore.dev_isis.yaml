@@ -71,6 +71,14 @@ spec:
                 minItems: 1
                 type: array
                 x-kubernetes-list-type: set
+              adminState:
+                default: Up
+                description: AdminState indicates whether the ISIS instance is administratively
+                  up or down.
+                enum:
+                - Up
+                - Down
+                type: string
               deviceRef:
                 description: |-
                   DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.

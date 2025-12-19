@@ -222,6 +222,14 @@ spec:
                         type: object
                     type: object
                 type: object
+              adminState:
+                default: Up
+                description: AdminState indicates whether this BGP router is administratively
+                  up or down.
+                enum:
+                - Up
+                - Down
+                type: string
               asNumber:
                 anyOf:
                 - type: integer

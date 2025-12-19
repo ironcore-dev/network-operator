@@ -50,7 +50,7 @@ var _ = Describe("VLAN Controller", func() {
 						DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 						ID:         id,
 						Name:       "Scrum",
-						AdminState: v1alpha1.VLANStateActive,
+						AdminState: v1alpha1.AdminStateUp,
 					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
