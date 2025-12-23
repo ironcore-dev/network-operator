@@ -1,0 +1,443 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: vpcdomains.nx.cisco.networking.metal.ironcore.dev
+spec:
+  group: nx.cisco.networking.metal.ironcore.dev
+  names:
+    kind: VPCDomain
+    listKind: VPCDomainList
+    plural: vpcdomains
+    shortNames:
+    - vpcdomain
+    singular: vpcdomain
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.deviceRef.name
+      name: Device
+      type: string
+    - jsonPath: .spec.domainId
+      name: Domain
+      type: string
+    - jsonPath: .spec.adminState
+      name: Enabled
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Configured")].status
+      name: Configured
+      priority: 1
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Operational")].status
+      name: Operational
+      priority: 1
+      type: string
+    - jsonPath: .status.peerStatus
+      name: PeerStatus
+      priority: 1
+      type: string
+    - jsonPath: .status.role
+      name: Role
+      priority: 1
+      type: string
+    - jsonPath: .status.peerLinkIf
+      name: PeerLinkIf
+      priority: 1
+      type: string
+    - jsonPath: .status.peerLinkIfOperStatus
+      name: PeerLinkIfOperSt
+      priority: 1
+      type: string
+    - jsonPath: .status.keepaliveStatus
+      name: KA-PeerStatus
+      priority: 1
+      type: string
+    - jsonPath: .status.peerUptime
+      name: KA-PeerUptime
+      priority: 1
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: VPCDomain is the Schema for the VPCDomains API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of VPCDomain
+            properties:
+              adminState:
+                description: |-
+                  AdminState is the administrative state of the vPCDomain domain (enabled/disabled).
+                  When disabled, the vPCDomain domain is administratively shut down.
+                enum:
+                - Up
+                - Down
+                type: string
+              delayRestoreSVI:
+                description: |-
+                  DelayRestoreSVI is the delay in seconds (1-3600) before bringing up interface-vlan (SVI) after peer-link comes up.
+                  This prevents traffic blackholing during convergence.
+                  Maps to: "delay restore interface-vlan <DelayRestoreSVI>"
+                maximum: 3600
+                minimum: 1
+                type: integer
+              delayRestoreVPC:
+                description: |-
+                  DelayRestoreVPC is the delay in seconds (1-3600) before bringing up the member ports after the peer-link is restored.
+                  Maps to: "delay restore <DelayRestoreVPC>"
+                maximum: 3600
+                minimum: 1
+                type: integer
+              deviceRef:
+                description: |-
+                  DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
+                  Immutable.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+                x-kubernetes-validations:
+                - message: DeviceRef is immutable
+                  rule: self == oldSelf
+              domainId:
+                description: |-
+                  DomainID is the vPCDomain domain ID (1-1000).
+                  This uniquely identifies the vPCDomain domain and must match on both peer switches.
+                  Changing this value will recreate the vPCDomain domain and flap the peer-link and vPCDomains.
+                maximum: 1000
+                minimum: 1
+                type: integer
+              fastConvergence:
+                description: |-
+                  FastConvergence ensures that both SVIs and member ports are shut down simultaneously when the peer-link goes down.
+                  This sinchronization helps prevent traffic loss.
+                  Maps to: "fast-convergence" when enabled
+                properties:
+                  enabled:
+                    description: Enabled indicates whether a configuration property
+                      is administratively enabled (true) or disabled (false).
+                    type: boolean
+                required:
+                - enabled
+                type: object
+              peer:
+                description: Peer contains the vPCDomain peer configuration including
+                  peer-link, keepalive.
+                properties:
+                  adminState:
+                    default: Up
+                    description: Enabled defines the administrative state of the peer-link
+                      (enabled/disabled).
+                    enum:
+                    - Up
+                    - Down
+                    type: string
+                  autoRecovery:
+                    description: AutoRecovery defines auto-recovery settings for restoring
+                      vPCDomain after peer failure.
+                    properties:
+                      enabled:
+                        description: |-
+                          Enabled indicates whether auto-recovery is enabled.
+                          When enabled, the switch will wait for ReloadDelay seconds after peer failure
+                          before assuming the peer is dead and restoring vPCDomain functionality.
+                        type: boolean
+                      reloadDelay:
+                        description: |-
+                          ReloadDelay is the time in seconds (60-3600) to wait before assuming the peer is dead
+                          and automatically attempting to restore the communication with the peer.
+                        maximum: 3600
+                        minimum: 60
+                        type: integer
+                    type: object
+                    x-kubernetes-validations:
+                    - message: reloadDelay must be set when enabled and absent when
+                        disabled
+                      rule: 'self.enabled ? has(self.reloadDelay) : !has(self.reloadDelay)'
+                  gateway:
+                    description: |-
+                      Gateway enables peer-gateway functionality on this peer.
+                      When enabled, each vPCDomain peer can act as the active gateway for packets destined to the
+                      peer's MAC address, improving convergence.
+                    properties:
+                      enabled:
+                        description: Enabled indicates whether a configuration property
+                          is administratively enabled (true) or disabled (false).
+                        type: boolean
+                    required:
+                    - enabled
+                    type: object
+                  interfaceAggregateRef:
+                    description: |-
+                      InterfaceAggregateRef is a reference to an Interface resource with type `Aggregate`.
+                      This is a dedicated port-channel between the two switches, that will be configured as the vPCDomain peer-link.
+                      and which carries control and data traffic between the two vPCDomain peers.
+                    properties:
+                      name:
+                        description: |-
+                          Name of the referent.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  keepalive:
+                    description: KeepAlive defines the out-of-band keepalive configuration.
+                    properties:
+                      destination:
+                        description: |-
+                          Destination is the destination IP address of the vPCDomain peer's keepalive interface.
+                          This is the IP address the local switch will send keepalive messages to.
+                        format: ipv4
+                        type: string
+                      source:
+                        description: |-
+                          Source is the source IP address for keepalive messages.
+                          This is the local IP address used to send keepalive packets to the peer.
+                        format: ipv4
+                        type: string
+                      vrfRef:
+                        description: |-
+                          VRFRef is an optional reference to a VRF resource.
+                          If specified, the keepalive will use this VRF for routing keepalive packets,
+                          e.g., the management VRF.
+                          If omitted, the default VRF is used.
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    required:
+                    - destination
+                    - source
+                    type: object
+                  l3router:
+                    description: L3Router enables Layer 3 peer-router functionality
+                      on this peer.
+                    properties:
+                      enabled:
+                        description: Enabled indicates whether a configuration property
+                          is administratively enabled (true) or disabled (false).
+                        type: boolean
+                    required:
+                    - enabled
+                    type: object
+                  switch:
+                    description: |-
+                      Switch enables peer-switch functionality on this peer.
+                      When enabled, both vPCDomain peers use the same spanning-tree bridge ID, allowing both
+                      to forward traffic for all VLANs without blocking any ports.
+                    properties:
+                      enabled:
+                        description: Enabled indicates whether a configuration property
+                          is administratively enabled (true) or disabled (false).
+                        type: boolean
+                    required:
+                    - enabled
+                    type: object
+                  vpcId:
+                    description: VPCId is the peer's VPC ID to use for peer-link communication
+                    format: int32
+                    maximum: 65535
+                    minimum: 0
+                    type: integer
+                required:
+                - autoRecovery
+                - gateway
+                - interfaceAggregateRef
+                - keepalive
+                - l3router
+                - switch
+                - vpcId
+                type: object
+              rolePriority:
+                description: |-
+                  RolePriority is the role priority for this vPCDomain domain (1-65535).
+                  The switch with the lower role priority becomes the operational primary.
+                  Maps to: "role priority <RolePriority>"
+                format: int32
+                maximum: 65535
+                minimum: 1
+                type: integer
+              systemPriority:
+                description: |-
+                  SystemPriority is the system priority for this vPCDomain domain (1-65535).
+                  Used to ensure that the vPCDomain devices are primary devices on LACP. Must match on both peers.
+                  Maps to: "system-priority <SystemPriority>"
+                format: int32
+                maximum: 65535
+                minimum: 1
+                type: integer
+            required:
+            - adminState
+            - delayRestoreSVI
+            - delayRestoreVPC
+            - deviceRef
+            - domainId
+            - fastConvergence
+            - peer
+            - rolePriority
+            type: object
+          status:
+            description: status defines the observed state of VPCDomain
+            properties:
+              conditions:
+                description: |-
+                  Conditions represent the latest available observations of the VPCDomain's state.
+                  Standard conditions include:
+                  - Ready: overall readiness of the vPCDomain domain
+                  - Configured: whether the vPCDomain configuration was successfully applied to the device
+                  - Operational: whether the vPCDomain domain is operationally up. This condition is true when
+                    the status fields `PeerLinkIfOperStatus`, `KeepAliveStatus`, and `PeerStatus` are all set
+                    to `UP`.
+
+                  For this Cisco model there is not one single unique operational property that reflects the
+                  operational status of the vPC domain. The combination of peer status, keepalive status, and
+                  the interface used as peer-link determine the overall health and operational condition of
+                  the vPC domain.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              domainId:
+                description: DomainID is the vPCDomain domain ID as reported by the
+                  device.
+                type: integer
+              keepaliveStatus:
+                description: KeepAliveStatus indicates the status of the peer via
+                  the keepalive link.
+                type: string
+              keepaliveStatusMsg:
+                description: KeepAliveStatusMsg provides additional information about
+                  the keepalive status as comma separated codes, as returned by the
+                  device.
+                type: string
+              peerLinkIf:
+                description: PeerLinkIf is the name of the interface used as the vPCDomain
+                  peer-link.
+                type: string
+              peerLinkIfOperStatus:
+                description: PeerLinkIfOperStatus is the Operational status of `PeerLinkIf`.
+                type: string
+              peerStatus:
+                description: |-
+                  PeerStatus indicates the status of the vPCDomain peer-link in the latest consistency check with the peer. This means that if
+                  the adjacency is lost, e.g., due to a shutdown link, the device will not be able to perform such check and the reported status
+                  will remain unchanged (with the value of the last check).
+                type: string
+              peerStatusMsg:
+                description: PeerStatusMsg provides additional information about the
+                  peer status as comma separated codes, as returned by the device.
+                type: string
+              peerUptime:
+                description: PeerUptime indicates how long the vPCDomain peer has
+                  been up and reachable via keepalive.
+                type: string
+              role:
+                description: Role indicates the current operational role of this vPCDomain
+                  peer.
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

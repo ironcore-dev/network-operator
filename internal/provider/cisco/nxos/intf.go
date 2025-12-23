@@ -167,11 +167,21 @@ type PortChannelMember struct {
 	Force bool   `json:"isMbrForce,omitempty"`
 }
 
-func NewPortChannelMember(name string) *PortChannelMember {
-	return &PortChannelMember{
+type PortChannelMemberOption func(*PortChannelMember)
+
+func WithForce(force bool) PortChannelMemberOption {
+	return func(m *PortChannelMember) { m.Force = force }
+}
+
+func NewPortChannelMember(name string, opts ...PortChannelMemberOption) *PortChannelMember {
+	m := &PortChannelMember{
 		TDn:   fmt.Sprintf("/System/intf-items/phys-items/PhysIf-list[id='%s']", name),
 		Force: false,
 	}
+	for _, o := range opts {
+		o(m)
+	}
+	return m
 }
 
 func (m *PortChannelMember) Key() string { return m.TDn }
@@ -183,8 +193,9 @@ func (p *PortChannel) XPath() string {
 }
 
 type PortChannelOperItems struct {
-	ID     string `json:"-"`
-	OperSt OperSt `json:"operSt"`
+	ID         string `json:"-"`
+	OperSt     OperSt `json:"operSt"`
+	OperStQual string `json:"operStQual,omitempty"`
 }
 
 func (p *PortChannelOperItems) XPath() string {

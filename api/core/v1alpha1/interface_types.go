@@ -4,7 +4,10 @@
 package v1alpha1
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // InterfaceSpec defines the desired state of Interface.
@@ -116,7 +119,6 @@ const (
 
 // Switchport defines the switchport configuration for an interface.
 // +kubebuilder:validation:XValidation:rule="self.mode != 'Access' || has(self.accessVlan)", message="accessVlan must be specified when mode is Access"
-// +kubebuilder:validation:XValidation:rule="self.mode != 'Trunk' || has(self.nativeVlan)", message="nativeVlan must be specified when mode is Trunk"
 type Switchport struct {
 	// Mode defines the switchport mode, such as access or trunk.
 	// +required
@@ -306,6 +308,18 @@ type InterfaceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Interface `json:"items"`
+}
+
+var (
+	InterfaceDependencies   []schema.GroupVersionKind
+	interfaceDependenciesMu sync.Mutex
+)
+
+// RegisterInterfaceDependency adds GVKs to the interface dependency registry.
+func RegisterInterfaceDependency(gvk schema.GroupVersionKind) {
+	interfaceDependenciesMu.Lock()
+	defer interfaceDependenciesMu.Unlock()
+	InterfaceDependencies = append(InterfaceDependencies, gvk)
 }
 
 func init() {

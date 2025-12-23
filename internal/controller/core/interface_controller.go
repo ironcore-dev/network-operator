@@ -62,6 +62,8 @@ type InterfaceReconciler struct {
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vrfs,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 
+// +kubebuilder:rbac:groups=nx.cisco.networking.metal.ironcore.dev,resources=interfaceconfigs,verbs=get;list;watch
+
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 //
@@ -100,6 +102,15 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
+	var cfg *provider.ProviderConfig
+	var err error
+	if obj.Spec.ProviderConfigRef != nil {
+		cfg, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	device, err := deviceutil.GetDeviceByName(ctx, r, obj.Namespace, obj.Spec.DeviceRef.Name)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -108,14 +119,6 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	conn, err := deviceutil.GetDeviceConnection(ctx, r, device)
 	if err != nil {
 		return ctrl.Result{}, err
-	}
-
-	var cfg *provider.ProviderConfig
-	if obj.Spec.ProviderConfigRef != nil {
-		cfg, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
 	}
 
 	s := &scope{
@@ -245,6 +248,23 @@ func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 	}); err != nil {
 		return err
 	}
+
+	// c := ctrl.NewControllerManagedBy(mgr).
+	// 	For(&v1alpha1.Interface{}).
+	// 	Named("interface").
+	// 	WithEventFilter(filter)
+
+	// for _, gvks := range v1alpha1.InterfaceDependencies {
+	// 	for _, gvk := range gvks {
+	// 		obj := &unstructured.Unstructured{}
+	// 		obj.SetGroupVersionKind(gvk)
+	// 		c = c.Watches(
+	// 			obj,
+	// 			handler.EnqueueRequestsFromMapFunc(r.providerConfigToInterface),
+	// 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+	// 		)
+	// 	}
+	// }
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Interface{}).
@@ -421,6 +441,9 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		cond.Status = metav1.ConditionFalse
 		cond.Reason = v1alpha1.DegradedReason
 		cond.Message = "Interface is operationally down"
+	}
+	if status.OperMessage != "" {
+		cond.Message = fmt.Sprintf("Device returned %q", status.OperMessage)
 	}
 	conditions.Set(s.Interface, cond)
 

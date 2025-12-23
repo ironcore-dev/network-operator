@@ -22,3 +22,14 @@ var (
 	// AddToScheme adds the types in this group-version to the given scheme.
 	AddToScheme = SchemeBuilder.AddToScheme
 )
+
+// WatchLabel is a label that can be applied to any Network API object.
+//
+// Controllers which allow for selective reconciliation may check this label and proceed
+// with reconciliation of the object only if this label and a configured value is present.
+const WatchLabel = "nx.cisco.networking.metal.ironcore.dev/watch-filter"
+
+// FinalizerName is the identifier used by the controllers to perform cleanup before a resource is deleted.
+// It is added when the resource is created and ensures that the controller can handle teardown logic
+// (e.g., deleting external dependencies) before Kubernetes finalizes the deletion.
+const FinalizerName = "nx.cisco.networking.metal.ironcore.dev/finalizer"
