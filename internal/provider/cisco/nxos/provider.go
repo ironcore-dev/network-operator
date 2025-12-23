@@ -31,6 +31,7 @@ import (
 
 const (
 	SpanningTreePortTypeAnnotation = "nx.cisco.networking.metal.ironcore.dev/spanning-tree-port-type"
+	ChannelGroupForceAnnotation    = "nx.cisco.networking.metal.ironcore.dev/channel-group-force"
 )
 
 var (
@@ -740,12 +741,13 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		}
 
+		_, force := req.Interface.GetAnnotations()[ChannelGroupForceAnnotation]
 		for _, member := range req.Members {
 			n, err := ShortNamePhysicalInterface(member.Spec.Name)
 			if err != nil {
 				return err
 			}
-			pc.RsmbrIfsItems.RsMbrIfsList.Set(NewPortChannelMember(n))
+			pc.RsmbrIfsItems.RsMbrIfsList.Set(NewPortChannelMember(n, WithForce(force)))
 		}
 
 		v := new(VPCIfItems)

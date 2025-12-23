@@ -130,9 +130,8 @@ func NewVrfMember(ifName, vrfName string) *VrfMember {
 
 // SpanningTree represents the spanning tree configuration for an interface.
 type SpanningTree struct {
-	Mode   SpanningTreeMode      `json:"mode"`
-	IfName string                `json:"-"`
-	Bridge Option[BridgeControl] `json:"bridge"`
+	Mode   SpanningTreeMode `json:"mode"`
+	IfName string           `json:"-"`
 }
 
 func (*SpanningTree) IsListItem() {}
@@ -143,22 +142,6 @@ func (s *SpanningTree) XPath() string {
 
 func (s *SpanningTree) Default() {
 	s.Mode = SpanningTreeModeDefault
-}
-
-type BridgeControl string
-
-const (
-	BridgeControlEnabled  BridgeControl = "enabled"
-	BridgeControlDisabled BridgeControl = "disabled"
-)
-
-func (b BridgeControl) IsValid() bool {
-	switch b {
-	case BridgeControlEnabled, BridgeControlDisabled:
-		return true
-	default:
-		return false
-	}
 }
 
 // PortChannel represents a port-channel (LAG) interface on a NX-OS device.
@@ -184,11 +167,21 @@ type PortChannelMember struct {
 	Force bool   `json:"isMbrForce,omitempty"`
 }
 
-func NewPortChannelMember(name string) *PortChannelMember {
-	return &PortChannelMember{
+type PortChannelMemberOption func(*PortChannelMember)
+
+func WithForce(force bool) PortChannelMemberOption {
+	return func(m *PortChannelMember) { m.Force = force }
+}
+
+func NewPortChannelMember(name string, opts ...PortChannelMemberOption) *PortChannelMember {
+	m := &PortChannelMember{
 		TDn:   fmt.Sprintf("/System/intf-items/phys-items/PhysIf-list[id='%s']", name),
 		Force: false,
 	}
+	for _, o := range opts {
+		o(m)
+	}
+	return m
 }
 
 func (m *PortChannelMember) Key() string { return m.TDn }
