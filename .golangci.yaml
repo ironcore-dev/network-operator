@@ -56,7 +56,7 @@ linters:
     - ineffassign
     - intrange
     - iotamixing
-    - misspell
+    - modernize
     - nilerr
     - nolintlint
     - nosprintfhostport
@@ -130,8 +130,6 @@ linters:
         - github.com/mdlayher/arp
         # for github.com/sapcc/vpa_butler
         - k8s.io/client-go
-        # for CVE-2025-22868
-        - golang.org/x/oauth2
       toolchain-forbidden: true
       go-version-pattern: 1\.\d+(\.0)?$
     gosec:
@@ -146,6 +144,13 @@ linters:
       enable-all: true
     nolintlint:
       require-specific: true
+    modernize:
+      disable:
+        # omitzero requires removing omitempty tags in kubernetes api struct types which are nested, which is interpreted by controller-gen and breaks the CRDs.
+        - omitzero
+    perfsprint:
+      # modernize generates nicer fix code
+      concat-loop: false
     staticcheck:
       dot-import-whitelist:
         - github.com/majewsky/gg/option
@@ -170,13 +175,13 @@ linters:
   exclusions:
     generated: lax
     presets:
-      - comments
       - common-false-positives
       - legacy
       - std-error-handling
     rules:
       - linters:
           - bodyclose
+          - revive
         path: _test\.go
       # It is idiomatic Go to reuse the name 'err' with ':=' for subsequent errors.
       # Ref: https://go.dev/doc/effective_go#redeclaration

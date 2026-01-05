@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2026 SAP SE
+# SPDX-License-Identifier: Apache-2.0
+
+[default.extend-words]
+
+[files]
+extend-exclude = [
+  "go.mod",
+]

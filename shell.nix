@@ -8,7 +8,6 @@ with pkgs;
 mkShell {
   nativeBuildInputs = [
     addlicense
-    ginkgo
     go-licence-detector
     go_1_25
     golangci-lint
@@ -18,6 +17,7 @@ mkShell {
     renovate
     setup-envtest
     syft
+    typos
     # keep this line if you use bash
     bashInteractive
   ];
