@@ -161,7 +161,7 @@ type AdjChangeLogLevel string
 
 const (
 	AdjChangeLogLevelBrief  AdjChangeLogLevel = "brief"
-	AdjChangeLogLevelDefail AdjChangeLogLevel = "detail"
+	AdjChangeLogLevelDetail AdjChangeLogLevel = "detail"
 	AdjChangeLogLevelNone   AdjChangeLogLevel = "none"
 )
 

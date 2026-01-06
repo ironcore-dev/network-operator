@@ -1348,10 +1348,10 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *NVERequest) error {
 
 type NXOSPF struct {
 	// PropagateDefaultRoute is equivalent to the CLI command `default-information originate`
-	ProgateDefaultRoute *bool
+	PropagateDefaultRoute *bool
 	// RedistributionConfigs is a list of redistribution configurations for the OSPF process.
 	RedistributionConfigs []RedistributionConfig
-	// Distance is the adminitrative distance value (1-255) for OSPF routes. Cisco's default is 110.
+	// Distance is the administrative distance value (1-255) for OSPF routes. Cisco's default is 110.
 	Distance int16
 	// ReferenceBandwidthMbps is the reference bandwidth in Mbps used for OSPF calculations. By default Cisco NX-OS
 	// assigns a cost that is the configured reference bandwidth divided by the interface bandwidth. The
@@ -1454,9 +1454,9 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 		dom.InterleakItems.InterLeakPList.Set(rd)
 	}
 
-	if cfg.ProgateDefaultRoute != nil {
+	if cfg.PropagateDefaultRoute != nil {
 		dom.DefrtleakItems.Always = "no"
-		if *cfg.ProgateDefaultRoute {
+		if *cfg.PropagateDefaultRoute {
 			dom.DefrtleakItems.Always = "yes"
 		}
 	}
@@ -1780,7 +1780,7 @@ func (p *Provider) EnsureSNMP(ctx context.Context, req *provider.EnsureSNMPReque
 		if c.Group != "" {
 			comm.GrpName = c.Group
 		}
-		comm.CommAcess = "unspecified"
+		comm.CommAccess = "unspecified"
 		comm.ACLItems.UseACLName = c.ACLName
 		communities.CommSecPList.Set(comm)
 	}

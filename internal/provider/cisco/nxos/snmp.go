@@ -103,10 +103,10 @@ func (*SNMPCommunityItems) XPath() string {
 }
 
 type SNMPCommunity struct {
-	CommAcess string `json:"commAcess"`
-	GrpName   string `json:"grpName"`
-	Name      string `json:"name"`
-	ACLItems  struct {
+	CommAccess string `json:"commAcess"`
+	GrpName    string `json:"grpName"`
+	Name       string `json:"name"`
+	ACLItems   struct {
 		UseACLName string `json:"useAclName,omitempty"`
 	} `json:"acl-items,omitzero"`
 }

@@ -20,7 +20,7 @@ type AccessControlListSpec struct {
 	// +optional
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
 
-	// Name is the indentifier of the AccessControlList on the device.
+	// Name is the identifier of the AccessControlList on the device.
 	// Immutable.
 	// +required
 	// +kubebuilder:validation:MinLength=1

@@ -141,7 +141,7 @@ spec:
                 x-kubernetes-list-type: map
               name:
                 description: |-
-                  Name is the indentifier of the AccessControlList on the device.
+                  Name is the identifier of the AccessControlList on the device.
                   Immutable.
                 maxLength: 63
                 minLength: 1

@@ -21,7 +21,7 @@ type Keyed[K comparable] interface {
 // List represents a YANG list node as a map in Go, ensuring order-independent
 // comparison while marshaling to/from JSON arrays.
 //
-// YANG list nodes are uniquely identified by their key leafs, and the ordering
+// YANG list nodes are uniquely identified by their key leaves, and the ordering
 // of entries does not matter. By using a map internally, reflect.DeepEqual will
 // correctly compare two List instances regardless of insertion order.
 //

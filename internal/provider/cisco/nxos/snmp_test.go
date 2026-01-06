@@ -19,7 +19,7 @@ func init() {
 	hosts.HostList.Set(host)
 	Register("snmp_host", hosts)
 
-	comm := &SNMPCommunity{Name: "snmpcollector", CommAcess: "unspecified", GrpName: "network-operator"}
+	comm := &SNMPCommunity{Name: "snmpcollector", CommAccess: "unspecified", GrpName: "network-operator"}
 	comm.ACLItems.UseACLName = "TEST-ACL"
 	items := &SNMPCommunityItems{}
 	items.CommSecPList.Set(comm)

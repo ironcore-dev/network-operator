@@ -147,7 +147,7 @@ func (s Scrypt) Encode(password string) (string, PwdEncryptType, error) {
 	return pwd, PwdEncryptTypeScrypt, nil
 }
 
-// CiscoEncoding is the non-stanard, not documented alphabet used by Cisco for their
+// CiscoEncoding is the non-standard, not documented alphabet used by Cisco for their
 // base64 encoding.
 //
 // Taken from: https://github.com/BrettVerney/ciscoPWDhasher/blob/master/CiscoPWDhasher/__init__.py#L8-L11

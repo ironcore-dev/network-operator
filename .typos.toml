@@ -2,6 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [default.extend-words]
+ser = "ser"
+otu = "otu"
+# Typo in name used by Cisco NX-OS for a configurable property.
+# See: https://pubhub.devnetcloud.com/media/dme-docs-10-4-3/docs/System/snmp%3ACommSecP/#configurable-properties
+acess = "acess"
+# See: https://github.com/openconfig/public/pull/1423
+entitites = "entitites"
+mininum = "mininum"
+specifc = "specifc"
 
 [files]
 extend-exclude = [
