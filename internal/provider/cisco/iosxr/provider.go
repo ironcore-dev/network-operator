@@ -24,6 +24,8 @@ var (
 	_ provider.DeviceProvider    = &Provider{}
 	_ provider.InterfaceProvider = &Provider{}
 	_ provider.VRFProvider       = &Provider{}
+	_ provider.BGPProvider       = &Provider{}
+	_ provider.BGPPeerProvider   = &Provider{}
 )
 
 type Provider struct {
@@ -408,6 +410,146 @@ func (p *Provider) DeleteVRF(ctx context.Context, req *provider.VRFRequest) erro
 	}
 
 	return p.client.Delete(ctx, vrf)
+}
+
+func (p *Provider) EnsureBGP(context.Context, *provider.EnsureBGPRequest) error {
+	return nil
+}
+
+func (p *Provider) DeleteBGP(context.Context, *provider.DeleteBGPRequest) error {
+	return nil
+}
+
+func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPeerRequest) error {
+	// Ensure that the BGP instance exists and is configured on the "default" domain
+	bgp := new(BGP)
+	bgp.InstanceName = BGPDefaultInstance
+	if err := p.client.GetConfig(ctx, bgp); err != nil {
+		return fmt.Errorf("bgp peer: failed to get bgp instance 'default': %w", err)
+	}
+
+	if bgp.AS[0].ASNumber != req.BGP.Spec.ASNumber.StrVal {
+		return fmt.Errorf("bgp peer: bgp instance 'default' has a different AS number configured (%s) than the one specified in the request (%s)", bgp.AS[0].ASNumber, req.BGP.Spec.ASNumber.StrVal)
+	}
+
+	routerID := bgp.AS[0].ASNumber
+
+	// Create Default Route Policies for the peer
+	defaultRpl := NewRoutePolicy(req.VRF.Spec.Name)
+
+	err := p.client.Update(ctx, &defaultRpl)
+	if err != nil {
+		return fmt.Errorf("bgp peer: failed to create route policies: %w", err)
+	}
+
+	// Configure BGP Peer
+
+	rd, err := NewRouteDistinguisher(req.VRF.Spec.RouteDistinguisher)
+	if err != nil {
+		return fmt.Errorf("bgp peer: failed to create route distinguisher: %w", err)
+	}
+
+	peer := BGPPeer{
+		Name:     req.BGP.Spec.VrfRef.Name,
+		RouterID: routerID,
+		RD:       rd,
+	}
+
+	if req.BGPPeer.Spec.AddressFamilies.Ipv6Unicast != nil || req.BGPPeer.Spec.AddressFamilies.L2vpnEvpn != nil {
+		return errors.New("bgp peer: ipv6 unicast or l2vpnEvpn address family is currently not supported")
+	}
+
+	// Configure Router Address Family
+
+	routerAF := ActivatedAddressFamilies{
+		AF: []ActivatedAddressFamily{
+			{
+				AFName: string(AfNameIpv4Unicast),
+				Redistribute: Redistribute{
+					Static: Static{},
+				},
+			},
+		},
+	}
+	peer.AF = routerAF
+
+	// Configure BGP Neighbor
+	neigh := NeighborList{
+		[]Neighbor{
+			{
+				AF: NeighborAddressFamilies{
+					AF: []NeighborAddressFamily{
+						{
+							AfName: "ipv4-unicast",
+							RoutePolicy: PeeringRPL{
+								In:  defaultRpl.Name,
+								Out: defaultRpl.Name,
+							},
+							// TODO(sven-rosenzweig): make maximum prefix configuration configurable
+							MaximumPrefix: MaximumPrefix{
+								PrefixLimit: 100,
+								Restart:     15,
+								Threshold:   80,
+							},
+						},
+					},
+				},
+				NeighborAddress: req.BGPPeer.Spec.Address,
+				RemoteAS:        req.BGPPeer.Spec.ASNumber.IntVal,
+				// TODO(sven-rosenzweig): make this configurable
+				SessionConfig: SessionConfig{
+					SessionGroup: "EBGP-CUSTOMER-DEFAULTS",
+				},
+				LocalAS: LocalAS{
+					AS: AS{
+						ASNumber: req.BGPPeer.Spec.LocalASNumber.IntVal,
+						NoPrepend: PrependAS{
+							ReplaceAS{},
+						},
+					},
+				},
+			},
+		},
+	}
+	peer.Neighbors = neigh
+
+	return p.client.Update(ctx, &peer)
+}
+
+func (p *Provider) DeleteBGPPeer(ctx context.Context, req *provider.DeleteBGPPeerRequest) error {
+	// Fetch the default BGP instance id
+	bgp := new(BGP)
+	bgp.InstanceName = BGPDefaultInstance
+	if err := p.client.GetConfig(ctx, bgp); err != nil {
+		return fmt.Errorf("bgp peer: failed to get bgp instance 'default': %w", err)
+	}
+
+	defaultRpl := NewRoutePolicy(req.VRF.Spec.Name)
+
+	peer := BGPPeer{
+		RouterID: bgp.AS[0].ASNumber,
+		Name:     req.VRF.Spec.Name,
+	}
+
+	return p.client.Delete(ctx, &defaultRpl, &peer)
+}
+
+func (p *Provider) GetPeerStatus(ctx context.Context, req *provider.BGPPeerStatusRequest) (provider.BGPPeerStatus, error) {
+	operState := new(BGPPeerOperStatus)
+	operState.Name = req.VRF.Name
+
+	err := p.client.GetState(ctx, operState)
+	if err != nil {
+		return provider.BGPPeerStatus{}, fmt.Errorf("failed to get BGP peer status %s: %w", operState.Name, err)
+	}
+	sessionUpTime := time.Now().Unix() - int64(operState.ConnectionUpTime)
+
+	state := provider.BGPPeerStatus{
+		SessionState:        operState.State.ToSessionState(),
+		LastEstablishedTime: time.Unix(sessionUpTime, 0),
+	}
+
+	return state, nil
 }
 
 func init() {
