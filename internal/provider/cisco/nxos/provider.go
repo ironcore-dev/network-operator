@@ -30,6 +30,9 @@ import (
 
 const (
 	SpanningTreePortTypeAnnotation = "nx.cisco.networking.metal.ironcore.dev/spanning-tree-port-type"
+	// BufferBoostAnnotation is the annotation key used to enable or disable buffer boost on interfaces.
+	// Accepted values are 'enable' and 'disable', any other value will result in the device returning an error.
+	BufferBoostAnnotation = "nx.cisco.networking.metal.ironcore.dev/buffer-boost"
 )
 
 var (
@@ -673,6 +676,17 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		}
 
+		// TODO: remove annotation with provider-specific implementation
+		ann, ok := req.Interface.GetAnnotations()[BufferBoostAnnotation]
+		if ok {
+			switch strings.ToLower(ann) {
+			case "enable", "disable":
+				p.PhysExtdItems.BufferBoost = strings.ToLower(ann)
+			default:
+				return fmt.Errorf("invalid value for annotation %q: %q. Must be %q or %q", BufferBoostAnnotation, ann, "enable", "disable")
+			}
+		}
+
 		if err := p.Validate(); err != nil {
 			return err
 		}
@@ -772,6 +786,17 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				if err := p.client.Delete(ctx, vpc); err != nil {
 					return err
 				}
+			}
+		}
+
+		// TODO: remove annotation with provider-specific implementation
+		ann, ok := req.Interface.GetAnnotations()[BufferBoostAnnotation]
+		if ok {
+			switch strings.ToLower(ann) {
+			case "enable", "disable":
+				pc.AggrExtdItems.BufferBoost = strings.ToLower(ann)
+			default:
+				return fmt.Errorf("invalid value for annotation %q: %q. Must be %q or %q", BufferBoostAnnotation, ann, "enable", "disable")
 			}
 		}
 

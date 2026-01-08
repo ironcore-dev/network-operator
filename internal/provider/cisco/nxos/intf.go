@@ -74,6 +74,9 @@ type PhysIf struct {
 	TrunkVlans    string         `json:"trunkVlans"`
 	UserCfgdFlags UserFlags      `json:"userCfgdFlags"`
 	RtvrfMbrItems *VrfMember     `json:"rtvrfMbr-items,omitempty"`
+	PhysExtdItems struct {
+		BufferBoost string `json:"bufferBoost,omitempty"`
+	} `json:"physExtd-items,omitzero"`
 }
 
 func (*PhysIf) IsListItem() {}
@@ -160,6 +163,9 @@ type PortChannel struct {
 	RsmbrIfsItems struct {
 		RsMbrIfsList gnmiext.List[string, *PortChannelMember] `json:"RsMbrIfs-list,omitzero"`
 	} `json:"rsmbrIfs-items,omitzero"`
+	AggrExtdItems struct {
+		BufferBoost string `json:"bufferBoost,omitempty"`
+	} `json:"aggrExtd-items,omitzero"`
 }
 
 type PortChannelMember struct {

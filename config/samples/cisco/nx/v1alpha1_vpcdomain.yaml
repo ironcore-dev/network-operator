@@ -43,6 +43,7 @@ metadata:
     networking.metal.ironcore.dev/device-name: leaf1
   annotations:
     nx.cisco.networking.metal.ironcore.dev/spanning-tree-port-type: "network"
+    nx.cisco.networking.metal.ironcore.dev/buffer-boost: "disable"
   name: eth1-31
 spec:
   deviceRef:
@@ -64,6 +65,7 @@ metadata:
     networking.metal.ironcore.dev/device-name: leaf1
   annotations:
     nx.cisco.networking.metal.ironcore.dev/spanning-tree-port-type: "network"
+    nx.cisco.networking.metal.ironcore.dev/buffer-boost: "disable"
   name: eth1-32
 spec:
   deviceRef:
@@ -85,7 +87,7 @@ metadata:
     networking.metal.ironcore.dev/device-name: leaf1
   annotations:
     nx.cisco.networking.metal.ironcore.dev/spanning-tree-port-type: "network"
-    nx.cisco.networking.metal.ironcore.dev/channel-group-force: ""
+    nx.cisco.networking.metal.ironcore.dev/buffer-boost: "disable"
   name: po1
 spec:
   deviceRef:
