@@ -1,5 +1,9 @@
 # SPDX-FileCopyrightText: 2026 SAP SE
 # SPDX-License-Identifier: Apache-2.0
+[default]
+extend-ignore-re = [
+ "Cisco-IOS-XR.*"
+]
 
 [default.extend-words]
 ser = "ser"
