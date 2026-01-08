@@ -1,0 +1,94 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: networkvirtualizationedgeconfigs.nx.cisco.networking.metal.ironcore.dev
+spec:
+  group: nx.cisco.networking.metal.ironcore.dev
+  names:
+    kind: NetworkVirtualizationEdgeConfig
+    listKind: NetworkVirtualizationEdgeConfigList
+    plural: networkvirtualizationedgeconfigs
+    shortNames:
+    - nveconfig
+    singular: networkvirtualizationedgeconfig
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: NetworkVirtualizationEdgeConfig is the Schema for the NetworkVirtualizationEdgeConfig
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of NVE
+            properties:
+              advertiseVirtualMAC:
+                default: false
+                description: AdvertiseVirtualMAC controls if the NVE should advertise
+                  a virtual MAC address
+                type: boolean
+              holdDownTime:
+                default: 180
+                description: HoldDownTime defines the duration for which the switch
+                  suppresses the advertisement of the NVE loopback address.
+                maximum: 1500
+                minimum: 1
+                type: integer
+              infraVLANs:
+                description: |-
+                  InfraVLANs specifies VLANs used by all SVI interfaces for uplink and vPC peer-links in VXLAN as infra-VLANs.
+                  The total number of VLANs configured must not exceed 512.
+                  Elements in the list must not overlap with each other.
+                items:
+                  description: |-
+                    VLANListItem represents a single VLAN ID or a range start-end. If ID is set, rangeMin and rangeMax must be absent. If ID is absent, both rangeMin
+                    and rangeMax must be set.
+                  properties:
+                    id:
+                      maximum: 3967
+                      minimum: 1
+                      type: integer
+                    rangeMax:
+                      maximum: 3967
+                      minimum: 1
+                      type: integer
+                    rangeMin:
+                      maximum: 3967
+                      minimum: 1
+                      type: integer
+                  type: object
+                  x-kubernetes-validations:
+                  - message: rangeMax must be greater than rangeMin
+                    rule: '!has(self.rangeMax) || self.rangeMax > self.rangeMin'
+                  - message: either ID or both rangeMin and rangeMax must be set
+                    rule: has(self.id) || (has(self.rangeMin) && has(self.rangeMax))
+                  - message: rangeMin and rangeMax must be omitted when ID is set
+                    rule: '!has(self.id) || (!has(self.rangeMin) && !has(self.rangeMax))'
+                maxItems: 10
+                type: array
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true

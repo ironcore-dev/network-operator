@@ -1,0 +1,309 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: networkvirtualizationedges.networking.metal.ironcore.dev
+spec:
+  group: networking.metal.ironcore.dev
+  names:
+    kind: NetworkVirtualizationEdge
+    listKind: NetworkVirtualizationEdgeList
+    plural: networkvirtualizationedges
+    shortNames:
+    - nve
+    singular: networkvirtualizationedge
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.deviceRef.name
+      name: Device
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Configured")].status
+      name: Configured
+      priority: 1
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Operational")].status
+      name: Operational
+      priority: 1
+      type: string
+    - jsonPath: .status.sourceInterfaceName
+      name: SrcIf
+      type: string
+    - jsonPath: .status.anycastSourceInterfaceName
+      name: AnycastSrcIf
+      type: string
+    - jsonPath: .status.hostReachability
+      name: HostReachability
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          NetworkVirtualizationEdge is the Schema for the networkvirtualizationedges API
+          The NVE resource is the equivalent to an Endpoint for a Network Virtualization Overlay Object in OpenConfig (`nvo:Ep`).
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: NetworkVirtualizationEdgeSpec defines the desired state of
+              a Network Virtualization Edge (NVE).
+            properties:
+              adminState:
+                description: AdminState indicates whether the interface is administratively
+                  up or down.
+                enum:
+                - Up
+                - Down
+                type: string
+              anycastGateway:
+                description: |-
+                  AnycastGateway defines the distributed anycast gateway configuration.
+                  This enables multiple NVEs to share the same gateway IP and MAC
+                  for active-active first-hop redundancy.
+                properties:
+                  virtualMAC:
+                    description: |-
+                      VirtualMAC is the shared MAC address used by all NVEs in the fabric
+                      for anycast gateway functionality on RoutedVLAN (SVI) interfaces.
+                      All switches in the fabric must use the same MAC address.
+                      Format: IEEE 802 MAC-48 address (e.g., "00:00:5E:00:01:01")
+                    pattern: ^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$
+                    type: string
+                required:
+                - virtualMAC
+                type: object
+              anycastSourceInterfaceRef:
+                description: AnycastSourceInterfaceRef is the reference to the loopback
+                  interface used for anycast NVE IP address.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+              deviceRef:
+                description: |-
+                  DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
+                  Immutable.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+                x-kubernetes-validations:
+                - message: DeviceRef is immutable
+                  rule: self == oldSelf
+              hostReachability:
+                description: HostReachability specifies the method used for host reachability.
+                enum:
+                - FloodAndLearn
+                - BGP
+                type: string
+              multicastGroups:
+                description: MulticastGroups defines multicast group addresses for
+                  BUM traffic.
+                properties:
+                  l2:
+                    description: L2 is the multicast group for Layer 2 VNIs (BUM traffic
+                      in bridged VLANs).
+                    format: ipv4
+                    type: string
+                  l3:
+                    description: L3 is the multicast group for Layer 3 VNIs (BUM traffic
+                      in routed VRFs).
+                    format: ipv4
+                    type: string
+                type: object
+              providerConfigRef:
+                description: |-
+                  ProviderConfigRef is a reference to a resource holding the provider-specific configuration for this NVE.
+                  If not specified the provider applies the target platform's default settings.
+                properties:
+                  apiVersion:
+                    description: APIVersion is the api group version of the resource
+                      being referenced.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/)?([a-z0-9]([-a-z0-9]*[a-z0-9])?)$
+                    type: string
+                  kind:
+                    description: |-
+                      Kind of the resource being referenced.
+                      Kind must consist of alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                    type: string
+                  name:
+                    description: |-
+                      Name of the resource being referenced.
+                      Name must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+              sourceInterfaceRef:
+                description: SourceInterface is the reference to the loopback interface
+                  used for the primary NVE IP address.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+              suppressARP:
+                default: false
+                description: SuppressARP indicates whether ARP suppression is enabled
+                  for this NVE.
+                type: boolean
+            required:
+            - adminState
+            - deviceRef
+            - hostReachability
+            - sourceInterfaceRef
+            type: object
+            x-kubernetes-validations:
+            - message: anycastSourceInterfaceRef.name must differ from sourceInterfaceRef.name
+              rule: '!has(self.anycastSourceInterfaceRef) || self.anycastSourceInterfaceRef.name
+                != self.sourceInterfaceRef.name'
+          status:
+            description: NetworkVirtualizationEdgeStatus defines the observed state
+              of the NVE.
+            properties:
+              anycastSourceInterfaceName:
+                description: AnycastSourceInterfaceName is the resolved anycast source
+                  interface IP address used for NVE encapsulation.
+                type: string
+              conditions:
+                description: |-
+                  conditions represent the current state of the NVE resource.
+                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
+
+                  Standard condition types include:
+                  - "Available": the resource is fully functional
+                  - "Progressing": the resource is being created or updated
+                  - "Degraded": the resource failed to reach or maintain its desired state
+
+                  The conditions are a list of status objects that describe the state of the NVE.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              hostReachability:
+                description: HostReachability indicates the actual method used for
+                  host reachability.
+                type: string
+              sourceInterfaceName:
+                description: SourceInterfaceName is the resolved source interface
+                  IP address used for NVE encapsulation.
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

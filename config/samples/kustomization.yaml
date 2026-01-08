@@ -19,10 +19,12 @@ resources:
 - v1alpha1_ospf.yaml
 - v1alpha1_vlan.yaml
 - v1alpha1_evi.yaml
+- v1alpha1_nve.yaml
 - v1alpha1_prefixset.yaml
 - v1alpha1_routingpolicy.yaml
-- cisco/nx/v1alpha1_system.yaml
-- cisco/nx/v1alpha1_managementaccessconfig.yaml
-- cisco/nx/v1alpha1_vpcdomain.yaml
 - cisco/nx/v1alpha1_bordergateway.yaml
+- cisco/nx/v1alpha1_managementaccessconfig.yaml
+- cisco/nx/v1alpha1_nveconfig.yaml
+- cisco/nx/v1alpha1_system.yaml
+- cisco/nx/v1alpha1_vpcdomain.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

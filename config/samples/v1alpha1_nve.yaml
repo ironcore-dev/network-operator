@@ -1,0 +1,26 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: NetworkVirtualizationEdge
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: nve1
+spec:
+  # providerConfigRef:
+  #   apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+  #   kind: NetworkVirtualizationEdgeConfig
+  #   name: nve1-cfg
+  deviceRef:
+    name: leaf1
+  adminState: Up
+  hostReachability: BGP
+  suppressARP: true
+  sourceInterfaceRef:
+    name: lo0
+  anycastSourceInterfaceRef:
+    name: lo1
+  multicastGroups:
+    l2: 224.0.0.2
+  anycastGateway:
+    virtualMAC: 00:00:11:11:22:22

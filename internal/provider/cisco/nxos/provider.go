@@ -60,6 +60,7 @@ var (
 	_ provider.UserProvider             = (*Provider)(nil)
 	_ provider.VLANProvider             = (*Provider)(nil)
 	_ provider.VRFProvider              = (*Provider)(nil)
+	_ provider.NVEProvider              = (*Provider)(nil)
 )
 
 type Provider struct {
@@ -483,32 +484,6 @@ func (p *Provider) EnsureEVPNInstance(ctx context.Context, req *provider.EVPNIns
 
 	if err := p.client.Update(ctx, f, f2); err != nil {
 		return err
-	}
-
-	// TODO: Remove hardcoded "evpn"/"bgp" feature and NVE instance when NVE is fully supported as a dedicated resource.
-	nve := new(NVE)
-	nve.ID = 1
-	if err := p.client.GetConfig(ctx, nve); err != nil {
-		if !errors.Is(err, gnmiext.ErrNil) {
-			return err
-		}
-
-		nve.AdminSt = AdminStEnabled
-		nve.HoldDownTime = 180
-		nve.HostReach = HostReachBGP
-		nve.SourceInterface = "lo1"
-
-		fe := new(Feature)
-		fe.Name = "evpn"
-		fe.AdminSt = AdminStEnabled
-
-		fb := new(Feature)
-		fb.Name = "bgp"
-		fb.AdminSt = AdminStEnabled
-
-		if err := p.client.Update(ctx, nve, fe, fb); err != nil {
-			return err
-		}
 	}
 
 	conf := make([]gnmiext.Configurable, 0, 3)
@@ -1337,91 +1312,6 @@ func (p *Provider) DeleteNTP(ctx context.Context) error {
 	f.Name = "ntpd"
 
 	return p.client.Delete(ctx, n, f)
-}
-
-type NVERequest struct {
-	AdminSt              bool
-	HostReach            HostReachType
-	AdvertiseVirtualRmac *bool
-	// the name of the loopback to use as source
-	SourceInterface string
-	// the name of the loopback to use for anycast
-	AnycastInterface string
-	SuppressARP      *bool
-	// multicast group for L2 VTEP discovery
-	McastL2 *netip.Addr
-	// multicast group for L3 VTEP discovery
-	McastL3      *netip.Addr
-	HoldDownTime int16 // in seconds
-}
-
-func (p *Provider) EnsureNVE(ctx context.Context, req *NVERequest) error {
-	f := new(Feature)
-	f.Name = "nvo"
-	f.AdminSt = AdminStEnabled
-
-	f2 := new(Feature)
-	f2.Name = "ngmvpn"
-	f2.AdminSt = AdminStEnabled
-
-	srcIf, err := ShortNameLoopback(req.SourceInterface)
-	if err != nil {
-		return err
-	}
-
-	anyIf, err := ShortNameLoopback(req.AnycastInterface)
-	if err != nil {
-		return err
-	}
-
-	nve := new(NVE)
-	nve.ID = 1
-	nve.AdminSt = AdminStDisabled
-	if req.AdminSt {
-		nve.AdminSt = AdminStEnabled
-	}
-
-	if srcIf == anyIf {
-		return errors.New("nve: source and anycast interfaces must be different")
-	}
-	nve.SourceInterface = srcIf
-	nve.AnycastInterface = NewOption(anyIf)
-
-	if req.HostReach != HostReachBGP && req.HostReach != HostReachFloodAndLearn {
-		return fmt.Errorf("nve: invalid host reach type %q", req.HostReach)
-	}
-	nve.HostReach = req.HostReach
-
-	if req.AdvertiseVirtualRmac != nil {
-		nve.AdvertiseVmac = *req.AdvertiseVirtualRmac
-	}
-
-	if req.SuppressARP != nil {
-		nve.SuppressARP = *req.SuppressARP
-	}
-
-	if ip := req.McastL2; ip != nil {
-		if !ip.Is4() || !ip.IsMulticast() {
-			return fmt.Errorf("nve: invalid multicast IPv4 address: %s", ip)
-		}
-		nve.McastGroupL2 = NewOption(ip.String())
-	}
-
-	if ip := req.McastL3; ip != nil {
-		if !ip.Is4() || !ip.IsMulticast() {
-			return fmt.Errorf("nve: invalid multicast IPv4 address: %s", ip)
-		}
-		nve.McastGroupL3 = NewOption(ip.String())
-	}
-
-	if req.HoldDownTime != 0 {
-		if req.HoldDownTime < 1 || req.HoldDownTime > 1500 {
-			return fmt.Errorf("nve: hold down time %d is out of range (1-1500 seconds)", req.HoldDownTime)
-		}
-		nve.HoldDownTime = req.HoldDownTime
-	}
-
-	return p.client.Update(ctx, f, f2, nve)
 }
 
 type NXOSPF struct {
@@ -2568,6 +2458,128 @@ func (p *Provider) ResetBorderGatewaySettings(ctx context.Context) error {
 		}
 	}
 	return p.client.Delete(ctx, conf...)
+}
+
+// EnsureNVE ensures that the NVE configuration on the device matches the desired state specified in the NVE custom resource.
+// If no provider config is provided then the provider will use default settings.
+func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) error {
+	f1 := new(Feature)
+	f1.Name = "evpn"
+	f1.AdminSt = AdminStEnabled
+
+	f2 := new(Feature)
+	f2.Name = "nvo"
+	f2.AdminSt = AdminStEnabled
+
+	if err := p.client.Patch(ctx, f1, f2); err != nil {
+		return err
+	}
+
+	if req.AnycastSourceInterface != nil && req.AnycastSourceInterface.Spec.Name == req.SourceInterface.Spec.Name {
+		return errors.New("nve: anycast source interface cannot be the same as source interface")
+	}
+
+	n := new(NVE)
+	n.AdminSt = AdminStDisabled
+	if req.NVE.Spec.AdminState == v1alpha1.AdminStateUp {
+		n.AdminSt = AdminStEnabled
+	}
+	n.SourceInterface = req.SourceInterface.Spec.Name
+
+	if req.AnycastSourceInterface != nil {
+		n.AnycastInterface = NewOption(req.AnycastSourceInterface.Spec.Name)
+	}
+	if req.NVE.Spec.MulticastGroups != nil && req.NVE.Spec.MulticastGroups.L2 != "" {
+		n.McastGroupL2 = NewOption(req.NVE.Spec.MulticastGroups.L2)
+	}
+	if req.NVE.Spec.MulticastGroups != nil && req.NVE.Spec.MulticastGroups.L3 != "" {
+		n.McastGroupL3 = NewOption(req.NVE.Spec.MulticastGroups.L3)
+	}
+
+	n.SuppressARP = req.NVE.Spec.SuppressARP
+
+	switch req.NVE.Spec.HostReachability {
+	case v1alpha1.HostReachabilityTypeBGP:
+		n.HostReach = HostReachBGP
+	case v1alpha1.HostReachabilityTypeFloodAndLearn:
+		n.HostReach = HostReachFloodAndLearn
+	default:
+		return fmt.Errorf("invalid evpn host reachability type %q", req.NVE.Spec.HostReachability)
+	}
+
+	// defaults in this provider
+	n.AdvertiseVmac = false
+	n.HoldDownTime = 180
+
+	vc := new(nxv1alpha1.NetworkVirtualizationEdgeConfig)
+	if req.ProviderConfig != nil {
+		if err := req.ProviderConfig.Into(vc); err != nil {
+			return fmt.Errorf("failed to decode provider config: %w", err)
+		}
+		n.HoldDownTime = uint16(vc.Spec.HoldDownTime) // #nosec G115 -- kubebuilder validation
+		n.AdvertiseVmac = vc.Spec.AdvertiseVirtualMAC
+	}
+
+	iv := new(NVEInfraVLANs)
+	for _, ivList := range vc.Spec.InfraVLANs {
+		if ivList.ID != 0 {
+			iv.InfraVLANList = append(iv.InfraVLANList, &NVEInfraVLAN{ID: uint32(ivList.ID)}) // #nosec G115 -- kubebuilder validation
+			continue
+		}
+		for i := ivList.RangeMin; i <= ivList.RangeMax; i++ {
+			iv.InfraVLANList = append(iv.InfraVLANList, &NVEInfraVLAN{ID: uint32(i)}) // #nosec G115 -- kubebuilder validation
+		}
+	}
+
+	ag := new(FabricFwd)
+	if req.NVE.Spec.AnycastGateway != nil {
+		ag.AdminSt = string(AdminStEnabled)
+		ag.Address = req.NVE.Spec.AnycastGateway.VirtualMAC
+	}
+
+	return p.client.Patch(ctx, n, iv, ag)
+}
+
+func (p *Provider) DeleteNVE(ctx context.Context, req *provider.NVERequest) error {
+	v := new(NVE)
+	iv := new(NVEInfraVLANs)
+	av := new(FabricFwd)
+	return p.client.Delete(ctx, v, iv, av)
+}
+
+// GetNVEStatus retrieves the operational status of the NVE configuration on the device.
+func (p *Provider) GetNVEStatus(ctx context.Context, req *provider.NVERequest) (provider.NVEStatus, error) {
+	s := provider.NVEStatus{}
+
+	op := new(NVEOper)
+	if err := p.client.GetState(ctx, op); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return provider.NVEStatus{}, err
+	}
+	s.OperStatus = op.OperSt == OperStUp
+
+	n := new(NVE)
+	if err := p.client.GetConfig(ctx, n); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return provider.NVEStatus{}, err
+	}
+	s.SourceInterfaceName = n.SourceInterface
+	if n.AnycastInterface.Value != nil {
+		s.AnycastSourceInterfaceName = *n.AnycastInterface.Value
+	}
+	switch n.HostReach {
+	case HostReachBGP:
+		s.HostReachabilityType = "BGP"
+	case HostReachFloodAndLearn:
+		s.HostReachabilityType = "FloodAndLearn"
+	case HostReachController:
+		s.HostReachabilityType = "Controller"
+	case HostReachOpenFlow:
+		s.HostReachabilityType = "OpenFlow"
+	case HostReachOpenFlowIR:
+		s.HostReachabilityType = "OpenFlowIR"
+	default:
+		// unknown type, return as empty
+	}
+	return s, nil
 }
 
 func init() {

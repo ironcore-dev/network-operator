@@ -44,6 +44,7 @@ import (
 	nxcontroller "github.com/ironcore-dev/network-operator/internal/controller/cisco/nx"
 	corecontroller "github.com/ironcore-dev/network-operator/internal/controller/core"
 	"github.com/ironcore-dev/network-operator/internal/provider"
+	webhooknxv1alpha1 "github.com/ironcore-dev/network-operator/internal/webhook/cisco/nx/v1alpha1"
 	webhookv1alpha1 "github.com/ironcore-dev/network-operator/internal/webhook/core/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
@@ -439,6 +440,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&corecontroller.NetworkVirtualizationEdgeReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("nve-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+		RequeueInterval:  requeueInterval,
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "NetworkVirtualizationEdge")
+		os.Exit(1)
+	}
+
 	if err := (&nxcontroller.SystemReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
@@ -517,6 +530,16 @@ func main() {
 
 		if err := webhookv1alpha1.SetupBGPPeerWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "BGPPeer")
+			os.Exit(1)
+		}
+
+		if err := webhookv1alpha1.SetupNetworkVirtualizationEdgeWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "NetworkVirtualizationEdge")
+			os.Exit(1)
+		}
+
+		if err := webhooknxv1alpha1.SetupNetworkVirtualizationEdgeConfigWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "NetworkVirtualizationEdgeConfig")
 			os.Exit(1)
 		}
 	}

@@ -1,0 +1,14 @@
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: NetworkVirtualizationEdgeConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: nve1-cfg
+spec:
+  holdDownTime: 180
+  advertiseVirtualMAC: false
+  infraVLANs:
+    - rangeMin: 100
+      rangeMax: 105
+    - id: 200

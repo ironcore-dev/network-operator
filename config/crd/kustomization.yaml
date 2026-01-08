@@ -2,31 +2,33 @@
 # since it depends on service name and namespace that are out of this kustomize package.
 # It should be run by config/default
 resources:
-- bases/networking.metal.ironcore.dev_devices.yaml
-- bases/networking.metal.ironcore.dev_interfaces.yaml
-- bases/networking.metal.ironcore.dev_banners.yaml
-- bases/networking.metal.ironcore.dev_users.yaml
-- bases/networking.metal.ironcore.dev_dns.yaml
-- bases/networking.metal.ironcore.dev_ntp.yaml
 - bases/networking.metal.ironcore.dev_accesscontrollists.yaml
-- bases/networking.metal.ironcore.dev_certificates.yaml
-- bases/networking.metal.ironcore.dev_snmp.yaml
-- bases/networking.metal.ironcore.dev_syslogs.yaml
-- bases/networking.metal.ironcore.dev_managementaccesses.yaml
-- bases/networking.metal.ironcore.dev_isis.yaml
-- bases/networking.metal.ironcore.dev_vrfs.yaml
-- bases/networking.metal.ironcore.dev_pim.yaml
+- bases/networking.metal.ironcore.dev_banners.yaml
 - bases/networking.metal.ironcore.dev_bgp.yaml
 - bases/networking.metal.ironcore.dev_bgppeers.yaml
-- bases/networking.metal.ironcore.dev_ospf.yaml
-- bases/networking.metal.ironcore.dev_vlans.yaml
+- bases/networking.metal.ironcore.dev_certificates.yaml
+- bases/networking.metal.ironcore.dev_devices.yaml
+- bases/networking.metal.ironcore.dev_dns.yaml
 - bases/networking.metal.ironcore.dev_evpninstances.yaml
+- bases/networking.metal.ironcore.dev_interfaces.yaml
+- bases/networking.metal.ironcore.dev_isis.yaml
+- bases/networking.metal.ironcore.dev_managementaccesses.yaml
+- bases/networking.metal.ironcore.dev_networkvirtualizationedges.yaml
+- bases/networking.metal.ironcore.dev_ntp.yaml
+- bases/networking.metal.ironcore.dev_ospf.yaml
+- bases/networking.metal.ironcore.dev_pim.yaml
 - bases/networking.metal.ironcore.dev_prefixsets.yaml
 - bases/networking.metal.ironcore.dev_routingpolicies.yaml
-- bases/nx.cisco.networking.metal.ironcore.dev_systems.yaml
-- bases/nx.cisco.networking.metal.ironcore.dev_managementaccessconfigs.yaml
-- bases/nx.cisco.networking.metal.ironcore.dev_vpcdomains.yaml
+- bases/networking.metal.ironcore.dev_snmp.yaml
+- bases/networking.metal.ironcore.dev_syslogs.yaml
+- bases/networking.metal.ironcore.dev_users.yaml
+- bases/networking.metal.ironcore.dev_vlans.yaml
+- bases/networking.metal.ironcore.dev_vrfs.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_bordergateways.yaml
+- bases/nx.cisco.networking.metal.ironcore.dev_managementaccessconfigs.yaml
+- bases/nx.cisco.networking.metal.ironcore.dev_networkvirtualizationedgeconfigs.yaml
+- bases/nx.cisco.networking.metal.ironcore.dev_systems.yaml
+- bases/nx.cisco.networking.metal.ironcore.dev_vpcdomains.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

@@ -104,6 +104,9 @@ var _ = BeforeSuite(func() {
 	err = SetupPrefixSetWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = SetupNetworkVirtualizationEdgeWebhookWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
 	// +kubebuilder:scaffold:webhook
 
 	go func() {

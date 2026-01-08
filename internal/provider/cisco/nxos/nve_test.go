@@ -5,7 +5,6 @@ package nxos
 
 func init() {
 	nve := &NVE{
-		ID:               1,
 		AdminSt:          AdminStEnabled,
 		HostReach:        HostReachBGP,
 		AdvertiseVmac:    true,
@@ -13,6 +12,7 @@ func init() {
 		AnycastInterface: NewOption("lo1"),
 		SuppressARP:      true,
 		McastGroupL2:     NewOption("237.0.0.1"),
+		McastGroupL3:     NewOption(""),
 		HoldDownTime:     300,
 	}
 	Register("nve", nve)
@@ -22,4 +22,17 @@ func init() {
 		McastGroup: NewOption("239.1.1.100"),
 	}
 	Register("vni", vni)
+	nveInfraVLANs := &NVEInfraVLANs{
+		InfraVLANList: []*NVEInfraVLAN{
+			{ID: 4052},
+			{ID: 4092},
+		},
+	}
+	Register("infra_vlans", nveInfraVLANs)
+
+	ffw := &FabricFwd{
+		AdminSt: "enabled",
+		Address: "00:00:11:11:22:22",
+	}
+	Register("fabric_forward", ffw)
 }

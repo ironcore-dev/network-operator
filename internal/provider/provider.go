@@ -547,6 +547,39 @@ type DeleteRoutingPolicyRequest struct {
 	Name string
 }
 
+type NVEProvider interface {
+	Provider
+
+	// EnsureVRF call is responsible for VRF realization on the provider.
+	EnsureNVE(context.Context, *NVERequest) error
+	// DeleteVRF call is responsible for VRF deletion on the provider.
+	DeleteNVE(context.Context, *NVERequest) error
+	// GetInterfaceStatus call is responsible for retrieving the current status of the Interface from the provider.
+	GetNVEStatus(context.Context, *NVERequest) (NVEStatus, error)
+}
+
+type NVERequest struct {
+	NVE                    *v1alpha1.NetworkVirtualizationEdge
+	SourceInterface        *v1alpha1.Interface
+	AnycastSourceInterface *v1alpha1.Interface
+	ProviderConfig         *ProviderConfig
+}
+
+type NVEStatus struct {
+	// OperStatus indicates whether the NVE is operationally up (true) or down (false).
+	OperStatus bool
+	// OperStatusSourceInterface indicates if the primary source interface is operationally up (true) or down (false).
+	OperStatusSourceInterface bool
+	// OperStatusAnycastSourceInterface indicates if the primary and anycast interfaces are operationally up (true) or down (false).
+	OperStatusAnycastSourceInterface bool
+	// SourceInterfaceName is the name of the interface configured as source interface in the remote device.
+	SourceInterfaceName string
+	// AnycastSourceInterfaceName is the name of the interface configured as anycast source interface in the remote device.
+	AnycastSourceInterfaceName string
+	// HostReachabilityType is the type of host reachability configured on the remote device.
+	HostReachabilityType string
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.

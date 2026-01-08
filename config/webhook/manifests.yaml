@@ -10,6 +10,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-nx-cisco-networking-metal-ironcore-dev-v1alpha1-networkvirtualizationedgeconfig
+  failurePolicy: Fail
+  name: networkvirtualizationedgeconfig-cisco-nx-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - nx.cisco.networking.metal.ironcore.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - networkvirtualizationedgeconfigs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-networking-metal-ironcore-dev-v1alpha1-bgp
   failurePolicy: Fail
   name: bgp-v1alpha1.kb.io

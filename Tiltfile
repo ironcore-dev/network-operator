@@ -111,6 +111,12 @@ k8s_resource(new_name='bgp-import-policy', objects=['bgp-import-policy:routingpo
 k8s_yaml('./config/samples/cisco/nx/v1alpha1_vpcdomain.yaml')
 k8s_resource(new_name='vpcdomain', objects=['leaf1-vpcdomain:vpcdomain', 'leaf1-vrfvpckeepalive:vrf', 'eth1-30:interface', 'eth1-31:interface','eth1-32:interface', 'po1:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
+k8s_yaml('./config/samples/v1alpha1_nve.yaml')
+k8s_resource(new_name='nve1', objects=['nve1:networkvirtualizationedge'], trigger_mode=TRIGGER_MODE_MANUAL, resource_deps=['lo0', 'lo1'], auto_init=False)
+# Uncomment the following lines and edit the above spec to add NXOS provider-specific config to the NetworkVirtualizationEdge resource
+# k8s_yaml('./config/samples/cisco/nx/v1alpha1_nveconfig.yaml')
+# k8s_resource(new_name='nve1-cfg', objects=['nve1-cfg:networkvirtualizationedgeconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')
 print('👉 Tilt will automatically rebuild and redeploy when changes are detected')

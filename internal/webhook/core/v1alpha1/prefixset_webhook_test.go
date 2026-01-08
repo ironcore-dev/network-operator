@@ -4,8 +4,6 @@
 package v1alpha1
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,7 +19,6 @@ var _ = Describe("PrefixSet Webhook", func() {
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		obj = &v1alpha1.PrefixSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-prefix-set",

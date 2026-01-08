@@ -1,0 +1,21 @@
+{
+    "pltfm-items": {
+      "nve-items": {
+        "NVE-list": [
+          {
+            "id": "1",
+            "infravlan-items": {
+              "InfraVlan-list": [
+                {
+                  "id": 4052
+                },
+                {
+                  "id": 4092
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
