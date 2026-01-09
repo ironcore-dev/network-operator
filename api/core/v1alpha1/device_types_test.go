@@ -17,12 +17,12 @@ func TestDevice_GetActiveProvisioning(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		device *Device
+		device Device
 		want   *ProvisioningInfo
 	}{
 		{
 			name: "no provisioning entries",
-			device: &Device{
+			device: Device{
 				Status: DeviceStatus{
 					Provisioning: []ProvisioningInfo{},
 				},
@@ -31,7 +31,7 @@ func TestDevice_GetActiveProvisioning(t *testing.T) {
 		},
 		{
 			name: "single active provisioning entry",
-			device: &Device{
+			device: Device{
 				Status: DeviceStatus{
 					Provisioning: []ProvisioningInfo{
 						{
@@ -48,7 +48,7 @@ func TestDevice_GetActiveProvisioning(t *testing.T) {
 		},
 		{
 			name: "single completed provisioning entry",
-			device: &Device{
+			device: Device{
 				Status: DeviceStatus{
 					Provisioning: []ProvisioningInfo{
 						{
@@ -63,7 +63,7 @@ func TestDevice_GetActiveProvisioning(t *testing.T) {
 		},
 		{
 			name: "multiple completed provisioning entries",
-			device: &Device{
+			device: Device{
 				Status: DeviceStatus{
 					Provisioning: []ProvisioningInfo{
 						{
@@ -83,7 +83,7 @@ func TestDevice_GetActiveProvisioning(t *testing.T) {
 		},
 		{
 			name: "active provisioning",
-			device: &Device{
+			device: Device{
 				Status: DeviceStatus{
 					Provisioning: []ProvisioningInfo{
 						{
@@ -116,6 +116,7 @@ func TestDevice_GetActiveProvisioning(t *testing.T) {
 
 			if got == nil {
 				t.Fatalf("GetActiveProvisioning() = nil, want non-nil")
+				return
 			}
 
 			if got.Token != tt.want.Token {
@@ -138,13 +139,13 @@ func TestDevice_CreateProvisioningEntry(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		device          *Device
+		device          Device
 		wantErr         bool
 		expectedEntries int
 	}{
 		{
 			name: "successful creation in provisioning phase with no existing entries",
-			device: &Device{
+			device: Device{
 				Status: DeviceStatus{
 					Phase:        DevicePhaseProvisioning,
 					Provisioning: []ProvisioningInfo{},
@@ -155,7 +156,7 @@ func TestDevice_CreateProvisioningEntry(t *testing.T) {
 		},
 		{
 			name: "successful creation with completed provisioning entries",
-			device: &Device{
+			device: Device{
 				Status: DeviceStatus{
 					Phase: DevicePhaseProvisioning,
 					Provisioning: []ProvisioningInfo{
@@ -172,7 +173,7 @@ func TestDevice_CreateProvisioningEntry(t *testing.T) {
 		},
 		{
 			name: "error when device is in pending phase",
-			device: &Device{
+			device: Device{
 				Status: DeviceStatus{
 					Phase:        DevicePhasePending,
 					Provisioning: []ProvisioningInfo{},
@@ -183,7 +184,7 @@ func TestDevice_CreateProvisioningEntry(t *testing.T) {
 		},
 		{
 			name: "error when active provisioning already exists",
-			device: &Device{
+			device: Device{
 				Status: DeviceStatus{
 					Phase: DevicePhaseProvisioning,
 					Provisioning: []ProvisioningInfo{
@@ -202,12 +203,14 @@ func TestDevice_CreateProvisioningEntry(t *testing.T) {
 			entry, err := tt.device.CreateProvisioningEntry()
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("CreateProvisioningEntry() error = %v, wantErr %v", err, tt.wantErr)
+				return
 			}
 			if tt.wantErr {
 				return
 			}
 			if entry == nil {
 				t.Fatal("expected non-nil entry")
+				return
 			}
 			if len(tt.device.Status.Provisioning) != tt.expectedEntries {
 				t.Errorf("expected %d provisioning entries, got %d", tt.expectedEntries, len(tt.device.Status.Provisioning))
