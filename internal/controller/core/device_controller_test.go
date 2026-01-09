@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,26 +40,52 @@ var _ = Describe("Device Controller", func() {
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}
+		})
 
-			By("Creating the custom resource for the Kind Device")
+		AfterEach(func() {
 			device := &v1alpha1.Device{}
-			if err := k8sClient.Get(ctx, key, device); errors.IsNotFound(err) {
-				resource := &v1alpha1.Device{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: metav1.NamespaceDefault,
-					},
-					Spec: v1alpha1.DeviceSpec{
-						Endpoint: v1alpha1.Endpoint{
-							Address: "192.168.10.2:9339",
-							SecretRef: &v1alpha1.SecretReference{
-								Name: name,
-							},
+			err := k8sClient.Get(ctx, key, device)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Cleanup the specific resource instance Device")
+			Expect(k8sClient.Delete(ctx, device)).To(Succeed())
+
+			secret := &corev1.Secret{}
+			err = k8sClient.Get(ctx, key, secret)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Cleanup the specific resource instance Secret")
+			Expect(k8sClient.Delete(ctx, secret)).To(Succeed())
+		})
+
+		It("Should successfully reconcile the resource", func() {
+			By("Creating the custom resource for the Kind Device")
+			device := &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.2:9339",
+						SecretRef: &v1alpha1.SecretReference{
+							Name: name,
 						},
 					},
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+				},
 			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+
+			By("Verifying the device transitions to Active phase when no provisioning is configured")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseRunning))
+				g.Expect(resource.Status.Conditions).To(HaveLen(1))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[0].Reason).To(Equal(v1alpha1.ReadyReason))
+			}).Should(Succeed())
 
 			By("Creating the custom resource for the Kind Interface")
 			iface := &v1alpha1.Interface{}
@@ -79,32 +106,7 @@ var _ = Describe("Device Controller", func() {
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}
-		})
 
-		AfterEach(func() {
-			intf := &v1alpha1.Interface{}
-			err := k8sClient.Get(ctx, key, intf)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleanup the specific resource instance Interface")
-			Expect(k8sClient.Delete(ctx, intf)).To(Succeed())
-
-			device := &v1alpha1.Device{}
-			err = k8sClient.Get(ctx, key, device)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleanup the specific resource instance Device")
-			Expect(k8sClient.Delete(ctx, device)).To(Succeed())
-
-			secret := &corev1.Secret{}
-			err = k8sClient.Get(ctx, key, secret)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleanup the specific resource instance Secret")
-			Expect(k8sClient.Delete(ctx, secret)).To(Succeed())
-		})
-
-		It("Should successfully reconcile the resource", func() {
 			By("Updating the resource status")
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.Device{}
@@ -129,58 +131,24 @@ var _ = Describe("Device Controller", func() {
 				g.Expect(resource.Status.Ports[0].InterfaceRef.Name).To(Equal(name))
 				g.Expect(resource.Status.PostSummary).To(Equal("1/8 (10g)"))
 			}).Should(Succeed())
+
+			By("Cleanup the specific resource instance Interface")
+			intf := &v1alpha1.Interface{}
+			err := k8sClient.Get(ctx, key, intf)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.Delete(ctx, intf)).To(Succeed())
 		})
 
-		It("Should transition from Pending to Active when no provisioning is configured", func() {
-			const testName = "test-device-no-provisioning"
-			testKey := client.ObjectKey{Name: testName, Namespace: metav1.NamespaceDefault}
-
-			By("Creating a Device without provisioning configuration")
+		It("Should transition from Pending to Provisioning when provisioning is configured", func() {
+			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      testName,
+					Name:      name,
 					Namespace: metav1.NamespaceDefault,
 				},
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
-						Address: "192.168.10.3:9339",
-						SecretRef: &v1alpha1.SecretReference{
-							Name: name,
-						},
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, device)).To(Succeed())
-
-			By("Verifying the device transitions to Active phase")
-			Eventually(func(g Gomega) {
-				resource := &v1alpha1.Device{}
-				g.Expect(k8sClient.Get(ctx, testKey, resource)).To(Succeed())
-				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseRunning))
-				g.Expect(resource.Status.Conditions).To(HaveLen(1))
-				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
-				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
-				g.Expect(resource.Status.Conditions[0].Reason).To(Equal(v1alpha1.ReadyReason))
-			}).Should(Succeed())
-
-			By("Cleanup")
-			Expect(k8sClient.Delete(ctx, device)).To(Succeed())
-		})
-
-		It("Should transition from Pending to Provisioning phase when provisioning is configured", func() {
-			const testName = "test-device-with-provisioning"
-			testKey := client.ObjectKey{Name: testName, Namespace: metav1.NamespaceDefault}
-
-			By("Creating a Device with provisioning configuration")
-			inlineScript := "boot nxos.bin"
-			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      testName,
-					Namespace: metav1.NamespaceDefault,
-				},
-				Spec: v1alpha1.DeviceSpec{
-					Endpoint: v1alpha1.Endpoint{
-						Address: "192.168.10.4:9339",
+						Address: "192.168.10.2:9339",
 						SecretRef: &v1alpha1.SecretReference{
 							Name: name,
 						},
@@ -192,7 +160,7 @@ var _ = Describe("Device Controller", func() {
 							ChecksumType: v1alpha1.ChecksumTypeMD5,
 						},
 						BootScript: v1alpha1.TemplateSource{
-							Inline: &inlineScript,
+							Inline: ptr.To("boot nxos.bin"),
 						},
 					},
 				},
@@ -202,26 +170,20 @@ var _ = Describe("Device Controller", func() {
 			By("Verifying the device transitions to Provisioning phase")
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.Device{}
-				g.Expect(k8sClient.Get(ctx, testKey, resource)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
 				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseProvisioning))
 				g.Expect(resource.Status.Conditions).To(HaveLen(1))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(resource.Status.Conditions[0].Reason).To(Equal(v1alpha1.ProvisioningReason))
 			}).Should(Succeed())
-
-			By("Cleanup")
-			Expect(k8sClient.Delete(ctx, device)).To(Succeed())
 		})
 
-		It("Should transition from ProvisioningCompleted to Active phase", func() {
-			const testName = "test-device-provisioning-completed"
-			testKey := client.ObjectKey{Name: testName, Namespace: metav1.NamespaceDefault}
-
+		It("Should transition from ProvisioningCompleted to Active", func() {
 			By("Creating a Device")
 			device := &v1alpha1.Device{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      testName,
+					Name:      name,
 					Namespace: metav1.NamespaceDefault,
 				},
 				Spec: v1alpha1.DeviceSpec{
@@ -237,27 +199,22 @@ var _ = Describe("Device Controller", func() {
 
 			By("Setting the device to Provisioned phase with provisioning info")
 			Eventually(func(g Gomega) {
-				resource := &v1alpha1.Device{}
-				g.Expect(k8sClient.Get(ctx, testKey, resource)).To(Succeed())
-
-				startTime := metav1.NewTime(time.Now().Add(-3 * time.Minute))
-				rebootTime := metav1.NewTime(time.Now().Add(-30 * time.Second))
-
+				resource := device.DeepCopy()
 				resource.Status.Phase = v1alpha1.DevicePhaseProvisioned
 				resource.Status.Provisioning = []v1alpha1.ProvisioningInfo{
 					{
-						StartTime:  startTime,
 						Token:      "test-token",
-						RebootTime: rebootTime,
+						StartTime:  metav1.NewTime(time.Now().Add(-3 * time.Minute)),
+						RebootTime: metav1.NewTime(time.Now().Add(-30 * time.Second)),
 					},
 				}
-				g.Expect(k8sClient.Status().Update(ctx, resource)).To(Succeed())
+				g.Expect(k8sClient.Status().Patch(ctx, resource, client.MergeFrom(device))).To(Succeed())
 			}).Should(Succeed())
 
 			By("Verifying the provisioning status has an end time set")
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.Device{}
-				g.Expect(k8sClient.Get(ctx, testKey, resource)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
 				g.Expect(resource.Status.Provisioning).To(HaveLen(1))
 				g.Expect(resource.Status.Provisioning[0].EndTime).ToNot(BeNil())
 			}).Should(Succeed())
@@ -265,16 +222,13 @@ var _ = Describe("Device Controller", func() {
 			By("Verifying the device transitions to Active phase")
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.Device{}
-				g.Expect(k8sClient.Get(ctx, testKey, resource)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
 				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseRunning))
 				g.Expect(resource.Status.Conditions).To(HaveLen(1))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(resource.Status.Conditions[0].Reason).To(Equal(v1alpha1.ReadyReason))
 			}).Should(Succeed())
-
-			By("Cleanup")
-			Expect(k8sClient.Delete(ctx, device)).To(Succeed())
 		})
 	})
 })
