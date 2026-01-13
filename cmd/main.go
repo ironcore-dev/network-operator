@@ -76,6 +76,7 @@ func main() {
 	var watchFilterValue string
 	var providerName string
 	var requeueInterval time.Duration
+	var maxConcurrentReconciles int
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
@@ -90,6 +91,7 @@ func main() {
 	flag.StringVar(&watchFilterValue, "watch-filter", "", fmt.Sprintf("Label value that the controller watches to reconcile api objects. Label key is always %q. If unspecified, the controller watches for all api objects.", v1alpha1.WatchLabel))
 	flag.StringVar(&providerName, "provider", "openconfig", "The provider to use for the controller. If not specified, the default provider is used. Available providers: "+strings.Join(provider.Providers(), ", "))
 	flag.DurationVar(&requeueInterval, "requeue-interval", 30*time.Second, "The interval after which Kubernetes resources should be reconciled again regardless of whether they have changed.")
+	flag.IntVar(&maxConcurrentReconciles, "max-concurrent-reconciles", 1, "The maximum number of concurrent reconciles per controller. Defaults to 1.")
 	opts := zap.Options{
 		Development: true,
 		TimeEncoder: zapcore.ISO8601TimeEncoder,
@@ -188,7 +190,7 @@ func main() {
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Cache:                  cache.Options{ReaderFailOnMissingInformer: true},
-		Controller:             config.Controller{UsePriorityQueue: ptr.To(true)},
+		Controller:             config.Controller{UsePriorityQueue: ptr.To(true), MaxConcurrentReconciles: maxConcurrentReconciles},
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
