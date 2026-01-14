@@ -193,3 +193,10 @@ verbatim: |
   docker-push-test-lab: FORCE docker-push-test-lab
     @printf "\e[1;36m>> $(CONTAINER_TOOL) push $(TEST_LAB_IMG)\e[0m\n"
     @$(CONTAINER_TOOL) push $(TEST_LAB_IMG)
+
+  ROOT_DIR := $(shell pwd)
+  DOCS_IMG ?= ironcore-dev/network-operator-docs:latest
+
+  run-docs:
+    @docker build -t $(DOCS_IMG) -f docs/Dockerfile docs --load
+    @docker run --rm --init -p 5173:5173 -v $(ROOT_DIR)/docs:/workspace -v /workspace/node_modules $(DOCS_IMG)
