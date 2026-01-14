@@ -5,7 +5,9 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -23,6 +25,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/resourcelock"
 )
 
 // AccessControlListReconciler reconciles a AccessControlList object
@@ -39,6 +42,9 @@ type AccessControlListReconciler struct {
 
 	// Provider is the driver that will be used to create & delete the accesscontrollist.
 	Provider provider.ProviderFunc
+
+	// Locker is used to synchronize operations on resources targeting the same device.
+	Locker *resourcelock.ResourceLocker
 }
 
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=accesscontrollists,verbs=get;list;watch;create;update;patch;delete
@@ -88,6 +94,21 @@ func (r *AccessControlListReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	if err := r.Locker.AcquireLock(ctx, device.Name, "acl-controller"); err != nil {
+		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
+			log.Info("Device is already locked, requeuing reconciliation")
+			return ctrl.Result{RequeueAfter: time.Second * 5}, nil
+		}
+		log.Error(err, "Failed to acquire device lock")
+		return ctrl.Result{}, err
+	}
+	defer func() {
+		if err := r.Locker.ReleaseLock(ctx, device.Name, "acl-controller"); err != nil {
+			log.Error(err, "Failed to release device lock")
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+	}()
 
 	conn, err := deviceutil.GetDeviceConnection(ctx, r, device)
 	if err != nil {

@@ -5,6 +5,7 @@ package nx
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/resourcelock"
 
 	nxv1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	corev1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
@@ -49,6 +51,9 @@ type VPCDomainReconciler struct {
 
 	// Provider is the driver that will be used to create & delete the vPC
 	Provider provider.ProviderFunc
+
+	// Locker is used to synchronize operations on resources targeting the same device.
+	Locker *resourcelock.ResourceLocker
 
 	// RequeueInterval is the duration after which the controller should requeue the reconciliation,
 	// regardless of changes.
@@ -106,6 +111,21 @@ func (r *VPCDomainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	if err := r.Locker.AcquireLock(ctx, device.Name, "cisco-nx-vpcdomain-controller"); err != nil {
+		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
+			log.Info("Device is already locked, requeuing reconciliation")
+			return ctrl.Result{RequeueAfter: time.Second * 5}, nil
+		}
+		log.Error(err, "Failed to acquire device lock")
+		return ctrl.Result{}, err
+	}
+	defer func() {
+		if err := r.Locker.ReleaseLock(ctx, device.Name, "cisco-nx-vpcdomain-controller"); err != nil {
+			log.Error(err, "Failed to release device lock")
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+	}()
 
 	conn, err := deviceutil.GetDeviceConnection(ctx, r, device)
 	if err != nil {

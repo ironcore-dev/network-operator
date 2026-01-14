@@ -25,6 +25,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/resourcelock"
 )
 
 // VLANReconciler reconciles a VLAN object
@@ -41,6 +42,9 @@ type VLANReconciler struct {
 
 	// Provider is the driver that will be used to create & delete the vlan.
 	Provider provider.ProviderFunc
+
+	// Locker is used to synchronize operations on resources targeting the same device.
+	Locker *resourcelock.ResourceLocker
 
 	// RequeueInterval is the duration after which the controller should requeue the reconciliation,
 	// regardless of changes.
@@ -94,6 +98,21 @@ func (r *VLANReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	if err := r.Locker.AcquireLock(ctx, device.Name, "vlan-controller"); err != nil {
+		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
+			log.Info("Device is already locked, requeuing reconciliation")
+			return ctrl.Result{RequeueAfter: time.Second * 5}, nil
+		}
+		log.Error(err, "Failed to acquire device lock")
+		return ctrl.Result{}, err
+	}
+	defer func() {
+		if err := r.Locker.ReleaseLock(ctx, device.Name, "vlan-controller"); err != nil {
+			log.Error(err, "Failed to release device lock")
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+	}()
 
 	conn, err := deviceutil.GetDeviceConnection(ctx, r, device)
 	if err != nil {

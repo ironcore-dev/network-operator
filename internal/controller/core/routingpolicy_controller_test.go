@@ -210,7 +210,7 @@ var _ = Describe("RoutingPolicy Controller", func() {
 							Sequence: 10,
 							Conditions: &v1alpha1.PolicyConditions{
 								MatchPrefixSet: &v1alpha1.PrefixSetMatchCondition{
-									PrefixSetRef: v1alpha1.LocalObjectReference{Name: name},
+									PrefixSetRef: v1alpha1.LocalObjectReference{Name: "non-existing-prefixset"},
 								},
 							},
 							Actions: v1alpha1.PolicyActions{

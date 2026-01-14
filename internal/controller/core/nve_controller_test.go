@@ -10,19 +10,14 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	defaultTimeout   = 5 * time.Second
-	defaultPoll      = 150 * time.Millisecond
-	testEndpointAddr = "192.168.10.2:9339"
-)
+const testEndpointAddr = "192.168.10.2:9339"
 
 // Helpers
 func ensureDevice(deviceKey client.ObjectKey, spec v1alpha1.DeviceSpec) {
@@ -86,7 +81,7 @@ func cleanupNVEResources(nveKeys, interfaceKeys, deviceKeys []client.ObjectKey) 
 		Expect(k8sClient.Delete(ctx, nve)).To(Succeed())
 		Eventually(func() bool {
 			return errors.IsNotFound(k8sClient.Get(ctx, nveKey, &v1alpha1.NetworkVirtualizationEdge{}))
-		}, defaultTimeout, defaultPoll).Should(BeTrue(), "NVE should be fully deleted")
+		}).Should(BeTrue(), "NVE should be fully deleted")
 	}
 
 	for _, ifKey := range interfaceKeys {
@@ -95,7 +90,7 @@ func cleanupNVEResources(nveKeys, interfaceKeys, deviceKeys []client.ObjectKey) 
 		Expect(k8sClient.Delete(ctx, ifObj)).To(Succeed())
 		Eventually(func() bool {
 			return errors.IsNotFound(k8sClient.Get(ctx, ifKey, &v1alpha1.Interface{}))
-		}, defaultTimeout, defaultPoll).Should(BeTrue(), "Interface should be fully deleted")
+		}).Should(BeTrue(), "Interface should be fully deleted")
 	}
 
 	for _, deviceKey := range deviceKeys {
@@ -104,12 +99,12 @@ func cleanupNVEResources(nveKeys, interfaceKeys, deviceKeys []client.ObjectKey) 
 		Expect(k8sClient.Delete(ctx, device)).To(Succeed())
 		Eventually(func() bool {
 			return errors.IsNotFound(k8sClient.Get(ctx, deviceKey, &v1alpha1.Device{}))
-		}, defaultTimeout, defaultPoll).Should(BeTrue(), "Device should be fully deleted")
+		}).Should(BeTrue(), "Device should be fully deleted")
 	}
 	By("Ensuring the resource is deleted from the provider")
 	Eventually(func(g Gomega) {
 		g.Expect(testProvider.NVE).To(BeNil(), "Provider NVE should be empty")
-	}, defaultTimeout, defaultPoll).Should(Succeed())
+	}).Should(Succeed())
 }
 
 var _ = Describe("NVE Controller", func() {
@@ -119,9 +114,7 @@ var _ = Describe("NVE Controller", func() {
 			nveName    = "test-nve-nve"
 			nsName     = metav1.NamespaceDefault
 		)
-		var (
-			nve *v1alpha1.NetworkVirtualizationEdge
-		)
+		var nve *v1alpha1.NetworkVirtualizationEdge
 		interfaceNames := []string{"lo0", "lo1"}
 
 		nveKey := client.ObjectKey{Name: nveName, Namespace: nsName}
@@ -227,7 +220,6 @@ var _ = Describe("NVE Controller", func() {
 				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionTrue))
 			}).Should(Succeed())
 		})
-
 	})
 
 	Context("When updating referenced resources", func() {
@@ -236,9 +228,7 @@ var _ = Describe("NVE Controller", func() {
 			nveName    = "test-nvewithrefupdates-nve"
 			nsName     = metav1.NamespaceDefault
 		)
-		var (
-			nve *v1alpha1.NetworkVirtualizationEdge
-		)
+		var nve *v1alpha1.NetworkVirtualizationEdge
 
 		interfaceNames := []string{"lo10", "lo11", "lo12"}
 		deviceKey := client.ObjectKey{Name: deviceName, Namespace: nsName}
@@ -295,7 +285,7 @@ var _ = Describe("NVE Controller", func() {
 				g.Expect(testProvider.NVE).ToNot(BeNil())
 				g.Expect(testProvider.NVE.Spec.SourceInterfaceRef.Name).To(Equal(interfaceNames[1]))
 				g.Expect(testProvider.NVE.Status.SourceInterfaceName).To(Equal(interfaceNames[1]))
-			}, defaultTimeout, defaultPoll).Should(Succeed())
+			}).Should(Succeed())
 		})
 
 		It("Should reconcile when AnycastSourceInterfaceRef is added", func() {
@@ -352,7 +342,7 @@ var _ = Describe("NVE Controller", func() {
 				g.Expect(cond).NotTo(BeNil())
 				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(cond.Reason).To(Equal(v1alpha1.WaitingForDependenciesReason))
-			}, defaultTimeout, defaultPoll).Should(Succeed())
+			}).Should(Succeed())
 		})
 	})
 
@@ -391,7 +381,7 @@ var _ = Describe("NVE Controller", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.NVE).NotTo(BeNil())
 				g.Expect(testProvider.NVE.Spec.AnycastSourceInterfaceRef).To(BeNil())
-			}, defaultTimeout, defaultPoll).Should(Succeed())
+			}).Should(Succeed())
 
 			Eventually(func(g Gomega) {
 				cur := &v1alpha1.NetworkVirtualizationEdge{}
@@ -400,7 +390,7 @@ var _ = Describe("NVE Controller", func() {
 				cfg := meta.FindStatusCondition(cur.Status.Conditions, v1alpha1.ConfiguredCondition)
 				g.Expect(cfg).NotTo(BeNil())
 				g.Expect(cfg.Status).To(Equal(metav1.ConditionTrue))
-			}, defaultTimeout, defaultPoll).Should(Succeed())
+			}).Should(Succeed())
 		})
 	})
 
@@ -454,7 +444,7 @@ var _ = Describe("NVE Controller", func() {
 				g.Expect(cond).NotTo(BeNil())
 				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(cond.Reason).To(Equal(v1alpha1.NVEAlreadyExistsReason))
-			}, defaultTimeout, defaultPoll).Should(Succeed())
+			}).Should(Succeed())
 		})
 	})
 
@@ -464,9 +454,7 @@ var _ = Describe("NVE Controller", func() {
 			nveName    = "test-nvemisconfigurediftype-nve"
 			nsName     = metav1.NamespaceDefault
 		)
-		var (
-			nve *v1alpha1.NetworkVirtualizationEdge
-		)
+		var nve *v1alpha1.NetworkVirtualizationEdge
 
 		interfaceNames := []string{"eth1", "eth2"}
 
@@ -661,7 +649,7 @@ var _ = Describe("NVE Controller", func() {
 				g.Expect(cond).NotTo(BeNil())
 				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(cond.Reason).To(Equal(v1alpha1.IncompatibleProviderConfigRef))
-			}, defaultTimeout, defaultPoll).Should(Succeed())
+			}).Should(Succeed())
 		})
 	})
 })

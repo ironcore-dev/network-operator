@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -26,10 +27,10 @@ import (
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
-	corecontroller "github.com/ironcore-dev/network-operator/internal/controller/core"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos"
+	"github.com/ironcore-dev/network-operator/internal/resourcelock"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -43,6 +44,7 @@ var (
 	k8sClient    client.Client
 	k8sManager   ctrl.Manager
 	testProvider = NewMockProvider()
+	testLocker   *resourcelock.ResourceLocker
 )
 
 func TestControllers(t *testing.T) {
@@ -52,6 +54,9 @@ func TestControllers(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
+	SetDefaultEventuallyTimeout(time.Minute)
+	SetDefaultEventuallyPollingInterval(time.Second)
 
 	ctx, cancel = context.WithCancel(ctrl.SetupSignalHandler())
 
@@ -98,6 +103,16 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	testLocker, err = resourcelock.NewResourceLocker(k8sManager.GetClient(), metav1.NamespaceDefault, 15*time.Second, 10*time.Second)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = k8sManager.Add(testLocker)
+	Expect(err).NotTo(HaveOccurred())
+
+	// Set up cache informer for Lease resources used by ResourceLocker
+	_, err = k8sManager.GetCache().GetInformer(ctx, &coordinationv1.Lease{})
+	Expect(err).NotTo(HaveOccurred())
+
 	prov := func() provider.Provider { return testProvider }
 
 	err = (&SystemReconciler{
@@ -105,6 +120,7 @@ var _ = BeforeSuite(func() {
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
 		Provider: prov,
+		Locker:   testLocker,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -113,6 +129,7 @@ var _ = BeforeSuite(func() {
 		Scheme:   scheme.Scheme,
 		Recorder: recorder,
 		Provider: prov,
+		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -121,15 +138,7 @@ var _ = BeforeSuite(func() {
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
 		Provider: prov,
-	}).SetupWithManager(ctx, k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&corecontroller.NetworkVirtualizationEdgeReconciler{
-		Client:          k8sManager.GetClient(),
-		Scheme:          k8sManager.GetScheme(),
-		Recorder:        recorder,
-		Provider:        prov,
-		RequeueInterval: time.Second,
+		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
