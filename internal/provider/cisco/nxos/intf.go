@@ -104,6 +104,7 @@ func (p *PhysIf) Default() {
 	p.Mode = SwitchportModeAccess
 	p.NativeVlan = DefaultVLAN
 	p.TrunkVlans = DefaultVLANRange
+	p.PhysExtdItems.BufferBoost = "enable"
 }
 
 type PhysIfOperItems struct {

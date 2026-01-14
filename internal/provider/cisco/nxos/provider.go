@@ -740,6 +740,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		pc.NativeVlan = DefaultVLAN
 		pc.TrunkVlans = DefaultVLANRange
 		pc.UserCfgdFlags = UserFlagAdminState | UserFlagAdminLayer
+		pc.AggrExtdItems.BufferBoost = "enable"
 
 		pc.MTU = DefaultMTU
 		if req.Interface.Spec.MTU != 0 {
