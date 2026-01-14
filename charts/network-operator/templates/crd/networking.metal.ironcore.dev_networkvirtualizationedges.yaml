@@ -1,26 +1,28 @@
+{{- if .Values.crd.enable }}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
   annotations:
+    {{- if .Values.crd.keep }}
+    "helm.sh/resource-policy": keep
+    {{- end }}
     controller-gen.kubebuilder.io/version: v0.20.0
-  name: vlans.networking.metal.ironcore.dev
+  name: networkvirtualizationedges.networking.metal.ironcore.dev
 spec:
   group: networking.metal.ironcore.dev
   names:
-    kind: VLAN
-    listKind: VLANList
-    plural: vlans
-    singular: vlan
+    kind: NetworkVirtualizationEdge
+    listKind: NetworkVirtualizationEdgeList
+    plural: networkvirtualizationedges
+    shortNames:
+    - nve
+    singular: networkvirtualizationedge
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.id
-      name: VLAN-ID
-      type: string
-    - jsonPath: .spec.adminState
-      name: Admin State
-      type: string
     - jsonPath: .spec.deviceRef.name
       name: Device
       type: string
@@ -35,13 +37,24 @@ spec:
       name: Operational
       priority: 1
       type: string
+    - jsonPath: .status.sourceInterfaceName
+      name: SrcIf
+      type: string
+    - jsonPath: .status.anycastSourceInterfaceName
+      name: AnycastSrcIf
+      type: string
+    - jsonPath: .status.hostReachability
+      name: HostReachability
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: VLAN is the Schema for the vlans API
+        description: |-
+          NetworkVirtualizationEdge is the Schema for the networkvirtualizationedges API
+          The NVE resource is the equivalent to an Endpoint for a Network Virtualization Overlay Object in OpenConfig (`nvo:Ep`).
         properties:
           apiVersion:
             description: |-
@@ -61,18 +74,48 @@ spec:
           metadata:
             type: object
           spec:
-            description: |-
-              Specification of the desired state of the resource.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            description: NetworkVirtualizationEdgeSpec defines the desired state of
+              a Network Virtualization Edge (NVE).
             properties:
               adminState:
-                default: Up
-                description: AdminState indicates whether the VLAN is administratively
-                  active or inactive/suspended.
+                description: AdminState indicates whether the interface is administratively
+                  up or down.
                 enum:
                 - Up
                 - Down
                 type: string
+              anycastGateway:
+                description: |-
+                  AnycastGateway defines the distributed anycast gateway configuration.
+                  This enables multiple NVEs to share the same gateway IP and MAC
+                  for active-active first-hop redundancy.
+                properties:
+                  virtualMAC:
+                    description: |-
+                      VirtualMAC is the shared MAC address used by all NVEs in the fabric
+                      for anycast gateway functionality on RoutedVLAN (SVI) interfaces.
+                      All switches in the fabric must use the same MAC address.
+                      Format: IEEE 802 MAC-48 address (e.g., "00:00:5E:00:01:01")
+                    pattern: ^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$
+                    type: string
+                required:
+                - virtualMAC
+                type: object
+              anycastSourceInterfaceRef:
+                description: AnycastSourceInterfaceRef is the reference to the loopback
+                  interface used for anycast NVE IP address.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               deviceRef:
                 description: |-
                   DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
@@ -92,26 +135,31 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
-              id:
-                description: |-
-                  ID is the VLAN ID. Valid values are between 1 and 4094.
-                  Immutable.
-                maximum: 4094
-                minimum: 1
-                type: integer
-                x-kubernetes-validations:
-                - message: Name is immutable
-                  rule: self == oldSelf
-              name:
-                description: Name is the name of the VLAN.
-                maxLength: 128
-                minLength: 1
-                pattern: ^[^\s]+$
+              hostReachability:
+                description: HostReachability specifies the method used for host reachability.
+                enum:
+                - FloodAndLearn
+                - BGP
                 type: string
+              multicastGroups:
+                description: MulticastGroups defines multicast group addresses for
+                  BUM traffic.
+                properties:
+                  l2:
+                    description: L2 is the multicast group for Layer 2 VNIs (BUM traffic
+                      in bridged VLANs).
+                    format: ipv4
+                    type: string
+                  l3:
+                    description: L3 is the multicast group for Layer 3 VNIs (BUM traffic
+                      in routed VRFs).
+                    format: ipv4
+                    type: string
+                type: object
               providerConfigRef:
                 description: |-
-                  ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this vlan.
-                  This reference is used to link the VLAN to its provider-specific configuration.
+                  ProviderConfigRef is a reference to a resource holding the provider-specific configuration for this NVE.
+                  If not specified the provider applies the target platform's default settings.
                 properties:
                   apiVersion:
                     description: APIVersion is the api group version of the resource
@@ -142,20 +190,9 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
-            required:
-            - deviceRef
-            - id
-            type: object
-          status:
-            description: |-
-              Status of the resource. This is set and updated automatically.
-              Read-only.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
-            properties:
-              bridgedBy:
-                description: |-
-                  BridgedBy references the EVPNInstance that provides a L2VNI for this VLAN, if any.
-                  This field is set when an EVPNInstance of type Bridged references this VLAN.
+              sourceInterfaceRef:
+                description: SourceInterface is the reference to the loopback interface
+                  used for the primary NVE IP address.
                 properties:
                   name:
                     description: |-
@@ -168,9 +205,40 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
+              suppressARP:
+                default: false
+                description: SuppressARP indicates whether ARP suppression is enabled
+                  for this NVE.
+                type: boolean
+            required:
+            - adminState
+            - deviceRef
+            - hostReachability
+            - sourceInterfaceRef
+            type: object
+            x-kubernetes-validations:
+            - message: anycastSourceInterfaceRef.name must differ from sourceInterfaceRef.name
+              rule: '!has(self.anycastSourceInterfaceRef) || self.anycastSourceInterfaceRef.name
+                != self.sourceInterfaceRef.name'
+          status:
+            description: NetworkVirtualizationEdgeStatus defines the observed state
+              of the NVE.
+            properties:
+              anycastSourceInterfaceName:
+                description: AnycastSourceInterfaceName is the resolved anycast source
+                  interface IP address used for NVE encapsulation.
+                type: string
               conditions:
-                description: The conditions are a list of status objects that describe
-                  the state of the VLAN.
+                description: |-
+                  conditions represent the current state of the NVE resource.
+                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
+
+                  Standard condition types include:
+                  - "Available": the resource is fully functional
+                  - "Progressing": the resource is being created or updated
+                  - "Degraded": the resource failed to reach or maintain its desired state
+
+                  The conditions are a list of status objects that describe the state of the NVE.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -229,22 +297,14 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              routedBy:
-                description: |-
-                  RoutedBy references the interface that provides Layer 3 routing for this VLAN, if any.
-                  This field is set when an Interface of type RoutedVLAN references this VLAN.
-                properties:
-                  name:
-                    description: |-
-                      Name of the referent.
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                    maxLength: 63
-                    minLength: 1
-                    type: string
-                required:
-                - name
-                type: object
-                x-kubernetes-map-type: atomic
+              hostReachability:
+                description: HostReachability indicates the actual method used for
+                  host reachability.
+                type: string
+              sourceInterfaceName:
+                description: SourceInterfaceName is the resolved source interface
+                  IP address used for NVE encapsulation.
+                type: string
             type: object
         required:
         - spec
@@ -253,3 +313,4 @@ spec:
     storage: true
     subresources:
       status: {}
+{{- end -}}

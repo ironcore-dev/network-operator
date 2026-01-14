@@ -55,9 +55,9 @@ resources:
 - managementaccess_admin_role.yaml
 - managementaccess_editor_role.yaml
 - managementaccess_viewer_role.yaml
-- nve_admin_role.yaml
-- nve_editor_role.yaml
-- nve_viewer_role.yaml
+- networkvirtualizationedge_admin_role.yaml
+- networkvirtualizationedge_editor_role.yaml
+- networkvirtualizationedge_viewer_role.yaml
 - ntp_admin_role.yaml
 - ntp_editor_role.yaml
 - ntp_viewer_role.yaml

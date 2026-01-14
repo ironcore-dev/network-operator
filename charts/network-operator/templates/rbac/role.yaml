@@ -45,6 +45,7 @@ rules:
   - interfaces
   - isis
   - managementaccesses
+  - networkvirtualizationedges
   - ntp
   - ospf
   - pim
@@ -77,6 +78,7 @@ rules:
   - interfaces/finalizers
   - isis/finalizers
   - managementaccesses/finalizers
+  - networkvirtualizationedges/finalizers
   - ntp/finalizers
   - ospf/finalizers
   - pim/finalizers
@@ -103,6 +105,7 @@ rules:
   - interfaces/status
   - isis/status
   - managementaccesses/status
+  - networkvirtualizationedges/status
   - ntp/status
   - ospf/status
   - pim/status
@@ -153,6 +156,7 @@ rules:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
   - managementaccessconfigs
+  - networkvirtualizationedgeconfigs
   verbs:
   - get
   - list

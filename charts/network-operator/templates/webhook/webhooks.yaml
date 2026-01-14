@@ -71,6 +71,26 @@ webhooks:
           - v1alpha1
         resources:
           - interfaces
+  - name: networkvirtualizationedgeconfig-cisco-nx-v1alpha1.kb.io
+    clientConfig:
+      service:
+        name: network-operator-webhook-service
+        namespace: {{ .Release.Namespace }}
+        path: /validate-nx-cisco-networking-metal-ironcore-dev-v1alpha1-networkvirtualizationedgeconfig
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - nx.cisco.networking.metal.ironcore.dev
+        apiVersions:
+          - v1alpha1
+        resources:
+          - networkvirtualizationedgeconfigs
   - name: prefixset-v1alpha1.kb.io
     clientConfig:
       service:

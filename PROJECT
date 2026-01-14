@@ -247,7 +247,6 @@ resources:
   domain: cisco.networking.metal.ironcore.dev
   group: nx
   kind: NetworkVirtualizationEdgeConfig
-  controller: false
   path: github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1
   version: v1alpha1
   webhooks:
