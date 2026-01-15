@@ -13,23 +13,23 @@ spec:
     address: 192.168.5.2:9339
     secretRef:
       name: secret-basic-auth
-  bootstrap:
-    # The bootstrap configuration can also be defined in a ConfigMap or Secret as follows:
-    # template:
-    #   secretRef:
-    #     name: leaf1-bootstrap
-    #     key: setup.cfg
-    # --- or ---
-    # template:
-    #   configMapRef:
-    #     name: leaf1-bootstrap
-    #     key: setup.cfg
-    # --- or ---
-    template:
-      inline: |
-        hostname leaf1
-        feature grpc
-        grpc port 9339
+  # provisioning:
+  #   The bootstrap configuration can be defined in a ConfigMap, Secret or inline as follows:
+  #   bootScript:
+  #     secretRef:
+  #       name: leaf1-bootstrap
+  #       key: setup.cfg
+  #   --- or ---
+  #   bootScript:
+  #     configMapRef:
+  #       name: leaf1-bootstrap
+  #       key: setup.cfg
+  #   --- or ---
+  #   bootScript:
+  #     inline: |
+  #       hostname leaf1
+  #       feature grpc
+  #       grpc port 9339
 ---
 apiVersion: v1
 kind: Secret
