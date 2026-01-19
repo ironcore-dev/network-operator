@@ -57,8 +57,9 @@ type Capabilities struct {
 }
 
 type Client interface {
-	GetState(ctx context.Context, conf ...Configurable) error
+	Capabilities() *Capabilities
 	GetConfig(ctx context.Context, conf ...Configurable) error
+	GetState(ctx context.Context, conf ...Configurable) error
 	Patch(ctx context.Context, conf ...Configurable) error
 	Update(ctx context.Context, conf ...Configurable) error
 	Delete(ctx context.Context, conf ...Configurable) error
@@ -73,9 +74,7 @@ type client struct {
 	logger       logr.Logger
 }
 
-var (
-	_ Client = &client{}
-)
+var _ Client = &client{}
 
 // New creates a new Client by negotiating capabilities with the gNMI server by
 // carrying out a Capabilities RPC.
@@ -127,6 +126,11 @@ func WithLogger(logger logr.Logger) Option {
 
 // ErrNil indicates that the value for a xpath is not defined.
 var ErrNil = errors.New("gnmiext: nil")
+
+// Capabilities returns the capabilities supported by the gNMI server.
+func (c *client) Capabilities() *Capabilities {
+	return c.capabilities
+}
 
 // GetConfig retrieves config and unmarshals it into the provided targets.
 // If some of the values for the given xpaths are not defined, [ErrNil] is returned.

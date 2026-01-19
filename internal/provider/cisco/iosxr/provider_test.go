@@ -91,30 +91,28 @@ func Test_Payload(t *testing.T) {
 // MockClient provides a mock implementation of gnmiext.Client for testing.
 type MockClient struct {
 	// Function fields for mocking different methods
-	GetConfigFunc func(ctx context.Context, conf ...gnmiext.Configurable) error
-	PatchFunc     func(ctx context.Context, conf ...gnmiext.Configurable) error
-	UpdateFunc    func(ctx context.Context, conf ...gnmiext.Configurable) error
-	DeleteFunc    func(ctx context.Context, conf ...gnmiext.Configurable) error
-	GetStateFunc  func(ctx context.Context, conf ...gnmiext.Configurable) error
+	CapabilitiesFunc func() *gnmiext.Capabilities
+	GetConfigFunc    func(ctx context.Context, conf ...gnmiext.Configurable) error
+	PatchFunc        func(ctx context.Context, conf ...gnmiext.Configurable) error
+	UpdateFunc       func(ctx context.Context, conf ...gnmiext.Configurable) error
+	DeleteFunc       func(ctx context.Context, conf ...gnmiext.Configurable) error
+	GetStateFunc     func(ctx context.Context, conf ...gnmiext.Configurable) error
 }
 
+var _ gnmiext.Client = (*MockClient)(nil)
+
 // Implement the methods that Provider uses
-func (m *MockClient) GetConfig(ctx context.Context, conf ...gnmiext.Configurable) error {
-	if m.GetConfigFunc != nil {
-		return m.GetConfigFunc(ctx, conf...)
+func (m *MockClient) Capabilities() *gnmiext.Capabilities {
+	if m.CapabilitiesFunc != nil {
+		return m.CapabilitiesFunc()
 	}
 	return nil
 }
 
-func (m *MockClient) Patch(ctx context.Context, conf ...gnmiext.Configurable) error {
-	return nil
-}
-
-func (m *MockClient) Update(ctx context.Context, conf ...gnmiext.Configurable) error {
-	return nil
-}
-
-func (m *MockClient) Delete(ctx context.Context, conf ...gnmiext.Configurable) error {
+func (m *MockClient) GetConfig(ctx context.Context, conf ...gnmiext.Configurable) error {
+	if m.GetConfigFunc != nil {
+		return m.GetConfigFunc(ctx, conf...)
+	}
 	return nil
 }
 
@@ -125,21 +123,37 @@ func (m *MockClient) GetState(ctx context.Context, conf ...gnmiext.Configurable)
 	return nil
 }
 
+func (m *MockClient) Patch(ctx context.Context, conf ...gnmiext.Configurable) error {
+	if m.PatchFunc != nil {
+		return m.PatchFunc(ctx, conf...)
+	}
+	return nil
+}
+
+func (m *MockClient) Update(ctx context.Context, conf ...gnmiext.Configurable) error {
+	if m.UpdateFunc != nil {
+		return m.UpdateFunc(ctx, conf...)
+	}
+	return nil
+}
+
+func (m *MockClient) Delete(ctx context.Context, conf ...gnmiext.Configurable) error {
+	if m.DeleteFunc != nil {
+		return m.DeleteFunc(ctx, conf...)
+	}
+	return nil
+}
+
 func Test_EnsureInterface(t *testing.T) {
 	m := &MockClient{}
-
-	p := &Provider{
-		client: m,
-		conn:   nil,
-	}
+	p := &Provider{client: m}
 
 	ctx := context.Background()
 
-	var name = "TwentyFiveGigE0/0/0/14"
+	name := "TwentyFiveGigE0/0/0/14"
 	var prefix netip.Prefix
 
 	prefix, err := netip.ParsePrefix("192.168.1.0/24")
-
 	if err != nil {
 		t.Fatalf("Failed to parse prefix: %v", err)
 	}
@@ -186,7 +200,7 @@ func Test_GetState(t *testing.T) {
 
 	ctx := context.Background()
 
-	var name = "TwentyFiveGigE0/0/0/14"
+	name := "TwentyFiveGigE0/0/0/14"
 
 	req := &provider.InterfaceRequest{
 		Interface: &v1alpha1.Interface{

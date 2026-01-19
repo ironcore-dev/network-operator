@@ -186,7 +186,7 @@ func (p *Provider) EnsureACL(ctx context.Context, req *provider.EnsureACLRequest
 		})
 	}
 
-	return p.client.Update(ctx, a)
+	return p.Update(ctx, a)
 }
 
 func (p *Provider) DeleteACL(ctx context.Context, req *provider.DeleteACLRequest) error {
@@ -222,7 +222,7 @@ func (p *Provider) EnsureBanner(ctx context.Context, req *provider.EnsureBannerR
 	b.Message = req.Message
 	b.Type = t
 
-	return p.client.Patch(ctx, b)
+	return p.Patch(ctx, b)
 }
 
 func (p *Provider) DeleteBanner(ctx context.Context, req *provider.DeleteBannerRequest) error {
@@ -261,7 +261,7 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 	switch {
 	case asf == "" && strings.Contains(b.Asn, "."):
 		asf = AsFormatAsDot
-		err = p.client.Update(ctx, &asf)
+		err = p.Update(ctx, &asf)
 	case asf != "" && !strings.Contains(b.Asn, "."):
 		err = p.client.Delete(ctx, &asf)
 	}
@@ -307,7 +307,7 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 		}
 	}
 
-	return p.client.Patch(ctx, f, f2, b, dom)
+	return p.Patch(ctx, f, f2, b, dom)
 }
 
 func (p *Provider) DeleteBGP(ctx context.Context, req *provider.DeleteBGPRequest) error {
@@ -367,7 +367,7 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		}
 	}
 
-	return p.client.Update(ctx, pe)
+	return p.Update(ctx, pe)
 }
 
 func (p *Provider) DeleteBGPPeer(ctx context.Context, req *provider.DeleteBGPPeerRequest) error {
@@ -407,7 +407,7 @@ func (p *Provider) EnsureCertificate(ctx context.Context, req *provider.EnsureCe
 	tp := new(Trustpoint)
 	tp.Name = req.ID
 
-	if err := p.client.Patch(ctx, tp); err != nil {
+	if err := p.Patch(ctx, tp); err != nil {
 		return err
 	}
 
@@ -465,7 +465,7 @@ func (p *Provider) EnsureDNS(ctx context.Context, req *provider.EnsureDNSRequest
 	}
 	d.ProfItems.ProfList.Set(pf)
 
-	return p.client.Update(ctx, d)
+	return p.Update(ctx, d)
 }
 
 func (p *Provider) DeleteDNS(ctx context.Context) error {
@@ -482,7 +482,7 @@ func (p *Provider) EnsureEVPNInstance(ctx context.Context, req *provider.EVPNIns
 	f2.Name = "vnsegment"
 	f2.AdminSt = AdminStEnabled
 
-	if err := p.client.Update(ctx, f, f2); err != nil {
+	if err := p.Update(ctx, f, f2); err != nil {
 		return err
 	}
 
@@ -551,7 +551,7 @@ func (p *Provider) EnsureEVPNInstance(ctx context.Context, req *provider.EVPNIns
 		vni.AssociateVrfFlag = true
 	}
 
-	return p.client.Update(ctx, conf...)
+	return p.Update(ctx, conf...)
 }
 
 func (p *Provider) DeleteEVPNInstance(ctx context.Context, req *provider.EVPNInstanceRequest) error {
@@ -934,7 +934,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 	}
 
-	return p.client.Update(ctx, conf...)
+	return p.Update(ctx, conf...)
 }
 
 func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceRequest) error {
@@ -1171,7 +1171,7 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 	}
 	conf = append(conf, i)
 
-	return p.client.Update(ctx, conf...)
+	return p.Update(ctx, conf...)
 }
 
 func (p *Provider) DeleteISIS(ctx context.Context, req *provider.DeleteISISRequest) error {
@@ -1250,7 +1250,7 @@ func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.Ens
 		conf = append(conf, acl)
 	}
 
-	return p.client.Patch(ctx, conf...)
+	return p.Patch(ctx, conf...)
 }
 
 func (p *Provider) DeleteManagementAccess(ctx context.Context) error {
@@ -1303,7 +1303,7 @@ func (p *Provider) EnsureNTP(ctx context.Context, req *provider.EnsureNTPRequest
 	}
 	n.SrcIfItems.SrcIf = req.NTP.Spec.SourceInterfaceName
 
-	return p.client.Update(ctx, f, n)
+	return p.Update(ctx, f, n)
 }
 
 func (p *Provider) DeleteNTP(ctx context.Context) error {
@@ -1457,7 +1457,7 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 		dom.MaxlsapItems.MaxLsa = cfg.MaxLSA
 	}
 
-	return p.client.Update(ctx, conf...)
+	return p.Update(ctx, conf...)
 }
 
 func (p *Provider) DeleteOSPF(ctx context.Context, req *provider.DeleteOSPFRequest) error {
@@ -1527,7 +1527,7 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 		dom.AdminSt = AdminStDisabled
 	}
 
-	if err := p.client.Patch(ctx, pim, dom); err != nil {
+	if err := p.Patch(ctx, pim, dom); err != nil {
 		return err
 	}
 
@@ -1605,7 +1605,7 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 		del = append(del, ifItems)
 	}
 
-	if err := p.client.Update(ctx, conf...); err != nil {
+	if err := p.Update(ctx, conf...); err != nil {
 		return err
 	}
 
@@ -1636,7 +1636,7 @@ func (p *Provider) EnsurePrefixSet(ctx context.Context, req *provider.PrefixSetR
 		}
 		s.EntItems.EntryList.Set(e)
 	}
-	return p.client.Update(ctx, s)
+	return p.Update(ctx, s)
 }
 
 func (p *Provider) DeletePrefixSet(ctx context.Context, req *provider.PrefixSetRequest) error {
@@ -1686,7 +1686,7 @@ func (p *Provider) EnsureRoutingPolicy(ctx context.Context, req *provider.Ensure
 
 		rm.EntItems.EntryList.Set(e)
 	}
-	return p.client.Update(ctx, rm)
+	return p.Update(ctx, rm)
 }
 
 func (p *Provider) DeleteRoutingPolicy(ctx context.Context, req *provider.DeleteRoutingPolicyRequest) error {
@@ -1740,7 +1740,7 @@ func (p *Provider) EnsureUser(ctx context.Context, req *provider.EnsureUserReque
 		}
 	}
 
-	return p.client.Patch(ctx, u)
+	return p.Patch(ctx, u)
 }
 
 func (p *Provider) DeleteUser(ctx context.Context, req *provider.DeleteUserRequest) error {
@@ -1842,12 +1842,12 @@ func (p *Provider) EnsureSNMP(ctx context.Context, req *provider.EnsureSNMPReque
 		rv.Set(reflect.ValueOf(&SNMPTraps{Trapstatus: TrapstatusEnable}))
 	}
 
-	return p.client.Update(ctx, sysInfo, trapsSrcIf, informsSrcIf, communities, hosts, traps)
+	return p.Update(ctx, sysInfo, trapsSrcIf, informsSrcIf, communities, hosts, traps)
 }
 
 func (p *Provider) DeleteSNMP(ctx context.Context, req *provider.DeleteSNMPRequest) error {
 	traps := new(SNMPTrapsItems)
-	if err := p.client.Update(ctx, traps); err != nil {
+	if err := p.Update(ctx, traps); err != nil {
 		return err
 	}
 
@@ -1937,7 +1937,7 @@ OUTER:
 		fac.FacilityList.Set(f)
 	}
 
-	return p.client.Update(ctx, origin, srcIf, hist, re, fac)
+	return p.Update(ctx, origin, srcIf, hist, re, fac)
 }
 
 func (p *Provider) DeleteSyslog(ctx context.Context) error {
@@ -1963,7 +1963,7 @@ func (p *Provider) EnsureVLAN(ctx context.Context, req *provider.VLANRequest) er
 		v.Name = NewOption(req.VLAN.Spec.Name)
 	}
 
-	return p.client.Patch(ctx, v)
+	return p.Patch(ctx, v)
 }
 
 func (p *Provider) DeleteVLAN(ctx context.Context, req *provider.VLANRequest) error {
@@ -2120,7 +2120,7 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 		addAF(AddressFamilyIPv6Unicast, AddressFamilyL2EVPN, importEntryIPv6EVPN, exportEntryIPv6EVPN)
 	}
 
-	return p.client.Update(ctx, v)
+	return p.Update(ctx, v)
 }
 
 func (p *Provider) DeleteVRF(ctx context.Context, req *provider.VRFRequest) error {
@@ -2139,7 +2139,7 @@ func (p *Provider) EnsureSystemSettings(ctx context.Context, s *nxv1alpha1.Syste
 	sys := new(SystemJumboMTU)
 	*sys = SystemJumboMTU(s.Spec.JumboMTU)
 
-	return p.client.Patch(ctx, long, res, sys)
+	return p.Patch(ctx, long, res, sys)
 }
 
 func (p *Provider) ResetSystemSettings(ctx context.Context) error {
@@ -2249,7 +2249,7 @@ func (p *Provider) EnsureVPCDomain(ctx context.Context, vpcdomain *nxv1alpha1.VP
 		v.KeepAliveItems.PeerLinkItems.AdminSt = AdminStDisabled
 	}
 
-	return p.client.Patch(ctx, f, v)
+	return p.Patch(ctx, f, v)
 }
 
 func (p *Provider) DeleteVPCDomain(ctx context.Context) error {
@@ -2257,7 +2257,7 @@ func (p *Provider) DeleteVPCDomain(ctx context.Context) error {
 	return p.client.Delete(ctx, v)
 }
 
-// GetStatusVPC retrieves the current status of the vPC configuration on the device.
+// GetStatusVPCDomain retrieves the current status of the vPC configuration on the device.
 func (p *Provider) GetStatusVPCDomain(ctx context.Context) (VPCDomainStatus, error) {
 	vdOper := new(VPCDomainOper)
 	if err := p.client.GetState(ctx, vdOper); err != nil && !errors.Is(err, gnmiext.ErrNil) {
@@ -2340,7 +2340,7 @@ func (p *Provider) EnsureBorderGatewaySettings(ctx context.Context, req *BorderG
 	f5.Name = "nvo"
 	f5.AdminSt = AdminStEnabled
 
-	if err := p.client.Patch(ctx, f, f2, f3, f4, f5); err != nil {
+	if err := p.Patch(ctx, f, f2, f3, f4, f5); err != nil {
 		return err
 	}
 
@@ -2438,7 +2438,7 @@ func (p *Provider) EnsureBorderGatewaySettings(ctx context.Context, req *BorderG
 		return err
 	}
 
-	return p.client.Update(ctx, conf...)
+	return p.Update(ctx, conf...)
 }
 
 func (p *Provider) ResetBorderGatewaySettings(ctx context.Context) error {
@@ -2472,7 +2472,7 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) erro
 	f2.Name = "nvo"
 	f2.AdminSt = AdminStEnabled
 
-	if err := p.client.Patch(ctx, f1, f2); err != nil {
+	if err := p.Patch(ctx, f1, f2); err != nil {
 		return err
 	}
 
@@ -2538,7 +2538,7 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) erro
 		ag.Address = req.NVE.Spec.AnycastGateway.VirtualMAC
 	}
 
-	return p.client.Patch(ctx, n, iv, ag)
+	return p.Patch(ctx, n, iv, ag)
 }
 
 func (p *Provider) DeleteNVE(ctx context.Context, req *provider.NVERequest) error {
@@ -2581,6 +2581,45 @@ func (p *Provider) GetNVEStatus(ctx context.Context, req *provider.NVERequest) (
 		// unknown type, return as empty
 	}
 	return s, nil
+}
+
+func (p *Provider) Patch(ctx context.Context, conf ...gnmiext.Configurable) error {
+	if NXVersion(p.client.Capabilities()) > VersionNX10_6_2 {
+		return p.client.Patch(ctx, conf...)
+	}
+	fa, conf := separateFeatureActivation(conf)
+	if err := p.client.Patch(ctx, fa...); err != nil {
+		return err
+	}
+	return p.client.Patch(ctx, conf...)
+}
+
+func (p *Provider) Update(ctx context.Context, conf ...gnmiext.Configurable) error {
+	if NXVersion(p.client.Capabilities()) > VersionNX10_6_2 {
+		return p.client.Update(ctx, conf...)
+	}
+	fa, conf := separateFeatureActivation(conf)
+	if err := p.client.Update(ctx, fa...); err != nil {
+		return err
+	}
+	return p.client.Update(ctx, conf...)
+}
+
+// separateFeatureActivation separates feature activation configurations from other configurations.
+// This is necessary for NX-OS versions <= 10.6(2) where feature activation must be performed before applying configurations.
+// For more details, see: https://github.com/ironcore-dev/network-operator/issues/148
+func separateFeatureActivation(conf []gnmiext.Configurable) (features, others []gnmiext.Configurable) {
+	n := 0
+	fa := make([]gnmiext.Configurable, 0, len(conf))
+	for _, c := range conf {
+		if f, ok := c.(*Feature); ok {
+			fa = append(fa, f)
+			continue
+		}
+		conf[n] = c
+		n++
+	}
+	return fa, conf[:n:n]
 }
 
 func init() {
