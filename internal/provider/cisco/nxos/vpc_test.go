@@ -6,17 +6,17 @@ package nxos
 func init() {
 	vd := &VPCDomain{
 		AdminSt:                 AdminStEnabled,
-		AutoRecovery:            NewOption(AdminStEnabled),
-		AutoRecoveryReloadDelay: NewOption[uint16](360),
-		DelayRestoreSVI:         NewOption[uint16](45),
-		DelayRestoreVPC:         NewOption[uint16](150),
-		FastConvergence:         NewOption(AdminStEnabled),
-		Id:                      2,
+		AutoRecovery:            AdminStEnabled,
+		AutoRecoveryReloadDelay: 360,
+		DelayRestoreSVI:         45,
+		DelayRestoreVPC:         150,
+		FastConvergence:         AdminStEnabled,
+		ID:                      2,
 		L3PeerRouter:            AdminStEnabled,
 		PeerGateway:             AdminStEnabled,
 		PeerSwitch:              AdminStEnabled,
-		RolePrio:                NewOption[uint16](100),
-		SysPrio:                 NewOption[uint16](10),
+		RolePrio:                100,
+		SysPrio:                 10,
 	}
 	vd.KeepAliveItems.DestIP = "10.114.235.156"
 	vd.KeepAliveItems.SrcIP = "10.114.235.155"

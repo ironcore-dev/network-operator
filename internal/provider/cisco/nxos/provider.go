@@ -2167,7 +2167,7 @@ type VPCDomainStatus struct {
 	Role nxv1alpha1.VPCDomainRole
 }
 
-// EnsureVPC applies the vPC configuration on the device. It also ensures that the vPC feature
+// EnsureVPCDomain applies the vPC configuration on the device. It also ensures that the vPC feature
 // is enabled on the device.
 // `vrf` is a resource referencing the VRF to use in the keep-alive link configuration, can be nil.
 // `pc` is a resource referencing a port-channel interface to use as vPC peer-link, must not be nil.
@@ -2177,32 +2177,20 @@ func (p *Provider) EnsureVPCDomain(ctx context.Context, vpcdomain *nxv1alpha1.VP
 	f.AdminSt = AdminStEnabled
 
 	v := new(VPCDomain)
-	v.Id = uint16(vpcdomain.Spec.DomainID) // #nosec G115 -- kubebuilder
+	v.ID = vpcdomain.Spec.DomainID
+	v.RolePrio = vpcdomain.Spec.RolePriority
+	v.SysPrio = vpcdomain.Spec.SystemPriority
+	v.DelayRestoreSVI = vpcdomain.Spec.DelayRestoreSVI
+	v.DelayRestoreVPC = vpcdomain.Spec.DelayRestoreVPC
 
 	v.AdminSt = AdminStEnabled
 	if vpcdomain.Spec.AdminState == v1alpha1.AdminStateDown {
 		v.AdminSt = AdminStDisabled
 	}
 
-	if vpcdomain.Spec.RolePriority > 0 {
-		v.RolePrio = NewOption(uint16(vpcdomain.Spec.RolePriority)) // #nosec G115 -- kubebuilder validation
-	}
-
-	if vpcdomain.Spec.SystemPriority > 0 {
-		v.SysPrio = NewOption(uint16(vpcdomain.Spec.SystemPriority)) // #nosec G115 -- kubebuilder validation
-	}
-
-	if vpcdomain.Spec.DelayRestoreSVI > 0 {
-		v.DelayRestoreSVI = NewOption(uint16(vpcdomain.Spec.DelayRestoreSVI)) // #nosec G115 -- kubebuilder validation
-	}
-
-	if vpcdomain.Spec.DelayRestoreVPC > 0 {
-		v.DelayRestoreVPC = NewOption(uint16(vpcdomain.Spec.DelayRestoreVPC)) // #nosec G115 -- kubebuilder validation
-	}
-
-	v.FastConvergence = NewOption(AdminStDisabled)
+	v.FastConvergence = AdminStDisabled
 	if vpcdomain.Spec.FastConvergence.Enabled {
-		v.FastConvergence = NewOption(AdminStEnabled)
+		v.FastConvergence = AdminStEnabled
 	}
 
 	v.PeerSwitch = AdminStDisabled
@@ -2220,18 +2208,14 @@ func (p *Provider) EnsureVPCDomain(ctx context.Context, vpcdomain *nxv1alpha1.VP
 		v.L3PeerRouter = AdminStEnabled
 	}
 
-	if vpcdomain.Spec.Peer.AutoRecovery != nil {
-		v.AutoRecovery = NewOption(AdminStDisabled)
-		if vpcdomain.Spec.Peer.AutoRecovery.Enabled {
-			v.AutoRecovery = NewOption(AdminStEnabled)
-		}
-		if vpcdomain.Spec.Peer.AutoRecovery.ReloadDelay > 0 {
-			v.AutoRecoveryReloadDelay = NewOption(uint16(vpcdomain.Spec.Peer.AutoRecovery.ReloadDelay)) // #nosec G115 -- kubebuilder validation
-		}
+	v.AutoRecovery = AdminStDisabled
+	v.AutoRecoveryReloadDelay = 240
+	if vpcdomain.Spec.Peer.AutoRecovery != nil && vpcdomain.Spec.Peer.AutoRecovery.Enabled {
+		v.AutoRecovery = AdminStEnabled
+		v.AutoRecoveryReloadDelay = vpcdomain.Spec.Peer.AutoRecovery.ReloadDelay
 	}
 
 	v.KeepAliveItems.DestIP = vpcdomain.Spec.Peer.KeepAlive.Destination
-
 	v.KeepAliveItems.SrcIP = vpcdomain.Spec.Peer.KeepAlive.Source
 
 	if vrf != nil {
@@ -2242,8 +2226,8 @@ func (p *Provider) EnsureVPCDomain(ctx context.Context, vpcdomain *nxv1alpha1.VP
 	if err != nil {
 		return fmt.Errorf("vpc: failed to get short name for the port-channel interface %q: %w", pc.Spec.Name, err)
 	}
-	v.KeepAliveItems.PeerLinkItems.Id = pcName
 
+	v.KeepAliveItems.PeerLinkItems.Id = pcName
 	v.KeepAliveItems.PeerLinkItems.AdminSt = AdminStEnabled
 	if vpcdomain.Spec.Peer.AdminState == v1alpha1.AdminStateDown {
 		v.KeepAliveItems.PeerLinkItems.AdminSt = AdminStDisabled

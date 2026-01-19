@@ -36,6 +36,7 @@ type VPCDomainSpec struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
+	// +kubebuilder:default=32667
 	RolePriority int32 `json:"rolePriority"`
 
 	// SystemPriority is the system priority for this vPC domain (1-65535).
@@ -43,6 +44,7 @@ type VPCDomainSpec struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
+	// +kubebuilder:default=32667
 	SystemPriority int32 `json:"systemPriority"`
 
 	// DelayRestoreSVI is the delay in seconds (1-3600) before bringing up interface-vlan (SVI) after peer-link comes up.
@@ -50,17 +52,20 @@ type VPCDomainSpec struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=3600
+	// +kubebuilder:default=10
 	DelayRestoreSVI int16 `json:"delayRestoreSVI"`
 
 	// DelayRestoreVPC is the delay in seconds (1-3600) before bringing up the member ports after the peer-link is restored.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=3600
+	// +kubebuilder:default=30
 	DelayRestoreVPC int16 `json:"delayRestoreVPC"`
 
 	// FastConvergence ensures that both SVIs and member ports are shut down simultaneously when the peer-link goes down.
 	// This synchronization helps prevent traffic loss.
 	// +optional
+	// +kubebuilder:default={enabled:false}
 	FastConvergence Enabled `json:"fastConvergence"`
 
 	// Peer contains the vPC's domain peer configuration including peer-link, keepalive.
@@ -86,7 +91,7 @@ type Peer struct {
 	// This interface carries control and data traffic between the two vPC domain peers.
 	// It is usually dedicated port-channel, but it can also be a single physical interface.
 	// +required
-	InterfaceRef v1alpha1.LocalObjectReference `json:"interfaceRef,omitempty"`
+	InterfaceRef v1alpha1.LocalObjectReference `json:"interfaceRef"`
 
 	// KeepAlive defines the out-of-band keepalive configuration.
 	// +required
@@ -94,7 +99,7 @@ type Peer struct {
 
 	// AutoRecovery defines auto-recovery settings for restoring vPC domain after peer failure.
 	// +optional
-	AutoRecovery *AutoRecovery `json:"autoRecovery,omitempty"`
+	AutoRecovery *AutoRecovery `json:"autoRecovery"`
 
 	// Switch enables peer-switch functionality on this peer.
 	// When enabled, both vPC domain peers use the same spanning-tree bridge ID, allowing both
@@ -147,14 +152,15 @@ type AutoRecovery struct {
 	// When enabled, the switch will wait for ReloadDelay seconds after peer failure
 	// before assuming the peer is dead and restoring the vPC's domain functionality.
 	// +required
-	Enabled bool `json:"enabled,omitempty"`
+	Enabled bool `json:"enabled"`
 
 	// ReloadDelay is the time in seconds (60-3600) to wait before assuming the peer is dead
 	// and automatically attempting to restore the communication with the peer.
 	// +optional
 	// +kubebuilder:validation:Minimum=60
 	// +kubebuilder:validation:Maximum=3600
-	ReloadDelay int16 `json:"reloadDelay,omitempty"`
+	// +kubebuilder:default=240
+	ReloadDelay int16 `json:"reloadDelay"`
 }
 
 // VPCDomainStatus defines the observed state of VPCDomain.
@@ -178,10 +184,6 @@ type VPCDomainStatus struct {
 	//+patchMergeKey=type
 	//+optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-
-	// DomainID is the vPC domain ID as reported by the device.
-	// +optional
-	DomainID uint16 `json:"domainId,omitempty"`
 
 	// Role indicates the current operational role of this vPC domain peer.
 	// +optional
@@ -207,7 +209,7 @@ type VPCDomainStatus struct {
 
 	// PeerUptime indicates how long the vPC domain peer has been up and reachable via keepalive.
 	// +optional
-	PeerUptime metav1.Duration `json:"peerUptime,omitempty"`
+	PeerUptime metav1.Duration `json:"peerUptime,omitempty,omitzero"`
 
 	// PeerLinkIf is the name of the interface used as the vPC domain peer-link.
 	// +optional

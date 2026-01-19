@@ -21,18 +21,18 @@ var (
 
 // VPCDomain represents the domain of a virtual Port Channel (vPC)
 type VPCDomain struct {
-	AdminSt                 AdminSt         `json:"adminSt"`
-	AutoRecovery            Option[AdminSt] `json:"autoRecovery"`
-	AutoRecoveryReloadDelay Option[uint16]  `json:"autoRecoveryIntvl"`
-	DelayRestoreSVI         Option[uint16]  `json:"delayRestoreSVI"`
-	DelayRestoreVPC         Option[uint16]  `json:"delayRestoreVPC"`
-	FastConvergence         Option[AdminSt] `json:"fastConvergence"`
-	Id                      uint16          `json:"id"`
-	L3PeerRouter            AdminSt         `json:"l3PeerRouter"`
-	PeerGateway             AdminSt         `json:"peerGw"`
-	PeerSwitch              AdminSt         `json:"peerSwitch"`
-	RolePrio                Option[uint16]  `json:"rolePrio"`
-	SysPrio                 Option[uint16]  `json:"sysPrio"`
+	AdminSt                 AdminSt `json:"adminSt"`
+	AutoRecovery            AdminSt `json:"autoRecovery"`
+	AutoRecoveryReloadDelay int16   `json:"autoRecoveryIntvl"`
+	DelayRestoreSVI         int16   `json:"delayRestoreSVI"`
+	DelayRestoreVPC         int16   `json:"delayRestoreVPC"`
+	FastConvergence         AdminSt `json:"fastConvergence"`
+	ID                      int16   `json:"id"`
+	L3PeerRouter            AdminSt `json:"l3PeerRouter"`
+	PeerGateway             AdminSt `json:"peerGw"`
+	PeerSwitch              AdminSt `json:"peerSwitch"`
+	RolePrio                int32   `json:"rolePrio"`
+	SysPrio                 int32   `json:"sysPrio"`
 	KeepAliveItems          struct {
 		DestIP        string `json:"destIp"`
 		SrcIP         string `json:"srcIp"`

@@ -99,6 +99,7 @@ spec:
                 - Down
                 type: string
               delayRestoreSVI:
+                default: 10
                 description: |-
                   DelayRestoreSVI is the delay in seconds (1-3600) before bringing up interface-vlan (SVI) after peer-link comes up.
                   This prevents traffic blackholing during convergence.
@@ -106,6 +107,7 @@ spec:
                 minimum: 1
                 type: integer
               delayRestoreVPC:
+                default: 30
                 description: DelayRestoreVPC is the delay in seconds (1-3600) before
                   bringing up the member ports after the peer-link is restored.
                 maximum: 3600
@@ -139,6 +141,8 @@ spec:
                 minimum: 1
                 type: integer
               fastConvergence:
+                default:
+                  enabled: false
                 description: |-
                   FastConvergence ensures that both SVIs and member ports are shut down simultaneously when the peer-link goes down.
                   This synchronization helps prevent traffic loss.
@@ -173,6 +177,7 @@ spec:
                           before assuming the peer is dead and restoring the vPC's domain functionality.
                         type: boolean
                       reloadDelay:
+                        default: 240
                         description: |-
                           ReloadDelay is the time in seconds (60-3600) to wait before assuming the peer is dead
                           and automatically attempting to restore the communication with the peer.
@@ -287,6 +292,7 @@ spec:
                 - keepalive
                 type: object
               rolePriority:
+                default: 32667
                 description: |-
                   RolePriority is the role priority for this vPC domain (1-65535).
                   The switch with the lower role priority becomes the operational primary.
@@ -295,6 +301,7 @@ spec:
                 minimum: 1
                 type: integer
               systemPriority:
+                default: 32667
                 description: |-
                   SystemPriority is the system priority for this vPC domain (1-65535).
                   Used to ensure that the vPC domain devices are primary devices on LACP. Must match on both peers.
@@ -382,9 +389,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              domainId:
-                description: DomainID is the vPC domain ID as reported by the device.
-                type: integer
               keepaliveStatus:
                 description: KeepAliveStatus indicates the status of the peer via
                   the keepalive link.
