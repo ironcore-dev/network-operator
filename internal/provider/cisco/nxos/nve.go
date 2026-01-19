@@ -10,9 +10,11 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
 )
 
-var _ gnmiext.Configurable = (*NVE)(nil)
-var _ gnmiext.Configurable = (*NVEInfraVLANs)(nil)
-var _ gnmiext.Configurable = (*FabricFwd)(nil)
+var (
+	_ gnmiext.Configurable = (*NVE)(nil)
+	_ gnmiext.Configurable = (*NVEInfraVLANs)(nil)
+	_ gnmiext.Configurable = (*FabricFwd)(nil)
+)
 
 // NVE represents the Network Virtualization Edge interface (nve1).
 // Note: NXOS only supports a single NVE interface with epId=1.
@@ -108,7 +110,7 @@ type NVEInfraVLANs struct {
 	InfraVLANList []*NVEInfraVLAN `json:"InfraVlan-list,omitempty"`
 }
 
-func (n *NVEInfraVLANs) XPath() string {
+func (*NVEInfraVLANs) XPath() string {
 	return "System/pltfm-items/nve-items/NVE-list[id=1]/infravlan-items"
 }
 

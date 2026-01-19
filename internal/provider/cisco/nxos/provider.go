@@ -2532,6 +2532,9 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) erro
 		n.AdvertiseVmac = vc.Spec.AdvertiseVirtualMAC
 	}
 
+	conf := make([]gnmiext.Configurable, 0, 3)
+	conf = append(conf, n)
+
 	iv := new(NVEInfraVLANs)
 	for _, ivList := range vc.Spec.InfraVLANs {
 		if ivList.ID != 0 {
@@ -2543,13 +2546,27 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) erro
 		}
 	}
 
+	if len(iv.InfraVLANList) == 0 {
+		if err := p.client.GetConfig(ctx, iv); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+		if len(iv.InfraVLANList) != 0 {
+			if err := p.client.Delete(ctx, iv); err != nil {
+				return err
+			}
+		}
+	} else {
+		conf = append(conf, iv)
+	}
+
 	ag := new(FabricFwd)
 	if req.NVE.Spec.AnycastGateway != nil {
 		ag.AdminSt = string(AdminStEnabled)
 		ag.Address = req.NVE.Spec.AnycastGateway.VirtualMAC
 	}
+	conf = append(conf, ag)
 
-	return p.Patch(ctx, n, iv, ag)
+	return p.Patch(ctx, conf...)
 }
 
 func (p *Provider) DeleteNVE(ctx context.Context, req *provider.NVERequest) error {
