@@ -11,7 +11,7 @@ const DefaultVRFName = "default"
 var _ gnmiext.Configurable = (*VRF)(nil)
 
 type VRF struct {
-	Encap    string         `json:"encap"`
+	Encap    Option[string] `json:"encap"`
 	L3Vni    bool           `json:"l3vni"`
 	Name     string         `json:"name"`
 	Descr    Option[string] `json:"descr"`

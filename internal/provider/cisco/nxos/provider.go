@@ -2018,10 +2018,9 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 	if req.VRF.Spec.Description != "" {
 		v.Descr = NewOption(req.VRF.Spec.Description)
 	}
-	v.Encap = "unknown"
 	if req.VRF.Spec.VNI > 0 {
 		v.L3Vni = true
-		v.Encap = "vxlan-" + strconv.FormatUint(uint64(req.VRF.Spec.VNI), 10)
+		v.Encap = NewOption("vxlan-" + strconv.FormatUint(uint64(req.VRF.Spec.VNI), 10))
 	}
 
 	dom := new(VRFDom)
