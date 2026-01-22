@@ -59,6 +59,10 @@ type BGPPeerSpec struct {
 	// Controls which address families are enabled and their specific configuration.
 	// +optional
 	AddressFamilies *BGPPeerAddressFamilies `json:"addressFamilies,omitempty"`
+
+	// LocalASNumber specifies a local AS number to present to the BGP peer, masking the global BGP process ASN.
+	// +optional
+	LocalASNumber *intstr.IntOrString `json:"localASNumber,omitempty"`
 }
 
 // BGPCommunityType represents the type of BGP community attributes that can be sent to peers.

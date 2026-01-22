@@ -441,6 +441,16 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (ret
 		sourceInterface = intf.Spec.Name
 	}
 
+	if s.BGPPeer.Spec.LocalASNumber != nil && s.BGPPeer.Spec.ASNumber.String() == bgp.Spec.ASNumber.String() {
+		conditions.Set(s.BGPPeer, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.ErrorReason,
+			Message: "local-as cannot be configured on iBGP peers",
+		})
+		return reconcile.TerminalError(errors.New("local-as cannot be configured on iBGP peers"))
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}

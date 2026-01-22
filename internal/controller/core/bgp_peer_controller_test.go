@@ -462,5 +462,69 @@ var _ = Describe("BGPPeer Controller", func() {
 				g.Expect(testProvider.BGPPeers.Has("10.0.0.3")).To(BeFalse(), "Provider should not have BGP peer configured")
 			}).Should(Succeed())
 		})
+
+		It("Should not reconcile iBGP peer if local-as is set", func() {
+			By("Creating a BGP resource for the Device")
+			By("Creating a BGP resource for the Device")
+			bgp := &v1alpha1.BGP{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test-bgppeer-bgp-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.BGPSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
+					ASNumber:  intstr.FromInt(65000),
+					RouterID:  "10.0.0.10",
+				},
+			}
+			Expect(k8sClient.Create(ctx, bgp)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(k8sClient.Delete(ctx, bgp)).To(Succeed())
+			})
+
+			By("Waiting for the BGP resource to be fully configured")
+			Eventually(func(g Gomega) {
+				b := &v1alpha1.BGP{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgp), b)).To(Succeed())
+				g.Expect(conditions.IsReady(b)).To(BeTrue())
+			}).Should(Succeed())
+
+			By("Creating a BGPPeer resource")
+			bgppeer := &v1alpha1.BGPPeer{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test-bgppeer-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.BGPPeerSpec{
+					DeviceRef:     v1alpha1.LocalObjectReference{Name: device.Name},
+					BgpRef:        v1alpha1.LocalObjectReference{Name: bgp.Name},
+					Address:       host,
+					ASNumber:      intstr.FromInt(65000),
+					LocalASNumber: &intstr.IntOrString{IntVal: 65000},
+				},
+			}
+			Expect(k8sClient.Create(ctx, bgppeer)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(k8sClient.Delete(ctx, bgppeer)).To(Succeed())
+				By("Verifying the BGP peer is removed from the provider")
+				Eventually(func(g Gomega) {
+					g.Expect(testProvider.BGPPeers.Has(host)).To(BeFalse(), "Provider should not have BGP peer configured")
+				}).Should(Succeed())
+			})
+
+			By("Verifying the controller sets Configured=False with appropriate reason")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.BGPPeer{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgppeer), resource)).To(Succeed())
+				g.Expect(resource.Status.Conditions).To(HaveLen(4))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Reason).To(Equal(v1alpha1.ErrorReason))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.OperationalCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionUnknown))
+			}).Should(Succeed())
+		})
 	})
 })

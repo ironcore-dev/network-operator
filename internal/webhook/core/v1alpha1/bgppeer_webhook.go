@@ -35,17 +35,31 @@ var _ admission.Validator[*v1alpha1.BGPPeer] = &BGPPeerCustomValidator{}
 func (v *BGPPeerCustomValidator) ValidateCreate(_ context.Context, bgppeer *v1alpha1.BGPPeer) (admission.Warnings, error) {
 	bgppeerlog.Info("Validation for BGPPeer upon creation", "name", bgppeer.GetName())
 
-	return nil, validateASNumber(bgppeer.Spec.ASNumber)
+	return nil, validateBGPPeer(bgppeer.Spec)
 }
 
 // ValidateUpdate implements admission.Validator so a webhook will be registered for the type BGPPeer.
 func (v *BGPPeerCustomValidator) ValidateUpdate(_ context.Context, _, bgppeer *v1alpha1.BGPPeer) (admission.Warnings, error) {
 	bgppeerlog.Info("Validation for BGPPeer upon update", "name", bgppeer.GetName())
 
-	return nil, validateASNumber(bgppeer.Spec.ASNumber)
+	return nil, validateBGPPeer(bgppeer.Spec)
 }
 
 // ValidateDelete implements admission.Validator so a webhook will be registered for the type BGPPeer.
 func (v *BGPPeerCustomValidator) ValidateDelete(_ context.Context, _ *v1alpha1.BGPPeer) (admission.Warnings, error) {
 	return nil, nil
+}
+
+func validateBGPPeer(bgppeer v1alpha1.BGPPeerSpec) error {
+	if err := validateASNumber(bgppeer.ASNumber); err != nil {
+		return err
+	}
+
+	localASN := bgppeer.LocalASNumber
+	if localASN != nil {
+		if err := validateASNumber(*localASN); err != nil {
+			return err
+		}
+	}
+	return nil
 }
