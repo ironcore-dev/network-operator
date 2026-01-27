@@ -15,7 +15,9 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
@@ -265,10 +267,23 @@ func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 		return err
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	bldr := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Interface{}).
 		Named("interface").
-		WithEventFilter(filter).
+		WithEventFilter(filter)
+
+	for _, gvk := range v1alpha1.InterfaceDependencies {
+		obj := &unstructured.Unstructured{}
+		obj.SetGroupVersionKind(gvk)
+
+		bldr = bldr.Watches(
+			obj,
+			handler.EnqueueRequestsFromMapFunc(r.interfacesForProviderConfig),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		)
+	}
+
+	return bldr.
 		// Watches enqueues Interfaces for updates in referenced ipv4 unnumbered resources.
 		// Only triggers on create and delete events since interface names are immutable.
 		Watches(
@@ -895,6 +910,38 @@ func (r *InterfaceReconciler) vrfToInterface(ctx context.Context, obj client.Obj
 				NamespacedName: client.ObjectKey{
 					Name:      i.Name,
 					Namespace: i.Namespace,
+				},
+			})
+		}
+	}
+
+	return requests
+}
+
+// interfacesForProviderConfig is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for an Interface to update when one of its referenced provider configurations gets updated.
+func (r *InterfaceReconciler) interfacesForProviderConfig(ctx context.Context, obj client.Object) []reconcile.Request {
+	log := ctrl.LoggerFrom(ctx, "Object", klog.KObj(obj))
+
+	list := &v1alpha1.InterfaceList{}
+	if err := r.List(ctx, list, client.InNamespace(obj.GetNamespace())); err != nil {
+		log.Error(err, "Failed to list Interfacees")
+		return nil
+	}
+
+	gkv := obj.GetObjectKind().GroupVersionKind()
+
+	var requests []reconcile.Request
+	for _, m := range list.Items {
+		if m.Spec.ProviderConfigRef != nil &&
+			m.Spec.ProviderConfigRef.Name == obj.GetName() &&
+			m.Spec.ProviderConfigRef.Kind == gkv.Kind &&
+			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
+			log.Info("Enqueuing Interface for reconciliation", "Interface", klog.KObj(&m))
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      m.Name,
+					Namespace: m.Namespace,
 				},
 			})
 		}

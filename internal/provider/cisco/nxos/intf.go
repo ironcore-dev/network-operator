@@ -138,8 +138,10 @@ func NewVrfMember(ifName, vrfName string) *VrfMember {
 
 // SpanningTree represents the spanning tree configuration for an interface.
 type SpanningTree struct {
-	Mode   SpanningTreeMode `json:"mode"`
-	IfName string           `json:"-"`
+	Mode       SpanningTreeMode `json:"mode"`
+	IfName     string           `json:"-"`
+	BPDUfilter string           `json:"bpdufilter"`
+	BPDUGuard  string           `json:"bpduguard"`
 }
 
 func (*SpanningTree) IsListItem() {}

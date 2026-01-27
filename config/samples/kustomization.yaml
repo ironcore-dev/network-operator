@@ -27,4 +27,5 @@ resources:
 - cisco/nx/v1alpha1_nveconfig.yaml
 - cisco/nx/v1alpha1_system.yaml
 - cisco/nx/v1alpha1_vpcdomain.yaml
+- cisco/nx/v1alpha1_interfaceconfig.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

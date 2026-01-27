@@ -29,6 +29,7 @@ resources:
 - bases/nx.cisco.networking.metal.ironcore.dev_networkvirtualizationedgeconfigs.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_systems.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_vpcdomains.yaml
+- bases/nx.cisco.networking.metal.ironcore.dev_interfaceconfigs.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

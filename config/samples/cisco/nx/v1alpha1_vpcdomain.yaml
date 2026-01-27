@@ -34,6 +34,19 @@ spec:
   vrfRef:
     name: leaf1-vrfvpckeepalive
 ---
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: InterfaceConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: vpc-peer-link
+spec:
+  spanningTree:
+    portType: Network
+  bufferBoost:
+    enabled: false
+---
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
 metadata:
@@ -41,13 +54,14 @@ metadata:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
     networking.metal.ironcore.dev/device-name: leaf1
-  annotations:
-    nx.cisco.networking.metal.ironcore.dev/spanning-tree-port-type: "network"
-    nx.cisco.networking.metal.ironcore.dev/buffer-boost: "disable"
   name: eth1-31
 spec:
   deviceRef:
     name: leaf1
+  providerConfigRef:
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+    kind: InterfaceConfig
+    name: vpc-peer-link
   name: eth1/31
   description: vPC Peer-Link
   adminState: Up
@@ -63,13 +77,14 @@ metadata:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
     networking.metal.ironcore.dev/device-name: leaf1
-  annotations:
-    nx.cisco.networking.metal.ironcore.dev/spanning-tree-port-type: "network"
-    nx.cisco.networking.metal.ironcore.dev/buffer-boost: "disable"
   name: eth1-32
 spec:
   deviceRef:
     name: leaf1
+  providerConfigRef:
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+    kind: InterfaceConfig
+    name: vpc-peer-link
   name: eth1/32
   description: vPC Peer-Link
   adminState: Up
@@ -85,13 +100,14 @@ metadata:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
     networking.metal.ironcore.dev/device-name: leaf1
-  annotations:
-    nx.cisco.networking.metal.ironcore.dev/spanning-tree-port-type: "network"
-    nx.cisco.networking.metal.ironcore.dev/buffer-boost: "disable"
   name: po1
 spec:
   deviceRef:
     name: leaf1
+  providerConfigRef:
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+    kind: InterfaceConfig
+    name: vpc-peer-link
   name: po1
   description: vPC Peer-Link
   adminState: Up

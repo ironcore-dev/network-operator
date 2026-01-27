@@ -30,13 +30,6 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
 )
 
-const (
-	SpanningTreePortTypeAnnotation = "nx.cisco.networking.metal.ironcore.dev/spanning-tree-port-type"
-	// BufferBoostAnnotation is the annotation key used to enable or disable buffer boost on interfaces.
-	// Accepted values are 'enable' and 'disable', any other value will result in the device returning an error.
-	BufferBoostAnnotation = "nx.cisco.networking.metal.ironcore.dev/buffer-boost"
-)
-
 var (
 	_ provider.Provider                 = (*Provider)(nil)
 	_ provider.DeviceProvider           = (*Provider)(nil)
@@ -613,6 +606,13 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		return err
 	}
 
+	var cfg nxv1alpha1.InterfaceConfig
+	if req.ProviderConfig != nil {
+		if err := req.ProviderConfig.Into(&cfg); err != nil {
+			return err
+		}
+	}
+
 	vrf := DefaultVRFName
 	if req.VRF != nil {
 		vrf = req.VRF.Spec.Name
@@ -712,14 +712,10 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		}
 
-		// TODO: remove annotation with provider-specific implementation
-		ann, ok := req.Interface.GetAnnotations()[BufferBoostAnnotation]
-		if ok {
-			switch strings.ToLower(ann) {
-			case "enable", "disable":
-				p.PhysExtdItems.BufferBoost = strings.ToLower(ann)
-			default:
-				return fmt.Errorf("invalid value for annotation %q: %q. Must be %q or %q", BufferBoostAnnotation, ann, "enable", "disable")
+		if cfg.Spec.BufferBoost != nil {
+			p.PhysExtdItems.BufferBoost = "disable"
+			if cfg.Spec.BufferBoost.Enabled {
+				p.PhysExtdItems.BufferBoost = "enable"
 			}
 		}
 
@@ -826,14 +822,10 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		}
 
-		// TODO: remove annotation with provider-specific implementation
-		ann, ok := req.Interface.GetAnnotations()[BufferBoostAnnotation]
-		if ok {
-			switch strings.ToLower(ann) {
-			case "enable", "disable":
-				pc.AggrExtdItems.BufferBoost = strings.ToLower(ann)
-			default:
-				return fmt.Errorf("invalid value for annotation %q: %q. Must be %q or %q", BufferBoostAnnotation, ann, "enable", "disable")
+		if cfg.Spec.BufferBoost != nil {
+			pc.AggrExtdItems.BufferBoost = "disable"
+			if cfg.Spec.BufferBoost.Enabled {
+				pc.AggrExtdItems.BufferBoost = "enable"
 			}
 		}
 
@@ -898,12 +890,28 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		stp := new(SpanningTree)
 		stp.IfName = name
 		stp.Mode = SpanningTreeModeDefault
-
-		m, ok := req.Interface.GetAnnotations()[SpanningTreePortTypeAnnotation]
-		if mode := SpanningTreeMode(m); ok && mode.IsValid() {
-			stp.Mode = mode
+		stp.BPDUfilter = "default"
+		stp.BPDUGuard = "default"
+		if cfg.Spec.SpanningTree == nil {
+			switch cfg.Spec.SpanningTree.PortType {
+			case nxv1alpha1.SpanningTreePortTypeEdge:
+				stp.Mode = SpanningTreeModeEdge
+			case nxv1alpha1.SpanningTreePortTypeNetwork:
+				stp.Mode = SpanningTreeModeNetwork
+			}
+			if cfg.Spec.SpanningTree.BPDUFilter != nil {
+				stp.BPDUfilter = "disable"
+				if *cfg.Spec.SpanningTree.BPDUFilter {
+					stp.BPDUfilter = "enable"
+				}
+			}
+			if cfg.Spec.SpanningTree.BPDUGuard != nil {
+				stp.BPDUGuard = "disable"
+				if *cfg.Spec.SpanningTree.BPDUGuard {
+					stp.BPDUGuard = "enable"
+				}
+			}
 		}
-
 		conf = append(conf, stp)
 	}
 

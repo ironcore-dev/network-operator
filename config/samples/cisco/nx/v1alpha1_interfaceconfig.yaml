@@ -1,0 +1,10 @@
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: InterfaceConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: spanning-tree-network
+spec:
+  spanningTree:
+    portType: Network

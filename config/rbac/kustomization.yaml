@@ -104,3 +104,6 @@ resources:
 - cisco/nx/vpcdomain_admin_role.yaml
 - cisco/nx/vpcdomain_editor_role.yaml
 - cisco/nx/vpcdomain_viewer_role.yaml
+- cisco/nx/interfaceconfig_admin_role.yaml
+- cisco/nx/interfaceconfig_editor_role.yaml
+- cisco/nx/interfaceconfig_viewer_role.yaml

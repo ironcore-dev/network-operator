@@ -163,6 +163,7 @@ rules:
 - apiGroups:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
+  - interfaceconfigs
   - managementaccessconfigs
   - networkvirtualizationedgeconfigs
   verbs:

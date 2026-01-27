@@ -17,10 +17,10 @@ spec:
   ipv4:
     addresses:
       - 10.0.0.10/32
-#   providerConfigRef:
-#     apiVersion: nxos.cisco.networking.metal.ironcore.dev/v1alpha1
-#     kind: InterfaceConfig
-#     name: leaf-interface-config
+  # providerConfigRef:
+  #   apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+  #   kind: InterfaceConfig
+  #   name: spanning-tree-network
 ---
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface

@@ -1,0 +1,95 @@
+{{- if .Values.crd.enable }}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.crd.keep }}
+    "helm.sh/resource-policy": keep
+    {{- end }}
+    controller-gen.kubebuilder.io/version: v0.20.0
+  name: interfaceconfigs.nx.cisco.networking.metal.ironcore.dev
+spec:
+  group: nx.cisco.networking.metal.ironcore.dev
+  names:
+    kind: InterfaceConfig
+    listKind: InterfaceConfigList
+    plural: interfaceconfigs
+    shortNames:
+    - intcfg
+    singular: interfaceconfigs
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: InterfaceConfig is the Schema for the interfaceconfigs API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              Specification of the desired state of the resource.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              bufferBoost:
+                description: |-
+                  BufferBoost defines the buffer boost configuration for the interface.
+                  Buffer boost increases the shared buffer space allocation for the interface.
+                properties:
+                  enabled:
+                    description: |-
+                      Enabled indicates whether buffer boost is enabled on the interface.
+                      Maps to CLI command: hardware profile buffer boost
+                    type: boolean
+                required:
+                - enabled
+                type: object
+              spanningTree:
+                description: SpanningTree defines the spanning tree configuration
+                  for the interface.
+                properties:
+                  bpduFilter:
+                    description: |-
+                      BPDUFilter enables BPDU filter on the interface.
+                      When enabled, BPDUs are not sent or received on the port.
+                    type: boolean
+                  bpduGuard:
+                    description: |-
+                      BPDUGuard enables BPDU guard on the interface.
+                      When enabled, the port is shut down if a BPDU is received.
+                    type: boolean
+                  portType:
+                    description: PortType defines the spanning tree port type.
+                    enum:
+                    - Normal
+                    - Edge
+                    - Network
+                    type: string
+                required:
+                - portType
+                type: object
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+{{- end -}}

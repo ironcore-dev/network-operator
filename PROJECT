@@ -252,4 +252,12 @@ resources:
   webhooks:
     validation: true
     webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: cisco.networking.metal.ironcore.dev
+  group: nx
+  kind: InterfaceConfig
+  path: github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1
+  version: v1alpha1
 version: "3"
