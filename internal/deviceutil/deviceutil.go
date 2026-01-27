@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -60,6 +61,24 @@ func GetDeviceByName(ctx context.Context, r client.Reader, namespace, name strin
 		return nil, fmt.Errorf("failed to get %s/%s", v1alpha1.GroupVersion.WithKind(v1alpha1.DeviceKind).String(), name)
 	}
 	return obj, nil
+}
+
+func GetDeviceBySerial(ctx context.Context, r client.Reader, namespace, serial string) (*v1alpha1.Device, error) {
+	deviceList := &v1alpha1.DeviceList{}
+	listOpts := &client.ListOptions{
+		LabelSelector: labels.SelectorFromSet(labels.Set{v1alpha1.DeviceSerialLabel: serial}),
+	}
+
+	if err := r.List(ctx, deviceList, listOpts); err != nil {
+		return nil, fmt.Errorf("failed to list %s objects: %w", v1alpha1.GroupVersion.WithKind(v1alpha1.DeviceKind).String(), err)
+	}
+	if len(deviceList.Items) == 0 {
+		return nil, fmt.Errorf("no %s object found with serial %q", v1alpha1.GroupVersion.WithKind(v1alpha1.DeviceKind).String(), serial)
+	}
+	if len(deviceList.Items) > 1 {
+		return nil, fmt.Errorf("multiple %s objects found with serial %q", v1alpha1.GroupVersion.WithKind(v1alpha1.DeviceKind).String(), serial)
+	}
+	return &deviceList.Items[0], nil
 }
 
 // Connection holds the necessary information to connect to a device's API.

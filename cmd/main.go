@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -45,6 +46,7 @@ import (
 	nxcontroller "github.com/ironcore-dev/network-operator/internal/controller/cisco/nx"
 	corecontroller "github.com/ironcore-dev/network-operator/internal/controller/core"
 	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/provisioning"
 	"github.com/ironcore-dev/network-operator/internal/resourcelock"
 	webhooknxv1alpha1 "github.com/ironcore-dev/network-operator/internal/webhook/cisco/nx/v1alpha1"
 	webhookv1alpha1 "github.com/ironcore-dev/network-operator/internal/webhook/core/v1alpha1"
@@ -82,6 +84,8 @@ func main() {
 	var lockerNamespace string
 	var lockerDuration time.Duration
 	var lockerRenewInterval time.Duration
+	var provisioningHTTPPort int
+	var provisioningHTTPValidateSourceIP bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
@@ -100,6 +104,8 @@ func main() {
 	flag.StringVar(&lockerNamespace, "locker-namespace", "", "The namespace to use for resource locker coordination. If not specified, uses the namespace the manager is deployed in, or 'default' if undetectable.")
 	flag.DurationVar(&lockerDuration, "locker-duration", 10*time.Second, "The duration of the resource locker lease.")
 	flag.DurationVar(&lockerRenewInterval, "locker-renew-interval", 5*time.Second, "The interval at which the resource locker lease is renewed.")
+	flag.IntVar(&provisioningHTTPPort, "provisioning-http-port", 8080, "The port on which the provisioning HTTP server listens.")
+	flag.BoolVar(&provisioningHTTPValidateSourceIP, "provisioning-http-validate-source-ip", false, "If set, the provisioning HTTP server will validate the source IP of incoming requests against the DeviceIPLabel of Device resources.")
 	opts := zap.Options{
 		Development: true,
 		TimeEncoder: zapcore.ISO8601TimeEncoder,
@@ -603,6 +609,26 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "NetworkVirtualizationEdgeConfig")
 			os.Exit(1)
 		}
+	}
+
+	// Start provisioning HTTP server if the provisioning provider
+	// is implemented and the port is set to a non-zero value.
+	provisioningProvider, ok := prov().(provider.ProvisioningProvider)
+	if provisioningHTTPPort != 0 && ok {
+		provisioningServer := provisioning.HTTPServer{
+			Client:           mgr.GetClient(),
+			Logger:           klog.NewKlogr().WithName("provisioning"),
+			Recorder:         mgr.GetEventRecorderFor("provisioning"),
+			ValidateSourceIP: provisioningHTTPValidateSourceIP,
+			Provider:         provisioningProvider,
+		}
+		setupLog.Info("Starting provisioning HTTP server", "port", provisioningHTTPPort, "validateSourceIP", provisioningHTTPValidateSourceIP)
+		go func() {
+			if err := provisioningServer.Start(provisioningHTTPPort); err != nil {
+				setupLog.Error(err, "provisioning HTTP server failed")
+				os.Exit(1)
+			}
+		}()
 	}
 
 	// +kubebuilder:scaffold:builder
