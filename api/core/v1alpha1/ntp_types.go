@@ -4,7 +4,10 @@
 package v1alpha1
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // NTPSpec defines the desired state of NTP
@@ -110,6 +113,17 @@ type NTPList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []NTP `json:"items"`
+}
+
+var (
+	NTPDependencies   []schema.GroupVersionKind
+	ntpDependenciesMu sync.Mutex
+)
+
+func RegisterNTPDependency(gvk schema.GroupVersionKind) {
+	ntpDependenciesMu.Lock()
+	defer ntpDependenciesMu.Unlock()
+	NTPDependencies = append(NTPDependencies, gvk)
 }
 
 func init() {

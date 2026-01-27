@@ -4,7 +4,10 @@
 package v1alpha1
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // EVPNInstanceSpec defines the desired state of EVPNInstance
@@ -150,6 +153,17 @@ type EVPNInstanceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []EVPNInstance `json:"items"`
+}
+
+var (
+	EVPNInstanceDependencies   []schema.GroupVersionKind
+	evpnInstanceDependenciesMu sync.Mutex
+)
+
+func RegisterEVPNInstanceDependency(gvk schema.GroupVersionKind) {
+	evpnInstanceDependenciesMu.Lock()
+	defer evpnInstanceDependenciesMu.Unlock()
+	EVPNInstanceDependencies = append(EVPNInstanceDependencies, gvk)
 }
 
 func init() {

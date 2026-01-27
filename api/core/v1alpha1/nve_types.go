@@ -176,8 +176,8 @@ var (
 	networkVirtualizationEdgeDependenciesMu sync.Mutex
 )
 
-// RegisterNetworkVirtualizationEdgeDependency adds GVKs to the NVE dependency registry.This function is typically
-// called during package initialization by provider implementations (e.g., NVOConfig from cisco/nx/v1alpha1)
+// RegisterNetworkVirtualizationEdgeDependency adds GVKs to the NVE dependency registry. This function is typically
+// called during package initialization by provider implementations (e.g., NetworkVirtualizationEdgeConfig from cisco/nx/v1alpha1)
 // to declare themselves as valid ProviderConfigRef targets.
 func RegisterNetworkVirtualizationEdgeDependency(gvk schema.GroupVersionKind) {
 	networkVirtualizationEdgeDependenciesMu.Lock()

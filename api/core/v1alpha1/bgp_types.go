@@ -4,7 +4,10 @@
 package v1alpha1
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -184,6 +187,17 @@ type BGPList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []BGP `json:"items"`
+}
+
+var (
+	BGPDependencies   []schema.GroupVersionKind
+	bgpDependenciesMu sync.Mutex
+)
+
+func RegisterBGPDependency(gvk schema.GroupVersionKind) {
+	bgpDependenciesMu.Lock()
+	defer bgpDependenciesMu.Unlock()
+	BGPDependencies = append(BGPDependencies, gvk)
 }
 
 func init() {

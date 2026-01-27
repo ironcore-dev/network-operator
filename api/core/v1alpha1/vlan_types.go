@@ -4,7 +4,10 @@
 package v1alpha1
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // VLANSpec defines the desired state of VLAN
@@ -108,6 +111,17 @@ type VLANList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []VLAN `json:"items"`
+}
+
+var (
+	VLANDependencies   []schema.GroupVersionKind
+	vlanDependenciesMu sync.Mutex
+)
+
+func RegisterVLANDependency(gvk schema.GroupVersionKind) {
+	vlanDependenciesMu.Lock()
+	defer vlanDependenciesMu.Unlock()
+	VLANDependencies = append(VLANDependencies, gvk)
 }
 
 func init() {

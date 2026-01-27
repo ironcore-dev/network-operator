@@ -4,7 +4,10 @@
 package v1alpha1
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // AccessControlListSpec defines the desired state of AccessControlList
@@ -149,6 +152,17 @@ type AccessControlListList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []AccessControlList `json:"items"`
+}
+
+var (
+	AccessControlListDependencies   []schema.GroupVersionKind
+	accessControlListDependenciesMu sync.Mutex
+)
+
+func RegisterAccessControlListDependency(gvk schema.GroupVersionKind) {
+	accessControlListDependenciesMu.Lock()
+	defer accessControlListDependenciesMu.Unlock()
+	AccessControlListDependencies = append(AccessControlListDependencies, gvk)
 }
 
 func init() {

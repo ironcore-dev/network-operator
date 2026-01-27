@@ -4,7 +4,10 @@
 package v1alpha1
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // CertificateSpec defines the desired state of Certificate
@@ -88,6 +91,17 @@ type CertificateList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Certificate `json:"items"`
+}
+
+var (
+	CertificateDependencies   []schema.GroupVersionKind
+	certificateDependenciesMu sync.Mutex
+)
+
+func RegisterCertificateDependency(gvk schema.GroupVersionKind) {
+	certificateDependenciesMu.Lock()
+	defer certificateDependenciesMu.Unlock()
+	CertificateDependencies = append(CertificateDependencies, gvk)
 }
 
 func init() {

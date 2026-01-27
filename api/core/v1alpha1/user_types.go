@@ -4,7 +4,10 @@
 package v1alpha1
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // UserSpec defines the desired state of User
@@ -121,6 +124,17 @@ type UserList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []User `json:"items"`
+}
+
+var (
+	UserDependencies   []schema.GroupVersionKind
+	userDependenciesMu sync.Mutex
+)
+
+func RegisterUserDependency(gvk schema.GroupVersionKind) {
+	userDependenciesMu.Lock()
+	defer userDependenciesMu.Unlock()
+	UserDependencies = append(UserDependencies, gvk)
 }
 
 func init() {

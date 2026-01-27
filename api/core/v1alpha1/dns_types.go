@@ -4,7 +4,10 @@
 package v1alpha1
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // DNSSpec defines the desired state of DNS
@@ -113,6 +116,17 @@ type DNSList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []DNS `json:"items"`
+}
+
+var (
+	DNSDependencies   []schema.GroupVersionKind
+	dnsDependenciesMu sync.Mutex
+)
+
+func RegisterDNSDependency(gvk schema.GroupVersionKind) {
+	dnsDependenciesMu.Lock()
+	defer dnsDependenciesMu.Unlock()
+	DNSDependencies = append(DNSDependencies, gvk)
 }
 
 func init() {

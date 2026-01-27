@@ -4,7 +4,10 @@
 package v1alpha1
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // SNMPSpec defines the desired state of SNMP
@@ -165,6 +168,17 @@ type SNMPList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []SNMP `json:"items"`
+}
+
+var (
+	SNMPDependencies   []schema.GroupVersionKind
+	snmpDependenciesMu sync.Mutex
+)
+
+func RegisterSNMPDependency(gvk schema.GroupVersionKind) {
+	snmpDependenciesMu.Lock()
+	defer snmpDependenciesMu.Unlock()
+	SNMPDependencies = append(SNMPDependencies, gvk)
 }
 
 func init() {

@@ -4,7 +4,10 @@
 package v1alpha1
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // RoutingPolicySpec defines the desired state of RoutingPolicy
@@ -179,6 +182,17 @@ type RoutingPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`
 	Items           []RoutingPolicy `json:"items"`
+}
+
+var (
+	RoutingPolicyDependencies   []schema.GroupVersionKind
+	routingPolicyDependenciesMu sync.Mutex
+)
+
+func RegisterRoutingPolicyDependency(gvk schema.GroupVersionKind) {
+	routingPolicyDependenciesMu.Lock()
+	defer routingPolicyDependenciesMu.Unlock()
+	RoutingPolicyDependencies = append(RoutingPolicyDependencies, gvk)
 }
 
 func init() {

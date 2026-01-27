@@ -4,7 +4,10 @@
 package v1alpha1
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // PIMSpec defines the desired state of PIM
@@ -127,6 +130,17 @@ type PIMList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []PIM `json:"items"`
+}
+
+var (
+	PIMDependencies   []schema.GroupVersionKind
+	pimDependenciesMu sync.Mutex
+)
+
+func RegisterPIMDependency(gvk schema.GroupVersionKind) {
+	pimDependenciesMu.Lock()
+	defer pimDependenciesMu.Unlock()
+	PIMDependencies = append(PIMDependencies, gvk)
 }
 
 func init() {

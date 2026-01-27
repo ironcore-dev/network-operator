@@ -4,7 +4,10 @@
 package v1alpha1
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // PrefixSetSpec defines the desired state of PrefixSet
@@ -136,6 +139,17 @@ type PrefixSetList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`
 	Items           []PrefixSet `json:"items"`
+}
+
+var (
+	PrefixSetDependencies   []schema.GroupVersionKind
+	prefixSetDependenciesMu sync.Mutex
+)
+
+func RegisterPrefixSetDependency(gvk schema.GroupVersionKind) {
+	prefixSetDependenciesMu.Lock()
+	defer prefixSetDependenciesMu.Unlock()
+	PrefixSetDependencies = append(PrefixSetDependencies, gvk)
 }
 
 func init() {

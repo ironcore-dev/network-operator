@@ -4,7 +4,10 @@
 package v1alpha1
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // ISISSpec defines the desired state of ISIS
@@ -140,6 +143,17 @@ type ISISList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ISIS `json:"items"`
+}
+
+var (
+	ISISDependencies   []schema.GroupVersionKind
+	isisDependenciesMu sync.Mutex
+)
+
+func RegisterISISDependency(gvk schema.GroupVersionKind) {
+	isisDependenciesMu.Lock()
+	defer isisDependenciesMu.Unlock()
+	ISISDependencies = append(ISISDependencies, gvk)
 }
 
 func init() {

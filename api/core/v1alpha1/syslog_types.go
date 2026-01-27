@@ -4,7 +4,10 @@
 package v1alpha1
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // SyslogSpec defines the desired state of Syslog
@@ -135,6 +138,17 @@ type SyslogList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Syslog `json:"items"`
+}
+
+var (
+	SyslogDependencies   []schema.GroupVersionKind
+	syslogDependenciesMu sync.Mutex
+)
+
+func RegisterSyslogDependency(gvk schema.GroupVersionKind) {
+	syslogDependenciesMu.Lock()
+	defer syslogDependenciesMu.Unlock()
+	SyslogDependencies = append(SyslogDependencies, gvk)
 }
 
 func init() {

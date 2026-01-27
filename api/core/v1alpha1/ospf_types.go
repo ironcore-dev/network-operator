@@ -4,7 +4,10 @@
 package v1alpha1
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // OSPFSpec defines the desired state of OSPF
@@ -218,6 +221,17 @@ type OSPFList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []OSPF `json:"items"`
+}
+
+var (
+	OSPFDependencies   []schema.GroupVersionKind
+	ospfDependenciesMu sync.Mutex
+)
+
+func RegisterOSPFDependency(gvk schema.GroupVersionKind) {
+	ospfDependenciesMu.Lock()
+	defer ospfDependenciesMu.Unlock()
+	OSPFDependencies = append(OSPFDependencies, gvk)
 }
 
 func init() {

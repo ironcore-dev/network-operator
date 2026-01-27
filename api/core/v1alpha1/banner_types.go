@@ -4,7 +4,10 @@
 package v1alpha1
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // BannerSpec defines the desired state of Banner
@@ -98,6 +101,17 @@ type BannerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Banner `json:"items"`
+}
+
+var (
+	BannerDependencies   []schema.GroupVersionKind
+	bannerDependenciesMu sync.Mutex
+)
+
+func RegisterBannerDependency(gvk schema.GroupVersionKind) {
+	bannerDependenciesMu.Lock()
+	defer bannerDependenciesMu.Unlock()
+	BannerDependencies = append(BannerDependencies, gvk)
 }
 
 func init() {
