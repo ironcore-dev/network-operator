@@ -79,7 +79,7 @@ type PhysIf struct {
 	UserCfgdFlags UserFlags      `json:"userCfgdFlags"`
 	RtvrfMbrItems *VrfMember     `json:"rtvrfMbr-items,omitempty"`
 	PhysExtdItems struct {
-		BufferBoost string `json:"bufferBoost,omitempty"`
+		BufferBoost AdminSt4 `json:"bufferBoost,omitempty"`
 	} `json:"physExtd-items,omitzero"`
 }
 
@@ -104,7 +104,7 @@ func (p *PhysIf) Default() {
 	p.Mode = SwitchportModeAccess
 	p.NativeVlan = DefaultVLAN
 	p.TrunkVlans = DefaultVLANRange
-	p.PhysExtdItems.BufferBoost = "enable"
+	p.PhysExtdItems.BufferBoost = AdminStEnable
 }
 
 type PhysIfOperItems struct {
@@ -140,8 +140,8 @@ func NewVrfMember(ifName, vrfName string) *VrfMember {
 type SpanningTree struct {
 	Mode       SpanningTreeMode `json:"mode"`
 	IfName     string           `json:"-"`
-	BPDUfilter string           `json:"bpdufilter"`
-	BPDUGuard  string           `json:"bpduguard"`
+	BPDUfilter AdminSt4         `json:"bpdufilter"`
+	BPDUGuard  AdminSt4         `json:"bpduguard"`
 }
 
 func (*SpanningTree) IsListItem() {}
@@ -231,7 +231,7 @@ type PortChannel struct {
 		RsMbrIfsList gnmiext.List[string, *PortChannelMember] `json:"RsMbrIfs-list,omitzero"`
 	} `json:"rsmbrIfs-items,omitzero"`
 	AggrExtdItems struct {
-		BufferBoost string `json:"bufferBoost,omitempty"`
+		BufferBoost AdminSt4 `json:"bufferBoost,omitempty"`
 	} `json:"aggrExtd-items,omitzero"`
 }
 

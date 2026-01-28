@@ -713,9 +713,9 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 
 		if cfg.Spec.BufferBoost != nil {
-			p.PhysExtdItems.BufferBoost = "disable"
+			p.PhysExtdItems.BufferBoost = AdminStDisable
 			if cfg.Spec.BufferBoost.Enabled {
-				p.PhysExtdItems.BufferBoost = "enable"
+				p.PhysExtdItems.BufferBoost = AdminStEnable
 			}
 		}
 
@@ -764,7 +764,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		pc.NativeVlan = DefaultVLAN
 		pc.TrunkVlans = DefaultVLANRange
 		pc.UserCfgdFlags = UserFlagAdminState | UserFlagAdminLayer
-		pc.AggrExtdItems.BufferBoost = "enable"
+		pc.AggrExtdItems.BufferBoost = AdminStEnable
 
 		pc.MTU = DefaultMTU
 		if req.Interface.Spec.MTU != 0 {
@@ -823,9 +823,9 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 
 		if cfg.Spec.BufferBoost != nil {
-			pc.AggrExtdItems.BufferBoost = "disable"
+			pc.AggrExtdItems.BufferBoost = AdminStDisable
 			if cfg.Spec.BufferBoost.Enabled {
-				pc.AggrExtdItems.BufferBoost = "enable"
+				pc.AggrExtdItems.BufferBoost = AdminStEnable
 			}
 		}
 
@@ -900,15 +900,15 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				stp.Mode = SpanningTreeModeNetwork
 			}
 			if cfg.Spec.SpanningTree.BPDUFilter != nil {
-				stp.BPDUfilter = "disable"
+				stp.BPDUfilter = AdminStDisable
 				if *cfg.Spec.SpanningTree.BPDUFilter {
-					stp.BPDUfilter = "enable"
+					stp.BPDUfilter = AdminStEnable
 				}
 			}
 			if cfg.Spec.SpanningTree.BPDUGuard != nil {
-				stp.BPDUGuard = "disable"
+				stp.BPDUGuard = AdminStDisable
 				if *cfg.Spec.SpanningTree.BPDUGuard {
-					stp.BPDUGuard = "enable"
+					stp.BPDUGuard = AdminStEnable
 				}
 			}
 		}
@@ -1875,7 +1875,7 @@ func (p *Provider) EnsureSNMP(ctx context.Context, req *provider.EnsureSNMPReque
 			parts = parts[1:]
 			rv = rv.Elem()
 		}
-		rv.Set(reflect.ValueOf(&SNMPTraps{Trapstatus: TrapstatusEnable}))
+		rv.Set(reflect.ValueOf(&SNMPTraps{Trapstatus: AdminStEnable}))
 	}
 
 	return p.Update(ctx, sysInfo, trapsSrcIf, informsSrcIf, communities, hosts, traps)

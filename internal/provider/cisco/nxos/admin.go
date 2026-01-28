@@ -27,6 +27,14 @@ const (
 	AdminStOn  AdminSt3 = "on"
 )
 
+// AdminSt4 represents the administrative state of a component ("enable" or "disable").
+type AdminSt4 string
+
+const (
+	AdminStEnable  AdminSt4 = "enable"
+	AdminStDisable AdminSt4 = "disable"
+)
+
 // OperSt represents the operational state of a component.
 type OperSt string
 

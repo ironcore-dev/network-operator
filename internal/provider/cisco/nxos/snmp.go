@@ -250,7 +250,7 @@ func (*SNMPTrapsItems) XPath() string {
 }
 
 type SNMPTraps struct {
-	Trapstatus Trapstatus `json:"trapstatus"`
+	Trapstatus AdminSt4 `json:"trapstatus"`
 }
 
 type MessageType string
@@ -265,11 +265,4 @@ type SecLevel string
 const (
 	SecLevelNoAuth SecLevel = "noauth"
 	SecLevelAuth   SecLevel = "auth"
-)
-
-type Trapstatus string
-
-const (
-	TrapstatusEnable  Trapstatus = "enable"
-	TrapstatusDisable Trapstatus = "disable"
 )

@@ -35,6 +35,6 @@ func init() {
 	Register("snmp_user", user)
 
 	traps := &SNMPTrapsItems{}
-	traps.CfsItems.StatechangenotifItems = &SNMPTraps{Trapstatus: TrapstatusEnable}
+	traps.CfsItems.StatechangenotifItems = &SNMPTraps{Trapstatus: AdminStEnable}
 	Register("snmp_traps", traps)
 }
