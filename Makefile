@@ -249,7 +249,7 @@ generate: install-controller-gen
 	@printf "\e[1;36m>> controller-gen\e[0m\n"
 	@controller-gen crd rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	@controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
-	@controller-gen applyconfiguration paths="./..."
+	@controller-gen applyconfiguration:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 run-golangci-lint: FORCE install-golangci-lint
 	@printf "\e[1;36m>> golangci-lint\e[0m\n"
@@ -293,9 +293,9 @@ tidy-deps: FORCE
 
 license-headers: FORCE install-addlicense
 	@printf "\e[1;36m>> addlicense (for license headers on source code files)\e[0m\n"
-	@printf "%s\0" $(patsubst $(shell awk '$$1 == "module" {print $$2}' go.mod)%,.%/*.go,$(shell go list ./...)) | $(XARGS) -0 -I{} bash -c 'year="$$(grep 'Copyright' {} | head -n1 | grep -E -o '"'"'[0-9]{4}(-[0-9]{4})?'"'"')"; if [[ -z "$$year" ]]; then year=$$(date +%Y); fi; gawk -i inplace '"'"'{if (display) {print} else {!/^\/\*/ && !/^\*/}}; {if (!display && $$0 ~ /^(package |$$)/) {display=1} else { }}'"'"' {}; addlicense -c "SAP SE or an SAP affiliate company" -s=only -y "$$year" -- {}; $(SED) -i '"'"'1s+// Copyright +// SPDX-FileCopyrightText: +'"'"' {}; '
+	@printf "%s\0" $(patsubst $(shell awk '$$1 == "module" {print $$2}' go.mod)%,.%/*.go,$(shell go list ./...)) | $(XARGS) -0 -I{} bash -c 'year="$$(grep 'Copyright' {} | head -n1 | grep -E -o '"'"'[0-9]{4}(-[0-9]{4})?'"'"')"; if [[ -z "$$year" ]]; then year=$$(date +%Y); fi; gawk -i inplace '"'"'{if (display) {print} else {!/^\/\*/ && !/^\*/}}; {if (!display && $$0 ~ /^(package |$$)/) {display=1} else { }}'"'"' {}; addlicense -c "SAP SE or an SAP affiliate company and IronCore contributors" -s=only -y "$$year" -- {}; $(SED) -i '"'"'1s+// Copyright +// SPDX-FileCopyrightText: +'"'"' {}; '
 	@printf "\e[1;36m>> reuse annotate (for license headers on other files)\e[0m\n"
-	@reuse lint -j | jq -r '.non_compliant.missing_licensing_info[]' | grep -vw vendor | $(XARGS) reuse annotate -c 'SAP SE or an SAP affiliate company' -l Apache-2.0 --skip-unrecognised
+	@reuse lint -j | jq -r '.non_compliant.missing_licensing_info[]' | grep -vw vendor | $(XARGS) reuse annotate -c 'SAP SE or an SAP affiliate company and IronCore contributors' -l Apache-2.0 --skip-unrecognised
 	@printf "\e[1;36m>> reuse download --all\e[0m\n"
 	@reuse download --all
 	@printf "\e[1;35mPlease review the changes. If *.license files were generated, consider instructing go-makefile-maker to add overrides to REUSE.toml instead.\e[0m\n"

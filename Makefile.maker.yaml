@@ -12,12 +12,14 @@ controllerGen:
   enabled: true
   crdOutputPath: config/crd/bases
   objectHeaderFile: hack/boilerplate.go.txt
+  applyconfigurationHeaderFile: hack/boilerplate.go.txt
   rbacRoleName: manager-role
 
 coverageTest:
   only: "/internal"
 
 dockerfile:
+  # Custom Dockerfile using Distroless base image
   enabled: false
 
 golang:
@@ -32,7 +34,14 @@ golangciLint:
 goReleaser:
   createConfig: true
 
+license:
+  addHeaders: true
+  checkDependencies: true
+  copyright: 'SAP SE or an SAP affiliate company and IronCore contributors'
+  spdx: Apache-2.0
+
 reuse:
+  # Custom REUSE.toml with minimal settings
   enabled: false
 
 renovate:
@@ -55,6 +64,14 @@ githubWorkflow:
     enabled: true
   securityChecks:
     enabled: true
+  pushContainerToGhcr:
+    enabled: true
+    platforms: "linux/amd64,linux/arm64"
+    tagStrategy:
+      - edge
+      - latest
+      - semver
+      - sha
 
 variables:
   GO_BUILDENV: 'CGO_ENABLED=0'
