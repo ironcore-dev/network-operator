@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -362,6 +363,25 @@ func (a *AddrItem) XPath() string {
 		return "System/ipv6-items/inst-items/dom-items/Dom-list[name=" + a.Vrf + "]/if-items/If-list[id=" + a.ID + "]"
 	}
 	return "System/ipv4-items/inst-items/dom-items/Dom-list[name=" + a.Vrf + "]/if-items/If-list[id=" + a.ID + "]"
+}
+
+// IsPointToPoint checks if the address item represents a point-to-point interface.
+// It returns true if the interface is unnumbered or if its address has a /31 (IPv4) [RFC3021]
+// or /127 (IPv6) [RFC6164] subnet mask, indicating a point-to-point link.
+//
+// [RFC3021]: https://datatracker.ietf.org/doc/html/rfc3021
+// [RFC6164]: https://datatracker.ietf.org/doc/html/rfc6164
+func (a *AddrItem) IsPointToPoint() bool {
+	if a != nil {
+		if a.Unnumbered != "" {
+			return true
+		}
+		if a.AddrItems.AddrList.Len() == 1 {
+			addr := slices.Collect(maps.Values(a.AddrItems.AddrList))[0]
+			return strings.HasSuffix(addr.Addr, "/31") || strings.HasSuffix(addr.Addr, "/127")
+		}
+	}
+	return false
 }
 
 type IntfAddr struct {

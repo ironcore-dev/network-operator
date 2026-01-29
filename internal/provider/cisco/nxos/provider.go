@@ -684,7 +684,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		if req.IPv4 != nil {
 			p.Layer = Layer3
 		}
-		if addr != nil && addr.Unnumbered != "" {
+		if addr.IsPointToPoint() {
 			p.Medium = MediumPointToPoint
 		}
 		p.AccessVlan = "unknown"
