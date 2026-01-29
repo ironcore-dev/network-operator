@@ -30,7 +30,7 @@ spec:
       name: Domain
       type: string
     - jsonPath: .spec.adminState
-      name: Enabled
+      name: Admin State
       type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready

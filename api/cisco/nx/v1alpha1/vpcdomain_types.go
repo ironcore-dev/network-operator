@@ -246,7 +246,7 @@ const (
 // +kubebuilder:resource:shortName=vpcdomain
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
 // +kubebuilder:printcolumn:name="Domain",type=string,JSONPath=`.spec.domainId`
-// +kubebuilder:printcolumn:name="Enabled",type=string,JSONPath=`.spec.adminState`
+// +kubebuilder:printcolumn:name="Admin State",type=string,JSONPath=`.spec.adminState`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Configured",type=string,JSONPath=`.status.conditions[?(@.type=="Configured")].status`,priority=1
 // +kubebuilder:printcolumn:name="Operational",type=string,JSONPath=`.status.conditions[?(@.type=="Operational")].status`,priority=1
