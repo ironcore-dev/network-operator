@@ -892,7 +892,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		stp.Mode = SpanningTreeModeDefault
 		stp.BPDUfilter = "default"
 		stp.BPDUGuard = "default"
-		if cfg.Spec.SpanningTree == nil {
+		if cfg.Spec.SpanningTree != nil {
 			switch cfg.Spec.SpanningTree.PortType {
 			case nxv1alpha1.SpanningTreePortTypeEdge:
 				stp.Mode = SpanningTreeModeEdge
