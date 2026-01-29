@@ -245,10 +245,6 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Re
 		}
 	}
 
-	defer func() {
-		conditions.RecomputeReady(s.OSPF)
-	}()
-
 	var interfaces []provider.OSPFInterface
 	for _, ref := range s.OSPF.Spec.InterfaceRefs {
 		intf := new(v1alpha1.Interface)
@@ -280,6 +276,10 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Re
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
+	}()
+
+	defer func() {
+		conditions.RecomputeReady(s.OSPF)
 	}()
 
 	// Ensure the OSPF is realized on the provider.
