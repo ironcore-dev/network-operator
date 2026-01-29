@@ -70,6 +70,19 @@ func IsReady(target Getter) bool {
 	return condition.Status == metav1.ConditionTrue
 }
 
+// IsConfigured looks at the [v1alpha1.ConfiguredCondition] condition type and returns true
+// if that condition is set to true and the observed generation matches the object's generation.
+func IsConfigured(target Getter) bool {
+	condition := meta.FindStatusCondition(target.GetConditions(), v1alpha1.ConfiguredCondition)
+	if condition == nil {
+		return false
+	}
+	if m, ok := target.(metav1.Object); ok && condition.ObservedGeneration != m.GetGeneration() {
+		return false
+	}
+	return condition.Status == metav1.ConditionTrue
+}
+
 // GetTopLevelCondition finds and returns the top level condition (Ready Condition).
 func GetTopLevelCondition(target Getter) *metav1.Condition {
 	return meta.FindStatusCondition(target.GetConditions(), v1alpha1.ReadyCondition)

@@ -252,12 +252,12 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Re
 			return ctrl.Result{}, err
 		}
 
-		if !conditions.IsReady(intf) {
+		if !conditions.IsConfigured(intf) {
 			conditions.Set(s.OSPF, metav1.Condition{
 				Type:    v1alpha1.ReadyCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  v1alpha1.WaitingForDependenciesReason,
-				Message: "Waiting for referenced interfaces to become ready",
+				Message: "Waiting for referenced interfaces to be configured",
 			})
 			return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
 		}
