@@ -1647,6 +1647,18 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 }
 
 func (p *Provider) DeletePIM(ctx context.Context, _ *provider.DeletePIMRequest) error {
+	pim := new(PIM)
+	pim.AdminSt = AdminStDisabled
+	pim.InstItems.AdminSt = AdminStDisabled
+
+	dom := new(PIMDom)
+	dom.Name = DefaultVRFName
+	dom.AdminSt = AdminStDisabled
+
+	if err := p.Patch(ctx, pim, dom); err != nil {
+		return err
+	}
+
 	return p.client.Delete(ctx, new(StaticRPItems), new(AnycastPeerItems), new(PIMIfItems))
 }
 
