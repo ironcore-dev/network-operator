@@ -86,6 +86,7 @@ type UserStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=users
 // +kubebuilder:resource:singular=user
+// +kubebuilder:printcolumn:name="Username",type=string,JSONPath=`.spec.username`
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"

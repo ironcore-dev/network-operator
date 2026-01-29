@@ -131,11 +131,12 @@ type NetworkVirtualizationEdgeStatus struct {
 // +kubebuilder:resource:singular=networkvirtualizationedge
 // +kubebuilder:resource:shortName=nve
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
+// +kubebuilder:printcolumn:name="Admin State",type=string,JSONPath=`.spec.adminState`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Configured",type=string,JSONPath=`.status.conditions[?(@.type=="Configured")].status`,priority=1
 // +kubebuilder:printcolumn:name="Operational",type=string,JSONPath=`.status.conditions[?(@.type=="Operational")].status`,priority=1
-// +kubebuilder:printcolumn:name="SrcIf",type=string,JSONPath=`.status.sourceInterfaceName`
-// +kubebuilder:printcolumn:name="AnycastSrcIf",type=string,JSONPath=`.status.anycastSourceInterfaceName`
+// +kubebuilder:printcolumn:name="Source Interface",type=string,JSONPath=`.status.sourceInterfaceName`
+// +kubebuilder:printcolumn:name="Anycast Interface",type=string,JSONPath=`.status.anycastSourceInterfaceName`
 // +kubebuilder:printcolumn:name="HostReachability",type=string,JSONPath=`.status.hostReachability`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

@@ -129,6 +129,10 @@ type SetExtCommunityAction struct {
 
 // RoutingPolicyStatus defines the observed state of RoutingPolicy.
 type RoutingPolicyStatus struct {
+	// StatementsSummary provides a human-readable summary of the number of policy statements.
+	// +optional
+	StatementsSummary string `json:"statementsSummary,omitempty"`
+
 	// The conditions are a list of status objects that describe the state of the RoutingPolicy.
 	//+listType=map
 	//+listMapKey=type
@@ -145,6 +149,7 @@ type RoutingPolicyStatus struct {
 // +kubebuilder:resource:shortName=routemap
 // +kubebuilder:printcolumn:name="Routing Policy",type=string,JSONPath=`.spec.name`
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
+// +kubebuilder:printcolumn:name="Statements",type=string,JSONPath=`.status.statementsSummary`,priority=1
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

@@ -21,8 +21,17 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.asNumber
+      name: AS Number
+      type: string
+    - jsonPath: .spec.routerId
+      name: Router-ID
+      type: string
     - jsonPath: .spec.deviceRef.name
       name: Device
+      type: string
+    - jsonPath: .spec.adminState
+      name: Admin State
       type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready

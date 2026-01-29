@@ -117,6 +117,7 @@ type VRFStatus struct {
 // +kubebuilder:resource:singular=vrf
 // +kubebuilder:printcolumn:name="VRF",type=string,JSONPath=`.spec.name`
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
+// +kubebuilder:printcolumn:name="Route Distinguisher",type=string,JSONPath=`.spec.routeDistinguisher`,priority=1
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

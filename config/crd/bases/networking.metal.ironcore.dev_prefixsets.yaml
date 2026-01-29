@@ -15,8 +15,15 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.name
+      name: Prefix Set
+      type: string
     - jsonPath: .spec.deviceRef.name
       name: Device
+      type: string
+    - jsonPath: .status.entriesSummary
+      name: Entries
+      priority: 1
       type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
@@ -232,6 +239,10 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              entriesSummary:
+                description: EntriesSummary provides a human-readable summary of the
+                  number of prefix entries.
+                type: string
             type: object
         required:
         - spec

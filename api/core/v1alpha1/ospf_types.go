@@ -178,6 +178,7 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=ospf
+// +kubebuilder:printcolumn:name="Admin State",type=string,JSONPath=`.spec.adminState`
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
 // +kubebuilder:printcolumn:name="Instance",type=string,JSONPath=`.spec.instance`
 // +kubebuilder:printcolumn:name="Router-ID",type=string,JSONPath=`.spec.routerId`

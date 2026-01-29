@@ -105,7 +105,11 @@ type ISISStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=isis
+// +kubebuilder:printcolumn:name="Instance",type=string,JSONPath=`.spec.instance`
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
+// +kubebuilder:printcolumn:name="Admin State",type=string,JSONPath=`.spec.adminState`
+// +kubebuilder:printcolumn:name="NET",type=string,JSONPath=`.spec.networkEntityTitle`
+// +kubebuilder:printcolumn:name="Level",type=string,JSONPath=`.spec.type`,priority=1
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

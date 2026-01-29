@@ -232,6 +232,12 @@ func (r *SyslogReconciler) reconcile(ctx context.Context, s *syslogScope) (reter
 		}
 	}
 
+	if len(s.Syslog.Spec.Servers) == 1 {
+		s.Syslog.Status.ServersSummary = "1 server"
+	} else {
+		s.Syslog.Status.ServersSummary = fmt.Sprintf("%d servers", len(s.Syslog.Spec.Servers))
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}

@@ -99,6 +99,10 @@ const (
 
 // AccessControlListStatus defines the observed state of AccessControlList.
 type AccessControlListStatus struct {
+	// EntriesSummary provides a human-readable summary of the number of ACL entries.
+	// +optional
+	EntriesSummary string `json:"entriesSummary,omitempty"`
+
 	// The conditions are a list of status objects that describe the state of the AccessControlList.
 	//+listType=map
 	//+listMapKey=type
@@ -115,6 +119,7 @@ type AccessControlListStatus struct {
 // +kubebuilder:resource:shortName=acl
 // +kubebuilder:printcolumn:name="ACL",type=string,JSONPath=`.spec.name`
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
+// +kubebuilder:printcolumn:name="Entries",type=string,JSONPath=`.status.entriesSummary`,priority=1
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

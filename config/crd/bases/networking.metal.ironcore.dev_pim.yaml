@@ -18,6 +18,9 @@ spec:
     - jsonPath: .spec.deviceRef.name
       name: Device
       type: string
+    - jsonPath: .spec.adminState
+      name: Admin State
+      type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string

@@ -308,10 +308,10 @@ type InterfaceStatus struct {
 // +kubebuilder:resource:shortName=int
 // +kubebuilder:printcolumn:name="Interface",type=string,JSONPath=`.spec.name`
 // +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type`
-// +kubebuilder:printcolumn:name="Admin State",type=string,JSONPath=`.spec.adminState`
-// +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.spec.description`
-// +kubebuilder:printcolumn:name="MTU",type=string,JSONPath=`.spec.mtu`
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
+// +kubebuilder:printcolumn:name="Admin State",type=string,JSONPath=`.spec.adminState`
+// +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.spec.description`,priority=1
+// +kubebuilder:printcolumn:name="MTU",type=string,JSONPath=`.spec.mtu`,priority=1
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Configured",type=string,JSONPath=`.status.conditions[?(@.type=="Configured")].status`,priority=1
 // +kubebuilder:printcolumn:name="Operational",type=string,JSONPath=`.status.conditions[?(@.type=="Operational")].status`,priority=1

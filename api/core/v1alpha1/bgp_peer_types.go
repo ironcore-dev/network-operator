@@ -215,7 +215,10 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=bgppeers
 // +kubebuilder:resource:singular=bgppeer
+// +kubebuilder:printcolumn:name="Peer Address",type=string,JSONPath=`.spec.address`
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
+// +kubebuilder:printcolumn:name="Admin State",type=string,JSONPath=`.spec.adminState`
+// +kubebuilder:printcolumn:name="AS Number",type=string,JSONPath=`.spec.asNumber`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Configured",type=string,JSONPath=`.status.conditions[?(@.type=="Configured")].status`,priority=1
 // +kubebuilder:printcolumn:name="Operational",type=string,JSONPath=`.status.conditions[?(@.type=="Operational")].status`,priority=1

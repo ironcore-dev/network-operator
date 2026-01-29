@@ -27,6 +27,10 @@ spec:
     - jsonPath: .spec.deviceRef.name
       name: Device
       type: string
+    - jsonPath: .spec.routeDistinguisher
+      name: Route Distinguisher
+      priority: 1
+      type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string

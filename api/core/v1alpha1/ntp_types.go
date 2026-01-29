@@ -76,6 +76,8 @@ type NTPStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=ntp
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
+// +kubebuilder:printcolumn:name="Admin State",type=string,JSONPath=`.spec.adminState`
+// +kubebuilder:printcolumn:name="Source Interface",type=string,JSONPath=`.spec.sourceInterfaceName`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

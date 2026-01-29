@@ -23,6 +23,10 @@ spec:
     - jsonPath: .spec.deviceRef.name
       name: Device
       type: string
+    - jsonPath: .status.statementsSummary
+      name: Statements
+      priority: 1
+      type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
@@ -297,6 +301,10 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              statementsSummary:
+                description: StatementsSummary provides a human-readable summary of
+                  the number of policy statements.
+                type: string
             type: object
         required:
         - spec

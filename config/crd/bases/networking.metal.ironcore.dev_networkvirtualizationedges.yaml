@@ -20,6 +20,9 @@ spec:
     - jsonPath: .spec.deviceRef.name
       name: Device
       type: string
+    - jsonPath: .spec.adminState
+      name: Admin State
+      type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
@@ -32,10 +35,10 @@ spec:
       priority: 1
       type: string
     - jsonPath: .status.sourceInterfaceName
-      name: SrcIf
+      name: Source Interface
       type: string
     - jsonPath: .status.anycastSourceInterfaceName
-      name: AnycastSrcIf
+      name: Anycast Interface
       type: string
     - jsonPath: .status.hostReachability
       name: HostReachability

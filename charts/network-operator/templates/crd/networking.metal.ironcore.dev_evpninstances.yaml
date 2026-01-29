@@ -24,15 +24,19 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.vni
+      name: VNI
+      type: integer
     - jsonPath: .spec.deviceRef.name
       name: Device
       type: string
     - jsonPath: .spec.type
       name: Type
       type: string
-    - jsonPath: .spec.vni
-      name: VNI
-      type: integer
+    - jsonPath: .spec.routeDistinguisher
+      name: Route Distinguisher
+      priority: 1
+      type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string

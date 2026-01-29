@@ -23,6 +23,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.id
+      name: Certificate
+      type: string
     - jsonPath: .spec.deviceRef.name
       name: Device
       type: string

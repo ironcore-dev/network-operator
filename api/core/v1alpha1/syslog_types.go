@@ -89,6 +89,10 @@ const (
 
 // SyslogStatus defines the observed state of Syslog.
 type SyslogStatus struct {
+	// ServersSummary provides a human-readable summary of the number of log servers.
+	// +optional
+	ServersSummary string `json:"serversSummary,omitempty"`
+
 	// The conditions are a list of status objects that describe the state of the Banner.
 	//+listType=map
 	//+listMapKey=type
@@ -101,6 +105,7 @@ type SyslogStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
+// +kubebuilder:printcolumn:name="Servers",type=string,JSONPath=`.status.serversSummary`,priority=1
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

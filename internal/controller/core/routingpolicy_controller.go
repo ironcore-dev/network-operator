@@ -266,6 +266,12 @@ func (r *RoutingPolicyReconciler) reconcile(ctx context.Context, s *routingPolic
 		}
 	}
 
+	if len(s.RoutingPolicy.Spec.Statements) == 1 {
+		s.RoutingPolicy.Status.StatementsSummary = "1 statement"
+	} else {
+		s.RoutingPolicy.Status.StatementsSummary = fmt.Sprintf("%d statements", len(s.RoutingPolicy.Spec.Statements))
+	}
+
 	statements, err := r.reconcileStatements(ctx, s)
 	if err != nil {
 		return err

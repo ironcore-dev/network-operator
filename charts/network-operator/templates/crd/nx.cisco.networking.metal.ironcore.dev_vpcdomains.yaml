@@ -23,11 +23,11 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.deviceRef.name
-      name: Device
-      type: string
     - jsonPath: .spec.domainId
       name: Domain
+      type: string
+    - jsonPath: .spec.deviceRef.name
+      name: Device
       type: string
     - jsonPath: .spec.adminState
       name: Admin State
@@ -44,7 +44,7 @@ spec:
       priority: 1
       type: string
     - jsonPath: .status.peerStatus
-      name: PeerStatus
+      name: Peer Status
       priority: 1
       type: string
     - jsonPath: .status.role
@@ -52,19 +52,19 @@ spec:
       priority: 1
       type: string
     - jsonPath: .status.peerLinkIf
-      name: PeerLinkIf
+      name: Peer Link Interface
       priority: 1
       type: string
     - jsonPath: .status.peerLinkIfOperStatus
-      name: PeerLinkIfOperSt
+      name: Peer Link Status
       priority: 1
       type: string
     - jsonPath: .status.keepaliveStatus
-      name: KeepalivePeerStatus
+      name: Keepalive Peer Status
       priority: 1
       type: string
     - jsonPath: .status.peerUptime
-      name: KeepalivePeerUptime
+      name: Keepalive Peer Uptime
       priority: 1
       type: string
     - jsonPath: .metadata.creationTimestamp

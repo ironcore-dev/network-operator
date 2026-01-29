@@ -23,17 +23,19 @@ spec:
     - jsonPath: .spec.type
       name: Type
       type: string
+    - jsonPath: .spec.deviceRef.name
+      name: Device
+      type: string
     - jsonPath: .spec.adminState
       name: Admin State
       type: string
     - jsonPath: .spec.description
       name: Description
+      priority: 1
       type: string
     - jsonPath: .spec.mtu
       name: MTU
-      type: string
-    - jsonPath: .spec.deviceRef.name
-      name: Device
+      priority: 1
       type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready

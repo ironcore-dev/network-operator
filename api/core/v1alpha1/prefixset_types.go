@@ -74,6 +74,10 @@ type MaskLengthRange struct {
 
 // PrefixSetStatus defines the observed state of PrefixSet.
 type PrefixSetStatus struct {
+	// EntriesSummary provides a human-readable summary of the number of prefix entries.
+	// +optional
+	EntriesSummary string `json:"entriesSummary,omitempty"`
+
 	// The conditions are a list of status objects that describe the state of the PrefixSet.
 	//+listType=map
 	//+listMapKey=type
@@ -87,7 +91,9 @@ type PrefixSetStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=prefixsets
 // +kubebuilder:resource:singular=prefixset
+// +kubebuilder:printcolumn:name="Prefix Set",type=string,JSONPath=`.spec.name`
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
+// +kubebuilder:printcolumn:name="Entries",type=string,JSONPath=`.status.entriesSummary`,priority=1
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

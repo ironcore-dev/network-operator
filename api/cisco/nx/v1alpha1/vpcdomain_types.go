@@ -244,18 +244,18 @@ const (
 // +kubebuilder:resource:path=vpcdomains
 // +kubebuilder:resource:singular=vpcdomain
 // +kubebuilder:resource:shortName=vpcdomain
-// +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
 // +kubebuilder:printcolumn:name="Domain",type=string,JSONPath=`.spec.domainId`
+// +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
 // +kubebuilder:printcolumn:name="Admin State",type=string,JSONPath=`.spec.adminState`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Configured",type=string,JSONPath=`.status.conditions[?(@.type=="Configured")].status`,priority=1
 // +kubebuilder:printcolumn:name="Operational",type=string,JSONPath=`.status.conditions[?(@.type=="Operational")].status`,priority=1
-// +kubebuilder:printcolumn:name="PeerStatus",type=string,JSONPath=`.status.peerStatus`,priority=1
+// +kubebuilder:printcolumn:name="Peer Status",type=string,JSONPath=`.status.peerStatus`,priority=1
 // +kubebuilder:printcolumn:name="Role",type=string,JSONPath=`.status.role`,priority=1
-// +kubebuilder:printcolumn:name="PeerLinkIf",type="string",JSONPath=".status.peerLinkIf",priority=1
-// +kubebuilder:printcolumn:name="PeerLinkIfOperSt",type="string",JSONPath=".status.peerLinkIfOperStatus",priority=1
-// +kubebuilder:printcolumn:name="KeepalivePeerStatus",type=string,JSONPath=`.status.keepaliveStatus`,priority=1
-// +kubebuilder:printcolumn:name="KeepalivePeerUptime",type="string",JSONPath=`.status.peerUptime`,priority=1
+// +kubebuilder:printcolumn:name="Peer Link Interface",type="string",JSONPath=".status.peerLinkIf",priority=1
+// +kubebuilder:printcolumn:name="Peer Link Status",type="string",JSONPath=".status.peerLinkIfOperStatus",priority=1
+// +kubebuilder:printcolumn:name="Keepalive Peer Status",type=string,JSONPath=`.status.keepaliveStatus`,priority=1
+// +kubebuilder:printcolumn:name="Keepalive Peer Uptime",type="string",JSONPath=`.status.peerUptime`,priority=1
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // VPCDomain is the Schema for the VPCDomains API

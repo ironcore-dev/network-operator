@@ -63,6 +63,7 @@ type BannerStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=banners
 // +kubebuilder:resource:singular=banner
+// +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type`
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"

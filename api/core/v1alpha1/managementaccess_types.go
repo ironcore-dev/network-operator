@@ -135,6 +135,9 @@ type ManagementAccessStatus struct {
 // +kubebuilder:resource:singular=managementaccess
 // +kubebuilder:resource:shortName=mgmt;mgmtaccess
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
+// +kubebuilder:printcolumn:name="SSH",type=boolean,JSONPath=`.spec.ssh.enabled`
+// +kubebuilder:printcolumn:name="gRPC",type=boolean,JSONPath=`.spec.grpc.enabled`
+// +kubebuilder:printcolumn:name="gRPC Port",type=integer,JSONPath=`.spec.grpc.port`,priority=1
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

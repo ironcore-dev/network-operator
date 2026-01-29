@@ -15,8 +15,21 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.instance
+      name: Instance
+      type: string
     - jsonPath: .spec.deviceRef.name
       name: Device
+      type: string
+    - jsonPath: .spec.adminState
+      name: Admin State
+      type: string
+    - jsonPath: .spec.networkEntityTitle
+      name: NET
+      type: string
+    - jsonPath: .spec.type
+      name: Level
+      priority: 1
       type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready

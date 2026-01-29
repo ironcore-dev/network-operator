@@ -149,7 +149,10 @@ type BGPStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=bgp
+// +kubebuilder:printcolumn:name="AS Number",type=string,JSONPath=`.spec.asNumber`
+// +kubebuilder:printcolumn:name="Router-ID",type=string,JSONPath=`.spec.routerId`
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
+// +kubebuilder:printcolumn:name="Admin State",type=string,JSONPath=`.spec.adminState`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

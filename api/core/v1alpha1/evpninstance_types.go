@@ -113,9 +113,10 @@ type EVPNInstanceStatus struct {
 // +kubebuilder:resource:path=evpninstances
 // +kubebuilder:resource:singular=evpninstance
 // +kubebuilder:resource:shortName=evi;vni
+// +kubebuilder:printcolumn:name="VNI",type=integer,JSONPath=`.spec.vni`
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
 // +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type`
-// +kubebuilder:printcolumn:name="VNI",type=integer,JSONPath=`.spec.vni`
+// +kubebuilder:printcolumn:name="Route Distinguisher",type=string,JSONPath=`.spec.routeDistinguisher`,priority=1
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

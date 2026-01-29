@@ -70,8 +70,9 @@ type VLANStatus struct {
 // +kubebuilder:resource:path=vlans
 // +kubebuilder:resource:singular=vlan
 // +kubebuilder:printcolumn:name="VLAN-ID",type=string,JSONPath=`.spec.id`
-// +kubebuilder:printcolumn:name="Admin State",type=string,JSONPath=`.spec.adminState`
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
+// +kubebuilder:printcolumn:name="Admin State",type=string,JSONPath=`.spec.adminState`
+// +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.spec.name`,priority=1
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Configured",type=string,JSONPath=`.status.conditions[?(@.type=="Configured")].status`,priority=1
 // +kubebuilder:printcolumn:name="Operational",type=string,JSONPath=`.status.conditions[?(@.type=="Operational")].status`,priority=1

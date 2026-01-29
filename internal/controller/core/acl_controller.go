@@ -232,6 +232,12 @@ func (r *AccessControlListReconciler) reconcile(ctx context.Context, s *aclScope
 		}
 	}
 
+	if len(s.ACL.Spec.Entries) == 1 {
+		s.ACL.Status.EntriesSummary = "1 entry"
+	} else {
+		s.ACL.Status.EntriesSummary = fmt.Sprintf("%d entries", len(s.ACL.Spec.Entries))
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}

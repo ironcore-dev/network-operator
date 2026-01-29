@@ -232,6 +232,12 @@ func (r *PrefixSetReconciler) reconcile(ctx context.Context, s *prefixSetScope) 
 		}
 	}
 
+	if len(s.PrefixSet.Spec.Entries) == 1 {
+		s.PrefixSet.Status.EntriesSummary = "1 prefix"
+	} else {
+		s.PrefixSet.Status.EntriesSummary = fmt.Sprintf("%d prefixes", len(s.PrefixSet.Spec.Entries))
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}

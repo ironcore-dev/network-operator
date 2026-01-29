@@ -21,6 +21,16 @@ spec:
     - jsonPath: .spec.deviceRef.name
       name: Device
       type: string
+    - jsonPath: .spec.ssh.enabled
+      name: SSH
+      type: boolean
+    - jsonPath: .spec.grpc.enabled
+      name: gRPC
+      type: boolean
+    - jsonPath: .spec.grpc.port
+      name: gRPC Port
+      priority: 1
+      type: integer
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string

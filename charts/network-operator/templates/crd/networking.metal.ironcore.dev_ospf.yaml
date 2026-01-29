@@ -21,6 +21,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.adminState
+      name: Admin State
+      type: string
     - jsonPath: .spec.deviceRef.name
       name: Device
       type: string

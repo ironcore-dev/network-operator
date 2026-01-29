@@ -159,7 +159,10 @@ type BorderGatewayStatus struct {
 // +kubebuilder:resource:path=bordergateways
 // +kubebuilder:resource:singular=bordergateway
 // +kubebuilder:resource:shortName=bgw
+// +kubebuilder:printcolumn:name="Multisite-ID",type=string,JSONPath=`.spec.multisiteId`
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
+// +kubebuilder:printcolumn:name="Admin State",type=string,JSONPath=`.spec.adminState`
+// +kubebuilder:printcolumn:name="Source Interface",type=string,JSONPath=`.spec.sourceInterfaceRef.name`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
