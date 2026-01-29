@@ -1563,7 +1563,7 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 		dom.AdminSt = AdminStDisabled
 	}
 
-	if err := p.Patch(ctx, pim, dom); err != nil {
+	if err := p.Patch(ctx, f, pim, dom); err != nil {
 		return err
 	}
 
@@ -1618,9 +1618,7 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 		ifItems.IfList.Set(intf)
 	}
 
-	conf := make([]gnmiext.Configurable, 0, 4)
-	conf = append(conf, f)
-
+	conf := make([]gnmiext.Configurable, 0, 3)
 	del := make([]gnmiext.Configurable, 0, 3)
 
 	if len(rpItems.StaticRPList) > 0 {
