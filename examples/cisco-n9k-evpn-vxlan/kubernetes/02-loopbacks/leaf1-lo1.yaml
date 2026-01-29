@@ -1,0 +1,15 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: leaf1-lo1
+spec:
+  deviceRef:
+    name: leaf1
+  name: lo1
+  description: VTEP Leaf1
+  adminState: Up
+  type: Loopback
+  ipv4:
+    addresses:
+      - 10.0.1.10/32
+      - 10.1.0.10/32

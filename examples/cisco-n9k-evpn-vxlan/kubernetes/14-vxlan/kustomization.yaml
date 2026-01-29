@@ -1,0 +1,6 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - leaf1-vxlan-100010.yaml
+  - leaf2-vxlan-100010.yaml
+  - leaf3-vxlan-100010.yaml

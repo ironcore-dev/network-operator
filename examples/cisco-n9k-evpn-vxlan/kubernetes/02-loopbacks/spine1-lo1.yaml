@@ -1,0 +1,14 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: spine1-lo1
+spec:
+  deviceRef:
+    name: spine1
+  name: lo1
+  description: Anycast RP
+  adminState: Up
+  type: Loopback
+  ipv4:
+    addresses:
+      - 10.0.0.100/32

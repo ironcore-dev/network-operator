@@ -1,0 +1,22 @@
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: VPCDomain
+metadata:
+  name: leaf1-vpcdomain
+spec:
+  deviceRef:
+    name: leaf1
+  domainId: 1
+  adminState: Up
+  peer:
+    adminState: Up
+    interfaceRef:
+      name: leaf1-po1
+    switch:
+      enabled: true
+    gateway:
+      enabled: true
+    keepalive:
+      source:  10.1.1.1
+      destination: 10.1.1.2
+      vrfRef:
+        name: leaf1-vpc-keepalive

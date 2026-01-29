@@ -8,5 +8,8 @@
     "docs:build": "vitepress build .",
     "docs:preview": "vitepress preview .",
     "fmt:fix": "prettier --write ."
+  },
+  "dependencies": {
+    "asciinema-player": "^3.15.1"
   }
 }

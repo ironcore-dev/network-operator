@@ -1,0 +1,26 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  labels:
+    networking.metal.ironcore.dev/role: vpc-peer-link
+  name: leaf2-po1
+spec:
+  deviceRef:
+    name: leaf2
+  providerConfigRef:
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+    kind: InterfaceConfig
+    name: spanning-tree-network
+  name: po1
+  description: vPC Peer-Link
+  adminState: Up
+  type: Aggregate
+  switchport:
+    mode: Trunk
+    nativeVlan: 1
+  aggregation:
+    controlProtocol:
+      mode: Active
+    memberInterfaceRefs:
+      - name: leaf2-eth1-31
+      - name: leaf2-eth1-32

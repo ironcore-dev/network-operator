@@ -1,0 +1,7 @@
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: InterfaceConfig
+metadata:
+  name: spanning-tree-network
+spec:
+  spanningTree:
+    portType: Network

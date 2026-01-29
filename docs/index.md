@@ -14,6 +14,9 @@ hero:
           text: Overview
           link: /overview/
         - theme: alt
+          text: Tutorials
+          link: /tutorials/
+        - theme: alt
           text: API Reference
           link: /api-reference/
 

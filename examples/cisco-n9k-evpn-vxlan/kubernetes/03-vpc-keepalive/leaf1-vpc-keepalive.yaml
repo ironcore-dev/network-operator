@@ -1,0 +1,11 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: VRF
+metadata:
+  labels:
+    networking.metal.ironcore.dev/role: vpc-keepalive
+  name: leaf1-vpc-keepalive
+spec:
+  deviceRef:
+    name: leaf1
+  name: VPC_KEEPALIVE
+  description: VRF for vPC Keepalive

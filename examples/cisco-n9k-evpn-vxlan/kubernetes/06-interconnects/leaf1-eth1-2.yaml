@@ -1,0 +1,18 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  labels:
+    networking.metal.ironcore.dev/role: fabric
+  name: leaf1-eth1-2
+spec:
+  deviceRef:
+    name: leaf1
+  name: eth1/2
+  description: Leaf1 to Spine2
+  adminState: Up
+  type: Physical
+  mtu: 9216
+  ipv4:
+    unnumbered:
+      interfaceRef:
+        name: leaf1-lo0

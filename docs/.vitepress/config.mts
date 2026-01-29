@@ -33,6 +33,7 @@ export default withMermaid({
                 text: 'Documentation',
                 items: [
                     { text: 'Overview', link: '/overview' },
+                    { text: 'Tutorials', link: '/tutorials/' },
                     { text: 'API References', link: '/api-reference/' },
                 ],
             },
@@ -68,6 +69,13 @@ export default withMermaid({
             {
                 text: 'Overview',
                 items: [{ text: 'Index', link: '/overview/' }],
+            },
+            {
+                text: 'Tutorials',
+                items: [
+                    { text: 'Index', link: '/tutorials/' },
+                    { text: 'EVPN/VXLAN Fabric', link: '/tutorials/evpn-vxlan-fabric' }
+                ],
             },
             {
                 text: 'API References',

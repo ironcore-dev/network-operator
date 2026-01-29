@@ -1,0 +1,23 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: OSPF
+metadata:
+  name: spine2-underlay
+spec:
+  deviceRef:
+    name: spine2
+  instance: UNDERLAY
+  routerId: 10.0.0.2
+  logAdjacencyChanges: true
+  interfaceRefs:
+    - name: spine2-lo0
+      area: 0.0.0.0
+      passive: true
+    - name: spine2-lo1
+      area: 0.0.0.0
+      passive: true
+    - name: spine2-eth1-1
+      area: 0.0.0.0
+    - name: spine2-eth1-2
+      area: 0.0.0.0
+    - name: spine2-eth1-3
+      area: 0.0.0.0

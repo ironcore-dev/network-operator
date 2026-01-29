@@ -1,0 +1,15 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: NetworkVirtualizationEdge
+metadata:
+  name: leaf1-nve1
+spec:
+  deviceRef:
+    name: leaf1
+  adminState: Up
+  hostReachability: BGP
+  sourceInterfaceRef:
+    name: leaf1-lo1
+  multicastGroups:
+    l2: 224.0.0.0/24
+  anycastGateway:
+    virtualMAC: 00:00:11:11:22:22
