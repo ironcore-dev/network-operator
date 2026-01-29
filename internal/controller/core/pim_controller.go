@@ -248,12 +248,12 @@ func (r *PIMReconciler) reconcile(ctx context.Context, s *pimScope) (_ ctrl.Resu
 			return ctrl.Result{}, err
 		}
 
-		if !conditions.IsReady(res) {
+		if !conditions.IsConfigured(res) {
 			conditions.Set(s.PIM, metav1.Condition{
 				Type:    v1alpha1.ReadyCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  v1alpha1.WaitingForDependenciesReason,
-				Message: "Waiting for referenced interfaces to become ready",
+				Message: "Waiting for referenced interfaces to become configured",
 			})
 			return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
 		}

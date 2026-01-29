@@ -248,12 +248,12 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (_ ctrl.Re
 			return ctrl.Result{}, err
 		}
 
-		if !conditions.IsReady(intf) {
+		if !conditions.IsConfigured(intf) {
 			conditions.Set(s.ISIS, metav1.Condition{
 				Type:    v1alpha1.ReadyCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  v1alpha1.WaitingForDependenciesReason,
-				Message: "Waiting for referenced interfaces to become ready",
+				Message: "Waiting for referenced interfaces to become configured",
 			})
 			return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
 		}
