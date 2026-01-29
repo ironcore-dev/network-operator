@@ -491,11 +491,16 @@ func Exists(ctx context.Context, client gnmiext.Client, names ...string) (bool, 
 		}
 		conf = append(conf, c)
 	}
-	err := client.GetConfig(ctx, conf...)
-	if errors.Is(err, gnmiext.ErrNil) {
-		return false, nil
+	const batchSize = 10 // On Cisco NX-OS, more than 10 paths per single gNMI request lead to gRPC errors.
+	for batch := range slices.Chunk(conf, batchSize) {
+		if err := client.GetConfig(ctx, batch...); err != nil {
+			if errors.Is(err, gnmiext.ErrNil) {
+				return false, nil
+			}
+			return false, err
+		}
 	}
-	return err == nil, err
+	return true, nil
 }
 
 type Ports struct {
