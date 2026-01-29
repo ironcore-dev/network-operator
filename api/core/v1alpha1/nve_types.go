@@ -129,7 +129,7 @@ type NetworkVirtualizationEdgeStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=networkvirtualizationedges
 // +kubebuilder:resource:singular=networkvirtualizationedge
-// +kubebuilder:resource:shortName=nve
+// +kubebuilder:resource:shortName=nve;vtep
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
 // +kubebuilder:printcolumn:name="Admin State",type=string,JSONPath=`.spec.adminState`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`

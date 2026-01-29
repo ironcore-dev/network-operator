@@ -215,6 +215,7 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=bgppeers
 // +kubebuilder:resource:singular=bgppeer
+// +kubebuilder:resource:shortName=peer;bgpneighbor
 // +kubebuilder:printcolumn:name="Peer Address",type=string,JSONPath=`.spec.address`
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
 // +kubebuilder:printcolumn:name="Admin State",type=string,JSONPath=`.spec.adminState`

@@ -52,7 +52,7 @@ type CertificateStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=certificates
 // +kubebuilder:resource:singular=certificate
-// +kubebuilder:resource:shortName=netcert
+// +kubebuilder:resource:shortName=cert;netcert
 // +kubebuilder:printcolumn:name="Certificate",type=string,JSONPath=`.spec.id`
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`

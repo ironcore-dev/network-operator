@@ -265,6 +265,7 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=devices
 // +kubebuilder:resource:singular=device
+// +kubebuilder:resource:shortName=dev
 // +kubebuilder:printcolumn:name="Endpoint",type=string,JSONPath=`.spec.endpoint.address`
 // +kubebuilder:printcolumn:name="Manufacturer",type=string,JSONPath=".status.manufacturer",priority=1
 // +kubebuilder:printcolumn:name="Model",type=string,JSONPath=".status.model",priority=1
