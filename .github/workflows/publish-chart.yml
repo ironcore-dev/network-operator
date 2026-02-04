@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+# SPDX-License-Identifier: Apache-2.0
+
+name: Helm Chart
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push-chart:
+    name: Build and Push Helm Chart
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v4.1.0
+      - name: Determine Chart Version
+        id: chart_version
+        run: |
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            # Use tag version (strip 'v' prefix)
+            CHART_VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            # Use short commit hash
+            CHART_VERSION="0.0.0-$(git rev-parse --short HEAD)"
+          fi
+          echo "version=$CHART_VERSION" >> $GITHUB_OUTPUT
+      - name: Set container image tag
+        run: |
+          yq -i '.manager.image.tag = "sha-${{ github.sha }}"' charts/network-operator/values.yaml
+      - name: Package Helm Chart
+        run: |
+          helm package charts/network-operator --version ${{ steps.chart_version.outputs.version }}
+      - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Push Helm Chart to ghcr.io
+        if: github.event_name != 'pull_request'
+        run: |
+          helm push network-operator-${{ steps.chart_version.outputs.version }}.tgz oci://ghcr.io/${{ github.repository_owner }}/charts

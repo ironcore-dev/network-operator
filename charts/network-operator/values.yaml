@@ -110,15 +110,3 @@ prometheus:
 ##
 networkPolicy:
   enable: false
-
-## Owner Information for the chart, used for metadata and contact details.
-## https://github.com/sapcc/helm-charts/blob/master/common/owner-info/README.md
-##
-owner-info:
-  helm-chart-url: "https://github.com/ironcore-dev/network-operator/charts/network-operator"
-  maintainers:
-    - "felix.kaestner@sap.com"
-    - "sebastian.wagner02@sap.com"
-    - "enric.pujol@sap.com"
-  support-group: "network-api"
-  enabled: true
