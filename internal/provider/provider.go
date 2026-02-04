@@ -625,6 +625,29 @@ type NVEProvider interface {
 	GetNVEStatus(context.Context, *NVERequest) (NVEStatus, error)
 }
 
+// AAAProvider is the interface for the realization of the AAA objects over different providers.
+type AAAProvider interface {
+	Provider
+
+	// EnsureAAA call is responsible for AAA realization on the provider.
+	EnsureAAA(context.Context, *EnsureAAARequest) error
+	// DeleteAAA call is responsible for AAA deletion on the provider.
+	DeleteAAA(context.Context, *DeleteAAARequest) error
+}
+
+type EnsureAAARequest struct {
+	AAA            *v1alpha1.AAA
+	ProviderConfig *ProviderConfig
+	// TACACSServerKeys contains the decrypted keys for each TACACS+ server,
+	// keyed by server address.
+	TACACSServerKeys map[string]string
+}
+
+type DeleteAAARequest struct {
+	AAA            *v1alpha1.AAA
+	ProviderConfig *ProviderConfig
+}
+
 type NVERequest struct {
 	NVE                    *v1alpha1.NetworkVirtualizationEdge
 	SourceInterface        *v1alpha1.Interface

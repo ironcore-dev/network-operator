@@ -1,0 +1,103 @@
+# Example AAA configuration with TACACS+ servers
+# This configures:
+# - feature tacacs+
+# - tacacs-server hosts with Type 7 encrypted keys
+# - AAA group server for TACACS
+# - AAA authentication, authorization, and accounting
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tacacs-server-keys
+  namespace: default
+type: Opaque
+stringData:
+  # Replace with your actual TACACS+ server shared secret
+  server-key: "supersecretkey"
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: AAA
+metadata:
+  name: aaa-tacacs
+  namespace: default
+spec:
+  # Reference to the Device this AAA configuration belongs to
+  deviceRef:
+    name: my-switch
+
+  # TACACS+ server configuration
+  # Equivalent to:
+  #   tacacs-server host 10.16.8.142 key 7 $TYPE_7_SECRET
+  #   tacacs-server host 10.16.8.32 key 7 $TYPE_7_SECRET
+  #   tacacs-server host 169.145.33.51 key 7 $TYPE_7_SECRET
+  tacacsServers:
+    - address: "10.16.8.142"
+      keySecretRef:
+        name: tacacs-server-keys
+        key: server-key
+      keyEncryption: Type7
+    - address: "10.16.8.32"
+      keySecretRef:
+        name: tacacs-server-keys
+        key: server-key
+      keyEncryption: Type7
+    - address: "169.145.33.51"
+      keySecretRef:
+        name: tacacs-server-keys
+        key: server-key
+      keyEncryption: Type7
+
+  # TACACS+ server group configuration
+  # Equivalent to:
+  #   aaa group server tacacs+ GR_TACACS
+  #     server 10.16.8.32
+  #     server 10.16.8.142
+  #     server 169.145.33.51
+  #     use-vrf management
+  #     source-interface mgmt0
+  tacacsGroup:
+    name: GR_TACACS
+    servers:
+      - "10.16.8.32"
+      - "10.16.8.142"
+      - "169.145.33.51"
+    vrf: management
+    sourceInterface: mgmt0
+
+  # AAA authentication configuration
+  # Equivalent to:
+  #   aaa authentication login default group GR_TACACS
+  #   aaa authentication login console group GR_TACACS local
+  #   aaa authentication login error-enable
+  authentication:
+    login:
+      default:
+        methods:
+          - type: Group
+            groupName: GR_TACACS
+      console:
+        methods:
+          - type: Group
+            groupName: GR_TACACS
+          - type: Local
+    loginErrorEnable: true
+
+  # AAA authorization configuration
+  # Equivalent to:
+  #   aaa authorization config-commands default group GR_TACACS local
+  authorization:
+    configCommands:
+      default:
+        methods:
+          - type: Group
+            groupName: GR_TACACS
+          - type: Local
+
+  # AAA accounting configuration
+  # Equivalent to:
+  #   aaa accounting default group GR_TACACS
+  accounting:
+    default:
+      methods:
+        - type: Group
+          groupName: GR_TACACS

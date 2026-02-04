@@ -576,6 +576,18 @@ func main() { //nolint:gocyclo
 		os.Exit(1)
 	}
 
+	if err := (&corecontroller.AAAReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("aaa-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+		Locker:           locker,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "AAA")
+		os.Exit(1)
+	}
+
 	if err := (&corecontroller.PrefixSetReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
