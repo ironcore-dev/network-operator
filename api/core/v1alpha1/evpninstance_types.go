@@ -50,9 +50,9 @@ type EVPNInstanceSpec struct {
 
 	// RouteDistinguisher is the route distinguisher for the EVI.
 	// Formats supported:
-	//  - Type 0: <asn(0-65535)>:<number(0-4294967295)>
-	//  - Type 1: <ipv4>:<number(0-65535)>
-	//  - Type 2: <asn(65536-4294967295)>:<number(0-65535)>
+	//  - Type 0: ASN(0-65535):Number(0-4294967295)
+	//  - Type 1: IPv4:Number(0-65535)
+	//  - Type 2: ASN(65536-4294967295):Number(0-65535)
 	// +optional
 	RouteDistinguisher string `json:"routeDistinguisher,omitempty"`
 

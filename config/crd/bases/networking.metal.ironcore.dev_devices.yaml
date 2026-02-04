@@ -82,7 +82,7 @@ spec:
                 properties:
                   address:
                     description: Address is the management address of the device provided
-                      as <ip:port>.
+                      in IP:Port format.
                     pattern: ^(\d{1,3}\.){3}\d{1,3}:\d{1,5}$
                     type: string
                   secretRef:

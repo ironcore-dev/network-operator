@@ -26,7 +26,7 @@ type DeviceSpec struct {
 // Endpoint contains the connection information for the device.
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.secretRef) || has(self.secretRef)", message="SecretRef is required once set"
 type Endpoint struct {
-	// Address is the management address of the device provided as <ip:port>.
+	// Address is the management address of the device provided in IP:Port format.
 	// +kubebuilder:validation:Pattern=`^(\d{1,3}\.){3}\d{1,3}:\d{1,5}$`
 	// +required
 	Address string `json:"address"`
