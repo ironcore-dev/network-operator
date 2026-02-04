@@ -1,0 +1,100 @@
+# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+# SPDX-License-Identifier: Apache-2.0
+
+name: Container Image
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push-image:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            # https://github.com/docker/metadata-action#typeedge
+            type=edge
+            # https://github.com/docker/metadata-action#latest-tag
+            type=raw,value=latest,enable={{is_default_branch}}
+            # https://github.com/docker/metadata-action#typesemver
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            # https://github.com/docker/metadata-action#typeref
+            type=ref,event=branch
+            type=ref,event=pr
+            # https://github.com/docker/metadata-action#typesha
+            type=sha,format=long
+      - name: Extract build-args for Docker
+        id: build_args
+        run: |
+          echo "version=$(git describe --tags --always --abbrev=7)" >> $GITHUB_OUTPUT
+          echo "commit=$(git rev-parse --verify HEAD)" >> $GITHUB_OUTPUT
+          echo "date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+        id: setup-buildx
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Go Cache for Docker
+        uses: actions/cache@v5
+        id: cache
+        with:
+          path: |
+            go-pkg-mod
+            go-build-cache
+          key: cache-mount-${{ hashFiles('go.sum') }}
+      - name: Restore Docker Cache Mounts
+        uses: reproducible-containers/buildkit-cache-dance@v3.3.2
+        with:
+          cache-map: |
+            {
+              "go-pkg-mod": "/go/pkg/mod",
+              "go-build-cache": "/root/.cache/go-build"
+            }
+          skip-extraction: ${{ steps.cache.outputs.cache-hit }}
+          builder: ${{ steps.setup-buildx.outputs.name }}
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          build-args: |
+            BININFO_VERSION=${{ steps.build_args.outputs.version }}
+            BININFO_COMMIT_HASH=${{ steps.build_args.outputs.commit }}
+            BININFO_BUILD_DATE=${{ steps.build_args.outputs.date }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-to: type=gha,mode=max
+          cache-from: type=gha
+

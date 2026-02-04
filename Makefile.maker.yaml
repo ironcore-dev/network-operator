@@ -68,13 +68,7 @@ githubWorkflow:
   securityChecks:
     enabled: true
   pushContainerToGhcr:
-    enabled: true
-    platforms: "linux/amd64,linux/arm64"
-    tagStrategy:
-      - edge
-      - latest
-      - semver
-      - sha
+    enabled: false
 
 variables:
   GO_BUILDENV: 'CGO_ENABLED=0'

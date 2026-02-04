@@ -4,8 +4,6 @@
 
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine3.22 AS builder
 
-RUN apk add --no-cache --no-progress git make
-
 ARG BININFO_BUILD_DATE
 ARG BININFO_COMMIT_HASH
 ARG BININFO_VERSION
@@ -20,10 +18,10 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=bind,source=go.sum,target=go.sum \
     go mod download -x
 
-RUN --mount=type=bind,target=.,readwrite \
+RUN --mount=type=bind,target=. \
     --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    GO_BUILDENV="GOOS=${TARGETOS} GOARCH=${TARGETARCH}" GOTOOLCHAIN=local make install
+    GOOS=${TARGETOS} GOARCH=${TARGETARCH} GOTOOLCHAIN=local CGO_ENABLED=0 go build -ldflags "-s -w -X github.com/sapcc/go-api-declarations/bininfo.binName=network-operator -X github.com/sapcc/go-api-declarations/bininfo.version=${BININFO_VERSION} -X github.com/sapcc/go-api-declarations/bininfo.commit=${BININFO_COMMIT_HASH} -X github.com/sapcc/go-api-declarations/bininfo.buildDate=${BININFO_BUILD_DATE}" -o /usr/bin/network-operator ./cmd
 
 FROM gcr.io/distroless/static:nonroot
 
