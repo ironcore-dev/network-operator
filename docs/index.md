@@ -15,7 +15,7 @@ hero:
           link: /overview/
         - theme: alt
           text: API Reference
-          link: /api/
+          link: /api-reference/
 
 features:
     - title: 🔌 Multi-Vendor Network Automation

@@ -33,7 +33,7 @@ export default withMermaid({
                 text: 'Documentation',
                 items: [
                     { text: 'Overview', link: '/overview' },
-                    { text: 'API References', link: '/api/' },
+                    { text: 'API References', link: '/api-reference/' },
                 ],
             },
             {
@@ -71,7 +71,7 @@ export default withMermaid({
             },
             {
                 text: 'API References',
-                items: [{ text: 'Index', link: '/api/' }],
+                items: [{ text: 'Index', link: '/api-reference/' }],
             },
         ],
 

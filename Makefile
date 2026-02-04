@@ -49,6 +49,9 @@ install-gofumpt: FORCE
 install-kustomize: FORCE
 	@if ! hash kustomize 2>/dev/null; then printf "\e[1;36m>> Installing kustomize...\e[0m\n"; go install sigs.k8s.io/kustomize/kustomize/v5@latest; fi
 
+install-crd-ref-docs: FORCE
+	@if ! hash crd-ref-docs 2>/dev/null; then printf "\e[1;36m>> Installing crd-ref-docs...\e[0m\n"; go install github.com/elastic/crd-ref-docs@latest; fi
+
 fmt: FORCE install-gofumpt
 	@printf "\e[1;36m>> gofumpt -l -w .\e[0m\n"
 	@gofumpt -l -w $(shell git ls-files '*.go' | grep -v '^internal/provider/openconfig')
@@ -173,6 +176,15 @@ DOCS_IMG ?= ironcore-dev/network-operator-docs:latest
 run-docs:
 	@docker build -t $(DOCS_IMG) -f docs/Dockerfile docs --load
 	@docker run --rm --init -p 5173:5173 -v $(ROOT_DIR)/docs:/workspace -v /workspace/node_modules $(DOCS_IMG)
+
+docs: install-crd-ref-docs
+	crd-ref-docs --source-path=./api --config=./hack/api-reference/config.yaml --renderer=markdown --output-path=./docs/api-reference/index.md
+	@$(SED) -i \
+	  -e 's/#networkingmetalironcoredevv1alpha1/#networking-metal-ironcore-dev-v1alpha1/g' \
+	  -e 's/#nxcisconetworkingmetalironcoredevv1alpha1/#nx-cisco-networking-metal-ironcore-dev-v1alpha1/g' \
+	  -e 's/#xecisconetworkingmetalironcoredevv1alpha1/#xe-cisco-networking-metal-ironcore-dev-v1alpha1/g' \
+	  -e 's/#xrcisconetworkingmetalironcoredevv1alpha1/#xr-cisco-networking-metal-ironcore-dev-v1alpha1/g' \
+	  docs/api-reference/index.md
 
 install-goimports: FORCE
 	@if ! hash goimports 2>/dev/null; then printf "\e[1;36m>> Installing goimports (this may take a while)...\e[0m\n"; go install golang.org/x/tools/cmd/goimports@latest; fi
