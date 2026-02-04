@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+# SPDX-License-Identifier: Apache-2.0
+
+name: Kustomize
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+
+jobs:
+  kustomize-validation:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Kustomize
+        run: |
+          make install-kustomize
+      - name: Validate Kustomize
+        run: |
+          ./hack/validate-kustomize.sh
