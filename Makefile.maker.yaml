@@ -56,15 +56,12 @@ testPackages:
   except: '/test'
 
 githubWorkflow:
-  global:
-    defaultBranch: main
   ci:
-    enabled: true
-    prepareMakeTarget: generate
+    enabled: false
   license:
-    enabled: true
+    enabled: false
   release:
-    enabled: true
+    enabled: false
   securityChecks:
     enabled: true
   pushContainerToGhcr:

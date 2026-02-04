@@ -1,17 +1,21 @@
-# SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
 # SPDX-License-Identifier: Apache-2.0
 
-name: Close inactive issues
+name: Stale
+
 on:
   schedule:
     - cron: "35 1 * * *"
 
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
 jobs:
   close-issues:
+    name: Close Inactive Issues and PRs
     runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      pull-requests: write
     steps:
       - uses: actions/stale@v10
         with:

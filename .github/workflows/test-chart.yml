@@ -1,62 +1,43 @@
-# SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
 # SPDX-License-Identifier: Apache-2.0
 
-name: Test
+name: Test Chart
+
 on:
-  push:
+  pull_request:
     branches:
       - main
     paths-ignore:
-      - '**.md'
-  pull_request:
-    branches:
-      - '*'
-    paths-ignore:
-      - '**.md'
-  workflow_dispatch: {}
-permissions:
-  contents: read
+      - 'docs/**'
+      - '**/*.md'
+
 jobs:
   test-chart:
-    name: Chart
+    name: Run Chart Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Check out code
-        uses: actions/checkout@v6
-      - name: Set up Go
-        uses: actions/setup-go@v6
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
-          check-latest: true
-          go-version: 1.26.2
-      - name: Fetch latest kubectl version
-        id: kubectl
-        run: |
-          KUBECTL_VERSION=$(curl -sL https://dl.k8s.io/release/stable.txt)
-          echo "version=$KUBECTL_VERSION" >> $GITHUB_OUTPUT
-      - name: Fetch latest kind version
-        id: kind
-        run: |
-          KIND_VERSION=$(curl -s https://api.github.com/repos/kubernetes-sigs/kind/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
-          echo "version=$KIND_VERSION" >> $GITHUB_OUTPUT
-      - name: Create k8s kind cluster
-        uses: helm/kind-action@v1
+          go-version-file: 'go.mod'
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
         with:
-          version: ${{ steps.kind.outputs.version }}
-          cluster_name: kind
-          kubectl_version: ${{ steps.kubectl.outputs.version }}
-      - name: Prepare network-operator
-        run: |
-          go mod tidy
-          make docker-build IMG=network-operator:v0.1.0
-          kind load docker-image network-operator:v0.1.0
-      - name: Install Helm
-        run: |
-          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-      - name: Verify Helm installation
-        run: helm version
+          version: latest
       - name: Lint Helm Chart
         run: |
           helm lint ./charts/network-operator
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          version: v0.31.0
+          kubectl_version: v1.35.0
+          cluster_name: kind
+      - name: Prepare network-operator
+        run: |
+          go mod download
+          make docker-build IMG=network-operator:v0.1.0
+          kind load docker-image network-operator:v0.1.0
       - name: Install cert-manager via Helm
         run: |
           helm repo add jetstack https://charts.jetstack.io
@@ -67,27 +48,9 @@ jobs:
           kubectl wait --namespace cert-manager --for=condition=available --timeout=300s deployment/cert-manager
           kubectl wait --namespace cert-manager --for=condition=available --timeout=300s deployment/cert-manager-cainjector
           kubectl wait --namespace cert-manager --for=condition=available --timeout=300s deployment/cert-manager-webhook
-# TODO: Uncomment if Prometheus is enabled
-#      - name: Install Prometheus Operator CRDs
-#        run: |
-#          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-#          helm repo update
-#          helm install prometheus-crds prometheus-community/prometheus-operator-crds
-#      - name: Install Prometheus via Helm
-#        run: |
-#          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-#          helm repo update
-#          helm install prometheus prometheus-community/prometheus --namespace monitoring --create-namespace
-#      - name: Wait for Prometheus to be ready
-#        run: |
-#          kubectl wait --namespace monitoring --for=condition=available --timeout=300s deployment/prometheus-server
-      - name: Install Helm chart for project
+      - name: Install Helm Chart
         run: |
           helm install network-operator ./charts/network-operator --create-namespace --namespace network-operator-system
       - name: Check Helm release status
         run: |
           helm status network-operator --namespace network-operator-system
-# TODO: Uncomment if prometheus.enabled is set to true to confirm that the ServiceMonitor gets created
-#      - name: Check Presence of ServiceMonitor
-#        run: |
-#          kubectl wait --namespace network-operator-system --for=jsonpath='{.kind}'=ServiceMonitor servicemonitor/network-operator-controller-manager-metrics-monitor

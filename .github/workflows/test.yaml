@@ -1,0 +1,65 @@
+# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+# SPDX-License-Identifier: Apache-2.0
+
+name: Test and Code Coverage
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: write
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+      - name: Run prepare make target
+        run: make generate
+      - name: Build all binaries
+        run: make build-all
+  test:
+    name: Test
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+      - name: Run prepare make target
+        run: make generate
+      - name: Run tests and generate coverage report
+        run: make build/cover.out
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v6
+        with:
+          name: code-coverage
+          path: build/cover.out
+  code-coverage:
+    name: Code Coverage Report
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Post coverage report
+        uses: fgrosse/go-coverage-report@v1.2.0
+        with:
+          coverage-artifact-name: code-coverage
+          coverage-file-name: cover.out

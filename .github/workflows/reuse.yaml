@@ -1,22 +1,27 @@
-# SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
 # SPDX-License-Identifier: Apache-2.0
 
-name: REUSE Compliance
+name: REUSE
+
 on:
   push:
     branches:
       - main
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
   pull_request:
     branches:
-      - '*'
-  workflow_dispatch: {}
-permissions:
-  contents: read
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+
 jobs:
-  test:
-    name: Check
+  compliance-check:
+    name: Compliance Check
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
-    - name: REUSE Compliance Check
-      uses: fsfe/reuse-action@v6
+      - uses: actions/checkout@v6
+      - name: Compliance Check
+        uses: fsfe/reuse-action@v6

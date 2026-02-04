@@ -5,19 +5,20 @@ name: Documentation
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    types: [ assigned, opened, synchronize, reopened ]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+    branches:
+      - main
 
 concurrency:
   group: pages
   cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+  pages: write
 
 jobs:
   build:
