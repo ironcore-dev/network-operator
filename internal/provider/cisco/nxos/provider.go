@@ -4,6 +4,7 @@
 package nxos
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"crypto/rand"
@@ -85,8 +86,17 @@ func (p *Provider) Disconnect(_ context.Context, _ *deviceutil.Connection) error
 
 func (p *Provider) HashProvisioningPassword(password string) (hashed, encryptType string, err error) {
 	s := [10]byte{}
-	if _, err := rand.Read(s[:]); err != nil {
-		return "", "", err
+	for {
+		// Read cryptographically secure random bytes into the slice.
+		if _, err := rand.Read(s[:]); err != nil {
+			return "", "", err
+		}
+		// Check if the slice contains a zero byte.
+		if !bytes.Contains(s[:], []byte{0}) {
+			// If no zero is found, we're done. Break the loop.
+			break
+		}
+		// If a zero was found, the loop will repeat, overwriting the slice.
 	}
 	e := Scrypt{Salt: s}
 	hashed, pwdEncryptType, err := e.Encode(password)
