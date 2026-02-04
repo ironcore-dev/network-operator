@@ -88,7 +88,7 @@ verbatim: |
     @if ! hash gofumpt 2>/dev/null; then printf "\e[1;36m>> Installing gofumpt...\e[0m\n"; go install mvdan.cc/gofumpt@latest; fi
 
   install-kubebuilder: FORCE
-    @if ! hash kubebuilder 2>/dev/null; then printf "\e[1;36m>> Installing kubebuilder...\e[0m\n"; go install sigs.k8s.io/kubebuilder/v4@v4.10.1; fi
+    @set -eou pipefail;  if ! hash kubebuilder 2>/dev/null; then printf "\e[1;36m>> Installing kubebuilder...\e[0m\n"; if command -v curl >/dev/null 2>&1; then GET="curl -sLo"; elif command -v wget >/dev/null 2>&1; then GET="wget -O"; else echo "Didn't find curl or wget to download kubebuilder"; exit 2; fi; BIN=$$(go env GOBIN); if [[ -z $$BIN ]]; then BIN=$$(go env GOPATH)/bin; fi; $$GET "$$BIN/kubebuilder" "https://go.kubebuilder.io/dl/latest/$$(go env GOOS)/$$(go env GOARCH)"; chmod +x "$$BIN/kubebuilder"; fi
 
   install-kustomize: FORCE
     @if ! hash kustomize 2>/dev/null; then printf "\e[1;36m>> Installing kustomize...\e[0m\n"; go install sigs.k8s.io/kustomize/kustomize/v5@latest; fi

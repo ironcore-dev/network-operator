@@ -35,9 +35,6 @@ spec:
       {{- with .Values.manager.nodeSelector }}
       nodeSelector: {{ toYaml . | nindent 10 }}
       {{- end }}
-      {{- with .Values.manager.imagePullSecrets }}
-      imagePullSecrets: {{ toYaml . | nindent 8 }}
-      {{- end }}
       containers:
       - args:
         {{- if .Values.metrics.enable }}
@@ -57,9 +54,6 @@ spec:
         - /manager
         image: "{{ .Values.manager.image.repository }}:{{ .Values.manager.image.tag }}"
         imagePullPolicy: {{ .Values.manager.image.pullPolicy }}
-        {{- with .Values.manager.env }}
-        env: {{ toYaml . | nindent 10 }}
-        {{- end }}
         livenessProbe:
           httpGet:
             path: /healthz
@@ -74,6 +68,9 @@ spec:
         - containerPort: 8080
           name: provisioning
           protocol: TCP
+        - containerPort: 1069
+          name: tftp
+          protocol: UDP
         readinessProbe:
           httpGet:
             path: /readyz
@@ -93,9 +90,6 @@ spec:
           {}
           {{- end }}
         volumeMounts:
-          {{- if .Values.manager.extraVolumeMounts }}
-          {{- toYaml .Values.manager.extraVolumeMounts | nindent 10 }}
-          {{- end }}
         {{- if .Values.certManager.enable }}
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: webhook-certs
@@ -110,9 +104,6 @@ spec:
       serviceAccountName: {{ include "network-operator.resourceName" (dict "suffix" "controller-manager" "context" $) }}
       terminationGracePeriodSeconds: 10
       volumes:
-        {{- if .Values.manager.extraVolumes }}
-        {{- toYaml .Values.manager.extraVolumes | nindent 8 }}
-        {{- end }}
       {{- if .Values.certManager.enable }}
       - name: webhook-certs
         secret:

@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+# SPDX-License-Identifier: Apache-2.0
+
+name: Check Codegen
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+
+jobs:
+  check-codegen:
+    name: Detect Drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+      - name: Run make generate
+        run: make generate
+      - name: Run make docs
+        run: make docs
+      - name: Run make charts
+        run: make charts
+      - name: Run fmt
+        run: make fmt
+      - name: Compare the expected and actual generated/* directories
+        run: |
+          if [ "$(git diff | wc -l)" -gt "0" ]; then
+            echo "Detected uncommitted changes after build. Consider running 'make generate && make docs && make charts && make fmt'."
+            echo "See status below:"
+            git diff
+            exit 1
+          fi
