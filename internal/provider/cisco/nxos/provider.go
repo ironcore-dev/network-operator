@@ -3282,18 +3282,18 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 
 	// Configure TACACS+ server hosts
 	for _, server := range req.AAA.Spec.TACACSServers {
-		provider := &TacacsPlusProvider{
+		srv := &TacacsPlusProvider{
 			Name:   server.Address,
 			Port:   server.Port,
 			KeyEnc: MapKeyEncryption(server.KeyEncryption),
 		}
 		if key, ok := req.TACACSServerKeys[server.Address]; ok {
-			provider.Key = key
+			srv.Key = key
 		}
 		if server.Timeout != nil {
-			provider.Timeout = *server.Timeout
+			srv.Timeout = *server.Timeout
 		}
-		conf = append(conf, provider)
+		conf = append(conf, srv)
 	}
 
 	// Configure TACACS+ server group
@@ -3320,7 +3320,7 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 			}
 			// Set realm and provider group based on first method
 			if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
-				authen.Realm = "tacacs"
+				authen.Realm = AAARealmTacacs
 				authen.ProviderGroup = methods[0].GroupName
 			} else {
 				authen.Realm = MapRealmFromMethodType(methods[0].Type, "")
@@ -3337,7 +3337,7 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 				Local:    MapLocalFromMethodList(methods),
 			}
 			if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
-				consoleAuth.Realm = "tacacs"
+				consoleAuth.Realm = AAARealmTacacs
 				consoleAuth.ProviderGroup = methods[0].GroupName
 			} else {
 				consoleAuth.Realm = MapRealmFromMethodType(methods[0].Type, "")
@@ -3353,10 +3353,10 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 			author := &AAADefaultAuthor{
 				Name:      "Author",
 				CmdType:   "config",
-				LocalRbac: MapLocalFromMethodList(methods) == "yes",
+				LocalRbac: MapLocalFromMethodList(methods) == AAAValueYes,
 			}
 			if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
-				author.Realm = "tacacs"
+				author.Realm = AAARealmTacacs
 				author.ProviderGroup = methods[0].GroupName
 			} else {
 				author.Realm = MapRealmFromMethodType(methods[0].Type, "")
@@ -3370,10 +3370,10 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 		methods := req.AAA.Spec.Accounting.Default.Methods
 		acct := &AAADefaultAcc{
 			Name:      "Accounting",
-			LocalRbac: MapLocalFromMethodList(methods) == "yes",
+			LocalRbac: MapLocalFromMethodList(methods) == AAAValueYes,
 		}
 		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
-			acct.Realm = "tacacs"
+			acct.Realm = AAARealmTacacs
 			acct.ProviderGroup = methods[0].GroupName
 		} else {
 			acct.Realm = MapRealmFromMethodType(methods[0].Type, "")
@@ -3389,7 +3389,7 @@ func (p *Provider) DeleteAAA(ctx context.Context, req *provider.DeleteAAARequest
 	if req.AAA.Spec.Accounting != nil && req.AAA.Spec.Accounting.Default != nil {
 		acct := &AAADefaultAcc{
 			Name:      "Accounting",
-			Realm:     "local",
+			Realm:     AAARealmLocal,
 			LocalRbac: true,
 		}
 		if err := p.Patch(ctx, acct); err != nil {
@@ -3402,7 +3402,7 @@ func (p *Provider) DeleteAAA(ctx context.Context, req *provider.DeleteAAARequest
 		author := &AAADefaultAuthor{
 			Name:      "Author",
 			CmdType:   "config",
-			Realm:     "local",
+			Realm:     AAARealmLocal,
 			LocalRbac: true,
 		}
 		if err := p.Patch(ctx, author); err != nil {
@@ -3413,9 +3413,9 @@ func (p *Provider) DeleteAAA(ctx context.Context, req *provider.DeleteAAARequest
 	// Reset AAA authentication to local
 	if req.AAA.Spec.Authentication != nil {
 		authen := &AAADefaultAuth{
-			Realm:    "local",
-			Local:    "yes",
-			Fallback: "yes",
+			Realm:    AAARealmLocal,
+			Local:    AAAValueYes,
+			Fallback: AAAValueYes,
 			ErrEn:    false,
 		}
 		if err := p.Patch(ctx, authen); err != nil {
@@ -3424,9 +3424,9 @@ func (p *Provider) DeleteAAA(ctx context.Context, req *provider.DeleteAAARequest
 
 		if req.AAA.Spec.Authentication.Login != nil && req.AAA.Spec.Authentication.Login.Console != nil {
 			consoleAuth := &AAAConsoleAuth{
-				Realm:    "local",
-				Local:    "yes",
-				Fallback: "yes",
+				Realm:    AAARealmLocal,
+				Local:    AAAValueYes,
+				Fallback: AAAValueYes,
 				ErrEn:    false,
 			}
 			if err := p.Patch(ctx, consoleAuth); err != nil {
@@ -3445,8 +3445,8 @@ func (p *Provider) DeleteAAA(ctx context.Context, req *provider.DeleteAAARequest
 
 	// Delete TACACS+ server hosts
 	for _, server := range req.AAA.Spec.TACACSServers {
-		provider := &TacacsPlusProvider{Name: server.Address}
-		if err := p.client.Delete(ctx, provider); err != nil {
+		srv := &TacacsPlusProvider{Name: server.Address}
+		if err := p.client.Delete(ctx, srv); err != nil {
 			return err
 		}
 	}

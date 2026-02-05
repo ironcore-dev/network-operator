@@ -31,6 +31,15 @@ const (
 	TACACSFeatureDisabled TACACSFeature = "disabled"
 )
 
+// AAA configuration constants
+const (
+	AAARealmTacacs = "tacacs"
+	AAARealmLocal  = "local"
+	AAARealmNone   = "none"
+	AAAValueYes    = "yes"
+	AAAValueNo     = "no"
+)
+
 // TacacsPlusProvider represents a TACACS+ server host configuration.
 // Path: System/userext-items/tacacsext-items/tacacsplusprovider-items/TacacsPlusProvider-list[name=<address>]
 type TacacsPlusProvider struct {
@@ -52,11 +61,11 @@ func (p *TacacsPlusProvider) XPath() string {
 // TacacsPlusProviderGroup represents a TACACS+ server group configuration.
 // Path: System/userext-items/tacacsext-items/tacacsplusprovidergroup-items/TacacsPlusProviderGroup-list[name=<name>]
 type TacacsPlusProviderGroup struct {
-	Name            string                              `json:"name"`
-	Vrf             string                              `json:"vrf,omitempty"`
-	SrcIf           string                              `json:"srcIf,omitempty"`
-	Deadtime        int32                               `json:"deadtime,omitempty"`
-	ProviderRefItems TacacsPlusProviderGroupRefItems    `json:"providerref-items,omitzero"`
+	Name             string                          `json:"name"`
+	Vrf              string                          `json:"vrf,omitempty"`
+	SrcIf            string                          `json:"srcIf,omitempty"`
+	Deadtime         int32                           `json:"deadtime,omitempty"`
+	ProviderRefItems TacacsPlusProviderGroupRefItems `json:"providerref-items,omitzero"`
 }
 
 func (*TacacsPlusProviderGroup) IsListItem() {}
@@ -156,13 +165,13 @@ func MapKeyEncryption(enc v1alpha1.TACACSKeyEncryption) string {
 func MapRealmFromMethodType(method v1alpha1.AAAMethodType, groupName string) string {
 	switch method {
 	case v1alpha1.AAAMethodTypeGroup:
-		return "tacacs"
+		return AAARealmTacacs
 	case v1alpha1.AAAMethodTypeLocal:
-		return "local"
+		return AAARealmLocal
 	case v1alpha1.AAAMethodTypeNone:
-		return "none"
+		return AAARealmNone
 	default:
-		return "local"
+		return AAARealmLocal
 	}
 }
 
@@ -170,17 +179,17 @@ func MapRealmFromMethodType(method v1alpha1.AAAMethodType, groupName string) str
 func MapLocalFromMethodList(methods []v1alpha1.AAAMethod) string {
 	for _, m := range methods {
 		if m.Type == v1alpha1.AAAMethodTypeLocal {
-			return "yes"
+			return AAAValueYes
 		}
 	}
-	return "no"
+	return AAAValueNo
 }
 
 // MapFallbackFromMethodList determines fallback setting from method list.
 func MapFallbackFromMethodList(methods []v1alpha1.AAAMethod) string {
 	// If there's more than one method, enable fallback
 	if len(methods) > 1 {
-		return "yes"
+		return AAAValueYes
 	}
-	return "no"
+	return AAAValueNo
 }
