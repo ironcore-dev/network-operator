@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,7 +20,6 @@ import (
 	// Set runtime concurrency to match CPU limit imposed by Kubernetes
 	_ "go.uber.org/automaxprocs"
 
-	"github.com/sapcc/go-api-declarations/bininfo"
 	"go.uber.org/zap/zapcore"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -61,6 +61,10 @@ import (
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
+
+	version   = "dev"
+	gitCommit = "none"
+	buildDate = "unknown"
 )
 
 func init() {
@@ -72,8 +76,13 @@ func init() {
 }
 
 func main() { //nolint:gocyclo
-	// if called with `--version`, report version and exit
-	bininfo.HandleVersionArgument()
+	if len(os.Args) > 1 && (os.Args[1] == "version" || os.Args[1] == "--version" || os.Args[1] == "-v") {
+		log.SetFlags(0)
+		log.Printf("Version:   %s", version)
+		log.Printf("Git Commit: %s", gitCommit)
+		log.Printf("Build Date: %s", buildDate)
+		os.Exit(0)
+	}
 
 	var metricsAddr string
 	var metricsCertPath, metricsCertName, metricsCertKey string

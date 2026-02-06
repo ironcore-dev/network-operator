@@ -237,6 +237,10 @@ func LoadImageToKindClusterWithName(ctx context.Context, name string) error {
 	if v, ok := os.LookupEnv("KIND_CLUSTER"); ok && v != "" {
 		cluster = v
 	}
+	kind := "kind"
+	if v, ok := os.LookupEnv("KIND"); ok {
+		kind = v
+	}
 	// See: https://kind.sigs.k8s.io/docs/user/rootless/#creating-a-kind-cluster-with-rootless-nerdctl
 	prov, ok := os.LookupEnv("KIND_EXPERIMENTAL_PROVIDER")
 	if ok && prov != "docker" {
@@ -259,11 +263,11 @@ func LoadImageToKindClusterWithName(ctx context.Context, name string) error {
 			return fmt.Errorf("failed to save image: %w", err)
 		}
 
-		cmd = exec.CommandContext(ctx, "kind", "load", "image-archive", file.Name(), "--name", cluster) //nolint:gosec
+		cmd = exec.CommandContext(ctx, kind, "load", "image-archive", file.Name(), "--name", cluster) //nolint:gosec
 		_, err = Run(cmd)
 		return err
 	}
-	cmd := exec.CommandContext(ctx, "kind", "load", "docker-image", name, "--name", cluster)
+	cmd := exec.CommandContext(ctx, kind, "load", "docker-image", name, "--name", cluster)
 	_, err := Run(cmd)
 	return err
 }

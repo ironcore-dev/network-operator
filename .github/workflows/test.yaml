@@ -33,8 +33,8 @@ jobs:
           go-version-file: 'go.mod'
       - name: Run prepare make target
         run: make generate
-      - name: Build all binaries
-        run: make build-all
+      - name: Build manager binary
+        run: make build
   test:
     name: Test
     needs: build
@@ -44,15 +44,15 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: 'go.mod'
-      - name: Run prepare make target
+      - name: Run generate make target
         run: make generate
       - name: Run tests and generate coverage report
-        run: make build/cover.out
+        run: make coverage
       - name: Archive code coverage results
         uses: actions/upload-artifact@v7
         with:
           name: code-coverage
-          path: build/cover.out
+          path: cover.out
   code-coverage:
     name: Code Coverage Report
     needs: test

@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v7
       - name: Install Kustomize
         run: |
-          make install-kustomize
+          make kustomize
       - name: Validate Kustomize
         run: |
           ./hack/validate-kustomize.sh

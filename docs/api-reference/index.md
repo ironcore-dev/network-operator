@@ -3,7 +3,7 @@
 ## Packages
 - [networking.metal.ironcore.dev/v1alpha1](#networking-metal-ironcore-dev-v1alpha1)
 - [nx.cisco.networking.metal.ironcore.dev/v1alpha1](#nx-cisco-networking-metal-ironcore-dev-v1alpha1)
-- [pool.networking.metal.ironcore.dev/v1alpha1](#poolnetworkingmetalironcoredevv1alpha1)
+- [pool.networking.metal.ironcore.dev/v1alpha1](#pool-networking-metal-ironcore-dev-v1alpha1)
 - [xe.cisco.networking.metal.ironcore.dev/v1alpha1](#xe-cisco-networking-metal-ironcore-dev-v1alpha1)
 - [xr.cisco.networking.metal.ironcore.dev/v1alpha1](#xr-cisco-networking-metal-ironcore-dev-v1alpha1)
 

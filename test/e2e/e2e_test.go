@@ -51,7 +51,7 @@ var _ = Describe("Manager", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred(), "Failed to label namespace with restricted policy")
 
 		By("installing CRDs")
-		cmd = exec.CommandContext(ctx, "make", "deploy-crds")
+		cmd = exec.CommandContext(ctx, "make", "install")
 		_, err = Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to install CRDs")
 
@@ -84,7 +84,7 @@ var _ = Describe("Manager", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred(), "Failed to undeploy the controller-manager")
 
 		By("uninstalling CRDs")
-		cmd = exec.CommandContext(ctx, "make", "undeploy-crds")
+		cmd = exec.CommandContext(ctx, "make", "uninstall", "ignore-not-found=true")
 		_, err = Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to uninstall CRDs")
 

@@ -13,7 +13,6 @@ require (
 	github.com/openconfig/gnoi v0.8.0
 	github.com/openconfig/ygot v0.34.0
 	github.com/pin/tftp/v3 v3.2.0
-	github.com/sapcc/go-api-declarations v1.24.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.19.0
 	github.com/tidwall/sjson v1.2.5

@@ -7,18 +7,19 @@ analytics_settings(False)
 
 update_settings(k8s_upsert_timeout_secs=60)
 
-allow_k8s_contexts(['minikube', 'kind-network'])
+watch_settings(ignore=['**/*/zz_generated.deepcopy.go', 'config/crd/bases/*'])
+
+allow_k8s_contexts(['minikube', 'kind-network-operator'])
 
 load('ext://cert_manager', 'deploy_cert_manager')
 deploy_cert_manager(version='v1.18.2')
 
-docker_build('ghcr.io/ironcore-dev/network-operator', '.', ignore=['config/crd/bases/*'], only=[
-    'api/', 'cmd/', 'hack/', 'internal/', 'go.mod', 'go.sum', 'Makefile',
+docker_build('controller:latest', '.', only=[
+    'api/', 'cmd/', 'internal/', 'go.mod', 'go.sum'
 ])
 
-local_resource('controller-gen', 'make generate', ignore=['**/*/zz_generated.deepcopy.go', 'config/crd/bases/*'], deps=[
-    'api/', 'cmd/', 'hack/', 'internal/', 'go.mod', 'go.sum', 'Makefile',
-])
+local_resource('controller-gen', 'make generate', deps=['api/', 'hack/boilerplate.go.txt'])
+local_resource('crds', 'make install', deps=['api/'])
 
 provider = os.getenv('PROVIDER', 'openconfig')
 

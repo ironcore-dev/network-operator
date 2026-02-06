@@ -60,7 +60,11 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: 'go.mod'
-      - name: Dependency Licenses Review
-        run: make check-dependency-licenses
-      - name: Check if source code files have license header
-        run: make check-addlicense
+      - name: Install addlicense
+        run: go install github.com/google/addlicense@latest
+      - name: Check License Headers
+        run: addlicense -check -ignore '**/*.yml' -ignore '**/*.yaml' .
+      - name: Install go-licenses
+        run: go install github.com/google/go-licenses@latest
+      - name: Check Dependency Licenses
+        run: go-licenses check --include_tests --disallowed_types=restricted,forbidden,unknown ./...

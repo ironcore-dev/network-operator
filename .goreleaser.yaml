@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
-# SPDX-FileCopyrightText: 2020 SAP SE or an SAP affiliate company
+# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
 # SPDX-License-Identifier: Apache-2.0
 version: 2
 
@@ -19,7 +19,6 @@ builds:
       - CGO_ENABLED=0
     goos:
       - linux
-      - windows
       - darwin
     goarch:
       - amd64
@@ -29,10 +28,9 @@ builds:
         goarch: arm64
     ldflags:
       - -s -w
-      - -X github.com/sapcc/go-api-declarations/bininfo.binName=network-operator
-      - -X github.com/sapcc/go-api-declarations/bininfo.version={{ .Version }}
-      - -X github.com/sapcc/go-api-declarations/bininfo.commit={{ .FullCommit  }}
-      - -X github.com/sapcc/go-api-declarations/bininfo.buildDate={{ .CommitDate }} # use CommitDate instead of Date for reproducibility
+      - -X main.version={{ .Version }}
+      - -X main.gitCommit={{ .FullCommit  }}
+      - -X main.buildDate={{ .CommitDate }} # use CommitDate instead of Date for reproducibility
     main: ./cmd
     # Set the modified timestamp on the output binary to ensure that builds are reproducible.
     mod_timestamp: "{{ .CommitTimestamp }}"

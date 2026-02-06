@@ -9,8 +9,20 @@ CONTAINER_TOOL="${CONTAINER_TOOL:-docker}"
 KIND_CLUSTER_NAME="${KIND_CLUSTER_NAME:-kind}"
 export KIND_EXPERIMENTAL_PROVIDER="${CONTAINER_TOOL}"
 
+ROOTDIR=$(cd -- "$(dirname -- "$0")/.." && pwd)
+
+# Use local kind binary if available, otherwise fall back to global installation
+if [ -x "$ROOTDIR/bin/kind" ]; then
+  KIND="$ROOTDIR/bin/kind"
+elif command -v kind &>/dev/null; then
+  KIND="kind"
+else
+  echo "Error: kind not found. Install it globally or run 'make kind' to download it locally."
+  exit 1
+fi
+
 # Exit early if the cluster already exists
-if kind get clusters | grep -q "^${KIND_CLUSTER_NAME}$"; then
+if $KIND get clusters | grep -q "^${KIND_CLUSTER_NAME}$"; then
   echo "Cluster ${KIND_CLUSTER_NAME} already exists"
   exit 0
 fi
@@ -23,7 +35,7 @@ if [ "$("${CONTAINER_TOOL}" inspect -f '{{.State.Running}}' "${REGISTRY_NAME}" 2
 fi
 
 # 2. Create kind cluster
-cat <<EOF | kind create cluster --config=-
+cat <<EOF | $KIND create cluster --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: ${KIND_CLUSTER_NAME}
@@ -42,7 +54,7 @@ EOF
 # We want a consistent name that works from both ends, so we tell containerd to
 # alias localhost:${reg_port} to the registry container when pulling images
 REGISTRY_DIR="/etc/containerd/certs.d/localhost:${REGISTRY_PORT}"
-for node in $(kind get nodes); do
+for node in $($KIND get nodes); do
   "${CONTAINER_TOOL}" exec "${node}" mkdir -p "${REGISTRY_DIR}"
   cat <<EOF | "${CONTAINER_TOOL}" exec -i "${node}" cp /dev/stdin "${REGISTRY_DIR}/hosts.toml"
 [host."http://${REGISTRY_NAME}:5000"]

@@ -28,12 +28,12 @@ jobs:
       - name: Generate release info
         run: |
           go install github.com/sapcc/go-bits/tools/release-info@latest
-          mkdir -p build
-          release-info CHANGELOG.md "$(git describe --tags --abbrev=0)" > build/release-info
+          mkdir -p dist
+          release-info CHANGELOG.md "$(git describe --tags --abbrev=0)" > dist/release-info
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:
-          args: release --clean --release-notes=./build/release-info
+          args: release --clean --release-notes=./dist/release-info
           version: latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
