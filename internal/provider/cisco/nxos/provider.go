@@ -2273,6 +2273,7 @@ func (p *Provider) EnsureVPCDomain(ctx context.Context, vpcdomain *nxv1alpha1.VP
 	v.KeepAliveItems.DestIP = vpcdomain.Spec.Peer.KeepAlive.Destination
 	v.KeepAliveItems.SrcIP = vpcdomain.Spec.Peer.KeepAlive.Source
 
+	v.KeepAliveItems.VRF = ManagementVRFName
 	if vrf != nil {
 		v.KeepAliveItems.VRF = vrf.Spec.Name
 	}
@@ -2282,7 +2283,7 @@ func (p *Provider) EnsureVPCDomain(ctx context.Context, vpcdomain *nxv1alpha1.VP
 		return fmt.Errorf("vpc: failed to get short name for the port-channel interface %q: %w", pc.Spec.Name, err)
 	}
 
-	v.KeepAliveItems.PeerLinkItems.Id = pcName
+	v.KeepAliveItems.PeerLinkItems.ID = pcName
 	v.KeepAliveItems.PeerLinkItems.AdminSt = AdminStEnabled
 	if vpcdomain.Spec.Peer.AdminState == v1alpha1.AdminStateDown {
 		v.KeepAliveItems.PeerLinkItems.AdminSt = AdminStDisabled

@@ -39,7 +39,7 @@ type VPCDomain struct {
 		VRF           string `json:"vrf"`
 		PeerLinkItems struct {
 			AdminSt AdminSt `json:"adminSt"`
-			Id      string  `json:"id"`
+			ID      string  `json:"id"`
 		} `json:"peerlink-items,omitzero"`
 	} `json:"keepalive-items,omitzero"`
 }
@@ -62,7 +62,7 @@ func (*VPCDomainOper) XPath() string {
 	return "System/vpc-items/inst-items/dom-items"
 }
 
-// VPCRole represents the role of a vPC peer.
+// VPCDomainRole represents the role of a vPC peer.
 type VPCDomainRole string
 
 const (

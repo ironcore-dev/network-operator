@@ -12,7 +12,7 @@ func init() {
 		NotifType: "traps",
 		Version:   "v2c",
 	}
-	vrf := &SNMPHostVrf{Vrfname: "management"}
+	vrf := &SNMPHostVrf{Vrfname: ManagementVRFName}
 	host.UsevrfItems.UseVrfList.Set(vrf)
 
 	hosts := &SNMPHostItems{}

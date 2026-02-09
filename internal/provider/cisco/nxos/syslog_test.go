@@ -15,7 +15,7 @@ func init() {
 		Port:               514,
 		Severity:           Informational,
 		Transport:          "udp",
-		VrfName:            "management",
+		VrfName:            ManagementVRFName,
 	})
 	Register("syslog_remote", reItems)
 

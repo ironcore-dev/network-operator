@@ -37,7 +37,7 @@ func (g *GRPC) Validate() error {
 	if g.Port < 1024 || g.Port > 65535 {
 		return fmt.Errorf("grpc: invalid port %d: must be between 1024 and 65535", g.Port)
 	}
-	if g.UseVrf == "management" {
+	if g.UseVrf == ManagementVRFName {
 		return errors.New("grpc: cannot use vrf 'management'")
 	}
 	return nil

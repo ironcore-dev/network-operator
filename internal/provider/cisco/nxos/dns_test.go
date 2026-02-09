@@ -4,7 +4,7 @@
 package nxos
 
 func init() {
-	vrf := &DNSVrf{Name: "management"}
+	vrf := &DNSVrf{Name: ManagementVRFName}
 	vrf.ProvItems.ProviderList.Set(&DNSProv{Addr: "10.10.10.10"})
 
 	prof := &DNSProf{Name: DefaultVRFName}

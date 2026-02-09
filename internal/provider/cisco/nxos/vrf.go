@@ -6,7 +6,10 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
 )
 
-const DefaultVRFName = "default"
+const (
+	DefaultVRFName    = "default"
+	ManagementVRFName = "management"
+)
 
 var _ gnmiext.Configurable = (*VRF)(nil)
 

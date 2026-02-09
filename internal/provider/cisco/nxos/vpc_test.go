@@ -20,9 +20,9 @@ func init() {
 	}
 	vd.KeepAliveItems.DestIP = "10.114.235.156"
 	vd.KeepAliveItems.SrcIP = "10.114.235.155"
-	vd.KeepAliveItems.VRF = "management"
+	vd.KeepAliveItems.VRF = ManagementVRFName
 	vd.KeepAliveItems.PeerLinkItems.AdminSt = AdminStEnabled
-	vd.KeepAliveItems.PeerLinkItems.Id = "po1"
+	vd.KeepAliveItems.PeerLinkItems.ID = "po1"
 	Register("vpc_domain", vd)
 
 	vi := &VPCIf{ID: 10}

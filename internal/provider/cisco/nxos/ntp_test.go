@@ -12,7 +12,7 @@ func init() {
 		Name:      "de.pool.ntp.org",
 		Preferred: true,
 		ProvT:     "server",
-		Vrf:       "management",
+		Vrf:       ManagementVRFName,
 	})
 	ntp.SrcIfItems.SrcIf = "mgmt0"
 	Register("ntp", ntp)

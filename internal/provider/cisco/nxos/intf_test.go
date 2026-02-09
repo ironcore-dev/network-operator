@@ -8,7 +8,7 @@ func init() {
 		ID:            "lo0",
 		Descr:         "Test",
 		AdminSt:       AdminStUp,
-		RtvrfMbrItems: NewVrfMember("lo0", "management"),
+		RtvrfMbrItems: NewVrfMember("lo0", ManagementVRFName),
 	})
 
 	Register("physif_rtd", &PhysIf{
