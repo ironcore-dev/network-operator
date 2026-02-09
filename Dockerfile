@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
 # SPDX-License-Identifier: Apache-2.0
 
-FROM golang:1.26-alpine3.22 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine3.22 AS builder
 
 RUN apk add --no-cache --no-progress git make
 
@@ -23,7 +23,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 RUN --mount=type=bind,target=.,readwrite \
     --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    GOOS=${TARGETOS} GOARCH=${TARGETARCH} GOTOOLCHAIN=local make install
+    GO_BUILDENV="GOOS=${TARGETOS} GOARCH=${TARGETARCH}" GOTOOLCHAIN=local make install
 
 FROM gcr.io/distroless/static:nonroot
 
