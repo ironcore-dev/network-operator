@@ -25,6 +25,11 @@ var (
 // with reconciliation of the object only if this label and a configured value is present.
 const WatchLabel = "networking.metal.ironcore.dev/watch-filter"
 
+// PausedAnnotation is an annotation that can be applied to any Network API object
+// to prevent a controller from processing it. Controllers working with Network API objects
+// must check the existence of this annotation on the reconciled object.
+const PausedAnnotation = "networking.metal.ironcore.dev/paused"
+
 // FinalizerName is the identifier used by the controllers to perform cleanup before a resource is deleted.
 // It is added when the resource is created and ensures that the controller can handle teardown logic
 // (e.g., deleting external dependencies) before Kubernetes finalizes the deletion.

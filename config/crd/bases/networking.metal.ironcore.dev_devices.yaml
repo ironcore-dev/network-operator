@@ -40,6 +40,10 @@ spec:
       name: Ports
       priority: 1
       type: string
+    - jsonPath: .spec.paused
+      name: Paused
+      priority: 1
+      type: boolean
     - jsonPath: .status.phase
       name: Phase
       type: string
@@ -178,6 +182,10 @@ spec:
                 x-kubernetes-validations:
                 - message: SecretRef is required once set
                   rule: '!has(oldSelf.secretRef) || has(self.secretRef)'
+              paused:
+                description: Paused can be used to prevent controllers from processing
+                  the Device and its associated objects.
+                type: boolean
               provisioning:
                 description: |-
                   Provisioning is an optional configuration for the device provisioning process.

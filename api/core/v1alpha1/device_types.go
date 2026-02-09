@@ -13,6 +13,10 @@ import (
 
 // DeviceSpec defines the desired state of Device.
 type DeviceSpec struct {
+	// Paused can be used to prevent controllers from processing the Device and its associated objects.
+	// +optional
+	Paused *bool `json:"paused,omitempty"`
+
 	// Endpoint contains the connection information for the device.
 	// +required
 	Endpoint Endpoint `json:"endpoint"`
@@ -272,6 +276,7 @@ const (
 // +kubebuilder:printcolumn:name="SerialNumber",type=string,JSONPath=".status.serialNumber",priority=1
 // +kubebuilder:printcolumn:name="FirmwareVersion",type=string,JSONPath=".status.firmwareVersion",priority=1
 // +kubebuilder:printcolumn:name="Ports",type=string,JSONPath=".status.portSummary",priority=1
+// +kubebuilder:printcolumn:name="Paused",type=boolean,JSONPath=`.spec.paused`,priority=1
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"

@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/annotations"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
@@ -92,13 +93,18 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		log.Error(err, "failed to reconcile resource")
 		return ctrl.Result{}, err
 	}
+
+	if annotations.IsPaused(obj, obj) {
+		log.Info("Reconciliation is paused for this object")
+		return ctrl.Result{}, nil
+	}
+
 	conn, err := deviceutil.GetDeviceConnection(ctx, r, obj)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to obtain device connection: %w", err)
 	}
 
 	orig := obj.DeepCopy()
-
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
 		log.Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
