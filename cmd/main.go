@@ -76,6 +76,7 @@ func main() {
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var tlsOpts []func(*tls.Config)
+	var watchNamespace string
 	var watchFilterValue string
 	var providerName string
 	var requeueInterval time.Duration
@@ -96,6 +97,7 @@ func main() {
 	flag.StringVar(&metricsCertName, "metrics-cert-name", "tls.crt", "The name of the metrics server certificate file.")
 	flag.StringVar(&metricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false, "If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.StringVar(&watchNamespace, "namespace", "", "Namespace that the controller watches to reconcile api objects. If unspecified, the controller watches for api objects across all namespaces.")
 	flag.StringVar(&watchFilterValue, "watch-filter", "", fmt.Sprintf("Label value that the controller watches to reconcile api objects. Label key is always %q. If unspecified, the controller watches for all api objects.", v1alpha1.WatchLabel))
 	flag.StringVar(&providerName, "provider", "openconfig", "The provider to use for the controller. If not specified, the default provider is used. Available providers: "+strings.Join(provider.Providers(), ", "))
 	flag.DurationVar(&requeueInterval, "requeue-interval", 30*time.Second, "The interval after which Kubernetes resources should be reconciled again regardless of whether they have changed.")
@@ -201,8 +203,15 @@ func main() {
 		})
 	}
 
+	var watchNamespaces map[string]cache.Config
+	if watchNamespace != "" {
+		watchNamespaces = map[string]cache.Config{
+			watchNamespace: {},
+		}
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Cache:                  cache.Options{ReaderFailOnMissingInformer: true},
+		Cache:                  cache.Options{ReaderFailOnMissingInformer: true, DefaultNamespaces: watchNamespaces},
 		Controller:             config.Controller{UsePriorityQueue: new(true), MaxConcurrentReconciles: maxConcurrentReconciles},
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
