@@ -2275,8 +2275,7 @@ func (p *Provider) EnsureVPCDomain(ctx context.Context, vpcdomain *nxv1alpha1.VP
 
 	v.KeepAliveItems.DestIP = vpcdomain.Spec.Peer.KeepAlive.Destination
 	v.KeepAliveItems.SrcIP = vpcdomain.Spec.Peer.KeepAlive.Source
-
-	v.KeepAliveItems.VRF = ManagementVRFName
+	v.KeepAliveItems.VRF = vpcdomain.Spec.Peer.KeepAlive.VrfName
 	if vrf != nil {
 		v.KeepAliveItems.VRF = vrf.Spec.Name
 	}

@@ -124,6 +124,7 @@ type Peer struct {
 // KeepAlive defines the vPCDomain keepalive link configuration.
 // The keep-alive is an out-of-band connection (often over mgmt0) used to monitor
 // peer health. It does not carry data traffic.
+// +kubebuilder:validation:XValidation:rule="has(self.vrfName) != has(self.vrfRef)",message="Exactly one of vrfName or vrfRef must be specified"
 type KeepAlive struct {
 	// Destination is the destination IP address of the vPC's domain peer keepalive interface.
 	// This is the IP address the local switch will send keepalive messages to.
@@ -137,11 +138,17 @@ type KeepAlive struct {
 	// +required
 	Source string `json:"source"`
 
-	// VRFRef is an optional reference to a VRF resource, e.g., the management VRF.
-	// If specified, the switch sends keepalive packets throughout this VRF.
-	// If omitted, the management VRF is used.
+	// The name of the vrf used to send keepalive packets to the peer.
+	// Mutually exclusive with VrfRef.
 	// +optional
-	VRFRef *v1alpha1.LocalObjectReference `json:"vrfRef,omitempty"`
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	VrfName string `json:"vrfName,omitempty"`
+
+	// The reference to a VRF resource used to send keepalive packets to the peer.
+	// Mutually exclusive with VrfName.
+	// +optional
+	VrfRef *v1alpha1.LocalObjectReference `json:"vrfRef,omitempty"`
 }
 
 // AutoRecovery holds settings to automatically restore vPC domain's operation after detecting

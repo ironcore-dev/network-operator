@@ -238,11 +238,17 @@ spec:
                           This is the local IP address used to send keepalive packets to the peer.
                         format: ipv4
                         type: string
+                      vrfName:
+                        description: |-
+                          The name of the vrf used to send keepalive packets to the peer.
+                          Mutually exclusive with VrfRef.
+                        maxLength: 63
+                        minLength: 1
+                        type: string
                       vrfRef:
                         description: |-
-                          VRFRef is an optional reference to a VRF resource, e.g., the management VRF.
-                          If specified, the switch sends keepalive packets throughout this VRF.
-                          If omitted, the management VRF is used.
+                          The reference to a VRF resource used to send keepalive packets to the peer.
+                          Mutually exclusive with VrfName.
                         properties:
                           name:
                             description: |-
@@ -259,6 +265,9 @@ spec:
                     - destination
                     - source
                     type: object
+                    x-kubernetes-validations:
+                    - message: Exactly one of vrfName or vrfRef must be specified
+                      rule: has(self.vrfName) != has(self.vrfRef)
                   l3router:
                     default:
                       enabled: false

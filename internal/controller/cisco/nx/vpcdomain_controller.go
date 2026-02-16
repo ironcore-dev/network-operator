@@ -354,11 +354,11 @@ func (r *VPCDomainReconciler) reconcilePeerLink(ctx context.Context, s *vpcdomai
 // reconcileKeepAliveVRF ensures that the referenced VRF resource exists
 // Updates the scope accordingly.
 func (r *VPCDomainReconciler) reconcileKeepAliveVRF(ctx context.Context, s *vpcdomainScope) error {
-	if s.VPCDomain.Spec.Peer.KeepAlive.VRFRef == nil {
+	if s.VPCDomain.Spec.Peer.KeepAlive.VrfRef == nil {
 		return nil
 	}
 	vrf := new(corev1.VRF)
-	vrf.Name = s.VPCDomain.Spec.Peer.KeepAlive.VRFRef.Name
+	vrf.Name = s.VPCDomain.Spec.Peer.KeepAlive.VrfRef.Name
 	vrf.Namespace = s.VPCDomain.Namespace
 
 	if err := r.Get(ctx, client.ObjectKey{Name: vrf.Name, Namespace: vrf.Namespace}, vrf); err != nil {

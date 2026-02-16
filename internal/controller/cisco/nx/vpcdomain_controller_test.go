@@ -134,7 +134,7 @@ var _ = Describe("VPCDomain Controller", func() {
 							KeepAlive: nxv1.KeepAlive{
 								Source:      "10.114.235.155",
 								Destination: "10.114.235.156",
-								VRFRef:      &corev1.LocalObjectReference{Name: vrfName},
+								VrfRef:      &corev1.LocalObjectReference{Name: vrfName},
 							},
 							AutoRecovery: &nxv1.AutoRecovery{
 								Enabled:     true,
@@ -452,7 +452,7 @@ var _ = Describe("VPCDomain Controller", func() {
 							KeepAlive: nxv1.KeepAlive{
 								Source:      "10.114.235.155",
 								Destination: "10.114.235.156",
-								VRFRef:      &corev1.LocalObjectReference{Name: vrfAName},
+								VrfRef:      &corev1.LocalObjectReference{Name: vrfAName},
 							},
 						},
 						FastConvergence: nxv1.Enabled{Enabled: true},
@@ -498,7 +498,7 @@ var _ = Describe("VPCDomain Controller", func() {
 							KeepAlive: nxv1.KeepAlive{
 								Source:      "10.114.235.155",
 								Destination: "10.114.235.156",
-								VRFRef:      &corev1.LocalObjectReference{Name: vrfAName},
+								VrfRef:      &corev1.LocalObjectReference{Name: vrfAName},
 							},
 						},
 						FastConvergence: nxv1.Enabled{Enabled: true},
@@ -544,7 +544,7 @@ var _ = Describe("VPCDomain Controller", func() {
 							KeepAlive: nxv1.KeepAlive{
 								Source:      "10.114.235.155",
 								Destination: "10.114.235.156",
-								VRFRef:      &corev1.LocalObjectReference{Name: vrfAName},
+								VrfRef:      &corev1.LocalObjectReference{Name: vrfAName},
 							},
 						},
 						FastConvergence: nxv1.Enabled{Enabled: true},
@@ -590,7 +590,7 @@ var _ = Describe("VPCDomain Controller", func() {
 							KeepAlive: nxv1.KeepAlive{
 								Source:      "10.114.235.155",
 								Destination: "10.114.235.156",
-								VRFRef:      &corev1.LocalObjectReference{Name: missingVrfName},
+								VrfRef:      &corev1.LocalObjectReference{Name: missingVrfName},
 							},
 						},
 						FastConvergence: nxv1.Enabled{Enabled: true},
@@ -636,7 +636,7 @@ var _ = Describe("VPCDomain Controller", func() {
 							KeepAlive: nxv1.KeepAlive{
 								Source:      "10.114.235.155",
 								Destination: "10.114.235.156",
-								VRFRef:      &corev1.LocalObjectReference{Name: vrfBName},
+								VrfRef:      &corev1.LocalObjectReference{Name: vrfBName},
 							},
 						},
 						FastConvergence: nxv1.Enabled{Enabled: true},
