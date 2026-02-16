@@ -1243,9 +1243,9 @@ func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.Ens
 
 	g := new(GRPC)
 	g.Port = req.ManagementAccess.Spec.GRPC.Port
-	g.UseVrf = req.ManagementAccess.Spec.GRPC.VrfName
-	if g.UseVrf == "" {
-		g.UseVrf = DefaultVRFName
+	g.UseVrf = DefaultVRFName
+	if g.UseVrf != "" {
+		g.UseVrf = req.ManagementAccess.Spec.GRPC.VrfName
 	}
 	if req.ManagementAccess.Spec.GRPC.CertificateID != "" {
 		g.Cert = NewOption(req.ManagementAccess.Spec.GRPC.CertificateID)
@@ -1344,7 +1344,10 @@ func (p *Provider) EnsureNTP(ctx context.Context, req *provider.EnsureNTPRequest
 		prov.Name = s.Address
 		prov.Preferred = s.Prefer
 		prov.ProvT = ProvTypeServer
-		prov.Vrf = s.VrfName
+		prov.Vrf = DefaultVRFName
+		if s.VrfName != "" {
+			prov.Vrf = s.VrfName
+		}
 		n.ProvItems.NtpProviderList.Set(prov)
 	}
 	n.SrcIfItems.SrcIf = req.NTP.Spec.SourceInterfaceName
