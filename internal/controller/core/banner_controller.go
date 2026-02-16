@@ -14,7 +14,9 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
@@ -24,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/annotations"
@@ -214,7 +217,7 @@ func (r *BannerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to create label selector predicate: %w", err)
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	bldr := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Banner{}).
 		Named("banner").
 		WithEventFilter(filter).
@@ -229,8 +232,20 @@ func (r *BannerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&corev1.ConfigMap{},
 			handler.EnqueueRequestsFromMapFunc(r.configMapToBanner),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
-		).
-		Complete(r)
+		)
+
+	for _, gvk := range v1alpha1.BannerDependencies {
+		obj := &unstructured.Unstructured{}
+		obj.SetGroupVersionKind(gvk)
+
+		bldr = bldr.Watches(
+			obj,
+			handler.EnqueueRequestsFromMapFunc(r.bannersForProviderConfig),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		)
+	}
+
+	return bldr.Complete(r)
 }
 
 // scope holds the different objects that are read and used during the reconcile.
@@ -356,6 +371,38 @@ func (r *BannerReconciler) configMapToBanner(ctx context.Context, obj client.Obj
 				NamespacedName: client.ObjectKey{
 					Name:      b.Name,
 					Namespace: b.Namespace,
+				},
+			})
+		}
+	}
+
+	return requests
+}
+
+// bannersForProviderConfig is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for a Banner to update when one of its referenced provider configurations gets updated.
+func (r *BannerReconciler) bannersForProviderConfig(ctx context.Context, obj client.Object) []reconcile.Request {
+	log := ctrl.LoggerFrom(ctx, "Object", klog.KObj(obj))
+
+	list := &v1alpha1.BannerList{}
+	if err := r.List(ctx, list, client.InNamespace(obj.GetNamespace())); err != nil {
+		log.Error(err, "Failed to list Banners")
+		return nil
+	}
+
+	gkv := obj.GetObjectKind().GroupVersionKind()
+
+	var requests []reconcile.Request
+	for _, m := range list.Items {
+		if m.Spec.ProviderConfigRef != nil &&
+			m.Spec.ProviderConfigRef.Name == obj.GetName() &&
+			m.Spec.ProviderConfigRef.Kind == gkv.Kind &&
+			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
+			log.Info("Enqueuing Banner for reconciliation", "Banner", klog.KObj(&m))
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      m.Name,
+					Namespace: m.Namespace,
 				},
 			})
 		}

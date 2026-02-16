@@ -13,7 +13,9 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
@@ -227,10 +229,23 @@ func (r *RoutingPolicyReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		return err
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	bldr := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.RoutingPolicy{}).
 		Named("routingpolicy").
-		WithEventFilter(filter).
+		WithEventFilter(filter)
+
+	for _, gvk := range v1alpha1.RoutingPolicyDependencies {
+		obj := &unstructured.Unstructured{}
+		obj.SetGroupVersionKind(gvk)
+
+		bldr = bldr.Watches(
+			obj,
+			handler.EnqueueRequestsFromMapFunc(r.routingPoliciesForProviderConfig),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		)
+	}
+
+	return bldr.
 		// Watches enqueues RoutingPolicies for updates in referenced PrefixSet resources.
 		// Only triggers on create and delete events since PrefixSet names are immutable.
 		Watches(
@@ -409,6 +424,38 @@ func (r *RoutingPolicyReconciler) prefixSetToRoutingPolicy(ctx context.Context, 
 				})
 				break
 			}
+		}
+	}
+
+	return requests
+}
+
+// routingPoliciesForProviderConfig is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for a RoutingPolicy to update when one of its referenced provider configurations gets updated.
+func (r *RoutingPolicyReconciler) routingPoliciesForProviderConfig(ctx context.Context, obj client.Object) []reconcile.Request {
+	log := ctrl.LoggerFrom(ctx, "Object", klog.KObj(obj))
+
+	list := &v1alpha1.RoutingPolicyList{}
+	if err := r.List(ctx, list, client.InNamespace(obj.GetNamespace())); err != nil {
+		log.Error(err, "Failed to list RoutingPolicies")
+		return nil
+	}
+
+	gkv := obj.GetObjectKind().GroupVersionKind()
+
+	var requests []reconcile.Request
+	for _, m := range list.Items {
+		if m.Spec.ProviderConfigRef != nil &&
+			m.Spec.ProviderConfigRef.Name == obj.GetName() &&
+			m.Spec.ProviderConfigRef.Kind == gkv.Kind &&
+			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
+			log.Info("Enqueuing RoutingPolicy for reconciliation", "RoutingPolicy", klog.KObj(&m))
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      m.Name,
+					Namespace: m.Namespace,
+				},
+			})
 		}
 	}
 

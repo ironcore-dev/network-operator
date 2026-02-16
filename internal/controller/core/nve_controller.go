@@ -419,13 +419,27 @@ func (r *NetworkVirtualizationEdgeReconciler) SetupWithManager(ctx context.Conte
 		return err
 	}
 
-	c := ctrl.NewControllerManagedBy(mgr).
+	bldr := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.NetworkVirtualizationEdge{}).
 		Named("nve").
-		WithEventFilter(filter).
+		WithEventFilter(filter)
+
+	for _, gvk := range v1alpha1.NetworkVirtualizationEdgeDependencies {
+		obj := &unstructured.Unstructured{}
+		obj.SetGroupVersionKind(gvk)
+
+		bldr = bldr.Watches(
+			obj,
+			handler.EnqueueRequestsFromMapFunc(r.nvesForProviderConfig),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		)
+	}
+
+	return bldr.
+		// Watches enqueues NVEs for referenced Interface resources.
 		Watches(
 			&v1alpha1.Interface{},
-			handler.EnqueueRequestsFromMapFunc(r.mapInterfaceToNVEs),
+			handler.EnqueueRequestsFromMapFunc(r.interfaceToNVE),
 			builder.WithPredicates(predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					return false
@@ -434,53 +448,28 @@ func (r *NetworkVirtualizationEdgeReconciler) SetupWithManager(ctx context.Conte
 					return false
 				},
 			}),
-		)
-
-	for _, gvk := range v1alpha1.NetworkVirtualizationEdgeDependencies {
-		obj := &unstructured.Unstructured{}
-		obj.SetGroupVersionKind(gvk)
-		c = c.Watches(
-			obj,
-			handler.EnqueueRequestsFromMapFunc(r.mapProviderConfigToNVEs),
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
-		)
-	}
-	return c.Complete(r)
+		).
+		Complete(r)
 }
 
-// mapProviderConfigToNVEs is a [handler.MapFunc] to re-enqueue NVEs that require reconciliation, i.e.,
-// whose referenced provider configuration has changed.
-func (r *NetworkVirtualizationEdgeReconciler) mapProviderConfigToNVEs(ctx context.Context, obj client.Object) []reconcile.Request {
-	log := ctrl.LoggerFrom(ctx, "Object", klog.KObj(obj))
-
-	list := &v1alpha1.NetworkVirtualizationEdgeList{}
-	if err := r.List(ctx, list, client.InNamespace(obj.GetNamespace())); err != nil {
-		log.Error(err, "Failed to list NVEs")
-		return nil
+func (r *NetworkVirtualizationEdgeReconciler) finalize(ctx context.Context, s *nveScope) (reterr error) {
+	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
-
-	gkv := obj.GetObjectKind().GroupVersionKind()
-
-	var requests []reconcile.Request
-	for _, m := range list.Items {
-		if m.Spec.ProviderConfigRef != nil &&
-			m.Spec.ProviderConfigRef.Name == obj.GetName() &&
-			m.Spec.ProviderConfigRef.Kind == gkv.Kind &&
-			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
-			log.Info("Enqueuing NVE for reconciliation", "NVE", klog.KObj(&m))
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      m.Name,
-					Namespace: m.Namespace,
-				},
-			})
+	defer func() {
+		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
-	}
-	return requests
+	}()
+
+	return s.Provider.DeleteNVE(ctx, &provider.NVERequest{
+		NVE:            s.NVE,
+		ProviderConfig: s.ProviderConfig,
+	})
 }
 
-// mapInterfaceToNVEs is a [handler.MapFunc] to re-enqueue NVEs that reference the given Interface.
-func (r *NetworkVirtualizationEdgeReconciler) mapInterfaceToNVEs(ctx context.Context, obj client.Object) []reconcile.Request {
+// interfaceToNVE is a [handler.MapFunc] to re-enqueue NVEs that reference the given Interface.
+func (r *NetworkVirtualizationEdgeReconciler) interfaceToNVE(ctx context.Context, obj client.Object) []reconcile.Request {
 	intf, ok := obj.(*v1alpha1.Interface)
 	if !ok {
 		panic(fmt.Sprintf("Expected an Interface but got a %T", obj))
@@ -508,18 +497,33 @@ func (r *NetworkVirtualizationEdgeReconciler) mapInterfaceToNVEs(ctx context.Con
 	return requests
 }
 
-func (r *NetworkVirtualizationEdgeReconciler) finalize(ctx context.Context, s *nveScope) (reterr error) {
-	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return fmt.Errorf("failed to connect to provider: %w", err)
-	}
-	defer func() {
-		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
-			reterr = kerrors.NewAggregate([]error{reterr, err})
-		}
-	}()
+// nvesForProviderConfig is a [handler.MapFunc] to re-enqueue NVEs that require reconciliation, i.e.,
+// whose referenced provider configuration has changed.
+func (r *NetworkVirtualizationEdgeReconciler) nvesForProviderConfig(ctx context.Context, obj client.Object) []reconcile.Request {
+	log := ctrl.LoggerFrom(ctx, "Object", klog.KObj(obj))
 
-	// TDO: do we need the other or just works with refs and finalizers?
-	return s.Provider.DeleteNVE(ctx, &provider.NVERequest{
-		NVE: s.NVE,
-	})
+	list := &v1alpha1.NetworkVirtualizationEdgeList{}
+	if err := r.List(ctx, list, client.InNamespace(obj.GetNamespace())); err != nil {
+		log.Error(err, "Failed to list NVEs")
+		return nil
+	}
+
+	gkv := obj.GetObjectKind().GroupVersionKind()
+
+	var requests []reconcile.Request
+	for _, m := range list.Items {
+		if m.Spec.ProviderConfigRef != nil &&
+			m.Spec.ProviderConfigRef.Name == obj.GetName() &&
+			m.Spec.ProviderConfigRef.Kind == gkv.Kind &&
+			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
+			log.Info("Enqueuing NVE for reconciliation", "NVE", klog.KObj(&m))
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      m.Name,
+					Namespace: m.Namespace,
+				},
+			})
+		}
+	}
+	return requests
 }
