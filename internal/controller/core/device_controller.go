@@ -238,12 +238,6 @@ func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.secretToDevices),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
-		// Watches enqueues Devices for referenced ConfigMap resources.
-		Watches(
-			&corev1.ConfigMap{},
-			handler.EnqueueRequestsFromMapFunc(r.configMapToDevices),
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
-		).
 		// Watches enqueues Devices for contained Interface resources.
 		Watches(
 			&v1alpha1.Interface{},
@@ -378,40 +372,6 @@ func (r *DeviceReconciler) secretToDevices(ctx context.Context, obj client.Objec
 	for _, dev := range devices.Items {
 		if slices.ContainsFunc(dev.GetSecretRefs(), func(ref v1alpha1.SecretReference) bool {
 			return ref.Name == secret.Name && ref.Namespace == secret.Namespace
-		}) {
-			log.Info("Enqueuing Device for reconciliation", "Device", klog.KObj(&dev))
-			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      dev.Name,
-					Namespace: dev.Namespace,
-				},
-			})
-		}
-	}
-
-	return requests
-}
-
-// configMapToDevices is a [handler.MapFunc] to be used to enqueue requests for reconciliation
-// for a Device to update when one of its referenced ConfigMaps gets updated.
-func (r *DeviceReconciler) configMapToDevices(ctx context.Context, obj client.Object) []ctrl.Request {
-	cm, ok := obj.(*corev1.ConfigMap)
-	if !ok {
-		panic(fmt.Sprintf("Expected a ConfigMap but got a %T", obj))
-	}
-
-	log := ctrl.LoggerFrom(ctx, "ConfigMap", klog.KObj(cm))
-
-	devices := new(v1alpha1.DeviceList)
-	if err := r.List(ctx, devices); err != nil {
-		log.Error(err, "Failed to list Devices")
-		return nil
-	}
-
-	requests := []ctrl.Request{}
-	for _, dev := range devices.Items {
-		if slices.ContainsFunc(dev.GetConfigMapRefs(), func(ref v1alpha1.ConfigMapReference) bool {
-			return ref.Name == cm.Name && ref.Namespace == cm.Namespace
 		}) {
 			log.Info("Enqueuing Device for reconciliation", "Device", klog.KObj(&dev))
 			requests = append(requests, ctrl.Request{

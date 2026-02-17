@@ -321,17 +321,6 @@ func (d *Device) GetSecretRefs() []SecretReference {
 	return refs
 }
 
-// GetConfigMapRefs returns the list of configmaps referenced in the [Device] resource.
-func (d *Device) GetConfigMapRefs() []ConfigMapReference {
-	refs := []ConfigMapReference{}
-	for i := range refs {
-		if refs[i].Namespace == "" {
-			refs[i].Namespace = d.Namespace
-		}
-	}
-	return refs
-}
-
 // +kubebuilder:object:root=true
 
 // DeviceList contains a list of Device.
