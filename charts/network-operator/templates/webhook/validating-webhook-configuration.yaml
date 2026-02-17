@@ -1,0 +1,131 @@
+{{- if .Values.webhook.enable }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+    annotations:
+        {{- if .Values.certManager.enable }}
+        cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "network-operator.resourceName" (dict "suffix" "serving-cert" "context" $) }}
+        {{- end }}
+    name: {{ include "network-operator.resourceName" (dict "suffix" "validating-webhook-configuration" "context" $) }}
+webhooks:
+    - admissionReviewVersions:
+        - v1
+      clientConfig:
+        service:
+            name: {{ include "network-operator.resourceName" (dict "suffix" "webhook-service" "context" $) }}
+            namespace: {{ .Release.Namespace }}
+            path: /validate-networking-metal-ironcore-dev-v1alpha1-bgp
+      failurePolicy: Fail
+      name: bgp-v1alpha1.kb.io
+      rules:
+        - apiGroups:
+            - networking.metal.ironcore.dev
+          apiVersions:
+            - v1alpha1
+          operations:
+            - CREATE
+            - UPDATE
+          resources:
+            - bgp
+      sideEffects: None
+    - admissionReviewVersions:
+        - v1
+      clientConfig:
+        service:
+            name: {{ include "network-operator.resourceName" (dict "suffix" "webhook-service" "context" $) }}
+            namespace: {{ .Release.Namespace }}
+            path: /validate-networking-metal-ironcore-dev-v1alpha1-bgppeer
+      failurePolicy: Fail
+      name: bgppeer-v1alpha1.kb.io
+      rules:
+        - apiGroups:
+            - networking.metal.ironcore.dev
+          apiVersions:
+            - v1alpha1
+          operations:
+            - CREATE
+            - UPDATE
+          resources:
+            - bgppeers
+      sideEffects: None
+    - admissionReviewVersions:
+        - v1
+      clientConfig:
+        service:
+            name: {{ include "network-operator.resourceName" (dict "suffix" "webhook-service" "context" $) }}
+            namespace: {{ .Release.Namespace }}
+            path: /validate-networking-metal-ironcore-dev-v1alpha1-interface
+      failurePolicy: Fail
+      name: interface-v1alpha1.kb.io
+      rules:
+        - apiGroups:
+            - networking.metal.ironcore.dev
+          apiVersions:
+            - v1alpha1
+          operations:
+            - CREATE
+            - UPDATE
+          resources:
+            - interfaces
+      sideEffects: None
+    - admissionReviewVersions:
+        - v1
+      clientConfig:
+        service:
+            name: {{ include "network-operator.resourceName" (dict "suffix" "webhook-service" "context" $) }}
+            namespace: {{ .Release.Namespace }}
+            path: /validate-nx-cisco-networking-metal-ironcore-dev-v1alpha1-networkvirtualizationedgeconfig
+      failurePolicy: Fail
+      name: networkvirtualizationedgeconfig-cisco-nx-v1alpha1.kb.io
+      rules:
+        - apiGroups:
+            - nx.cisco.networking.metal.ironcore.dev
+          apiVersions:
+            - v1alpha1
+          operations:
+            - CREATE
+            - UPDATE
+          resources:
+            - networkvirtualizationedgeconfigs
+      sideEffects: None
+    - admissionReviewVersions:
+        - v1
+      clientConfig:
+        service:
+            name: {{ include "network-operator.resourceName" (dict "suffix" "webhook-service" "context" $) }}
+            namespace: {{ .Release.Namespace }}
+            path: /validate-networking-metal-ironcore-dev-v1alpha1-prefixset
+      failurePolicy: Fail
+      name: prefixset-v1alpha1.kb.io
+      rules:
+        - apiGroups:
+            - networking.metal.ironcore.dev
+          apiVersions:
+            - v1alpha1
+          operations:
+            - CREATE
+            - UPDATE
+          resources:
+            - prefixsets
+      sideEffects: None
+    - admissionReviewVersions:
+        - v1
+      clientConfig:
+        service:
+            name: {{ include "network-operator.resourceName" (dict "suffix" "webhook-service" "context" $) }}
+            namespace: {{ .Release.Namespace }}
+            path: /validate-networking-metal-ironcore-dev-v1alpha1-vrf
+      failurePolicy: Fail
+      name: vrf-v1alpha1.kb.io
+      rules:
+        - apiGroups:
+            - networking.metal.ironcore.dev
+          apiVersions:
+            - v1alpha1
+          operations:
+            - CREATE
+            - UPDATE
+          resources:
+            - vrfs
+      sideEffects: None
+{{- end }}

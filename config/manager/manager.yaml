@@ -63,7 +63,7 @@ spec:
         args:
           - --leader-elect
           - --health-probe-bind-address=:8081
-        image: controller:latest
+        image: ghcr.io/ironcore-dev/network-operator
         imagePullPolicy: IfNotPresent
         name: manager
         ports: []
@@ -88,7 +88,7 @@ spec:
         # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
         resources:
           requests:
-            cpu: 50m
+            cpu: 150m
             memory: 256Mi
           limits:
             memory: 512Mi

@@ -1,0 +1,20 @@
+{{- if and .Values.certManager.enable .Values.metrics.enable }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+    labels:
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/name: {{ include "network-operator.name" . }}
+        helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    name: {{ include "network-operator.resourceName" (dict "suffix" "metrics-certs" "context" $) }}
+    namespace: {{ .Release.Namespace }}
+spec:
+    dnsNames:
+        - {{ include "network-operator.resourceName" (dict "suffix" "controller-manager-metrics-service" "context" $) }}.{{ include "network-operator.namespaceName" $ }}.svc
+        - {{ include "network-operator.resourceName" (dict "suffix" "controller-manager-metrics-service" "context" $) }}.{{ include "network-operator.namespaceName" $ }}.svc.cluster.local
+    issuerRef:
+        kind: Issuer
+        name: {{ include "network-operator.resourceName" (dict "suffix" "selfsigned-issuer" "context" $) }}
+    secretName: metrics-server-cert
+{{- end }}

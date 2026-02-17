@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+    labels:
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/name: {{ include "network-operator.name" . }}
+        helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        control-plane: controller-manager
+    name: {{ include "network-operator.resourceName" (dict "suffix" "controller-manager-provisioning-service" "context" $) }}
+    namespace: {{ .Release.Namespace }}
+spec:
+    ports:
+        - name: https
+          port: 8080
+          protocol: TCP
+          targetPort: 8080
+    selector:
+        app.kubernetes.io/name: {{ include "network-operator.name" . }}
+        control-plane: controller-manager
+    type: ClusterIP

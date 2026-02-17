@@ -124,13 +124,11 @@ verbatim: |
   # Generate a consolidated YAML with CRDs and deployment.
   build-installer: FORCE generate install-kustomize
     @printf "\e[1;36m>> kustomize build config/default > dist/install.yaml\e[0m\n"
-    @cd config/manager && kustomize edit set image controller=$(IMG)
-    @mkdir -p build; kustomize build config/default > dist/install.yaml
+    @mkdir -p dist; kustomize build config/default > dist/install.yaml
 
   # Deploy controller to the k8s cluster
   deploy: FORCE generate install-kustomize
     @printf "\e[1;36m>> kustomize build config/default | kubectl apply -f -\e[0m\n"
-    @cd config/manager && kustomize edit set image controller=$(IMG)
     @kustomize build config/default | kubectl apply -f -
 
   # Undeploy controller from the k8s cluster
@@ -176,12 +174,14 @@ verbatim: |
     @printf "\e[1;36m>> tilt up --context kind-$(KIND_CLUSTER)\e[0m\n"
     @tilt up --context kind-$(KIND_CLUSTER)
 
+  manifests: generate
+
   # Generate manifests e.g. CRD, RBAC etc.
   charts: FORCE generate
-    @printf "\e[1;36m>> kubebuilder edit --plugins=helm/v1-alpha\e[0m\n"
-    @mkdir dist && mv charts/network-operator dist/chart
-    @kubebuilder edit --plugins=helm/v1-alpha
-    @mv dist/chart charts/network-operator && rm -rf dist
+    @printf "\e[1;36m>> kubebuilder edit --plugins=helm/v2-alpha\e[0m\n"
+    @mv charts/network-operator charts/chart
+    @kubebuilder edit --plugins=helm/v2-alpha --output-dir=charts
+    @mv charts/chart charts/network-operator && rm -rf dist
 
   netop-provider:
     @printf "\e[1;36m>> go build -o build/netop-provider ./hack/provider\e[0m\n"

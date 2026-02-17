@@ -1,0 +1,24 @@
+{{- if .Values.rbacHelpers.enable }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+    labels:
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/name: {{ include "network-operator.name" . }}
+        helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    name: {{ include "network-operator.resourceName" (dict "suffix" "core-bgp-admin-role" "context" $) }}
+rules:
+    - apiGroups:
+        - networking.metal.ironcore.dev
+      resources:
+        - bgp
+      verbs:
+        - '*'
+    - apiGroups:
+        - networking.metal.ironcore.dev
+      resources:
+        - bgp/status
+      verbs:
+        - get
+{{- end }}

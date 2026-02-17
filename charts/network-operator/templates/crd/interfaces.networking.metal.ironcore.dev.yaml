@@ -1,0 +1,524 @@
+{{- if .Values.crd.enable }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+    annotations:
+        {{- if .Values.crd.keep }}
+        "helm.sh/resource-policy": keep
+        {{- end }}
+        controller-gen.kubebuilder.io/version: v0.20.1
+    name: interfaces.networking.metal.ironcore.dev
+spec:
+    group: networking.metal.ironcore.dev
+    names:
+        kind: Interface
+        listKind: InterfaceList
+        plural: interfaces
+        shortNames:
+            - int
+        singular: interface
+    scope: Namespaced
+    versions:
+        - additionalPrinterColumns:
+            - jsonPath: .spec.name
+              name: Interface
+              type: string
+            - jsonPath: .spec.type
+              name: Type
+              type: string
+            - jsonPath: .spec.deviceRef.name
+              name: Device
+              type: string
+            - jsonPath: .spec.adminState
+              name: Admin State
+              type: string
+            - jsonPath: .spec.description
+              name: Description
+              priority: 1
+              type: string
+            - jsonPath: .spec.mtu
+              name: MTU
+              priority: 1
+              type: string
+            - jsonPath: .status.conditions[?(@.type=="Ready")].status
+              name: Ready
+              type: string
+            - jsonPath: .status.conditions[?(@.type=="Configured")].status
+              name: Configured
+              priority: 1
+              type: string
+            - jsonPath: .status.conditions[?(@.type=="Operational")].status
+              name: Operational
+              priority: 1
+              type: string
+            - jsonPath: .metadata.creationTimestamp
+              name: Age
+              type: date
+          name: v1alpha1
+          schema:
+            openAPIV3Schema:
+                description: Interface is the Schema for the interfaces API.
+                properties:
+                    apiVersion:
+                        description: |-
+                            APIVersion defines the versioned schema of this representation of an object.
+                            Servers should convert recognized schemas to the latest internal value, and
+                            may reject unrecognized values.
+                            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+                        type: string
+                    kind:
+                        description: |-
+                            Kind is a string value representing the REST resource this object represents.
+                            Servers may infer this from the endpoint the client submits requests to.
+                            Cannot be updated.
+                            In CamelCase.
+                            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+                        type: string
+                    metadata:
+                        type: object
+                    spec:
+                        description: |-
+                            Specification of the desired state of the resource.
+                            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+                        properties:
+                            adminState:
+                                default: Up
+                                description: AdminState indicates whether the interface is administratively up or down.
+                                enum:
+                                    - Up
+                                    - Down
+                                type: string
+                            aggregation:
+                                description: |-
+                                    Aggregation defines the aggregation (bundle) configuration for the interface.
+                                    This is only applicable for interfaces of type Aggregate.
+                                properties:
+                                    controlProtocol:
+                                        default:
+                                            mode: Active
+                                        description: ControlProtocol defines the lacp configuration for the aggregate interface.
+                                        properties:
+                                            mode:
+                                                description: Mode defines the LACP mode for the aggregate interface.
+                                                enum:
+                                                    - Active
+                                                    - Passive
+                                                type: string
+                                        required:
+                                            - mode
+                                        type: object
+                                    memberInterfaceRefs:
+                                        description: MemberInterfaceRefs is a list of interface references that are part of the aggregate interface.
+                                        items:
+                                            description: |-
+                                                LocalObjectReference contains enough information to locate a
+                                                referenced object inside the same namespace.
+                                            properties:
+                                                name:
+                                                    description: |-
+                                                        Name of the referent.
+                                                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                                    maxLength: 63
+                                                    minLength: 1
+                                                    type: string
+                                            required:
+                                                - name
+                                            type: object
+                                            x-kubernetes-map-type: atomic
+                                        maxItems: 32
+                                        minItems: 1
+                                        type: array
+                                    multichassis:
+                                        description: Multichassis defines the multichassis configuration for the aggregate interface.
+                                        properties:
+                                            enabled:
+                                                default: true
+                                                description: Enabled indicates whether the aggregate interface is part of a multichassis setup.
+                                                type: boolean
+                                            id:
+                                                description: ID is the multichassis identifier.
+                                                maximum: 4094
+                                                minimum: 1
+                                                type: integer
+                                        required:
+                                            - enabled
+                                            - id
+                                        type: object
+                                required:
+                                    - memberInterfaceRefs
+                                type: object
+                            bfd:
+                                description: |-
+                                    BFD defines the Bidirectional Forwarding Detection configuration for the interface.
+                                    BFD is only applicable for Layer 3 interfaces (Physical, Loopback, RoutedVLAN).
+                                properties:
+                                    desiredMinimumTxInterval:
+                                        description: |-
+                                            DesiredMinimumTxInterval is the minimum interval between transmission of BFD control
+                                            packets that the operator desires. This value is advertised to the peer.
+                                            The actual interval used is the maximum of this value and the remote
+                                            required-minimum-receive interval value.
+                                        pattern: ^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$
+                                        type: string
+                                    detectionMultiplier:
+                                        description: |-
+                                            DetectionMultiplier is the number of packets that must be missed to declare
+                                            this session as down. The detection interval for the BFD session is calculated
+                                            by multiplying the value of the negotiated transmission interval by this value.
+                                        format: int32
+                                        maximum: 255
+                                        minimum: 1
+                                        type: integer
+                                    enabled:
+                                        description: Enabled indicates whether BFD is enabled on the interface.
+                                        type: boolean
+                                    requiredMinimumReceive:
+                                        description: |-
+                                            RequiredMinimumReceive is the minimum interval between received BFD control packets
+                                            that this system should support. This value is advertised to the remote peer to
+                                            indicate the maximum frequency between BFD control packets that is acceptable
+                                            to the local system.
+                                        pattern: ^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$
+                                        type: string
+                                required:
+                                    - enabled
+                                type: object
+                            description:
+                                description: Description provides a human-readable description of the interface.
+                                maxLength: 255
+                                type: string
+                            deviceRef:
+                                description: |-
+                                    DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
+                                    Immutable.
+                                properties:
+                                    name:
+                                        description: |-
+                                            Name of the referent.
+                                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                        maxLength: 63
+                                        minLength: 1
+                                        type: string
+                                required:
+                                    - name
+                                type: object
+                                x-kubernetes-map-type: atomic
+                                x-kubernetes-validations:
+                                    - message: DeviceRef is immutable
+                                      rule: self == oldSelf
+                            ipv4:
+                                description: IPv4 defines the IPv4 configuration for the interface.
+                                properties:
+                                    addresses:
+                                        description: |-
+                                            Addresses defines the list of IPv4 addresses assigned to the interface.
+                                            The first address in the list is considered the primary address,
+                                            and any additional addresses are considered secondary addresses.
+                                        items:
+                                            format: cidr
+                                            type: string
+                                        minItems: 1
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                    anycastGateway:
+                                        default: false
+                                        description: |-
+                                            AnycastGateway enables distributed anycast gateway functionality.
+                                            When enabled, this interface uses the virtual MAC configured in the
+                                            device's NVE resource for active-active default gateway redundancy.
+                                            Only applicable for RoutedVLAN interfaces in EVPN/VXLAN fabrics.
+                                        type: boolean
+                                    unnumbered:
+                                        description: |-
+                                            Unnumbered defines the unnumbered interface configuration.
+                                            When specified, the interface borrows the IP address from another interface.
+                                        properties:
+                                            interfaceRef:
+                                                description: |-
+                                                    InterfaceRef is a reference to the interface from which to borrow the IP address.
+                                                    The referenced interface must exist and have at least one IPv4 address configured.
+                                                properties:
+                                                    name:
+                                                        description: |-
+                                                            Name of the referent.
+                                                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                                        maxLength: 63
+                                                        minLength: 1
+                                                        type: string
+                                                required:
+                                                    - name
+                                                type: object
+                                                x-kubernetes-map-type: atomic
+                                        required:
+                                            - interfaceRef
+                                        type: object
+                                type: object
+                                x-kubernetes-validations:
+                                    - message: addresses and unnumbered are mutually exclusive
+                                      rule: '!has(self.addresses) || !has(self.unnumbered)'
+                                    - message: anycastGateway and unnumbered are mutually exclusive
+                                      rule: '!has(self.unnumbered) || !self.anycastGateway'
+                            mtu:
+                                description: MTU (Maximum Transmission Unit) specifies the size of the largest packet that can be sent over the interface.
+                                format: int32
+                                maximum: 9216
+                                minimum: 576
+                                type: integer
+                            name:
+                                description: Name is the name of the interface.
+                                maxLength: 255
+                                minLength: 1
+                                type: string
+                                x-kubernetes-validations:
+                                    - message: Name is immutable
+                                      rule: self == oldSelf
+                            providerConfigRef:
+                                description: |-
+                                    ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
+                                    This reference is used to link the Interface to its provider-specific configuration.
+                                properties:
+                                    apiVersion:
+                                        description: APIVersion is the api group version of the resource being referenced.
+                                        maxLength: 253
+                                        minLength: 1
+                                        pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/)?([a-z0-9]([-a-z0-9]*[a-z0-9])?)$
+                                        type: string
+                                    kind:
+                                        description: |-
+                                            Kind of the resource being referenced.
+                                            Kind must consist of alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character.
+                                        maxLength: 63
+                                        minLength: 1
+                                        pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                                        type: string
+                                    name:
+                                        description: |-
+                                            Name of the resource being referenced.
+                                            Name must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character.
+                                        maxLength: 253
+                                        minLength: 1
+                                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                        type: string
+                                required:
+                                    - apiVersion
+                                    - kind
+                                    - name
+                                type: object
+                                x-kubernetes-map-type: atomic
+                            switchport:
+                                description: |-
+                                    Switchport defines the switchport configuration for the interface.
+                                    This is only applicable for Ethernet and Aggregate interfaces.
+                                properties:
+                                    accessVlan:
+                                        description: |-
+                                            AccessVlan specifies the VLAN ID for access mode switchports.
+                                            Only applicable when Mode is set to "Access".
+                                        format: int32
+                                        maximum: 4094
+                                        minimum: 1
+                                        type: integer
+                                    allowedVlans:
+                                        description: |-
+                                            AllowedVlans is a list of VLAN IDs that are allowed on the trunk port.
+                                            If not specified, all VLANs (1-4094) are allowed.
+                                            Only applicable when Mode is set to "Trunk".
+                                        items:
+                                            format: int32
+                                            maximum: 4094
+                                            minimum: 1
+                                            type: integer
+                                        minItems: 1
+                                        type: array
+                                    mode:
+                                        description: Mode defines the switchport mode, such as access or trunk.
+                                        enum:
+                                            - Access
+                                            - Trunk
+                                        type: string
+                                    nativeVlan:
+                                        description: |-
+                                            NativeVlan specifies the native VLAN ID for trunk mode switchports.
+                                            Only applicable when Mode is set to "Trunk".
+                                        format: int32
+                                        maximum: 4094
+                                        minimum: 1
+                                        type: integer
+                                required:
+                                    - mode
+                                type: object
+                                x-kubernetes-validations:
+                                    - message: accessVlan must be specified when mode is Access
+                                      rule: self.mode != 'Access' || has(self.accessVlan)
+                            type:
+                                description: Type indicates the type of the interface.
+                                enum:
+                                    - Physical
+                                    - Loopback
+                                    - Aggregate
+                                    - RoutedVLAN
+                                type: string
+                                x-kubernetes-validations:
+                                    - message: Type is immutable
+                                      rule: self == oldSelf
+                            vlanRef:
+                                description: |-
+                                    VlanRef is a reference to the VLAN resource that this interface provides routing for.
+                                    This is only applicable for interfaces of type RoutedVLAN.
+                                    The referenced VLAN must exist in the same namespace.
+                                properties:
+                                    name:
+                                        description: |-
+                                            Name of the referent.
+                                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                        maxLength: 63
+                                        minLength: 1
+                                        type: string
+                                required:
+                                    - name
+                                type: object
+                                x-kubernetes-map-type: atomic
+                            vrfRef:
+                                description: |-
+                                    VrfRef is a reference to the VRF resource that this interface belongs to.
+                                    If not specified, the interface will be part of the default VRF.
+                                    This is only applicable for Layer 3 interfaces.
+                                    The referenced VRF must exist in the same namespace.
+                                properties:
+                                    name:
+                                        description: |-
+                                            Name of the referent.
+                                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                        maxLength: 63
+                                        minLength: 1
+                                        type: string
+                                required:
+                                    - name
+                                type: object
+                                x-kubernetes-map-type: atomic
+                        required:
+                            - deviceRef
+                            - name
+                            - type
+                        type: object
+                        x-kubernetes-validations:
+                            - message: switchport and ipv4 are mutually exclusive
+                              rule: '!has(self.switchport) || !has(self.ipv4)'
+                            - message: switchport must not be specified for interfaces of type Loopback
+                              rule: self.type != 'Loopback' || !has(self.switchport)
+                            - message: unnumbered ipv4 configuration can only be used for interfaces of type Physical
+                              rule: self.type == 'Physical' || !has(self.ipv4) || !has(self.ipv4.unnumbered)
+                            - message: aggregation must be specified for interfaces of type Aggregate
+                              rule: self.type != 'Aggregate' || has(self.aggregation)
+                            - message: aggregation must only be specified on interfaces of type Aggregate
+                              rule: self.type == 'Aggregate' || !has(self.aggregation)
+                            - message: ipv4 must not be specified for interfaces of type Aggregate
+                              rule: self.type != 'Aggregate' || !has(self.ipv4)
+                            - message: vlanRef must be specified for interfaces of type RoutedVLAN
+                              rule: self.type != 'RoutedVLAN' || has(self.vlanRef)
+                            - message: vlanRef must only be specified on interfaces of type RoutedVLAN
+                              rule: self.type == 'RoutedVLAN' || !has(self.vlanRef)
+                            - message: switchport must not be specified for interfaces of type RoutedVLAN
+                              rule: self.type != 'RoutedVLAN' || !has(self.switchport)
+                            - message: aggregation must not be specified for interfaces of type RoutedVLAN
+                              rule: self.type != 'RoutedVLAN' || !has(self.aggregation)
+                            - message: anycastGateway can only be enabled for interfaces of type RoutedVLAN
+                              rule: self.type == 'RoutedVLAN' || !has(self.ipv4) || !self.ipv4.anycastGateway
+                            - message: vrfRef must not be specified for interfaces of type Aggregate
+                              rule: self.type != 'Aggregate' || !has(self.vrfRef)
+                            - message: vrfRef must not be specified for Physical interfaces with switchport configuration
+                              rule: self.type != 'Physical' || !has(self.switchport) || !has(self.vrfRef)
+                            - message: bfd must not be specified for interfaces of type Aggregate
+                              rule: self.type != 'Aggregate' || !has(self.bfd)
+                            - message: bfd must not be specified for interfaces with switchport configuration
+                              rule: '!has(self.bfd) || !has(self.switchport)'
+                    status:
+                        description: |-
+                            Status of the resource. This is set and updated automatically.
+                            Read-only.
+                            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+                        properties:
+                            conditions:
+                                description: The conditions are a list of status objects that describe the state of the Interface.
+                                items:
+                                    description: Condition contains details for one aspect of the current state of this API Resource.
+                                    properties:
+                                        lastTransitionTime:
+                                            description: |-
+                                                lastTransitionTime is the last time the condition transitioned from one status to another.
+                                                This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                                            format: date-time
+                                            type: string
+                                        message:
+                                            description: |-
+                                                message is a human readable message indicating details about the transition.
+                                                This may be an empty string.
+                                            maxLength: 32768
+                                            type: string
+                                        observedGeneration:
+                                            description: |-
+                                                observedGeneration represents the .metadata.generation that the condition was set based upon.
+                                                For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                                                with respect to the current state of the instance.
+                                            format: int64
+                                            minimum: 0
+                                            type: integer
+                                        reason:
+                                            description: |-
+                                                reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                                                Producers of specific condition types may define expected values and meanings for this field,
+                                                and whether the values are considered a guaranteed API.
+                                                The value should be a CamelCase string.
+                                                This field may not be empty.
+                                            maxLength: 1024
+                                            minLength: 1
+                                            pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                                            type: string
+                                        status:
+                                            description: status of the condition, one of True, False, Unknown.
+                                            enum:
+                                                - "True"
+                                                - "False"
+                                                - Unknown
+                                            type: string
+                                        type:
+                                            description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                                            maxLength: 316
+                                            pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                                            type: string
+                                    required:
+                                        - lastTransitionTime
+                                        - message
+                                        - reason
+                                        - status
+                                        - type
+                                    type: object
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                    - type
+                                x-kubernetes-list-type: map
+                            memberOf:
+                                description: |-
+                                    MemberOf references the aggregate interface this interface is a member of, if any.
+                                    This field only applies to physical interfaces that are part of an aggregate interface.
+                                properties:
+                                    name:
+                                        description: |-
+                                            Name of the referent.
+                                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                        maxLength: 63
+                                        minLength: 1
+                                        type: string
+                                required:
+                                    - name
+                                type: object
+                                x-kubernetes-map-type: atomic
+                        type: object
+                required:
+                    - spec
+                type: object
+          served: true
+          storage: true
+          subresources:
+            status: {}
+{{- end }}

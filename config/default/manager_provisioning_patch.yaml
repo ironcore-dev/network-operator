@@ -1,0 +1,7 @@
+# This patch adds the container port for the provisioning service.
+- op: add
+  path: /spec/template/spec/containers/0/ports/-
+  value:
+    containerPort: 8080
+    name: provisioning
+    protocol: TCP
