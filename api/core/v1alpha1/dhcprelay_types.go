@@ -68,6 +68,7 @@ type DHCPRelayStatus struct {
 	ConfiguredInterfaces []string `json:"configuredInterfaces,omitempty"`
 }
 
+// +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=dhcprelays

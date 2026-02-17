@@ -262,6 +262,7 @@ const (
 	StatusDown    Status = "Down"
 )
 
+// +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=vpcdomains

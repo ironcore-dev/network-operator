@@ -79,6 +79,7 @@ const (
 	SpanningTreePortTypeNetwork SpanningTreePortType = "Network"
 )
 
+// +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=interfaceconfigs
 // +kubebuilder:resource:singular=interfaceconfig

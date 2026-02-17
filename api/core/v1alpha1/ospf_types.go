@@ -175,6 +175,7 @@ const (
 	OSPFNeighborStateFull OSPFNeighborState = "Full"
 )
 
+// +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=ospf
