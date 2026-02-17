@@ -10,10 +10,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// AAASpec defines the desired state of AAA
+// AAASpec defines the desired state of AAA.
 //
 // It models the Authentication, Authorization, and Accounting (AAA) configuration on a network device,
-// including TACACS+ server configuration and AAA group/method settings.
+// aligned with the OpenConfig system/aaa YANG model.
+// +kubebuilder:validation:XValidation:rule="has(self.serverGroups) || has(self.authentication) || has(self.authorization) || has(self.accounting)",message="at least one of serverGroups, authentication, authorization, or accounting must be set"
 type AAASpec struct {
 	// DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
 	// Immutable.
@@ -26,38 +27,99 @@ type AAASpec struct {
 	// +optional
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
 
-	// TACACSServers is the list of TACACS+ servers to configure.
+	// ServerGroups is the list of AAA server groups.
+	// OpenConfig: /system/aaa/server-groups/server-group
 	// +optional
 	// +listType=map
-	// +listMapKey=address
-	// +kubebuilder:validation:MaxItems=16
-	TACACSServers []TACACSServer `json:"tacacsServers,omitempty"`
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=8
+	ServerGroups []AAAServerGroup `json:"serverGroups,omitempty"`
 
-	// TACACSGroup is the TACACS+ server group configuration.
-	// +optional
-	TACACSGroup *TACACSGroup `json:"tacacsGroup,omitempty"`
-
-	// Authentication defines the AAA authentication configuration.
+	// Authentication defines the AAA authentication method list.
+	// OpenConfig: /system/aaa/authentication
 	// +optional
 	Authentication *AAAAuthentication `json:"authentication,omitempty"`
 
-	// Authorization defines the AAA authorization configuration.
+	// Authorization defines the AAA authorization method list.
+	// OpenConfig: /system/aaa/authorization
 	// +optional
 	Authorization *AAAAuthorization `json:"authorization,omitempty"`
 
-	// Accounting defines the AAA accounting configuration.
+	// Accounting defines the AAA accounting method list.
+	// OpenConfig: /system/aaa/accounting
 	// +optional
 	Accounting *AAAAccounting `json:"accounting,omitempty"`
 }
 
-// TACACSServer represents a TACACS+ server configuration.
-type TACACSServer struct {
-	// Address is the IP address or hostname of the TACACS+ server.
+// AAAServerGroupType defines the protocol type of an AAA server group.
+// +kubebuilder:validation:Enum=TACACS;RADIUS
+type AAAServerGroupType string
+
+const (
+	// AAAServerGroupTypeTACACS is a TACACS+ server group.
+	AAAServerGroupTypeTACACS AAAServerGroupType = "TACACS"
+	// AAAServerGroupTypeRADIUS is a RADIUS server group.
+	AAAServerGroupTypeRADIUS AAAServerGroupType = "RADIUS"
+)
+
+// AAAServerGroup represents a named group of AAA servers.
+// OpenConfig: /system/aaa/server-groups/server-group[name]
+// +kubebuilder:validation:XValidation:rule="self.type != 'TACACS' || self.servers.all(s, has(s.tacacs))",message="servers in a TACACS group must have tacacs config"
+type AAAServerGroup struct {
+	// Name is the name of the server group.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	Name string `json:"name"`
+
+	// Type is the protocol type of this server group.
+	// +required
+	Type AAAServerGroupType `json:"type"`
+
+	// Servers is the list of servers in this group.
+	// OpenConfig: /system/aaa/server-groups/server-group/servers/server
+	// +required
+	// +listType=map
+	// +listMapKey=address
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=16
+	Servers []AAAServer `json:"servers"`
+
+	// VrfName is the VRF to use for communication with the servers in this group.
+	// +optional
+	// +kubebuilder:validation:MaxLength=63
+	VrfName string `json:"vrfName,omitempty"`
+
+	// SourceInterfaceName is the source interface to use for communication with the servers.
+	// +optional
+	// +kubebuilder:validation:MaxLength=63
+	SourceInterfaceName string `json:"sourceInterfaceName,omitempty"`
+}
+
+// AAAServer represents a single AAA server within a group.
+// OpenConfig: /system/aaa/server-groups/server-group/servers/server[address]
+type AAAServer struct {
+	// Address is the IP address or hostname of the server.
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
 	Address string `json:"address"`
 
+	// Timeout is the response timeout in seconds for this server.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=60
+	Timeout *int32 `json:"timeout,omitempty"`
+
+	// TACACS contains TACACS+ specific server configuration.
+	// Required when the parent server group type is TACACS.
+	// OpenConfig augmentation: /system/aaa/server-groups/server-group/servers/server/tacacs
+	// +optional
+	TACACS *AAAServerTACACS `json:"tacacs,omitempty"`
+}
+
+// AAAServerTACACS contains TACACS+ specific server configuration.
+type AAAServerTACACS struct {
 	// Port is the TCP port of the TACACS+ server.
 	// Defaults to 49 if not specified.
 	// +optional
@@ -70,109 +132,36 @@ type TACACSServer struct {
 	// The secret must contain a key specified in the SecretKeySelector.
 	// +required
 	KeySecretRef SecretKeySelector `json:"keySecretRef"`
-
-	// KeyEncryption specifies the encryption type for the key.
-	// Type7 is the Cisco Type 7 encryption (reversible).
-	// Type6 is the AES encryption (more secure).
-	// Clear means the key is sent in cleartext (not recommended).
-	// +optional
-	// +kubebuilder:validation:Enum=Type6;Type7;Clear
-	// +kubebuilder:default=Type7
-	KeyEncryption TACACSKeyEncryption `json:"keyEncryption,omitempty"`
-
-	// Timeout is the timeout in seconds for this TACACS+ server.
-	// +optional
-	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=60
-	Timeout *int32 `json:"timeout,omitempty"`
 }
 
-// TACACSKeyEncryption defines the encryption type for TACACS+ server keys.
-// +kubebuilder:validation:Enum=Type6;Type7;Clear
-type TACACSKeyEncryption string
-
-const (
-	// TACACSKeyEncryptionType6 uses AES encryption (more secure).
-	TACACSKeyEncryptionType6 TACACSKeyEncryption = "Type6"
-	// TACACSKeyEncryptionType7 uses Cisco Type 7 encryption (reversible).
-	TACACSKeyEncryptionType7 TACACSKeyEncryption = "Type7"
-	// TACACSKeyEncryptionClear sends the key in cleartext.
-	TACACSKeyEncryptionClear TACACSKeyEncryption = "Clear"
-)
-
-// TACACSGroup represents a TACACS+ server group configuration.
-type TACACSGroup struct {
-	// Name is the name of the TACACS+ server group.
-	// +required
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=63
-	Name string `json:"name"`
-
-	// Servers is the list of TACACS+ server addresses to include in this group.
-	// The addresses must match addresses defined in TACACSServers.
-	// +required
-	// +listType=set
-	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:MaxItems=16
-	Servers []string `json:"servers"`
-
-	// VRF is the VRF to use for communication with the TACACS+ servers.
-	// +optional
-	// +kubebuilder:validation:MaxLength=63
-	VRF string `json:"vrf,omitempty"`
-
-	// SourceInterface is the source interface to use for communication with the TACACS+ servers.
-	// +optional
-	// +kubebuilder:validation:MaxLength=63
-	SourceInterface string `json:"sourceInterface,omitempty"`
-}
-
-// AAAAuthentication defines the AAA authentication configuration.
+// AAAAuthentication defines the AAA authentication method list.
+// OpenConfig: /system/aaa/authentication
 type AAAAuthentication struct {
-	// Login defines authentication methods for login.
-	// +optional
-	Login *AAAAuthenticationLogin `json:"login,omitempty"`
-
-	// LoginErrorEnable enables login error messages.
-	// +optional
-	LoginErrorEnable bool `json:"loginErrorEnable,omitempty"`
+	// Methods is the ordered list of authentication methods.
+	// Methods are tried in order until one succeeds or all fail.
+	// +required
+	// +listType=atomic
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=4
+	Methods []AAAMethod `json:"methods"`
 }
 
-// AAAAuthenticationLogin defines the login authentication methods.
-type AAAAuthenticationLogin struct {
-	// Default defines the default authentication method list.
-	// +optional
-	Default *AAAMethodList `json:"default,omitempty"`
-
-	// Console defines the console authentication method list.
-	// +optional
-	Console *AAAMethodList `json:"console,omitempty"`
-}
-
-// AAAAuthorization defines the AAA authorization configuration.
+// AAAAuthorization defines the AAA authorization method list.
+// OpenConfig: /system/aaa/authorization
 type AAAAuthorization struct {
-	// ConfigCommands defines authorization for configuration commands.
-	// +optional
-	ConfigCommands *AAAAuthorizationConfigCommands `json:"configCommands,omitempty"`
+	// Methods is the ordered list of authorization methods.
+	// Methods are tried in order until one succeeds or all fail.
+	// +required
+	// +listType=atomic
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=4
+	Methods []AAAMethod `json:"methods"`
 }
 
-// AAAAuthorizationConfigCommands defines authorization for configuration commands.
-type AAAAuthorizationConfigCommands struct {
-	// Default defines the default authorization method list.
-	// +optional
-	Default *AAAMethodList `json:"default,omitempty"`
-}
-
-// AAAAccounting defines the AAA accounting configuration.
+// AAAAccounting defines the AAA accounting method list.
+// OpenConfig: /system/aaa/accounting
 type AAAAccounting struct {
-	// Default defines the default accounting method list.
-	// +optional
-	Default *AAAMethodList `json:"default,omitempty"`
-}
-
-// AAAMethodList defines a list of AAA methods to try in order.
-type AAAMethodList struct {
-	// Methods is the ordered list of authentication/authorization/accounting methods.
+	// Methods is the ordered list of accounting methods.
 	// Methods are tried in order until one succeeds or all fail.
 	// +required
 	// +listType=atomic
@@ -182,6 +171,7 @@ type AAAMethodList struct {
 }
 
 // AAAMethod represents an AAA method.
+// +kubebuilder:validation:XValidation:rule="self.type != 'Group' || self.groupName != \"\"",message="groupName is required when type is Group"
 type AAAMethod struct {
 	// Type is the type of AAA method.
 	// +required
@@ -224,7 +214,6 @@ type AAAStatus struct {
 // +kubebuilder:resource:singular=aaa
 // +kubebuilder:resource:shortName=aaa
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
-// +kubebuilder:printcolumn:name="TACACS Group",type=string,JSONPath=`.spec.tacacsGroup.name`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

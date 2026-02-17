@@ -1,8 +1,8 @@
 # Example AAA configuration with TACACS+ servers
 # This configures:
 # - feature tacacs+
-# - tacacs-server hosts with Type 7 encrypted keys
-# - AAA group server for TACACS
+# - tacacs-server hosts with encrypted keys
+# - AAA server group for TACACS+
 # - AAA authentication, authorization, and accounting
 ---
 apiVersion: v1
@@ -15,6 +15,30 @@ stringData:
   # Replace with your actual TACACS+ server shared secret
   server-key: "supersecretkey"
 ---
+# Cisco NX-OS specific AAA configuration
+# This configures vendor-specific settings like key encryption type,
+# login error messages, console authentication, and config-commands authorization.
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: AAAConfig
+metadata:
+  name: aaa-tacacs-nxos
+  namespace: default
+spec:
+  keyEncryption: Type7
+  loginErrorEnable: true
+  # NX-OS: aaa authentication login console group GR_TACACS local
+  consoleAuthentication:
+    methods:
+      - type: Group
+        groupName: GR_TACACS
+      - type: Local
+  # NX-OS: aaa authorization config-commands default group GR_TACACS local
+  configCommandsAuthorization:
+    methods:
+      - type: Group
+        groupName: GR_TACACS
+      - type: Local
+---
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: AAA
 metadata:
@@ -25,79 +49,54 @@ spec:
   deviceRef:
     name: my-switch
 
-  # TACACS+ server configuration
-  # Equivalent to:
-  #   tacacs-server host 10.16.8.142 key 7 $TYPE_7_SECRET
-  #   tacacs-server host 10.16.8.32 key 7 $TYPE_7_SECRET
-  #   tacacs-server host 169.145.33.51 key 7 $TYPE_7_SECRET
-  tacacsServers:
-    - address: "10.16.8.142"
-      keySecretRef:
-        name: tacacs-server-keys
-        key: server-key
-      keyEncryption: Type7
-    - address: "10.16.8.32"
-      keySecretRef:
-        name: tacacs-server-keys
-        key: server-key
-      keyEncryption: Type7
-    - address: "169.145.33.51"
-      keySecretRef:
-        name: tacacs-server-keys
-        key: server-key
-      keyEncryption: Type7
+  # Reference to the Cisco NX-OS specific AAA configuration
+  providerConfigRef:
+    group: nx.cisco.networking.metal.ironcore.dev
+    kind: AAAConfig
+    name: aaa-tacacs-nxos
 
-  # TACACS+ server group configuration
-  # Equivalent to:
-  #   aaa group server tacacs+ GR_TACACS
-  #     server 10.16.8.32
-  #     server 10.16.8.142
-  #     server 169.145.33.51
-  #     use-vrf management
-  #     source-interface mgmt0
-  tacacsGroup:
-    name: GR_TACACS
-    servers:
-      - "10.16.8.32"
-      - "10.16.8.142"
-      - "169.145.33.51"
-    vrf: management
-    sourceInterface: mgmt0
+  # TACACS+ server group with nested servers
+  # OpenConfig: /system/aaa/server-groups/server-group
+  serverGroups:
+    - name: GR_TACACS
+      type: TACACS
+      vrfName: management
+      sourceInterfaceName: mgmt0
+      servers:
+        - address: "10.16.8.142"
+          tacacs:
+            keySecretRef:
+              name: tacacs-server-keys
+              key: server-key
+        - address: "10.16.8.32"
+          tacacs:
+            keySecretRef:
+              name: tacacs-server-keys
+              key: server-key
+        - address: "169.145.33.51"
+          tacacs:
+            keySecretRef:
+              name: tacacs-server-keys
+              key: server-key
 
-  # AAA authentication configuration
-  # Equivalent to:
-  #   aaa authentication login default group GR_TACACS
-  #   aaa authentication login console group GR_TACACS local
-  #   aaa authentication login error-enable
+  # AAA authentication method list
+  # OpenConfig: /system/aaa/authentication
   authentication:
-    login:
-      default:
-        methods:
-          - type: Group
-            groupName: GR_TACACS
-      console:
-        methods:
-          - type: Group
-            groupName: GR_TACACS
-          - type: Local
-    loginErrorEnable: true
+    methods:
+      - type: Group
+        groupName: GR_TACACS
 
-  # AAA authorization configuration
-  # Equivalent to:
-  #   aaa authorization config-commands default group GR_TACACS local
+  # AAA authorization method list
+  # OpenConfig: /system/aaa/authorization
   authorization:
-    configCommands:
-      default:
-        methods:
-          - type: Group
-            groupName: GR_TACACS
-          - type: Local
+    methods:
+      - type: Group
+        groupName: GR_TACACS
+      - type: Local
 
-  # AAA accounting configuration
-  # Equivalent to:
-  #   aaa accounting default group GR_TACACS
+  # AAA accounting method list
+  # OpenConfig: /system/aaa/accounting
   accounting:
-    default:
-      methods:
-        - type: Group
-          groupName: GR_TACACS
+    methods:
+      - type: Group
+        groupName: GR_TACACS

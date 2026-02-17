@@ -253,15 +253,19 @@ func (r *AAAReconciler) reconcile(ctx context.Context, s *aaaScope) (reterr erro
 		}
 	}()
 
-	// Load TACACS+ server keys from secrets
+	// Load server keys from secrets
 	c := clientutil.NewClient(r, s.AAA.Namespace)
 	tacacsKeys := make(map[string]string)
-	for _, server := range s.AAA.Spec.TACACSServers {
-		key, err := c.Secret(ctx, &server.KeySecretRef)
-		if err != nil {
-			return fmt.Errorf("failed to get TACACS+ key for server %s: %w", server.Address, err)
+	for _, group := range s.AAA.Spec.ServerGroups {
+		for _, server := range group.Servers {
+			if server.TACACS != nil {
+				key, err := c.Secret(ctx, &server.TACACS.KeySecretRef)
+				if err != nil {
+					return fmt.Errorf("failed to get key for server %s in group %s: %w", server.Address, group.Name, err)
+				}
+				tacacsKeys[server.Address] = string(key)
+			}
 		}
-		tacacsKeys[server.Address] = string(key)
 	}
 
 	// Ensure the AAA is realized on the provider.
@@ -313,16 +317,22 @@ func (r *AAAReconciler) secretToAAA(ctx context.Context, obj client.Object) []ct
 
 	requests := []ctrl.Request{}
 	for _, a := range aaas.Items {
-		// Check if any TACACS+ server references this secret
-		for _, server := range a.Spec.TACACSServers {
-			if server.KeySecretRef.Name == secret.Name && a.Namespace == secret.Namespace {
-				log.Info("Enqueuing AAA for reconciliation", "AAA", klog.KObj(&a))
-				requests = append(requests, ctrl.Request{
-					NamespacedName: client.ObjectKey{
-						Name:      a.Name,
-						Namespace: a.Namespace,
-					},
-				})
+		found := false
+		for _, group := range a.Spec.ServerGroups {
+			for _, server := range group.Servers {
+				if server.TACACS != nil && server.TACACS.KeySecretRef.Name == secret.Name && a.Namespace == secret.Namespace {
+					log.Info("Enqueuing AAA for reconciliation", "AAA", klog.KObj(&a))
+					requests = append(requests, ctrl.Request{
+						NamespacedName: client.ObjectKey{
+							Name:      a.Name,
+							Namespace: a.Namespace,
+						},
+					})
+					found = true
+					break
+				}
+			}
+			if found {
 				break // Only enqueue once per AAA
 			}
 		}

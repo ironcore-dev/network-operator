@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.0
+    controller-gen.kubebuilder.io/version: v0.20.1
   name: aaas.networking.metal.ironcore.dev
 spec:
   group: networking.metal.ironcore.dev
@@ -19,9 +19,6 @@ spec:
   - additionalPrinterColumns:
     - jsonPath: .spec.deviceRef.name
       name: Device
-      type: string
-    - jsonPath: .spec.tacacsGroup.name
-      name: TACACS Group
       type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
@@ -57,179 +54,130 @@ spec:
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
             properties:
               accounting:
-                description: Accounting defines the AAA accounting configuration.
+                description: |-
+                  Accounting defines the AAA accounting method list.
+                  OpenConfig: /system/aaa/accounting
                 properties:
-                  default:
-                    description: Default defines the default accounting method list.
-                    properties:
-                      methods:
-                        description: |-
-                          Methods is the ordered list of authentication/authorization/accounting methods.
-                          Methods are tried in order until one succeeds or all fail.
-                        items:
-                          description: AAAMethod represents an AAA method.
-                          properties:
-                            groupName:
-                              description: GroupName is the name of the server group
-                                when Type is Group.
-                              maxLength: 63
-                              type: string
-                            type:
-                              allOf:
-                              - enum:
-                                - Group
-                                - Local
-                                - None
-                              - enum:
-                                - Group
-                                - Local
-                                - None
-                              description: Type is the type of AAA method.
-                              type: string
-                          required:
-                          - type
-                          type: object
-                        maxItems: 4
-                        minItems: 1
-                        type: array
-                        x-kubernetes-list-type: atomic
-                    required:
-                    - methods
-                    type: object
+                  methods:
+                    description: |-
+                      Methods is the ordered list of accounting methods.
+                      Methods are tried in order until one succeeds or all fail.
+                    items:
+                      description: AAAMethod represents an AAA method.
+                      properties:
+                        groupName:
+                          description: GroupName is the name of the server group when
+                            Type is Group.
+                          maxLength: 63
+                          type: string
+                        type:
+                          allOf:
+                          - enum:
+                            - Group
+                            - Local
+                            - None
+                          - enum:
+                            - Group
+                            - Local
+                            - None
+                          description: Type is the type of AAA method.
+                          type: string
+                      required:
+                      - type
+                      type: object
+                      x-kubernetes-validations:
+                      - message: groupName is required when type is Group
+                        rule: self.type != 'Group' || self.groupName != ""
+                    maxItems: 4
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
+                required:
+                - methods
                 type: object
               authentication:
-                description: Authentication defines the AAA authentication configuration.
+                description: |-
+                  Authentication defines the AAA authentication method list.
+                  OpenConfig: /system/aaa/authentication
                 properties:
-                  login:
-                    description: Login defines authentication methods for login.
-                    properties:
-                      console:
-                        description: Console defines the console authentication method
-                          list.
-                        properties:
-                          methods:
-                            description: |-
-                              Methods is the ordered list of authentication/authorization/accounting methods.
-                              Methods are tried in order until one succeeds or all fail.
-                            items:
-                              description: AAAMethod represents an AAA method.
-                              properties:
-                                groupName:
-                                  description: GroupName is the name of the server
-                                    group when Type is Group.
-                                  maxLength: 63
-                                  type: string
-                                type:
-                                  allOf:
-                                  - enum:
-                                    - Group
-                                    - Local
-                                    - None
-                                  - enum:
-                                    - Group
-                                    - Local
-                                    - None
-                                  description: Type is the type of AAA method.
-                                  type: string
-                              required:
-                              - type
-                              type: object
-                            maxItems: 4
-                            minItems: 1
-                            type: array
-                            x-kubernetes-list-type: atomic
-                        required:
-                        - methods
-                        type: object
-                      default:
-                        description: Default defines the default authentication method
-                          list.
-                        properties:
-                          methods:
-                            description: |-
-                              Methods is the ordered list of authentication/authorization/accounting methods.
-                              Methods are tried in order until one succeeds or all fail.
-                            items:
-                              description: AAAMethod represents an AAA method.
-                              properties:
-                                groupName:
-                                  description: GroupName is the name of the server
-                                    group when Type is Group.
-                                  maxLength: 63
-                                  type: string
-                                type:
-                                  allOf:
-                                  - enum:
-                                    - Group
-                                    - Local
-                                    - None
-                                  - enum:
-                                    - Group
-                                    - Local
-                                    - None
-                                  description: Type is the type of AAA method.
-                                  type: string
-                              required:
-                              - type
-                              type: object
-                            maxItems: 4
-                            minItems: 1
-                            type: array
-                            x-kubernetes-list-type: atomic
-                        required:
-                        - methods
-                        type: object
-                    type: object
-                  loginErrorEnable:
-                    description: LoginErrorEnable enables login error messages.
-                    type: boolean
+                  methods:
+                    description: |-
+                      Methods is the ordered list of authentication methods.
+                      Methods are tried in order until one succeeds or all fail.
+                    items:
+                      description: AAAMethod represents an AAA method.
+                      properties:
+                        groupName:
+                          description: GroupName is the name of the server group when
+                            Type is Group.
+                          maxLength: 63
+                          type: string
+                        type:
+                          allOf:
+                          - enum:
+                            - Group
+                            - Local
+                            - None
+                          - enum:
+                            - Group
+                            - Local
+                            - None
+                          description: Type is the type of AAA method.
+                          type: string
+                      required:
+                      - type
+                      type: object
+                      x-kubernetes-validations:
+                      - message: groupName is required when type is Group
+                        rule: self.type != 'Group' || self.groupName != ""
+                    maxItems: 4
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
+                required:
+                - methods
                 type: object
               authorization:
-                description: Authorization defines the AAA authorization configuration.
+                description: |-
+                  Authorization defines the AAA authorization method list.
+                  OpenConfig: /system/aaa/authorization
                 properties:
-                  configCommands:
-                    description: ConfigCommands defines authorization for configuration
-                      commands.
-                    properties:
-                      default:
-                        description: Default defines the default authorization method
-                          list.
-                        properties:
-                          methods:
-                            description: |-
-                              Methods is the ordered list of authentication/authorization/accounting methods.
-                              Methods are tried in order until one succeeds or all fail.
-                            items:
-                              description: AAAMethod represents an AAA method.
-                              properties:
-                                groupName:
-                                  description: GroupName is the name of the server
-                                    group when Type is Group.
-                                  maxLength: 63
-                                  type: string
-                                type:
-                                  allOf:
-                                  - enum:
-                                    - Group
-                                    - Local
-                                    - None
-                                  - enum:
-                                    - Group
-                                    - Local
-                                    - None
-                                  description: Type is the type of AAA method.
-                                  type: string
-                              required:
-                              - type
-                              type: object
-                            maxItems: 4
-                            minItems: 1
-                            type: array
-                            x-kubernetes-list-type: atomic
-                        required:
-                        - methods
-                        type: object
-                    type: object
+                  methods:
+                    description: |-
+                      Methods is the ordered list of authorization methods.
+                      Methods are tried in order until one succeeds or all fail.
+                    items:
+                      description: AAAMethod represents an AAA method.
+                      properties:
+                        groupName:
+                          description: GroupName is the name of the server group when
+                            Type is Group.
+                          maxLength: 63
+                          type: string
+                        type:
+                          allOf:
+                          - enum:
+                            - Group
+                            - Local
+                            - None
+                          - enum:
+                            - Group
+                            - Local
+                            - None
+                          description: Type is the type of AAA method.
+                          type: string
+                      required:
+                      - type
+                      type: object
+                      x-kubernetes-validations:
+                      - message: groupName is required when type is Group
+                        rule: self.type != 'Group' || self.groupName != ""
+                    maxItems: 4
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
+                required:
+                - methods
                 type: object
               deviceRef:
                 description: |-
@@ -284,124 +232,136 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
-              tacacsGroup:
-                description: TACACSGroup is the TACACS+ server group configuration.
-                properties:
-                  name:
-                    description: Name is the name of the TACACS+ server group.
-                    maxLength: 63
-                    minLength: 1
-                    type: string
-                  servers:
-                    description: |-
-                      Servers is the list of TACACS+ server addresses to include in this group.
-                      The addresses must match addresses defined in TACACSServers.
-                    items:
-                      type: string
-                    maxItems: 16
-                    minItems: 1
-                    type: array
-                    x-kubernetes-list-type: set
-                  sourceInterface:
-                    description: SourceInterface is the source interface to use for
-                      communication with the TACACS+ servers.
-                    maxLength: 63
-                    type: string
-                  vrf:
-                    description: VRF is the VRF to use for communication with the
-                      TACACS+ servers.
-                    maxLength: 63
-                    type: string
-                required:
-                - name
-                - servers
-                type: object
-              tacacsServers:
-                description: TACACSServers is the list of TACACS+ servers to configure.
+              serverGroups:
+                description: |-
+                  ServerGroups is the list of AAA server groups.
+                  OpenConfig: /system/aaa/server-groups/server-group
                 items:
-                  description: TACACSServer represents a TACACS+ server configuration.
+                  description: |-
+                    AAAServerGroup represents a named group of AAA servers.
+                    OpenConfig: /system/aaa/server-groups/server-group[name]
                   properties:
-                    address:
-                      description: Address is the IP address or hostname of the TACACS+
-                        server.
-                      maxLength: 253
+                    name:
+                      description: Name is the name of the server group.
+                      maxLength: 63
                       minLength: 1
                       type: string
-                    keyEncryption:
-                      allOf:
-                      - enum:
-                        - Type6
-                        - Type7
-                        - Clear
-                      - enum:
-                        - Type6
-                        - Type7
-                        - Clear
-                      default: Type7
+                    servers:
                       description: |-
-                        KeyEncryption specifies the encryption type for the key.
-                        Type7 is the Cisco Type 7 encryption (reversible).
-                        Type6 is the AES encryption (more secure).
-                        Clear means the key is sent in cleartext (not recommended).
+                        Servers is the list of servers in this group.
+                        OpenConfig: /system/aaa/server-groups/server-group/servers/server
+                      items:
+                        description: |-
+                          AAAServer represents a single AAA server within a group.
+                          OpenConfig: /system/aaa/server-groups/server-group/servers/server[address]
+                        properties:
+                          address:
+                            description: Address is the IP address or hostname of
+                              the server.
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                          tacacs:
+                            description: |-
+                              TACACS contains TACACS+ specific server configuration.
+                              Required when the parent server group type is TACACS.
+                              OpenConfig augmentation: /system/aaa/server-groups/server-group/servers/server/tacacs
+                            properties:
+                              keySecretRef:
+                                description: |-
+                                  KeySecretRef is a reference to a secret containing the shared key for this TACACS+ server.
+                                  The secret must contain a key specified in the SecretKeySelector.
+                                properties:
+                                  key:
+                                    description: |-
+                                      Key is the of the entry in the secret resource's `data` or `stringData`
+                                      field to be used.
+                                    maxLength: 253
+                                    minLength: 1
+                                    type: string
+                                  name:
+                                    description: Name is unique within a namespace
+                                      to reference a secret resource.
+                                    maxLength: 253
+                                    minLength: 1
+                                    type: string
+                                  namespace:
+                                    description: |-
+                                      Namespace defines the space within which the secret name must be unique.
+                                      If omitted, the namespace of the object being reconciled will be used.
+                                    maxLength: 63
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              port:
+                                default: 49
+                                description: |-
+                                  Port is the TCP port of the TACACS+ server.
+                                  Defaults to 49 if not specified.
+                                format: int32
+                                maximum: 65535
+                                minimum: 1
+                                type: integer
+                            required:
+                            - keySecretRef
+                            type: object
+                          timeout:
+                            description: Timeout is the response timeout in seconds
+                              for this server.
+                            format: int32
+                            maximum: 60
+                            minimum: 1
+                            type: integer
+                        required:
+                        - address
+                        type: object
+                      maxItems: 16
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - address
+                      x-kubernetes-list-type: map
+                    sourceInterfaceName:
+                      description: SourceInterfaceName is the source interface to
+                        use for communication with the servers.
+                      maxLength: 63
                       type: string
-                    keySecretRef:
-                      description: |-
-                        KeySecretRef is a reference to a secret containing the shared key for this TACACS+ server.
-                        The secret must contain a key specified in the SecretKeySelector.
-                      properties:
-                        key:
-                          description: |-
-                            Key is the of the entry in the secret resource's `data` or `stringData`
-                            field to be used.
-                          maxLength: 253
-                          minLength: 1
-                          type: string
-                        name:
-                          description: Name is unique within a namespace to reference
-                            a secret resource.
-                          maxLength: 253
-                          minLength: 1
-                          type: string
-                        namespace:
-                          description: |-
-                            Namespace defines the space within which the secret name must be unique.
-                            If omitted, the namespace of the object being reconciled will be used.
-                          maxLength: 63
-                          minLength: 1
-                          type: string
-                      required:
-                      - key
-                      - name
-                      type: object
-                      x-kubernetes-map-type: atomic
-                    port:
-                      default: 49
-                      description: |-
-                        Port is the TCP port of the TACACS+ server.
-                        Defaults to 49 if not specified.
-                      format: int32
-                      maximum: 65535
-                      minimum: 1
-                      type: integer
-                    timeout:
-                      description: Timeout is the timeout in seconds for this TACACS+
-                        server.
-                      format: int32
-                      maximum: 60
-                      minimum: 1
-                      type: integer
+                    type:
+                      description: Type is the protocol type of this server group.
+                      enum:
+                      - TACACS
+                      - RADIUS
+                      type: string
+                    vrfName:
+                      description: VrfName is the VRF to use for communication with
+                        the servers in this group.
+                      maxLength: 63
+                      type: string
                   required:
-                  - address
-                  - keySecretRef
+                  - name
+                  - servers
+                  - type
                   type: object
-                maxItems: 16
+                  x-kubernetes-validations:
+                  - message: servers in a TACACS group must have tacacs config
+                    rule: self.type != 'TACACS' || self.servers.all(s, has(s.tacacs))
+                maxItems: 8
                 type: array
                 x-kubernetes-list-map-keys:
-                - address
+                - name
                 x-kubernetes-list-type: map
             required:
             - deviceRef
             type: object
+            x-kubernetes-validations:
+            - message: at least one of serverGroups, authentication, authorization,
+                or accounting must be set
+              rule: has(self.serverGroups) || has(self.authentication) || has(self.authorization)
+                || has(self.accounting)
           status:
             description: |-
               Status of the resource. This is set and updated automatically.

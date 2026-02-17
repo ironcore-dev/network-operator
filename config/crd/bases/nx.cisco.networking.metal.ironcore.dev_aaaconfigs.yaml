@@ -1,0 +1,136 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.1
+  name: aaaconfigs.nx.cisco.networking.metal.ironcore.dev
+spec:
+  group: nx.cisco.networking.metal.ironcore.dev
+  names:
+    kind: AAAConfig
+    listKind: AAAConfigList
+    plural: aaaconfigs
+    shortNames:
+    - nxaaa
+    singular: aaaconfig
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: AAAConfig is the Schema for the aaaconfigs API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              Specification of the desired state of the resource.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              configCommandsAuthorization:
+                description: |-
+                  ConfigCommandsAuthorization defines NX-OS config-commands authorization methods.
+                  Maps to: aaa authorization config-commands default <methods>
+                properties:
+                  methods:
+                    description: Methods is the ordered list of methods.
+                    items:
+                      description: NXOSMethod represents a single AAA method in an
+                        NX-OS context.
+                      properties:
+                        groupName:
+                          description: GroupName is the server group name when Type
+                            is Group.
+                          maxLength: 63
+                          type: string
+                        type:
+                          description: Type is the method type.
+                          enum:
+                          - Group
+                          - Local
+                          - None
+                          type: string
+                      required:
+                      - type
+                      type: object
+                    maxItems: 4
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
+                required:
+                - methods
+                type: object
+              consoleAuthentication:
+                description: |-
+                  ConsoleAuthentication defines NX-OS console-specific authentication methods.
+                  Maps to: aaa authentication login console <methods>
+                properties:
+                  methods:
+                    description: Methods is the ordered list of methods.
+                    items:
+                      description: NXOSMethod represents a single AAA method in an
+                        NX-OS context.
+                      properties:
+                        groupName:
+                          description: GroupName is the server group name when Type
+                            is Group.
+                          maxLength: 63
+                          type: string
+                        type:
+                          description: Type is the method type.
+                          enum:
+                          - Group
+                          - Local
+                          - None
+                          type: string
+                      required:
+                      - type
+                      type: object
+                    maxItems: 4
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
+                required:
+                - methods
+                type: object
+              keyEncryption:
+                allOf:
+                - enum:
+                  - Type6
+                  - Type7
+                  - Clear
+                - enum:
+                  - Type6
+                  - Type7
+                  - Clear
+                default: Type7
+                description: KeyEncryption specifies the default encryption type for
+                  TACACS+ keys.
+                type: string
+              loginErrorEnable:
+                description: |-
+                  LoginErrorEnable enables login error messages (NX-OS specific).
+                  Maps to: aaa authentication login error-enable
+                type: boolean
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true

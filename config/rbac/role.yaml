@@ -140,6 +140,7 @@ rules:
 - apiGroups:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
+  - aaaconfigs
   - bgpconfigs
   - interfaceconfigs
   - lldpconfigs

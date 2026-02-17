@@ -3274,100 +3274,117 @@ func (p *Provider) GetDHCPRelayStatus(ctx context.Context, req *provider.DHCPRel
 func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest) error {
 	var conf []gnmiext.Configurable
 
-	// Enable TACACS+ feature if there are TACACS servers configured
-	if len(req.AAA.Spec.TACACSServers) > 0 {
+	// Read Cisco-specific config from ProviderConfig
+	var cfg nxv1alpha1.AAAConfig
+	if req.ProviderConfig != nil {
+		if err := req.ProviderConfig.Into(&cfg); err != nil {
+			return err
+		}
+	}
+
+	// Process server groups
+	for _, group := range req.AAA.Spec.ServerGroups {
+		if group.Type != v1alpha1.AAAServerGroupTypeTACACS {
+			continue
+		}
+
+		// Enable TACACS+ feature
 		tacacsFeature := TACACSFeatureEnabled
 		conf = append(conf, &tacacsFeature)
+
+		// Configure individual TACACS+ server hosts
+		for _, server := range group.Servers {
+			srv := &TacacsPlusProvider{
+				Name:   server.Address,
+				KeyEnc: MapKeyEncryption(cfg.Spec.KeyEncryption),
+			}
+			if server.TACACS != nil {
+				srv.Port = server.TACACS.Port
+			}
+			if key, ok := req.TACACSServerKeys[server.Address]; ok {
+				srv.Key = key
+			}
+			if server.Timeout != nil {
+				srv.Timeout = *server.Timeout
+			}
+			conf = append(conf, srv)
+		}
+
+		// Configure the server group
+		grp := &TacacsPlusProviderGroup{
+			Name:  group.Name,
+			Vrf:   group.VrfName,
+			SrcIf: group.SourceInterfaceName,
+		}
+		for _, server := range group.Servers {
+			grp.ProviderRefItems.ProviderRefList.Set(&TacacsPlusProviderRef{Name: server.Address})
+		}
+		conf = append(conf, grp)
 	}
 
-	// Configure TACACS+ server hosts
-	for _, server := range req.AAA.Spec.TACACSServers {
-		srv := &TacacsPlusProvider{
-			Name:   server.Address,
-			Port:   server.Port,
-			KeyEnc: MapKeyEncryption(server.KeyEncryption),
+	// Configure AAA default authentication (from core API flat method list)
+	if req.AAA.Spec.Authentication != nil && len(req.AAA.Spec.Authentication.Methods) > 0 {
+		methods := req.AAA.Spec.Authentication.Methods
+		authen := &AAADefaultAuth{
+			ErrEn:    cfg.Spec.LoginErrorEnable,
+			Fallback: MapFallbackFromMethodList(methods),
+			Local:    MapLocalFromMethodList(methods),
 		}
-		if key, ok := req.TACACSServerKeys[server.Address]; ok {
-			srv.Key = key
+		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
+			authen.Realm = AAARealmTacacs
+			authen.ProviderGroup = methods[0].GroupName
+		} else {
+			authen.Realm = MapRealmFromMethodType(methods[0].Type)
 		}
-		if server.Timeout != nil {
-			srv.Timeout = *server.Timeout
-		}
-		conf = append(conf, srv)
+		conf = append(conf, authen)
 	}
 
-	// Configure TACACS+ server group
-	if req.AAA.Spec.TACACSGroup != nil {
-		group := &TacacsPlusProviderGroup{
-			Name:  req.AAA.Spec.TACACSGroup.Name,
-			Vrf:   req.AAA.Spec.TACACSGroup.VRF,
-			SrcIf: req.AAA.Spec.TACACSGroup.SourceInterface,
+	// Configure AAA console authentication (from Cisco AAAConfig)
+	if cfg.Spec.ConsoleAuthentication != nil && len(cfg.Spec.ConsoleAuthentication.Methods) > 0 {
+		methods := cfg.Spec.ConsoleAuthentication.Methods
+		consoleAuth := &AAAConsoleAuth{
+			ErrEn:    cfg.Spec.LoginErrorEnable,
+			Fallback: MapNXOSFallback(methods),
+			Local:    MapNXOSLocal(methods),
 		}
-		for _, serverAddr := range req.AAA.Spec.TACACSGroup.Servers {
-			group.ProviderRefItems.ProviderRefList.Set(&TacacsPlusProviderRef{Name: serverAddr})
+		if methods[0].Type == "Group" {
+			consoleAuth.Realm = AAARealmTacacs
+			consoleAuth.ProviderGroup = methods[0].GroupName
+		} else {
+			consoleAuth.Realm = MapNXOSRealm(methods[0].Type)
 		}
-		conf = append(conf, group)
+		conf = append(conf, consoleAuth)
 	}
 
-	// Configure AAA default authentication
-	if req.AAA.Spec.Authentication != nil && req.AAA.Spec.Authentication.Login != nil {
-		if req.AAA.Spec.Authentication.Login.Default != nil && len(req.AAA.Spec.Authentication.Login.Default.Methods) > 0 {
-			methods := req.AAA.Spec.Authentication.Login.Default.Methods
-			authen := &AAADefaultAuth{
-				ErrEn:    req.AAA.Spec.Authentication.LoginErrorEnable,
-				Fallback: MapFallbackFromMethodList(methods),
-				Local:    MapLocalFromMethodList(methods),
-			}
-			// Set realm and provider group based on first method
-			if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
-				authen.Realm = AAARealmTacacs
-				authen.ProviderGroup = methods[0].GroupName
-			} else {
-				authen.Realm = MapRealmFromMethodType(methods[0].Type, "")
-			}
-			conf = append(conf, authen)
+	// Configure AAA authorization (from core API flat method list)
+	if req.AAA.Spec.Authorization != nil && len(req.AAA.Spec.Authorization.Methods) > 0 {
+		methods := req.AAA.Spec.Authorization.Methods
+		author := &AAADefaultAuthor{
+			CmdType:   "config",
+			LocalRbac: MapLocalFromMethodList(methods) == AAAValueYes,
 		}
-
-		// Configure AAA console authentication
-		if req.AAA.Spec.Authentication.Login.Console != nil && len(req.AAA.Spec.Authentication.Login.Console.Methods) > 0 {
-			methods := req.AAA.Spec.Authentication.Login.Console.Methods
-			consoleAuth := &AAAConsoleAuth{
-				ErrEn:    req.AAA.Spec.Authentication.LoginErrorEnable,
-				Fallback: MapFallbackFromMethodList(methods),
-				Local:    MapLocalFromMethodList(methods),
-			}
-			if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
-				consoleAuth.Realm = AAARealmTacacs
-				consoleAuth.ProviderGroup = methods[0].GroupName
-			} else {
-				consoleAuth.Realm = MapRealmFromMethodType(methods[0].Type, "")
-			}
-			conf = append(conf, consoleAuth)
+		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
+			author.ProviderGroup = methods[0].GroupName
 		}
+		conf = append(conf, author)
 	}
 
-	// Configure AAA authorization for config commands
-	if req.AAA.Spec.Authorization != nil && req.AAA.Spec.Authorization.ConfigCommands != nil {
-		if req.AAA.Spec.Authorization.ConfigCommands.Default != nil && len(req.AAA.Spec.Authorization.ConfigCommands.Default.Methods) > 0 {
-			methods := req.AAA.Spec.Authorization.ConfigCommands.Default.Methods
-			author := &AAADefaultAuthor{
-				Name:      "Author",
-				CmdType:   "config",
-				LocalRbac: MapLocalFromMethodList(methods) == AAAValueYes,
-			}
-			if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
-				author.Realm = AAARealmTacacs
-				author.ProviderGroup = methods[0].GroupName
-			} else {
-				author.Realm = MapRealmFromMethodType(methods[0].Type, "")
-			}
-			conf = append(conf, author)
+	// Configure AAA config-commands authorization (from Cisco AAAConfig)
+	if cfg.Spec.ConfigCommandsAuthorization != nil && len(cfg.Spec.ConfigCommandsAuthorization.Methods) > 0 {
+		methods := cfg.Spec.ConfigCommandsAuthorization.Methods
+		author := &AAADefaultAuthor{
+			CmdType:   "config",
+			LocalRbac: MapNXOSLocal(methods) == AAAValueYes,
 		}
+		if methods[0].Type == "Group" {
+			author.ProviderGroup = methods[0].GroupName
+		}
+		conf = append(conf, author)
 	}
 
-	// Configure AAA accounting
-	if req.AAA.Spec.Accounting != nil && req.AAA.Spec.Accounting.Default != nil && len(req.AAA.Spec.Accounting.Default.Methods) > 0 {
-		methods := req.AAA.Spec.Accounting.Default.Methods
+	// Configure AAA accounting (from core API flat method list)
+	if req.AAA.Spec.Accounting != nil && len(req.AAA.Spec.Accounting.Methods) > 0 {
+		methods := req.AAA.Spec.Accounting.Methods
 		acct := &AAADefaultAcc{
 			Name:      "Accounting",
 			LocalRbac: MapLocalFromMethodList(methods) == AAAValueYes,
@@ -3376,87 +3393,92 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 			acct.Realm = AAARealmTacacs
 			acct.ProviderGroup = methods[0].GroupName
 		} else {
-			acct.Realm = MapRealmFromMethodType(methods[0].Type, "")
+			acct.Realm = MapRealmFromMethodType(methods[0].Type)
 		}
 		conf = append(conf, acct)
 	}
 
-	return p.Patch(ctx, conf...)
+	return p.Update(ctx, conf...)
 }
 
 func (p *Provider) DeleteAAA(ctx context.Context, req *provider.DeleteAAARequest) error {
-	// Reset AAA accounting to local
-	if req.AAA.Spec.Accounting != nil && req.AAA.Spec.Accounting.Default != nil {
-		acct := &AAADefaultAcc{
-			Name:      "Accounting",
-			Realm:     AAARealmLocal,
-			LocalRbac: true,
-		}
-		if err := p.Patch(ctx, acct); err != nil {
+	var conf []gnmiext.Configurable
+
+	// Read Cisco-specific config from ProviderConfig
+	var cfg nxv1alpha1.AAAConfig
+	if req.ProviderConfig != nil {
+		if err := req.ProviderConfig.Into(&cfg); err != nil {
 			return err
 		}
 	}
 
-	// Reset AAA authorization to local
-	if req.AAA.Spec.Authorization != nil && req.AAA.Spec.Authorization.ConfigCommands != nil {
-		author := &AAADefaultAuthor{
-			Name:      "Author",
-			CmdType:   "config",
+	// Reset AAA accounting to local
+	if req.AAA.Spec.Accounting != nil {
+		conf = append(conf, &AAADefaultAcc{
+			Name:      "Accounting",
 			Realm:     AAARealmLocal,
 			LocalRbac: true,
-		}
-		if err := p.Patch(ctx, author); err != nil {
-			return err
-		}
+		})
+	}
+
+	// Reset AAA authorization to local
+	if req.AAA.Spec.Authorization != nil || cfg.Spec.ConfigCommandsAuthorization != nil {
+		conf = append(conf, &AAADefaultAuthor{
+			CmdType:       "config",
+			ProviderGroup: "",
+			LocalRbac:     true,
+		})
 	}
 
 	// Reset AAA authentication to local
 	if req.AAA.Spec.Authentication != nil {
-		authen := &AAADefaultAuth{
+		conf = append(conf, &AAADefaultAuth{
 			Realm:    AAARealmLocal,
 			Local:    AAAValueYes,
 			Fallback: AAAValueYes,
 			ErrEn:    false,
+		})
+	}
+
+	// Reset console authentication to local
+	if cfg.Spec.ConsoleAuthentication != nil {
+		conf = append(conf, &AAAConsoleAuth{
+			Realm:    AAARealmLocal,
+			Local:    AAAValueYes,
+			Fallback: AAAValueYes,
+			ErrEn:    false,
+		})
+	}
+
+	// Delete TACACS+ server groups and hosts
+	hasTACACS := false
+	for _, group := range req.AAA.Spec.ServerGroups {
+		if group.Type != v1alpha1.AAAServerGroupTypeTACACS {
+			continue
 		}
-		if err := p.Patch(ctx, authen); err != nil {
+		hasTACACS = true
+
+		grp := &TacacsPlusProviderGroup{Name: group.Name}
+		if err := p.client.Delete(ctx, grp); err != nil {
 			return err
 		}
 
-		if req.AAA.Spec.Authentication.Login != nil && req.AAA.Spec.Authentication.Login.Console != nil {
-			consoleAuth := &AAAConsoleAuth{
-				Realm:    AAARealmLocal,
-				Local:    AAAValueYes,
-				Fallback: AAAValueYes,
-				ErrEn:    false,
-			}
-			if err := p.Patch(ctx, consoleAuth); err != nil {
+		for _, server := range group.Servers {
+			srv := &TacacsPlusProvider{Name: server.Address}
+			if err := p.client.Delete(ctx, srv); err != nil {
 				return err
 			}
 		}
 	}
 
-	// Delete TACACS+ server group
-	if req.AAA.Spec.TACACSGroup != nil {
-		group := &TacacsPlusProviderGroup{Name: req.AAA.Spec.TACACSGroup.Name}
-		if err := p.client.Delete(ctx, group); err != nil {
-			return err
-		}
-	}
-
-	// Delete TACACS+ server hosts
-	for _, server := range req.AAA.Spec.TACACSServers {
-		srv := &TacacsPlusProvider{Name: server.Address}
-		if err := p.client.Delete(ctx, srv); err != nil {
-			return err
-		}
-	}
-
-	// Disable TACACS+ feature if no servers remain
-	if len(req.AAA.Spec.TACACSServers) > 0 {
+	// Disable TACACS+ feature
+	if hasTACACS {
 		tacacsFeature := TACACSFeatureDisabled
-		if err := p.Patch(ctx, &tacacsFeature); err != nil {
-			return err
-		}
+		conf = append(conf, &tacacsFeature)
+	}
+
+	if len(conf) > 0 {
+		return p.Update(ctx, conf...)
 	}
 
 	return nil
