@@ -67,11 +67,65 @@ func (v *InterfaceCustomValidator) ValidateDelete(ctx context.Context, obj runti
 
 // validateInterfaceSpec performs validation on the Interface spec.
 func validateInterfaceSpec(intf *v1alpha1.Interface) error {
-	if intf.Spec.IPv4 == nil {
+	var errAgg []error
+
+	if err := validatePhysicalInterfaceNeighborLabel(intf); err != nil {
+		errAgg = append(errAgg, err)
+	}
+
+	if err := validatePhysicalInterfaceNeighborRawAnnotation(intf); err != nil {
+		errAgg = append(errAgg, err)
+	}
+
+	if err := validatePhysicalInterfaceNeighborMutualExclusion(intf); err != nil {
+		errAgg = append(errAgg, err)
+	}
+
+	if intf.Spec.IPv4 != nil {
+		if err := validateInterfaceIPv4(intf.Spec.IPv4); err != nil {
+			errAgg = append(errAgg, err)
+		}
+	}
+
+	return errors.Join(errAgg...)
+}
+
+// validatePhysicalInterfaceNeighborLabel validates that the PhysicalInterfaceNeighborLabel is only used on Physical interfaces.
+func validatePhysicalInterfaceNeighborLabel(intf *v1alpha1.Interface) error {
+	if _, ok := intf.Labels[v1alpha1.PhysicalInterfaceNeighborLabel]; !ok {
 		return nil
 	}
 
-	return validateInterfaceIPv4(intf.Spec.IPv4)
+	if intf.Spec.Type != v1alpha1.InterfaceTypePhysical {
+		return fmt.Errorf("label %q is only valid for interfaces of type %s, but interface has type %s", v1alpha1.PhysicalInterfaceNeighborLabel, v1alpha1.InterfaceTypePhysical, intf.Spec.Type)
+	}
+
+	return nil
+}
+
+// validatePhysicalInterfaceNeighborRawAnnotation validates that the PhysicalInterfaceNeighborRawAnnotation is only used on Physical interfaces.
+func validatePhysicalInterfaceNeighborRawAnnotation(intf *v1alpha1.Interface) error {
+	if _, ok := intf.Annotations[v1alpha1.PhysicalInterfaceNeighborRawAnnotation]; !ok {
+		return nil
+	}
+
+	if intf.Spec.Type != v1alpha1.InterfaceTypePhysical {
+		return fmt.Errorf("annotation %q is only valid for interfaces of type %s, but interface has type %s", v1alpha1.PhysicalInterfaceNeighborRawAnnotation, v1alpha1.InterfaceTypePhysical, intf.Spec.Type)
+	}
+
+	return nil
+}
+
+// validatePhysicalInterfaceNeighborMutualExclusion validates that only one of the neighbor label or raw annotation is set.
+func validatePhysicalInterfaceNeighborMutualExclusion(intf *v1alpha1.Interface) error {
+	_, hasLabel := intf.Labels[v1alpha1.PhysicalInterfaceNeighborLabel]
+	_, hasRawAnnotation := intf.Annotations[v1alpha1.PhysicalInterfaceNeighborRawAnnotation]
+
+	if hasLabel && hasRawAnnotation {
+		return fmt.Errorf("cannot set both %q label and %q annotation on the same interface", v1alpha1.PhysicalInterfaceNeighborLabel, v1alpha1.PhysicalInterfaceNeighborRawAnnotation)
+	}
+
+	return nil
 }
 
 // validateInterfaceIPv4 performs validation on the InterfaceIPv4 spec.

@@ -63,6 +63,22 @@ const VRFLabel = "networking.metal.ironcore.dev/vrf-name"
 // to trigger certain disruptive operations, such as reboots or firmware upgrades.
 const DeviceMaintenanceAnnotation = "networking.metal.ironcore.dev/maintenance"
 
+// PhysicalInterfaceNeighborLabel identifies the peer Interface resource on the other end of a physical link.
+// The value must be the name of another Interface resource in the same namespace.
+// This label is only valid for interfaces of type Physical.
+// For peers that are not managed as Interface resources, use PhysicalInterfaceNeighborRawAnnotation instead.
+const PhysicalInterfaceNeighborLabel = "networking.metal.ironcore.dev/interface-neighbor"
+
+// PhysicalInterfaceNeighborRawAnnotation stores raw neighbor identification for interfaces
+// connected to unmanaged devices (devices without an Interface resource).
+// The value format is "chassisID::portID" where:
+//   - chassisID: The LLDP chassis identifier (MAC address or system name)
+//   - portID: The LLDP port identifier (interface name, alias, or MAC address)
+//
+// Example: "00:1a:2b:3c:4d:5e::Ethernet1/1" or "spine-switch-01::Ethernet48"
+// This annotation is only valid for interfaces of type Physical.
+const PhysicalInterfaceNeighborRawAnnotation = "networking.metal.ironcore.dev/interface-neighbor-raw"
+
 // Device maintenance actions that can be requested via the DeviceMaintenanceAnnotation.
 const (
 	// DeviceMaintenanceReboot requests a device reboot.

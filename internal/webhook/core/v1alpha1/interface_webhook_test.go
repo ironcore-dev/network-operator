@@ -90,5 +90,81 @@ var _ = Describe("Interface Webhook", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("overlaps with"))
 		})
+
+		It("Should allow interface-neighbor label on Physical interfaces", func() {
+			obj.Spec.Type = v1alpha1.InterfaceTypePhysical
+			obj.Labels = map[string]string{
+				v1alpha1.PhysicalInterfaceNeighborLabel: "peer-interface",
+			}
+			_, err := validator.ValidateCreate(context.Background(), obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("Should reject interface-neighbor label on Loopback interfaces", func() {
+			obj.Spec.Type = v1alpha1.InterfaceTypeLoopback
+			obj.Labels = map[string]string{
+				v1alpha1.PhysicalInterfaceNeighborLabel: "peer-interface",
+			}
+			_, err := validator.ValidateCreate(context.Background(), obj)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("Should reject interface-neighbor label on Aggregate interfaces", func() {
+			obj.Spec.Type = v1alpha1.InterfaceTypeAggregate
+			obj.Labels = map[string]string{
+				v1alpha1.PhysicalInterfaceNeighborLabel: "peer-interface",
+			}
+			_, err := validator.ValidateCreate(context.Background(), obj)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("Should reject interface-neighbor label on RoutedVLAN interfaces", func() {
+			obj.Spec.Type = v1alpha1.InterfaceTypeRoutedVLAN
+			obj.Labels = map[string]string{
+				v1alpha1.PhysicalInterfaceNeighborLabel: "peer-interface",
+			}
+			_, err := validator.ValidateCreate(context.Background(), obj)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("Should allow interface-neighbor-raw annotation on Physical interfaces", func() {
+			obj.Spec.Type = v1alpha1.InterfaceTypePhysical
+			obj.Annotations = map[string]string{
+				v1alpha1.PhysicalInterfaceNeighborRawAnnotation: "spine-switch-01::Ethernet48",
+			}
+			_, err := validator.ValidateCreate(context.Background(), obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("Should reject interface-neighbor-raw annotation on Loopback interfaces", func() {
+			obj.Spec.Type = v1alpha1.InterfaceTypeLoopback
+			obj.Annotations = map[string]string{
+				v1alpha1.PhysicalInterfaceNeighborRawAnnotation: "spine-switch-01::Ethernet48",
+			}
+			_, err := validator.ValidateCreate(context.Background(), obj)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("Should reject interface-neighbor-raw annotation on Aggregate interfaces", func() {
+			obj.Spec.Type = v1alpha1.InterfaceTypeAggregate
+			obj.Annotations = map[string]string{
+				v1alpha1.PhysicalInterfaceNeighborRawAnnotation: "spine-switch-01::Ethernet48",
+			}
+			_, err := validator.ValidateCreate(context.Background(), obj)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("Should reject setting both interface-neighbor label and interface-neighbor-raw annotation", func() {
+			obj.Spec.Type = v1alpha1.InterfaceTypePhysical
+			obj.Labels = map[string]string{
+				v1alpha1.PhysicalInterfaceNeighborLabel: "peer-interface",
+			}
+			obj.Annotations = map[string]string{
+				v1alpha1.PhysicalInterfaceNeighborRawAnnotation: "spine-switch-01::Ethernet48",
+			}
+			_, err := validator.ValidateCreate(context.Background(), obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("cannot set both"))
+		})
 	})
 })
