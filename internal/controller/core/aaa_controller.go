@@ -256,6 +256,7 @@ func (r *AAAReconciler) reconcile(ctx context.Context, s *aaaScope) (reterr erro
 	// Load server keys from secrets
 	c := clientutil.NewClient(r, s.AAA.Namespace)
 	tacacsKeys := make(map[string]string)
+	radiusKeys := make(map[string]string)
 	for _, group := range s.AAA.Spec.ServerGroups {
 		for _, server := range group.Servers {
 			if server.TACACS != nil {
@@ -265,6 +266,13 @@ func (r *AAAReconciler) reconcile(ctx context.Context, s *aaaScope) (reterr erro
 				}
 				tacacsKeys[server.Address] = string(key)
 			}
+			if server.RADIUS != nil {
+				key, err := c.Secret(ctx, &server.RADIUS.KeySecretRef)
+				if err != nil {
+					return fmt.Errorf("failed to get key for server %s in group %s: %w", server.Address, group.Name, err)
+				}
+				radiusKeys[server.Address] = string(key)
+			}
 		}
 	}
 
@@ -273,6 +281,7 @@ func (r *AAAReconciler) reconcile(ctx context.Context, s *aaaScope) (reterr erro
 		AAA:              s.AAA,
 		ProviderConfig:   s.ProviderConfig,
 		TACACSServerKeys: tacacsKeys,
+		RADIUSServerKeys: radiusKeys,
 	})
 
 	cond := conditions.FromError(err)
@@ -320,7 +329,8 @@ func (r *AAAReconciler) secretToAAA(ctx context.Context, obj client.Object) []ct
 		found := false
 		for _, group := range a.Spec.ServerGroups {
 			for _, server := range group.Servers {
-				if server.TACACS != nil && server.TACACS.KeySecretRef.Name == secret.Name && a.Namespace == secret.Namespace {
+				if (server.TACACS != nil && server.TACACS.KeySecretRef.Name == secret.Name && a.Namespace == secret.Namespace) ||
+					(server.RADIUS != nil && server.RADIUS.KeySecretRef.Name == secret.Name && a.Namespace == secret.Namespace) {
 					log.Info("Enqueuing AAA for reconciliation", "AAA", klog.KObj(&a))
 					requests = append(requests, ctrl.Request{
 						NamespacedName: client.ObjectKey{

@@ -3284,42 +3284,72 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 
 	// Process server groups
 	for _, group := range req.AAA.Spec.ServerGroups {
-		if group.Type != v1alpha1.AAAServerGroupTypeTACACS {
-			continue
-		}
+		switch group.Type {
+		case v1alpha1.AAAServerGroupTypeTACACS:
+			// Enable TACACS+ feature
+			tacacsFeature := TACACSFeatureEnabled
+			conf = append(conf, &tacacsFeature)
 
-		// Enable TACACS+ feature
-		tacacsFeature := TACACSFeatureEnabled
-		conf = append(conf, &tacacsFeature)
+			// Configure individual TACACS+ server hosts
+			for _, server := range group.Servers {
+				srv := &TacacsPlusProvider{
+					Name:   server.Address,
+					KeyEnc: MapKeyEncryption(cfg.Spec.KeyEncryption),
+				}
+				if server.TACACS != nil {
+					srv.Port = server.TACACS.Port
+				}
+				if key, ok := req.TACACSServerKeys[server.Address]; ok {
+					srv.Key = key
+				}
+				if server.Timeout != nil {
+					srv.Timeout = *server.Timeout
+				}
+				conf = append(conf, srv)
+			}
 
-		// Configure individual TACACS+ server hosts
-		for _, server := range group.Servers {
-			srv := &TacacsPlusProvider{
-				Name:   server.Address,
-				KeyEnc: MapKeyEncryption(cfg.Spec.KeyEncryption),
+			// Configure the TACACS+ server group
+			grp := &TacacsPlusProviderGroup{
+				Name:  group.Name,
+				Vrf:   group.VrfName,
+				SrcIf: group.SourceInterfaceName,
 			}
-			if server.TACACS != nil {
-				srv.Port = server.TACACS.Port
+			for _, server := range group.Servers {
+				grp.ProviderRefItems.ProviderRefList.Set(&TacacsPlusProviderRef{Name: server.Address})
 			}
-			if key, ok := req.TACACSServerKeys[server.Address]; ok {
-				srv.Key = key
-			}
-			if server.Timeout != nil {
-				srv.Timeout = *server.Timeout
-			}
-			conf = append(conf, srv)
-		}
+			conf = append(conf, grp)
 
-		// Configure the server group
-		grp := &TacacsPlusProviderGroup{
-			Name:  group.Name,
-			Vrf:   group.VrfName,
-			SrcIf: group.SourceInterfaceName,
+		case v1alpha1.AAAServerGroupTypeRADIUS:
+			// Configure individual RADIUS server hosts
+			for _, server := range group.Servers {
+				srv := &RadiusProvider{
+					Name:   server.Address,
+					KeyEnc: MapRADIUSKeyEncryption(cfg.Spec.RADIUSKeyEncryption),
+				}
+				if server.RADIUS != nil {
+					srv.AuthPort = server.RADIUS.AuthPort
+					srv.AcctPort = server.RADIUS.AcctPort
+				}
+				if key, ok := req.RADIUSServerKeys[server.Address]; ok {
+					srv.Key = key
+				}
+				if server.Timeout != nil {
+					srv.Timeout = *server.Timeout
+				}
+				conf = append(conf, srv)
+			}
+
+			// Configure the RADIUS server group
+			grp := &RadiusProviderGroup{
+				Name:  group.Name,
+				Vrf:   group.VrfName,
+				SrcIf: group.SourceInterfaceName,
+			}
+			for _, server := range group.Servers {
+				grp.ProviderRefItems.ProviderRefList.Set(&RadiusProviderRef{Name: server.Address})
+			}
+			conf = append(conf, grp)
 		}
-		for _, server := range group.Servers {
-			grp.ProviderRefItems.ProviderRefList.Set(&TacacsPlusProviderRef{Name: server.Address})
-		}
-		conf = append(conf, grp)
 	}
 
 	// Configure AAA default authentication (from core API flat method list)
@@ -3331,7 +3361,7 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 			Local:    MapLocalFromMethodList(methods),
 		}
 		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
-			authen.Realm = AAARealmTacacs
+			authen.Realm = MapRealmFromGroup(methods[0].GroupName, req.AAA.Spec.ServerGroups)
 			authen.ProviderGroup = methods[0].GroupName
 		} else {
 			authen.Realm = MapRealmFromMethodType(methods[0].Type)
@@ -3348,7 +3378,7 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 			Local:    MapNXOSLocal(methods),
 		}
 		if methods[0].Type == "Group" {
-			consoleAuth.Realm = AAARealmTacacs
+			consoleAuth.Realm = MapRealmFromGroup(methods[0].GroupName, req.AAA.Spec.ServerGroups)
 			consoleAuth.ProviderGroup = methods[0].GroupName
 		} else {
 			consoleAuth.Realm = MapNXOSRealm(methods[0].Type)
@@ -3390,7 +3420,7 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 			LocalRbac: MapLocalFromMethodList(methods) == AAAValueYes,
 		}
 		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
-			acct.Realm = AAARealmTacacs
+			acct.Realm = MapRealmFromGroup(methods[0].GroupName, req.AAA.Spec.ServerGroups)
 			acct.ProviderGroup = methods[0].GroupName
 		} else {
 			acct.Realm = MapRealmFromMethodType(methods[0].Type)
@@ -3450,23 +3480,34 @@ func (p *Provider) DeleteAAA(ctx context.Context, req *provider.DeleteAAARequest
 		})
 	}
 
-	// Delete TACACS+ server groups and hosts
+	// Delete server groups and hosts
 	hasTACACS := false
 	for _, group := range req.AAA.Spec.ServerGroups {
-		if group.Type != v1alpha1.AAAServerGroupTypeTACACS {
-			continue
-		}
-		hasTACACS = true
+		switch group.Type {
+		case v1alpha1.AAAServerGroupTypeTACACS:
+			hasTACACS = true
 
-		grp := &TacacsPlusProviderGroup{Name: group.Name}
-		if err := p.client.Delete(ctx, grp); err != nil {
-			return err
-		}
-
-		for _, server := range group.Servers {
-			srv := &TacacsPlusProvider{Name: server.Address}
-			if err := p.client.Delete(ctx, srv); err != nil {
+			grp := &TacacsPlusProviderGroup{Name: group.Name}
+			if err := p.client.Delete(ctx, grp); err != nil {
 				return err
+			}
+			for _, server := range group.Servers {
+				srv := &TacacsPlusProvider{Name: server.Address}
+				if err := p.client.Delete(ctx, srv); err != nil {
+					return err
+				}
+			}
+
+		case v1alpha1.AAAServerGroupTypeRADIUS:
+			grp := &RadiusProviderGroup{Name: group.Name}
+			if err := p.client.Delete(ctx, grp); err != nil {
+				return err
+			}
+			for _, server := range group.Servers {
+				srv := &RadiusProvider{Name: server.Address}
+				if err := p.client.Delete(ctx, srv); err != nil {
+					return err
+				}
 			}
 		}
 	}

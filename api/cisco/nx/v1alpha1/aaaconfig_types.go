@@ -23,6 +23,11 @@ type AAAConfigSpec struct {
 	// +kubebuilder:default=Type7
 	KeyEncryption TACACSKeyEncryption `json:"keyEncryption,omitempty"`
 
+	// RADIUSKeyEncryption specifies the default encryption type for RADIUS server keys.
+	// +kubebuilder:validation:Enum=Type6;Type7;Clear
+	// +kubebuilder:default=Type7
+	RADIUSKeyEncryption RADIUSKeyEncryption `json:"radiusKeyEncryption,omitempty"`
+
 	// ConsoleAuthentication defines NX-OS console-specific authentication methods.
 	// Maps to: aaa authentication login console <methods>
 	// +optional
@@ -45,6 +50,19 @@ const (
 	TACACSKeyEncryptionType7 TACACSKeyEncryption = "Type7"
 	// TACACSKeyEncryptionClear sends the key in cleartext.
 	TACACSKeyEncryptionClear TACACSKeyEncryption = "Clear"
+)
+
+// RADIUSKeyEncryption defines the encryption type for RADIUS server keys.
+// +kubebuilder:validation:Enum=Type6;Type7;Clear
+type RADIUSKeyEncryption string
+
+const (
+	// RADIUSKeyEncryptionType6 uses AES encryption (more secure).
+	RADIUSKeyEncryptionType6 RADIUSKeyEncryption = "Type6"
+	// RADIUSKeyEncryptionType7 uses Cisco Type 7 encryption (reversible).
+	RADIUSKeyEncryptionType7 RADIUSKeyEncryption = "Type7"
+	// RADIUSKeyEncryptionClear sends the key in cleartext.
+	RADIUSKeyEncryptionClear RADIUSKeyEncryption = "Clear"
 )
 
 // NXOSMethodList defines an ordered list of AAA methods for NX-OS specific contexts.

@@ -65,6 +65,7 @@ const (
 // AAAServerGroup represents a named group of AAA servers.
 // OpenConfig: /system/aaa/server-groups/server-group[name]
 // +kubebuilder:validation:XValidation:rule="self.type != 'TACACS' || self.servers.all(s, has(s.tacacs))",message="servers in a TACACS group must have tacacs config"
+// +kubebuilder:validation:XValidation:rule="self.type != 'RADIUS' || self.servers.all(s, has(s.radius))",message="servers in a RADIUS group must have radius config"
 type AAAServerGroup struct {
 	// Name is the name of the server group.
 	// +required
@@ -116,6 +117,12 @@ type AAAServer struct {
 	// OpenConfig augmentation: /system/aaa/server-groups/server-group/servers/server/tacacs
 	// +optional
 	TACACS *AAAServerTACACS `json:"tacacs,omitempty"`
+
+	// RADIUS contains RADIUS specific server configuration.
+	// Required when the parent server group type is RADIUS.
+	// OpenConfig augmentation: /system/aaa/server-groups/server-group/servers/server/radius
+	// +optional
+	RADIUS *AAAServerRADIUS `json:"radius,omitempty"`
 }
 
 // AAAServerTACACS contains TACACS+ specific server configuration.
@@ -129,6 +136,30 @@ type AAAServerTACACS struct {
 	Port int32 `json:"port,omitempty"`
 
 	// KeySecretRef is a reference to a secret containing the shared key for this TACACS+ server.
+	// The secret must contain a key specified in the SecretKeySelector.
+	// +required
+	KeySecretRef SecretKeySelector `json:"keySecretRef"`
+}
+
+// AAAServerRADIUS contains RADIUS specific server configuration.
+type AAAServerRADIUS struct {
+	// AuthPort is the UDP port for RADIUS authentication requests.
+	// Defaults to 1812 if not specified.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	// +kubebuilder:default=1812
+	AuthPort int32 `json:"authPort,omitempty"`
+
+	// AcctPort is the UDP port for RADIUS accounting requests.
+	// Defaults to 1813 if not specified.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	// +kubebuilder:default=1813
+	AcctPort int32 `json:"acctPort,omitempty"`
+
+	// KeySecretRef is a reference to a secret containing the shared key for this RADIUS server.
 	// The secret must contain a key specified in the SecretKeySelector.
 	// +required
 	KeySecretRef SecretKeySelector `json:"keySecretRef"`

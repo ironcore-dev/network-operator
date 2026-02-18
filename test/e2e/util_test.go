@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -38,8 +39,7 @@ func Run(cmd *exec.Cmd) (string, error) {
 	}
 
 	command := strings.Join(cmd.Args, " ")
-	// #nosec G705
-	_, _ = fmt.Fprintf(GinkgoWriter, "running: %s\n", command)
+	_, _ = fmt.Fprintf(GinkgoWriter, "running: %s\n", command) //nolint:gosec
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -209,8 +209,8 @@ func LoadImageToKindClusterWithName(ctx context.Context, name string) error {
 			return fmt.Errorf("failed to create temp file: %w", err)
 		}
 		_ = file.Close()
-		// #nosec G703
-		defer func() { _ = os.Remove(file.Name()) }()
+		imgPath := filepath.Clean(file.Name())
+		defer func() { _ = os.Remove(imgPath) }()
 
 		// https://github.com/containerd/nerdctl/blob/main/docs/command-reference.md#whale-nerdctl-save
 		// https://docs.podman.io/en/v5.3.0/markdown/podman-save.1.html

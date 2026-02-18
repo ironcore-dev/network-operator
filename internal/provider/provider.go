@@ -194,7 +194,7 @@ type UserProvider interface {
 
 type EnsureUserRequest struct {
 	Username       string
-	Password       string // #nosec G117
+	Password       string `json:"-"`
 	SSHKey         string
 	Roles          []string
 	ProviderConfig *ProviderConfig
@@ -641,6 +641,9 @@ type EnsureAAARequest struct {
 	// TACACSServerKeys contains the decrypted keys for each TACACS+ server,
 	// keyed by server address.
 	TACACSServerKeys map[string]string
+	// RADIUSServerKeys contains the decrypted shared secrets for each RADIUS server,
+	// keyed by server address.
+	RADIUSServerKeys map[string]string
 }
 
 type DeleteAAARequest struct {

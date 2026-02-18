@@ -13,6 +13,8 @@ var (
 	_ gnmiext.Configurable = (*TACACSFeature)(nil)
 	_ gnmiext.Configurable = (*TacacsPlusProvider)(nil)
 	_ gnmiext.Configurable = (*TacacsPlusProviderGroup)(nil)
+	_ gnmiext.Configurable = (*RadiusProvider)(nil)
+	_ gnmiext.Configurable = (*RadiusProviderGroup)(nil)
 	_ gnmiext.Configurable = (*AAADefaultAuth)(nil)
 	_ gnmiext.Configurable = (*AAAConsoleAuth)(nil)
 	_ gnmiext.Configurable = (*AAADefaultAuthor)(nil)
@@ -34,6 +36,7 @@ const (
 // AAA configuration constants
 const (
 	AAARealmTacacs = "tacacs"
+	AAARealmRadius = "radius"
 	AAARealmLocal  = "local"
 	AAARealmNone   = "none"
 	AAAValueYes    = "yes"
@@ -81,6 +84,48 @@ type TacacsPlusProviderRef struct {
 }
 
 func (r *TacacsPlusProviderRef) Key() string { return r.Name }
+
+// RadiusProvider represents a RADIUS server host configuration.
+type RadiusProvider struct {
+	Name     string `json:"name"`
+	AuthPort int32  `json:"authPort,omitempty"`
+	AcctPort int32  `json:"acctPort,omitempty"`
+	Key      string `json:"key,omitempty"`
+	KeyEnc   string `json:"keyEnc,omitempty"`
+	Timeout  int32  `json:"timeout,omitempty"`
+	Retries  int32  `json:"retries,omitempty"`
+}
+
+func (*RadiusProvider) IsListItem() {}
+
+func (p *RadiusProvider) XPath() string {
+	return "System/userext-items/radiusext-items/radiusprovider-items/RadiusProvider-list[name=" + p.Name + "]"
+}
+
+// RadiusProviderGroup represents a RADIUS server group configuration.
+type RadiusProviderGroup struct {
+	Name             string                      `json:"name"`
+	Vrf              string                      `json:"vrf,omitempty"`
+	SrcIf            string                      `json:"srcIf,omitempty"`
+	Deadtime         int32                       `json:"deadtime,omitempty"`
+	ProviderRefItems RadiusProviderGroupRefItems `json:"providerref-items,omitzero"`
+}
+
+func (*RadiusProviderGroup) IsListItem() {}
+
+func (g *RadiusProviderGroup) XPath() string {
+	return "System/userext-items/radiusext-items/radiusprovidergroup-items/RadiusProviderGroup-list[name=" + g.Name + "]"
+}
+
+type RadiusProviderGroupRefItems struct {
+	ProviderRefList gnmiext.List[string, *RadiusProviderRef] `json:"ProviderRef-list,omitzero"`
+}
+
+type RadiusProviderRef struct {
+	Name string `json:"name"`
+}
+
+func (r *RadiusProviderRef) Key() string { return r.Name }
 
 // AAADefaultAuth represents AAA default authentication configuration.
 type AAADefaultAuth struct {
@@ -151,6 +196,42 @@ func MapKeyEncryption(enc nxv1alpha1.TACACSKeyEncryption) string {
 		return "0"
 	default:
 		return "7"
+	}
+}
+
+// MapRADIUSKeyEncryption maps the Cisco-specific RADIUS key encryption type to NX-OS type.
+func MapRADIUSKeyEncryption(enc nxv1alpha1.RADIUSKeyEncryption) string {
+	switch enc {
+	case nxv1alpha1.RADIUSKeyEncryptionType6:
+		return "6"
+	case nxv1alpha1.RADIUSKeyEncryptionType7:
+		return "7"
+	case nxv1alpha1.RADIUSKeyEncryptionClear:
+		return "0"
+	default:
+		return "7"
+	}
+}
+
+// groupTypeByName returns the AAAServerGroupType for the given group name,
+// defaulting to TACACS if not found.
+func groupTypeByName(name string, groups []v1alpha1.AAAServerGroup) v1alpha1.AAAServerGroupType {
+	for _, g := range groups {
+		if g.Name == name {
+			return g.Type
+		}
+	}
+	return v1alpha1.AAAServerGroupTypeTACACS
+}
+
+// MapRealmFromGroup returns the NX-OS realm string for the given group name,
+// resolving TACACS vs RADIUS from the server group list.
+func MapRealmFromGroup(groupName string, groups []v1alpha1.AAAServerGroup) string {
+	switch groupTypeByName(groupName, groups) {
+	case v1alpha1.AAAServerGroupTypeRADIUS:
+		return AAARealmRadius
+	default:
+		return AAARealmTacacs
 	}
 }
 
