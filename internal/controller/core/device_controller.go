@@ -492,7 +492,7 @@ func PortSummary(ports []v1alpha1.DevicePort) string {
 		if i > 0 {
 			sb.WriteString(", ")
 		}
-		sb.WriteString(fmt.Sprintf("%d/%d (%s)", u.Used, u.Total, u.Type))
+		fmt.Fprintf(&sb, "%d/%d (%s)", u.Used, u.Total, u.Type)
 	}
 
 	return sb.String()

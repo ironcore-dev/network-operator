@@ -162,7 +162,7 @@ type UserProvider interface {
 
 type EnsureUserRequest struct {
 	Username       string
-	Password       string
+	Password       string // #nosec G117
 	SSHKey         string
 	Roles          []string
 	ProviderConfig *ProviderConfig

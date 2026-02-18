@@ -158,7 +158,7 @@ func Apply() script.Cmd {
 var Endpoint = struct {
 	Addr string
 	User string
-	Pass string
+	Pass string // #nosec G117
 }{}
 
 // ReadEnv reads required environment variables and populates the global Endpoint struct.

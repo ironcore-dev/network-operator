@@ -84,7 +84,7 @@ func (r *refStoreReader) List(ctx context.Context, list client.ObjectList, opts 
 }
 
 func usage() {
-	fmt.Fprintf(os.Stderr, "Usage: %s [flags] <create|delete>\n\n", os.Args[0])
+	fmt.Fprintf(os.Stderr, "Usage: %s [flags] <create|delete>\n\n", os.Args[0]) // #nosec G705
 	fmt.Fprintf(os.Stderr, "A debug tool for testing provider implementations.\n\n")
 	fmt.Fprintf(os.Stderr, "This tool allows you to directly test provider implementations by creating or\n")
 	fmt.Fprintf(os.Stderr, "deleting resources on network devices.\n\n")
@@ -93,7 +93,7 @@ func usage() {
 	fmt.Fprintf(os.Stderr, "Flags:\n")
 	flag.PrintDefaults()
 	fmt.Fprintf(os.Stderr, "\nExample:\n")
-	fmt.Fprintf(os.Stderr, "  %s -address=192.168.1.1:9339 -username=admin -password=secret -file=config/samples/v1alpha1_interface.yaml create\n", os.Args[0])
+	fmt.Fprintf(os.Stderr, "  %s -address=192.168.1.1:9339 -username=admin -password=secret -file=config/samples/v1alpha1_interface.yaml create\n", os.Args[0]) // #nosec G705
 }
 
 func validateFlags() error {

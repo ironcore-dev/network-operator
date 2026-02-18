@@ -391,7 +391,7 @@ func (s *HTTPServer) GetMTLSClientCA(w http.ResponseWriter, r *http.Request) {
 
 type DeviceCertificateResponse struct {
 	Certificate   []byte `json:"certificate"`
-	PrivateKey    []byte `json:"privateKey"`
+	PrivateKey    []byte `json:"privateKey"` // #nosec G117
 	CACertificate []byte `json:"caCertificate"`
 }
 

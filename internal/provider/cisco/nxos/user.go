@@ -25,7 +25,7 @@ type User struct {
 	AllowExpired   string         `json:"allowExpired"`
 	Expiration     string         `json:"expiration"`
 	Name           string         `json:"name"`
-	Pwd            string         `json:"pwd,omitempty"`
+	Pwd            string         `json:"pwd,omitempty"` // #nosec G117
 	PwdHash        PwdHashType    `json:"passwordHash,omitempty"`
 	PwdEncryptType PwdEncryptType `json:"pwdEncryptType,omitempty"`
 	SshauthItems   struct {

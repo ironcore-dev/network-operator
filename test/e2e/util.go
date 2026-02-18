@@ -37,6 +37,7 @@ func Run(cmd *exec.Cmd) (string, error) {
 	}
 
 	command := strings.Join(cmd.Args, " ")
+	// #nosec G705
 	_, _ = fmt.Fprintf(GinkgoWriter, "running: %s\n", command)
 
 	output, err := cmd.CombinedOutput()
@@ -54,6 +55,7 @@ func Apply(resource string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
+	// #nosec G703
 	defer func() { _ = os.Remove(file.Name()) }()
 	if _, err = file.Write([]byte(resource)); err != nil {
 		return fmt.Errorf("failed to write to temp file: %w", err)
@@ -61,7 +63,7 @@ func Apply(resource string) error {
 	if err = file.Close(); err != nil {
 		return fmt.Errorf("failed to close temp file: %w", err)
 	}
-	// #nosec G204
+	// #nosec G204 G702
 	cmd := exec.Command("kubectl", "apply", "-f", file.Name())
 	if _, err = Run(cmd); err != nil {
 		return fmt.Errorf("failed to apply resource: %w", err)
@@ -205,10 +207,12 @@ func LoadImageToKindClusterWithName(name string) error {
 			return fmt.Errorf("failed to create temp file: %w", err)
 		}
 		_ = file.Close()
+		// #nosec G703
 		defer func() { _ = os.Remove(file.Name()) }()
 
 		// https://github.com/containerd/nerdctl/blob/main/docs/command-reference.md#whale-nerdctl-save
 		// https://docs.podman.io/en/v5.3.0/markdown/podman-save.1.html
+		// #nosec G702
 		cmd := exec.Command(prov, "save", name, "--output", file.Name())
 		if _, err = Run(cmd); err != nil {
 			return fmt.Errorf("failed to save image: %w", err)

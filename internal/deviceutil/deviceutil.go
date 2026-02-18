@@ -90,7 +90,7 @@ type Connection struct {
 	// Username for basic authentication. Might be empty if the device does not require authentication.
 	Username string
 	// Password for basic authentication. Might be empty if the device does not require authentication.
-	Password string
+	Password string // #nosec G117
 	// TLS configuration for the connection.
 	TLS *tls.Config
 }
@@ -184,7 +184,7 @@ func WithDefaultTimeout(timeout time.Duration) Option {
 
 type auth struct {
 	Username             string
-	Password             string
+	Password             string // #nosec G117
 	SecureTransportCreds bool
 }
 

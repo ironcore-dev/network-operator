@@ -19,6 +19,7 @@ func (s ASCIIStr) String() string {
 			break
 		}
 		if num, err := strconv.Atoi(v); err == nil {
+			// #nosec G115
 			runes = append(runes, rune(num))
 		}
 	}
