@@ -328,24 +328,47 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 	case v1alpha1.DeviceMaintenanceReboot:
 		r.Recorder.Event(obj, "Normal", "RebootRequested", "Device reboot has been requested")
 		if err := prov.Reboot(ctx, conn); err != nil {
+			conditions.Set(obj, metav1.Condition{
+				Type:    v1alpha1.ReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.MaintenanceFailedReason,
+				Message: fmt.Sprintf("Failed to reboot device: %v", err),
+			})
+			r.Recorder.Event(obj, "Warning", "RebootFailed", fmt.Sprintf("Device reboot has failed: %v", err))
 			return fmt.Errorf("failed to reboot device: %w", err)
 		}
 
 	case v1alpha1.DeviceMaintenanceFactoryReset:
 		r.Recorder.Event(obj, "Normal", "FactoryResetRequested", "Device factory reset has been requested")
 		if err := prov.FactoryReset(ctx, conn); err != nil {
+			conditions.Set(obj, metav1.Condition{
+				Type:    v1alpha1.ReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.MaintenanceFailedReason,
+				Message: fmt.Sprintf("Failed to factory reset device: %v", err),
+			})
+			r.Recorder.Event(obj, "Warning", "FactoryResetFailed", fmt.Sprintf("Device factory reset has failed: %v", err))
 			return fmt.Errorf("failed to reset device to factory defaults: %w", err)
 		}
 
 	case v1alpha1.DeviceMaintenanceReprovision:
 		r.Recorder.Event(obj, "Normal", "ReprovisioningRequested", "Device reprovisioning has been requested. Preparing the device.")
 		if err := prov.Reprovision(ctx, conn); err != nil {
-			return fmt.Errorf("failed to reset device to factory defaults: %w", err)
+			conditions.Set(obj, metav1.Condition{
+				Type:    v1alpha1.ReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.MaintenanceFailedReason,
+				Message: fmt.Sprintf("Failed to reprovision device: %v", err),
+			})
+			r.Recorder.Event(obj, "Warning", "ReprovisioningFailed", fmt.Sprintf("Device reprovisioning has failed: %v", err))
+			return fmt.Errorf("failed to reset device to reprovision: %w", err)
 		}
 		obj.Status.Phase = v1alpha1.DevicePhasePending
+
 	case v1alpha1.DeviceMaintenanceResetPhaseToProvisioning:
 		r.Recorder.Event(obj, "Normal", "ResetPhaseToProvisioningRequested", "Device phase reset to Pending has been requested.")
 		obj.Status.Phase = v1alpha1.DevicePhasePending
+
 	default:
 		return fmt.Errorf("unknown device action: %s", action)
 	}

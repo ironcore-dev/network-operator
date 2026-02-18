@@ -159,6 +159,12 @@ const (
 	VRFNotFoundReason = "VRFNotFound"
 )
 
+// Reasons that are specific to [Device] objects.
+const (
+	// MaintenanceFailedReason indicates that a requested maintenance operation (e.g., reboot or factory reset) failed.
+	MaintenanceFailedReason = "MaintenanceFailed"
+)
+
 // Reasons that are specific to [RoutingPolicy] objects.
 const (
 	// PrefixSetNotFoundReason indicates that a referenced PrefixSet was not found.
