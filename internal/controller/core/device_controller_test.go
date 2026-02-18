@@ -76,7 +76,7 @@ var _ = Describe("Device Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
 
-			By("Verifying the device transitions to Active phase when no provisioning is configured")
+			By("Verifying the device transitions to Running phase when no provisioning is configured")
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.Device{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
@@ -179,7 +179,7 @@ var _ = Describe("Device Controller", func() {
 			}).Should(Succeed())
 		})
 
-		It("Should transition from ProvisioningCompleted to Active", func() {
+		It("Should transition from ProvisioningCompleted to Running", func() {
 			By("Creating a Device")
 			device := &v1alpha1.Device{
 				ObjectMeta: metav1.ObjectMeta{
@@ -218,7 +218,7 @@ var _ = Describe("Device Controller", func() {
 				g.Expect(resource.Status.Provisioning[0].EndTime).ToNot(BeNil())
 			}).Should(Succeed())
 
-			By("Verifying the device transitions to Active phase")
+			By("Verifying the device transitions to Running phase")
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.Device{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
@@ -230,7 +230,7 @@ var _ = Describe("Device Controller", func() {
 			}).Should(Succeed())
 		})
 
-		It("Should transition from Active to Provisioning once the reset-phase-to-provisioning annotation is set", func() {
+		It("Should transition from Running to Provisioning once the reset-phase-to-provisioning annotation is set", func() {
 			By("Creating a Device")
 			device := &v1alpha1.Device{
 				ObjectMeta: metav1.ObjectMeta{
@@ -257,6 +257,15 @@ var _ = Describe("Device Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+
+			By("Verifying the device transitions to Provisioning phase")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseProvisioning))
+				g.Expect(resource.Status.Conditions).To(HaveLen(1))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+			}).Should(Succeed())
 
 			By("Setting the device to Running phase")
 			orig := device.DeepCopy()
@@ -290,7 +299,7 @@ var _ = Describe("Device Controller", func() {
 				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseProvisioning))
 				_, exists := resource.Annotations[v1alpha1.DeviceMaintenanceAnnotation]
 				g.Expect(exists).To(BeFalse(), "Maintenance annotation should be removed after processing")
-			}).WithTimeout(time.Second * 10).Should(Succeed())
+			}).Should(Succeed())
 		})
 	})
 })

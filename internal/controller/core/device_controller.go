@@ -107,7 +107,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 	// Always attempt to update the metadata/status after reconciliation
 	defer func() {
 		if !equality.Semantic.DeepEqual(orig.ObjectMeta, obj.ObjectMeta) {
-			// pass obj.DeepCopy() to avoid Patch() modifying obj and interfering with status update below
+			// Pass obj.DeepCopy() to avoid Patch() modifying obj and interfering with status update below
 			if err := r.Patch(ctx, obj.DeepCopy(), client.MergeFrom(orig)); err != nil {
 				log.Error(err, "Failed to update resource metadata")
 				reterr = kerrors.NewAggregate([]error{reterr, err})
@@ -149,9 +149,6 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, nil
 
 	case v1alpha1.DevicePhaseProvisioning:
-		annotations := obj.GetAnnotations()
-		delete(annotations, v1alpha1.DeviceMaintenanceAnnotation)
-		obj.SetAnnotations(annotations)
 		activeProv := obj.GetActiveProvisioning()
 		if activeProv == nil {
 			log.Info("Device has not made a provisioning request yet")
@@ -165,7 +162,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{RequeueAfter: 20 * time.Minute}, nil
 
 	case v1alpha1.DevicePhaseProvisioned:
-		// we will finalize the provisioning here, either wait for the reboot to be initiated/completed
+		// Finalize the provisioning, either wait for the reboot to be initiated/completed
 		// or run post-provisioning checks instantly if no reboot is required
 		activeProv := obj.GetActiveProvisioning()
 		if activeProv == nil {
@@ -185,6 +182,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		activeProv.EndTime = metav1.Now()
 		r.Recorder.Event(obj, "Normal", "Provisioned", "Device provisioning has completed successfully")
 		obj.Status.Phase = v1alpha1.DevicePhaseRunning
+		return ctrl.Result{}, nil
 
 	case v1alpha1.DevicePhaseRunning:
 		if err := r.reconcile(ctx, obj, prov, conn); err != nil {
@@ -319,6 +317,9 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 }
 
 func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alpha1.Device, prov provider.DeviceProvider, conn *deviceutil.Connection) error {
+	if obj.Annotations == nil {
+		return nil
+	}
 	action, ok := obj.Annotations[v1alpha1.DeviceMaintenanceAnnotation]
 	if !ok {
 		return nil
