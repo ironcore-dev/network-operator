@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -241,7 +242,25 @@ func (r *OSPFReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		)
 	}
 
-	return bldr.Complete(r)
+	return bldr.
+		// Watches enqueues OSPFs for updates in referenced Device resources.
+		// Triggers on create, delete, and update events when the Paused spec field changes.
+		Watches(
+			&v1alpha1.Device{},
+			handler.EnqueueRequestsFromMapFunc(r.deviceToOSPFs),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					oldDevice := e.ObjectOld.(*v1alpha1.Device)
+					newDevice := e.ObjectNew.(*v1alpha1.Device)
+					// Only trigger when Paused spec field changes.
+					return !equality.Semantic.DeepEqual(oldDevice.Spec.Paused, newDevice.Spec.Paused)
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
+		Complete(r)
 }
 
 // scope holds the different objects that are read and used during the reconcile.
@@ -403,6 +422,39 @@ func (r *OSPFReconciler) finalize(ctx context.Context, s *ospfScope) (reterr err
 		OSPF:           s.OSPF,
 		ProviderConfig: s.ProviderConfig,
 	})
+}
+
+// deviceToOSPFs is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for OSPFs when their referenced Device's Paused spec field changes.
+func (r *OSPFReconciler) deviceToOSPFs(ctx context.Context, obj client.Object) []ctrl.Request {
+	device, ok := obj.(*v1alpha1.Device)
+	if !ok {
+		panic(fmt.Sprintf("Expected a Device but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
+
+	list := new(v1alpha1.OSPFList)
+	if err := r.List(ctx, list,
+		client.InNamespace(device.Namespace),
+		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+	); err != nil {
+		log.Error(err, "Failed to list OSPFs")
+		return nil
+	}
+
+	requests := make([]ctrl.Request, 0, len(list.Items))
+	for _, i := range list.Items {
+		log.Info("Enqueuing OSPF for reconciliation", "OSPF", klog.KObj(&i))
+		requests = append(requests, ctrl.Request{
+			NamespacedName: client.ObjectKey{
+				Name:      i.Name,
+				Namespace: i.Namespace,
+			},
+		})
+	}
+
+	return requests
 }
 
 // ospfForProviderConfig is a [handler.MapFunc] to be used to enqueue requests for reconciliation

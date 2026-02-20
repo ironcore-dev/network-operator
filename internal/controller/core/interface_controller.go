@@ -344,6 +344,23 @@ func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 				},
 			}),
 		).
+		// Watches enqueues Interfaces for updates in referenced Device resources.
+		// Triggers on create, delete, and update events when the Paused spec field changes.
+		Watches(
+			&v1alpha1.Device{},
+			handler.EnqueueRequestsFromMapFunc(r.deviceToInterfaces),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					oldDevice := e.ObjectOld.(*v1alpha1.Device)
+					newDevice := e.ObjectNew.(*v1alpha1.Device)
+					// Only trigger when Paused spec field changes.
+					return !equality.Semantic.DeepEqual(oldDevice.Spec.Paused, newDevice.Spec.Paused)
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
 		Complete(r)
 }
 
@@ -950,6 +967,39 @@ func (r *InterfaceReconciler) interfacesForProviderConfig(ctx context.Context, o
 				},
 			})
 		}
+	}
+
+	return requests
+}
+
+// deviceToInterfaces is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for Interfaces when their referenced Device's Paused spec field changes.
+func (r *InterfaceReconciler) deviceToInterfaces(ctx context.Context, obj client.Object) []ctrl.Request {
+	device, ok := obj.(*v1alpha1.Device)
+	if !ok {
+		panic(fmt.Sprintf("Expected a Device but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
+
+	interfaces := new(v1alpha1.InterfaceList)
+	if err := r.List(ctx, interfaces,
+		client.InNamespace(device.Namespace),
+		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+	); err != nil {
+		log.Error(err, "Failed to list Interfaces")
+		return nil
+	}
+
+	requests := make([]ctrl.Request, 0, len(interfaces.Items))
+	for _, i := range interfaces.Items {
+		log.Info("Enqueuing Interface for reconciliation", "Interface", klog.KObj(&i))
+		requests = append(requests, ctrl.Request{
+			NamespacedName: client.ObjectKey{
+				Name:      i.Name,
+				Namespace: i.Namespace,
+			},
+		})
 	}
 
 	return requests

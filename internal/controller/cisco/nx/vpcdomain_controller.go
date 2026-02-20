@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -457,6 +458,23 @@ func (r *VPCDomainReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 				},
 			}),
 		).
+		// Watches enqueues VPCDomains for updates in referenced Device resources.
+		// Triggers on create, delete, and update events when the Paused spec field changes.
+		Watches(
+			&corev1.Device{},
+			handler.EnqueueRequestsFromMapFunc(r.deviceToVPCDomains),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					oldDevice := e.ObjectOld.(*corev1.Device)
+					newDevice := e.ObjectNew.(*corev1.Device)
+					// Only trigger when Paused spec field changes.
+					return !equality.Semantic.DeepEqual(oldDevice.Spec.Paused, newDevice.Spec.Paused)
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
 		Complete(r)
 }
 
@@ -497,6 +515,39 @@ func (r *VPCDomainReconciler) finalize(ctx context.Context, s *vpcdomainScope) (
 		}
 	}()
 	return s.Provider.DeleteVPCDomain(ctx)
+}
+
+// deviceToVPCDomains is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for VPCDomains when their referenced Device's Paused spec field changes.
+func (r *VPCDomainReconciler) deviceToVPCDomains(ctx context.Context, obj client.Object) []ctrl.Request {
+	device, ok := obj.(*corev1.Device)
+	if !ok {
+		panic(fmt.Sprintf("Expected a Device but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
+
+	list := new(nxv1.VPCDomainList)
+	if err := r.List(ctx, list,
+		client.InNamespace(device.Namespace),
+		client.MatchingLabels{corev1.DeviceLabel: device.Name},
+	); err != nil {
+		log.Error(err, "Failed to list VPCDomains")
+		return nil
+	}
+
+	requests := make([]ctrl.Request, 0, len(list.Items))
+	for _, i := range list.Items {
+		log.Info("Enqueuing VPCDomain for reconciliation", "VPCDomain", klog.KObj(&i))
+		requests = append(requests, ctrl.Request{
+			NamespacedName: client.ObjectKey{
+				Name:      i.Name,
+				Namespace: i.Namespace,
+			},
+		})
+	}
+
+	return requests
 }
 
 func conditionChanged(oldConds, newConds []metav1.Condition, t string) bool {
