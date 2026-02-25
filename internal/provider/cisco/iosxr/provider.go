@@ -24,6 +24,7 @@ var (
 	_ provider.DeviceProvider    = &Provider{}
 	_ provider.InterfaceProvider = &Provider{}
 	_ provider.VRFProvider       = &Provider{}
+	_ provider.MacSecProvider    = &Provider{}
 )
 
 type Provider struct {
@@ -408,6 +409,27 @@ func (p *Provider) DeleteVRF(ctx context.Context, req *provider.VRFRequest) erro
 	}
 
 	return p.client.Delete(ctx, vrf)
+}
+
+// EnsureMacSec is a dummy implementation for MacSec provisioning.
+// This method currently returns an error indicating that MacSec is not yet supported.
+func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecRequest) error {
+	// TODO(sven-rosenzweig): Implement MacSec
+	return nil
+}
+
+// DeleteMacSec is a dummy implementation for MacSec deletion.
+// This method currently returns an error indicating that MacSec is not yet supported.
+func (p *Provider) DeleteMacSec(ctx context.Context, req *provider.DeleteMacSecRequest) error {
+	// TODO(sven-rosenzweig) : Implement MacSec deletion
+	return nil
+}
+
+// DeleteMacSec is a dummy implementation for MacSec status retrieval.
+// This method currently returns an error indicating that MacSec is not yet supported.
+func (p *Provider) GetMacSecStatus(ctx context.Context, req *provider.EnsureMacSecRequest) (provider.MacSecStatus, error) {
+	// TODO(sven-rosenzweig): Implement MacSec
+	return provider.MacSecStatus{}, nil
 }
 
 func init() {

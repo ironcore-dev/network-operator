@@ -70,6 +70,10 @@ k8s_resource(new_name='acl', objects=['acl:accesscontrollist'], trigger_mode=TRI
 k8s_yaml('./config/samples/v1alpha1_certificate.yaml')
 k8s_resource(new_name='trustpoint', objects=['network-operator:issuer', 'network-operator-ca:certificate', 'trustpoint:certificate'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
+k8s_yaml('./config/samples/v1alpha1_macsec.yaml')
+k8s_resource(new_name='macsec-eth1-1', objects=['macsec-sample:macsec'], resource_deps=['leaf1', 'eth1-1'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='macsec-secrets', objects=['customer-secret:secret', 'customer-secret-rollover:secret'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+
 k8s_yaml('./config/samples/v1alpha1_snmp.yaml')
 k8s_resource(new_name='snmp', objects=['snmp:snmp'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 

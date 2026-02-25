@@ -18,6 +18,7 @@ import (
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // Provider is the common interface used to establish and tear down connections to the provider.
@@ -612,6 +613,41 @@ func (MatchPrefixSetCondition) isPolicyCondition() {}
 
 type DeleteRoutingPolicyRequest struct {
 	Name string
+}
+
+// MacSecProvider is the interface for the realization of the MacSec objects over different providers.
+type MacSecProvider interface {
+	Provider
+
+	// EnsureMacSec call is responsible for MacSec realization on the provider.
+	EnsureMacSec(context.Context, *EnsureMacSecRequest) error
+	// DeleteMacSec call is responsible for MacSec deletion on the provider.
+	DeleteMacSec(context.Context, *DeleteMacSecRequest) error
+	// GetMacSecStatus call is responsible for retrieving the current status of the MacSec from the provider.
+	GetMacSecStatus(context.Context, *EnsureMacSecRequest) (MacSecStatus, error)
+}
+
+type EnsureMacSecRequest struct {
+	MacSec  *v1alpha1.MacSec
+	Secrets []corev1.Secret
+	// SourceInterface is the interface on which MacSec is configured.
+	SourceInterface *v1alpha1.Interface
+}
+
+type DeleteMacSecRequest struct {
+	MacSec *v1alpha1.MacSec
+}
+
+type MacSecStatus struct {
+	// MacSecStatus indidcates whether all keys are valid
+	MacSecStatus bool
+	// KeyStatuses provides the validity status for each individual key configured on the device.
+	KeyStatuses []KeyValidity
+}
+
+type KeyValidity struct {
+	KeyName string
+	Valid   bool
 }
 
 type NVEProvider interface {

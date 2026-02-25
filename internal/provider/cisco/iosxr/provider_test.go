@@ -116,6 +116,10 @@ func (m *MockClient) GetConfig(ctx context.Context, configs ...gnmiext.DataEleme
 	return nil
 }
 
+func (m *MockClient) Create(ctx context.Context, conf ...gnmiext.DataElement) error {
+	return nil
+}
+
 func (m *MockClient) GetState(ctx context.Context, states ...gnmiext.DataElement) error {
 	if m.GetStateFunc != nil {
 		return m.GetStateFunc(ctx, states...)
