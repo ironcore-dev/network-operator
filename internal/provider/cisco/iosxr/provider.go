@@ -29,6 +29,7 @@ var (
 	_ provider.BGPPeerProvider       = &Provider{}
 	_ provider.PrefixSetProvider     = &Provider{}
 	_ provider.RoutingPolicyProvider = &Provider{}
+	_ provider.MacSecProvider        = &Provider{}
 )
 
 type Provider struct {
@@ -649,6 +650,27 @@ func (p *Provider) DeleteRoutingPolicy(ctx context.Context, req *provider.Delete
 
 func (p *Provider) LoopbackInterfaceName(id int) (string, error) {
 	return fmt.Sprintf("Loopback%d", id), nil
+}
+
+// EnsureMacSec is a dummy implementation for MacSec provisioning.
+// This method currently returns an error indicating that MacSec is not yet supported.
+func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecRequest) error {
+	// TODO(sven-rosenzweig): Implement MacSec
+	return nil
+}
+
+// DeleteMacSec is a dummy implementation for MacSec deletion.
+// This method currently returns an error indicating that MacSec is not yet supported.
+func (p *Provider) DeleteMacSec(ctx context.Context, req *provider.DeleteMacSecRequest) error {
+	// TODO(sven-rosenzweig) : Implement MacSec deletion
+	return nil
+}
+
+// DeleteMacSec is a dummy implementation for MacSec status retrieval.
+// This method currently returns an error indicating that MacSec is not yet supported.
+func (p *Provider) GetMacSecStatus(ctx context.Context, req *provider.EnsureMacSecRequest) (provider.MacSecStatus, error) {
+	// TODO(sven-rosenzweig): Implement MacSec
+	return provider.MacSecStatus{}, nil
 }
 
 func init() {

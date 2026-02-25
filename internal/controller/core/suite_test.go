@@ -442,6 +442,7 @@ var (
 	_ provider.EthernetSegmentProvider  = (*Provider)(nil)
 	_ provider.ConfigBackupProvider     = (*Provider)(nil)
 	_ provider.ProbeProvider            = (*Provider)(nil)
+	_ provider.MacSecProvider           = (*Provider)(nil)
 )
 
 // DeviceState holds per-device mutable state for testing. Each device created in
@@ -486,6 +487,7 @@ type DeviceState struct {
 	StartupConfig        *v1alpha1.ConfigBackup
 	ConfigBackups        []*provider.ConfigBackupFile
 	StorageTotal         int64
+	MacSec               sets.Set[string]
 }
 
 func NewDeviceState() *DeviceState {
@@ -508,6 +510,7 @@ func NewDeviceState() *DeviceState {
 		LLDPNeighbors:    make(map[string]*provider.LLDPAdjacency),
 		EthernetSegments: make(map[string]string),
 		StorageTotal:     int64(1024 * 1024 * 100),
+		MacSec:           sets.New[string](),
 	}
 }
 
@@ -1226,4 +1229,24 @@ func (s *DeviceState) SetLLDPNeighbor(interfaceName, sysName, chassisID, portID 
 		PortIDType:    7, // Local
 		TTL:           time.Duration(ttl) * time.Second,
 	}
+}
+
+func (s *DeviceState) EnsureMacSec(_ context.Context, req *provider.EnsureMacSecRequest) error {
+	s.Lock()
+	defer s.Unlock()
+	s.MacSec.Insert(req.MacSec.Spec.Name)
+	return nil
+}
+
+func (s *DeviceState) DeleteMacSec(_ context.Context, req *provider.DeleteMacSecRequest) error {
+	s.Lock()
+	defer s.Unlock()
+	s.MacSec.Delete(req.MacSec.Spec.Name)
+	return nil
+}
+
+func (s *DeviceState) GetMacSecStatus(_ context.Context, req *provider.EnsureMacSecRequest) (provider.MacSecStatus, error) {
+	s.Lock()
+	defer s.Unlock()
+	return provider.MacSecStatus{}, nil
 }

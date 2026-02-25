@@ -1,0 +1,37 @@
+  apiVersion: networking.metal.ironcore.dev/v1alpha1
+  kind: MacSec
+  metadata:
+    labels:
+      app.kubernetes.io/name: network-operator
+      app.kubernetes.io/managed-by: kustomize
+      networking.metal.ironcore.dev/device-name: leaf1
+    name: macsec-sample
+  spec:
+    deviceRef:
+      name: leaf1
+    interfaceRef:
+      name: eth1-1
+    name: macsec-eth1-1
+    description: "MACSec configuration for eth1/1 interface"
+    preSharedkeyRef:
+      - name: customer-secret
+    policy:
+      cipherSuite: gcm-aes-128
+      confidentialityOffset: 30
+      keyServerPriority: 0
+      relayProtection: 0
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: customer-secret
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+type: Opaque
+data:
+  key: Y3VzdG9tZXItc2VjcmV0LWtleQ== # preshared key
+stringdata:
+  keyId: "1234"
+  lifetime: "3600"
+  algorithm: "aes-128-cmac"
