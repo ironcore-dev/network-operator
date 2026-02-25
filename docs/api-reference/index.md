@@ -341,6 +341,7 @@ Package v1alpha1 contains API Schema definitions for the networking.metal.ironco
 - [ISIS](#isis)
 - [Interface](#interface)
 - [LLDP](#lldp)
+- [MacSec](#macsec)
 - [ManagementAccess](#managementaccess)
 - [NTP](#ntp)
 - [NetworkVirtualizationEdge](#networkvirtualizationedge)
@@ -1373,6 +1374,19 @@ _Appears in:_
 | --- | --- |
 | `SHA256` |  |
 | `MD5` |  |
+
+
+#### ConfidentialityOffset
+
+_Underlying type:_ _integer_
+
+/ ConfidentialityOffset represents the number of octets in an Ethernet frame that are sent in unencrypted plain-text.
+
+
+
+_Appears in:_
+- [MacSecPolicy](#macsecpolicy)
+
 
 
 #### ConfigBackup
@@ -2839,6 +2853,7 @@ _Appears in:_
 - [KeepAlive](#keepalive)
 - [LLDPInterface](#lldpinterface)
 - [LLDPSpec](#lldpspec)
+- [MacSecSpec](#macsecspec)
 - [ManagementAccessSpec](#managementaccessspec)
 - [NTPSpec](#ntpspec)
 - [NetworkVirtualizationEdgeSpec](#networkvirtualizationedgespec)
@@ -2919,6 +2934,81 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `macAddress` _string_ | MACAddress is the MAC address to look for in the device's MAC table. |  | Pattern: `^([0-9a-fA-F]\{2\}:)\{5\}[0-9a-fA-F]\{2\}$` <br />Required: \{\} <br /> |
 | `vlan` _[VLANSource](#vlansource)_ | VLAN constrains the lookup to a specific VLAN. |  | Optional: \{\} <br /> |
+
+
+#### MacSec
+
+
+
+MacSec is the Schema for the macsecs API.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `MacSec` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[MacSecSpec](#macsecspec)_ |  |  |  |
+| `status` _[MacSecStatus](#macsecstatus)_ |  |  |  |
+
+
+#### MacSecPolicy
+
+
+
+
+
+
+
+_Appears in:_
+- [MacSecSpec](#macsecspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `cipherSuite` _string_ |  |  |  |
+| `confidentialityOffset` _[ConfidentialityOffset](#confidentialityoffset)_ | Number of octets in an Ethernet frame that are sent in unencrypted plain-text |  | Optional: \{\} <br /> |
+| `keyServerPriority` _integer_ | Specifies the key server priority used by the MACsec Key Agreement (MKA) protocol to select the key server when<br />MACsec is enabled using static connectivity association key (CAK) security mode. |  | Optional: \{\} <br /> |
+| `relayProtection` _integer_ | Number of out-of-order packets that can be received before the secure channel is considered to be inoperable.<br />A value of 0 means that frames are accepted only in the correct order. |  | Optional: \{\} <br /> |
+
+
+#### MacSecSpec
+
+
+
+MacSecSpec defines the desired state of MacSec.
+
+
+
+_Appears in:_
+- [MacSec](#macsec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
+| `interfaceRef` _[LocalObjectReference](#localobjectreference)_ | InterfaceRef is a reference to the interface on which MACsec is enabled. The interface must exist on the Device specified by deviceRef.<br />Immutable. |  | Required: \{\} <br /> |
+| `name` _string_ | Name is the name of the interface. |  | MaxLength: 255 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `description` _string_ | Description provides a human-readable description of the macsec policy. |  | MaxLength: 255 <br />Optional: \{\} <br /> |
+| `preSharedkeyRef` _[LocalObjectReference](#localobjectreference) array_ | PreSharedKeyRef is a list of references to pre-shared keys used for MACSec encryption. |  | Optional: \{\} <br /> |
+| `policy` _[MacSecPolicy](#macsecpolicy)_ | Policy defines the MACSec policy configuration. |  | Optional: \{\} <br /> |
+
+
+#### MacSecStatus
+
+
+
+MacSecStatus defines the observed state of MacSec.
+
+
+
+_Appears in:_
+- [MacSec](#macsec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the MacSec. |  | Optional: \{\} <br /> |
 
 
 #### ManagementAccess
