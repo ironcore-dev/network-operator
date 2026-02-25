@@ -408,7 +408,7 @@ func (c *client) set(ctx context.Context, r *gnmipb.SetRequest, patch bool, elem
 		if err != nil {
 			return err
 		}
-		c.logger.V(1).Info("Updating", "path", el.XPath(), "payload", string(b), "operation", op)
+		c.logger.V(1).Info("Updating", "path", el.XPath(), "payload", redactPayload(el), "operation", op)
 		u := &gnmipb.Update{
 			Path: path,
 			Val:  c.Encode(b),
@@ -437,7 +437,7 @@ func (c *client) delete(_ context.Context, r *gnmipb.SetRequest, elements ...Dat
 			if err != nil {
 				return err
 			}
-			c.logger.V(1).Info("Resetting to default", "path", el.XPath(), "payload", string(b))
+			c.logger.V(1).Info("Resetting to default", "path", el.XPath(), "payload", redactPayload(el))
 			r.Replace = append(r.Replace, &gnmipb.Update{
 				Path: path,
 				Val:  c.Encode(b),

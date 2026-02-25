@@ -630,6 +630,18 @@ func main() { //nolint:gocyclo
 		os.Exit(1)
 	}
 
+	if err := (&corecontroller.MacSecReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorder("macsec-controller"),
+		WatchFilterValue: watchFilterValue,
+		Locker:           locker,
+		RequeueInterval:  requeueInterval,
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "MacSec")
+		os.Exit(1)
+	}
+
 	if err := (&corecontroller.ConfigBackupReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
@@ -766,7 +778,10 @@ func main() { //nolint:gocyclo
 			setupLog.Error(err, "Failed to create webhook", "webhook", "DHCPRelay")
 			os.Exit(1)
 		}
-
+		if err := webhookv1alpha1.SetupMacSecWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "MacSec")
+			os.Exit(1)
+		}
 		if err := webhooknxv1alpha1.SetupNetworkVirtualizationEdgeConfigWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "NetworkVirtualizationEdgeConfig")
 			os.Exit(1)

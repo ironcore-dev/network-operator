@@ -121,6 +121,9 @@ var _ = BeforeSuite(func() {
 	err = SetupDHCPRelayWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = SetupMacSecWebhookWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
 	// +kubebuilder:scaffold:webhook
 
 	go func() {
