@@ -60,6 +60,10 @@ const DeviceKind = "Device"
 // the name of the aggregate interface they belong to.
 const AggregateLabel = "networking.metal.ironcore.dev/aggregate-name"
 
+// MacSecLabel is a label applied to the interface to indicate
+// the name of the MacSec policy associated with the interface.
+const MacSecLabel = "networking.metal.ironcore.dev/macsec-name"
+
 // RoutedVLANLabel is a label applied to VLANs to indicate
 // the name of the RoutedVLAN interface that provides Layer 3 routing for the VLAN.
 const RoutedVLANLabel = "networking.metal.ironcore.dev/routed-vlan-name"

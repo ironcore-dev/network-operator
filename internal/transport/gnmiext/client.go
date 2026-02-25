@@ -407,6 +407,7 @@ func (c *client) set(ctx context.Context, r *gnmipb.SetRequest, patch bool, elem
 		if err != nil {
 			return err
 		}
+		fmt.Println("Updating", "path", el.XPath(), "payload", string(b), "operation", op)
 		c.logger.V(1).Info("Updating", "path", el.XPath(), "payload", string(b), "operation", op)
 		u := &gnmipb.Update{
 			Path: path,
