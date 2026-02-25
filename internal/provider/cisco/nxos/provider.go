@@ -31,12 +31,14 @@ import (
 	"github.com/go-logr/logr"
 	systempb "github.com/openconfig/gnoi/system"
 	"google.golang.org/grpc"
+	corev1 "k8s.io/api/core/v1"
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/encryption"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 	"github.com/ironcore-dev/network-operator/internal/transport/grpcext"
 	"github.com/ironcore-dev/network-operator/internal/transport/nxapi"
@@ -56,6 +58,7 @@ var (
 	_ provider.EVPNInstanceProvider     = (*Provider)(nil)
 	_ provider.InterfaceProvider        = (*Provider)(nil)
 	_ provider.ISISProvider             = (*Provider)(nil)
+	_ provider.MacSecProvider           = (*Provider)(nil)
 	_ provider.ManagementAccessProvider = (*Provider)(nil)
 	_ provider.NTPProvider              = (*Provider)(nil)
 	_ provider.OSPFProvider             = (*Provider)(nil)
@@ -4831,6 +4834,118 @@ func (p *Provider) DeleteStaticRoute(ctx context.Context, req *provider.DeleteSt
 		Prefix: req.StaticRoute.Spec.Prefix.String(),
 	}
 	return p.client.Delete(ctx, route)
+}
+
+// EnsureMacSec realizes the MacSec policy and keychain on the device. The
+// macsec feature is enabled first (in its own Set RPC via p.Do) before the
+// dependent policy and keychain configuration is pushed.
+func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecRequest) error {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
+	f := new(Feature)
+	f.Name = "macsec"
+	f.AdminSt = AdminStEnabled
+	sb.Update(f)
+
+	cipherSuite, err := ExtractCipherSuite(req.MacSec.Spec.Policy.CipherSuite)
+	if err != nil {
+		// ToDo: Should be terminal error
+		return err
+	}
+
+	confOffset, err := ExtractConfOffset(uint16(req.MacSec.Spec.Policy.ConfidentialityOffset))
+	if err != nil {
+		// ToDo: Should be terminal error
+		return err
+	}
+
+	policy := &MacSecPolicy{
+		PolicyName:        req.MacSec.Spec.Name,
+		CipherSuite:       cipherSuite,
+		ConfOffset:        confOffset,
+		KeyServerPriority: req.MacSec.Spec.Policy.KeyServerPriority,
+		ReplayWindow:      uint32(req.MacSec.Spec.Policy.RelayProtection),
+	}
+	sb.Patch(policy)
+
+	chain := &KeyChain{Name: req.MacSec.Spec.Name}
+
+	secrets := make(map[string]*corev1.Secret, len(req.Secrets))
+	for i := range req.Secrets {
+		secrets[req.Secrets[i].Name] = &req.Secrets[i]
+	}
+
+	// fixme: order keys
+	for i := range req.MacSec.Spec.PreSharedKeys {
+		psk := &req.MacSec.Spec.PreSharedKeys[i]
+		secret, ok := secrets[psk.KeyRef.Name]
+		if !ok {
+			return fmt.Errorf("pre-shared key secret %q not found", psk.KeyRef.Name)
+		}
+
+		lifetime, err := NewLifetime(psk.StartTime.Time, psk.EndTime.Time)
+		if err != nil {
+			// ToDo: Should be terminal error
+			return err
+		}
+		cryptoAlg, err := ExtractCryptographicAlgo(string(psk.Algorithm))
+		if err != nil {
+			// ToDo: Should be terminal error
+			return err
+		}
+
+		keyHexString, err := encryption.EncryptType7(string(secret.Data[preSharedKeyDataKey]), 0)
+		if err != nil {
+			return err
+		}
+
+		key := MacSecKey{
+			ID:           psk.ConnectivityKeyName,
+			OctetString:  keyHexString,
+			EncryptType:  EncryptTypeType7,
+			CryptoAlg:    cryptoAlg,
+			SendLifetime: lifetime,
+		}
+		chain.Keys.KeyList.Set(&key)
+	}
+	sb.Update(chain)
+
+	name, err := ShortName(req.SourceInterface.Spec.Name)
+	if err != nil {
+		return err
+	}
+
+	intf := MacSecInterface{
+		ID:           name,
+		KeychainName: req.MacSec.Spec.Name,
+		PolicyName:   req.MacSec.Spec.Name,
+	}
+	sb.Patch(&intf)
+
+	return p.Do(ctx, sb)
+}
+
+// DeleteMacSec removes the MacSec policy and keychain from the device, along
+// with the interface binding that references them.
+func (p *Provider) DeleteMacSec(ctx context.Context, req *provider.DeleteMacSecRequest) error {
+	elems := []gnmiext.DataElement{
+		&MacSecPolicy{PolicyName: req.MacSec.Spec.Name},
+		&KeyChain{Name: req.MacSec.Spec.Name},
+	}
+	if req.SourceInterface != nil {
+		name, err := ShortName(req.SourceInterface.Spec.Name)
+		if err != nil {
+			return err
+		}
+		elems = append(elems, &MacSecInterface{ID: name})
+	}
+	return p.client.Delete(ctx, elems...)
+}
+
+// GetMacSecStatus is not yet implemented; the controller does not consume it.
+func (p *Provider) GetMacSecStatus(ctx context.Context, req *provider.EnsureMacSecRequest) (provider.MacSecStatus, error) {
+	// TODO(sven-rosenzweig): Implement MacSec status retrieval
+	return provider.MacSecStatus{}, nil
 }
 
 func init() {
