@@ -1,0 +1,54 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: MacSec
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: secure-layer2
+spec:
+  deviceRef:
+    name: leaf1
+  interfaceRef:
+    name: eth1-1
+  name: secure-layer2
+  preSharedKeys:
+    - secretRef:
+        name: secret1
+      connectivityKeyName: "1234567"
+      algorithm: AES-128-CMAC
+      startTime: "2026-01-01T00:00:00Z"
+      endTime: "2027-01-01T09:34:01Z"
+    - secretRef:
+        name: secret2-rollover
+      connectivityKeyName: "7654321"
+      algorithm: AES-128-CMAC
+      startTime: "2027-01-01T00:00:00Z"
+      endTime: "2028-01-01T09:34:01Z"
+  policy:
+    cipherSuite: GCM-AES-XPN-256
+    confidentialityOffset: 30
+    keyServerPriority: 8
+    relayProtection: 32
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret1
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+type: Opaque
+data:
+  key: dGVzdC1wc2s= # base64-decoded value: test-psk
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret2-rollover
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+type: Opaque
+data:
+  key: dGVzdC1wc2s= # base64-decoded value: test-psk

@@ -346,6 +346,7 @@ Package v1alpha1 contains API Schema definitions for the networking.metal.ironco
 - [ISIS](#isis)
 - [Interface](#interface)
 - [LLDP](#lldp)
+- [MacSec](#macsec)
 - [ManagementAccess](#managementaccess)
 - [NTP](#ntp)
 - [NetworkVirtualizationEdge](#networkvirtualizationedge)
@@ -1532,6 +1533,19 @@ _Appears in:_
 | `Extended` | CommunitySetTypeExtended is an extended BGP community-list.<br /> |
 
 
+#### ConfidentialityOffset
+
+_Underlying type:_ _integer_
+
+/ ConfidentialityOffset represents the number of octets in an Ethernet frame that are sent in unencrypted plain-text.
+
+
+
+_Appears in:_
+- [MacSecPolicy](#macsecpolicy)
+
+
+
 #### ConfigBackup
 
 
@@ -1925,6 +1939,24 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `mode` _[LACPMode](#lacpmode)_ | Mode defines the LACP mode for the aggregate interface. |  | Enum: [Active Passive Static] <br />Required: \{\} <br /> |
+
+
+#### CryptographicAlgorithm
+
+_Underlying type:_ _string_
+
+CryptographicAlgorithm is the MKA key-derivation algorithm used for a pre-shared key.
+
+_Validation:_
+- Enum: [AES-128-CMAC AES-256-CMAC]
+
+_Appears in:_
+- [PreSharedKey](#presharedkey)
+
+| Field | Description |
+| --- | --- |
+| `AES-128-CMAC` | AES128CMAC is the AES-128-CMAC key-derivation algorithm.<br /> |
+| `AES-256-CMAC` | AES256CMAC is the AES-256-CMAC key-derivation algorithm.<br /> |
 
 
 #### DFElectionMode
@@ -3002,6 +3034,7 @@ _Appears in:_
 - [KeepAlive](#keepalive)
 - [LLDPInterface](#lldpinterface)
 - [LLDPSpec](#lldpspec)
+- [MacSecSpec](#macsecspec)
 - [ManagementAccessSpec](#managementaccessspec)
 - [NTPSpec](#ntpspec)
 - [NetworkAttachmentSpec](#networkattachmentspec)
@@ -3013,6 +3046,7 @@ _Appears in:_
 - [PIMInterface](#piminterface)
 - [PIMSpec](#pimspec)
 - [Peer](#peer)
+- [PreSharedKey](#presharedkey)
 - [PrefixSetMatchCondition](#prefixsetmatchcondition)
 - [PrefixSetSpec](#prefixsetspec)
 - [ProbeSpec](#probespec)
@@ -3085,6 +3119,81 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `macAddress` _string_ | MACAddress is the MAC address to look for in the device's MAC table. |  | Pattern: `^([0-9a-fA-F]\{2\}:)\{5\}[0-9a-fA-F]\{2\}$` <br />Required: \{\} <br /> |
 | `vlan` _[VLANSource](#vlansource)_ | VLAN constrains the lookup to a specific VLAN. |  | Optional: \{\} <br /> |
+
+
+#### MacSec
+
+
+
+MacSec is the Schema for the macsecs API.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `MacSec` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[MacSecSpec](#macsecspec)_ |  |  |  |
+| `status` _[MacSecStatus](#macsecstatus)_ |  |  |  |
+
+
+#### MacSecPolicy
+
+
+
+
+
+
+
+_Appears in:_
+- [MacSecSpec](#macsecspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `cipherSuite` _string_ | CipherSuite is the MACSec cipher suite to be used. |  | Required: \{\} <br /> |
+| `confidentialityOffset` _[ConfidentialityOffset](#confidentialityoffset)_ | ConfidentialityOffset specifies the number of octets in an Ethernet frame that are sent in unencrypted plain-text |  | Required: \{\} <br /> |
+| `keyServerPriority` _integer_ | KeyServerPriority specifies the key server priority used by the MACsec Key Agreement (MKA) protocol to select the key server when<br />MACsec is enabled using static connectivity association key (CAK) security mode. |  | Required: \{\} <br /> |
+| `relayProtection` _integer_ | RelayProtection specifies the number of out-of-order packets that can be received before the secure channel is considered to be inoperable.<br />A value of 0 means that frames are accepted only in the correct order. |  | Required: \{\} <br /> |
+
+
+#### MacSecSpec
+
+
+
+MacSecSpec defines the desired state of MacSec.
+
+
+
+_Appears in:_
+- [MacSec](#macsec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration.<br />This reference is used to link the MacSec to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `name` _string_ | Name is the name of the MacSec configuration.<br />Immutable. |  | MaxLength: 255 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `interfaceRef` _[LocalObjectReference](#localobjectreference)_ | InterfaceRef is a reference to the interface on which MACsec is enabled. The interface must exist on the Device specified by deviceRef.<br />Immutable. |  | Required: \{\} <br /> |
+| `preSharedKeys` _[PreSharedKey](#presharedkey) array_ | PreSharedKeys is a list of pre-shared keys used for MACSec encryption.<br />Specify multiple keys if needed for redundancy rotation.<br />Sort them in the order they should be used for redundancy rotation. |  | MinItems: 1 <br />Required: \{\} <br /> |
+| `policy` _[MacSecPolicy](#macsecpolicy)_ | Policy defines the MACSec policy configuration. |  | Required: \{\} <br /> |
+
+
+#### MacSecStatus
+
+
+
+MacSecStatus defines the observed state of MacSec.
+
+
+
+_Appears in:_
+- [MacSec](#macsec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the MacSec. |  | Optional: \{\} <br /> |
 
 
 #### ManagementAccess
@@ -3792,6 +3901,27 @@ _Appears in:_
 | `InterfaceName` | PortIDTypeInterfaceName is `ifName` (IETF RFC 2863)<br /> |
 | `AgentCircuitID` | PortIDTypeAgentCircuitID is the agent circuit ID (IETF RFC 3046)<br /> |
 | `Local` | PortIDTypeLocal is an alphanumeric string that and is locally assigned<br /> |
+
+
+#### PreSharedKey
+
+
+
+PreSharedKey defines a single MACsec pre-shared key: a reference to the Secret
+holding the raw key material plus the key metadata.
+
+
+
+_Appears in:_
+- [MacSecSpec](#macsecspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `secretRef` _[LocalObjectReference](#localobjectreference)_ | SecretRef references the Secret (in the same namespace) holding the raw key material<br />under the data key "key". The Secret must contain only the key material. |  | Required: \{\} <br /> |
+| `connectivityKeyName` _string_ | ConnectivityKeyName is the connectivity association key name (CKN). |  | MaxLength: 64 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `algorithm` _[CryptographicAlgorithm](#cryptographicalgorithm)_ | Algorithm is the cryptographic algorithm used for this key. |  | Enum: [AES-128-CMAC AES-256-CMAC] <br />Required: \{\} <br /> |
+| `startTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | StartTime is when this key becomes active.<br />The clock and date rendered into the device configuration are taken in UTC,<br />so a value with any timezone offset is normalized to UTC before being realized. |  | Required: \{\} <br /> |
+| `endTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | EndTime is when this key expires. Must be after startTime.<br />The clock and date rendered into the device configuration are taken in UTC,<br />so a value with any timezone offset is normalized to UTC before being realized.<br />Validates if the string is a valid datetime in RFC3339 format. |  | Required: \{\} <br /> |
 
 
 #### PrefixEntry
@@ -4722,6 +4852,7 @@ _Appears in:_
 - [IndexSpec](#indexspec)
 - [InterfaceSpec](#interfacespec)
 - [LLDPSpec](#lldpspec)
+- [MacSecSpec](#macsecspec)
 - [ManagementAccessSpec](#managementaccessspec)
 - [NTPSpec](#ntpspec)
 - [NetworkVirtualizationEdgeSpec](#networkvirtualizationedgespec)
