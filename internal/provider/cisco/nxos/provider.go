@@ -2149,33 +2149,33 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 	}
 
 	if len(req.VRF.Spec.RouteTargets) > 0 {
-		// Helper to add an AF with import/export entries
-		addAF := func(afType1, afType2 AddressFamily, importE, exportE *RttEntry) {
+		// Initialize address families
+		afIPv4 := &VRFDomAf{Type: AddressFamilyIPv4Unicast}
+		afIPv6 := &VRFDomAf{Type: AddressFamilyIPv6Unicast}
+
+		addAF := func(af *VRFDomAf, afType AddressFamily, importE, exportE *RttEntry) {
 			if importE.EntItems.RttEntryList.Len() == 0 && exportE.EntItems.RttEntryList.Len() == 0 {
 				return
 			}
 
-			af := new(VRFDomAf)
-			af.Type = afType1
-
-			ctrl := new(VRFDomAfCtrl)
-			ctrl.Type = afType2
-
+			ctrl := &VRFDomAfCtrl{Type: afType}
 			if importE.EntItems.RttEntryList.Len() > 0 {
 				ctrl.RttpItems.RttPList.Set(importE)
 			}
 			if exportE.EntItems.RttEntryList.Len() > 0 {
 				ctrl.RttpItems.RttPList.Set(exportE)
 			}
-
 			af.CtrlItems.AfCtrlList.Set(ctrl)
-			dom.AfItems.DomAfList.Set(af)
 		}
 
-		addAF(AddressFamilyIPv4Unicast, AddressFamilyIPv4Unicast, importEntryIPv4, exportEntryIPv4)
-		addAF(AddressFamilyIPv6Unicast, AddressFamilyIPv6Unicast, importEntryIPv6, exportEntryIPv6)
-		addAF(AddressFamilyIPv4Unicast, AddressFamilyL2EVPN, importEntryIPv4EVPN, exportEntryIPv4EVPN)
-		addAF(AddressFamilyIPv6Unicast, AddressFamilyL2EVPN, importEntryIPv6EVPN, exportEntryIPv6EVPN)
+		addAF(afIPv4, AddressFamilyIPv4Unicast, importEntryIPv4, exportEntryIPv4)
+		addAF(afIPv4, AddressFamilyL2EVPN, importEntryIPv4EVPN, exportEntryIPv4EVPN)
+
+		addAF(afIPv6, AddressFamilyIPv6Unicast, importEntryIPv6, exportEntryIPv6)
+		addAF(afIPv6, AddressFamilyL2EVPN, importEntryIPv6EVPN, exportEntryIPv6EVPN)
+
+		dom.AfItems.DomAfList.Set(afIPv4)
+		dom.AfItems.DomAfList.Set(afIPv6)
 	}
 
 	return p.Update(ctx, v)
