@@ -1,6 +1,6 @@
 module github.com/ironcore-dev/network-operator
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/felix-kaestner/copy v0.0.0-20250930112410-8fbc5c5b74a5

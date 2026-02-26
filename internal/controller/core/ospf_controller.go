@@ -19,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -329,7 +328,7 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Re
 			n.Priority = &nbr.Priority
 		}
 		if !nbr.LastEstablishedTime.IsZero() {
-			n.LastEstablishedTime = ptr.To(metav1.NewTime(nbr.LastEstablishedTime))
+			n.LastEstablishedTime = new(metav1.NewTime(nbr.LastEstablishedTime))
 		}
 		s.OSPF.Status.Neighbors = append(s.OSPF.Status.Neighbors, n)
 	}

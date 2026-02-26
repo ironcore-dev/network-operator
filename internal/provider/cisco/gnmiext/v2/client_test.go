@@ -18,7 +18,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	"k8s.io/utils/ptr"
 )
 
 func TestClient_New(t *testing.T) {
@@ -681,7 +680,7 @@ func TestClient_Update(t *testing.T) {
 					}, nil
 				},
 			},
-			conf:    []Configurable{ptr.To(Hostname("new-hostname"))},
+			conf:    []Configurable{new(Hostname("new-hostname"))},
 			wantErr: false,
 		},
 		{
@@ -732,7 +731,7 @@ func TestClient_Update(t *testing.T) {
 					}, nil
 				},
 			},
-			conf:    []Configurable{ptr.To(Hostname("test-hostname"))},
+			conf:    []Configurable{new(Hostname("test-hostname"))},
 			wantErr: false,
 		},
 		{
@@ -761,7 +760,7 @@ func TestClient_Update(t *testing.T) {
 					return nil, errors.New("get rpc failed")
 				},
 			},
-			conf:    []Configurable{ptr.To(Hostname("test-hostname"))},
+			conf:    []Configurable{new(Hostname("test-hostname"))},
 			wantErr: true,
 		},
 		{
@@ -841,7 +840,7 @@ func TestClient_Update(t *testing.T) {
 					return nil, errors.New("set rpc failed")
 				},
 			},
-			conf:    []Configurable{ptr.To(Hostname("new-hostname"))},
+			conf:    []Configurable{new(Hostname("new-hostname"))},
 			wantErr: true,
 		},
 		{
@@ -952,7 +951,7 @@ func TestClient_Patch(t *testing.T) {
 					}, nil
 				},
 			},
-			conf:    []Configurable{ptr.To(Hostname("new-hostname"))},
+			conf:    []Configurable{new(Hostname("new-hostname"))},
 			wantErr: false,
 		},
 		{
@@ -1003,7 +1002,7 @@ func TestClient_Patch(t *testing.T) {
 					}, nil
 				},
 			},
-			conf:    []Configurable{ptr.To(Hostname("test-hostname"))},
+			conf:    []Configurable{new(Hostname("test-hostname"))},
 			wantErr: false,
 		},
 		{

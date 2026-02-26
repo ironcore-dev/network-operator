@@ -3,10 +3,6 @@
 
 package nxos
 
-import (
-	"k8s.io/utils/ptr"
-)
-
 func init() {
 	bgpDom := &BGPDom{Name: DefaultVRFName, RtrID: "1.1.1.1", RtrIDAuto: AdminStDisabled}
 	bgpDom.AfItems.DomAfList.Set(&BGPDomAfItem{
@@ -27,7 +23,7 @@ func init() {
 		SrcIf:   "lo0",
 	}
 	bgpPeer.AfItems.PeerAfList.Set(&BGPPeerAfItem{
-		Ctrl:       Option[string]{Value: ptr.To(RouteReflectorClient)},
+		Ctrl:       Option[string]{Value: new(RouteReflectorClient)},
 		SendComExt: AdminStEnabled,
 		SendComStd: AdminStEnabled,
 		Type:       AddressFamilyL2EVPN,

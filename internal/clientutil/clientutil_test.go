@@ -17,7 +17,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/utils/ptr"
 	klient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -382,7 +381,7 @@ func TestTemplate(t *testing.T) {
 		{
 			name: "inline template",
 			src: &v1alpha1.TemplateSource{
-				Inline: ptr.To("inline template content"),
+				Inline: new("inline template content"),
 			},
 			want: []byte("inline template content"),
 		},

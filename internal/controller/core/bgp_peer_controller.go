@@ -19,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -323,7 +322,7 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (_ c
 
 	s.BGPPeer.Status.SessionState = status.SessionState
 	if !status.LastEstablishedTime.IsZero() {
-		s.BGPPeer.Status.LastEstablishedTime = ptr.To(metav1.NewTime(status.LastEstablishedTime))
+		s.BGPPeer.Status.LastEstablishedTime = new(metav1.NewTime(status.LastEstablishedTime))
 	}
 	s.BGPPeer.Status.ObservedGeneration = s.BGPPeer.Generation
 	s.BGPPeer.Status.AddressFamilies = nil

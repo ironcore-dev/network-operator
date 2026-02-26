@@ -15,11 +15,11 @@ type PhysIf struct {
 	Description  string        `json:"description"`
 	Active       string        `json:"active"`
 	Vrf          string        `json:"Cisco-IOS-XR-infra-rsi-cfg:vrf,omitempty"`
-	Statistics   Statistics    `json:"Cisco-IOS-XR-infra-statsd-cfg:statistics,omitempty"`
-	IPv4Network  IPv4Network   `json:"Cisco-IOS-XR-ipv4-io-cfg:ipv4-network,omitempty"`
-	IPv6Network  IPv6Network   `json:"Cisco-IOS-XR-ipv6-ma-cfg:ipv6-network,omitempty"`
-	IPv6Neighbor IPv6Neighbor  `json:"Cisco-IOS-XR-ipv6-nd-cfg:ipv6-neighbor,omitempty"`
-	MTUs         MTUs          `json:"mtus,omitempty"`
+	Statistics   Statistics    `json:"Cisco-IOS-XR-infra-statsd-cfg:statistics"`
+	IPv4Network  IPv4Network   `json:"Cisco-IOS-XR-ipv4-io-cfg:ipv4-network"`
+	IPv6Network  IPv6Network   `json:"Cisco-IOS-XR-ipv6-ma-cfg:ipv6-network"`
+	IPv6Neighbor IPv6Neighbor  `json:"Cisco-IOS-XR-ipv6-nd-cfg:ipv6-neighbor"`
+	MTUs         MTUs          `json:"mtus"`
 	Shutdown     gnmiext.Empty `json:"shutdown,omitempty"`
 }
 

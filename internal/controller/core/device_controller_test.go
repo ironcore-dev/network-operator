@@ -10,7 +10,6 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -160,7 +159,7 @@ var _ = Describe("Device Controller", func() {
 							ChecksumType: v1alpha1.ChecksumTypeMD5,
 						},
 						BootScript: v1alpha1.TemplateSource{
-							Inline: ptr.To("boot nxos.bin"),
+							Inline: new("boot nxos.bin"),
 						},
 					},
 				},
@@ -246,7 +245,7 @@ var _ = Describe("Device Controller", func() {
 					},
 					Provisioning: &v1alpha1.Provisioning{
 						BootScript: v1alpha1.TemplateSource{
-							Inline: ptr.To("boot nxos.bin"),
+							Inline: new("boot nxos.bin"),
 						},
 						Image: v1alpha1.Image{
 							URL:          "https://best-vendor-images.to/windows98",
