@@ -1,0 +1,7 @@
+lldp holdtime 200
+lldp reinit  5
+interface ethernet 7/1
+ no lldp receive
+ no lldp transmit
+interface ethernet 8/1
+ no lldp transmit

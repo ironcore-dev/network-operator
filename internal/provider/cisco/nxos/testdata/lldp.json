@@ -1,0 +1,22 @@
+{
+  "lldp-items": {
+    "inst-items": {
+      "holdTime": 200,
+      "initDelayTime": 5,
+      "if-items": {
+        "If-list": [
+          {
+              "id": "eth7/1",
+              "adminRxSt": "disabled",
+              "adminTxSt": "disabled"
+          },
+          {
+              "id": "eth8/1",
+              "adminRxSt":  "DME_UNSET_PROPERTY_MARKER",
+              "adminTxSt": "disabled"
+          }
+        ]
+      }
+    }
+  }
+}

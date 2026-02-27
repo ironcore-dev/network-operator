@@ -599,8 +599,9 @@ type LLDPProvider interface {
 }
 
 type LLDPRequest struct {
-	LLDP           *v1alpha1.LLDP
-	ProviderConfig *ProviderConfig
+	LLDP                *v1alpha1.LLDP
+	ProviderConfig      *ProviderConfig
+	ProviderConfigScope *ProviderConfigScope
 }
 
 // LLDPStatus represents the operational status of LLDP on the device.
@@ -673,4 +674,17 @@ type ProviderConfig struct {
 // Into converts the underlying unstructured object into the specified type.
 func (p ProviderConfig) Into(v any) error {
 	return runtime.DefaultUnstructuredConverter.FromUnstructured(p.obj.Object, v)
+}
+
+// ProviderConfigScope is a wrapper around an [unstructured.Unstructured] object that represents a provider-specific scope.
+type ProviderConfigScope struct {
+	obj *unstructured.Unstructured
+}
+
+func (p ProviderConfigScope) Into(v any) error {
+	return runtime.DefaultUnstructuredConverter.FromUnstructured(p.obj.Object, v)
+}
+
+func NewProviderConfigScope(obj *unstructured.Unstructured) *ProviderConfigScope {
+	return &ProviderConfigScope{obj: obj}
 }

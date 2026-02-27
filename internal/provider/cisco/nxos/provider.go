@@ -11,6 +11,7 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"net/netip"
 	"reflect"
@@ -29,6 +30,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	nxcfg "github.com/ironcore-dev/network-operator/internal/providerconfig/cisco/nx"
 )
 
 var (
@@ -56,6 +58,7 @@ var (
 	_ provider.VLANProvider             = (*Provider)(nil)
 	_ provider.VRFProvider              = (*Provider)(nil)
 	_ provider.NVEProvider              = (*Provider)(nil)
+	_ provider.LLDPProvider             = (*Provider)(nil)
 )
 
 type Provider struct {
@@ -2654,6 +2657,96 @@ func (p *Provider) GetNVEStatus(ctx context.Context, req *provider.NVERequest) (
 	default:
 		// unknown type, return as empty
 	}
+	return s, nil
+}
+
+func (p *Provider) EnsureLLDP(ctx context.Context, req *provider.LLDPRequest) error {
+	f1 := new(Feature)
+	f1.Name = "lldp"
+	f1.AdminSt = AdminStEnabled
+	if req.LLDP.Spec.AdminState == v1alpha1.AdminStateDown {
+		f1.AdminSt = AdminStDisabled
+	}
+
+	if err := p.Patch(ctx, f1); err != nil {
+		return err
+	}
+
+	l := new(LLDP)
+	c := new(nxv1alpha1.LLDPConfig)
+	if req.ProviderConfig == nil {
+		return nil
+	}
+
+	if err := req.ProviderConfig.Into(c); err != nil {
+		return fmt.Errorf("failed to decode provider config: %w", err)
+	}
+
+	l.InitDelay = NewOption(uint16(c.Spec.InitDelay)) //nolint:gosec
+	l.HoldTime = NewOption(uint16(c.Spec.HoldTime))   //nolint:gosec
+
+	// patch if the provider config only includes global LLDP settings
+	if c.Spec.InterfaceRefs == nil {
+		return p.Patch(ctx, l)
+	}
+
+	// return error the config references interfaces but the request does not include a scope with them
+	if req.ProviderConfigScope == nil {
+		return errors.New("lldp: provider config scope is required when interface refs are specified")
+	}
+
+	s := new(nxcfg.LLDPConfigScope)
+	if err := req.ProviderConfigScope.Into(s); err != nil {
+		return fmt.Errorf("failed to decode provider config into scope: %w", err)
+	}
+
+	for _, ifCfg := range c.Spec.InterfaceRefs {
+		intf, ok := s.Interfaces[ifCfg.Name]
+		if !ok {
+			available := slices.Sorted(maps.Keys(s.Interfaces))
+			return fmt.Errorf("lldp: interface %q not found in request (available interfaces: %v)", ifCfg.Name, available)
+		}
+
+		item := new(LLDPIfItem)
+		name, err := ShortName(intf.Spec.Name)
+		if err != nil {
+			return fmt.Errorf("lldp: failed to get short name for interface %q: %w", intf.Spec.Name, err)
+		}
+		item.InterfaceName = name
+
+		item.AdminRxSt = NewOption(AdminStEnabled)
+		if ifCfg.AdminRxState == v1alpha1.AdminStateDown {
+			item.AdminRxSt = NewOption(AdminStDisabled)
+		}
+		item.AdminTxSt = NewOption(AdminStEnabled)
+		if ifCfg.AdminTxState == v1alpha1.AdminStateDown {
+			item.AdminTxSt = NewOption(AdminStDisabled)
+		}
+		l.IfItems.IfList.Set(item)
+	}
+	return p.Patch(ctx, l)
+}
+
+func (p *Provider) DeleteLLDP(ctx context.Context, req *provider.LLDPRequest) error {
+	f1 := new(Feature)
+	f1.Name = "lldp"
+	f1.AdminSt = AdminStDisabled
+
+	if err := p.Patch(ctx, f1); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *Provider) GetLLDPStatus(ctx context.Context, req *provider.LLDPRequest) (provider.LLDPStatus, error) {
+	s := provider.LLDPStatus{}
+
+	op := new(LLDPOper)
+	if err := p.client.GetState(ctx, op); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return provider.LLDPStatus{}, err
+	}
+	s.OperStatus = op.OperSt == OperSt(AdminStEnabled)
+
 	return s, nil
 }
 

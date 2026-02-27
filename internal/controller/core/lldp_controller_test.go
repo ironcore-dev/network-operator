@@ -13,6 +13,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 
+	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
 
@@ -56,6 +57,12 @@ var _ = Describe("LLDP Controller", func() {
 			err := k8sClient.Get(ctx, resourceKey, lldp)
 			if err == nil {
 				Expect(k8sClient.Delete(ctx, lldp)).To(Succeed())
+
+				By("Waiting for LLDP resource to be fully deleted")
+				Eventually(func(g Gomega) {
+					err := k8sClient.Get(ctx, resourceKey, &v1alpha1.LLDP{})
+					g.Expect(errors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
 			}
 
 			By("Cleaning up the Device resource")
@@ -272,6 +279,247 @@ var _ = Describe("LLDP Controller", func() {
 				err := k8sClient.Get(ctx, resourceKey, &v1alpha1.LLDP{})
 				g.Expect(errors.IsNotFound(err)).To(BeTrue())
 			}).Should(Succeed())
+		})
+	})
+
+	Context("When reconciling with ProviderConfigRef", func() {
+		const (
+			deviceName   = "testlldp-provider-device"
+			resourceName = "testlldp-provider-lldp"
+		)
+
+		resourceKey := client.ObjectKey{Name: resourceName, Namespace: metav1.NamespaceDefault}
+		deviceKey := client.ObjectKey{Name: deviceName, Namespace: metav1.NamespaceDefault}
+
+		var (
+			device *v1alpha1.Device
+			lldp   *v1alpha1.LLDP
+		)
+
+		BeforeEach(func() {
+			By("Creating the custom resource for the Kind Device")
+			device = &v1alpha1.Device{}
+			if err := k8sClient.Get(ctx, deviceKey, device); errors.IsNotFound(err) {
+				device = &v1alpha1.Device{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      deviceName,
+						Namespace: metav1.NamespaceDefault,
+					},
+					Spec: v1alpha1.DeviceSpec{
+						Endpoint: v1alpha1.Endpoint{
+							Address: "192.168.10.2:9339",
+						},
+					},
+				}
+				Expect(k8sClient.Create(ctx, device)).To(Succeed())
+			}
+		})
+
+		AfterEach(func() {
+			By("Cleaning up the LLDP resource")
+			lldp = &v1alpha1.LLDP{}
+			err := k8sClient.Get(ctx, resourceKey, lldp)
+			if err == nil {
+				Expect(k8sClient.Delete(ctx, lldp)).To(Succeed())
+
+				By("Waiting for LLDP resource to be fully deleted")
+				Eventually(func(g Gomega) {
+					err := k8sClient.Get(ctx, resourceKey, &v1alpha1.LLDP{})
+					g.Expect(errors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
+			}
+
+			By("Cleaning up the Device resource")
+			err = k8sClient.Get(ctx, deviceKey, device)
+			if err == nil {
+				Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
+			}
+
+			By("Verifying the resource has been deleted")
+			Eventually(func(g Gomega) {
+				g.Expect(testProvider.LLDP).To(BeNil(), "Provider should have no LLDP configured")
+			}).Should(Succeed())
+		})
+
+		It("Should handle missing ProviderConfigRef", func() {
+			By("Creating LLDP with a non-existent ProviderConfigRef")
+			lldp = &v1alpha1.LLDP{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      resourceName,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.LLDPSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
+					AdminState: v1alpha1.AdminStateUp,
+					ProviderConfigRef: &v1alpha1.TypedLocalObjectReference{
+						APIVersion: "nx.cisco.networking.metal.ironcore.dev/v1alpha1",
+						Kind:       "LLDPConfig",
+						Name:       "non-existent-config",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, lldp)).To(Succeed())
+
+			By("Verifying the controller sets ConfiguredCondition to False")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, lldp)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				cond := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.ConfiguredCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(cond.Reason).To(Equal(v1alpha1.IncompatibleProviderConfigRef))
+			}).Should(Succeed())
+		})
+
+		It("Should handle invalid ProviderConfigRef API version", func() {
+			By("Creating LLDP with invalid API version in ProviderConfigRef")
+			lldp = &v1alpha1.LLDP{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      resourceName,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.LLDPSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
+					AdminState: v1alpha1.AdminStateUp,
+					ProviderConfigRef: &v1alpha1.TypedLocalObjectReference{
+						APIVersion: "invalid-api-version",
+						Kind:       "LLDPConfig",
+						Name:       "some-config",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, lldp)).To(Succeed())
+
+			By("Verifying the controller sets ConfiguredCondition to False with IncompatibleProviderConfigRef")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, lldp)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				cond := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.ConfiguredCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(cond.Reason).To(Equal(v1alpha1.IncompatibleProviderConfigRef))
+			}).Should(Succeed())
+		})
+
+		It("Should handle unsupported ProviderConfigRef Kind", func() {
+			By("Creating LLDP with unsupported Kind in ProviderConfigRef")
+			lldp = &v1alpha1.LLDP{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      resourceName,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.LLDPSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
+					AdminState: v1alpha1.AdminStateUp,
+					ProviderConfigRef: &v1alpha1.TypedLocalObjectReference{
+						APIVersion: "v1",
+						Kind:       "ConfigMap",
+						Name:       "some-config",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, lldp)).To(Succeed())
+
+			By("Verifying the controller sets ConfiguredCondition to False with IncompatibleProviderConfigRef")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, lldp)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				cond := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.ConfiguredCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(cond.Reason).To(Equal(v1alpha1.IncompatibleProviderConfigRef))
+			}).Should(Succeed())
+		})
+
+		It("Should successfully reconcile with valid ProviderConfigRef", func() {
+			const (
+				interfaceName  = "testlldp-provider-interface"
+				lldpConfigName = "testlldp-provider-config"
+			)
+
+			By("Creating the Interface resource")
+			intf := &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      interfaceName,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
+					Name:       "Ethernet1/1",
+					Type:       v1alpha1.InterfaceTypePhysical,
+					AdminState: v1alpha1.AdminStateUp,
+				},
+			}
+			Expect(k8sClient.Create(ctx, intf)).To(Succeed())
+
+			By("Creating the LLDPConfig resource")
+			lldpConfig := &nxv1alpha1.LLDPConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      lldpConfigName,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: nxv1alpha1.LLDPConfigSpec{
+					InitDelay: 5,
+					HoldTime:  180,
+					InterfaceRefs: []nxv1alpha1.LLDPInterface{{
+						LocalObjectReference: v1alpha1.LocalObjectReference{Name: interfaceName},
+						AdminRxState:         v1alpha1.AdminStateUp,
+						AdminTxState:         v1alpha1.AdminStateDown,
+					}},
+				},
+			}
+			Expect(k8sClient.Create(ctx, lldpConfig)).To(Succeed())
+
+			By("Creating LLDP with valid ProviderConfigRef")
+			lldp = &v1alpha1.LLDP{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      resourceName,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.LLDPSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
+					AdminState: v1alpha1.AdminStateUp,
+					ProviderConfigRef: &v1alpha1.TypedLocalObjectReference{
+						APIVersion: nxv1alpha1.GroupVersion.String(),
+						Kind:       "LLDPConfig",
+						Name:       lldpConfigName,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, lldp)).To(Succeed())
+
+			By("Verifying the controller sets all conditions to True")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, lldp)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				cond := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+
+				cond = meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.ConfiguredCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+
+				cond = meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.OperationalCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			}).Should(Succeed())
+
+			By("Verifying the LLDP is created in the provider")
+			Eventually(func(g Gomega) {
+				g.Expect(testProvider.LLDP).ToNot(BeNil())
+				g.Expect(testProvider.LLDP.GetName()).To(Equal(resourceName))
+			}).Should(Succeed())
+
+			By("Cleaning up the LLDPConfig resource")
+			Expect(k8sClient.Delete(ctx, lldpConfig)).To(Succeed())
+
+			By("Cleaning up the Interface resource")
+			Expect(k8sClient.Delete(ctx, intf)).To(Succeed())
 		})
 	})
 })

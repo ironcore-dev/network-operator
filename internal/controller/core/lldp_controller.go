@@ -34,6 +34,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/providerconfig"
 	"github.com/ironcore-dev/network-operator/internal/resourcelock"
 )
 
@@ -201,6 +202,8 @@ type lldpScope struct {
 	Provider   provider.LLDPProvider
 	// ProviderConfig is the resource referenced by LLDP.Spec.ProviderConfigRef, if any.
 	ProviderConfig *provider.ProviderConfig
+	// ProviderConfigScope is the scope with the resources referenced in ProviderConfig, if applicable.
+	ProviderConfigScope *providerconfig.Scope
 }
 
 func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (_ ctrl.Result, reterr error) {
@@ -240,9 +243,17 @@ func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (_ ctrl.Re
 	}()
 
 	// Ensure the LLDP is realized on the remote device.
+	// Convert providerconfig.Scope to provider.ProviderConfigScope.
+	// These are separate types to decouple the validation layer (which uses k8s client)
+	// from the provider layer (which should not depend on k8s client).
+	var providerScope *provider.ProviderConfigScope
+	if s.ProviderConfigScope != nil {
+		providerScope = provider.NewProviderConfigScope(s.ProviderConfigScope.Raw())
+	}
 	err = s.Provider.EnsureLLDP(ctx, &provider.LLDPRequest{
-		LLDP:           s.LLDP,
-		ProviderConfig: s.ProviderConfig,
+		LLDP:                s.LLDP,
+		ProviderConfig:      s.ProviderConfig,
+		ProviderConfigScope: providerScope,
 	})
 
 	cond := conditions.FromError(err)
@@ -321,6 +332,24 @@ func (r *LLDPReconciler) validateProviderConfigRef(ctx context.Context, s *lldpS
 		return nil, reconcile.TerminalError(fmt.Errorf("unsupported ProviderConfigRef Kind %q on this provider", gv))
 	}
 
+	// if a provider-specific validator is registered, use it
+	if validator, ok := providerconfig.GetValidator(gvk); ok {
+		reader := r.APIReader
+		if reader == nil {
+			// fall back to the cached client if APIReader is not set
+			reader = r.Client
+		}
+		s.ProviderConfigScope, err = validator(ctx, reader, s.LLDP, s.LLDP.Spec.ProviderConfigRef)
+		if err != nil {
+			conditions.Set(s.LLDP, metav1.Condition{
+				Type:    v1alpha1.ConfiguredCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.IncompatibleProviderConfigRef,
+				Message: fmt.Sprintf("ProviderConfigRef validation failed: %v", err),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("configuration error in provider config ref %w", err))
+		}
+	}
 	return cfg, nil
 }
 
