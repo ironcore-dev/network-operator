@@ -320,6 +320,16 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&LLDPReconciler{
+		Client:          k8sManager.GetClient(),
+		Scheme:          k8sManager.GetScheme(),
+		Recorder:        recorder,
+		Provider:        prov,
+		Locker:          testLocker,
+		RequeueInterval: time.Second,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -387,6 +397,7 @@ var (
 	_ provider.PrefixSetProvider        = (*Provider)(nil)
 	_ provider.RoutingPolicyProvider    = (*Provider)(nil)
 	_ provider.NVEProvider              = (*Provider)(nil)
+	_ provider.LLDPProvider             = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -415,6 +426,7 @@ type Provider struct {
 	PrefixSets      sets.Set[string]
 	RoutingPolicies sets.Set[string]
 	NVE             *v1alpha1.NetworkVirtualizationEdge
+	LLDP            *v1alpha1.LLDP
 }
 
 func NewProvider() *Provider {
@@ -831,4 +843,22 @@ func (p *Provider) GetNVEStatus(_ context.Context, _ *provider.NVERequest) (prov
 		}
 	}
 	return status, nil
+}
+
+func (p *Provider) EnsureLLDP(_ context.Context, req *provider.LLDPRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.LLDP = req.LLDP
+	return nil
+}
+
+func (p *Provider) DeleteLLDP(_ context.Context, req *provider.LLDPRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.LLDP = nil
+	return nil
+}
+
+func (p *Provider) GetLLDPStatus(_ context.Context, _ *provider.LLDPRequest) (provider.LLDPStatus, error) {
+	return provider.LLDPStatus{OperStatus: true}, nil
 }

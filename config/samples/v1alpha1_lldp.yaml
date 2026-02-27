@@ -1,0 +1,18 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: LLDP
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: leaf1-lldp
+spec:
+  deviceRef:
+    name: leaf1
+  adminState: Up
+  # Uncomment to add NXOS provider-specific config
+  # See: ./cisco/nx/v1alpha1_lldpconfig.yaml
+  # providerConfigRef:
+  #   apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+  #   kind: LLDPConfig
+  #   name: leaf1-lldpconfig

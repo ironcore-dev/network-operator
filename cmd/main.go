@@ -457,6 +457,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&corecontroller.LLDPReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("lldp-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+		Locker:           locker,
+		RequeueInterval:  requeueInterval,
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LLDP")
+		os.Exit(1)
+	}
+
 	if err := (&corecontroller.OSPFReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),

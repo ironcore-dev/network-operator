@@ -2,6 +2,7 @@
 resources:
 - v1alpha1_device.yaml
 - v1alpha1_interface.yaml
+- v1alpha1_lldp.yaml
 - v1alpha1_banner.yaml
 - v1alpha1_user.yaml
 - v1alpha1_dns.yaml

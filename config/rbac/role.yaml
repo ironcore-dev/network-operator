@@ -52,6 +52,7 @@ rules:
   - evpninstances
   - interfaces
   - isis
+  - lldps
   - managementaccesses
   - networkvirtualizationedges
   - ntp
@@ -85,6 +86,7 @@ rules:
   - evpninstances/finalizers
   - interfaces/finalizers
   - isis/finalizers
+  - lldps/finalizers
   - managementaccesses/finalizers
   - networkvirtualizationedges/finalizers
   - ntp/finalizers
@@ -112,6 +114,7 @@ rules:
   - evpninstances/status
   - interfaces/status
   - isis/status
+  - lldps/status
   - managementaccesses/status
   - networkvirtualizationedges/status
   - ntp/status
