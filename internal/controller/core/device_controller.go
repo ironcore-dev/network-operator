@@ -325,8 +325,11 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 		return nil
 	}
 	delete(obj.Annotations, v1alpha1.DeviceMaintenanceAnnotation)
+
 	switch action {
 	case v1alpha1.DeviceMaintenanceReboot:
+		// Reboot triggers a device restart. The device remains in its current phase
+		// and will resume normal operation after the reboot completes.
 		r.Recorder.Event(obj, "Normal", "RebootRequested", "Device reboot has been requested")
 		if err := prov.Reboot(ctx, conn); err != nil {
 			conditions.Set(obj, metav1.Condition{
@@ -340,6 +343,8 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 		}
 
 	case v1alpha1.DeviceMaintenanceFactoryReset:
+		// FactoryReset erases all device configuration and returns it to its original state.
+		// After completion, the device phase is reset to Pending to restart the lifecycle.
 		r.Recorder.Event(obj, "Normal", "FactoryResetRequested", "Device factory reset has been requested")
 		if err := prov.FactoryReset(ctx, conn); err != nil {
 			conditions.Set(obj, metav1.Condition{
@@ -351,28 +356,36 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 			r.Recorder.Event(obj, "Warning", "FactoryResetFailed", fmt.Sprintf("Device factory reset has failed: %v", err))
 			return fmt.Errorf("failed to reset device to factory defaults: %w", err)
 		}
+		obj.Status.Phase = v1alpha1.DevicePhasePending
 
 	case v1alpha1.DeviceMaintenanceReprovision:
-		r.Recorder.Event(obj, "Normal", "ReprovisioningRequested", "Device reprovisioning has been requested. Preparing the device.")
+		// Reprovision prepares the device for re-provisioning without a full factory reset.
+		// The provider initiates the provisioning process, then the phase is reset to Pending.
+		r.Recorder.Event(obj, "Normal", "ReprovisionRequested", "Device reprovisioning has been requested")
 		if err := prov.Reprovision(ctx, conn); err != nil {
 			conditions.Set(obj, metav1.Condition{
 				Type:    v1alpha1.ReadyCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  v1alpha1.MaintenanceFailedReason,
-				Message: fmt.Sprintf("Failed to reprovision device: %v", err),
+				Message: fmt.Sprintf("Failed to prepare device for reprovisioning: %v", err),
 			})
-			r.Recorder.Event(obj, "Warning", "ReprovisioningFailed", fmt.Sprintf("Device reprovisioning has failed: %v", err))
-			return fmt.Errorf("failed to reset device to reprovision: %w", err)
+			r.Recorder.Event(obj, "Warning", "ReprovisionFailed", fmt.Sprintf("Device reprovisioning preparation has failed: %v", err))
+			return fmt.Errorf("failed to prepare device for reprovisioning: %w", err)
 		}
 		obj.Status.Phase = v1alpha1.DevicePhasePending
 
-	case v1alpha1.DeviceMaintenanceResetPhaseToProvisioning:
-		r.Recorder.Event(obj, "Normal", "ResetPhaseToProvisioningRequested", "Device phase reset to Pending has been requested.")
+	case v1alpha1.DeviceMaintenanceResetPhase:
+		// Reset phase is a soft reset that only changes the device phase to Pending without
+		// performing any device-side operations. This is useful for recovering from terminal
+		// states (e.g., Failed) after manual intervention.
+		r.Recorder.Event(obj, "Normal", "PhaseReset", "Device phase has been reset to Pending")
 		obj.Status.Phase = v1alpha1.DevicePhasePending
 
 	default:
-		return fmt.Errorf("unknown device action: %s", action)
+		r.Recorder.Event(obj, "Warning", "UnknownMaintenanceAction", "Unknown maintenance action: %s"+action)
+		return fmt.Errorf("unknown maintenance action: %s", action)
 	}
+
 	return nil
 }
 

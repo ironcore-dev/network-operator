@@ -229,7 +229,7 @@ var _ = Describe("Device Controller", func() {
 			}).Should(Succeed())
 		})
 
-		It("Should transition from Running to Provisioning once the reset-phase-to-provisioning annotation is set", func() {
+		It("Should transition from Running to Provisioning once the reset-phase annotation is set", func() {
 			By("Creating a Device")
 			device := &v1alpha1.Device{
 				ObjectMeta: metav1.ObjectMeta{
@@ -280,13 +280,13 @@ var _ = Describe("Device Controller", func() {
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 			}).Should(Succeed())
 
-			By("Adding the reset-phase-to-provisioning annotation to the device")
+			By("Adding the reset-phase annotation to the device")
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.Device{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
 				patch := resource.DeepCopy()
 				annotations := make(map[string]string)
-				annotations[v1alpha1.DeviceMaintenanceAnnotation] = v1alpha1.DeviceMaintenanceResetPhaseToProvisioning
+				annotations[v1alpha1.DeviceMaintenanceAnnotation] = v1alpha1.DeviceMaintenanceResetPhase
 				patch.SetAnnotations(annotations)
 				g.Expect(k8sClient.Patch(ctx, patch, client.MergeFrom(resource))).To(Succeed())
 			}).Should(Succeed())

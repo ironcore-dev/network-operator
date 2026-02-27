@@ -70,10 +70,14 @@ const (
 	// DeviceMaintenanceFactoryReset requests a factory reset of the device. A factory reset
 	// will erase all configuration and return the device to its original state.
 	DeviceMaintenanceFactoryReset = "factory-reset"
-	// DeviceMaintenanceReprovision requests reprovisioning of the device, without completely resetting it.
+	// DeviceMaintenanceReprovision triggers a zero touch provisioning process on the device
+	// without a full factory reset. The provider initiates the provisioning workflow e.g.,
+	// by rebooting into a provisioning image or triggering a provisioning mode.
 	DeviceMaintenanceReprovision = "reprovision"
-	// DeviceMaintenanceResetPhaseToProvisioning requests resetting the device's maintenance phase to "provisioning" without rebooting or preparing the device.
-	DeviceMaintenanceResetPhaseToProvisioning = "reset-phase-to-provisioning"
+	// DeviceMaintenanceResetPhase resets the device's phase to Pending without performing any
+	// device-side operations. This is useful for recovering from terminal states (e.g., Failed)
+	// after manual intervention.
+	DeviceMaintenanceResetPhase = "reset-phase"
 )
 
 // Condition types that are used across different objects.
