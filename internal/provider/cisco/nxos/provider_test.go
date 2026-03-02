@@ -7,9 +7,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/tidwall/gjson"
 
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
@@ -85,9 +88,59 @@ func Test_Payload(t *testing.T) {
 			}
 
 			res := gjson.GetBytes(buf.Bytes(), sb.String())
-			if want := []byte(res.Raw); !bytes.Equal(want, b) {
-				t.Errorf("payload mismatch:\nwant: %s\ngot:  %s", want, b)
+			want := []byte(res.Raw)
+
+			// Compare JSON semantically to handle non-deterministic map iteration order
+			if !jsonEqual(want, b) {
+				t.Errorf("payload mismatch:\nwant: %s\ngot: %s", want, b)
 			}
 		})
 	}
+}
+
+// sortSlices recursively sorts all slices in a JSON-unmarshaled structure
+// to ensure deterministic comparison regardless of map iteration order.
+func sortSlices(v any) any {
+	switch val := v.(type) {
+	case map[string]any:
+		result := make(map[string]any, len(val))
+		for k, item := range val {
+			result[k] = sortSlices(item)
+		}
+		return result
+	case []any:
+		result := make([]any, len(val))
+		for i, item := range val {
+			result[i] = sortSlices(item)
+		}
+		slices.SortFunc(result, func(i, j any) int {
+			a, err := json.Marshal(i)
+			if err != nil {
+				return 0
+			}
+			b, err := json.Marshal(j)
+			if err != nil {
+				return 0
+			}
+			return strings.Compare(string(a), string(b))
+		})
+		return result
+	default:
+		return v
+	}
+}
+
+var jsonNormalizer = cmpopts.AcyclicTransformer("sortSlices", sortSlices)
+
+// jsonEqual compares two JSON byte slices for semantic equality,
+// treating arrays as unordered sets (appropriate for YANG list nodes).
+func jsonEqual(a, b []byte) bool {
+	var v1, v2 any
+	if err := json.Unmarshal(a, &v1); err != nil {
+		return false
+	}
+	if err := json.Unmarshal(b, &v2); err != nil {
+		return false
+	}
+	return cmp.Equal(v1, v2, jsonNormalizer)
 }
