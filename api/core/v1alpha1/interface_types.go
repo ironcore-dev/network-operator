@@ -26,6 +26,7 @@ import (
 // +kubebuilder:validation:XValidation:rule="self.type != 'Physical' || !has(self.switchport) || !has(self.vrfRef)", message="vrfRef must not be specified for Physical interfaces with switchport configuration"
 // +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || !has(self.bfd)", message="bfd must not be specified for interfaces of type Aggregate"
 // +kubebuilder:validation:XValidation:rule="!has(self.bfd) || !has(self.switchport)", message="bfd must not be specified for interfaces with switchport configuration"
+// +kubebuilder:validation:XValidation:rule="self.type == 'Physical' || !has(self.ethernet)", message="ethernet configuration must only be specified on interfaces of type Physical"
 type InterfaceSpec struct {
 	// DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
 	// Immutable.
@@ -97,6 +98,12 @@ type InterfaceSpec struct {
 	// BFD is only applicable for Layer 3 interfaces (Physical, Loopback, RoutedVLAN).
 	// +optional
 	BFD *BFD `json:"bfd,omitempty"`
+
+	// Ethernet defines the ethernet-specific configuration for physical interfaces.
+	// This configuration is only applicable to Physical interfaces.
+	// When omitted, ethernet parameters use their default values (e.g., FEC mode defaults to auto).
+	// +optional
+	Ethernet *Ethernet `json:"ethernet,omitempty"`
 }
 
 // AdminState represents the administrative state of a resource.
@@ -237,6 +244,28 @@ type BFD struct {
 	// +kubebuilder:validation:Maximum=255
 	DetectionMultiplier *int32 `json:"detectionMultiplier,omitempty"`
 }
+
+// Ethernet defines the ethernet-specific configuration for physical interfaces.
+type Ethernet struct {
+	// FECMode specifies the Forward Error Correction mode for the interface.
+	// FEC provides error detection and correction at the physical layer, improving link reliability.
+	// When not specified, the FEC mode defaults to "auto" where the device negotiates the appropriate mode.
+	// +optional
+	FECMode FECMode `json:"fecMode,omitempty"`
+}
+
+// FECMode represents the Forward Error Correction mode for Ethernet Interfaces.
+// +kubebuilder:validation:Enum=FC;RS528;Disabled
+type FECMode string
+
+const (
+	// FECModeFC indicates IEEE 802.3 Clause 74 Fire Code FEC for NRZ modulation (<100G).
+	FECModeFC FECMode = "FC"
+	// FECModeRS528 indicates IEEE 802.3 Clause 91 Reed-Solomon FEC (528,514) for NRZ modulation.
+	FECModeRS528 FECMode = "RS528"
+	// FECModeDisabled indicates FEC is administratively disabled.
+	FECModeDisabled FECMode = "Disabled"
+)
 
 type Aggregation struct {
 	// MemberInterfaceRefs is a list of interface references that are part of the aggregate interface.

@@ -691,6 +691,21 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			p.MTU = req.Interface.Spec.MTU
 			p.UserCfgdFlags |= UserFlagAdminMTU
 		}
+
+		if req.Interface.Spec.Ethernet != nil && req.Interface.Spec.Ethernet.FECMode != "" {
+			p.FecMode = FecModeAuto
+			switch req.Interface.Spec.Ethernet.FECMode {
+			case v1alpha1.FECModeFC:
+				p.FecMode = FecModeCL74
+			case v1alpha1.FECModeRS528:
+				p.FecMode = FecModeCL91
+			case v1alpha1.FECModeDisabled:
+				p.FecMode = FecModeOff
+			default:
+				return fmt.Errorf("unsupported FEC mode: %s", req.Interface.Spec.Ethernet.FECMode)
+			}
+		}
+
 		if req.IPv4 != nil {
 			p.Layer = Layer3
 		}

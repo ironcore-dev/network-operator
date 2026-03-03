@@ -70,6 +70,7 @@ type PhysIf struct {
 	AccessVlan    string         `json:"accessVlan"`
 	AdminSt       AdminSt2       `json:"adminSt,omitempty"`
 	Descr         string         `json:"descr"`
+	FecMode       FecMode        `json:"FECMode,omitempty"`
 	ID            string         `json:"id"`
 	Layer         Layer          `json:"layer"`
 	MTU           int32          `json:"mtu,omitempty"`
@@ -536,6 +537,15 @@ type Medium string
 const (
 	MediumBroadcast    Medium = "broadcast"
 	MediumPointToPoint Medium = "p2p"
+)
+
+type FecMode string
+
+const (
+	FecModeAuto FecMode = "auto"
+	FecModeCL74 FecMode = "fc-fec"
+	FecModeCL91 FecMode = "rs-fec"
+	FecModeOff  FecMode = "fec-off"
 )
 
 type SVIMedium string

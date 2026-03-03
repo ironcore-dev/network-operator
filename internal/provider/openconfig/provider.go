@@ -64,6 +64,20 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
 		i.Type = IETFInterfaces_InterfaceType_ethernetCsmacd
+
+		if req.Interface.Spec.Ethernet != nil && req.Interface.Spec.Ethernet.FECMode != "" {
+			eth := i.GetOrCreateEthernet()
+			switch req.Interface.Spec.Ethernet.FECMode {
+			case v1alpha1.FECModeFC:
+				eth.FecMode = IfEthernet_INTERFACE_FEC_FEC_FC
+			case v1alpha1.FECModeRS528:
+				eth.FecMode = IfEthernet_INTERFACE_FEC_FEC_RS528
+			case v1alpha1.FECModeDisabled:
+				eth.FecMode = IfEthernet_INTERFACE_FEC_FEC_DISABLED
+			default:
+				return fmt.Errorf("unsupported FEC mode: %s", req.Interface.Spec.Ethernet.FECMode)
+			}
+		}
 	case v1alpha1.InterfaceTypeLoopback:
 		i.Type = IETFInterfaces_InterfaceType_softwareLoopback
 	case v1alpha1.InterfaceTypeAggregate:

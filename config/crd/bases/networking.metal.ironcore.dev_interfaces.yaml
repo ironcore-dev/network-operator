@@ -210,6 +210,23 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
+              ethernet:
+                description: |-
+                  Ethernet defines the ethernet-specific configuration for physical interfaces.
+                  This configuration is only applicable to Physical interfaces.
+                  When omitted, ethernet parameters use their default values (e.g., FEC mode defaults to auto).
+                properties:
+                  fecMode:
+                    description: |-
+                      FECMode specifies the Forward Error Correction mode for the interface.
+                      FEC provides error detection and correction at the physical layer, improving link reliability.
+                      When not specified, the FEC mode defaults to "auto" where the device negotiates the appropriate mode.
+                    enum:
+                    - FC
+                    - RS528
+                    - Disabled
+                    type: string
+                type: object
               ipv4:
                 description: IPv4 defines the IPv4 configuration for the interface.
                 properties:
@@ -441,6 +458,9 @@ spec:
               rule: self.type != 'Aggregate' || !has(self.bfd)
             - message: bfd must not be specified for interfaces with switchport configuration
               rule: '!has(self.bfd) || !has(self.switchport)'
+            - message: ethernet configuration must only be specified on interfaces
+                of type Physical
+              rule: self.type == 'Physical' || !has(self.ethernet)
           status:
             description: |-
               Status of the resource. This is set and updated automatically.
