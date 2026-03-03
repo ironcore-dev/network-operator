@@ -2,442 +2,464 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-    annotations:
-        {{- if .Values.crd.keep }}
-        "helm.sh/resource-policy": keep
-        {{- end }}
-        controller-gen.kubebuilder.io/version: v0.20.1
-    name: devices.networking.metal.ironcore.dev
+  annotations:
+    {{- if .Values.crd.keep }}
+    "helm.sh/resource-policy": keep
+    {{- end }}
+    controller-gen.kubebuilder.io/version: v0.20.1
+  name: devices.networking.metal.ironcore.dev
 spec:
-    group: networking.metal.ironcore.dev
-    names:
-        kind: Device
-        listKind: DeviceList
-        plural: devices
-        shortNames:
-            - dev
-        singular: device
-    scope: Namespaced
-    versions:
-        - additionalPrinterColumns:
-            - jsonPath: .spec.endpoint.address
-              name: Endpoint
-              type: string
-            - jsonPath: .status.manufacturer
-              name: Manufacturer
-              priority: 1
-              type: string
-            - jsonPath: .status.model
-              name: Model
-              priority: 1
-              type: string
-            - jsonPath: .status.serialNumber
-              name: SerialNumber
-              priority: 1
-              type: string
-            - jsonPath: .status.firmwareVersion
-              name: FirmwareVersion
-              priority: 1
-              type: string
-            - jsonPath: .status.portSummary
-              name: Ports
-              priority: 1
-              type: string
-            - jsonPath: .status.phase
-              name: Phase
-              type: string
-            - jsonPath: .status.conditions[?(@.type=="Ready")].status
-              name: Ready
-              type: string
-            - jsonPath: .metadata.creationTimestamp
-              name: Age
-              type: date
-          name: v1alpha1
-          schema:
-            openAPIV3Schema:
-                description: Device is the Schema for the devices API.
+  group: networking.metal.ironcore.dev
+  names:
+    kind: Device
+    listKind: DeviceList
+    plural: devices
+    shortNames:
+    - dev
+    singular: device
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.endpoint.address
+      name: Endpoint
+      type: string
+    - jsonPath: .status.manufacturer
+      name: Manufacturer
+      priority: 1
+      type: string
+    - jsonPath: .status.model
+      name: Model
+      priority: 1
+      type: string
+    - jsonPath: .status.serialNumber
+      name: SerialNumber
+      priority: 1
+      type: string
+    - jsonPath: .status.firmwareVersion
+      name: FirmwareVersion
+      priority: 1
+      type: string
+    - jsonPath: .status.portSummary
+      name: Ports
+      priority: 1
+      type: string
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Device is the Schema for the devices API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              Specification of the desired state of the resource.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              endpoint:
+                description: Endpoint contains the connection information for the
+                  device.
                 properties:
-                    apiVersion:
-                        description: |-
-                            APIVersion defines the versioned schema of this representation of an object.
-                            Servers should convert recognized schemas to the latest internal value, and
-                            may reject unrecognized values.
-                            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+                  address:
+                    description: Address is the management address of the device provided
+                      in IP:Port format.
+                    pattern: ^(\d{1,3}\.){3}\d{1,3}:\d{1,5}$
+                    type: string
+                  secretRef:
+                    description: |-
+                      SecretRef is name of the authentication secret for the device containing the username and password.
+                      The secret must be of type kubernetes.io/basic-auth and as such contain the following keys: 'username' and 'password'.
+                    properties:
+                      name:
+                        description: Name is unique within a namespace to reference
+                          a secret resource.
+                        maxLength: 253
+                        minLength: 1
                         type: string
-                    kind:
+                      namespace:
                         description: |-
-                            Kind is a string value representing the REST resource this object represents.
-                            Servers may infer this from the endpoint the client submits requests to.
-                            Cannot be updated.
-                            In CamelCase.
-                            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+                          Namespace defines the space within which the secret name must be unique.
+                          If omitted, the namespace of the object being reconciled will be used.
+                        maxLength: 63
+                        minLength: 1
                         type: string
-                    metadata:
-                        type: object
-                    spec:
-                        description: |-
-                            Specification of the desired state of the resource.
-                            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  tls:
+                    description: Transport credentials for grpc connection to the
+                      switch.
+                    properties:
+                      ca:
+                        description: The CA certificate to verify the server's identity.
                         properties:
-                            endpoint:
-                                description: Endpoint contains the connection information for the device.
-                                properties:
-                                    address:
-                                        description: Address is the management address of the device provided in IP:Port format.
-                                        pattern: ^(\d{1,3}\.){3}\d{1,3}:\d{1,5}$
-                                        type: string
-                                    secretRef:
-                                        description: |-
-                                            SecretRef is name of the authentication secret for the device containing the username and password.
-                                            The secret must be of type kubernetes.io/basic-auth and as such contain the following keys: 'username' and 'password'.
-                                        properties:
-                                            name:
-                                                description: Name is unique within a namespace to reference a secret resource.
-                                                maxLength: 253
-                                                minLength: 1
-                                                type: string
-                                            namespace:
-                                                description: |-
-                                                    Namespace defines the space within which the secret name must be unique.
-                                                    If omitted, the namespace of the object being reconciled will be used.
-                                                maxLength: 63
-                                                minLength: 1
-                                                type: string
-                                        required:
-                                            - name
-                                        type: object
-                                        x-kubernetes-map-type: atomic
-                                    tls:
-                                        description: Transport credentials for grpc connection to the switch.
-                                        properties:
-                                            ca:
-                                                description: The CA certificate to verify the server's identity.
-                                                properties:
-                                                    key:
-                                                        description: |-
-                                                            Key is the of the entry in the secret resource's `data` or `stringData`
-                                                            field to be used.
-                                                        maxLength: 253
-                                                        minLength: 1
-                                                        type: string
-                                                    name:
-                                                        description: Name is unique within a namespace to reference a secret resource.
-                                                        maxLength: 253
-                                                        minLength: 1
-                                                        type: string
-                                                    namespace:
-                                                        description: |-
-                                                            Namespace defines the space within which the secret name must be unique.
-                                                            If omitted, the namespace of the object being reconciled will be used.
-                                                        maxLength: 63
-                                                        minLength: 1
-                                                        type: string
-                                                required:
-                                                    - key
-                                                    - name
-                                                type: object
-                                                x-kubernetes-map-type: atomic
-                                            certificate:
-                                                description: |-
-                                                    The client certificate and private key to use for mutual TLS authentication.
-                                                    Leave empty if mTLS is not desired.
-                                                properties:
-                                                    secretRef:
-                                                        description: |-
-                                                            Secret containing the certificate.
-                                                            The secret must be of type kubernetes.io/tls and as such contain the following keys: 'tls.crt' and 'tls.key'.
-                                                        properties:
-                                                            name:
-                                                                description: Name is unique within a namespace to reference a secret resource.
-                                                                maxLength: 253
-                                                                minLength: 1
-                                                                type: string
-                                                            namespace:
-                                                                description: |-
-                                                                    Namespace defines the space within which the secret name must be unique.
-                                                                    If omitted, the namespace of the object being reconciled will be used.
-                                                                maxLength: 63
-                                                                minLength: 1
-                                                                type: string
-                                                        required:
-                                                            - name
-                                                        type: object
-                                                        x-kubernetes-map-type: atomic
-                                                required:
-                                                    - secretRef
-                                                type: object
-                                        required:
-                                            - ca
-                                        type: object
-                                required:
-                                    - address
-                                type: object
-                                x-kubernetes-validations:
-                                    - message: SecretRef is required once set
-                                      rule: '!has(oldSelf.secretRef) || has(self.secretRef)'
-                            provisioning:
+                          key:
+                            description: |-
+                              Key is the of the entry in the secret resource's `data` or `stringData`
+                              field to be used.
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                          name:
+                            description: Name is unique within a namespace to reference
+                              a secret resource.
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                          namespace:
+                            description: |-
+                              Namespace defines the space within which the secret name must be unique.
+                              If omitted, the namespace of the object being reconciled will be used.
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      certificate:
+                        description: |-
+                          The client certificate and private key to use for mutual TLS authentication.
+                          Leave empty if mTLS is not desired.
+                        properties:
+                          secretRef:
+                            description: |-
+                              Secret containing the certificate.
+                              The secret must be of type kubernetes.io/tls and as such contain the following keys: 'tls.crt' and 'tls.key'.
+                            properties:
+                              name:
+                                description: Name is unique within a namespace to
+                                  reference a secret resource.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                              namespace:
                                 description: |-
-                                    Provisioning is an optional configuration for the device provisioning process.
-                                    It can be used to provide initial configuration templates or scripts that are applied during the device provisioning.
-                                properties:
-                                    bootScript:
-                                        description: BootScript defines the script delivered by a TFTP server to the device during bootstrapping.
-                                        properties:
-                                            configMapRef:
-                                                description: Reference to a ConfigMap containing the template
-                                                properties:
-                                                    key:
-                                                        description: |-
-                                                            Key is the of the entry in the configmap resource's `data` or `binaryData`
-                                                            field to be used.
-                                                        maxLength: 253
-                                                        minLength: 1
-                                                        type: string
-                                                    name:
-                                                        description: Name is unique within a namespace to reference a configmap resource.
-                                                        maxLength: 253
-                                                        minLength: 1
-                                                        type: string
-                                                    namespace:
-                                                        description: |-
-                                                            Namespace defines the space within which the configmap name must be unique.
-                                                            If omitted, the namespace of the object being reconciled will be used.
-                                                        maxLength: 63
-                                                        minLength: 1
-                                                        type: string
-                                                required:
-                                                    - key
-                                                    - name
-                                                type: object
-                                                x-kubernetes-map-type: atomic
-                                            inline:
-                                                description: Inline template content
-                                                minLength: 1
-                                                type: string
-                                            secretRef:
-                                                description: Reference to a Secret containing the template
-                                                properties:
-                                                    key:
-                                                        description: |-
-                                                            Key is the of the entry in the secret resource's `data` or `stringData`
-                                                            field to be used.
-                                                        maxLength: 253
-                                                        minLength: 1
-                                                        type: string
-                                                    name:
-                                                        description: Name is unique within a namespace to reference a secret resource.
-                                                        maxLength: 253
-                                                        minLength: 1
-                                                        type: string
-                                                    namespace:
-                                                        description: |-
-                                                            Namespace defines the space within which the secret name must be unique.
-                                                            If omitted, the namespace of the object being reconciled will be used.
-                                                        maxLength: 63
-                                                        minLength: 1
-                                                        type: string
-                                                required:
-                                                    - key
-                                                    - name
-                                                type: object
-                                                x-kubernetes-map-type: atomic
-                                        type: object
-                                        x-kubernetes-validations:
-                                            - message: exactly one of 'inline', 'secretRef', or 'configMapRef' must be specified
-                                              rule: '[has(self.inline), has(self.secretRef), has(self.configMapRef)].filter(x, x).size() == 1'
-                                    image:
-                                        description: Image defines the image to be used for provisioning the device.
-                                        properties:
-                                            checksum:
-                                                description: |-
-                                                    Checksum is the checksum of the image for verification.
-                                                    kubebuilder:validation:MinLength=1
-                                                type: string
-                                            checksumType:
-                                                default: MD5
-                                                description: ChecksumType is the type of the checksum (e.g., sha256, md5).
-                                                enum:
-                                                    - SHA256
-                                                    - MD5
-                                                type: string
-                                            url:
-                                                description: URL is the location of the image to be used for provisioning.
-                                                type: string
-                                        required:
-                                            - checksum
-                                            - checksumType
-                                            - url
-                                        type: object
-                                required:
-                                    - image
-                                type: object
+                                  Namespace defines the space within which the secret name must be unique.
+                                  If omitted, the namespace of the object being reconciled will be used.
+                                maxLength: 63
+                                minLength: 1
+                                type: string
+                            required:
+                            - name
+                            type: object
+                            x-kubernetes-map-type: atomic
                         required:
-                            - endpoint
+                        - secretRef
                         type: object
-                    status:
-                        description: |-
-                            Status of the resource. This is set and updated automatically.
-                            Read-only.
-                            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
-                        properties:
-                            conditions:
-                                description: The conditions are a list of status objects that describe the state of the Device.
-                                items:
-                                    description: Condition contains details for one aspect of the current state of this API Resource.
-                                    properties:
-                                        lastTransitionTime:
-                                            description: |-
-                                                lastTransitionTime is the last time the condition transitioned from one status to another.
-                                                This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
-                                            format: date-time
-                                            type: string
-                                        message:
-                                            description: |-
-                                                message is a human readable message indicating details about the transition.
-                                                This may be an empty string.
-                                            maxLength: 32768
-                                            type: string
-                                        observedGeneration:
-                                            description: |-
-                                                observedGeneration represents the .metadata.generation that the condition was set based upon.
-                                                For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
-                                                with respect to the current state of the instance.
-                                            format: int64
-                                            minimum: 0
-                                            type: integer
-                                        reason:
-                                            description: |-
-                                                reason contains a programmatic identifier indicating the reason for the condition's last transition.
-                                                Producers of specific condition types may define expected values and meanings for this field,
-                                                and whether the values are considered a guaranteed API.
-                                                The value should be a CamelCase string.
-                                                This field may not be empty.
-                                            maxLength: 1024
-                                            minLength: 1
-                                            pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
-                                            type: string
-                                        status:
-                                            description: status of the condition, one of True, False, Unknown.
-                                            enum:
-                                                - "True"
-                                                - "False"
-                                                - Unknown
-                                            type: string
-                                        type:
-                                            description: type of condition in CamelCase or in foo.example.com/CamelCase.
-                                            maxLength: 316
-                                            pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
-                                            type: string
-                                    required:
-                                        - lastTransitionTime
-                                        - message
-                                        - reason
-                                        - status
-                                        - type
-                                    type: object
-                                type: array
-                                x-kubernetes-list-map-keys:
-                                    - type
-                                x-kubernetes-list-type: map
-                            firmwareVersion:
-                                description: FirmwareVersion is the firmware version running on the Device.
-                                type: string
-                            manufacturer:
-                                description: Manufacturer is the manufacturer of the Device.
-                                type: string
-                            model:
-                                description: Model is the model identifier of the Device.
-                                type: string
-                            phase:
-                                default: Pending
-                                description: Phase represents the current phase of the Device.
-                                enum:
-                                    - Pending
-                                    - Provisioning
-                                    - Running
-                                    - Failed
-                                    - Provisioned
-                                type: string
-                            portSummary:
-                                description: PostSummary shows a summary of the port configured, grouped by type, e.g. "1/4 (10g), 3/64 (100g)".
-                                type: string
-                            ports:
-                                description: Ports is the list of ports on the Device.
-                                items:
-                                    properties:
-                                        interfaceName:
-                                            description: |-
-                                                InterfaceRef is the reference to the corresponding Interface resource
-                                                configuring this port, if any.
-                                            properties:
-                                                name:
-                                                    description: |-
-                                                        Name of the referent.
-                                                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                                    maxLength: 63
-                                                    minLength: 1
-                                                    type: string
-                                            required:
-                                                - name
-                                            type: object
-                                            x-kubernetes-map-type: atomic
-                                        name:
-                                            description: Name is the name of the port.
-                                            type: string
-                                        supportedSpeedsGbps:
-                                            description: SupportedSpeedsGbps is the list of supported speeds in Gbps for this port.
-                                            items:
-                                                format: int32
-                                                type: integer
-                                            type: array
-                                        transceiver:
-                                            description: Transceiver is the type of transceiver plugged into the port, if any.
-                                            type: string
-                                        type:
-                                            description: Type is the type of the port, e.g. "10g".
-                                            type: string
-                                    required:
-                                        - name
-                                    type: object
-                                type: array
-                            provisioning:
-                                description: Provisioning is the list of provisioning attempts for the Device.
-                                items:
-                                    properties:
-                                        endTime:
-                                            format: date-time
-                                            type: string
-                                        error:
-                                            type: string
-                                        phase:
-                                            description: ProvisioningPhase represents the reason for the current provisioning status.
-                                            type: string
-                                        reboot:
-                                            format: date-time
-                                            type: string
-                                        startTime:
-                                            format: date-time
-                                            type: string
-                                        token:
-                                            type: string
-                                    required:
-                                        - phase
-                                        - startTime
-                                        - token
-                                    type: object
-                                type: array
-                                x-kubernetes-list-map-keys:
-                                    - startTime
-                                x-kubernetes-list-type: map
-                            serialNumber:
-                                description: SerialNumber is the serial number of the Device.
-                                type: string
-                        required:
-                            - phase
-                        type: object
+                    required:
+                    - ca
+                    type: object
+                required:
+                - address
                 type: object
-          served: true
-          storage: true
-          subresources:
-            status: {}
+                x-kubernetes-validations:
+                - message: SecretRef is required once set
+                  rule: '!has(oldSelf.secretRef) || has(self.secretRef)'
+              provisioning:
+                description: |-
+                  Provisioning is an optional configuration for the device provisioning process.
+                  It can be used to provide initial configuration templates or scripts that are applied during the device provisioning.
+                properties:
+                  bootScript:
+                    description: BootScript defines the script delivered by a TFTP
+                      server to the device during bootstrapping.
+                    properties:
+                      configMapRef:
+                        description: Reference to a ConfigMap containing the template
+                        properties:
+                          key:
+                            description: |-
+                              Key is the of the entry in the configmap resource's `data` or `binaryData`
+                              field to be used.
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                          name:
+                            description: Name is unique within a namespace to reference
+                              a configmap resource.
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                          namespace:
+                            description: |-
+                              Namespace defines the space within which the configmap name must be unique.
+                              If omitted, the namespace of the object being reconciled will be used.
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      inline:
+                        description: Inline template content
+                        minLength: 1
+                        type: string
+                      secretRef:
+                        description: Reference to a Secret containing the template
+                        properties:
+                          key:
+                            description: |-
+                              Key is the of the entry in the secret resource's `data` or `stringData`
+                              field to be used.
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                          name:
+                            description: Name is unique within a namespace to reference
+                              a secret resource.
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                          namespace:
+                            description: |-
+                              Namespace defines the space within which the secret name must be unique.
+                              If omitted, the namespace of the object being reconciled will be used.
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
+                    x-kubernetes-validations:
+                    - message: exactly one of 'inline', 'secretRef', or 'configMapRef'
+                        must be specified
+                      rule: '[has(self.inline), has(self.secretRef), has(self.configMapRef)].filter(x,
+                        x).size() == 1'
+                  image:
+                    description: Image defines the image to be used for provisioning
+                      the device.
+                    properties:
+                      checksum:
+                        description: |-
+                          Checksum is the checksum of the image for verification.
+                          kubebuilder:validation:MinLength=1
+                        type: string
+                      checksumType:
+                        default: MD5
+                        description: ChecksumType is the type of the checksum (e.g.,
+                          sha256, md5).
+                        enum:
+                        - SHA256
+                        - MD5
+                        type: string
+                      url:
+                        description: URL is the location of the image to be used for
+                          provisioning.
+                        type: string
+                    required:
+                    - checksum
+                    - checksumType
+                    - url
+                    type: object
+                required:
+                - image
+                type: object
+            required:
+            - endpoint
+            type: object
+          status:
+            description: |-
+              Status of the resource. This is set and updated automatically.
+              Read-only.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              conditions:
+                description: The conditions are a list of status objects that describe
+                  the state of the Device.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              firmwareVersion:
+                description: FirmwareVersion is the firmware version running on the
+                  Device.
+                type: string
+              manufacturer:
+                description: Manufacturer is the manufacturer of the Device.
+                type: string
+              model:
+                description: Model is the model identifier of the Device.
+                type: string
+              phase:
+                default: Pending
+                description: Phase represents the current phase of the Device.
+                enum:
+                - Pending
+                - Provisioning
+                - Running
+                - Failed
+                - Provisioned
+                type: string
+              portSummary:
+                description: PostSummary shows a summary of the port configured, grouped
+                  by type, e.g. "1/4 (10g), 3/64 (100g)".
+                type: string
+              ports:
+                description: Ports is the list of ports on the Device.
+                items:
+                  properties:
+                    interfaceName:
+                      description: |-
+                        InterfaceRef is the reference to the corresponding Interface resource
+                        configuring this port, if any.
+                      properties:
+                        name:
+                          description: |-
+                            Name of the referent.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          maxLength: 63
+                          minLength: 1
+                          type: string
+                      required:
+                      - name
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    name:
+                      description: Name is the name of the port.
+                      type: string
+                    supportedSpeedsGbps:
+                      description: SupportedSpeedsGbps is the list of supported speeds
+                        in Gbps for this port.
+                      items:
+                        format: int32
+                        type: integer
+                      type: array
+                    transceiver:
+                      description: Transceiver is the type of transceiver plugged
+                        into the port, if any.
+                      type: string
+                    type:
+                      description: Type is the type of the port, e.g. "10g".
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              provisioning:
+                description: Provisioning is the list of provisioning attempts for
+                  the Device.
+                items:
+                  properties:
+                    endTime:
+                      format: date-time
+                      type: string
+                    error:
+                      type: string
+                    phase:
+                      description: ProvisioningPhase represents the reason for the
+                        current provisioning status.
+                      type: string
+                    reboot:
+                      format: date-time
+                      type: string
+                    startTime:
+                      format: date-time
+                      type: string
+                    token:
+                      type: string
+                  required:
+                  - phase
+                  - startTime
+                  - token
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - startTime
+                x-kubernetes-list-type: map
+              serialNumber:
+                description: SerialNumber is the serial number of the Device.
+                type: string
+            required:
+            - phase
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
 {{- end }}
