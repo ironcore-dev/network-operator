@@ -612,22 +612,23 @@ func main() {
 
 	// Start provisioning HTTP server if the provisioning provider
 	// is implemented and the port is set to a non-zero value.
+	// The server is added to the manager so it starts after the cache is synced
+	// and shuts down gracefully when the manager stops.
 	provisioningProvider, ok := prov().(provider.ProvisioningProvider)
 	if provisioningHTTPPort != 0 && ok {
-		provisioningServer := provisioning.HTTPServer{
+		provisioningServer := &provisioning.HTTPServer{
 			Client:           mgr.GetClient(),
 			Logger:           klog.NewKlogr().WithName("provisioning"),
 			Recorder:         mgr.GetEventRecorderFor("provisioning"),
 			ValidateSourceIP: provisioningHTTPValidateSourceIP,
 			Provider:         provisioningProvider,
+			Port:             provisioningHTTPPort,
 		}
-		setupLog.Info("Starting provisioning HTTP server", "port", provisioningHTTPPort, "validateSourceIP", provisioningHTTPValidateSourceIP)
-		go func() {
-			if err := provisioningServer.Start(provisioningHTTPPort); err != nil {
-				setupLog.Error(err, "provisioning HTTP server failed")
-				os.Exit(1)
-			}
-		}()
+		setupLog.Info("Adding provisioning HTTP server to manager", "port", provisioningHTTPPort, "validateSourceIP", provisioningHTTPValidateSourceIP)
+		if err := mgr.Add(provisioningServer); err != nil {
+			setupLog.Error(err, "unable to add provisioning server to manager")
+			os.Exit(1)
+		}
 	}
 
 	// +kubebuilder:scaffold:builder

@@ -88,9 +88,10 @@ type HTTPServer struct {
 	Recorder         record.EventRecorder
 	ValidateSourceIP bool
 	Provider         provider.ProvisioningProvider
+	Port             int
 }
 
-func (s *HTTPServer) Start(port int) error {
+func (s *HTTPServer) Start(ctx context.Context) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/provisioning/status-report", s.HandleStatusReport)
 	mux.HandleFunc("/provisioning/config", s.HandleProvisioningRequest)
@@ -98,11 +99,19 @@ func (s *HTTPServer) Start(port int) error {
 	mux.HandleFunc("/provisioning/mtls-client-ca", s.GetMTLSClientCA)
 
 	httpServer := &http.Server{
-		Addr:    fmt.Sprintf(":%d", port),
+		Addr:    fmt.Sprintf(":%d", s.Port),
 		Handler: mux,
 	}
 
-	s.Logger.Info("Starting provisioning server", "port", port)
+	go func() {
+		<-ctx.Done()
+		s.Logger.Info("Shutting down provisioning server")
+		if err := httpServer.Shutdown(context.Background()); err != nil {
+			s.Logger.Error(err, "Error shutting down provisioning server")
+		}
+	}()
+
+	s.Logger.Info("Starting provisioning server", "port", s.Port)
 
 	err := httpServer.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
