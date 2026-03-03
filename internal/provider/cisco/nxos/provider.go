@@ -2532,11 +2532,11 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) erro
 	if req.AnycastSourceInterface != nil {
 		n.AnycastInterface = NewOption(req.AnycastSourceInterface.Spec.Name)
 	}
-	if req.NVE.Spec.MulticastGroups != nil && req.NVE.Spec.MulticastGroups.L2 != "" {
-		n.McastGroupL2 = NewOption(req.NVE.Spec.MulticastGroups.L2)
+	if req.NVE.Spec.MulticastGroups != nil && req.NVE.Spec.MulticastGroups.L2 != nil {
+		n.McastGroupL2 = NewOption(req.NVE.Spec.MulticastGroups.L2.Addr().String())
 	}
-	if req.NVE.Spec.MulticastGroups != nil && req.NVE.Spec.MulticastGroups.L3 != "" {
-		n.McastGroupL3 = NewOption(req.NVE.Spec.MulticastGroups.L3)
+	if req.NVE.Spec.MulticastGroups != nil && req.NVE.Spec.MulticastGroups.L3 != nil {
+		n.McastGroupL3 = NewOption(req.NVE.Spec.MulticastGroups.L3.Addr().String())
 	}
 
 	n.SuppressARP = req.NVE.Spec.SuppressARP

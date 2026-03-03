@@ -146,12 +146,12 @@ spec:
                   l2:
                     description: L2 is the multicast group for Layer 2 VNIs (BUM traffic
                       in bridged VLANs).
-                    format: ipv4
+                    format: cidr
                     type: string
                   l3:
                     description: L3 is the multicast group for Layer 3 VNIs (BUM traffic
                       in routed VRFs).
-                    format: ipv4
+                    format: cidr
                     type: string
                 type: object
               providerConfigRef:

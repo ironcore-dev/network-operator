@@ -134,13 +134,14 @@ var _ = Describe("NVE Controller", func() {
 			ensureInterfaces(deviceName, interfaceNames, v1alpha1.InterfaceTypeLoopback)
 
 			By("Creating the custom resource for the Kind NVE")
+			l2Prefix := v1alpha1.MustParsePrefix("234.0.0.0/8")
 			nve = ensureNVE(nveKey, v1alpha1.NetworkVirtualizationEdgeSpec{
 				DeviceRef:                 v1alpha1.LocalObjectReference{Name: deviceName},
 				SuppressARP:               true,
 				HostReachability:          "BGP",
 				SourceInterfaceRef:        v1alpha1.LocalObjectReference{Name: interfaceNames[0]},
 				AnycastSourceInterfaceRef: &v1alpha1.LocalObjectReference{Name: interfaceNames[1]},
-				MulticastGroups:           &v1alpha1.MulticastGroups{L2: "234.0.0.1"},
+				MulticastGroups:           &v1alpha1.MulticastGroups{L2: &l2Prefix},
 				AdminState:                v1alpha1.AdminStateUp,
 			})
 		})
@@ -190,7 +191,7 @@ var _ = Describe("NVE Controller", func() {
 				g.Expect(testProvider.NVE.Spec.HostReachability).To(BeEquivalentTo("BGP"), "Provider NVE hostreachability should be BGP")
 				g.Expect(testProvider.NVE.Spec.SourceInterfaceRef.Name).To(Equal("lo0"), "Provider NVE primary interface should be lo0")
 				g.Expect(testProvider.NVE.Spec.MulticastGroups).ToNot(BeNil(), "Provider NVE multicast group should not be nil")
-				g.Expect(testProvider.NVE.Spec.MulticastGroups.L2).To(Equal("234.0.0.1"), "Provider NVE multicast group prefix should be seet")
+				g.Expect(testProvider.NVE.Spec.MulticastGroups.L2).To(HaveValue(Equal(v1alpha1.MustParsePrefix("234.0.0.0/8"))), "Provider NVE multicast group prefix should be set")
 			}).Should(Succeed())
 
 			By("Verifying referenced interfaces exist and are loopbacks")
@@ -250,6 +251,7 @@ var _ = Describe("NVE Controller", func() {
 			By("Creating the custom resource for the Kind NVE")
 			nve = &v1alpha1.NetworkVirtualizationEdge{}
 			if err := k8sClient.Get(ctx, nveKey, nve); errors.IsNotFound(err) {
+				l2Prefix := v1alpha1.MustParsePrefix("234.0.0.0/8")
 				nve = &v1alpha1.NetworkVirtualizationEdge{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      nveName,
@@ -261,7 +263,7 @@ var _ = Describe("NVE Controller", func() {
 						HostReachability:   "BGP",
 						SourceInterfaceRef: v1alpha1.LocalObjectReference{Name: interfaceNames[0]},
 						MulticastGroups: &v1alpha1.MulticastGroups{
-							L2: "234.0.0.1",
+							L2: &l2Prefix,
 						},
 						AdminState: v1alpha1.AdminStateUp,
 					},
@@ -477,6 +479,7 @@ var _ = Describe("NVE Controller", func() {
 			By("Creating the custom resource for the Kind NetworkVirtualizationEdge")
 			nve = &v1alpha1.NetworkVirtualizationEdge{}
 			if err := k8sClient.Get(ctx, nveKey, nve); errors.IsNotFound(err) {
+				l2Prefix := v1alpha1.MustParsePrefix("234.0.0.0/8")
 				nve = &v1alpha1.NetworkVirtualizationEdge{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      nveName,
@@ -489,7 +492,7 @@ var _ = Describe("NVE Controller", func() {
 						SourceInterfaceRef:        v1alpha1.LocalObjectReference{Name: interfaceNames[0]},
 						AnycastSourceInterfaceRef: &v1alpha1.LocalObjectReference{Name: interfaceNames[1]},
 						MulticastGroups: &v1alpha1.MulticastGroups{
-							L2: "234.0.0.1",
+							L2: &l2Prefix,
 						},
 						AdminState: v1alpha1.AdminStateUp,
 					},
@@ -549,6 +552,7 @@ var _ = Describe("NVE Controller", func() {
 			By("Creating the custom resource for the Kind NetworkVirtualizationEdge")
 			nve = &v1alpha1.NetworkVirtualizationEdge{}
 			if err := k8sClient.Get(ctx, nveKey, nve); errors.IsNotFound(err) {
+				l2Prefix := v1alpha1.MustParsePrefix("234.0.0.0/8")
 				nve = &v1alpha1.NetworkVirtualizationEdge{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      nveName,
@@ -561,7 +565,7 @@ var _ = Describe("NVE Controller", func() {
 						SourceInterfaceRef:        v1alpha1.LocalObjectReference{Name: interfaceNames[0]},
 						AnycastSourceInterfaceRef: &v1alpha1.LocalObjectReference{Name: interfaceNames[1]},
 						MulticastGroups: &v1alpha1.MulticastGroups{
-							L2: "234.0.0.1",
+							L2: &l2Prefix,
 						},
 						AdminState: v1alpha1.AdminStateUp,
 					},

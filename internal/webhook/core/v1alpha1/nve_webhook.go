@@ -5,6 +5,7 @@ package v1alpha1
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/netip"
 
@@ -75,23 +76,30 @@ func (v *NetworkVirtualizationEdgeCustomValidator) validateNetworkVirtualization
 	if nve.Spec.MulticastGroups == nil {
 		return nil
 	}
-	if nve.Spec.MulticastGroups.L2 != "" {
-		if ok, err := v.isMulticast(nve.Spec.MulticastGroups.L2); err != nil || !ok {
-			return fmt.Errorf("%q is not a multicast address", nve.Spec.MulticastGroups.L2)
+	if nve.Spec.MulticastGroups.L2 != nil {
+		if !v.validateMulticastAddr(nve.Spec.MulticastGroups.L2.Prefix) {
+			return errors.New("invalid L2 multicast group: must be a valid IPv4 multicast CIDR with no host bits set")
 		}
 	}
-	if nve.Spec.MulticastGroups.L3 != "" {
-		if ok, err := v.isMulticast(nve.Spec.MulticastGroups.L3); err != nil || !ok {
-			return fmt.Errorf("%q is not a multicast address", nve.Spec.MulticastGroups.L3)
+	if nve.Spec.MulticastGroups.L3 != nil {
+		if !v.validateMulticastAddr(nve.Spec.MulticastGroups.L3.Prefix) {
+			return errors.New("invalid L3 multicast group: must be a valid IPv4 multicast CIDR with no host bits set")
 		}
 	}
 	return nil
 }
 
-func (*NetworkVirtualizationEdgeCustomValidator) isMulticast(s string) (bool, error) {
-	addr, err := netip.ParseAddr(s)
-	if err != nil || !addr.IsValid() {
-		return false, fmt.Errorf("%q is not a valid IP addr: %w", s, err)
+// validateMulticastAddr checks if the provided prefix is a valid multicast address with no host bits set.
+func (*NetworkVirtualizationEdgeCustomValidator) validateMulticastAddr(pfx netip.Prefix) bool {
+	// Check it's a multicast address
+	if !pfx.Addr().Is4() || !pfx.Addr().IsMulticast() {
+		return false
 	}
-	return addr.IsMulticast(), nil
+
+	// Check no host bits are set (canonical form)
+	if pfx.Masked().Addr() != pfx.Addr() {
+		return false
+	}
+
+	return true
 }

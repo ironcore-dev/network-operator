@@ -21,6 +21,6 @@ spec:
   anycastSourceInterfaceRef:
     name: lo1
   multicastGroups:
-    l2: 224.0.0.2
+    l2: 239.1.1.0/24
   anycastGateway:
     virtualMAC: 00:00:11:11:22:22

@@ -1128,6 +1128,7 @@ _Validation:_
 _Appears in:_
 - [ACLEntry](#aclentry)
 - [InterfaceIPv4](#interfaceipv4)
+- [MulticastGroups](#multicastgroups)
 - [PrefixEntry](#prefixentry)
 - [RendezvousPoint](#rendezvouspoint)
 
@@ -1559,8 +1560,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `l2` _string_ | L2 is the multicast group for Layer 2 VNIs (BUM traffic in bridged VLANs). |  | Format: ipv4 <br />Optional: \{\} <br /> |
-| `l3` _string_ | L3 is the multicast group for Layer 3 VNIs (BUM traffic in routed VRFs). |  | Format: ipv4 <br />Optional: \{\} <br /> |
+| `l2` _[IPPrefix](#ipprefix)_ | L2 is the multicast group for Layer 2 VNIs (BUM traffic in bridged VLANs). |  | Format: cidr <br />Type: string <br />Optional: \{\} <br /> |
+| `l3` _[IPPrefix](#ipprefix)_ | L3 is the multicast group for Layer 3 VNIs (BUM traffic in routed VRFs). |  | Format: cidr <br />Type: string <br />Optional: \{\} <br /> |
 
 
 #### NTP
@@ -3186,7 +3187,8 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `destination` _string_ | Destination is the destination IP address of the vPC's domain peer keepalive interface.<br />This is the IP address the local switch will send keepalive messages to. |  | Format: ipv4 <br />Required: \{\} <br /> |
 | `source` _string_ | Source is the source IP address for keepalive messages.<br />This is the local IP address used to send keepalive packets to the peer. |  | Format: ipv4 <br />Required: \{\} <br /> |
-| `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VRFRef is an optional reference to a VRF resource, e.g., the management VRF.<br />If specified, the switch sends keepalive packets throughout this VRF.<br />If omitted, the management VRF is used. |  | Optional: \{\} <br /> |
+| `vrfName` _string_ | The name of the vrf used to send keepalive packets to the peer.<br />Mutually exclusive with VrfRef. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
+| `vrfRef` _[LocalObjectReference](#localobjectreference)_ | The reference to a VRF resource used to send keepalive packets to the peer.<br />Mutually exclusive with VrfName. |  | Optional: \{\} <br /> |
 
 
 #### ManagementAccessConfig

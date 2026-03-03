@@ -72,13 +72,11 @@ const (
 type MulticastGroups struct {
 	// L2 is the multicast group for Layer 2 VNIs (BUM traffic in bridged VLANs).
 	// +optional
-	// +kubebuilder:validation:Format=ipv4
-	L2 string `json:"l2,omitempty"`
+	L2 *IPPrefix `json:"l2,omitempty"`
 
 	// L3 is the multicast group for Layer 3 VNIs (BUM traffic in routed VRFs).
 	// +optional
-	// +kubebuilder:validation:Format=ipv4
-	L3 string `json:"l3,omitempty"`
+	L3 *IPPrefix `json:"l3,omitempty"`
 }
 
 // AnycastGateway defines distributed anycast gateway configuration.

@@ -42,17 +42,46 @@ var _ = Describe("NetworkVirtualizationEdge Webhook", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("accepts valid IPv4 multicast address", func() {
+		It("accepts valid IPv4 multicast CIDR", func() {
+			l2Prefix := corev1alpha1.MustParsePrefix("239.1.0.0/16")
 			obj.Spec.MulticastGroups = &corev1alpha1.MulticastGroups{
-				L2: "239.1.1.1",
+				L2: &l2Prefix,
 			}
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("rejects non-multicast IPv4 address", func() {
+		It("accepts valid IPv4 multicast CIDR for L3", func() {
+			l3Prefix := corev1alpha1.MustParsePrefix("239.2.0.0/16")
 			obj.Spec.MulticastGroups = &corev1alpha1.MulticastGroups{
-				L3: "10.0.0.1",
+				L3: &l3Prefix,
+			}
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("accepts /32 CIDR for single multicast IP", func() {
+			l2Prefix := corev1alpha1.MustParsePrefix("239.1.1.1/32")
+			obj.Spec.MulticastGroups = &corev1alpha1.MulticastGroups{
+				L2: &l2Prefix,
+			}
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("rejects non-multicast IPv4 CIDR", func() {
+			l3Prefix := corev1alpha1.MustParsePrefix("10.0.0.0/8")
+			obj.Spec.MulticastGroups = &corev1alpha1.MulticastGroups{
+				L3: &l3Prefix,
+			}
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("rejects multicast CIDR with host bits set", func() {
+			l2Prefix := corev1alpha1.MustParsePrefix("239.1.1.1/16")
+			obj.Spec.MulticastGroups = &corev1alpha1.MulticastGroups{
+				L2: &l2Prefix,
 			}
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
@@ -62,8 +91,9 @@ var _ = Describe("NetworkVirtualizationEdge Webhook", func() {
 	Context("Validate Update MulticastGroup IPv4 prefix", func() {
 		It("allows unchanged valid multicastGroup", func() {
 			oldObj := obj.DeepCopy()
+			l2Prefix := corev1alpha1.MustParsePrefix("239.10.0.0/16")
 			oldObj.Spec.MulticastGroups = &corev1alpha1.MulticastGroups{
-				L2: "239.10.10.1",
+				L2: &l2Prefix,
 			}
 			newObj := oldObj.DeepCopy()
 			_, err := validator.ValidateUpdate(ctx, oldObj, newObj)
