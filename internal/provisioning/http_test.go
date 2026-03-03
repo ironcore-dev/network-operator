@@ -6,7 +6,6 @@ package provisioning
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -748,7 +747,7 @@ func TestGetDeviceCertificate(t *testing.T) {
 						Namespace: "default",
 					},
 					Data: map[string][]byte{
-						"tls.crt": []byte(base64.StdEncoding.EncodeToString([]byte("-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----"))),
+						"tls.crt": []byte("-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----"),
 					},
 				},
 			},
@@ -790,9 +789,9 @@ func TestGetDeviceCertificate(t *testing.T) {
 						Namespace: "default",
 					},
 					Data: map[string][]byte{
-						"tls.crt": []byte(base64.StdEncoding.EncodeToString([]byte("-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----"))),
-						"tls.key": []byte(base64.StdEncoding.EncodeToString([]byte("-----BEGIN PRIVATE KEY-----\ntest-key\n-----END PRIVATE KEY-----"))),
-						"ca.crt":  []byte(base64.StdEncoding.EncodeToString([]byte("-----BEGIN CERTIFICATE-----\ntest-ca\n-----END CERTIFICATE-----"))),
+						"tls.crt": []byte("-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----"),
+						"tls.key": []byte("-----BEGIN PRIVATE KEY-----\ntest-key\n-----END PRIVATE KEY-----"),
+						"ca.crt":  []byte("-----BEGIN CERTIFICATE-----\ntest-ca\n-----END CERTIFICATE-----"),
 					},
 				},
 			},
@@ -838,8 +837,8 @@ func TestGetDeviceCertificate(t *testing.T) {
 						Namespace: "default",
 					},
 					Data: map[string][]byte{
-						"tls.crt": []byte(base64.StdEncoding.EncodeToString([]byte("-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----"))),
-						"tls.key": []byte(base64.StdEncoding.EncodeToString([]byte("-----BEGIN PRIVATE KEY-----\ntest-key\n-----END PRIVATE KEY-----"))),
+						"tls.crt": []byte("-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----"),
+						"tls.key": []byte("-----BEGIN PRIVATE KEY-----\ntest-key\n-----END PRIVATE KEY-----"),
 					},
 				},
 			},
@@ -1096,7 +1095,7 @@ func TestGetMTLSClientCA(t *testing.T) {
 					Namespace: "default",
 				},
 				Data: map[string][]byte{
-					"ca.crt": []byte(base64.StdEncoding.EncodeToString([]byte("-----BEGIN CERTIFICATE-----\noperator-ca-cert\n-----END CERTIFICATE-----"))),
+					"ca.crt": []byte("-----BEGIN CERTIFICATE-----\noperator-ca-cert\n-----END CERTIFICATE-----"),
 				},
 			},
 			expectedStatus: http.StatusOK,

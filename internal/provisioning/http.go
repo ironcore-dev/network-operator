@@ -5,7 +5,6 @@ package provisioning
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -383,13 +382,7 @@ func (s *HTTPServer) GetMTLSClientCA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	b64val := certSecret.Data["ca.crt"]
-	operatorCA, err := base64.StdEncoding.DecodeString(string(b64val))
-	if err != nil {
-		s.Logger.Error(err, "Failed to decode CA certificate", "device", device.Name)
-		http.Error(w, "Failed to decode CA certificate", http.StatusInternalServerError)
-		return
-	}
+	operatorCA := certSecret.Data["ca.crt"]
 	w.Header().Set("Content-Type", "application/x-pem-file")
 	w.WriteHeader(http.StatusOK)
 
@@ -457,38 +450,25 @@ func (s *HTTPServer) GetDeviceCertificate(w http.ResponseWriter, r *http.Request
 		return
 	}
 	response := DeviceCertificateResponse{}
-	if b64val, ok := certSecret.Data["tls.crt"]; ok {
-		certificate, err := base64.StdEncoding.DecodeString(string(b64val))
-		if err != nil {
-			s.Logger.Error(err, "Failed to decode certificate", "device", device.Name)
-			http.Error(w, "Failed to decode certificate", http.StatusInternalServerError)
-			return
-		}
-		response.Certificate = certificate
-	}
-	if b64val, ok := certSecret.Data["tls.key"]; ok {
-		privateKey, err := base64.StdEncoding.DecodeString(string(b64val))
-		if err != nil {
-			s.Logger.Error(err, "Failed to decode private key", "device", device.Name)
-			http.Error(w, "Failed to decode private key", http.StatusInternalServerError)
-			return
-		}
-		response.PrivateKey = privateKey
-	}
-	if b64val, ok := certSecret.Data["ca.crt"]; ok {
-		caCertificate, err := base64.StdEncoding.DecodeString(string(b64val))
-		if err != nil {
-			s.Logger.Error(err, "Failed to decode CA certificate", "device", device.Name)
-			http.Error(w, "Failed to decode CA certificate", http.StatusInternalServerError)
-			return
-		}
-		response.CACertificate = caCertificate
-	}
-
-	if len(response.Certificate) == 0 || len(response.PrivateKey) == 0 {
+	certificate, ok := certSecret.Data["tls.crt"]
+	if !ok {
 		s.Logger.Error(nil, "Incomplete certificate data in secret", "device", device.Name)
 		http.Error(w, "Incomplete certificate data in secret", http.StatusInternalServerError)
 		return
+	}
+	response.Certificate = certificate
+
+	privateKey, ok := certSecret.Data["tls.key"]
+	if !ok {
+		s.Logger.Error(nil, "Incomplete certificate data in secret", "device", device.Name)
+		http.Error(w, "Incomplete certificate data in secret", http.StatusInternalServerError)
+		return
+	}
+	response.PrivateKey = privateKey
+
+	ca, ok := certSecret.Data["ca.crt"]
+	if ok {
+		response.CACertificate = ca
 	}
 
 	content, err := json.Marshal(response)
