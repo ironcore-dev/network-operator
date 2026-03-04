@@ -130,9 +130,20 @@ func (c *Client) BasicAuth(ctx context.Context, ref *v1alpha1.SecretReference) (
 	return user, pass, nil
 }
 
-// Certificate loads a [tls.Certificate] from the referenced secret resource.
-// The secret must by of type 'kubernetes.io/tls' and contain the fields 'tls.crt' and 'tls.key'.
-func (c *Client) Certificate(ctx context.Context, ref *v1alpha1.SecretReference) (*tls.Certificate, error) {
+// TLSSecret holds the raw PEM-encoded data from a Kubernetes TLS secret.
+type TLSSecret struct {
+	// Certificate is the PEM-encoded certificate chain (tls.crt).
+	Certificate []byte
+	// PrivateKey is the PEM-encoded private key (tls.key).
+	PrivateKey []byte // #nosec G117
+	// CA is the PEM-encoded CA certificate (ca.crt), if present.
+	CA []byte
+}
+
+// TLSSecretPEM loads the raw PEM data from a TLS secret without parsing.
+// The secret must be of type 'kubernetes.io/tls' and contain the fields 'tls.crt' and 'tls.key'.
+// The 'ca.crt' field is optional and will be included if present.
+func (c *Client) TLSSecretPEM(ctx context.Context, ref *v1alpha1.SecretReference) (*TLSSecret, error) {
 	name := client.ObjectKey{Namespace: ref.Namespace, Name: ref.Name}
 
 	var secret corev1.Secret
@@ -154,7 +165,22 @@ func (c *Client) Certificate(ctx context.Context, ref *v1alpha1.SecretReference)
 		return nil, fmt.Errorf("missing field 'tls.key' in secret %q", name.String())
 	}
 
-	certificate, err := tls.X509KeyPair(cert, key)
+	return &TLSSecret{
+		Certificate: cert,
+		PrivateKey:  key,
+		CA:          secret.Data["ca.crt"],
+	}, nil
+}
+
+// Certificate loads a [tls.Certificate] from the referenced secret resource.
+// The secret must be of type 'kubernetes.io/tls' and contain the fields 'tls.crt' and 'tls.key'.
+func (c *Client) Certificate(ctx context.Context, ref *v1alpha1.SecretReference) (*tls.Certificate, error) {
+	pem, err := c.TLSSecretPEM(ctx, ref)
+	if err != nil {
+		return nil, err
+	}
+
+	certificate, err := tls.X509KeyPair(pem.Certificate, pem.PrivateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load x509 key pair: %w", err)
 	}

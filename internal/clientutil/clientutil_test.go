@@ -256,6 +256,146 @@ func TestBasicAuth(t *testing.T) {
 	}
 }
 
+func TestTLSSecretPEM(t *testing.T) {
+	g := NewWithT(t)
+
+	pk, err := rsa.GenerateKey(rand.Reader, 2048)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	template := x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{Organization: []string{"Go Test Corp"}},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(time.Hour * 24),
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+	}
+
+	der, err := x509.CreateCertificate(rand.Reader, &template, &template, &pk.PublicKey, pk)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	var cert bytes.Buffer
+	err = pem.Encode(&cert, &pem.Block{Type: "CERTIFICATE", Bytes: der})
+	g.Expect(err).ToNot(HaveOccurred())
+
+	var key bytes.Buffer
+	err = pem.Encode(&key, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(pk)})
+	g.Expect(err).ToNot(HaveOccurred())
+
+	ca := []byte("-----BEGIN CERTIFICATE-----\nfake-ca-data\n-----END CERTIFICATE-----\n")
+
+	tests := []struct {
+		name    string
+		secret  *corev1.Secret
+		wantCA  bool
+		wantErr bool
+	}{
+		{
+			name: "valid TLS secret without CA",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-certificate",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Data: map[string][]byte{
+					corev1.TLSCertKey:       cert.Bytes(),
+					corev1.TLSPrivateKeyKey: key.Bytes(),
+				},
+				Type: corev1.SecretTypeTLS,
+			},
+		},
+		{
+			name: "valid TLS secret with CA",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-certificate",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Data: map[string][]byte{
+					corev1.TLSCertKey:       cert.Bytes(),
+					corev1.TLSPrivateKeyKey: key.Bytes(),
+					"ca.crt":                ca,
+				},
+				Type: corev1.SecretTypeTLS,
+			},
+			wantCA: true,
+		},
+		{
+			name: "invalid type",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-certificate",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Data: map[string][]byte{
+					corev1.TLSCertKey:       cert.Bytes(),
+					corev1.TLSPrivateKeyKey: key.Bytes(),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing certificate",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-certificate",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Data: map[string][]byte{
+					corev1.TLSPrivateKeyKey: key.Bytes(),
+				},
+				Type: corev1.SecretTypeTLS,
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing private key",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-certificate",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Data: map[string][]byte{
+					corev1.TLSCertKey: cert.Bytes(),
+				},
+				Type: corev1.SecretTypeTLS,
+			},
+			wantErr: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			g := NewWithT(t)
+
+			client := fake.NewClientBuilder().
+				WithScheme(scheme.Scheme).
+				WithObjects(test.secret).
+				Build()
+
+			c := NewClient(client, metav1.NamespaceDefault)
+
+			result, err := c.TLSSecretPEM(t.Context(), &v1alpha1.SecretReference{
+				Name: "test-certificate",
+			})
+			if test.wantErr {
+				g.Expect(err).To(HaveOccurred())
+				g.Expect(result).To(BeNil())
+				return
+			}
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(result).ToNot(BeNil())
+			g.Expect(result.Certificate).To(Equal(cert.Bytes()))
+			g.Expect(result.PrivateKey).To(Equal(key.Bytes()))
+			if test.wantCA {
+				g.Expect(result.CA).To(Equal(ca))
+			} else {
+				g.Expect(result.CA).To(BeNil())
+			}
+		})
+	}
+}
+
 func TestCertificate(t *testing.T) {
 	g := NewWithT(t)
 

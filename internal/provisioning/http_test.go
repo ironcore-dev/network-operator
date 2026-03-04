@@ -726,13 +726,14 @@ func TestGetDeviceCertificate(t *testing.T) {
 						Name:      "test-device-cert-secret",
 						Namespace: "default",
 					},
+					Type: corev1.SecretTypeTLS,
 					Data: map[string][]byte{
 						"tls.crt": []byte("-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----"),
 					},
 				},
 			},
 			expectedStatus: http.StatusInternalServerError,
-			expectedBody:   "Incomplete certificate data in secret",
+			expectedBody:   "Failed to get certificate secret",
 		},
 		{
 			name:          "successfully return device certificate with all fields",
@@ -768,6 +769,7 @@ func TestGetDeviceCertificate(t *testing.T) {
 						Name:      "test-device-cert-secret",
 						Namespace: "default",
 					},
+					Type: corev1.SecretTypeTLS,
 					Data: map[string][]byte{
 						"tls.crt": []byte("-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----"),
 						"tls.key": []byte("-----BEGIN PRIVATE KEY-----\ntest-key\n-----END PRIVATE KEY-----"),
@@ -816,6 +818,7 @@ func TestGetDeviceCertificate(t *testing.T) {
 						Name:      "test-device-cert-secret",
 						Namespace: "default",
 					},
+					Type: corev1.SecretTypeTLS,
 					Data: map[string][]byte{
 						"tls.crt": []byte("-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----"),
 						"tls.key": []byte("-----BEGIN PRIVATE KEY-----\ntest-key\n-----END PRIVATE KEY-----"),
@@ -1076,8 +1079,11 @@ func TestGetMTLSClientCA(t *testing.T) {
 					Name:      "operator-ca-secret",
 					Namespace: "default",
 				},
+				Type: corev1.SecretTypeTLS,
 				Data: map[string][]byte{
-					"ca.crt": []byte("-----BEGIN CERTIFICATE-----\noperator-ca-cert\n-----END CERTIFICATE-----"),
+					"tls.crt": []byte("placeholder"),
+					"tls.key": []byte("placeholder"),
+					"ca.crt":  []byte("-----BEGIN CERTIFICATE-----\noperator-ca-cert\n-----END CERTIFICATE-----"),
 				},
 			},
 			expectedStatus: http.StatusOK,

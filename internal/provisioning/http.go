@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
@@ -290,14 +289,21 @@ func (s *HTTPServer) HandleProvisioningRequest(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	conn, err := deviceutil.GetDeviceConnection(ctx, s.Client, device)
+	if device.Spec.Endpoint.SecretRef == nil {
+		s.Logger.Error(nil, "Device has no endpoint secret reference", "device", device.Name)
+		http.Error(w, "Device has no endpoint secret reference", http.StatusPreconditionRequired)
+		return
+	}
+
+	c := clientutil.NewClient(s.Client, device.Namespace)
+	user, pass, err := c.BasicAuth(ctx, device.Spec.Endpoint.SecretRef)
 	if err != nil {
 		s.Logger.Error(err, "Failed to get user accounts", "device", device.Name)
 		http.Error(w, "Failed to get user accounts", http.StatusInternalServerError)
 		return
 	}
 
-	hashedPassword, hashAlgorithm, err := s.Provider.HashProvisioningPassword(conn.Password)
+	hashedPassword, hashAlgorithm, err := s.Provider.HashProvisioningPassword(string(pass))
 	if err != nil {
 		s.Logger.Error(err, "Failed to hash provisioning password", "device", device.Name)
 		http.Error(w, "Failed to hash provisioning password", http.StatusInternalServerError)
@@ -305,7 +311,7 @@ func (s *HTTPServer) HandleProvisioningRequest(w http.ResponseWriter, r *http.Re
 	}
 
 	ua := UserAccount{
-		Username:       conn.Username,
+		Username:       string(user),
 		HashedPassword: hashedPassword,
 		HashAlgorithm:  hashAlgorithm,
 	}
@@ -368,30 +374,23 @@ func (s *HTTPServer) GetMTLSClientCA(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Device has no MTLS certificate configured", http.StatusNotFound)
 		return
 	}
-	namespace := device.Namespace
-	if device.Spec.Endpoint.SecretRef != nil && device.Spec.Endpoint.SecretRef.Namespace != "" {
-		namespace = device.Spec.Endpoint.SecretRef.Namespace
-	}
-	certRef := client.ObjectKey{Name: device.Spec.Endpoint.TLS.Certificate.SecretRef.Name, Namespace: namespace}
-	certSecret := corev1.Secret{}
-	err = c.Get(ctx, certRef, &certSecret)
-	if err != nil || certSecret.Data == nil {
+
+	tlsSecret, err := c.TLSSecretPEM(ctx, &device.Spec.Endpoint.TLS.Certificate.SecretRef)
+	if err != nil {
 		s.Logger.Error(err, "Failed to get device certificate secret", "device", device.Name)
 		http.Error(w, "Failed to get device certificate secret", http.StatusNotFound)
 		return
 	}
 
-	if certSecret.Data["ca.crt"] == nil {
+	if tlsSecret.CA == nil {
 		s.Logger.Error(nil, "CA certificate not found in secret", "device", device.Name)
 		http.Error(w, "CA certificate not found", http.StatusInternalServerError)
 		return
 	}
 
-	operatorCA := certSecret.Data["ca.crt"]
 	w.Header().Set("Content-Type", "application/x-pem-file")
 	w.WriteHeader(http.StatusOK)
-
-	if _, err := w.Write(operatorCA); err != nil {
+	if _, err := w.Write(tlsSecret.CA); err != nil { // #nosec G705
 		s.Logger.Error(err, "Failed to write response")
 	}
 }
@@ -428,8 +427,8 @@ func (s *HTTPServer) GetDeviceCertificate(w http.ResponseWriter, r *http.Request
 	}
 
 	c := clientutil.NewClient(s.Client, device.Namespace)
-	certList := v1alpha1.CertificateList{}
 
+	certList := v1alpha1.CertificateList{}
 	if err = c.List(ctx, &certList, client.InNamespace(device.Namespace), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name}); err != nil {
 		s.Logger.Error(err, "Failed to list certificates", "device", device.Name)
 		http.Error(w, "Failed to list certificates", http.StatusInternalServerError)
@@ -446,34 +445,18 @@ func (s *HTTPServer) GetDeviceCertificate(w http.ResponseWriter, r *http.Request
 		http.Error(w, "Multiple certificates found for device", http.StatusInternalServerError)
 		return
 	}
-	certSecret := corev1.Secret{}
-	certRef := client.ObjectKey{Name: certList.Items[0].Spec.SecretRef.Name, Namespace: device.Namespace}
-	err = c.Get(ctx, certRef, &certSecret)
+
+	tlsSecret, err := c.TLSSecretPEM(ctx, &certList.Items[0].Spec.SecretRef)
 	if err != nil {
 		s.Logger.Error(err, "Failed to get certificate secret", "device", device.Name)
 		http.Error(w, "Failed to get certificate secret", http.StatusInternalServerError)
 		return
 	}
-	response := DeviceCertificateResponse{}
-	certificate, ok := certSecret.Data["tls.crt"]
-	if !ok {
-		s.Logger.Error(nil, "Incomplete certificate data in secret", "device", device.Name)
-		http.Error(w, "Incomplete certificate data in secret", http.StatusInternalServerError)
-		return
-	}
-	response.Certificate = string(certificate)
 
-	privateKey, ok := certSecret.Data["tls.key"]
-	if !ok {
-		s.Logger.Error(nil, "Incomplete certificate data in secret", "device", device.Name)
-		http.Error(w, "Incomplete certificate data in secret", http.StatusInternalServerError)
-		return
-	}
-	response.PrivateKey = string(privateKey)
-
-	ca, ok := certSecret.Data["ca.crt"]
-	if ok {
-		response.CACertificate = string(ca)
+	response := DeviceCertificateResponse{
+		Certificate:   string(tlsSecret.Certificate),
+		PrivateKey:    string(tlsSecret.PrivateKey),
+		CACertificate: string(tlsSecret.CA),
 	}
 
 	content, err := json.Marshal(response)
