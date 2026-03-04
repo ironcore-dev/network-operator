@@ -12,7 +12,7 @@ allow_k8s_contexts(['minikube', 'kind-network'])
 load('ext://cert_manager', 'deploy_cert_manager')
 deploy_cert_manager(version='v1.18.2')
 
-docker_build('controller:latest', '.', ignore=['**/*/zz_generated.deepcopy.go', 'config/crd/bases/*'], only=[
+docker_build('ghcr.io/ironcore-dev/network-operator', '.', ignore=['**/*/zz_generated.deepcopy.go', 'config/crd/bases/*'], only=[
     'api/', 'cmd/', 'hack/', 'internal/', 'go.mod', 'go.sum', 'Makefile',
 ])
 

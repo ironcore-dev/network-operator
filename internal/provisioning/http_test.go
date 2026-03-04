@@ -777,9 +777,9 @@ func TestGetDeviceCertificate(t *testing.T) {
 			},
 			expectedStatus: http.StatusOK,
 			validateResponse: func(t *testing.T, response *DeviceCertificateResponse) {
-				assert.Equal(t, []byte("-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----"), response.Certificate)
-				assert.Equal(t, []byte("-----BEGIN PRIVATE KEY-----\ntest-key\n-----END PRIVATE KEY-----"), response.PrivateKey)
-				assert.Equal(t, []byte("-----BEGIN CERTIFICATE-----\ntest-ca\n-----END CERTIFICATE-----"), response.CACertificate)
+				assert.Equal(t, "-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----", response.Certificate)
+				assert.Equal(t, "-----BEGIN PRIVATE KEY-----\ntest-key\n-----END PRIVATE KEY-----", response.PrivateKey)
+				assert.Equal(t, "-----BEGIN CERTIFICATE-----\ntest-ca\n-----END CERTIFICATE-----", response.CACertificate)
 			},
 		},
 		{
@@ -824,8 +824,8 @@ func TestGetDeviceCertificate(t *testing.T) {
 			},
 			expectedStatus: http.StatusOK,
 			validateResponse: func(t *testing.T, response *DeviceCertificateResponse) {
-				assert.Equal(t, []byte("-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----"), response.Certificate)
-				assert.Equal(t, []byte("-----BEGIN PRIVATE KEY-----\ntest-key\n-----END PRIVATE KEY-----"), response.PrivateKey)
+				assert.Equal(t, "-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----", response.Certificate)
+				assert.Equal(t, "-----BEGIN PRIVATE KEY-----\ntest-key\n-----END PRIVATE KEY-----", response.PrivateKey)
 				assert.Empty(t, response.CACertificate)
 			},
 		},
