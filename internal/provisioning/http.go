@@ -397,9 +397,9 @@ func (s *HTTPServer) GetMTLSClientCA(w http.ResponseWriter, r *http.Request) {
 }
 
 type DeviceCertificateResponse struct {
-	Certificate   []byte `json:"certificate"`
-	PrivateKey    []byte `json:"privateKey"` // #nosec G117
-	CACertificate []byte `json:"caCertificate"`
+	Certificate   string `json:"certificate"`
+	PrivateKey    string `json:"privateKey"` // #nosec G117
+	CACertificate string `json:"caCertificate"`
 }
 
 func (s *HTTPServer) GetDeviceCertificate(w http.ResponseWriter, r *http.Request) {
@@ -461,7 +461,7 @@ func (s *HTTPServer) GetDeviceCertificate(w http.ResponseWriter, r *http.Request
 		http.Error(w, "Incomplete certificate data in secret", http.StatusInternalServerError)
 		return
 	}
-	response.Certificate = certificate
+	response.Certificate = string(certificate)
 
 	privateKey, ok := certSecret.Data["tls.key"]
 	if !ok {
@@ -469,11 +469,11 @@ func (s *HTTPServer) GetDeviceCertificate(w http.ResponseWriter, r *http.Request
 		http.Error(w, "Incomplete certificate data in secret", http.StatusInternalServerError)
 		return
 	}
-	response.PrivateKey = privateKey
+	response.PrivateKey = string(privateKey)
 
 	ca, ok := certSecret.Data["ca.crt"]
 	if ok {
-		response.CACertificate = ca
+		response.CACertificate = string(ca)
 	}
 
 	content, err := json.Marshal(response)
