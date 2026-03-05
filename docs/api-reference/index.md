@@ -24,6 +24,7 @@ SPDX-License-Identifier: Apache-2.0
 - [EVPNInstance](#evpninstance)
 - [ISIS](#isis)
 - [Interface](#interface)
+- [LLDP](#lldp)
 - [ManagementAccess](#managementaccess)
 - [NTP](#ntp)
 - [NetworkVirtualizationEdge](#networkvirtualizationedge)
@@ -136,6 +137,8 @@ _Appears in:_
 - [DNSSpec](#dnsspec)
 - [ISISSpec](#isisspec)
 - [InterfaceSpec](#interfacespec)
+- [LLDPInterface](#lldpinterface)
+- [LLDPSpec](#lldpspec)
 - [NTPSpec](#ntpspec)
 - [NetworkVirtualizationEdgeSpec](#networkvirtualizationedgespec)
 - [OSPFSpec](#ospfspec)
@@ -917,6 +920,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `paused` _boolean_ | Paused can be used to prevent controllers from processing the Device and its associated objects. |  | Optional: \{\} <br /> |
 | `endpoint` _[Endpoint](#endpoint)_ | Endpoint contains the connection information for the device. |  | Required: \{\} <br /> |
 | `provisioning` _[Provisioning](#provisioning)_ | Provisioning is an optional configuration for the device provisioning process.<br />It can be used to provide initial configuration templates or scripts that are applied during the device provisioning. |  | Optional: \{\} <br /> |
 
@@ -1404,6 +1408,77 @@ _Appears in:_
 | `Passive` | LACPModePassive indicates that LACP is in passive mode.<br /> |
 
 
+#### LLDP
+
+
+
+LLDP is the Schema for the lldps API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `LLDP` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[LLDPSpec](#lldpspec)_ |  |  | Required: \{\} <br /> |
+| `status` _[LLDPStatus](#lldpstatus)_ |  |  | Optional: \{\} <br /> |
+
+
+#### LLDPInterface
+
+
+
+
+
+
+
+_Appears in:_
+- [LLDPSpec](#lldpspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name of the referent.<br />More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether LLDP is administratively up or down on this interface.<br />This will be ignored if LLDP is configured to be administratively down system-wide. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
+
+
+#### LLDPSpec
+
+
+
+LLDPSpec defines the desired state of LLDP
+
+
+
+_Appears in:_
+- [LLDP](#lldp)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration for this LLDP.<br />If not specified the provider applies the target platform's default settings. |  | Optional: \{\} <br /> |
+| `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether LLDP is system-wide administratively up or down. |  | Enum: [Up Down] <br />Required: \{\} <br /> |
+| `interfaceRefs` _[LLDPInterface](#lldpinterface) array_ | InterfaceRefs is a list of interfaces and their LLDP configuration. |  | Optional: \{\} <br /> |
+
+
+#### LLDPStatus
+
+
+
+LLDPStatus defines the observed state of LLDP.
+
+
+
+_Appears in:_
+- [LLDP](#lldp)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the LLDP resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />Standard condition types include:<br />- "Available": the resource is fully functional<br />- "Progressing": the resource is being created or updated<br />- "Degraded": the resource failed to reach or maintain its desired state<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+
+
 #### LocalObjectReference
 
 
@@ -1432,6 +1507,8 @@ _Appears in:_
 - [InterfaceSpec](#interfacespec)
 - [InterfaceStatus](#interfacestatus)
 - [KeepAlive](#keepalive)
+- [LLDPInterface](#lldpinterface)
+- [LLDPSpec](#lldpspec)
 - [ManagementAccessSpec](#managementaccessspec)
 - [NTPSpec](#ntpspec)
 - [NetworkVirtualizationEdgeSpec](#networkvirtualizationedgespec)
@@ -2754,6 +2831,7 @@ _Appears in:_
 - [EVPNInstanceSpec](#evpninstancespec)
 - [ISISSpec](#isisspec)
 - [InterfaceSpec](#interfacespec)
+- [LLDPSpec](#lldpspec)
 - [ManagementAccessSpec](#managementaccessspec)
 - [NTPSpec](#ntpspec)
 - [NetworkVirtualizationEdgeSpec](#networkvirtualizationedgespec)

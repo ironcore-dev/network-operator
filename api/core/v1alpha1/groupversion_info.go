@@ -158,6 +158,9 @@ const (
 
 	// IncompatibleProviderConfigRef indicates that the referenced provider configuration is not compatible with the target platform.
 	IncompatibleProviderConfigRef = "IncompatibleProviderConfigRef"
+
+	// DuplicateResourceOnDevice indicates that a resource of the same type as the one being created already exists on the target device.
+	DuplicateResourceOnDevice = "DuplicateResourceOnDevice"
 )
 
 // Reasons that are specific to [Interface] objects.

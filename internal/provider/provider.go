@@ -586,6 +586,32 @@ type NVEStatus struct {
 	HostReachabilityType string
 }
 
+// LLDPProvider is an interface to configure LLDP on a device.
+type LLDPProvider interface {
+	Provider
+
+	// EnsureLLDP realizes LLDP configuration.
+	EnsureLLDP(context.Context, *LLDPRequest) error
+	// DeleteLLDP deletes the LLDP configuration.
+	DeleteLLDP(context.Context, *LLDPRequest) error
+	// GetLLDPStatus call retrieves the current status of the LLDP configuration.
+	GetLLDPStatus(context.Context, *LLDPRequest) (LLDPStatus, error)
+}
+
+type LLDPRequest struct {
+	LLDP           *v1alpha1.LLDP
+	ProviderConfig *ProviderConfig
+	// Interfaces are the Interface resources referenced by LLDP.Spec.InterfaceRefs.
+	Interfaces []*v1alpha1.Interface
+}
+
+// LLDPStatus represents the operational status of LLDP on the device.
+// It does not include neighbor information; this is handled in a different resource.
+type LLDPStatus struct {
+	// OperStatus indicates whether LLDP is operationally up (true) or down (false).
+	OperStatus bool
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.

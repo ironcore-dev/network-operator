@@ -52,6 +52,9 @@ resources:
 - isis_admin_role.yaml
 - isis_editor_role.yaml
 - isis_viewer_role.yaml
+- lldp_admin_role.yaml
+- lldp_editor_role.yaml
+- lldp_viewer_role.yaml
 - managementaccess_admin_role.yaml
 - managementaccess_editor_role.yaml
 - managementaccess_viewer_role.yaml

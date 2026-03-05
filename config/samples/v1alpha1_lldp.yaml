@@ -1,0 +1,16 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: LLDP
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: leaf1-lldp
+spec:
+  deviceRef:
+    name: leaf1
+  adminState: Up
+  interfaceRefs:
+    - name: eth1-1
+    - name: eth1-2
+      adminState: Down
