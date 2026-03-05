@@ -11,6 +11,7 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"net/netip"
 	"reflect"
@@ -56,6 +57,7 @@ var (
 	_ provider.VLANProvider             = (*Provider)(nil)
 	_ provider.VRFProvider              = (*Provider)(nil)
 	_ provider.NVEProvider              = (*Provider)(nil)
+	_ provider.LLDPProvider             = (*Provider)(nil)
 )
 
 type Provider struct {
@@ -2654,6 +2656,99 @@ func (p *Provider) GetNVEStatus(ctx context.Context, req *provider.NVERequest) (
 	default:
 		// unknown type, return as empty
 	}
+	return s, nil
+}
+
+func (p *Provider) EnsureLLDP(ctx context.Context, req *provider.LLDPRequest) error {
+	f1 := new(Feature)
+	f1.Name = "lldp"
+	f1.AdminSt = AdminStEnabled
+	if req.LLDP.Spec.AdminState == v1alpha1.AdminStateDown {
+		f1.AdminSt = AdminStDisabled
+	}
+
+	if err := p.Patch(ctx, f1); err != nil {
+		return err
+	}
+
+	// if LLDP is disabled, skip the rest of the configuration since device will reject further LLDP-related configuration
+	if f1.AdminSt == AdminStDisabled {
+		return nil
+	}
+
+	// return error if interfaces are referenced but not provided in the request
+	if len(req.Interfaces) != len(req.LLDP.Spec.InterfaceRefs) {
+		return errors.New("lldp: number of interfaces in the request does not match the number of interface references in LLDP .spec")
+	}
+
+	l := new(LLDP)
+
+	interfaceMap := make(map[string]*v1alpha1.Interface, len(req.Interfaces))
+	for _, intf := range req.Interfaces {
+		interfaceMap[intf.Name] = intf
+	}
+
+	for _, ifRef := range req.LLDP.Spec.InterfaceRefs {
+		intf, ok := interfaceMap[ifRef.Name]
+		if !ok {
+			available := slices.Sorted(maps.Keys(interfaceMap))
+			return fmt.Errorf("lldp: interface %q not found in request (available interfaces: %v)", ifRef.Name, available)
+		}
+
+		item := new(LLDPIfItem)
+		name, err := ShortName(intf.Spec.Name)
+		if err != nil {
+			return fmt.Errorf("lldp: failed to get short name for interface %q: %w", intf.Spec.Name, err)
+		}
+		item.InterfaceName = name
+
+		item.AdminRxSt = NewOption(AdminStEnabled)
+		item.AdminTxSt = NewOption(AdminStEnabled)
+
+		// Set admin state based on the interface-level admin state from LLDP spec
+		if ifRef.AdminState == v1alpha1.AdminStateDown {
+			item.AdminRxSt = NewOption(AdminStDisabled)
+			item.AdminTxSt = NewOption(AdminStDisabled)
+		}
+
+		l.IfItems.IfList.Set(item)
+	}
+
+	if req.ProviderConfig == nil {
+		return p.Patch(ctx, l)
+	}
+
+	c := new(nxv1alpha1.LLDPConfig)
+	if err := req.ProviderConfig.Into(c); err != nil {
+		return fmt.Errorf("failed to decode provider config: %w", err)
+	}
+
+	l.InitDelay = NewOption(uint16(c.Spec.InitDelay)) //nolint:gosec
+	l.HoldTime = NewOption(uint16(c.Spec.HoldTime))   //nolint:gosec
+
+	return p.Patch(ctx, l)
+}
+
+func (p *Provider) DeleteLLDP(ctx context.Context, req *provider.LLDPRequest) error {
+	f1 := new(Feature)
+	f1.Name = "lldp"
+	f1.AdminSt = AdminStDisabled
+
+	if err := p.Patch(ctx, f1); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *Provider) GetLLDPStatus(ctx context.Context, req *provider.LLDPRequest) (provider.LLDPStatus, error) {
+	s := provider.LLDPStatus{}
+
+	op := new(LLDPOper)
+	if err := p.client.GetState(ctx, op); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return provider.LLDPStatus{}, err
+	}
+	s.OperStatus = op.OperSt == OperSt(AdminStEnabled)
+
 	return s, nil
 }
 
