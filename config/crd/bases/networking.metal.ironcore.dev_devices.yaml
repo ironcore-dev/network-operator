@@ -435,10 +435,6 @@ spec:
                       type: string
                     error:
                       type: string
-                    phase:
-                      description: ProvisioningPhase represents the reason for the
-                        current provisioning status.
-                      type: string
                     reboot:
                       format: date-time
                       type: string
@@ -448,7 +444,6 @@ spec:
                     token:
                       type: string
                   required:
-                  - phase
                   - startTime
                   - token
                   type: object
