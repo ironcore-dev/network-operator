@@ -1,0 +1,10 @@
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: LLDPConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: leaf1-lldpconfig
+spec:
+  initDelay: 10
+  holdTime: 120

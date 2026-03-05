@@ -14,3 +14,9 @@ spec:
     - name: eth1-1
     - name: eth1-2
       adminState: Down
+  # Uncomment to add NXOS provider-specific config
+  # See: ./cisco/nx/v1alpha1_lldpconfig.yaml
+  # providerConfigRef:
+  #   apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+  #   kind: LLDPConfig
+  #   name: leaf1-lldpconfig

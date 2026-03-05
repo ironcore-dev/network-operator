@@ -3046,6 +3046,7 @@ Package v1alpha1 contains API Schema definitions for the nx.cisco.networking.met
 ### Resource Types
 - [BorderGateway](#bordergateway)
 - [InterfaceConfig](#interfaceconfig)
+- [LLDPConfig](#lldpconfig)
 - [ManagementAccessConfig](#managementaccessconfig)
 - [NetworkVirtualizationEdgeConfig](#networkvirtualizationedgeconfig)
 - [System](#system)
@@ -3303,6 +3304,41 @@ _Appears in:_
 | `source` _string_ | Source is the source IP address for keepalive messages.<br />This is the local IP address used to send keepalive packets to the peer. |  | Format: ipv4 <br />Required: \{\} <br /> |
 | `vrfName` _string_ | The name of the vrf used to send keepalive packets to the peer.<br />Mutually exclusive with VrfRef. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 | `vrfRef` _[LocalObjectReference](#localobjectreference)_ | The reference to a VRF resource used to send keepalive packets to the peer.<br />Mutually exclusive with VrfName. |  | Optional: \{\} <br /> |
+
+
+#### LLDPConfig
+
+
+
+LLDPConfig is the Schema for the LLDPConfig API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `nx.cisco.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `LLDPConfig` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[LLDPConfigSpec](#lldpconfigspec)_ | spec defines the desired state of LLDP |  | Required: \{\} <br /> |
+
+
+#### LLDPConfigSpec
+
+
+
+LLDPConfig defines the Cisco-specific configuration of an LLDP object.
+
+
+
+_Appears in:_
+- [LLDPConfig](#lldpconfig)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `initDelay` _integer_ | InitDelay defines the delay in seconds before LLDP starts sending packets after interface comes up. | 2 | Maximum: 10 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `holdTime` _integer_ | HoldTime defines the time in seconds that the receiving device should hold the LLDP information before discarding it. | 120 | Maximum: 255 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 
 
 #### ManagementAccessConfig

@@ -110,3 +110,6 @@ resources:
 - cisco/nx/interfaceconfig_admin_role.yaml
 - cisco/nx/interfaceconfig_editor_role.yaml
 - cisco/nx/interfaceconfig_viewer_role.yaml
+- cisco/nx/lldpconfig_admin_role.yaml
+- cisco/nx/lldpconfig_editor_role.yaml
+- cisco/nx/lldpconfig_viewer_role.yaml

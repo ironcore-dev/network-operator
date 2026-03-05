@@ -120,6 +120,8 @@ k8s_resource(new_name='nve1', objects=['nve1:networkvirtualizationedge'], trigge
 k8s_yaml('./config/samples/v1alpha1_lldp.yaml')
 k8s_resource(new_name='lldp', objects=['leaf1-lldp:lldp'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 # Uncomment the following lines for NXOS specific LLDP config
+# k8s_yaml('./config/samples/cisco/nx/v1alpha1_lldpconfig.yaml')
+# k8s_resource(new_name='lldpconfig', objects=['leaf1-lldpconfig:lldpconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')
