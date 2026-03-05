@@ -168,9 +168,8 @@ type DeviceStatus struct {
 }
 
 type ProvisioningInfo struct {
-	StartTime metav1.Time       `json:"startTime"`
-	Token     string            `json:"token"`
-	Phase     ProvisioningPhase `json:"phase"`
+	StartTime metav1.Time `json:"startTime"`
+	Token     string      `json:"token"`
 	//+optional
 	EndTime metav1.Time `json:"endTime,omitzero"`
 	//+optional
