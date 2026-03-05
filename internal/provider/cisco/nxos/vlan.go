@@ -33,18 +33,14 @@ func (v *VLANSystem) Default() {
 }
 
 // VLANReservation represents the settings for VLAN reservations
-type VLANReservation struct {
-	BlockVal64 bool  `json:"blockVal64"`
-	SysVlan    int16 `json:"sysVlan"`
-}
+type VLANReservation int16
 
 func (*VLANReservation) XPath() string {
-	return "System/bd-items/resvlan-items"
+	return "System/bd-items/resvlan-items/sysVlan"
 }
 
 func (v *VLANReservation) Default() {
-	v.BlockVal64 = false
-	v.SysVlan = 3968 // 4096 - 128
+	*v = 3968
 }
 
 // VLAN represents a VLAN configuration on the device

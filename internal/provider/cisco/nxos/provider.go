@@ -2207,7 +2207,7 @@ func (p *Provider) EnsureSystemSettings(ctx context.Context, s *nxv1alpha1.Syste
 	long.LongName = s.Spec.VlanLongName
 
 	res := new(VLANReservation)
-	res.SysVlan = s.Spec.ReservedVlan
+	*res = VLANReservation(s.Spec.ReservedVlan)
 
 	sys := new(SystemJumboMTU)
 	*sys = SystemJumboMTU(s.Spec.JumboMTU)
