@@ -369,6 +369,7 @@ func main() {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	ch := make(chan os.Signal, 2)
 	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
@@ -382,12 +383,11 @@ func main() {
 	err = prov.Connect(ctx, conn)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error connecting to provider: %v\n", err)
-		os.Exit(1)
+		return
 	}
 	defer func() {
 		if disconnectErr := prov.Disconnect(ctx, conn); disconnectErr != nil {
 			fmt.Fprintf(os.Stderr, "Error disconnecting from provider: %v\n", disconnectErr)
-			os.Exit(1)
 		}
 	}()
 

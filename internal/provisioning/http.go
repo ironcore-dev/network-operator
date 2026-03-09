@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
@@ -106,10 +107,12 @@ func (s *HTTPServer) Start(ctx context.Context) error {
 		Handler: mux,
 	}
 
-	go func() {
+	go func() { // #nosec G118 - ctx will be already cancelled in the routine; `Background is intentional for graceful shutdown
 		<-ctx.Done()
 		s.Logger.Info("Shutting down provisioning server")
-		if err := httpServer.Shutdown(context.Background()); err != nil {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer shutdownCancel()
+		if err := httpServer.Shutdown(shutdownCtx); err != nil {
 			s.Logger.Error(err, "Error shutting down provisioning server")
 		}
 	}()
@@ -459,7 +462,7 @@ func (s *HTTPServer) GetDeviceCertificate(w http.ResponseWriter, r *http.Request
 		CACertificate: string(tlsSecret.CA),
 	}
 
-	content, err := json.Marshal(response)
+	content, err := json.Marshal(response) // #nosec G117 - We don't have a way for the devices to authenticate themselves and this goes over k8s ingress
 	if err != nil {
 		s.Logger.Error(err, "Failed to marshal device certificate response", "device", device.Name)
 		http.Error(w, "Failed to marshal device certificate response", http.StatusInternalServerError)
