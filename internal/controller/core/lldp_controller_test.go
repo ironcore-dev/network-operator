@@ -602,7 +602,6 @@ var _ = Describe("LLDP Controller", func() {
 				g.Expect(cond.Reason).To(Equal(v1alpha1.IncompatibleProviderConfigRef))
 			}).Should(Succeed())
 		})
-
 	})
 
 	Context("When reconciling with InterfaceRefs", func() {

@@ -2274,35 +2274,11 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `startTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ |  |  |  |
 | `token` _string_ |  |  |  |
-| `phase` _[ProvisioningPhase](#provisioningphase)_ |  |  |  |
 | `endTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ |  |  | Optional: \{\} <br /> |
 | `reboot` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ |  |  | Optional: \{\} <br /> |
 | `error` _string_ |  |  | Optional: \{\} <br /> |
 
 
-#### ProvisioningPhase
-
-_Underlying type:_ _string_
-
-ProvisioningPhase represents the reason for the current provisioning status.
-
-
-
-_Appears in:_
-- [ProvisioningInfo](#provisioninginfo)
-
-| Field | Description |
-| --- | --- |
-| `DataRetrieved` |  |
-| `ScriptExecutionStarted` |  |
-| `ScriptExecutionFailed` |  |
-| `InstallingCertificates` |  |
-| `DownloadingImage` |  |
-| `ImageDownloadFailed` |  |
-| `UpgradeStarting` |  |
-| `UpgradeFailed` |  |
-| `RebootingDevice` |  |
-| `ExecutionFinishedWithoutReboot` |  |
 
 
 #### RendezvousPoint

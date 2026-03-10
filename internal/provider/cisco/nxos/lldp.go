@@ -5,9 +5,7 @@ package nxos
 
 import "github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
 
-var (
-	_ gnmiext.Configurable = (*LLDP)(nil)
-)
+var _ gnmiext.Configurable = (*LLDP)(nil)
 
 type LLDP struct {
 	// HoldTime is the number of seconds that a receiving device should hold the information sent by another device before discarding it.

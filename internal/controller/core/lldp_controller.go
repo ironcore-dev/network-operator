@@ -7,9 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
-
 	"slices"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
