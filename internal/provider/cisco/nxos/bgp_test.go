@@ -11,6 +11,14 @@ func init() {
 	})
 	Register("bgp_dom", bgpDom)
 
+	bgpDomAdvPip := &BGPDom{Name: DefaultVRFName, RtrID: "1.1.1.1", RtrIDAuto: AdminStDisabled}
+	bgpDomAdvPip.AfItems.DomAfList.Set(&BGPDomAfItem{
+		Type:         AddressFamilyL2EVPN,
+		AdvPip:       AdminStEnabled,
+		RetainRttAll: AdminStEnabled,
+	})
+	Register("bgp_dom_advpip", bgpDomAdvPip)
+
 	bgp := &BGP{AdminSt: AdminStEnabled, Asn: "65000"}
 	Register("bgp", bgp)
 

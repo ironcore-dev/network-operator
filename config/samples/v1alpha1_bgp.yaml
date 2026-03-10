@@ -8,6 +8,11 @@ metadata:
 spec:
   deviceRef:
     name: leaf1
+  # See ./cisco/nx/v1alpha1_bgpconfig.yaml
+  # providerConfigRef:
+  #   apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+  #   kind: BGPConfig
+  #   name: bgpconfig-sample
   asNumber: 65000
   routerId: 10.0.0.10
   addressFamilies:

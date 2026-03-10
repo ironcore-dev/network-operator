@@ -113,3 +113,6 @@ resources:
 - cisco/nx/lldpconfig_admin_role.yaml
 - cisco/nx/lldpconfig_editor_role.yaml
 - cisco/nx/lldpconfig_viewer_role.yaml
+- cisco/nx/bgpconfig_admin_role.yaml
+- cisco/nx/bgpconfig_editor_role.yaml
+- cisco/nx/bgpconfig_viewer_role.yaml

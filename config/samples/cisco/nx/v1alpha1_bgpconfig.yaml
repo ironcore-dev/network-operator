@@ -1,0 +1,11 @@
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: BGPConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: bgpconfig-sample
+spec:
+  addressFamilies:
+    l2vpnEvpn:
+      advertisePIP: true

@@ -302,6 +302,13 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 		return err
 	}
 
+	var cfg nxv1alpha1.BGPConfig
+	if req.ProviderConfig != nil {
+		if err := req.ProviderConfig.Into(&cfg); err != nil {
+			return err
+		}
+	}
+
 	dom := new(BGPDom)
 	dom.Name = DefaultVRFName
 	dom.RtrID = req.BGP.Spec.RouterID
@@ -335,6 +342,9 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 			item.RetainRttAll = AdminStDisabled
 			if af.RouteTargetPolicy != nil && af.RouteTargetPolicy.RetainAll {
 				item.RetainRttAll = AdminStEnabled
+			}
+			if cfg.Spec.AddressFamilies != nil && cfg.Spec.AddressFamilies.L2vpnEvpn != nil && cfg.Spec.AddressFamilies.L2vpnEvpn.AdvertisePIP {
+				item.AdvPip = AdminStEnabled
 			}
 			dom.AfItems.DomAfList.Set(item)
 		}

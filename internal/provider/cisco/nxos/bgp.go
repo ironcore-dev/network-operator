@@ -47,9 +47,10 @@ type BGPDomAfItem struct {
 	MaxExtIntEcmp int8          `json:"maxExtIntEcmp,omitempty"`
 	Type          AddressFamily `json:"type"`
 
-	// The fields retainRttAll and retainRttRtMap are only valid for the l2vpn-evpn
-	// address family. For other address families, these fields will be omitted
-	// in the JSON representation.
+	// The fields below are only valid for the l2vpn-evpn address family.
+	// For other address families, these fields will be omitted in the JSON
+	// representation.
+	AdvPip         AdminSt        `json:"advPip,omitempty"`
 	RetainRttAll   AdminSt        `json:"retainRttAll,omitempty"`
 	RetainRttRtMap Option[string] `json:"retainRttRtMap"`
 }
@@ -86,6 +87,7 @@ func (af *BGPDomAfItem) UnmarshalJSON(v []byte) error {
 	}
 	*af = BGPDomAfItem(cpy)
 	if af.Type != AddressFamilyL2EVPN {
+		af.AdvPip = ""
 		af.RetainRttAll = ""
 		af.RetainRttRtMap = Option[string]{}
 	}

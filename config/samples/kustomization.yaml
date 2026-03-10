@@ -30,4 +30,5 @@ resources:
 - cisco/nx/v1alpha1_vpcdomain.yaml
 - cisco/nx/v1alpha1_interfaceconfig.yaml
 - cisco/nx/v1alpha1_lldpconfig.yaml
+- cisco/nx/v1alpha1_bgpconfig.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

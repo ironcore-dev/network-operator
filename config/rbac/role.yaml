@@ -134,6 +134,18 @@ rules:
 - apiGroups:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
+  - bgpconfigs
+  - interfaceconfigs
+  - lldpconfigs
+  - managementaccessconfigs
+  - networkvirtualizationedgeconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - nx.cisco.networking.metal.ironcore.dev
+  resources:
   - bordergateways
   - systems
   - vpcdomains
@@ -163,14 +175,3 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - nx.cisco.networking.metal.ironcore.dev
-  resources:
-  - interfaceconfigs
-  - lldpconfigs
-  - managementaccessconfigs
-  - networkvirtualizationedgeconfigs
-  verbs:
-  - get
-  - list
-  - watch

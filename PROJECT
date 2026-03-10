@@ -270,4 +270,12 @@ resources:
   kind: LLDP
   path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: cisco.networking.metal.ironcore.dev
+  group: nx
+  kind: BGPConfig
+  path: github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1
+  version: v1alpha1
 version: "3"

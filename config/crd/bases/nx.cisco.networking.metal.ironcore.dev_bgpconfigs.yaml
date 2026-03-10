@@ -1,0 +1,64 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.1
+  name: bgpconfigs.nx.cisco.networking.metal.ironcore.dev
+spec:
+  group: nx.cisco.networking.metal.ironcore.dev
+  names:
+    kind: BGPConfig
+    listKind: BGPConfigList
+    plural: bgpconfigs
+    shortNames:
+    - bgpcfg
+    singular: bgpconfig
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: BGPConfig is the Schema for the bgpconfigs API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of BGPConfig
+            properties:
+              addressFamilies:
+                description: AddressFamilies configures supported BGP address families
+                  and their Cisco NX-OS specific settings.
+                properties:
+                  l2vpnEvpn:
+                    description: L2vpnEvpn configures L2VPN EVPN address family support.
+                    properties:
+                      advertisePIP:
+                        default: false
+                        description: |-
+                          AdvertisePIP controls whether the BGP EVPN address-family should advertise the primary IP address (PIP) as the next-hop
+                          when advertising prefix routes or loopback interface routes in BGP on vPC enabled leaf or border leaf switches.
+                        type: boolean
+                    type: object
+                type: object
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true

@@ -32,6 +32,7 @@ resources:
 - bases/nx.cisco.networking.metal.ironcore.dev_vpcdomains.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_interfaceconfigs.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_lldpconfigs.yaml
+- bases/nx.cisco.networking.metal.ironcore.dev_bgpconfigs.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches: []

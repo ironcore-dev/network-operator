@@ -1,0 +1,5 @@
+router bgp 65000
+  router-id 1.1.1.1
+  address-family l2vpn evpn
+    advertise-pip
+    retain route-target all
