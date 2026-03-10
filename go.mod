@@ -14,7 +14,7 @@ require (
 	github.com/openconfig/goyang v1.6.2
 	github.com/openconfig/ygnmi v0.13.1-0.20250924235719-646562b5d0c3
 	github.com/openconfig/ygot v0.34.0
-	github.com/sapcc/go-api-declarations v1.16.0
+	github.com/sapcc/go-api-declarations v1.20.2
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.18.0
 	go.uber.org/automaxprocs v1.6.0
