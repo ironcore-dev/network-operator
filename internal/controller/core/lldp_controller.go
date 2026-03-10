@@ -221,6 +221,10 @@ func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (_ ctrl.Re
 		}
 	}
 
+	defer func() {
+		conditions.RecomputeReady(s.LLDP)
+	}()
+
 	if err := r.validateUniqueLLDPPerDevice(ctx, s); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -242,10 +246,6 @@ func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (_ ctrl.Re
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
-	}()
-
-	defer func() {
-		conditions.RecomputeReady(s.LLDP)
 	}()
 
 	// Ensure the LLDP is realized on the remote device.
@@ -368,7 +368,6 @@ func (r *LLDPReconciler) reconcileInterfaceRef(ctx context.Context, interfaceRef
 			})
 			return nil, reconcile.TerminalError(fmt.Errorf("interface %s not found", interfaceRef.Name))
 		}
-
 		return nil, fmt.Errorf("failed to get interface %s: %w", interfaceRef.Name, err)
 	}
 

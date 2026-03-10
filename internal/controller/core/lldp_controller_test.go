@@ -681,10 +681,14 @@ var _ = Describe("LLDP Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, lldp)).To(Succeed())
 
-			By("Verifying the controller sets ConfiguredCondition to False with WaitingForDependenciesReason")
+			By("Verifying the controller sets ReadyCondition and ConfiguredCondition to False")
 			Eventually(func(g Gomega) {
 				err := k8sClient.Get(ctx, resourceKey, lldp)
 				g.Expect(err).NotTo(HaveOccurred())
+
+				ready := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.ReadyCondition)
+				g.Expect(ready).ToNot(BeNil())
+				g.Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 
 				cond := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.ConfiguredCondition)
 				g.Expect(cond).ToNot(BeNil())
