@@ -151,8 +151,8 @@ github.com/openconfig/grpctunnel v0.1.0 h1:EN99qtlExZczgQgp5ANnHRC/Rs62cAG+Tz2BQ
 github.com/openconfig/grpctunnel v0.1.0/go.mod h1:G04Pdu0pml98tdvXrvLaU+EBo3PxYfI9MYqpvdaEHLo=
 github.com/openconfig/ygnmi v0.13.1-0.20250924235719-646562b5d0c3 h1:y9Wj152WN0UadK5v0iZGB5qs36FxO2x/CyX73GtKR+4=
 github.com/openconfig/ygnmi v0.13.1-0.20250924235719-646562b5d0c3/go.mod h1:PdM5tOI2aCWSqfci5OagAyKJUNJ1IhYIGmSeRlMBVCI=
-github.com/openconfig/ygot v0.32.0 h1:zGYVk/T7hgcMuxhxH5bN5tFxy3VhHlLN6ZabSeTATtk=
-github.com/openconfig/ygot v0.32.0/go.mod h1:sMTAECRlEmETQ36XaAbWav5AFrR6EZlNNcHyZ7KHBDE=
+github.com/openconfig/ygot v0.34.0 h1:9OkVjy3SGi4mbvAZc4HTQBU9u4MT6k4j5DdX+hgRiC4=
+github.com/openconfig/ygot v0.34.0/go.mod h1:eMNQHrJpanet+pQoBw/P3ua4sLY/tRTXyJ7ALkWCvl4=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
