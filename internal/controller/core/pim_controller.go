@@ -282,11 +282,23 @@ func (r *PIMReconciler) reconcile(ctx context.Context, s *pimScope) (_ ctrl.Resu
 			return ctrl.Result{}, err
 		}
 	}
+	defer func() {
+		conditions.RecomputeReady(s.PIM)
+	}()
 
 	var interfaces []provider.PIMInterface
 	for _, intf := range s.PIM.Spec.InterfaceRefs {
 		res := new(v1alpha1.Interface)
 		if err := r.Get(ctx, client.ObjectKey{Name: intf.Name, Namespace: s.PIM.Namespace}, res); err != nil {
+			if apierrors.IsNotFound(err) {
+				conditions.Set(s.PIM, metav1.Condition{
+					Type:    v1alpha1.ConfiguredCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  v1alpha1.InterfaceNotFoundReason,
+					Message: fmt.Sprintf("interface %q not found", intf.Name),
+				})
+				return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("interface %q not found", intf.Name))
+			}
 			return ctrl.Result{}, err
 		}
 
