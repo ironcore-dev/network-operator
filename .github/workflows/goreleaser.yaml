@@ -38,7 +38,7 @@ jobs:
           mkdir -p build
           release-info CHANGELOG.md "$(git describe --tags --abbrev=0)" > build/release-info
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7
         with:
           args: release --clean --release-notes=./build/release-info
           version: latest
