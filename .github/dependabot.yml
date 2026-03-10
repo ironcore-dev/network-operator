@@ -1,0 +1,71 @@
+# Please see the documentation for all configuration options:
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # Go modules — root module
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+    ignore:
+      # Ignore k8s.io/* and controller-runtime dependencies, as they are bumped together manually.
+      - dependency-name: "k8s.io/*"
+      - dependency-name: "sigs.k8s.io/controller-runtime"
+
+  # Go modules — test/gnmi module
+  - package-ecosystem: "gomod"
+    directory: "/test/gnmi"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+
+  # Docker — root Dockerfile
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+
+  # Docker — docs Dockerfile
+  - package-ecosystem: "docker"
+    directory: "/docs"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+
+  # Docker — test/gnmi Dockerfile
+  - package-ecosystem: "docker"
+    directory: "/test/gnmi"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+
+  # Docker — test/lab Dockerfile
+  - package-ecosystem: "docker"
+    directory: "/test/lab"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+
+  # npm — docs site
+  - package-ecosystem: "npm"
+    directory: "/docs"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+
+  # Helm — network-operator chart
+  - package-ecosystem: "helm"
+    directory: "/charts/network-operator"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "friday"
