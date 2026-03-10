@@ -283,10 +283,23 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (_ ctrl.Re
 		}
 	}
 
+	defer func() {
+		conditions.RecomputeReady(s.ISIS)
+	}()
+
 	var interfaces []*v1alpha1.Interface
 	for _, iface := range s.ISIS.Spec.InterfaceRefs {
 		intf := new(v1alpha1.Interface)
 		if err := r.Get(ctx, client.ObjectKey{Name: iface.Name, Namespace: s.ISIS.Namespace}, intf); err != nil {
+			if apierrors.IsNotFound(err) {
+				conditions.Set(s.ISIS, metav1.Condition{
+					Type:    v1alpha1.ConfiguredCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  v1alpha1.InterfaceNotFoundReason,
+					Message: fmt.Sprintf("Interface %s not found", iface.Name),
+				})
+				return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("interface %s not found", iface.Name))
+			}
 			return ctrl.Result{}, err
 		}
 
