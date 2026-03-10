@@ -286,10 +286,23 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Re
 		}
 	}
 
+	defer func() {
+		conditions.RecomputeReady(s.OSPF)
+	}()
+
 	var interfaces []provider.OSPFInterface
 	for _, ref := range s.OSPF.Spec.InterfaceRefs {
 		intf := new(v1alpha1.Interface)
 		if err := r.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: s.OSPF.Namespace}, intf); err != nil {
+			if apierrors.IsNotFound(err) {
+				conditions.Set(s.OSPF, metav1.Condition{
+					Type:    v1alpha1.ConfiguredCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  v1alpha1.InterfaceNotFoundReason,
+					Message: fmt.Sprintf("interface %q not found", ref.Name),
+				})
+				return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("interface %q not found", ref.Name))
+			}
 			return ctrl.Result{}, err
 		}
 
@@ -317,10 +330,6 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Re
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
-	}()
-
-	defer func() {
-		conditions.RecomputeReady(s.OSPF)
 	}()
 
 	// Ensure the OSPF is realized on the provider.
