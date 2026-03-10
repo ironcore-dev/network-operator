@@ -225,6 +225,10 @@ func (r *NetworkVirtualizationEdgeReconciler) reconcile(ctx context.Context, s *
 		}
 	}
 
+	defer func() {
+		conditions.RecomputeReady(s.NVE)
+	}()
+
 	if err := r.validateUniqueNVEPerDevice(ctx, s); err != nil {
 		return err
 	}
@@ -250,10 +254,6 @@ func (r *NetworkVirtualizationEdgeReconciler) reconcile(ctx context.Context, s *
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
-	}()
-
-	defer func() {
-		conditions.RecomputeReady(s.NVE)
 	}()
 
 	err = s.Provider.EnsureNVE(ctx, &provider.NVERequest{

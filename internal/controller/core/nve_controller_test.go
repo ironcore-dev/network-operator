@@ -340,6 +340,11 @@ var _ = Describe("NVE Controller", func() {
 			Eventually(func(g Gomega) {
 				cur := &v1alpha1.NetworkVirtualizationEdge{}
 				g.Expect(k8sClient.Get(ctx, nveKey, cur)).To(Succeed())
+
+				ready := meta.FindStatusCondition(cur.Status.Conditions, v1alpha1.ReadyCondition)
+				g.Expect(ready).NotTo(BeNil())
+				g.Expect(ready.Status).To(Equal(metav1.ConditionFalse))
+
 				cond := meta.FindStatusCondition(cur.Status.Conditions, v1alpha1.ConfiguredCondition)
 				g.Expect(cond).NotTo(BeNil())
 				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
