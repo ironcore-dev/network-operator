@@ -315,6 +315,33 @@ func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 				},
 			}),
 		).
+		// Watches enqueues member Physical Interfaces when their parent Aggregate changes.
+		// Only triggers when Aggregate Spec fields change that affect member reconciliation.
+		Watches(
+			&v1alpha1.Interface{},
+			handler.EnqueueRequestsFromMapFunc(r.aggregateToMembers),
+			builder.WithPredicates(predicate.Funcs{
+				CreateFunc: func(e event.CreateEvent) bool {
+					return false
+				},
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					oldIntf := e.ObjectOld.(*v1alpha1.Interface)
+					newIntf := e.ObjectNew.(*v1alpha1.Interface)
+					// Only trigger when fields that affect member Physical interface
+					// reconciliation change (e.g. layer, VRF membership, MTU).
+					return !equality.Semantic.DeepEqual(oldIntf.Spec.IPv4, newIntf.Spec.IPv4) ||
+						!equality.Semantic.DeepEqual(oldIntf.Spec.Switchport, newIntf.Spec.Switchport) ||
+						!equality.Semantic.DeepEqual(oldIntf.Spec.VrfRef, newIntf.Spec.VrfRef) ||
+						oldIntf.Spec.MTU != newIntf.Spec.MTU
+				},
+				DeleteFunc: func(e event.DeleteEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
 		// Watches enqueues RoutedVLAN Interfaces for updates in referenced VLAN resources.
 		// Only triggers on create and delete events since VLAN IDs are immutable.
 		Watches(
@@ -399,6 +426,18 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		}
 	}
 
+	var aggregateParent *v1alpha1.Interface
+	if s.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical && s.Interface.Status.MemberOf != nil {
+		aggregateParent = new(v1alpha1.Interface)
+		key := client.ObjectKey{Name: s.Interface.Status.MemberOf.Name, Namespace: s.Interface.Namespace}
+		if err := r.Get(ctx, key, aggregateParent); err != nil {
+			if !apierrors.IsNotFound(err) {
+				return ctrl.Result{}, fmt.Errorf("failed to get aggregate parent %q: %w", s.Interface.Status.MemberOf.Name, err)
+			}
+			aggregateParent = nil
+		}
+	}
+
 	var multiChassisID *int16
 	if s.Interface.Spec.Aggregation != nil && s.Interface.Spec.Aggregation.MultiChassis != nil {
 		multiChassisID = &s.Interface.Spec.Aggregation.MultiChassis.ID
@@ -442,13 +481,14 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 
 	// Ensure the Interface is realized on the provider.
 	err := s.Provider.EnsureInterface(ctx, &provider.EnsureInterfaceRequest{
-		Interface:      s.Interface,
-		ProviderConfig: s.ProviderConfig,
-		IPv4:           ip,
-		Members:        members,
-		MultiChassisID: multiChassisID,
-		VLAN:           vlan,
-		VRF:            vrf,
+		Interface:       s.Interface,
+		ProviderConfig:  s.ProviderConfig,
+		IPv4:            ip,
+		Members:         members,
+		MultiChassisID:  multiChassisID,
+		AggregateParent: aggregateParent,
+		VLAN:            vlan,
+		VRF:             vrf,
 	})
 
 	cond := conditions.FromError(err)
@@ -868,6 +908,34 @@ func (r *InterfaceReconciler) interfaceToAggregate(ctx context.Context, obj clie
 				},
 			})
 		}
+	}
+
+	return requests
+}
+
+// aggregateToMembers is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for member Physical Interfaces when their parent Aggregate Interface gets updated.
+func (r *InterfaceReconciler) aggregateToMembers(ctx context.Context, obj client.Object) []ctrl.Request {
+	intf, ok := obj.(*v1alpha1.Interface)
+	if !ok {
+		panic(fmt.Sprintf("Expected a Interface but got a %T", obj))
+	}
+
+	if intf.Spec.Type != v1alpha1.InterfaceTypeAggregate {
+		return nil
+	}
+
+	log := ctrl.LoggerFrom(ctx, "Aggregate", klog.KObj(intf))
+
+	requests := make([]ctrl.Request, 0, len(intf.Spec.Aggregation.MemberInterfaceRefs))
+	for _, ref := range intf.Spec.Aggregation.MemberInterfaceRefs {
+		log.Info("Enqueuing member Interface for reconciliation", "Member", ref.Name)
+		requests = append(requests, ctrl.Request{
+			NamespacedName: client.ObjectKey{
+				Name:      ref.Name,
+				Namespace: intf.Namespace,
+			},
+		})
 	}
 
 	return requests

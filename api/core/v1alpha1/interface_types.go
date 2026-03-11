@@ -16,15 +16,15 @@ import (
 // +kubebuilder:validation:XValidation:rule="self.type == 'Physical' || !has(self.ipv4) || !has(self.ipv4.unnumbered)", message="unnumbered ipv4 configuration can only be used for interfaces of type Physical"
 // +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || has(self.aggregation)", message="aggregation must be specified for interfaces of type Aggregate"
 // +kubebuilder:validation:XValidation:rule="self.type == 'Aggregate' || !has(self.aggregation)", message="aggregation must only be specified on interfaces of type Aggregate"
-// +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || !has(self.ipv4)", message="ipv4 must not be specified for interfaces of type Aggregate"
+// +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || !has(self.switchport) || !has(self.ipv4)", message="ipv4 must not be specified for Aggregate interfaces with switchport configuration"
 // +kubebuilder:validation:XValidation:rule="self.type != 'RoutedVLAN' || has(self.vlanRef)", message="vlanRef must be specified for interfaces of type RoutedVLAN"
 // +kubebuilder:validation:XValidation:rule="self.type == 'RoutedVLAN' || !has(self.vlanRef)", message="vlanRef must only be specified on interfaces of type RoutedVLAN"
 // +kubebuilder:validation:XValidation:rule="self.type != 'RoutedVLAN' || !has(self.switchport)", message="switchport must not be specified for interfaces of type RoutedVLAN"
 // +kubebuilder:validation:XValidation:rule="self.type != 'RoutedVLAN' || !has(self.aggregation)", message="aggregation must not be specified for interfaces of type RoutedVLAN"
 // +kubebuilder:validation:XValidation:rule="self.type == 'RoutedVLAN' || !has(self.ipv4) || !self.ipv4.anycastGateway", message="anycastGateway can only be enabled for interfaces of type RoutedVLAN"
-// +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || !has(self.vrfRef)", message="vrfRef must not be specified for interfaces of type Aggregate"
+// +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || !has(self.switchport) || !has(self.vrfRef)", message="vrfRef must not be specified for Aggregate interfaces with switchport configuration"
 // +kubebuilder:validation:XValidation:rule="self.type != 'Physical' || !has(self.switchport) || !has(self.vrfRef)", message="vrfRef must not be specified for Physical interfaces with switchport configuration"
-// +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || !has(self.bfd)", message="bfd must not be specified for interfaces of type Aggregate"
+// +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || !has(self.switchport) || !has(self.bfd)", message="bfd must not be specified for Aggregate interfaces with switchport configuration"
 // +kubebuilder:validation:XValidation:rule="!has(self.bfd) || !has(self.switchport)", message="bfd must not be specified for interfaces with switchport configuration"
 // +kubebuilder:validation:XValidation:rule="self.type == 'Physical' || !has(self.ethernet)", message="ethernet configuration must only be specified on interfaces of type Physical"
 type InterfaceSpec struct {
@@ -95,7 +95,7 @@ type InterfaceSpec struct {
 	VrfRef *LocalObjectReference `json:"vrfRef,omitempty"`
 
 	// BFD defines the Bidirectional Forwarding Detection configuration for the interface.
-	// BFD is only applicable for Layer 3 interfaces (Physical, Loopback, RoutedVLAN).
+	// BFD is only applicable for Layer 3 interfaces.
 	// +optional
 	BFD *BFD `json:"bfd,omitempty"`
 

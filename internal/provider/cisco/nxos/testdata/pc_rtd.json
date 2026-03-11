@@ -1,0 +1,28 @@
+{
+  "intf-items": {
+    "aggr-items": {
+      "AggrIf-list": [
+        {
+          "accessVlan": "unknown",
+          "adminSt": "up",
+          "descr": "L3 Port-Channel to Spine1",
+          "id": "po20",
+          "layer": "Layer3",
+          "mtu": 9216,
+          "medium": "p2p",
+          "mode": "access",
+          "pcMode": "active",
+          "nativeVlan": "unknown",
+          "trunkVlans": "1-4094",
+          "userCfgdFlags": "admin_layer,admin_mtu,admin_state",
+          "rtvrfMbr-items": {
+            "tDn": "/System/inst-items/Inst-list[name='default']"
+          },
+          "aggrExtd-items": {
+            "bufferBoost": "enable"
+          }
+        }
+      ]
+    }
+  }
+}

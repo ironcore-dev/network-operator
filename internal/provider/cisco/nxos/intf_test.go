@@ -55,6 +55,7 @@ func init() {
 		Descr:         "vPC Leaf1 to Host1",
 		ID:            "po10",
 		Layer:         Layer2,
+		Medium:        MediumBroadcast,
 		Mode:          SwitchportModeTrunk,
 		PcMode:        PortChannelModeActive,
 		NativeVlan:    DefaultVLAN,
@@ -63,6 +64,25 @@ func init() {
 	}
 	pc.RsmbrIfsItems.RsMbrIfsList.Set(NewPortChannelMember("eth1/10"))
 	Register("pc", pc)
+
+	Register("pc_rtd", &PortChannel{
+		AccessVlan:    "unknown",
+		AdminSt:       AdminStUp,
+		Descr:         "L3 Port-Channel to Spine1",
+		ID:            "po20",
+		Layer:         Layer3,
+		MTU:           9216,
+		Medium:        MediumPointToPoint,
+		Mode:          SwitchportModeAccess,
+		NativeVlan:    "unknown",
+		PcMode:        PortChannelModeActive,
+		TrunkVlans:    DefaultVLANRange,
+		UserCfgdFlags: UserFlagAdminState | UserFlagAdminLayer | UserFlagAdminMTU,
+		RtvrfMbrItems: NewVrfMember("po20", "default"),
+		AggrExtdItems: struct {
+			BufferBoost AdminSt4 `json:"bufferBoost,omitempty"`
+		}{BufferBoost: AdminStEnable},
+	})
 
 	svi := &SwitchVirtualInterface{
 		AdminSt: AdminStUp,

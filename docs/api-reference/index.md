@@ -1350,7 +1350,7 @@ _Appears in:_
 | `aggregation` _[Aggregation](#aggregation)_ | Aggregation defines the aggregation (bundle) configuration for the interface.<br />This is only applicable for interfaces of type Aggregate. |  | Optional: \{\} <br /> |
 | `vlanRef` _[LocalObjectReference](#localobjectreference)_ | VlanRef is a reference to the VLAN resource that this interface provides routing for.<br />This is only applicable for interfaces of type RoutedVLAN.<br />The referenced VLAN must exist in the same namespace. |  | Optional: \{\} <br /> |
 | `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VrfRef is a reference to the VRF resource that this interface belongs to.<br />If not specified, the interface will be part of the default VRF.<br />This is only applicable for Layer 3 interfaces.<br />The referenced VRF must exist in the same namespace. |  | Optional: \{\} <br /> |
-| `bfd` _[BFD](#bfd)_ | BFD defines the Bidirectional Forwarding Detection configuration for the interface.<br />BFD is only applicable for Layer 3 interfaces (Physical, Loopback, RoutedVLAN). |  | Optional: \{\} <br /> |
+| `bfd` _[BFD](#bfd)_ | BFD defines the Bidirectional Forwarding Detection configuration for the interface.<br />BFD is only applicable for Layer 3 interfaces. |  | Optional: \{\} <br /> |
 | `ethernet` _[Ethernet](#ethernet)_ | Ethernet defines the ethernet-specific configuration for physical interfaces.<br />This configuration is only applicable to Physical interfaces.<br />When omitted, ethernet parameters use their default values (e.g., FEC mode defaults to auto). |  | Optional: \{\} <br /> |
 
 

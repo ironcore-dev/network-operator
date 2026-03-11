@@ -160,7 +160,7 @@ spec:
               bfd:
                 description: |-
                   BFD defines the Bidirectional Forwarding Detection configuration for the interface.
-                  BFD is only applicable for Layer 3 interfaces (Physical, Loopback, RoutedVLAN).
+                  BFD is only applicable for Layer 3 interfaces.
                 properties:
                   desiredMinimumTxInterval:
                     description: |-
@@ -444,8 +444,9 @@ spec:
               rule: self.type != 'Aggregate' || has(self.aggregation)
             - message: aggregation must only be specified on interfaces of type Aggregate
               rule: self.type == 'Aggregate' || !has(self.aggregation)
-            - message: ipv4 must not be specified for interfaces of type Aggregate
-              rule: self.type != 'Aggregate' || !has(self.ipv4)
+            - message: ipv4 must not be specified for Aggregate interfaces with switchport
+                configuration
+              rule: self.type != 'Aggregate' || !has(self.switchport) || !has(self.ipv4)
             - message: vlanRef must be specified for interfaces of type RoutedVLAN
               rule: self.type != 'RoutedVLAN' || has(self.vlanRef)
             - message: vlanRef must only be specified on interfaces of type RoutedVLAN
@@ -456,13 +457,15 @@ spec:
               rule: self.type != 'RoutedVLAN' || !has(self.aggregation)
             - message: anycastGateway can only be enabled for interfaces of type RoutedVLAN
               rule: self.type == 'RoutedVLAN' || !has(self.ipv4) || !self.ipv4.anycastGateway
-            - message: vrfRef must not be specified for interfaces of type Aggregate
-              rule: self.type != 'Aggregate' || !has(self.vrfRef)
+            - message: vrfRef must not be specified for Aggregate interfaces with
+                switchport configuration
+              rule: self.type != 'Aggregate' || !has(self.switchport) || !has(self.vrfRef)
             - message: vrfRef must not be specified for Physical interfaces with switchport
                 configuration
               rule: self.type != 'Physical' || !has(self.switchport) || !has(self.vrfRef)
-            - message: bfd must not be specified for interfaces of type Aggregate
-              rule: self.type != 'Aggregate' || !has(self.bfd)
+            - message: bfd must not be specified for Aggregate interfaces with switchport
+                configuration
+              rule: self.type != 'Aggregate' || !has(self.switchport) || !has(self.bfd)
             - message: bfd must not be specified for interfaces with switchport configuration
               rule: '!has(self.bfd) || !has(self.switchport)'
             - message: ethernet configuration must only be specified on interfaces

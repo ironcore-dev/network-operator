@@ -5,6 +5,8 @@ package v1alpha1
 import (
 	"encoding/json"
 	"net/netip"
+
+	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 // IPPrefix represents an IP prefix in CIDR notation.
@@ -37,6 +39,12 @@ func (p IPPrefix) IsZero() bool {
 	return !p.IsValid()
 }
 
+// Equal reports whether p and q are the same prefix.
+// This method exists as a convenience for callers that need a direct comparison.
+func (p IPPrefix) Equal(q IPPrefix) bool {
+	return p.Prefix == q.Prefix
+}
+
 // MarshalJSON implements [json.Marshaler].
 func (p IPPrefix) MarshalJSON() ([]byte, error) {
 	if !p.IsValid() {
@@ -63,6 +71,19 @@ func (p *IPPrefix) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// IsPointToPoint reports whether the prefix indicates a point-to-point link.
+// For IPv4, this means a /31 subnet mask as defined in [RFC 3021].
+// For IPv6, this means a /127 subnet mask as defined in [RFC 6164].
+//
+// [RFC 3021]: https://datatracker.ietf.org/doc/html/rfc3021
+// [RFC 6164]: https://datatracker.ietf.org/doc/html/rfc6164
+func (p IPPrefix) IsPointToPoint() bool {
+	if p.Addr().Is4() {
+		return p.Bits() == 31
+	}
+	return p.Bits() == 127
+}
+
 // DeepCopyInto copies all properties of this object into another object of the same type
 func (in *IPPrefix) DeepCopyInto(out *IPPrefix) {
 	*out = *in
@@ -76,4 +97,16 @@ func (in *IPPrefix) DeepCopy() *IPPrefix {
 	out := new(IPPrefix)
 	in.DeepCopyInto(out)
 	return out
+}
+
+func init() {
+	// IPPrefix embeds [netip.Prefix] which contains unexported fields.
+	// [equality.Semantic.DeepEqual] panics on unexported fields, so an
+	// explicit equality function is registered in this package's init to
+	// make any type containing IPPrefix safe to compare.
+	if err := equality.Semantic.AddFunc(func(a, b IPPrefix) bool {
+		return a.Equal(b)
+	}); err != nil {
+		panic(err)
+	}
 }

@@ -48,6 +48,8 @@ k8s_resource(new_name='eth1-1', objects=['eth1-1:interface'], trigger_mode=TRIGG
 k8s_resource(new_name='eth1-2', objects=['eth1-2:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='eth1-10', objects=['eth1-10:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='po10', objects=['po-10:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='eth1-3', objects=['eth1-3:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='po20', objects=['po-20:interface'], resource_deps=['eth1-3'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='svi-10', objects=['svi-10:interface'], resource_deps=['vlan-10'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 k8s_yaml('./config/samples/v1alpha1_banner.yaml')

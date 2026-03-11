@@ -595,6 +595,165 @@ var _ = Describe("Interface Controller", func() {
 			}).Should(Succeed())
 		})
 
+		It("Should successfully reconcile an Aggregate Interface with IPv4 addresses and VRF", func() {
+			By("Creating a VRF resource")
+			vrf := &v1alpha1.VRF{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.VRFSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
+					Name:      "PROD",
+					VNI:       1000,
+				},
+			}
+			Expect(k8sClient.Create(ctx, vrf)).To(Succeed())
+
+			By("Creating a Physical member interface")
+			member := &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      memberName1,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
+					Name:       memberName1,
+					AdminState: v1alpha1.AdminStateUp,
+					Type:       v1alpha1.InterfaceTypePhysical,
+				},
+			}
+			Expect(k8sClient.Create(ctx, member)).To(Succeed())
+
+			By("Creating an L3 Aggregate Interface with IPv4 and VRF")
+			aggregate := &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:   v1alpha1.LocalObjectReference{Name: name},
+					Name:        name,
+					AdminState:  v1alpha1.AdminStateUp,
+					Description: "Test L3 Aggregate Interface",
+					MTU:         9000,
+					Type:        v1alpha1.InterfaceTypeAggregate,
+					VrfRef:      &v1alpha1.LocalObjectReference{Name: vrf.Name},
+					IPv4: &v1alpha1.InterfaceIPv4{
+						Addresses: []v1alpha1.IPPrefix{{Prefix: netip.MustParsePrefix("10.0.0.1/31")}},
+					},
+					Aggregation: &v1alpha1.Aggregation{
+						MemberInterfaceRefs: []v1alpha1.LocalObjectReference{
+							{Name: memberName1},
+						},
+						ControlProtocol: v1alpha1.ControlProtocol{
+							Mode: v1alpha1.LACPModeActive,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, aggregate)).To(Succeed())
+
+			By("Verifying the controller sets successful status conditions")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Conditions).To(HaveLen(4))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.OperationalCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[3].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[3].Status).To(Equal(metav1.ConditionFalse))
+			}).Should(Succeed())
+
+			By("Verifying the Interface has the VRF label")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Labels).To(HaveKeyWithValue(v1alpha1.VRFLabel, vrf.Name))
+			}).Should(Succeed())
+
+			By("Verifying member interface is properly linked")
+			Eventually(func(g Gomega) {
+				memberIntf := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: memberName1, Namespace: metav1.NamespaceDefault}, memberIntf)).To(Succeed())
+				g.Expect(memberIntf.Status.MemberOf).ToNot(BeNil())
+				g.Expect(memberIntf.Status.MemberOf.Name).To(Equal(name))
+				g.Expect(memberIntf.Labels).To(HaveKeyWithValue(v1alpha1.AggregateLabel, name))
+			}).Should(Succeed())
+
+			By("Verifying the Aggregate Interface is configured in the provider")
+			Eventually(func(g Gomega) {
+				g.Expect(testProvider.Ports.Has(name)).To(BeTrue(), "Provider should have L3 Aggregate Interface configured")
+			}).Should(Succeed())
+		})
+
+		It("Should reconcile a Physical interface that is a member of an L3 Aggregate", func() {
+			By("Creating an L3 Aggregate interface")
+			aggregate := &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "po100",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
+					Name:       "po100",
+					AdminState: v1alpha1.AdminStateUp,
+					Type:       v1alpha1.InterfaceTypeAggregate,
+					IPv4: &v1alpha1.InterfaceIPv4{
+						Addresses: []v1alpha1.IPPrefix{{Prefix: netip.MustParsePrefix("10.0.100.0/31")}},
+					},
+					Aggregation: &v1alpha1.Aggregation{
+						MemberInterfaceRefs: []v1alpha1.LocalObjectReference{
+							{Name: "eth1-100"},
+						},
+						ControlProtocol: v1alpha1.ControlProtocol{
+							Mode: v1alpha1.LACPModeActive,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, aggregate)).To(Succeed())
+
+			By("Creating the member Physical interface")
+			member := &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "eth1-100",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
+					Name:       "eth1-100",
+					AdminState: v1alpha1.AdminStateUp,
+					Type:       v1alpha1.InterfaceTypePhysical,
+				},
+			}
+			Expect(k8sClient.Create(ctx, member)).To(Succeed())
+
+			By("Verifying the member eventually gets MemberOf set by the Aggregate reconciliation")
+			Eventually(func(g Gomega) {
+				m := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: "eth1-100", Namespace: metav1.NamespaceDefault}, m)).To(Succeed())
+				g.Expect(m.Status.MemberOf).NotTo(BeNil())
+				g.Expect(m.Status.MemberOf.Name).To(Equal("po100"))
+			}).Should(Succeed())
+
+			By("Verifying the member Physical interface reconciles without error")
+			Eventually(func(g Gomega) {
+				m := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: "eth1-100", Namespace: metav1.NamespaceDefault}, m)).To(Succeed())
+				g.Expect(m.Labels).To(HaveKeyWithValue(v1alpha1.AggregateLabel, "po100"))
+			}).Should(Succeed())
+
+			By("Verifying the member Physical interface is configured in the provider")
+			Eventually(func(g Gomega) {
+				g.Expect(testProvider.Ports.Has("eth1-100")).To(BeTrue(), "Provider should have member Physical Interface configured")
+			}).Should(Succeed())
+		})
+
 		It("Should handle unnumbered reference to non-Loopback Interface", func() {
 			By("Creating a Physical Interface to be referenced")
 			phys := &v1alpha1.Interface{

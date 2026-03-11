@@ -152,6 +152,53 @@ metadata:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
     networking.metal.ironcore.dev/device-name: leaf1
+  name: eth1-3
+spec:
+  deviceRef:
+    name: leaf1
+  name: eth1/3
+  description: L3 Port-Channel Member
+  adminState: Up
+  type: Physical
+  mtu: 9216
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: po-20
+spec:
+  deviceRef:
+    name: leaf1
+  name: po20
+  description: L3 Port-Channel
+  adminState: Up
+  type: Aggregate
+  mtu: 9216
+  ipv4:
+    addresses:
+      - 10.0.100.0/31
+  bfd:
+    enabled: true
+    desiredMinimumTxInterval: 300ms
+    requiredMinimumReceive: 300ms
+    detectionMultiplier: 3
+  aggregation:
+    controlProtocol:
+      mode: Active
+    memberInterfaceRefs:
+      - name: eth1-3
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
   name: svi-10
 spec:
   deviceRef:

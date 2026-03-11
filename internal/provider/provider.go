@@ -95,6 +95,10 @@ type EnsureInterfaceRequest struct {
 	Members []*v1alpha1.Interface
 	// MultiChassisID is the multi-chassis identifier for multi-chassis link aggregation.
 	MultiChassisID *int16
+	// AggregateParent is the parent Aggregate interface when this interface is
+	// a member of an aggregated interface.
+	// This field is only applicable if the interface type is Physical.
+	AggregateParent *v1alpha1.Interface
 	// VLAN is the referenced VLAN for routed VLAN interfaces (SVI).
 	// This field is only applicable if the interface type is RoutedVLAN.
 	VLAN *v1alpha1.VLAN

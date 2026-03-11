@@ -622,6 +622,22 @@ func (p *Provider) DeleteEVPNInstance(ctx context.Context, req *provider.EVPNIns
 	return p.client.Delete(ctx, conf...)
 }
 
+// isPointToPoint reports whether the given IPv4 configuration represents a
+// point-to-point link. It returns true if the interface is unnumbered or if it
+// has a single address whose prefix indicates a point-to-point link.
+func isPointToPoint(ipv4 *v1alpha1.InterfaceIPv4) bool {
+	if ipv4 == nil {
+		return false
+	}
+	if ipv4.Unnumbered != nil {
+		return true
+	}
+	if len(ipv4.Addresses) == 1 {
+		return ipv4.Addresses[0].IsPointToPoint()
+	}
+	return false
+}
+
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
 	name, err := ShortName(req.Interface.Spec.Name)
 	if err != nil {
@@ -668,20 +684,18 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 	}
 
-	if req.Interface.Spec.Type != v1alpha1.InterfaceTypeAggregate {
-		del := make([]gnmiext.Configurable, 0, 2)
-		addrs := new(AddrList)
-		if err := p.client.GetConfig(ctx, addrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
-			return err
+	del := make([]gnmiext.Configurable, 0, 2)
+	addrs := new(AddrList)
+	if err := p.client.GetConfig(ctx, addrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	for _, a := range addrs.GetAddrItemsByInterface(name) {
+		if addr == nil || a.Vrf != vrf {
+			del = append(del, a)
 		}
-		for _, a := range addrs.GetAddrItemsByInterface(name) {
-			if addr == nil || a.Vrf != vrf {
-				del = append(del, a)
-			}
-		}
-		if err := p.client.Delete(ctx, del...); err != nil {
-			return err
-		}
+	}
+	if err := p.client.Delete(ctx, del...); err != nil {
+		return err
 	}
 
 	conf := make([]gnmiext.Configurable, 0, 4)
@@ -705,7 +719,6 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 
 		if req.Interface.Spec.Ethernet != nil && req.Interface.Spec.Ethernet.FECMode != "" {
-			p.FecMode = FecModeAuto
 			switch req.Interface.Spec.Ethernet.FECMode {
 			case v1alpha1.FECModeFC:
 				p.FecMode = FecModeCL74
@@ -718,20 +731,20 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		}
 
-		if req.IPv4 != nil {
+		// If this Physical interface is a member of an L3 Aggregate (port-channel),
+		// it must be Layer3 on NX-OS even though it has no IP address of its own.
+		if req.IPv4 != nil || (req.AggregateParent != nil && req.AggregateParent.Spec.IPv4 != nil) {
 			p.Layer = Layer3
+			p.RtvrfMbrItems = NewVrfMember(name, vrf)
+			p.AccessVlan = "unknown"
+			p.NativeVlan = "unknown"
 		}
-		if addr.IsPointToPoint() {
+
+		if isPointToPoint(req.Interface.Spec.IPv4) || (req.AggregateParent != nil && isPointToPoint(req.AggregateParent.Spec.IPv4)) {
 			p.Medium = MediumPointToPoint
 		}
-		p.AccessVlan = "unknown"
-		p.NativeVlan = "unknown"
-		p.RtvrfMbrItems = NewVrfMember(name, vrf)
 
 		if req.Interface.Spec.Switchport != nil {
-			p.RtvrfMbrItems = nil
-			p.AccessVlan = DefaultVLAN
-			p.NativeVlan = DefaultVLAN
 			switch req.Interface.Spec.Switchport.Mode {
 			case v1alpha1.SwitchportModeAccess:
 				p.Mode = SwitchportModeAccess
@@ -749,11 +762,8 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		}
 
-		if cfg.Spec.BufferBoost != nil {
+		if cfg.Spec.BufferBoost != nil && !cfg.Spec.BufferBoost.Enabled {
 			p.PhysExtdItems.BufferBoost = AdminStDisable
-			if cfg.Spec.BufferBoost.Enabled {
-				p.PhysExtdItems.BufferBoost = AdminStEnable
-			}
 		}
 
 		if err := p.Validate(); err != nil {
@@ -794,9 +804,9 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		if req.Interface.Spec.AdminState == v1alpha1.AdminStateUp {
 			pc.AdminSt = AdminStUp
 		}
-		// Note: Layer 3 port-channel interfaces are not yet supported
 		pc.Layer = Layer2
 		pc.Mode = SwitchportModeAccess
+		pc.Medium = MediumBroadcast
 		pc.AccessVlan = DefaultVLAN
 		pc.NativeVlan = DefaultVLAN
 		pc.TrunkVlans = DefaultVLANRange
@@ -807,6 +817,17 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		if req.Interface.Spec.MTU != 0 {
 			pc.MTU = req.Interface.Spec.MTU
 			pc.UserCfgdFlags |= UserFlagAdminMTU
+		}
+
+		if req.IPv4 != nil {
+			pc.Layer = Layer3
+			pc.RtvrfMbrItems = NewVrfMember(name, vrf)
+			pc.AccessVlan = "unknown"
+			pc.NativeVlan = "unknown"
+		}
+
+		if isPointToPoint(req.Interface.Spec.IPv4) {
+			pc.Medium = MediumPointToPoint
 		}
 
 		pc.PcMode = PortChannelModeActive
@@ -859,11 +880,8 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		}
 
-		if cfg.Spec.BufferBoost != nil {
+		if cfg.Spec.BufferBoost != nil && !cfg.Spec.BufferBoost.Enabled {
 			pc.AggrExtdItems.BufferBoost = AdminStDisable
-			if cfg.Spec.BufferBoost.Enabled {
-				pc.AggrExtdItems.BufferBoost = AdminStEnable
-			}
 		}
 
 		conf = append(conf, pc)
@@ -923,7 +941,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
 	}
 
-	if (req.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical && req.IPv4 == nil) || req.Interface.Spec.Type == v1alpha1.InterfaceTypeAggregate {
+	if (req.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical || req.Interface.Spec.Type == v1alpha1.InterfaceTypeAggregate) && req.IPv4 == nil && (req.AggregateParent == nil || req.AggregateParent.Spec.IPv4 == nil) {
 		stp := new(SpanningTree)
 		stp.IfName = name
 		stp.Mode = SpanningTreeModeDefault
@@ -1019,7 +1037,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		icmp := new(ICMPIf)
 		icmp.ID = name
 		switch req.Interface.Spec.Type {
-		case v1alpha1.InterfaceTypePhysical:
+		case v1alpha1.InterfaceTypePhysical, v1alpha1.InterfaceTypeAggregate:
 			if err := p.client.Delete(ctx, icmp); err != nil {
 				return err
 			}
@@ -1042,14 +1060,12 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 	}
 
 	conf := make([]gnmiext.Configurable, 0, 3)
-	if req.Interface.Spec.Type != v1alpha1.InterfaceTypeAggregate {
-		addrs := new(AddrList)
-		if err := p.client.GetConfig(ctx, addrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
-			return err
-		}
-		for _, addr := range addrs.GetAddrItemsByInterface(name) {
-			conf = append(conf, addr)
-		}
+	addrs := new(AddrList)
+	if err := p.client.GetConfig(ctx, addrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	for _, addr := range addrs.GetAddrItemsByInterface(name) {
+		conf = append(conf, addr)
 	}
 
 	bfd := new(BFD)
@@ -1062,7 +1078,6 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 		i.ID = name
 		conf = append(conf, i)
 
-		// Delete any spanning tree config associated with the interface.
 		stp := new(SpanningTree)
 		stp.IfName = name
 		if err = p.client.GetConfig(ctx, stp); err == nil {

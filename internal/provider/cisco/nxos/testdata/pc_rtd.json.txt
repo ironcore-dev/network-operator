@@ -1,0 +1,6 @@
+interface Port-channel20
+ description L3 Port-Channel to Spine1
+ medium p2p
+ mtu 9216
+ no switchport
+ no shutdown
