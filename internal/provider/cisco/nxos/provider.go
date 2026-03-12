@@ -947,9 +947,10 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		conf = append(conf, addr)
 	}
 
-	bfd := new(BFD)
-	bfd.ID = name
 	if req.Interface.Spec.BFD != nil {
+		bfd := new(BFD)
+		bfd.ID = name
+
 		f := new(Feature)
 		f.Name = "bfd"
 		f.AdminSt = AdminStEnabled
@@ -985,8 +986,10 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		icmp.ID = name
 		switch req.Interface.Spec.Type {
 		case v1alpha1.InterfaceTypePhysical:
-			if err := p.client.Delete(ctx, icmp); err != nil {
-				return err
+			if req.Interface.Spec.Switchport == nil {
+				if err := p.client.Delete(ctx, icmp); err != nil {
+					return err
+				}
 			}
 		case v1alpha1.InterfaceTypeLoopback:
 			icmp.Ctrl = "port-unreachable,redirect"
