@@ -39,7 +39,7 @@ func Run(cmd *exec.Cmd) (string, error) {
 	}
 
 	command := strings.Join(cmd.Args, " ")
-	_, _ = fmt.Fprintf(GinkgoWriter, "running: %s\n", command) //nolint:gosec
+	_, _ = fmt.Fprintf(GinkgoWriter, "running: %s\n", command)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
