@@ -483,6 +483,10 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 	}
 	conditions.Set(s.Interface, cond)
 
+	if !status.OperStatus {
+		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
+	}
+
 	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
 }
 
