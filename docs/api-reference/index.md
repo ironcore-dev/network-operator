@@ -3020,6 +3020,7 @@ _Appears in:_
 Package v1alpha1 contains API Schema definitions for the nx.cisco.networking.metal.ironcore.dev v1alpha1 API group.
 
 ### Resource Types
+- [BGPConfig](#bgpconfig)
 - [BorderGateway](#bordergateway)
 - [InterfaceConfig](#interfaceconfig)
 - [LLDPConfig](#lldpconfig)
@@ -3046,6 +3047,72 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `enabled` _boolean_ | Enabled indicates whether auto-recovery is enabled.<br />When enabled, the switch will wait for ReloadDelay seconds after peer failure<br />before assuming the peer is dead and restoring the vPC's domain functionality. |  | Required: \{\} <br /> |
 | `reloadDelay` _integer_ | ReloadDelay is the time in seconds (60-3600) to wait before assuming the peer is dead<br />and automatically attempting to restore the communication with the peer. | 240 | Maximum: 3600 <br />Minimum: 60 <br />Optional: \{\} <br /> |
+
+
+#### BGPConfig
+
+
+
+BGPConfig is the Schema for the bgpconfigs API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `nx.cisco.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `BGPConfig` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[BGPConfigSpec](#bgpconfigspec)_ | spec defines the desired state of BGPConfig |  | Required: \{\} <br /> |
+
+
+#### BGPConfigAddressFamilies
+
+
+
+BGPConfigAddressFamilies defines the Cisco NX-OS specific configuration for supported BGP address families.
+
+
+
+_Appears in:_
+- [BGPConfigSpec](#bgpconfigspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `l2vpnEvpn` _[BGPL2vpnEvpn](#bgpl2vpnevpn)_ | L2vpnEvpn configures L2VPN EVPN address family support. |  | Optional: \{\} <br /> |
+
+
+#### BGPConfigSpec
+
+
+
+BGPConfigSpec defines the Cisco NX-OS specific BGP configuration.
+
+
+
+_Appears in:_
+- [BGPConfig](#bgpconfig)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `addressFamilies` _[BGPConfigAddressFamilies](#bgpconfigaddressfamilies)_ | AddressFamilies configures supported BGP address families and their Cisco NX-OS specific settings. |  | Optional: \{\} <br /> |
+
+
+#### BGPL2vpnEvpn
+
+
+
+BGPL2vpnEvpn defines the configuration for L2VPN EVPN address family.
+
+
+
+_Appears in:_
+- [BGPConfigAddressFamilies](#bgpconfigaddressfamilies)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `advertisePIP` _boolean_ | AdvertisePIP controls whether the BGP EVPN address-family should advertise the primary IP address (PIP) as the next-hop<br />when advertising prefix routes or loopback interface routes in BGP on vPC enabled leaf or border leaf switches. | false | Optional: \{\} <br /> |
 
 
 #### BGPPeerReference
