@@ -468,7 +468,7 @@ func (r *VPCDomainReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 					oldDevice := e.ObjectOld.(*corev1.Device)
 					newDevice := e.ObjectNew.(*corev1.Device)
 					// Only trigger when Paused spec field changes.
-					return !equality.Semantic.DeepEqual(oldDevice.Spec.Paused, newDevice.Spec.Paused)
+					return oldDevice.Spec.Paused != newDevice.Spec.Paused
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false

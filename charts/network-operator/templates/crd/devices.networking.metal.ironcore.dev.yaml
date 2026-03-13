@@ -186,6 +186,7 @@ spec:
                 - message: SecretRef is required once set
                   rule: '!has(oldSelf.secretRef) || has(self.secretRef)'
               paused:
+                default: false
                 description: Paused can be used to prevent controllers from processing
                   the Device and its associated objects.
                 type: boolean

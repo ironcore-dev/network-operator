@@ -12,7 +12,7 @@ import (
 
 // IsPaused returns true if the Device is paused or the object has the [v1alpha1.PausedAnnotation].
 func IsPaused(device *v1alpha1.Device, obj metav1.Object) bool {
-	return (device.Spec.Paused != nil && *device.Spec.Paused) || HasPaused(obj)
+	return device.Spec.Paused || HasPaused(obj)
 }
 
 // HasPaused returns true if the object has the [v1alpha1.PausedAnnotation].

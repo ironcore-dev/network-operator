@@ -455,7 +455,7 @@ func (r *LLDPReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 				oldDevice := e.ObjectOld.(*v1alpha1.Device)
 				newDevice := e.ObjectNew.(*v1alpha1.Device)
 				// Only trigger when Paused spec field changes.
-				return !equality.Semantic.DeepEqual(oldDevice.Spec.Paused, newDevice.Spec.Paused)
+				return oldDevice.Spec.Paused != newDevice.Spec.Paused
 			},
 			GenericFunc: func(e event.GenericEvent) bool {
 				return false

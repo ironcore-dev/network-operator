@@ -15,7 +15,8 @@ import (
 type DeviceSpec struct {
 	// Paused can be used to prevent controllers from processing the Device and its associated objects.
 	// +optional
-	Paused *bool `json:"paused,omitempty"`
+	// +kubebuilder:default=false
+	Paused bool `json:"paused,omitempty"`
 
 	// Endpoint contains the connection information for the device.
 	// +required

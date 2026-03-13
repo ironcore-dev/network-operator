@@ -375,8 +375,8 @@ var _ = Describe("LLDP Controller", func() {
 			err = k8sClient.Get(ctx, deviceKey, device)
 			if err == nil {
 				// Ensure device is not paused before deletion
-				if device.Spec.Paused != nil && *device.Spec.Paused {
-					device.Spec.Paused = nil
+				if device.Spec.Paused {
+					device.Spec.Paused = false
 					Expect(k8sClient.Update(ctx, device)).To(Succeed())
 				}
 				Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
@@ -413,11 +413,10 @@ var _ = Describe("LLDP Controller", func() {
 			}).Should(Succeed())
 
 			By("Pausing the Device")
-			paused := true
 			Eventually(func(g Gomega) {
 				err := k8sClient.Get(ctx, deviceKey, device)
 				g.Expect(err).NotTo(HaveOccurred())
-				device.Spec.Paused = &paused
+				device.Spec.Paused = true
 				g.Expect(k8sClient.Update(ctx, device)).To(Succeed())
 			}).Should(Succeed())
 
@@ -439,7 +438,7 @@ var _ = Describe("LLDP Controller", func() {
 			Eventually(func(g Gomega) {
 				err := k8sClient.Get(ctx, deviceKey, device)
 				g.Expect(err).NotTo(HaveOccurred())
-				device.Spec.Paused = nil
+				device.Spec.Paused = false
 				g.Expect(k8sClient.Update(ctx, device)).To(Succeed())
 			}).Should(Succeed())
 
