@@ -145,8 +145,8 @@ github.com/openconfig/gnoi v0.8.0 h1:fwZm4zlwoY5i7KALTpVhpAv53Y3YskleoTpg1IUCa+c
 github.com/openconfig/gnoi v0.8.0/go.mod h1:/kbYAWyBjQ08oahe7VGG8lAJc+yIfXdD7CF/T8RUjl0=
 github.com/openconfig/gocloser v0.0.0-20251119232641-34bca749fdb3 h1:HsTKOBZeQw/Rt8KmxFY578pVZDIgeem50jzv4BjrTR8=
 github.com/openconfig/gocloser v0.0.0-20251119232641-34bca749fdb3/go.mod h1:4vnwCnlfaYP/nmt3ST13nRo1oygak9ctB6CUbhGZUUE=
-github.com/openconfig/goyang v1.6.2 h1:LVwwlVIIt4nmwacW67yBsxzP5DhDM94SOEMWod1hEA0=
-github.com/openconfig/goyang v1.6.2/go.mod h1:jzlGg+yjRpOcq1Kg6q6cSiLGQK5hrNNMsUx0fFxm4U0=
+github.com/openconfig/goyang v1.6.3 h1:9nWXBwd6b4+nZr8ni7O4zUXVhrVMXCLFz8os5YWFuo4=
+github.com/openconfig/goyang v1.6.3/go.mod h1:5WolITjek1NF8yrNERyVZ7jqjOClJTpO8p/+OwmETM4=
 github.com/openconfig/grpctunnel v0.1.0 h1:EN99qtlExZczgQgp5ANnHRC/Rs62cAG+Tz2BQ5m/maM=
 github.com/openconfig/grpctunnel v0.1.0/go.mod h1:G04Pdu0pml98tdvXrvLaU+EBo3PxYfI9MYqpvdaEHLo=
 github.com/openconfig/ygnmi v0.13.1-0.20250924235719-646562b5d0c3 h1:y9Wj152WN0UadK5v0iZGB5qs36FxO2x/CyX73GtKR+4=

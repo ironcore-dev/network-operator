@@ -11,7 +11,7 @@ require (
 	github.com/onsi/gomega v1.39.1
 	github.com/openconfig/gnmi v0.14.1
 	github.com/openconfig/gnoi v0.8.0
-	github.com/openconfig/goyang v1.6.2
+	github.com/openconfig/goyang v1.6.3
 	github.com/openconfig/ygnmi v0.13.1-0.20250924235719-646562b5d0c3
 	github.com/openconfig/ygot v0.34.0
 	github.com/sapcc/go-api-declarations v1.20.2
