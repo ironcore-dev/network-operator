@@ -6,6 +6,7 @@
           "accessVlan": "vlan-1",
           "adminSt": "up",
           "descr": "Leaf1 to Host1",
+          "FECMode": "auto",
           "id": "eth1/10",
           "layer": "Layer2",
           "medium": "broadcast",

@@ -70,7 +70,7 @@ type PhysIf struct {
 	AccessVlan    string         `json:"accessVlan"`
 	AdminSt       AdminSt2       `json:"adminSt,omitempty"`
 	Descr         string         `json:"descr"`
-	FecMode       FecMode        `json:"FECMode,omitempty"`
+	FecMode       FecMode        `json:"FECMode"`
 	ID            string         `json:"id"`
 	Layer         Layer          `json:"layer"`
 	MTU           int32          `json:"mtu,omitempty"`
@@ -100,6 +100,7 @@ func (p *PhysIf) Validate() error {
 
 func (p *PhysIf) Default() {
 	p.AccessVlan = DefaultVLAN
+	p.FecMode = FecModeAuto
 	p.Layer = Layer2
 	p.MTU = DefaultMTU
 	p.Medium = MediumBroadcast

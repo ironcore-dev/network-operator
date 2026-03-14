@@ -6,6 +6,7 @@
           "accessVlan": "vlan-1",
           "adminSt": "up",
           "descr": "Leaf1 to Spine1",
+          "FECMode": "auto",
           "id": "eth1/1",
           "layer": "Layer3",
           "mtu": 9216,
