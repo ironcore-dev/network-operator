@@ -142,6 +142,82 @@ spec:
                             BgpActions specifies BGP-specific actions to apply when the route is accepted.
                             Only applicable when RouteDisposition is AcceptRoute.
                           properties:
+                            setASPath:
+                              description: |-
+                                SetASPath configures modifications to the BGP AS path attribute.
+                                Not all providers may support this action.
+                              properties:
+                                asNumber:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  description: |-
+                                    ASNumber sets the AS path to the specified AS number.
+                                    Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
+                                  x-kubernetes-int-or-string: true
+                                prepend:
+                                  description: Prepend configures prepending to the
+                                    AS path.
+                                  properties:
+                                    asNumber:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      description: |-
+                                        ASNumber is the autonomous system number to prepend to the AS path.
+                                        Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
+                                        Mutually exclusive with useLastAS.
+                                      x-kubernetes-int-or-string: true
+                                    useLastAS:
+                                      description: |-
+                                        UseLastAS prepends the last AS number in the existing AS path the specified number of times.
+                                        Mutually exclusive with asNumber.
+                                      format: int32
+                                      maximum: 10
+                                      minimum: 1
+                                      type: integer
+                                  type: object
+                                  x-kubernetes-validations:
+                                  - message: exactly one of asNumber or useLastAS
+                                      must be specified
+                                    rule: has(self.asNumber) != has(self.useLastAS)
+                                replace:
+                                  description: Replace configures replacement of AS
+                                    numbers in the AS path.
+                                  properties:
+                                    asNumber:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      description: |-
+                                        ASNumber targets a specific AS number in the path for replacement.
+                                        Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
+                                        Mutually exclusive with privateAS.
+                                      x-kubernetes-int-or-string: true
+                                    privateAS:
+                                      description: |-
+                                        PrivateAS, when set to true, targets all private AS numbers in the path for replacement.
+                                        Mutually exclusive with asNumber.
+                                      type: boolean
+                                    replacement:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      description: |-
+                                        Replacement is the AS number to substitute in place of matched AS numbers.
+                                        Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
+                                      x-kubernetes-int-or-string: true
+                                  required:
+                                  - replacement
+                                  type: object
+                                  x-kubernetes-validations:
+                                  - message: exactly one of privateAS or asNumber
+                                      must be specified
+                                    rule: has(self.privateAS) != has(self.asNumber)
+                              type: object
+                              x-kubernetes-validations:
+                              - message: at least one AS path action must be specified
+                                rule: has(self.prepend) || has(self.replace) || has(self.asNumber)
                             setCommunity:
                               description: SetCommunity configures BGP standard community
                                 attributes.
@@ -178,6 +254,7 @@ spec:
                           x-kubernetes-validations:
                           - message: at least one BGP action must be specified
                             rule: has(self.setCommunity) || has(self.setExtCommunity)
+                              || has(self.setASPath)
                         routeDisposition:
                           description: RouteDisposition specifies whether to accept
                             or reject the route.

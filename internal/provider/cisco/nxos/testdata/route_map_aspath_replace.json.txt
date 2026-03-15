@@ -1,0 +1,4 @@
+route-map RM-ASPATH-REPLACE permit 10
+ set as-path replace private-as with 65000
+route-map RM-ASPATH-REPLACE permit 20
+ set as-path replace 65001 with 65100

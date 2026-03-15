@@ -8,6 +8,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // RoutingPolicySpec defines the desired state of RoutingPolicy
@@ -96,7 +97,7 @@ const (
 )
 
 // BgpActions defines BGP-specific actions for a policy statement.
-// +kubebuilder:validation:XValidation:rule="has(self.setCommunity) || has(self.setExtCommunity)",message="at least one BGP action must be specified"
+// +kubebuilder:validation:XValidation:rule="has(self.setCommunity) || has(self.setExtCommunity) || has(self.setASPath)",message="at least one BGP action must be specified"
 type BgpActions struct {
 	// SetCommunity configures BGP standard community attributes.
 	// +optional
@@ -105,6 +106,62 @@ type BgpActions struct {
 	// SetExtCommunity configures BGP extended community attributes.
 	// +optional
 	SetExtCommunity *SetExtCommunityAction `json:"setExtCommunity,omitempty"`
+
+	// SetASPath configures modifications to the BGP AS path attribute.
+	// +optional
+	SetASPath *SetASPathAction `json:"setASPath,omitempty"`
+}
+
+// SetASPathAction defines actions to modify the BGP AS path attribute.
+// +kubebuilder:validation:XValidation:rule="has(self.prepend) || has(self.replace) || has(self.asNumber)",message="at least one AS path action must be specified"
+type SetASPathAction struct {
+	// Prepend configures prepending to the AS path.
+	// +optional
+	Prepend *SetASPathPrepend `json:"prepend,omitempty"`
+
+	// Replace configures replacement of AS numbers in the AS path.
+	// +optional
+	Replace *SetASPathReplace `json:"replace,omitempty"`
+
+	// ASNumber sets the AS path to the specified AS number.
+	// Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
+	// +optional
+	ASNumber *intstr.IntOrString `json:"asNumber,omitempty"`
+}
+
+// SetASPathPrepend configures prepending to the BGP AS path.
+// Either asNumber or useLastAS must be specified, but not both.
+// +kubebuilder:validation:XValidation:rule="has(self.asNumber) != has(self.useLastAS)",message="exactly one of asNumber or useLastAS must be specified"
+type SetASPathPrepend struct {
+	// ASNumber is the autonomous system number to prepend to the AS path.
+	// Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
+	// +optional
+	ASNumber *intstr.IntOrString `json:"asNumber,omitempty"`
+
+	// UseLastAS prepends the last AS number in the existing AS path the specified number of times.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=10
+	UseLastAS *int32 `json:"useLastAS,omitempty"`
+}
+
+// SetASPathReplace configures replacement of AS numbers in the BGP AS path.
+// Either privateAS or asNumber must be specified, but not both.
+// +kubebuilder:validation:XValidation:rule="has(self.privateAS) != has(self.asNumber)",message="exactly one of privateAS or asNumber must be specified"
+type SetASPathReplace struct {
+	// PrivateAS, when set to true, targets all private AS numbers in the path for replacement.
+	// +optional
+	PrivateAS bool `json:"privateAS,omitempty"`
+
+	// ASNumber targets a specific AS number in the path for replacement.
+	// Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
+	// +optional
+	ASNumber *intstr.IntOrString `json:"asNumber,omitempty"`
+
+	// Replacement is the AS number to substitute in place of matched AS numbers.
+	// Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
+	// +required
+	Replacement intstr.IntOrString `json:"replacement"`
 }
 
 // SetCommunityAction defines the action to set BGP standard communities.

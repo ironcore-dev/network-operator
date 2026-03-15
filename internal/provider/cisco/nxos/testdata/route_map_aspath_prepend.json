@@ -1,0 +1,22 @@
+{
+  "rpm-items": {
+    "rtmap-items": {
+      "Rule-list": [
+        {
+          "name": "RM-ASPATH-PREPEND",
+          "ent-items": {
+            "Entry-list": [
+              {
+                "action": "permit",
+                "order": 10,
+                "setaspathprepend-items": {
+                  "as": "65000"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,2 @@
+route-map RM-ASPATH-PREPEND permit 10
+ set as-path prepend 65000

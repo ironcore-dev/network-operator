@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -236,6 +237,115 @@ var _ = Describe("RoutingPolicy Controller", func() {
 				g.Expect(resource.Status.Conditions[0].Reason).To(Equal(v1alpha1.PrefixSetNotFoundReason))
 				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
 				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+			}).Should(Succeed())
+		})
+
+		It("Should successfully reconcile a RoutingPolicy with AS path actions", func() {
+			By("Creating a RoutingPolicy with various AS path actions")
+			asn65000 := intstr.FromInt32(65000)
+			asn65001 := intstr.FromInt32(65001)
+			asn65100 := intstr.FromInt32(65100)
+			asnDotted := intstr.FromString("1.100")
+			useLastAS := int32(5)
+
+			rp := &v1alpha1.RoutingPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.RoutingPolicySpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
+					Name:      name,
+					Statements: []v1alpha1.PolicyStatement{
+						{
+							// Prepend a specific ASN
+							Sequence: 10,
+							Actions: v1alpha1.PolicyActions{
+								RouteDisposition: v1alpha1.AcceptRoute,
+								BgpActions: &v1alpha1.BgpActions{
+									SetASPath: &v1alpha1.SetASPathAction{
+										Prepend: &v1alpha1.SetASPathPrepend{
+											ASNumber: &asn65000,
+										},
+									},
+								},
+							},
+						},
+						{
+							// Prepend using last-as
+							Sequence: 20,
+							Actions: v1alpha1.PolicyActions{
+								RouteDisposition: v1alpha1.AcceptRoute,
+								BgpActions: &v1alpha1.BgpActions{
+									SetASPath: &v1alpha1.SetASPathAction{
+										Prepend: &v1alpha1.SetASPathPrepend{
+											UseLastAS: &useLastAS,
+										},
+									},
+								},
+							},
+						},
+						{
+							// Replace private AS with a specific ASN
+							Sequence: 30,
+							Actions: v1alpha1.PolicyActions{
+								RouteDisposition: v1alpha1.AcceptRoute,
+								BgpActions: &v1alpha1.BgpActions{
+									SetASPath: &v1alpha1.SetASPathAction{
+										Replace: &v1alpha1.SetASPathReplace{
+											PrivateAS:   true,
+											Replacement: asn65100,
+										},
+									},
+								},
+							},
+						},
+						{
+							// Replace a specific ASN with another (using dotted notation)
+							Sequence: 40,
+							Actions: v1alpha1.PolicyActions{
+								RouteDisposition: v1alpha1.AcceptRoute,
+								BgpActions: &v1alpha1.BgpActions{
+									SetASPath: &v1alpha1.SetASPathAction{
+										Replace: &v1alpha1.SetASPathReplace{
+											ASNumber:    &asn65001,
+											Replacement: asnDotted,
+										},
+									},
+								},
+							},
+						},
+						{
+							// Set explicit AS path
+							Sequence: 50,
+							Actions: v1alpha1.PolicyActions{
+								RouteDisposition: v1alpha1.AcceptRoute,
+								BgpActions: &v1alpha1.BgpActions{
+									SetASPath: &v1alpha1.SetASPathAction{
+										ASNumber: &asn65000,
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, rp)).To(Succeed())
+
+			By("Verifying the controller sets successful status conditions")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.RoutingPolicy{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Conditions).To(HaveLen(2))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+			}).Should(Succeed())
+
+			By("Verifying the RoutingPolicy is configured in the provider")
+			Eventually(func(g Gomega) {
+				g.Expect(testProvider.RoutingPolicies.Has(name)).To(BeTrue(), "Provider should have RoutingPolicy configured")
 			}).Should(Succeed())
 		})
 

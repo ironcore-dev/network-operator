@@ -627,6 +627,11 @@ func main() {
 			os.Exit(1)
 		}
 
+		if err := webhookv1alpha1.SetupRoutingPolicyWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "RoutingPolicy")
+			os.Exit(1)
+		}
+
 		if err := webhooknxv1alpha1.SetupNetworkVirtualizationEdgeConfigWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "NetworkVirtualizationEdgeConfig")
 			os.Exit(1)

@@ -1793,6 +1793,32 @@ func (p *Provider) EnsureRoutingPolicy(ctx context.Context, req *provider.Ensure
 					return err
 				}
 			}
+			if stmt.Actions.BgpActions.SetASPath != nil {
+				asp := stmt.Actions.BgpActions.SetASPath
+				if asp.Prepend != nil {
+					if asp.Prepend.ASNumber != nil {
+						e.SetASPathPrependItems.AS = asp.Prepend.ASNumber.String()
+					}
+					if asp.Prepend.UseLastAS != nil {
+						e.SetASPathLastASItems.LastAS = *asp.Prepend.UseLastAS
+					}
+				}
+				if asp.Replace != nil {
+					if asp.Replace.PrivateAS {
+						e.SetASPathReplaceItems.MatchPrivateAS = true
+						e.SetASPathReplaceItems.ReplaceAsn = asp.Replace.Replacement.String()
+						e.SetASPathReplaceItems.ReplaceType = "asn"
+					} else if asp.Replace.ASNumber != nil {
+						e.SetASPathReplaceItems.MatchAsnList = asp.Replace.ASNumber.String()
+						e.SetASPathReplaceItems.MatchPrivateAS = false
+						e.SetASPathReplaceItems.ReplaceAsn = asp.Replace.Replacement.String()
+						e.SetASPathReplaceItems.ReplaceType = "asn"
+					}
+				}
+				if asp.ASNumber != nil {
+					e.SetASPathItems.AsnList = asp.ASNumber.String()
+				}
+			}
 		}
 
 		rm.EntItems.EntryList.Set(e)

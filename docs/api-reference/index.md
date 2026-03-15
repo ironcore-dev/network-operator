@@ -649,6 +649,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `setCommunity` _[SetCommunityAction](#setcommunityaction)_ | SetCommunity configures BGP standard community attributes. |  | Optional: \{\} <br /> |
 | `setExtCommunity` _[SetExtCommunityAction](#setextcommunityaction)_ | SetExtCommunity configures BGP extended community attributes. |  | Optional: \{\} <br /> |
+| `setASPath` _[SetASPathAction](#setaspathaction)_ | SetASPath configures modifications to the BGP AS path attribute.<br />Not all providers may support this action. |  | Optional: \{\} <br /> |
 
 
 #### Certificate
@@ -2600,6 +2601,61 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `name` _string_ | Name is unique within a namespace to reference a secret resource. |  | MaxLength: 253 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `namespace` _string_ | Namespace defines the space within which the secret name must be unique.<br />If omitted, the namespace of the object being reconciled will be used. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
+
+
+#### SetASPathAction
+
+
+
+SetASPathAction defines actions to modify the BGP AS path attribute.
+
+
+
+_Appears in:_
+- [BgpActions](#bgpactions)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `prepend` _[SetASPathPrepend](#setaspathprepend)_ | Prepend configures prepending to the AS path. |  | Optional: \{\} <br /> |
+| `replace` _[SetASPathReplace](#setaspathreplace)_ | Replace configures replacement of AS numbers in the AS path. |  | Optional: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber sets the AS path to the specified AS number.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
+
+
+#### SetASPathPrepend
+
+
+
+SetASPathPrepend configures prepending to the BGP AS path.
+Either asNumber or useLastAS must be specified, but not both.
+
+
+
+_Appears in:_
+- [SetASPathAction](#setaspathaction)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number to prepend to the AS path.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.<br />Mutually exclusive with useLastAS. |  | Optional: \{\} <br /> |
+| `useLastAS` _integer_ | UseLastAS prepends the last AS number in the existing AS path the specified number of times.<br />Mutually exclusive with asNumber. |  | Maximum: 10 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+
+
+#### SetASPathReplace
+
+
+
+SetASPathReplace configures replacement of AS numbers in the BGP AS path.
+Either privateAS or asNumber must be specified, but not both.
+
+
+
+_Appears in:_
+- [SetASPathAction](#setaspathaction)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `privateAS` _boolean_ | PrivateAS, when set to true, targets all private AS numbers in the path for replacement.<br />Mutually exclusive with asNumber. |  | Optional: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber targets a specific AS number in the path for replacement.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.<br />Mutually exclusive with privateAS. |  | Optional: \{\} <br /> |
+| `replacement` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | Replacement is the AS number to substitute in place of matched AS numbers.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
 
 
 #### SetCommunityAction

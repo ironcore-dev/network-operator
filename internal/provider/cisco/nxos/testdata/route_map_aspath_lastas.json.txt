@@ -1,0 +1,2 @@
+route-map RM-ASPATH-LASTAS permit 10
+ set as-path prepend last-as 10

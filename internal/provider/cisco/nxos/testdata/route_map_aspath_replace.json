@@ -1,0 +1,34 @@
+{
+  "rpm-items": {
+    "rtmap-items": {
+      "Rule-list": [
+        {
+          "name": "RM-ASPATH-REPLACE",
+          "ent-items": {
+            "Entry-list": [
+              {
+                "action": "permit",
+                "order": 10,
+                "setaspathreplace-items": {
+                  "matchPrivateAs": true,
+                  "replaceAsn": "65000",
+                  "replaceType": "asn"
+                }
+              },
+              {
+                "action": "permit",
+                "order": 20,
+                "setaspathreplace-items": {
+                  "matchAsnList": "65001",
+                  "matchPrivateAs": false,
+                  "replaceAsn": "65100",
+                  "replaceType": "asn"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
