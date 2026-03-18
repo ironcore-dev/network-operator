@@ -920,7 +920,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `paused` _boolean_ | Paused can be used to prevent controllers from processing the Device and its associated objects. |  | Optional: \{\} <br /> |
+| `paused` _boolean_ | Paused can be used to prevent controllers from processing the Device and its associated objects. | false | Optional: \{\} <br /> |
 | `endpoint` _[Endpoint](#endpoint)_ | Endpoint contains the connection information for the device. |  | Required: \{\} <br /> |
 | `provisioning` _[Provisioning](#provisioning)_ | Provisioning is an optional configuration for the device provisioning process.<br />It can be used to provide initial configuration templates or scripts that are applied during the device provisioning. |  | Optional: \{\} <br /> |
 
@@ -945,7 +945,7 @@ _Appears in:_
 | `firmwareVersion` _string_ | FirmwareVersion is the firmware version running on the Device. |  | Optional: \{\} <br /> |
 | `provisioning` _[ProvisioningInfo](#provisioninginfo) array_ | Provisioning is the list of provisioning attempts for the Device. |  | Optional: \{\} <br /> |
 | `ports` _[DevicePort](#deviceport) array_ | Ports is the list of ports on the Device. |  | Optional: \{\} <br /> |
-| `portSummary` _string_ | PostSummary shows a summary of the port configured, grouped by type, e.g. "1/4 (10g), 3/64 (100g)". |  | Optional: \{\} <br /> |
+| `portSummary` _string_ | PortSummary shows a summary of the port configured, grouped by type, e.g. "1/4 (10g), 3/64 (100g)". |  | Optional: \{\} <br /> |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the Device. |  | Optional: \{\} <br /> |
 
 

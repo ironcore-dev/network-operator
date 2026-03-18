@@ -300,7 +300,7 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 		slices.Sort(device.Status.Ports[i].SupportedSpeedsGbps)
 	}
 
-	device.Status.PostSummary = PortSummary(device.Status.Ports)
+	device.Status.PortSummary = PortSummary(device.Status.Ports)
 
 	info, err := prov.GetDeviceInfo(ctx)
 	if err != nil {

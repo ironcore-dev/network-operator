@@ -155,9 +155,9 @@ type DeviceStatus struct {
 	// +optional
 	Ports []DevicePort `json:"ports,omitempty"`
 
-	// PostSummary shows a summary of the port configured, grouped by type, e.g. "1/4 (10g), 3/64 (100g)".
+	// PortSummary shows a summary of the port configured, grouped by type, e.g. "1/4 (10g), 3/64 (100g)".
 	// +optional
-	PostSummary string `json:"portSummary,omitempty"`
+	PortSummary string `json:"portSummary,omitempty"`
 
 	// The conditions are a list of status objects that describe the state of the Device.
 	//+listType=map

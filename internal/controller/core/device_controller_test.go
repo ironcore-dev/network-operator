@@ -125,7 +125,7 @@ var _ = Describe("Device Controller", func() {
 				g.Expect(resource.Status.Ports[0].Transceiver).To(Equal("QSFP-DD"))
 				g.Expect(resource.Status.Ports[0].InterfaceRef).ToNot(BeNil())
 				g.Expect(resource.Status.Ports[0].InterfaceRef.Name).To(Equal(name))
-				g.Expect(resource.Status.PostSummary).To(Equal("1/8 (10g)"))
+				g.Expect(resource.Status.PortSummary).To(Equal("1/8 (10g)"))
 			}).Should(Succeed())
 
 			By("Cleanup the specific resource instance Interface")
