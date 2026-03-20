@@ -12,7 +12,7 @@ require (
 	github.com/openconfig/gnmi v0.14.1
 	github.com/openconfig/gnoi v0.8.0
 	github.com/openconfig/goyang v1.6.3
-	github.com/openconfig/ygnmi v0.13.1-0.20250924235719-646562b5d0c3
+	github.com/openconfig/ygnmi v0.14.0
 	github.com/openconfig/ygot v0.34.0
 	github.com/sapcc/go-api-declarations v1.20.2
 	github.com/stretchr/testify v1.11.1
@@ -84,8 +84,8 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
-	github.com/spf13/cobra v1.10.0 // indirect
-	github.com/spf13/pflag v1.0.9 // indirect
+	github.com/spf13/cobra v1.10.1 // indirect
+	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
