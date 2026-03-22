@@ -117,7 +117,7 @@ func (r *VRFReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 	if err := r.Locker.AcquireLock(ctx, device.Name, "vrf-controller"); err != nil {
 		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
 			log.Info("Device is already locked, requeuing reconciliation")
-			return ctrl.Result{RequeueAfter: time.Second * 5}, nil
+			return ctrl.Result{RequeueAfter: time.Second}, nil
 		}
 		log.Error(err, "Failed to acquire device lock")
 		return ctrl.Result{}, err
