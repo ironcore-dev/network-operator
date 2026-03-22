@@ -323,9 +323,6 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 }
 
 func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alpha1.Device, prov provider.DeviceProvider, conn *deviceutil.Connection) error {
-	if obj.Annotations == nil {
-		return nil
-	}
 	action, ok := obj.Annotations[v1alpha1.DeviceMaintenanceAnnotation]
 	if !ok {
 		return nil
