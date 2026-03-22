@@ -33,6 +33,7 @@ export default withMermaid({
                 text: 'Documentation',
                 items: [
                     { text: 'Overview', link: '/overview' },
+                    { text: 'Concepts', link: '/concepts/' },
                     { text: 'Tutorials', link: '/tutorials/' },
                     { text: 'API References', link: '/api-reference/' },
                 ],
@@ -69,6 +70,13 @@ export default withMermaid({
             {
                 text: 'Overview',
                 items: [{ text: 'Index', link: '/overview/' }],
+            },
+            {
+                text: 'Concepts',
+                items: [
+                    { text: 'Index', link: '/concepts/' },
+                    { text: 'Pausing Reconciliation', link: '/concepts/pausing' },
+                ],
             },
             {
                 text: 'Tutorials',
