@@ -959,37 +959,36 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 
 	bfd := new(BFD)
 	bfd.ID = name
-	if req.Interface.Spec.BFD != nil {
+	bfd.AdminSt = AdminStDisabled
+	if req.Interface.Spec.BFD != nil && req.Interface.Spec.BFD.Enabled {
 		f := new(Feature)
 		f.Name = "bfd"
 		f.AdminSt = AdminStEnabled
 		conf = append(conf, f)
 
+		// Disable ICMP redirect messages on BFD-enabled interfaces.
+		// See: https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/106x/configuration/interfaces/cisco-nexus-9000-series-nx-os-interfaces-configuration-guide-release-106x/b-cisco-nexus-9000-nx-os-interfaces-configuration-guide-93x_chapter_01111.html
 		icmp := new(ICMPIf)
 		icmp.ID = name
 		icmp.Ctrl = "port-unreachable"
 		conf = append(conf, icmp)
 
-		bfd.AdminSt = AdminStDisabled
-		if req.Interface.Spec.BFD.Enabled {
-			bfd.AdminSt = AdminStEnabled
-			bfd.IfkaItems.MinTxIntvlMs = 50
-			if req.Interface.Spec.BFD.DesiredMinimumTxInterval != nil {
-				bfd.IfkaItems.MinTxIntvlMs = req.Interface.Spec.BFD.DesiredMinimumTxInterval.Milliseconds()
-			}
-			bfd.IfkaItems.MinRxIntvlMs = 50
-			if req.Interface.Spec.BFD.RequiredMinimumReceive != nil {
-				bfd.IfkaItems.MinRxIntvlMs = req.Interface.Spec.BFD.RequiredMinimumReceive.Milliseconds()
-			}
-			bfd.IfkaItems.DetectMult = 3
-			if req.Interface.Spec.BFD.DetectionMultiplier != nil {
-				bfd.IfkaItems.DetectMult = *req.Interface.Spec.BFD.DetectionMultiplier
-			}
-			if err := bfd.Validate(); err != nil {
-				return err
-			}
+		bfd.AdminSt = AdminStEnabled
+		bfd.IfkaItems.MinTxIntvlMs = 50
+		if req.Interface.Spec.BFD.DesiredMinimumTxInterval != nil {
+			bfd.IfkaItems.MinTxIntvlMs = req.Interface.Spec.BFD.DesiredMinimumTxInterval.Milliseconds()
 		}
-		conf = append(conf, bfd)
+		bfd.IfkaItems.MinRxIntvlMs = 50
+		if req.Interface.Spec.BFD.RequiredMinimumReceive != nil {
+			bfd.IfkaItems.MinRxIntvlMs = req.Interface.Spec.BFD.RequiredMinimumReceive.Milliseconds()
+		}
+		bfd.IfkaItems.DetectMult = 3
+		if req.Interface.Spec.BFD.DetectionMultiplier != nil {
+			bfd.IfkaItems.DetectMult = *req.Interface.Spec.BFD.DetectionMultiplier
+		}
+		if err := bfd.Validate(); err != nil {
+			return err
+		}
 	} else {
 		icmp := new(ICMPIf)
 		icmp.ID = name
@@ -1006,6 +1005,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			conf = append(conf, icmp)
 		}
 	}
+	conf = append(conf, bfd)
 
 	return p.Update(ctx, conf...)
 }
