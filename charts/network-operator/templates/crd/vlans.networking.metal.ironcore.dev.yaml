@@ -42,6 +42,10 @@ spec:
       name: Operational
       priority: 1
       type: string
+    - jsonPath: .status.conditions[?(@.type=="Paused")].status
+      name: Paused
+      priority: 1
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date

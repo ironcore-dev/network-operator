@@ -111,6 +111,7 @@ type ISISStatus struct {
 // +kubebuilder:printcolumn:name="NET",type=string,JSONPath=`.spec.networkEntityTitle`
 // +kubebuilder:printcolumn:name="Level",type=string,JSONPath=`.spec.type`,priority=1
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
+// +kubebuilder:printcolumn:name="Paused",type=string,JSONPath=`.status.conditions[?(@.type=="Paused")].status`,priority=1
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // ISIS is the Schema for the isis API

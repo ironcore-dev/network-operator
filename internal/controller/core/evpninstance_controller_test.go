@@ -128,9 +128,11 @@ var _ = Describe("EVPNInstance Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.EVPNInstance{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(1))
+				g.Expect(resource.Status.Conditions).To(HaveLen(2))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 
 			By("Verifying the VLAN is labeled with L2VNI label")
@@ -182,10 +184,12 @@ var _ = Describe("EVPNInstance Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.EVPNInstance{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(1))
+				g.Expect(resource.Status.Conditions).To(HaveLen(2))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(resource.Status.Conditions[0].Reason).To(Equal(v1alpha1.VLANNotFoundReason))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 		})
 
@@ -232,10 +236,12 @@ var _ = Describe("EVPNInstance Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.EVPNInstance{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(1))
+				g.Expect(resource.Status.Conditions).To(HaveLen(2))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(resource.Status.Conditions[0].Reason).To(Equal(v1alpha1.CrossDeviceReferenceReason))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 		})
 	})

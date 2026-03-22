@@ -102,13 +102,15 @@ var _ = Describe("BGPPeer Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.BGPPeer{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(3))
+				g.Expect(resource.Status.Conditions).To(HaveLen(4))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
 				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.OperationalCondition))
 				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[3].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[3].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 
 			By("Verifying the BGP peer is configured in the provider")
@@ -154,13 +156,15 @@ var _ = Describe("BGPPeer Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.BGPPeer{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(3))
+				g.Expect(resource.Status.Conditions).To(HaveLen(4))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
 				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.OperationalCondition))
 				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[3].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[3].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 
 			By("Verifying the BGP peer is configured in the provider")
@@ -191,7 +195,7 @@ var _ = Describe("BGPPeer Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.BGPPeer{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(3))
+				g.Expect(resource.Status.Conditions).To(HaveLen(4))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
@@ -199,6 +203,8 @@ var _ = Describe("BGPPeer Controller", func() {
 				g.Expect(resource.Status.Conditions[1].Reason).To(Equal(v1alpha1.InterfaceNotFoundReason))
 				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.OperationalCondition))
 				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionUnknown))
+				g.Expect(resource.Status.Conditions[3].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[3].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 		})
 
@@ -239,7 +245,7 @@ var _ = Describe("BGPPeer Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.BGPPeer{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(3))
+				g.Expect(resource.Status.Conditions).To(HaveLen(4))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
@@ -247,6 +253,8 @@ var _ = Describe("BGPPeer Controller", func() {
 				g.Expect(resource.Status.Conditions[1].Reason).To(Equal(v1alpha1.CrossDeviceReferenceReason))
 				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.OperationalCondition))
 				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionUnknown))
+				g.Expect(resource.Status.Conditions[3].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[3].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 		})
 	})

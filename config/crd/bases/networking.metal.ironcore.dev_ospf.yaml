@@ -38,6 +38,10 @@ spec:
       name: Operational
       priority: 1
       type: string
+    - jsonPath: .status.conditions[?(@.type=="Paused")].status
+      name: Paused
+      priority: 1
+      type: string
     - jsonPath: .status.adjacencySummary
       name: Adjacencies
       priority: 1

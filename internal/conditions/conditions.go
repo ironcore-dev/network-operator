@@ -30,6 +30,17 @@ type Setter interface {
 	SetConditions([]metav1.Condition)
 }
 
+// Get finds and returns the condition with the given type from the target object.
+// Returns nil if the condition is not found.
+func Get(target Getter, conditionType string) *metav1.Condition {
+	return meta.FindStatusCondition(target.GetConditions(), conditionType)
+}
+
+// GetTopLevelCondition finds and returns the top level "Ready" condition.
+func GetTopLevelCondition(target Getter) *metav1.Condition {
+	return Get(target, v1alpha1.ReadyCondition)
+}
+
 // Set adds or updates a condition on the target object.
 // It returns true if the condition was changed, false otherwise.
 func Set(target Setter, condition metav1.Condition) (changed bool) {
@@ -73,7 +84,7 @@ func IsReady(target Getter) bool {
 // IsConfigured looks at the [v1alpha1.ConfiguredCondition] condition type and returns true
 // if that condition is set to true and the observed generation matches the object's generation.
 func IsConfigured(target Getter) bool {
-	condition := meta.FindStatusCondition(target.GetConditions(), v1alpha1.ConfiguredCondition)
+	condition := Get(target, v1alpha1.ConfiguredCondition)
 	if condition == nil {
 		return false
 	}
@@ -81,11 +92,6 @@ func IsConfigured(target Getter) bool {
 		return false
 	}
 	return condition.Status == metav1.ConditionTrue
-}
-
-// GetTopLevelCondition finds and returns the top level condition (Ready Condition).
-func GetTopLevelCondition(target Getter) *metav1.Condition {
-	return meta.FindStatusCondition(target.GetConditions(), v1alpha1.ReadyCondition)
 }
 
 // InitializeConditions updates all conditions to Unknown if not set.
@@ -116,7 +122,7 @@ func RecomputeReady(target Setter) (changed bool) {
 
 	conditions := target.GetConditions()
 	for _, condition := range conditions {
-		if condition.Type != v1alpha1.ReadyCondition && condition.Status != metav1.ConditionTrue {
+		if condition.Type != v1alpha1.ReadyCondition && condition.Type != v1alpha1.PausedCondition && condition.Status != metav1.ConditionTrue {
 			status = metav1.ConditionFalse
 			reason = v1alpha1.NotReadyReason
 			message = "One or more conditions are not ready"

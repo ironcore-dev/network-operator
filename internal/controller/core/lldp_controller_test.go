@@ -111,7 +111,7 @@ var _ = Describe("LLDP Controller", func() {
 			Eventually(func(g Gomega) {
 				lldp = &v1alpha1.LLDP{}
 				g.Expect(k8sClient.Get(ctx, resourceKey, lldp)).To(Succeed())
-				g.Expect(lldp.Status.Conditions).To(HaveLen(3))
+				g.Expect(lldp.Status.Conditions).To(HaveLen(4))
 
 				cond := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.ReadyCondition)
 				g.Expect(cond).ToNot(BeNil())
@@ -160,7 +160,7 @@ var _ = Describe("LLDP Controller", func() {
 			Eventually(func(g Gomega) {
 				lldp = &v1alpha1.LLDP{}
 				g.Expect(k8sClient.Get(ctx, resourceKey, lldp)).To(Succeed())
-				g.Expect(lldp.Status.Conditions).To(HaveLen(3))
+				g.Expect(lldp.Status.Conditions).To(HaveLen(4))
 
 				cond := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.ReadyCondition)
 				g.Expect(cond).ToNot(BeNil())

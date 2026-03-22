@@ -139,6 +139,7 @@ type ManagementAccessStatus struct {
 // +kubebuilder:printcolumn:name="gRPC",type=boolean,JSONPath=`.spec.grpc.enabled`
 // +kubebuilder:printcolumn:name="gRPC Port",type=integer,JSONPath=`.spec.grpc.port`,priority=1
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
+// +kubebuilder:printcolumn:name="Paused",type=string,JSONPath=`.status.conditions[?(@.type=="Paused")].status`,priority=1
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // ManagementAccess is the Schema for the managementaccesses API

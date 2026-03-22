@@ -43,15 +43,15 @@ spec:
       name: Ports
       priority: 1
       type: string
-    - jsonPath: .spec.paused
-      name: Paused
-      priority: 1
-      type: boolean
     - jsonPath: .status.phase
       name: Phase
       type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Paused")].status
+      name: Paused
+      priority: 1
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age

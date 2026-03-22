@@ -135,13 +135,15 @@ var _ = Describe("NVE Controller", func() {
 			By("Updating the resource status")
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, nveKey, nve)).To(Succeed())
-				g.Expect(nve.Status.Conditions).To(HaveLen(3))
+				g.Expect(nve.Status.Conditions).To(HaveLen(4))
 				g.Expect(nve.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(nve.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(nve.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
 				g.Expect(nve.Status.Conditions[1].Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(nve.Status.Conditions[2].Type).To(Equal(v1alpha1.OperationalCondition))
 				g.Expect(nve.Status.Conditions[2].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(nve.Status.Conditions[3].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(nve.Status.Conditions[3].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 
 			By("Ensuring the NVE is created in the provider")
@@ -173,13 +175,15 @@ var _ = Describe("NVE Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.NetworkVirtualizationEdge{}
 				g.Expect(k8sClient.Get(ctx, nveKey, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(3))
+				g.Expect(resource.Status.Conditions).To(HaveLen(4))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
 				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.OperationalCondition))
 				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[3].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[3].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 		})
 	})

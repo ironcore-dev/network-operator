@@ -170,13 +170,15 @@ var _ = Describe("VPCDomain Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &nxv1.VPCDomain{}
 				g.Expect(k8sClient.Get(ctx, vpcdomainKey, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(3))
+				g.Expect(resource.Status.Conditions).To(HaveLen(4))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(corev1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(resource.Status.Conditions[1].Type).To(Equal(corev1.ConfiguredCondition))
 				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(resource.Status.Conditions[2].Type).To(Equal(corev1.OperationalCondition))
 				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[3].Type).To(Equal(corev1.PausedCondition))
+				g.Expect(resource.Status.Conditions[3].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 
 			By("Ensuring the resource is created in the provider")
@@ -339,12 +341,14 @@ var _ = Describe("VPCDomain Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &nxv1.VPCDomain{}
 				g.Expect(k8sClient.Get(ctx, vpcdomainKey, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(2))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(corev1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(resource.Status.Conditions[1].Type).To(Equal(corev1.ConfiguredCondition))
 				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(resource.Status.Conditions[1].Reason).To(Equal(corev1.WaitingForDependenciesReason))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(corev1.PausedCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 		})
 
@@ -379,12 +383,14 @@ var _ = Describe("VPCDomain Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &nxv1.VPCDomain{}
 				g.Expect(k8sClient.Get(ctx, vpcdomainKey, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(2))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(corev1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(resource.Status.Conditions[1].Type).To(Equal(corev1.ConfiguredCondition))
 				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(resource.Status.Conditions[1].Reason).To(Equal(corev1.InvalidInterfaceTypeReason))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(corev1.PausedCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 		})
 
@@ -419,12 +425,14 @@ var _ = Describe("VPCDomain Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &nxv1.VPCDomain{}
 				g.Expect(k8sClient.Get(ctx, vpcdomainKey, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(2))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(corev1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(resource.Status.Conditions[1].Type).To(Equal(corev1.ConfiguredCondition))
 				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(resource.Status.Conditions[1].Reason).To(Equal(corev1.CrossDeviceReferenceReason))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(corev1.PausedCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 		})
 
@@ -459,12 +467,14 @@ var _ = Describe("VPCDomain Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &nxv1.VPCDomain{}
 				g.Expect(k8sClient.Get(ctx, vpcdomainKey, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(2))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(corev1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(resource.Status.Conditions[1].Type).To(Equal(corev1.ConfiguredCondition))
 				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(resource.Status.Conditions[1].Reason).To(Equal(corev1.WaitingForDependenciesReason))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(corev1.PausedCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 		})
 
@@ -499,12 +509,14 @@ var _ = Describe("VPCDomain Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &nxv1.VPCDomain{}
 				g.Expect(k8sClient.Get(ctx, vpcdomainKey, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(2))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(corev1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(resource.Status.Conditions[1].Type).To(Equal(corev1.ConfiguredCondition))
 				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(resource.Status.Conditions[1].Reason).To(Equal(corev1.CrossDeviceReferenceReason))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(corev1.PausedCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 		})
 	})

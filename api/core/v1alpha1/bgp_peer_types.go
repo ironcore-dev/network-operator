@@ -223,6 +223,7 @@ const (
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Configured",type=string,JSONPath=`.status.conditions[?(@.type=="Configured")].status`,priority=1
 // +kubebuilder:printcolumn:name="Operational",type=string,JSONPath=`.status.conditions[?(@.type=="Operational")].status`,priority=1
+// +kubebuilder:printcolumn:name="Paused",type=string,JSONPath=`.status.conditions[?(@.type=="Paused")].status`,priority=1
 // +kubebuilder:printcolumn:name="Session State",type=string,JSONPath=`.status.sessionState`,priority=1
 // +kubebuilder:printcolumn:name="Last Established",type="date",JSONPath=`.status.lastEstablishedTime`,priority=1
 // +kubebuilder:printcolumn:name="Advertised Prefixes",type=string,JSONPath=`.status.advertisedPrefixesSummary`,priority=1

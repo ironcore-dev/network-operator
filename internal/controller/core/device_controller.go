@@ -29,9 +29,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
-	"github.com/ironcore-dev/network-operator/internal/annotations"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
+	"github.com/ironcore-dev/network-operator/internal/paused"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 )
 
@@ -94,9 +94,8 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, err
 	}
 
-	if annotations.IsPaused(obj, obj) {
-		log.Info("Reconciliation is paused for this object")
-		return ctrl.Result{}, nil
+	if isPaused, requeue, err := paused.EnsureCondition(ctx, r.Client, obj, obj); isPaused || requeue || err != nil {
+		return ctrl.Result{Requeue: requeue}, err
 	}
 
 	conn, err := deviceutil.GetDeviceConnection(ctx, r, obj)

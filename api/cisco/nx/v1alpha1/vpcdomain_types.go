@@ -257,6 +257,7 @@ const (
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Configured",type=string,JSONPath=`.status.conditions[?(@.type=="Configured")].status`,priority=1
 // +kubebuilder:printcolumn:name="Operational",type=string,JSONPath=`.status.conditions[?(@.type=="Operational")].status`,priority=1
+// +kubebuilder:printcolumn:name="Paused",type=string,JSONPath=`.status.conditions[?(@.type=="Paused")].status`,priority=1
 // +kubebuilder:printcolumn:name="Peer Status",type=string,JSONPath=`.status.peerStatus`,priority=1
 // +kubebuilder:printcolumn:name="Role",type=string,JSONPath=`.status.role`,priority=1
 // +kubebuilder:printcolumn:name="Peer Link Interface",type="string",JSONPath=".status.peerLinkIf",priority=1

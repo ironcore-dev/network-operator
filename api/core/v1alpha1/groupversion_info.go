@@ -108,6 +108,11 @@ const (
 	// be calculated by the controller based on child conditions, if present.
 	ReadyCondition = "Ready"
 
+	// PausedCondition indicates whether reconciliation is paused for an object.
+	// This condition is set to True when the parent Device has spec.paused=true
+	// or the object has the networking.metal.ironcore.dev/paused annotation.
+	PausedCondition = "Paused"
+
 	// ConfiguredCondition indicates whether the resource has been successfully configured.
 	// This condition indicates whether the desired configuration has been applied to the device
 	// (i.e., all necessary API calls succeeded).
@@ -127,6 +132,12 @@ const (
 
 	// NotReadyReason indicates that the resource is not ready for use.
 	NotReadyReason = "NotReady"
+
+	// PausedReason indicates that reconciliation is paused.
+	PausedReason = "Paused"
+
+	// NotPausedReason indicates that reconciliation is not paused.
+	NotPausedReason = "NotPaused"
 
 	// UnreachableReason indicates that the controller cannot reach the device.
 	UnreachableReason = "Unreachable"

@@ -133,6 +133,7 @@ type NetworkVirtualizationEdgeStatus struct {
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Configured",type=string,JSONPath=`.status.conditions[?(@.type=="Configured")].status`,priority=1
 // +kubebuilder:printcolumn:name="Operational",type=string,JSONPath=`.status.conditions[?(@.type=="Operational")].status`,priority=1
+// +kubebuilder:printcolumn:name="Paused",type=string,JSONPath=`.status.conditions[?(@.type=="Paused")].status`,priority=1
 // +kubebuilder:printcolumn:name="Source Interface",type=string,JSONPath=`.status.sourceInterfaceName`
 // +kubebuilder:printcolumn:name="Anycast Interface",type=string,JSONPath=`.status.anycastSourceInterfaceName`
 // +kubebuilder:printcolumn:name="HostReachability",type=string,JSONPath=`.status.hostReachability`
