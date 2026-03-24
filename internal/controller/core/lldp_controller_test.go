@@ -274,9 +274,7 @@ var _ = Describe("LLDP Controller", func() {
 	})
 
 	Context("When DeviceRef references non-existent Device", func() {
-		var (
-			resourceKey client.ObjectKey
-		)
+		var resourceKey client.ObjectKey
 
 		AfterEach(func() {
 			By("Cleaning up the LLDP resource")

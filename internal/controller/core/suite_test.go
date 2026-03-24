@@ -330,6 +330,16 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&DHCPRelayReconciler{
+		Client:          k8sManager.GetClient(),
+		Scheme:          k8sManager.GetScheme(),
+		Recorder:        recorder,
+		Provider:        prov,
+		Locker:          testLocker,
+		RequeueInterval: time.Second,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -398,6 +408,7 @@ var (
 	_ provider.RoutingPolicyProvider    = (*Provider)(nil)
 	_ provider.NVEProvider              = (*Provider)(nil)
 	_ provider.LLDPProvider             = (*Provider)(nil)
+	_ provider.DHCPRelayProvider        = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -427,6 +438,7 @@ type Provider struct {
 	RoutingPolicies sets.Set[string]
 	NVE             *v1alpha1.NetworkVirtualizationEdge
 	LLDP            *v1alpha1.LLDP
+	DHCPRelay       *v1alpha1.DHCPRelay
 }
 
 func NewProvider() *Provider {
@@ -861,4 +873,31 @@ func (p *Provider) DeleteLLDP(_ context.Context, req *provider.LLDPRequest) erro
 
 func (p *Provider) GetLLDPStatus(_ context.Context, _ *provider.LLDPRequest) (provider.LLDPStatus, error) {
 	return provider.LLDPStatus{OperStatus: true}, nil
+}
+
+func (p *Provider) EnsureDHCPRelay(_ context.Context, req *provider.DHCPRelayRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.DHCPRelay = req.DHCPRelay
+	return nil
+}
+
+func (p *Provider) DeleteDHCPRelay(_ context.Context, req *provider.DHCPRelayRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.DHCPRelay = nil
+	return nil
+}
+
+func (p *Provider) GetDHCPRelayStatus(_ context.Context, req *provider.DHCPRelayRequest) (provider.DHCPRelayStatus, error) {
+	p.Lock()
+	defer p.Unlock()
+	status := provider.DHCPRelayStatus{}
+	if p.DHCPRelay != nil {
+		// Return the interface names from the request (simulating what the device would return)
+		for _, intf := range req.Interfaces {
+			status.ConfiguredInterfaces = append(status.ConfiguredInterfaces, intf.Spec.Name)
+		}
+	}
+	return status, nil
 }

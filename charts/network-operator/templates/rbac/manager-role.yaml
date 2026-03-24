@@ -47,6 +47,7 @@ rules:
   - bgppeers
   - certificates
   - devices
+  - dhcprelays
   - dns
   - evpninstances
   - interfaces
@@ -81,6 +82,7 @@ rules:
   - bgppeers/finalizers
   - certificates/finalizers
   - devices/finalizers
+  - dhcprelays/finalizers
   - dns/finalizers
   - evpninstances/finalizers
   - interfaces/finalizers
@@ -109,6 +111,7 @@ rules:
   - bgppeers/status
   - certificates/status
   - devices/status
+  - dhcprelays/status
   - dns/status
   - evpninstances/status
   - interfaces/status
