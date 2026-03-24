@@ -221,3 +221,9 @@ const (
 	// NVEAlreadyExistsReason indicates that another NetworkVirtualizationEdge already exists on the same device.
 	NVEAlreadyExistsReason = "NetworkVirtualizationEdgeAlreadyExists"
 )
+
+// Reasons that are specific to [DHCPRelay] objects.
+const (
+	// IPAddressingNotFoundReason indicates that a referenced interface has no IPv4 addresses configured.
+	IPAddressingNotFoundReason = "IPAddressingNotFound"
+)

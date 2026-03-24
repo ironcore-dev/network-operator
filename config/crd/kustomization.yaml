@@ -8,6 +8,7 @@ resources:
 - bases/networking.metal.ironcore.dev_bgppeers.yaml
 - bases/networking.metal.ironcore.dev_certificates.yaml
 - bases/networking.metal.ironcore.dev_devices.yaml
+- bases/networking.metal.ironcore.dev_dhcprelays.yaml
 - bases/networking.metal.ironcore.dev_dns.yaml
 - bases/networking.metal.ironcore.dev_evpninstances.yaml
 - bases/networking.metal.ironcore.dev_interfaces.yaml

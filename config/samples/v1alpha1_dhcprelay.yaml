@@ -1,0 +1,17 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: DHCPRelay
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: dhcprelay
+spec:
+  deviceRef:
+    name: leaf1
+  servers:
+    - 192.168.1.1
+    - 192.168.1.2
+  interfaceRefs:
+    - name: svi-10
+    - name: eth1-1

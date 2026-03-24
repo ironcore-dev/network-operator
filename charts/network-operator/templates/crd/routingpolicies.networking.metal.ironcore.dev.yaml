@@ -143,9 +143,8 @@ spec:
                             Only applicable when RouteDisposition is AcceptRoute.
                           properties:
                             setASPath:
-                              description: |-
-                                SetASPath configures modifications to the BGP AS path attribute.
-                                Not all providers may support this action.
+                              description: SetASPath configures modifications to the
+                                BGP AS path attribute.
                               properties:
                                 asNumber:
                                   anyOf:
@@ -166,12 +165,11 @@ spec:
                                       description: |-
                                         ASNumber is the autonomous system number to prepend to the AS path.
                                         Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
-                                        Mutually exclusive with useLastAS.
                                       x-kubernetes-int-or-string: true
                                     useLastAS:
-                                      description: |-
-                                        UseLastAS prepends the last AS number in the existing AS path the specified number of times.
-                                        Mutually exclusive with asNumber.
+                                      description: UseLastAS prepends the last AS
+                                        number in the existing AS path the specified
+                                        number of times.
                                       format: int32
                                       maximum: 10
                                       minimum: 1
@@ -192,12 +190,10 @@ spec:
                                       description: |-
                                         ASNumber targets a specific AS number in the path for replacement.
                                         Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
-                                        Mutually exclusive with privateAS.
                                       x-kubernetes-int-or-string: true
                                     privateAS:
-                                      description: |-
-                                        PrivateAS, when set to true, targets all private AS numbers in the path for replacement.
-                                        Mutually exclusive with asNumber.
+                                      description: PrivateAS, when set to true, targets
+                                        all private AS numbers in the path for replacement.
                                       type: boolean
                                     replacement:
                                       anyOf:

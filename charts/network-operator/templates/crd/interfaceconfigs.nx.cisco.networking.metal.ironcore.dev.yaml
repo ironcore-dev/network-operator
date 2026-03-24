@@ -79,6 +79,7 @@ spec:
                     - Normal
                     - Edge
                     - Network
+                    - Trunk
                     type: string
                 required:
                 - portType

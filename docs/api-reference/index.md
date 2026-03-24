@@ -19,6 +19,7 @@ SPDX-License-Identifier: Apache-2.0
 - [BGPPeer](#bgppeer)
 - [Banner](#banner)
 - [Certificate](#certificate)
+- [DHCPRelay](#dhcprelay)
 - [DNS](#dns)
 - [Device](#device)
 - [EVPNInstance](#evpninstance)
@@ -649,7 +650,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `setCommunity` _[SetCommunityAction](#setcommunityaction)_ | SetCommunity configures BGP standard community attributes. |  | Optional: \{\} <br /> |
 | `setExtCommunity` _[SetExtCommunityAction](#setextcommunityaction)_ | SetExtCommunity configures BGP extended community attributes. |  | Optional: \{\} <br /> |
-| `setASPath` _[SetASPathAction](#setaspathaction)_ | SetASPath configures modifications to the BGP AS path attribute.<br />Not all providers may support this action. |  | Optional: \{\} <br /> |
+| `setASPath` _[SetASPathAction](#setaspathaction)_ | SetASPath configures modifications to the BGP AS path attribute. |  | Optional: \{\} <br /> |
 
 
 #### Certificate
@@ -790,6 +791,63 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `mode` _[LACPMode](#lacpmode)_ | Mode defines the LACP mode for the aggregate interface. |  | Enum: [Active Passive] <br />Required: \{\} <br /> |
+
+
+#### DHCPRelay
+
+
+
+DHCPRelay is the Schema for the DHCPRelays API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `DHCPRelay` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[DHCPRelaySpec](#dhcprelayspec)_ |  |  | Required: \{\} <br /> |
+| `status` _[DHCPRelayStatus](#dhcprelaystatus)_ |  |  | Optional: \{\} <br /> |
+
+
+#### DHCPRelaySpec
+
+
+
+DHCPRelaySpec defines the desired state of DHCPRelay.
+Only a single DHCPRelay resource should be created per Device, the controller will reject additional resources of this type with the same DeviceRef.
+
+
+
+_Appears in:_
+- [DHCPRelay](#dhcprelay)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceRef is a reference to the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration for this DHCPRelay.<br />If not specified the provider applies the target platform's default settings. |  | Optional: \{\} <br /> |
+| `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VrfRef is an optional reference to the VRF to use when relaying DHCP messages in all referenced interfaces. |  | Optional: \{\} <br /> |
+| `servers` _string array_ | Servers is a list of DHCP server addresses to which DHCP messages will be relayed.<br />Only IPv4 addresses are currently supported. |  | MinItems: 1 <br />items:Format: ipv4 <br />Required: \{\} <br /> |
+| `interfaceRefs` _[LocalObjectReference](#localobjectreference) array_ | InterfaceRefs is a list of interfaces |  | MinItems: 1 <br />Required: \{\} <br /> |
+
+
+#### DHCPRelayStatus
+
+
+
+DHCPRelayStatus defines the observed state of DHCPRelay.
+
+
+
+_Appears in:_
+- [DHCPRelay](#dhcprelay)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the DHCPRelay resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />Standard condition types include:<br />- "Available": the resource is fully functional<br />- "Progressing": the resource is being created or updated<br />- "Degraded": the resource failed to reach or maintain its desired state<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+| `configuredInterfaces` _string array_ | ConfiguredInterfaces contains the names of Interface resources that have DHCP relay configured as known by the device. |  | Optional: \{\} <br /> |
 
 
 #### DNS
@@ -1499,6 +1557,7 @@ _Appears in:_
 - [BannerSpec](#bannerspec)
 - [BorderGatewaySpec](#bordergatewayspec)
 - [CertificateSpec](#certificatespec)
+- [DHCPRelaySpec](#dhcprelayspec)
 - [DNSSpec](#dnsspec)
 - [DevicePort](#deviceport)
 - [EVPNInstanceSpec](#evpninstancespec)
@@ -2635,8 +2694,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number to prepend to the AS path.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.<br />Mutually exclusive with useLastAS. |  | Optional: \{\} <br /> |
-| `useLastAS` _integer_ | UseLastAS prepends the last AS number in the existing AS path the specified number of times.<br />Mutually exclusive with asNumber. |  | Maximum: 10 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number to prepend to the AS path.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
+| `useLastAS` _integer_ | UseLastAS prepends the last AS number in the existing AS path the specified number of times. |  | Maximum: 10 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 
 
 #### SetASPathReplace
@@ -2653,8 +2712,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `privateAS` _boolean_ | PrivateAS, when set to true, targets all private AS numbers in the path for replacement.<br />Mutually exclusive with asNumber. |  | Optional: \{\} <br /> |
-| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber targets a specific AS number in the path for replacement.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.<br />Mutually exclusive with privateAS. |  | Optional: \{\} <br /> |
+| `privateAS` _boolean_ | PrivateAS, when set to true, targets all private AS numbers in the path for replacement. |  | Optional: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber targets a specific AS number in the path for replacement.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
 | `replacement` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | Replacement is the AS number to substitute in place of matched AS numbers.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
 
 
@@ -2859,6 +2918,7 @@ _Appears in:_
 - [BGPSpec](#bgpspec)
 - [BannerSpec](#bannerspec)
 - [CertificateSpec](#certificatespec)
+- [DHCPRelaySpec](#dhcprelayspec)
 - [DNSSpec](#dnsspec)
 - [EVPNInstanceSpec](#evpninstancespec)
 - [ISISSpec](#isisspec)
@@ -3562,7 +3622,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `portType` _[SpanningTreePortType](#spanningtreeporttype)_ | PortType defines the spanning tree port type. |  | Enum: [Normal Edge Network] <br />Required: \{\} <br /> |
+| `portType` _[SpanningTreePortType](#spanningtreeporttype)_ | PortType defines the spanning tree port type. |  | Enum: [Normal Edge Network Trunk] <br />Required: \{\} <br /> |
 | `bpduGuard` _boolean_ | BPDUGuard enables BPDU guard on the interface.<br />When enabled, the port is shut down if a BPDU is received. |  | Optional: \{\} <br /> |
 | `bpduFilter` _boolean_ | BPDUFilter enables BPDU filter on the interface.<br />When enabled, BPDUs are not sent or received on the port. |  | Optional: \{\} <br /> |
 
@@ -3574,7 +3634,7 @@ _Underlying type:_ _string_
 SpanningTreePortType represents the spanning tree port type.
 
 _Validation:_
-- Enum: [Normal Edge Network]
+- Enum: [Normal Edge Network Trunk]
 
 _Appears in:_
 - [SpanningTree](#spanningtree)
@@ -3583,6 +3643,7 @@ _Appears in:_
 | --- | --- |
 | `Normal` | SpanningTreePortTypeNormal indicates a normal spanning tree port.<br /> |
 | `Edge` | SpanningTreePortTypeEdge indicates an edge port (connects to end devices).<br /> |
+| `Trunk` | SpanningTreePortTypeTrunk indicates a trunk port performing spanning tree calculations for multiple VLANs (connects to end devices and carries multiple VLANs).<br /> |
 | `Network` | SpanningTreePortTypeNetwork indicates a network port (connects to other switches).<br /> |
 
 
