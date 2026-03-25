@@ -82,6 +82,14 @@ export default withMermaid({
                 ],
             },
             {
+                text: 'Concepts',
+                items: [
+                    { text: 'Index', link: '/concepts/' },
+                    { text: 'Pausing Reconciliation', link: '/concepts/pausing' },
+                    { text: 'Numbered Resources', link: '/concepts/numbered-resources' },
+                ],
+            },
+            {
                 text: 'Tutorials',
                 items: [
                     { text: 'Index', link: '/tutorials/' },
