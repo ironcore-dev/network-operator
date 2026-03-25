@@ -45,6 +45,9 @@ The following rule governs code contributions:
 
 ## Development
 
+This repository uses [Git LFS](https://git-lfs.com) for binary assets (images).
+Run `git lfs install` once before cloning or pulling to ensure files are fetched correctly.
+
 > **NOTE:** Run `make help` for more information on all potential `make` targets
 
 More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html).

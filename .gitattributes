@@ -6,6 +6,9 @@
 # and editors capable of LF line endings.
 *.go text eol=lf diff=golang
 
+# Images should be stored in Git LFS, and not have their line endings modified.
+*.png filter=lfs diff=lfs merge=lfs -text
+
 # Generated files — collapsed in PR diffs, excluded from language stats.
 api/**/zz_generated.deepcopy.go linguist-generated
 charts/network-operator/templates/** linguist-generated
