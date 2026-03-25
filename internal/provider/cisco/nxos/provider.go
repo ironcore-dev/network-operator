@@ -63,6 +63,7 @@ var (
 	_ provider.LLDPProvider             = (*Provider)(nil)
 	_ provider.DHCPRelayProvider        = (*Provider)(nil)
 	_ provider.AAAProvider              = (*Provider)(nil)
+	_ provider.DHCPRelayProvider        = (*Provider)(nil)
 )
 
 type Provider struct {
