@@ -41,7 +41,7 @@ func (c *Certificate) Load(ctx context.Context, conn *grpc.ClientConn, trustpoin
 
 	// Only the `LoadCertificate` method is currently supported on the Nexus 9000 series. Even though it's already deprecated.
 	// See: https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/104x/programmability/cisco-nexus-9000-series-nx-os-programmability-guide-104x/gnoi---operation-interface.html
-	_, err = cert.NewCertificateManagementClient(conn).LoadCertificate(ctx, &cert.LoadCertificateRequest{ //nolint:staticcheck
+	_, err = cert.NewCertificateManagementClient(conn).LoadCertificate(ctx, &cert.LoadCertificateRequest{ //nolint:staticcheck // SA1019: LoadCertificate is deprecated but we still need to use it for NX-OS devices.
 		Certificate:   &cert.Certificate{Type: cert.CertificateType_CT_X509, Certificate: b},
 		KeyPair:       &cert.KeyPair{PrivateKey: priv, PublicKey: pub},
 		CertificateId: trustpoint,
