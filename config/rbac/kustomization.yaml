@@ -125,3 +125,15 @@ resources:
 - cisco/nx/bgpconfig_admin_role.yaml
 - cisco/nx/bgpconfig_editor_role.yaml
 - cisco/nx/bgpconfig_viewer_role.yaml
+- claim_admin_role.yaml
+- claim_editor_role.yaml
+- claim_viewer_role.yaml
+- ipprefixpool_admin_role.yaml
+- ipprefixpool_editor_role.yaml
+- ipprefixpool_viewer_role.yaml
+- ipaddresspool_admin_role.yaml
+- ipaddresspool_editor_role.yaml
+- ipaddresspool_viewer_role.yaml
+- indexpool_admin_role.yaml
+- indexpool_editor_role.yaml
+- indexpool_viewer_role.yaml

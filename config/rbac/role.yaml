@@ -185,3 +185,38 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - pool.networking.metal.ironcore.dev
+  resources:
+  - claims
+  - indexpools
+  - ipaddresspools
+  - ipprefixpools
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - pool.networking.metal.ironcore.dev
+  resources:
+  - claims/finalizers
+  - indexpools/finalizers
+  - ipaddresspools/finalizers
+  - ipprefixpools/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - pool.networking.metal.ironcore.dev
+  resources:
+  - claims/status
+  - indexpools/status
+  - ipaddresspools/status
+  - ipprefixpools/status
+  verbs:
+  - get
+  - patch
+  - update

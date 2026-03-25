@@ -3,6 +3,7 @@
 ## Packages
 - [networking.metal.ironcore.dev/v1alpha1](#networking-metal-ironcore-dev-v1alpha1)
 - [nx.cisco.networking.metal.ironcore.dev/v1alpha1](#nx-cisco-networking-metal-ironcore-dev-v1alpha1)
+- [pool.networking.metal.ironcore.dev/v1alpha1](#poolnetworkingmetalironcoredevv1alpha1)
 - [xe.cisco.networking.metal.ironcore.dev/v1alpha1](#xe-cisco-networking-metal-ironcore-dev-v1alpha1)
 - [xr.cisco.networking.metal.ironcore.dev/v1alpha1](#xr-cisco-networking-metal-ironcore-dev-v1alpha1)
 
@@ -1689,6 +1690,10 @@ _Validation:_
 
 _Appears in:_
 - [ACLEntry](#aclentry)
+- [ClaimAllocation](#claimallocation)
+- [IPAddressPoolSpec](#ipaddresspoolspec)
+- [IPPrefixAllocation](#ipprefixallocation)
+- [IPPrefixPoolPrefix](#ipprefixpoolprefix)
 - [InterfaceIPv4](#interfaceipv4)
 - [MulticastGroups](#multicastgroups)
 - [PrefixEntry](#prefixentry)
@@ -1790,6 +1795,21 @@ _Appears in:_
 | `url` _string_ | URL is the location of the image to be used for provisioning. |  | Required: \{\} <br /> |
 | `checksum` _string_ | Checksum is the checksum of the image for verification.<br />kubebuilder:validation:MinLength=1 |  | Required: \{\} <br /> |
 | `checksumType` _[ChecksumType](#checksumtype)_ | ChecksumType is the type of the checksum (e.g., sha256, md5). | MD5 | Enum: [SHA256 MD5] <br />Required: \{\} <br /> |
+
+
+#### IndexRange
+
+
+
+IndexRange represents an inclusive range of indices.
+
+_Validation:_
+- Pattern: `^[0-9]+\.\.[0-9]+$`
+- Type: string
+
+_Appears in:_
+- [IndexPoolSpec](#indexpoolspec)
+
 
 
 #### Interface
@@ -2051,7 +2071,10 @@ _Appears in:_
 - [DevicePort](#deviceport)
 - [EVPNInstanceSpec](#evpninstancespec)
 - [EthernetSegmentSpec](#ethernetsegmentspec)
+- [IPAddressAllocation](#ipaddressallocation)
+- [IPPrefixAllocation](#ipprefixallocation)
 - [ISISSpec](#isisspec)
+- [IndexAllocation](#indexallocation)
 - [InterconnectInterfaceReference](#interconnectinterfacereference)
 - [InterfaceIPv4Unnumbered](#interfaceipv4unnumbered)
 - [InterfaceSpec](#interfacespec)
@@ -3497,6 +3520,7 @@ _Appears in:_
 - [BGPSpec](#bgpspec)
 - [BannerSpec](#bannerspec)
 - [CertificateSpec](#certificatespec)
+- [ClaimSpec](#claimspec)
 - [DHCPRelaySpec](#dhcprelayspec)
 - [DNSSpec](#dnsspec)
 - [EVPNInstanceSpec](#evpninstancespec)
@@ -4552,6 +4576,349 @@ _Appears in:_
 | `peerUptime` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | PeerUptime indicates how long the vPC domain peer has been up and reachable via keepalive. |  | Optional: \{\} <br /> |
 | `peerLinkIf` _string_ | PeerLinkIf is the name of the interface used as the vPC domain peer-link. |  | Optional: \{\} <br /> |
 | `peerLinkIfOperStatus` _[Status](#status)_ | PeerLinkIfOperStatus is the Operational status of `PeerLinkIf`. | Unknown | Optional: \{\} <br /> |
+
+
+
+## pool.networking.metal.ironcore.dev/v1alpha1
+
+Package v1alpha1 contains API Schema definitions for the pool.networking.metal.ironcore.dev v1alpha1 API group.
+
+### Resource Types
+- [Claim](#claim)
+- [IPAddressPool](#ipaddresspool)
+- [IPPrefixPool](#ipprefixpool)
+- [IndexPool](#indexpool)
+
+
+
+#### Claim
+
+
+
+Claim is the Schema for the claims API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `pool.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `Claim` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[ClaimSpec](#claimspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[ClaimStatus](#claimstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### ClaimAllocation
+
+
+
+ClaimAllocation holds the allocated resource value for a claim.
+
+
+
+_Appears in:_
+- [ClaimStatus](#claimstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `index` _integer_ | Index is set when the allocation is sourced from an IndexPool. |  | Optional: \{\} <br /> |
+| `ipAddress` _string_ | IPAddress is set when the allocation is sourced from an IPAddressPool. |  | Optional: \{\} <br /> |
+| `prefix` _[IPPrefix](#ipprefix)_ | Prefix is set when the allocation is sourced from an IPPrefixPool. |  | Format: cidr <br />Type: string <br />Optional: \{\} <br /> |
+| `value` _string_ | Value is the string representation of the allocated resource. |  | Optional: \{\} <br /> |
+
+
+#### ClaimSpec
+
+
+
+ClaimSpec defines the desired state of Claim
+
+
+
+_Appears in:_
+- [Claim](#claim)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `poolRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | PoolRef references the allocation pool to allocate from.<br />PoolRef is immutable once set. |  | Required: \{\} <br /> |
+
+
+#### ClaimStatus
+
+
+
+ClaimStatus defines the observed state of Claim.
+
+
+
+_Appears in:_
+- [Claim](#claim)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the Claim resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+| `allocation` _[ClaimAllocation](#claimallocation)_ | Allocation describes the resource reserved for this claim. |  | Optional: \{\} <br /> |
+
+
+#### IPAddressAllocation
+
+
+
+IPAddressAllocation represents a reserved IP address for a claim.
+
+
+
+_Appears in:_
+- [IPAddressPoolStatus](#ipaddresspoolstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `claimRef` _[LocalObjectReference](#localobjectreference)_ | ClaimRef references the claim holding the allocation. |  | Required: \{\} <br /> |
+| `claimUID` _[UID](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#uid-types-pkg)_ | ClaimUID is the UID of the claim holding the allocation. |  | Required: \{\} <br /> |
+| `address` _string_ | Address is the allocated IP address. |  | Format: ip <br />Required: \{\} <br /> |
+| `retained` _boolean_ | Retained indicates the allocation must not be reused after claim deletion. |  | Optional: \{\} <br /> |
+
+
+#### IPAddressPool
+
+
+
+IPAddressPool is the Schema for the ipaddresspools API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `pool.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `IPAddressPool` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[IPAddressPoolSpec](#ipaddresspoolspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[IPAddressPoolStatus](#ipaddresspoolstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### IPAddressPoolSpec
+
+
+
+IPAddressPoolSpec defines the desired state of IPAddressPool
+
+
+
+_Appears in:_
+- [IPAddressPool](#ipaddresspool)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `prefixes` _[IPPrefix](#ipprefix) array_ | Prefixes defines the CIDR ranges that can be allocated. |  | Format: cidr <br />MinItems: 1 <br />Type: string <br />Required: \{\} <br /> |
+| `reclaimPolicy` _[ReclaimPolicy](#reclaimpolicy)_ | ReclaimPolicy controls what happens to an allocation when a claim is deleted.<br />Recycle returns the allocation to the pool. Retain keeps it reserved.<br />Immutable. | Recycle | Enum: [Recycle Retain] <br />Optional: \{\} <br /> |
+
+
+#### IPAddressPoolStatus
+
+
+
+IPAddressPoolStatus defines the observed state of IPAddressPool.
+
+
+
+_Appears in:_
+- [IPAddressPool](#ipaddresspool)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `allocated` _string_ | Allocated is the number of allocated IP addresses. |  | Optional: \{\} <br /> |
+| `total` _string_ | Total is the number of allocatable IP addresses. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the IPAddressPool resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+| `allocations` _[IPAddressAllocation](#ipaddressallocation) array_ | Allocations tracks which IP addresses are reserved by which claims. |  | Optional: \{\} <br /> |
+
+
+#### IPPrefixAllocation
+
+
+
+IPPrefixAllocation represents a reserved prefix for a claim.
+
+
+
+_Appears in:_
+- [IPPrefixPoolStatus](#ipprefixpoolstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `claimRef` _[LocalObjectReference](#localobjectreference)_ | ClaimRef references the claim holding the allocation. |  | Required: \{\} <br /> |
+| `claimUID` _[UID](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#uid-types-pkg)_ | ClaimUID is the UID of the claim holding the allocation. |  | Required: \{\} <br /> |
+| `prefix` _[IPPrefix](#ipprefix)_ | Prefix is the allocated prefix. |  | Format: cidr <br />Type: string <br />Required: \{\} <br /> |
+| `retained` _boolean_ | Retained indicates the allocation must not be reused after claim deletion. |  | Optional: \{\} <br /> |
+
+
+#### IPPrefixPool
+
+
+
+IPPrefixPool is the Schema for the ipprefixpools API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `pool.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `IPPrefixPool` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[IPPrefixPoolSpec](#ipprefixpoolspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[IPPrefixPoolStatus](#ipprefixpoolstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### IPPrefixPoolPrefix
+
+
+
+IPPrefixPoolPrefix defines a pool prefix and the target length to allocate.
+
+
+
+_Appears in:_
+- [IPPrefixPoolSpec](#ipprefixpoolspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `prefix` _[IPPrefix](#ipprefix)_ | Prefix is the base prefix to allocate prefixes from. |  | Format: cidr <br />Type: string <br />Required: \{\} <br /> |
+| `prefixLength` _integer_ | PrefixLength is the prefix length to allocate within the base prefix. |  | Maximum: 128 <br />Minimum: 0 <br />Required: \{\} <br /> |
+
+
+#### IPPrefixPoolSpec
+
+
+
+IPPrefixPoolSpec defines the desired state of IPPrefixPool
+
+
+
+_Appears in:_
+- [IPPrefixPool](#ipprefixpool)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `prefixes` _[IPPrefixPoolPrefix](#ipprefixpoolprefix) array_ | Prefixes defines the base prefixes and target prefix lengths to allocate from. |  | MinItems: 1 <br />Required: \{\} <br /> |
+| `reclaimPolicy` _[ReclaimPolicy](#reclaimpolicy)_ | ReclaimPolicy controls what happens to an allocation when a claim is deleted.<br />Recycle returns the allocation to the pool. Retain keeps it reserved.<br />Immutable. | Recycle | Enum: [Recycle Retain] <br />Optional: \{\} <br /> |
+
+
+#### IPPrefixPoolStatus
+
+
+
+IPPrefixPoolStatus defines the observed state of IPPrefixPool.
+
+
+
+_Appears in:_
+- [IPPrefixPool](#ipprefixpool)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `allocated` _string_ | Allocated is the number of allocated prefixes. |  | Optional: \{\} <br /> |
+| `total` _string_ | Total is the number of allocatable prefixes. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the IPPrefixPool resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+| `allocations` _[IPPrefixAllocation](#ipprefixallocation) array_ | Allocations tracks which prefixes are reserved by which claims. |  | Optional: \{\} <br /> |
+
+
+#### IndexAllocation
+
+
+
+IndexAllocation represents a reserved index for a claim.
+
+
+
+_Appears in:_
+- [IndexPoolStatus](#indexpoolstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `claimRef` _[LocalObjectReference](#localobjectreference)_ | ClaimRef references the claim holding the allocation. |  | Required: \{\} <br /> |
+| `claimUID` _[UID](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#uid-types-pkg)_ | ClaimUID is the UID of the claim holding the allocation. |  | Required: \{\} <br /> |
+| `index` _integer_ | Index is the allocated value. |  | Required: \{\} <br /> |
+| `retained` _boolean_ | Retained indicates the allocation must not be reused after claim deletion. |  | Optional: \{\} <br /> |
+
+
+#### IndexPool
+
+
+
+IndexPool is the Schema for the indexpools API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `pool.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `IndexPool` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[IndexPoolSpec](#indexpoolspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[IndexPoolStatus](#indexpoolstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### IndexPoolSpec
+
+
+
+IndexPoolSpec defines the desired state of IndexPool
+
+
+
+_Appears in:_
+- [IndexPool](#indexpool)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `ranges` _[IndexRange](#indexrange) array_ | Ranges defines the inclusive index ranges that can be allocated.<br />Example: "64512..65534". |  | MinItems: 1 <br />Required: \{\} <br /> |
+| `reclaimPolicy` _[ReclaimPolicy](#reclaimpolicy)_ | ReclaimPolicy controls what happens to an allocation when a claim is deleted.<br />Recycle returns the allocation to the pool. Retain keeps it reserved.<br />Immutable. | Recycle | Enum: [Recycle Retain] <br />Optional: \{\} <br /> |
+
+
+#### IndexPoolStatus
+
+
+
+IndexPoolStatus defines the observed state of IndexPool.
+
+
+
+_Appears in:_
+- [IndexPool](#indexpool)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `allocated` _string_ | Allocated is the number of allocated indices. |  | Optional: \{\} <br /> |
+| `total` _string_ | Total is the number of allocatable indices. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the IndexPool resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+| `allocations` _[IndexAllocation](#indexallocation) array_ | Allocations tracks which indices are reserved by which claims. |  | Optional: \{\} <br /> |
+
+
+#### ReclaimPolicy
+
+_Underlying type:_ _string_
+
+ReclaimPolicy defines how allocations are handled on claim deletion.
+
+_Validation:_
+- Enum: [Recycle Retain]
+
+_Appears in:_
+- [IPAddressPoolSpec](#ipaddresspoolspec)
+- [IPPrefixPoolSpec](#ipprefixpoolspec)
+- [IndexPoolSpec](#indexpoolspec)
+
+| Field | Description |
+| --- | --- |
+| `Recycle` |  |
+| `Retain` |  |
 
 
 

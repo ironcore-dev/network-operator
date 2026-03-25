@@ -27,6 +27,11 @@ resources:
 - bases/networking.metal.ironcore.dev_vrfs.yaml
 - bases/networking.metal.ironcore.dev_lldps.yaml
 - bases/networking.metal.ironcore.dev_ethernetsegments.yaml
+- bases/networking.metal.ironcore.dev_aaa.yaml
+- bases/pool.networking.metal.ironcore.dev_indexpools.yaml
+- bases/pool.networking.metal.ironcore.dev_ipaddresspools.yaml
+- bases/pool.networking.metal.ironcore.dev_ipprefixpools.yaml
+- bases/pool.networking.metal.ironcore.dev_claims.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_bordergateways.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_managementaccessconfigs.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_networkvirtualizationedgeconfigs.yaml
@@ -35,7 +40,6 @@ resources:
 - bases/nx.cisco.networking.metal.ironcore.dev_interfaceconfigs.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_lldpconfigs.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_bgpconfigs.yaml
-- bases/networking.metal.ironcore.dev_aaa.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_aaaconfigs.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 

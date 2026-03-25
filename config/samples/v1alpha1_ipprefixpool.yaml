@@ -1,0 +1,11 @@
+apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+kind: IPPrefixPool
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: ipprefixpool-sample
+spec:
+  prefixes:
+    - prefix: 10.0.0.0/8
+      prefixLength: 24
