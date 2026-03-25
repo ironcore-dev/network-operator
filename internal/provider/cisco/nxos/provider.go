@@ -957,10 +957,8 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		conf = append(conf, addr)
 	}
 
-	bfd := new(BFD)
-	bfd.ID = name
-	bfd.AdminSt = AdminStDisabled
-	if req.Interface.Spec.BFD != nil && req.Interface.Spec.BFD.Enabled {
+	switch {
+	case req.Interface.Spec.BFD != nil && req.Interface.Spec.BFD.Enabled:
 		f := new(Feature)
 		f.Name = "bfd"
 		f.AdminSt = AdminStEnabled
@@ -973,6 +971,8 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		icmp.Ctrl = "port-unreachable"
 		conf = append(conf, icmp)
 
+		bfd := new(BFD)
+		bfd.ID = name
 		bfd.AdminSt = AdminStEnabled
 		bfd.IfkaItems.MinTxIntvlMs = 50
 		if req.Interface.Spec.BFD.DesiredMinimumTxInterval != nil {
@@ -989,7 +989,31 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		if err := bfd.Validate(); err != nil {
 			return err
 		}
-	} else {
+		conf = append(conf, bfd)
+
+	case req.Interface.Spec.BFD != nil && !req.Interface.Spec.BFD.Enabled:
+		f := new(Feature)
+		f.Name = "bfd"
+		f.AdminSt = AdminStEnabled
+		conf = append(conf, f)
+
+		bfd := new(BFD)
+		bfd.ID = name
+		bfd.AdminSt = AdminStDisabled
+		conf = append(conf, bfd)
+
+	default:
+		// BFD not specified — clean up any leftover BFD config on the interface.
+		// The delete is a no-op if the BFD feature is not activated on the device.
+		bfd := new(BFD)
+		bfd.ID = name
+		if err := p.client.Delete(ctx, bfd); err != nil {
+			return err
+		}
+	}
+
+	// Reset ICMP redirect defaults when BFD is not enabled (either explicitly disabled or not specified).
+	if req.Interface.Spec.BFD == nil || !req.Interface.Spec.BFD.Enabled {
 		icmp := new(ICMPIf)
 		icmp.ID = name
 		switch req.Interface.Spec.Type {
@@ -1005,7 +1029,6 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			conf = append(conf, icmp)
 		}
 	}
-	conf = append(conf, bfd)
 
 	return p.Update(ctx, conf...)
 }
@@ -1164,7 +1187,7 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 	conf := append(make([]gnmiext.Configurable, 0, 3), f)
 
 	if slices.ContainsFunc(req.Interfaces, func(intf *v1alpha1.Interface) bool {
-		return intf.Spec.BFD.Enabled
+		return intf.Spec.BFD != nil && intf.Spec.BFD.Enabled
 	}) {
 		f := new(Feature)
 		f.Name = "bfd"
@@ -1229,14 +1252,14 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 		if ipv4 {
 			intf.V4Enable = true
 			intf.V4Bfd = "inheritVrf"
-			if iface.Spec.BFD.Enabled {
+			if iface.Spec.BFD != nil && iface.Spec.BFD.Enabled {
 				intf.V4Bfd = "enabled"
 			}
 		}
 		if ipv6 {
 			intf.V6Enable = true
 			intf.V6Bfd = "inheritVrf"
-			if iface.Spec.BFD.Enabled {
+			if iface.Spec.BFD != nil && iface.Spec.BFD.Enabled {
 				intf.V6Bfd = "enabled"
 			}
 		}
@@ -1502,7 +1525,7 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 			conf = slices.Insert(conf, 1, gnmiext.Configurable(fb)) // insert before OSPF
 
 			intf.BFDCtrl = OspfBfdCtrlDisabled
-			if !iface.Interface.Spec.BFD.Enabled {
+			if iface.Interface.Spec.BFD.Enabled {
 				intf.BFDCtrl = OspfBfdCtrlEnabled
 			}
 		}
