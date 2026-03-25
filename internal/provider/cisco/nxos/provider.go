@@ -58,6 +58,7 @@ var (
 	_ provider.VRFProvider              = (*Provider)(nil)
 	_ provider.NVEProvider              = (*Provider)(nil)
 	_ provider.LLDPProvider             = (*Provider)(nil)
+	_ provider.DHCPRelayProvider        = (*Provider)(nil)
 )
 
 type Provider struct {
@@ -2865,6 +2866,65 @@ func separateFeatureActivation(conf []gnmiext.Configurable) (features, others []
 		n++
 	}
 	return fa, conf[:n:n]
+}
+
+// EnsureDHCPRelay configures DHCP relay on the specified interfaces.
+// Replaces the entire DHCP relay configuration on the device with the provided configuration in the request.
+func (p *Provider) EnsureDHCPRelay(ctx context.Context, req *provider.DHCPRelayRequest) error {
+	f := new(Feature)
+	f.Name = "dhcp"
+	f.AdminSt = AdminStEnabled
+
+	// undocumented default value for the VRF property in DME (can be verified via NX-API)
+	vrfName := "!unspecified"
+	if req.VRF != nil {
+		vrfName = req.VRF.Spec.Name
+	}
+
+	conf := new(DHCPRelayConfig)
+	for _, intf := range req.Interfaces {
+		ifName, err := ShortName(intf.Spec.Name)
+		if err != nil {
+			return fmt.Errorf("dhcp relay: failed to get short name for interface %q: %w", intf.Spec.Name, err)
+		}
+
+		relay := &DHCPRelay{ID: ifName}
+		for _, addr := range req.DHCPRelay.Spec.Servers {
+			a, err := netip.ParseAddr(addr)
+			if err != nil {
+				return fmt.Errorf("dhcp relay: invalid server address %q: %w", addr, err)
+			}
+			relay.AddrItems.AddrList.Set(&DHCPRelayServer{Address: a, Vrf: vrfName})
+		}
+		conf.RelayIfList.Set(relay)
+	}
+
+	return p.Update(ctx, f, conf)
+}
+
+// DeleteDHCPRelay removes all DHCP relay configurations from the device.
+func (p *Provider) DeleteDHCPRelay(ctx context.Context, req *provider.DHCPRelayRequest) error {
+	config := new(DHCPRelayConfig)
+	return p.client.Delete(ctx, config)
+}
+
+// GetDHCPRelayStatus retrieves the current DHCP relay status.
+func (p *Provider) GetDHCPRelayStatus(ctx context.Context, req *provider.DHCPRelayRequest) (provider.DHCPRelayStatus, error) {
+	s := provider.DHCPRelayStatus{}
+	config := new(DHCPRelayConfig)
+	if err := p.client.GetConfig(ctx, config); err != nil {
+		if errors.Is(err, gnmiext.ErrNil) {
+			return s, nil
+		}
+		return s, fmt.Errorf("dhcp relay: failed to get status: %w", err)
+	}
+
+	s.ConfiguredInterfaces = make([]string, 0, config.RelayIfList.Len())
+	for _, relay := range config.RelayIfList {
+		s.ConfiguredInterfaces = append(s.ConfiguredInterfaces, relay.ID)
+	}
+
+	return s, nil
 }
 
 func init() {

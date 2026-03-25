@@ -1,0 +1,3 @@
+int vlan2
+  ip dhcp relay address 1.1.1.1
+  ip dhcp relay address 2.2.2.2 vrf mgmt0
