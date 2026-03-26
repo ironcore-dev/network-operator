@@ -6,7 +6,6 @@ package core
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -17,43 +16,41 @@ import (
 
 var _ = Describe("OSPF Controller", func() {
 	Context("When reconciling a resource", func() {
-		const name = "test-ospf"
-		key := client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
+		var (
+			name string
+			key  client.ObjectKey
+		)
 
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
-			device := &v1alpha1.Device{}
-			if err := k8sClient.Get(ctx, key, device); errors.IsNotFound(err) {
-				resource := &v1alpha1.Device{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: metav1.NamespaceDefault,
+			device := &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test-ospf-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.2:9339",
 					},
-					Spec: v1alpha1.DeviceSpec{
-						Endpoint: v1alpha1.Endpoint{
-							Address: "192.168.10.2:9339",
-						},
-					},
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+				},
 			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+			name = device.Name
+			key = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 
 			By("Creating the custom resource for the Kind OSPF")
-			ospf := &v1alpha1.OSPF{}
-			if err := k8sClient.Get(ctx, key, ospf); errors.IsNotFound(err) {
-				resource := &v1alpha1.OSPF{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: metav1.NamespaceDefault,
-					},
-					Spec: v1alpha1.OSPFSpec{
-						DeviceRef: v1alpha1.LocalObjectReference{Name: name},
-						Instance:  "UNDERLAY",
-						RouterID:  "10.0.0.10",
-					},
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+			resource := &v1alpha1.OSPF{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.OSPFSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
+					Instance:  "UNDERLAY",
+					RouterID:  "10.0.0.10",
+				},
 			}
+			Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 		})
 
 		AfterEach(func() {
@@ -122,26 +119,27 @@ var _ = Describe("OSPF Controller", func() {
 	})
 
 	Context("When an interfaceRef does not exist", func() {
-		const name = "test-ospf-missing-intf"
-		key := client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
+		var (
+			name string
+			key  client.ObjectKey
+		)
 
 		BeforeEach(func() {
 			By("Creating the Device resource")
-			device := &v1alpha1.Device{}
-			if err := k8sClient.Get(ctx, key, device); errors.IsNotFound(err) {
-				resource := &v1alpha1.Device{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: metav1.NamespaceDefault,
+			device := &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test-ospf-missing-intf-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.3:9339",
 					},
-					Spec: v1alpha1.DeviceSpec{
-						Endpoint: v1alpha1.Endpoint{
-							Address: "192.168.10.3:9339",
-						},
-					},
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+				},
 			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+			name = device.Name
+			key = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 		})
 
 		AfterEach(func() {

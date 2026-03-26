@@ -18,36 +18,31 @@ import (
 
 var _ = Describe("LLDP Controller", func() {
 	Context("When reconciling a resource", func() {
-		const (
-			deviceName   = "testlldp-device"
-			resourceName = "testlldp-lldp"
-		)
-
-		resourceKey := client.ObjectKey{Name: resourceName, Namespace: metav1.NamespaceDefault}
-		deviceKey := client.ObjectKey{Name: deviceName, Namespace: metav1.NamespaceDefault}
-
 		var (
-			device *v1alpha1.Device
-			lldp   *v1alpha1.LLDP
+			deviceName  string
+			resourceKey client.ObjectKey
+			deviceKey   client.ObjectKey
+			device      *v1alpha1.Device
+			lldp        *v1alpha1.LLDP
 		)
 
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
-			device = &v1alpha1.Device{}
-			if err := k8sClient.Get(ctx, deviceKey, device); errors.IsNotFound(err) {
-				device = &v1alpha1.Device{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      deviceName,
-						Namespace: metav1.NamespaceDefault,
+			device = &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "testlldp-device-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.2:9339",
 					},
-					Spec: v1alpha1.DeviceSpec{
-						Endpoint: v1alpha1.Endpoint{
-							Address: "192.168.10.2:9339",
-						},
-					},
-				}
-				Expect(k8sClient.Create(ctx, device)).To(Succeed())
+				},
 			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+			deviceName = device.Name
+			deviceKey = client.ObjectKey{Name: deviceName, Namespace: metav1.NamespaceDefault}
+			resourceKey = client.ObjectKey{Name: deviceName + "-lldp", Namespace: metav1.NamespaceDefault}
 		})
 
 		AfterEach(func() {
@@ -77,20 +72,17 @@ var _ = Describe("LLDP Controller", func() {
 
 		It("Should successfully reconcile the resource", func() {
 			By("Creating the custom resource for the Kind LLDP")
-			lldp = &v1alpha1.LLDP{}
-			if err := k8sClient.Get(ctx, resourceKey, lldp); errors.IsNotFound(err) {
-				lldp = &v1alpha1.LLDP{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: metav1.NamespaceDefault,
-					},
-					Spec: v1alpha1.LLDPSpec{
-						DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
-						AdminState: "Up",
-					},
-				}
-				Expect(k8sClient.Create(ctx, lldp)).To(Succeed())
+			lldp = &v1alpha1.LLDP{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      deviceName + "-lldp",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.LLDPSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
+					AdminState: "Up",
+				},
 			}
+			Expect(k8sClient.Create(ctx, lldp)).To(Succeed())
 
 			By("Verifying the controller adds a finalizer")
 			Eventually(func(g Gomega) {
@@ -138,7 +130,7 @@ var _ = Describe("LLDP Controller", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.LLDP).ToNot(BeNil(), "Provider LLDP should not be nil")
 				if testProvider.LLDP != nil {
-					g.Expect(testProvider.LLDP.GetName()).To(Equal(resourceName), "Provider should have LLDP configured")
+					g.Expect(testProvider.LLDP.GetName()).To(Equal(deviceName+"-lldp"), "Provider should have LLDP configured")
 				}
 			}).Should(Succeed())
 		})
@@ -147,7 +139,7 @@ var _ = Describe("LLDP Controller", func() {
 			By("Creating the custom resource for the Kind LLDP with AdminState Down")
 			lldp = &v1alpha1.LLDP{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      resourceName,
+					Name:      deviceName + "-lldp",
 					Namespace: metav1.NamespaceDefault,
 				},
 				Spec: v1alpha1.LLDPSpec{
@@ -188,7 +180,7 @@ var _ = Describe("LLDP Controller", func() {
 			By("Creating the first LLDP resource")
 			lldp = &v1alpha1.LLDP{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      resourceName,
+					Name:      deviceName + "-lldp",
 					Namespace: metav1.NamespaceDefault,
 				},
 				Spec: v1alpha1.LLDPSpec{
@@ -208,7 +200,7 @@ var _ = Describe("LLDP Controller", func() {
 			}).Should(Succeed())
 
 			By("Creating a second LLDP resource for the same device")
-			duplicateName := resourceName + "-duplicate"
+			duplicateName := deviceName + "-lldp-duplicate"
 			duplicateKey := client.ObjectKey{Name: duplicateName, Namespace: metav1.NamespaceDefault}
 			duplicateLLDP := &v1alpha1.LLDP{
 				ObjectMeta: metav1.ObjectMeta{
@@ -241,7 +233,7 @@ var _ = Describe("LLDP Controller", func() {
 			By("Creating the custom resource for the Kind LLDP")
 			lldp = &v1alpha1.LLDP{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      resourceName,
+					Name:      deviceName + "-lldp",
 					Namespace: metav1.NamespaceDefault,
 				},
 				Spec: v1alpha1.LLDPSpec{
@@ -282,9 +274,9 @@ var _ = Describe("LLDP Controller", func() {
 	})
 
 	Context("When DeviceRef references non-existent Device", func() {
-		const resourceName = "testlldp-nodevice-lldp"
-
-		resourceKey := client.ObjectKey{Name: resourceName, Namespace: metav1.NamespaceDefault}
+		var (
+			resourceKey client.ObjectKey
+		)
 
 		AfterEach(func() {
 			By("Cleaning up the LLDP resource")
@@ -304,8 +296,8 @@ var _ = Describe("LLDP Controller", func() {
 			By("Creating LLDP referencing a non-existent Device")
 			lldp := &v1alpha1.LLDP{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      resourceName,
-					Namespace: metav1.NamespaceDefault,
+					GenerateName: "testlldp-nodevice-lldp-",
+					Namespace:    metav1.NamespaceDefault,
 				},
 				Spec: v1alpha1.LLDPSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: "non-existent-device"},
@@ -313,6 +305,7 @@ var _ = Describe("LLDP Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, lldp)).To(Succeed())
+			resourceKey = client.ObjectKey{Name: lldp.Name, Namespace: metav1.NamespaceDefault}
 
 			By("Verifying the controller does not add a finalizer")
 			Consistently(func(g Gomega) {
@@ -324,36 +317,31 @@ var _ = Describe("LLDP Controller", func() {
 	})
 
 	Context("When Device is paused", func() {
-		const (
-			deviceName   = "testlldp-paused-device"
-			resourceName = "testlldp-paused-lldp"
-		)
-
-		resourceKey := client.ObjectKey{Name: resourceName, Namespace: metav1.NamespaceDefault}
-		deviceKey := client.ObjectKey{Name: deviceName, Namespace: metav1.NamespaceDefault}
-
 		var (
-			device *v1alpha1.Device
-			lldp   *v1alpha1.LLDP
+			deviceName  string
+			resourceKey client.ObjectKey
+			deviceKey   client.ObjectKey
+			device      *v1alpha1.Device
+			lldp        *v1alpha1.LLDP
 		)
 
 		BeforeEach(func() {
 			By("Creating the Device resource")
-			device = &v1alpha1.Device{}
-			if err := k8sClient.Get(ctx, deviceKey, device); errors.IsNotFound(err) {
-				device = &v1alpha1.Device{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      deviceName,
-						Namespace: metav1.NamespaceDefault,
+			device = &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "testlldp-paused-device-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.6:9339",
 					},
-					Spec: v1alpha1.DeviceSpec{
-						Endpoint: v1alpha1.Endpoint{
-							Address: "192.168.10.6:9339",
-						},
-					},
-				}
-				Expect(k8sClient.Create(ctx, device)).To(Succeed())
+				},
 			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+			deviceName = device.Name
+			deviceKey = client.ObjectKey{Name: deviceName, Namespace: metav1.NamespaceDefault}
+			resourceKey = client.ObjectKey{Name: deviceName + "-lldp", Namespace: metav1.NamespaceDefault}
 		})
 
 		AfterEach(func() {
@@ -392,7 +380,7 @@ var _ = Describe("LLDP Controller", func() {
 			By("Creating LLDP resource")
 			lldp = &v1alpha1.LLDP{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      resourceName,
+					Name:      deviceName + "-lldp",
 					Namespace: metav1.NamespaceDefault,
 				},
 				Spec: v1alpha1.LLDPSpec{
@@ -451,36 +439,31 @@ var _ = Describe("LLDP Controller", func() {
 	})
 
 	Context("When reconciling with ProviderConfigRef", func() {
-		const (
-			deviceName   = "testlldp-provider-device"
-			resourceName = "testlldp-provider-lldp"
-		)
-
-		resourceKey := client.ObjectKey{Name: resourceName, Namespace: metav1.NamespaceDefault}
-		deviceKey := client.ObjectKey{Name: deviceName, Namespace: metav1.NamespaceDefault}
-
 		var (
-			device *v1alpha1.Device
-			lldp   *v1alpha1.LLDP
+			deviceName  string
+			resourceKey client.ObjectKey
+			deviceKey   client.ObjectKey
+			device      *v1alpha1.Device
+			lldp        *v1alpha1.LLDP
 		)
 
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
-			device = &v1alpha1.Device{}
-			if err := k8sClient.Get(ctx, deviceKey, device); errors.IsNotFound(err) {
-				device = &v1alpha1.Device{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      deviceName,
-						Namespace: metav1.NamespaceDefault,
+			device = &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "testlldp-provider-device-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.2:9339",
 					},
-					Spec: v1alpha1.DeviceSpec{
-						Endpoint: v1alpha1.Endpoint{
-							Address: "192.168.10.2:9339",
-						},
-					},
-				}
-				Expect(k8sClient.Create(ctx, device)).To(Succeed())
+				},
 			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+			deviceName = device.Name
+			deviceKey = client.ObjectKey{Name: deviceName, Namespace: metav1.NamespaceDefault}
+			resourceKey = client.ObjectKey{Name: deviceName + "-lldp", Namespace: metav1.NamespaceDefault}
 		})
 
 		AfterEach(func() {
@@ -513,7 +496,7 @@ var _ = Describe("LLDP Controller", func() {
 			By("Creating LLDP with a non-existent ProviderConfigRef")
 			lldp = &v1alpha1.LLDP{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      resourceName,
+					Name:      deviceName + "-lldp",
 					Namespace: metav1.NamespaceDefault,
 				},
 				Spec: v1alpha1.LLDPSpec{
@@ -544,7 +527,7 @@ var _ = Describe("LLDP Controller", func() {
 			By("Creating LLDP with invalid API version in ProviderConfigRef")
 			lldp = &v1alpha1.LLDP{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      resourceName,
+					Name:      deviceName + "-lldp",
 					Namespace: metav1.NamespaceDefault,
 				},
 				Spec: v1alpha1.LLDPSpec{
@@ -575,7 +558,7 @@ var _ = Describe("LLDP Controller", func() {
 			By("Creating LLDP with unsupported Kind in ProviderConfigRef")
 			lldp = &v1alpha1.LLDP{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      resourceName,
+					Name:      deviceName + "-lldp",
 					Namespace: metav1.NamespaceDefault,
 				},
 				Spec: v1alpha1.LLDPSpec{
@@ -604,36 +587,31 @@ var _ = Describe("LLDP Controller", func() {
 	})
 
 	Context("When reconciling with InterfaceRefs", func() {
-		const (
-			deviceName   = "testlldp-intfref-device"
-			resourceName = "testlldp-intfref-lldp"
-		)
-
-		resourceKey := client.ObjectKey{Name: resourceName, Namespace: metav1.NamespaceDefault}
-		deviceKey := client.ObjectKey{Name: deviceName, Namespace: metav1.NamespaceDefault}
-
 		var (
-			device *v1alpha1.Device
-			lldp   *v1alpha1.LLDP
+			deviceName  string
+			resourceKey client.ObjectKey
+			deviceKey   client.ObjectKey
+			device      *v1alpha1.Device
+			lldp        *v1alpha1.LLDP
 		)
 
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
-			device = &v1alpha1.Device{}
-			if err := k8sClient.Get(ctx, deviceKey, device); errors.IsNotFound(err) {
-				device = &v1alpha1.Device{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      deviceName,
-						Namespace: metav1.NamespaceDefault,
+			device = &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "testlldp-intfref-device-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.3:9339",
 					},
-					Spec: v1alpha1.DeviceSpec{
-						Endpoint: v1alpha1.Endpoint{
-							Address: "192.168.10.3:9339",
-						},
-					},
-				}
-				Expect(k8sClient.Create(ctx, device)).To(Succeed())
+				},
 			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+			deviceName = device.Name
+			deviceKey = client.ObjectKey{Name: deviceName, Namespace: metav1.NamespaceDefault}
+			resourceKey = client.ObjectKey{Name: deviceName + "-lldp", Namespace: metav1.NamespaceDefault}
 		})
 
 		AfterEach(func() {
@@ -666,7 +644,7 @@ var _ = Describe("LLDP Controller", func() {
 			By("Creating LLDP with a non-existent InterfaceRef")
 			lldp = &v1alpha1.LLDP{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      resourceName,
+					Name:      deviceName + "-lldp",
 					Namespace: metav1.NamespaceDefault,
 				},
 				Spec: v1alpha1.LLDPSpec{
@@ -734,7 +712,7 @@ var _ = Describe("LLDP Controller", func() {
 			By("Creating LLDP referencing an Interface from a different device")
 			lldp = &v1alpha1.LLDP{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      resourceName,
+					Name:      deviceName + "-lldp",
 					Namespace: metav1.NamespaceDefault,
 				},
 				Spec: v1alpha1.LLDPSpec{
@@ -803,7 +781,7 @@ var _ = Describe("LLDP Controller", func() {
 			By("Creating LLDP with multiple InterfaceRefs")
 			lldp = &v1alpha1.LLDP{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      resourceName,
+					Name:      deviceName + "-lldp",
 					Namespace: metav1.NamespaceDefault,
 				},
 				Spec: v1alpha1.LLDPSpec{
@@ -844,36 +822,31 @@ var _ = Describe("LLDP Controller", func() {
 	})
 
 	Context("When updating LLDP spec", func() {
-		const (
-			deviceName   = "testlldp-update-device"
-			resourceName = "testlldp-update-lldp"
-		)
-
-		resourceKey := client.ObjectKey{Name: resourceName, Namespace: metav1.NamespaceDefault}
-		deviceKey := client.ObjectKey{Name: deviceName, Namespace: metav1.NamespaceDefault}
-
 		var (
-			device *v1alpha1.Device
-			lldp   *v1alpha1.LLDP
+			deviceName  string
+			resourceKey client.ObjectKey
+			deviceKey   client.ObjectKey
+			device      *v1alpha1.Device
+			lldp        *v1alpha1.LLDP
 		)
 
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
-			device = &v1alpha1.Device{}
-			if err := k8sClient.Get(ctx, deviceKey, device); errors.IsNotFound(err) {
-				device = &v1alpha1.Device{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      deviceName,
-						Namespace: metav1.NamespaceDefault,
+			device = &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "testlldp-update-device-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.4:9339",
 					},
-					Spec: v1alpha1.DeviceSpec{
-						Endpoint: v1alpha1.Endpoint{
-							Address: "192.168.10.4:9339",
-						},
-					},
-				}
-				Expect(k8sClient.Create(ctx, device)).To(Succeed())
+				},
 			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+			deviceName = device.Name
+			deviceKey = client.ObjectKey{Name: deviceName, Namespace: metav1.NamespaceDefault}
+			resourceKey = client.ObjectKey{Name: deviceName + "-lldp", Namespace: metav1.NamespaceDefault}
 		})
 
 		AfterEach(func() {
@@ -906,7 +879,7 @@ var _ = Describe("LLDP Controller", func() {
 			By("Creating LLDP with AdminState Up")
 			lldp = &v1alpha1.LLDP{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      resourceName,
+					Name:      deviceName + "-lldp",
 					Namespace: metav1.NamespaceDefault,
 				},
 				Spec: v1alpha1.LLDPSpec{
@@ -968,7 +941,7 @@ var _ = Describe("LLDP Controller", func() {
 			By("Creating LLDP without InterfaceRefs")
 			lldp = &v1alpha1.LLDP{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      resourceName,
+					Name:      deviceName + "-lldp",
 					Namespace: metav1.NamespaceDefault,
 				},
 				Spec: v1alpha1.LLDPSpec{
@@ -1036,7 +1009,7 @@ var _ = Describe("LLDP Controller", func() {
 			By("Creating LLDP with InterfaceRefs")
 			lldp = &v1alpha1.LLDP{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      resourceName,
+					Name:      deviceName + "-lldp",
 					Namespace: metav1.NamespaceDefault,
 				},
 				Spec: v1alpha1.LLDPSpec{

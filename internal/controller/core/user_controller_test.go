@@ -7,7 +7,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -17,67 +16,62 @@ import (
 
 var _ = Describe("User Controller", func() {
 	Context("When reconciling a resource", func() {
-		const name = "test-user"
 		const username = "apiuser"
-		key := client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
+		var (
+			name string
+			key  client.ObjectKey
+		)
 
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
-			device := &v1alpha1.Device{}
-			if err := k8sClient.Get(ctx, key, device); errors.IsNotFound(err) {
-				resource := &v1alpha1.Device{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: metav1.NamespaceDefault,
+			device := &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test-user-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.2:9339",
 					},
-					Spec: v1alpha1.DeviceSpec{
-						Endpoint: v1alpha1.Endpoint{
-							Address: "192.168.10.2:9339",
-						},
-					},
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+				},
 			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+			name = device.Name
+			key = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 
 			By("Creating the custom resource for the Kind Secret")
-			secret := &corev1.Secret{}
-			if err := k8sClient.Get(ctx, key, secret); errors.IsNotFound(err) {
-				resource := &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: metav1.NamespaceDefault,
-					},
-					StringData: map[string]string{
-						corev1.BasicAuthPasswordKey: "P@ssw0rd!",
-					},
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+			resource := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				StringData: map[string]string{
+					corev1.BasicAuthPasswordKey: "P@ssw0rd!",
+				},
 			}
+			Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 
 			By("Creating the custom resource for the Kind User")
-			user := &v1alpha1.User{}
-			if err := k8sClient.Get(ctx, key, user); errors.IsNotFound(err) {
-				resource := &v1alpha1.User{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: metav1.NamespaceDefault,
-					},
-					Spec: v1alpha1.UserSpec{
-						DeviceRef: v1alpha1.LocalObjectReference{Name: name},
-						Username:  username,
-						Password: v1alpha1.PasswordSource{
-							SecretKeyRef: v1alpha1.SecretKeySelector{
-								SecretReference: v1alpha1.SecretReference{
-									Name: name,
-								},
-								Key: "password",
+			user := &v1alpha1.User{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.UserSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
+					Username:  username,
+					Password: v1alpha1.PasswordSource{
+						SecretKeyRef: v1alpha1.SecretKeySelector{
+							SecretReference: v1alpha1.SecretReference{
+								Name: name,
 							},
+							Key: "password",
 						},
-						Roles: []v1alpha1.UserRole{{Name: "network-admin"}},
 					},
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+					Roles: []v1alpha1.UserRole{{Name: "network-admin"}},
+				},
 			}
+			Expect(k8sClient.Create(ctx, user)).To(Succeed())
 		})
 
 		AfterEach(func() {

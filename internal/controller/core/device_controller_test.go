@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,26 +18,27 @@ import (
 
 var _ = Describe("Device Controller", func() {
 	Context("When reconciling a resource", func() {
-		const name = "test-device"
-		key := client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
+		var (
+			name string
+			key  client.ObjectKey
+		)
 
 		BeforeEach(func() {
 			By("Creating the endpoint credentials as a Secret")
-			secret := &corev1.Secret{}
-			if err := k8sClient.Get(ctx, key, secret); errors.IsNotFound(err) {
-				resource := &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: metav1.NamespaceDefault,
-					},
-					Data: map[string][]byte{
-						corev1.BasicAuthUsernameKey: []byte("user"),
-						corev1.BasicAuthPasswordKey: []byte("password"),
-					},
-					Type: corev1.SecretTypeBasicAuth,
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test-device-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Data: map[string][]byte{
+					corev1.BasicAuthUsernameKey: []byte("user"),
+					corev1.BasicAuthPasswordKey: []byte("password"),
+				},
+				Type: corev1.SecretTypeBasicAuth,
 			}
+			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+			name = secret.Name
+			key = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 		})
 
 		AfterEach(func() {
@@ -87,24 +87,21 @@ var _ = Describe("Device Controller", func() {
 			}).Should(Succeed())
 
 			By("Creating the custom resource for the Kind Interface")
-			iface := &v1alpha1.Interface{}
-			if err := k8sClient.Get(ctx, key, iface); errors.IsNotFound(err) {
-				resource := &v1alpha1.Interface{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: metav1.NamespaceDefault,
-					},
-					Spec: v1alpha1.InterfaceSpec{
-						DeviceRef:   v1alpha1.LocalObjectReference{Name: name},
-						Name:        "eth1/1",
-						AdminState:  "Up",
-						Description: "Test",
-						MTU:         9000,
-						Type:        "Physical",
-					},
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+			iface := &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:   v1alpha1.LocalObjectReference{Name: name},
+					Name:        "eth1/1",
+					AdminState:  "Up",
+					Description: "Test",
+					MTU:         9000,
+					Type:        "Physical",
+				},
 			}
+			Expect(k8sClient.Create(ctx, iface)).To(Succeed())
 
 			By("Updating the resource status")
 			Eventually(func(g Gomega) {

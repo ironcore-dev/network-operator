@@ -5,7 +5,6 @@ package core
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -16,49 +15,47 @@ import (
 
 var _ = Describe("ISIS Controller", func() {
 	Context("When reconciling a resource", func() {
-		const name = "test-isis"
-		key := client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
+		var (
+			name string
+			key  client.ObjectKey
+		)
 
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
-			device := &v1alpha1.Device{}
-			if err := k8sClient.Get(ctx, key, device); errors.IsNotFound(err) {
-				resource := &v1alpha1.Device{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: metav1.NamespaceDefault,
+			device := &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test-isis-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.2:9339",
 					},
-					Spec: v1alpha1.DeviceSpec{
-						Endpoint: v1alpha1.Endpoint{
-							Address: "192.168.10.2:9339",
-						},
-					},
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+				},
 			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+			name = device.Name
+			key = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 
 			By("Creating the custom resource for the Kind ISIS")
-			isis := &v1alpha1.ISIS{}
-			if err := k8sClient.Get(ctx, key, isis); errors.IsNotFound(err) {
-				resource := &v1alpha1.ISIS{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: metav1.NamespaceDefault,
+			resource := &v1alpha1.ISIS{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.ISISSpec{
+					DeviceRef:          v1alpha1.LocalObjectReference{Name: name},
+					Instance:           "UNDERLAY",
+					NetworkEntityTitle: "49.0001.0000.0000.0001.00",
+					Type:               v1alpha1.ISISLevel1,
+					OverloadBit:        v1alpha1.OverloadBitOnStartup,
+					AddressFamilies: []v1alpha1.AddressFamily{
+						v1alpha1.AddressFamilyIPv4Unicast,
+						v1alpha1.AddressFamilyIPv6Unicast,
 					},
-					Spec: v1alpha1.ISISSpec{
-						DeviceRef:          v1alpha1.LocalObjectReference{Name: name},
-						Instance:           "UNDERLAY",
-						NetworkEntityTitle: "49.0001.0000.0000.0001.00",
-						Type:               v1alpha1.ISISLevel1,
-						OverloadBit:        v1alpha1.OverloadBitOnStartup,
-						AddressFamilies: []v1alpha1.AddressFamily{
-							v1alpha1.AddressFamilyIPv4Unicast,
-							v1alpha1.AddressFamilyIPv6Unicast,
-						},
-					},
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+				},
 			}
+			Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 		})
 
 		AfterEach(func() {
@@ -123,26 +120,27 @@ var _ = Describe("ISIS Controller", func() {
 	})
 
 	Context("When an interfaceRef does not exist", func() {
-		const name = "test-isis-missing-intf"
-		key := client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
+		var (
+			name string
+			key  client.ObjectKey
+		)
 
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
-			device := &v1alpha1.Device{}
-			if err := k8sClient.Get(ctx, key, device); errors.IsNotFound(err) {
-				resource := &v1alpha1.Device{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: metav1.NamespaceDefault,
+			device := &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test-isis-missing-intf-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.2:9339",
 					},
-					Spec: v1alpha1.DeviceSpec{
-						Endpoint: v1alpha1.Endpoint{
-							Address: "192.168.10.2:9339",
-						},
-					},
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+				},
 			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+			name = device.Name
+			key = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 		})
 
 		AfterEach(func() {

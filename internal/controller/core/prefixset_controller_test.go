@@ -6,7 +6,6 @@ package core
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -16,53 +15,51 @@ import (
 
 var _ = Describe("PrefixSet Controller", func() {
 	Context("When reconciling a resource", func() {
-		const name = "test-prefixset"
 		const set = "CCLOUD"
-		key := client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
+		var (
+			name string
+			key  client.ObjectKey
+		)
 
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
-			device := &v1alpha1.Device{}
-			if err := k8sClient.Get(ctx, key, device); errors.IsNotFound(err) {
-				resource := &v1alpha1.Device{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: metav1.NamespaceDefault,
+			device := &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test-prefixset-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.2:9339",
 					},
-					Spec: v1alpha1.DeviceSpec{
-						Endpoint: v1alpha1.Endpoint{
-							Address: "192.168.10.2:9339",
-						},
-					},
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+				},
 			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+			name = device.Name
+			key = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 
 			By("Creating the custom resource for the Kind PrefixSet")
-			prefixset := &v1alpha1.PrefixSet{}
-			if err := k8sClient.Get(ctx, key, prefixset); errors.IsNotFound(err) {
-				resource := &v1alpha1.PrefixSet{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: metav1.NamespaceDefault,
-					},
-					Spec: v1alpha1.PrefixSetSpec{
-						DeviceRef: v1alpha1.LocalObjectReference{Name: name},
-						Name:      set,
-						Entries: []v1alpha1.PrefixEntry{
-							{
-								Sequence: 10,
-								Prefix:   v1alpha1.MustParsePrefix("192.168.1.0/24"),
-							},
-							{
-								Sequence: 20,
-								Prefix:   v1alpha1.MustParsePrefix("10.0.0.0/8"),
-							},
+			resource := &v1alpha1.PrefixSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.PrefixSetSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
+					Name:      set,
+					Entries: []v1alpha1.PrefixEntry{
+						{
+							Sequence: 10,
+							Prefix:   v1alpha1.MustParsePrefix("192.168.1.0/24"),
+						},
+						{
+							Sequence: 20,
+							Prefix:   v1alpha1.MustParsePrefix("10.0.0.0/8"),
 						},
 					},
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+				},
 			}
+			Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 		})
 
 		AfterEach(func() {

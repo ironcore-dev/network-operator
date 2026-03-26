@@ -6,7 +6,6 @@ package nx
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -17,44 +16,42 @@ import (
 
 var _ = Describe("System Controller", func() {
 	Context("When reconciling a resource", func() {
-		const name = "test-system"
-		key := client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
+		var (
+			name string
+			key  client.ObjectKey
+		)
 
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
-			device := &v1alpha1.Device{}
-			if err := k8sClient.Get(ctx, key, device); errors.IsNotFound(err) {
-				resource := &v1alpha1.Device{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: metav1.NamespaceDefault,
+			device := &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test-system-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.2:9339",
 					},
-					Spec: v1alpha1.DeviceSpec{
-						Endpoint: v1alpha1.Endpoint{
-							Address: "192.168.10.2:9339",
-						},
-					},
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+				},
 			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+			name = device.Name
+			key = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 
 			By("Creating the custom resource for the Kind System")
-			system := &nxv1alpha1.System{}
-			if err := k8sClient.Get(ctx, key, system); errors.IsNotFound(err) {
-				resource := &nxv1alpha1.System{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: metav1.NamespaceDefault,
-					},
-					Spec: nxv1alpha1.SystemSpec{
-						DeviceRef:    v1alpha1.LocalObjectReference{Name: name},
-						JumboMTU:     9216,
-						ReservedVlan: 3986,
-						VlanLongName: true,
-					},
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+			resource := &nxv1alpha1.System{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: nxv1alpha1.SystemSpec{
+					DeviceRef:    v1alpha1.LocalObjectReference{Name: name},
+					JumboMTU:     9216,
+					ReservedVlan: 3986,
+					VlanLongName: true,
+				},
 			}
+			Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 		})
 
 		AfterEach(func() {
