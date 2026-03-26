@@ -1705,7 +1705,39 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 	del := make([]gnmiext.Configurable, 0, 3)
 
 	if len(rpItems.StaticRPList) > 0 {
-		conf = append(conf, rpItems)
+		// Diff group-to-RP bindings individually; replacing entire StaticRP entries fails on NX-OS
+		// with "child (Rn) cannot be added to deleted object Rn=rpgrplist-[...], Commit Failed".
+		current := new(StaticRPItems)
+		if err := p.client.GetConfig(ctx, current); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+		for _, rp := range rpItems.StaticRPList {
+			got, ok := current.StaticRPList.Get(rp.Key())
+			if !ok {
+				// StaticRP does not exist yet — add the entire entry.
+				conf = append(conf, rp)
+				continue
+			}
+			for _, grp := range rp.RpgrplistItems.RPGrpListList {
+				if gotGrp, ok := got.RpgrplistItems.RPGrpListList.Get(grp.Key()); !ok || !reflect.DeepEqual(gotGrp, grp) {
+					g := *grp
+					g.RpAddr = rp.Addr
+					conf = append(conf, &g)
+				}
+			}
+			for _, grp := range got.RpgrplistItems.RPGrpListList {
+				if _, ok := rp.RpgrplistItems.RPGrpListList.Get(grp.Key()); !ok {
+					g := *grp
+					g.RpAddr = rp.Addr
+					del = append(del, &g)
+				}
+			}
+		}
+		for _, rp := range current.StaticRPList {
+			if _, ok := rpItems.StaticRPList.Get(rp.Key()); !ok {
+				del = append(del, rp)
+			}
+		}
 	} else {
 		del = append(del, rpItems)
 	}

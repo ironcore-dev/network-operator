@@ -9,6 +9,8 @@ var (
 	_ gnmiext.Configurable = (*PIM)(nil)
 	_ gnmiext.Configurable = (*PIMDom)(nil)
 	_ gnmiext.Configurable = (*StaticRPItems)(nil)
+	_ gnmiext.Configurable = (*StaticRP)(nil)
+	_ gnmiext.Configurable = (*StaticRPGrp)(nil)
 	_ gnmiext.Configurable = (*AnycastPeerItems)(nil)
 	_ gnmiext.Configurable = (*PIMIfItems)(nil)
 )
@@ -63,9 +65,17 @@ type StaticRPGrp struct {
 	Bidir       bool   `json:"bidir"`
 	GrpListName string `json:"grpListName"`
 	Override    bool   `json:"override"`
+
+	// RpAddr is the parent StaticRP address, used to construct the XPath.
+	// It is not serialized to JSON.
+	RpAddr string `json:"-"`
 }
 
 func (g *StaticRPGrp) Key() string { return g.GrpListName }
+
+func (g *StaticRPGrp) XPath() string {
+	return "System/pim-items/inst-items/dom-items/Dom-list[name=default]/staticrp-items/rp-items/StaticRP-list[addr=" + g.RpAddr + "]/rpgrplist-items/RPGrpList-list[grpListName=" + g.GrpListName + "]"
+}
 
 type AnycastPeerItems struct {
 	AcastRPPeerList gnmiext.List[AnycastPeerAddr, *AnycastPeerAddr] `json:"AcastRPPeer-list,omitzero"`
