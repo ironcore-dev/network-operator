@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	// Import all supported provider implementations.
+	_ "github.com/ironcore-dev/network-operator/internal/provider/cisco/iosxr"
 	_ "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos"
 	_ "github.com/ironcore-dev/network-operator/internal/provider/openconfig"
 
