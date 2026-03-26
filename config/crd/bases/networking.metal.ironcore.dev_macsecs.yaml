@@ -146,6 +146,40 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 type: array
+              providerConfigRef:
+                description: |-
+                  ProviderConfigRef is a reference to a resource holding the provider-specific configuration.
+                  This reference is used to link the Interface to its provider-specific configuration.
+                properties:
+                  apiVersion:
+                    description: APIVersion is the api group version of the resource
+                      being referenced.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/)?([a-z0-9]([-a-z0-9]*[a-z0-9])?)$
+                    type: string
+                  kind:
+                    description: |-
+                      Kind of the resource being referenced.
+                      Kind must consist of alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                    type: string
+                  name:
+                    description: |-
+                      Name of the resource being referenced.
+                      Name must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
             required:
             - deviceRef
             - interfaceRef
