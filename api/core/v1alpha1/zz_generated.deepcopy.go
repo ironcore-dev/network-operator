@@ -2168,6 +2168,11 @@ func (in *MacSecPolicy) DeepCopy() *MacSecPolicy {
 func (in *MacSecSpec) DeepCopyInto(out *MacSecSpec) {
 	*out = *in
 	out.DeviceRef = in.DeviceRef
+	if in.ProviderConfigRef != nil {
+		in, out := &in.ProviderConfigRef, &out.ProviderConfigRef
+		*out = new(TypedLocalObjectReference)
+		**out = **in
+	}
 	out.InterfaceRef = in.InterfaceRef
 	if in.PreSharedKeyRef != nil {
 		in, out := &in.PreSharedKeyRef, &out.PreSharedKeyRef

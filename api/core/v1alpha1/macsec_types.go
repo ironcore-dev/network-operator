@@ -28,11 +28,10 @@ type MacSecSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="DeviceRef is immutable"
 	DeviceRef LocalObjectReference `json:"deviceRef"`
 
-	// InterfaceRef is a reference to the interface on which MACsec is enabled. The interface must exist on the Device specified by deviceRef.
-	// Immutable.
-	// +required
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="InterfaceRef is immutable"
-	InterfaceRef LocalObjectReference `json:"interfaceRef,omitempty"`
+	// ProviderConfigRef is a reference to a resource holding the provider-specific configuration.
+	// This reference is used to link the Interface to its provider-specific configuration.
+	// +optional
+	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
 
 	// Name is the name of the interface.
 	// +required
@@ -45,6 +44,12 @@ type MacSecSpec struct {
 	// +optional
 	// +kubebuilder:validation:MaxLength=255
 	Description string `json:"description,omitempty"`
+
+	// InterfaceRef is a reference to the interface on which MACsec is enabled. The interface must exist on the Device specified by deviceRef.
+	// Immutable.
+	// +required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="InterfaceRef is immutable"
+	InterfaceRef LocalObjectReference `json:"interfaceRef,omitempty"`
 
 	// PreSharedKeyRef is a list of references to pre-shared keys used for MACSec encryption.
 	// +optional

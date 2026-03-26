@@ -628,10 +628,11 @@ func main() { //nolint:gocyclo
 	if err := (&corecontroller.MacSecReconciler{
 		Client:          mgr.GetClient(),
 		Scheme:          mgr.GetScheme(),
+		Recorder:        mgr.GetEventRecorder("macsec-controller"),
 		Provider:        prov,
 		Locker:          locker,
 		RequeueInterval: requeueInterval,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MacSec")
 		os.Exit(1)
 	}
