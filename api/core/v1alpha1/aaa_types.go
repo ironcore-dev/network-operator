@@ -12,8 +12,7 @@ import (
 
 // AAASpec defines the desired state of AAA.
 //
-// It models the Authentication, Authorization, and Accounting (AAA) configuration on a network device,
-// aligned with the OpenConfig system/aaa YANG model.
+// It models the Authentication, Authorization, and Accounting (AAA) configuration on a network device.
 // +kubebuilder:validation:XValidation:rule="has(self.serverGroups) || has(self.authentication) || has(self.authorization) || has(self.accounting)",message="at least one of serverGroups, authentication, authorization, or accounting must be set"
 type AAASpec struct {
 	// DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
@@ -28,7 +27,6 @@ type AAASpec struct {
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
 
 	// ServerGroups is the list of AAA server groups.
-	// OpenConfig: /system/aaa/server-groups/server-group
 	// +optional
 	// +listType=map
 	// +listMapKey=name
@@ -36,17 +34,14 @@ type AAASpec struct {
 	ServerGroups []AAAServerGroup `json:"serverGroups,omitempty"`
 
 	// Authentication defines the AAA authentication method list.
-	// OpenConfig: /system/aaa/authentication
 	// +optional
 	Authentication *AAAAuthentication `json:"authentication,omitempty"`
 
 	// Authorization defines the AAA authorization method list.
-	// OpenConfig: /system/aaa/authorization
 	// +optional
 	Authorization *AAAAuthorization `json:"authorization,omitempty"`
 
 	// Accounting defines the AAA accounting method list.
-	// OpenConfig: /system/aaa/accounting
 	// +optional
 	Accounting *AAAAccounting `json:"accounting,omitempty"`
 }
@@ -63,7 +58,6 @@ const (
 )
 
 // AAAServerGroup represents a named group of AAA servers.
-// OpenConfig: /system/aaa/server-groups/server-group[name]
 // +kubebuilder:validation:XValidation:rule="self.type != 'TACACS' || self.servers.all(s, has(s.tacacs))",message="servers in a TACACS group must have tacacs config"
 // +kubebuilder:validation:XValidation:rule="self.type != 'RADIUS' || self.servers.all(s, has(s.radius))",message="servers in a RADIUS group must have radius config"
 type AAAServerGroup struct {
@@ -78,7 +72,6 @@ type AAAServerGroup struct {
 	Type AAAServerGroupType `json:"type"`
 
 	// Servers is the list of servers in this group.
-	// OpenConfig: /system/aaa/server-groups/server-group/servers/server
 	// +required
 	// +listType=map
 	// +listMapKey=address
@@ -98,7 +91,6 @@ type AAAServerGroup struct {
 }
 
 // AAAServer represents a single AAA server within a group.
-// OpenConfig: /system/aaa/server-groups/server-group/servers/server[address]
 type AAAServer struct {
 	// Address is the IP address or hostname of the server.
 	// +required
@@ -114,13 +106,11 @@ type AAAServer struct {
 
 	// TACACS contains TACACS+ specific server configuration.
 	// Required when the parent server group type is TACACS.
-	// OpenConfig augmentation: /system/aaa/server-groups/server-group/servers/server/tacacs
 	// +optional
 	TACACS *AAAServerTACACS `json:"tacacs,omitempty"`
 
 	// RADIUS contains RADIUS specific server configuration.
 	// Required when the parent server group type is RADIUS.
-	// OpenConfig augmentation: /system/aaa/server-groups/server-group/servers/server/radius
 	// +optional
 	RADIUS *AAAServerRADIUS `json:"radius,omitempty"`
 }
@@ -166,7 +156,6 @@ type AAAServerRADIUS struct {
 }
 
 // AAAAuthentication defines the AAA authentication method list.
-// OpenConfig: /system/aaa/authentication
 type AAAAuthentication struct {
 	// Methods is the ordered list of authentication methods.
 	// Methods are tried in order until one succeeds or all fail.
@@ -178,7 +167,6 @@ type AAAAuthentication struct {
 }
 
 // AAAAuthorization defines the AAA authorization method list.
-// OpenConfig: /system/aaa/authorization
 type AAAAuthorization struct {
 	// Methods is the ordered list of authorization methods.
 	// Methods are tried in order until one succeeds or all fail.
@@ -190,7 +178,6 @@ type AAAAuthorization struct {
 }
 
 // AAAAccounting defines the AAA accounting method list.
-// OpenConfig: /system/aaa/accounting
 type AAAAccounting struct {
 	// Methods is the ordered list of accounting methods.
 	// Methods are tried in order until one succeeds or all fail.

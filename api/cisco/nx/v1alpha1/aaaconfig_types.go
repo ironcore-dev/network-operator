@@ -13,28 +13,23 @@ import (
 
 // AAAConfigSpec defines the desired state of AAAConfig
 type AAAConfigSpec struct {
-	// LoginErrorEnable enables login error messages (NX-OS specific).
-	// Maps to: aaa authentication login error-enable
+	// LoginErrorEnable enables login error messages.
 	// +optional
 	LoginErrorEnable bool `json:"loginErrorEnable,omitempty"`
 
 	// KeyEncryption specifies the default encryption type for TACACS+ keys.
-	// +kubebuilder:validation:Enum=Type6;Type7;Clear
 	// +kubebuilder:default=Type7
 	KeyEncryption TACACSKeyEncryption `json:"keyEncryption,omitempty"`
 
 	// RADIUSKeyEncryption specifies the default encryption type for RADIUS server keys.
-	// +kubebuilder:validation:Enum=Type6;Type7;Clear
 	// +kubebuilder:default=Type7
 	RADIUSKeyEncryption RADIUSKeyEncryption `json:"radiusKeyEncryption,omitempty"`
 
-	// ConsoleAuthentication defines NX-OS console-specific authentication methods.
-	// Maps to: aaa authentication login console <methods>
+	// ConsoleAuthentication defines console-specific authentication methods.
 	// +optional
 	ConsoleAuthentication *NXOSMethodList `json:"consoleAuthentication,omitempty"`
 
-	// ConfigCommandsAuthorization defines NX-OS config-commands authorization methods.
-	// Maps to: aaa authorization config-commands default <methods>
+	// ConfigCommandsAuthorization defines config-commands authorization methods.
 	// +optional
 	ConfigCommandsAuthorization *NXOSMethodList `json:"configCommandsAuthorization,omitempty"`
 }

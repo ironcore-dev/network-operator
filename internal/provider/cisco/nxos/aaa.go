@@ -268,8 +268,8 @@ func MapFallbackFromMethodList(methods []v1alpha1.AAAMethod) string {
 	return AAAValueNo
 }
 
-// MapNXOSRealm maps an NX-OS method type string to NX-OS realm.
-func MapNXOSRealm(methodType string) string {
+// MapRealm maps a method type string to an NX-OS realm.
+func MapRealm(methodType string) string {
 	switch methodType {
 	case "Group":
 		return AAARealmTacacs
@@ -282,8 +282,8 @@ func MapNXOSRealm(methodType string) string {
 	}
 }
 
-// MapNXOSLocal checks if local is in an NX-OS method list.
-func MapNXOSLocal(methods []nxv1alpha1.NXOSMethod) string {
+// MapLocal checks if local is in a method list.
+func MapLocal(methods []nxv1alpha1.NXOSMethod) string {
 	for _, m := range methods {
 		if m.Type == "Local" {
 			return AAAValueYes
@@ -292,8 +292,8 @@ func MapNXOSLocal(methods []nxv1alpha1.NXOSMethod) string {
 	return AAAValueNo
 }
 
-// MapNXOSFallback determines fallback setting from an NX-OS method list.
-func MapNXOSFallback(methods []nxv1alpha1.NXOSMethod) string {
+// MapFallback determines fallback setting from a method list.
+func MapFallback(methods []nxv1alpha1.NXOSMethod) string {
 	if len(methods) > 1 {
 		return AAAValueYes
 	}
