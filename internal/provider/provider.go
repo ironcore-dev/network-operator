@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
+
 package provider
 
 import (
@@ -13,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -764,10 +766,10 @@ type DeleteMacSecRequest struct {
 }
 
 type MacSecStatus struct {
-	// MacSecStatus indidcates whether all keys are valid
-	MacSecStatus bool
+	// OverallStatus indicates whether all keys are valid
+	OverallStatus bool
 	// KeyStatuses provides the validity status for each individual key configured on the device.
-	KeyStatuses []KeyValidity
+	KeyStatus []KeyValidity
 }
 
 type KeyValidity struct {
