@@ -20,6 +20,9 @@ go.work.sum
 # Generated build-installer
 dist/*
 
+# Generated provider matrix tool
+generate-provider-matrix
+
 # Kubernetes Generated files - skip generated files, except for vendored files
 !vendor/**/zz_generated.*
 

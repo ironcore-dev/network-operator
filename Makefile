@@ -180,7 +180,7 @@ run-docs:
 	@docker build -t $(DOCS_IMG) -f docs/Dockerfile docs --load
 	@docker run --rm --init -p 5173:5173 -v $(ROOT_DIR)/docs:/workspace -v /workspace/node_modules $(DOCS_IMG)
 
-docs: install-crd-ref-docs
+docs: install-crd-ref-docs provider-matrix
 	crd-ref-docs --source-path=./api --config=./hack/api-reference/config.yaml --renderer=markdown --output-path=./docs/api-reference/index.md
 	@$(SED) -i \
 	  -e 's/#networkingmetalironcoredevv1alpha1/#networking-metal-ironcore-dev-v1alpha1/g' \
@@ -188,6 +188,11 @@ docs: install-crd-ref-docs
 	  -e 's/#xecisconetworkingmetalironcoredevv1alpha1/#xe-cisco-networking-metal-ironcore-dev-v1alpha1/g' \
 	  -e 's/#xrcisconetworkingmetalironcoredevv1alpha1/#xr-cisco-networking-metal-ironcore-dev-v1alpha1/g' \
 	  docs/api-reference/index.md
+
+# Generate provider implementation matrix
+provider-matrix: FORCE
+	@printf "\e[1;36m>> go run ./hack/generate-provider-matrix.go > docs/provider-compatibility.md\e[0m\n"
+	@go run ./hack/generate-provider-matrix.go > docs/provider-compatibility.md
 
 install-goimports: FORCE
 	@if ! hash goimports 2>/dev/null; then printf "\e[1;36m>> Installing goimports (this may take a while)...\e[0m\n"; go install golang.org/x/tools/cmd/goimports@latest; fi
@@ -310,7 +315,7 @@ license-headers: FORCE install-addlicense
 	@printf "\e[1;36m>> addlicense (for license headers on source code files)\e[0m\n"
 	@printf "%s\0" $(patsubst $(shell awk '$$1 == "module" {print $$2}' go.mod)%,.%/*.go,$(shell go list ./...)) | $(XARGS) -0 -I{} bash -c 'year="$$(grep 'Copyright' {} | head -n1 | grep -E -o '"'"'[0-9]{4}(-[0-9]{4})?'"'"')"; if [[ -z "$$year" ]]; then year=$$(date +%Y); fi; gawk -i inplace '"'"'{if (display) {print} else {!/^\/\*/ && !/^\*/}}; {if (!display && $$0 ~ /^(package |$$)/) {display=1} else { }}'"'"' {}; addlicense -c "SAP SE or an SAP affiliate company and IronCore contributors" -s=only -y "$$year" -- {}; $(SED) -i '"'"'1s+// Copyright +// SPDX-FileCopyrightText: +'"'"' {}; '
 	@printf "\e[1;36m>> reuse annotate (for license headers on other files)\e[0m\n"
-	@reuse lint -j | jq -r '.non_compliant.missing_licensing_info[]' | grep -vw vendor | $(XARGS) reuse annotate -c 'SAP SE or an SAP affiliate company and IronCore contributors' -l Apache-2.0 --skip-unrecognised
+	@reuse lint -j | jq -r '.non_compliant.missing_licensing_info[]' | sed '/\<vendor\>/d' | $(XARGS) reuse annotate -c 'SAP SE or an SAP affiliate company and IronCore contributors' -l Apache-2.0 --skip-unrecognised
 	@printf "\e[1;36m>> reuse download --all\e[0m\n"
 	@reuse download --all
 	@printf "\e[1;35mPlease review the changes. If *.license files were generated, consider instructing go-makefile-maker to add overrides to REUSE.toml instead.\e[0m\n"
