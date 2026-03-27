@@ -42,10 +42,18 @@ const (
 	StateShutDown  PhysIfStateType = "im-state-shutdown"
 )
 
+type Ifaces struct {
+	PhysIfList []*Iface `json:"interface-configuration"`
+}
+
+func (i *Ifaces) XPath() string {
+	return "Cisco-IOS-XR-ifmgr-cfg:interface-configurations"
+}
+
 // Iface represents physical and bundle interfaces as part of the same struct as they share a lot of common configuration
 // and only differ in a few attributes like the interface name and the presence of bundle configuration or not.
 type Iface struct {
-	Name         string        `json:"-"`
+	Name         string        `json:"interface-name"`
 	Description  string        `json:"description,omitzero"`
 	Statistics   Statistics    `json:"Cisco-IOS-XR-infra-statsd-cfg:statistics,omitzero"`
 	MTUs         MTUs          `json:"mtus,omitzero"`
@@ -163,14 +171,17 @@ func (phys *PhysIfState) XPath() string {
 	return fmt.Sprintf("Cisco-IOS-XR-ifmgr-oper:interface-properties/data-nodes/data-node[data-node-name=0/RP0/CPU0]/system-view/interfaces/interface[interface-name=%s]", phys.Name)
 }
 
-func ExtractInterfaceSpeedFromName(ifaceName string) (IFaceSpeed, error) {
+func ExtractOwnerFromInterfaceName(ifaceName string) (IFaceSpeed, error) {
 	// Owner of bundle interfaces is 'etherbundle'
 	bundleEtherRE := regexp.MustCompile(`^Bundle-Ether*`)
 	if bundleEtherRE.MatchString(ifaceName) {
 		// For Bundle-Ether interfaces
 		return EtherBundle, nil
 	}
+	return ExtractInterfaceSpeedFromName(ifaceName)
+}
 
+func ExtractInterfaceSpeedFromName(ifaceName string) (IFaceSpeed, error) {
 	// Match the port_type in an interface name <port_type>/<rack>/<slot/<module>/<port>
 	// E.g. match TwentyFiveGigE of interface with name TwentyFiveGigE0/0/0/1
 	re := regexp.MustCompile(`^\D*`)
@@ -190,6 +201,21 @@ func ExtractInterfaceSpeedFromName(ifaceName string) (IFaceSpeed, error) {
 		return Speed100G, nil
 	default:
 		return "", fmt.Errorf("unsupported interface type %s§§", speed)
+	}
+}
+
+func MapInterfaceSpeedToNumeric(speed IFaceSpeed) (int32, error) {
+	switch speed {
+	case Speed10G:
+		return 10000, nil
+	case Speed25G:
+		return 25000, nil
+	case Speed40G:
+		return 40000, nil
+	case Speed100G:
+		return 100000, nil
+	default:
+		return 0, fmt.Errorf("unsupported interface speed %s", speed)
 	}
 }
 

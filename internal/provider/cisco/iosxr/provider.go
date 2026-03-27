@@ -21,6 +21,7 @@ import (
 
 var (
 	_ provider.Provider          = &Provider{}
+	_ provider.DeviceProvider    = &Provider{}
 	_ provider.InterfaceProvider = &Provider{}
 )
 
@@ -49,6 +50,62 @@ func (p *Provider) Disconnect(ctx context.Context, conn *deviceutil.Connection) 
 	return p.conn.Close()
 }
 
+func (p *Provider) ListPorts(ctx context.Context) ([]provider.DevicePort, error) {
+	iFaces := new(Ifaces)
+	err := p.client.GetConfig(ctx, iFaces)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list ports: %w", err)
+	}
+
+	dp := make([]provider.DevicePort, 0, len(iFaces.PhysIfList))
+	for _, intf := range iFaces.PhysIfList {
+		var speeds = []int32{}
+		s, _ := ExtractInterfaceSpeedFromName(intf.Name)
+
+		if n, err := MapInterfaceSpeedToNumeric(s); err == nil {
+			speeds = append(speeds, n)
+		}
+		// Only return physical interfaces; ignore subinterfaces
+		if s != "" {
+			// (todo): name already contains the speed information, convert them to standardized string value (e.g. 10G, 25G, 40G, 100G)
+			dp = append(dp, provider.DevicePort{
+				ID:                  intf.Name,
+				Type:                intf.Name,
+				SupportedSpeedsGbps: speeds,
+			})
+		}
+
+	}
+	return dp, nil
+}
+
+func (p *Provider) GetDeviceInfo(ctx context.Context) (*provider.DeviceInfo, error) {
+	i := new(BasicDeviceInfo)
+
+	if err := p.client.GetState(ctx, i); err != nil {
+		return nil, err
+	}
+
+	return &provider.DeviceInfo{
+		Manufacturer:    Manufacturer,
+		Model:           i.Model,
+		SerialNumber:    i.SerialNumber,
+		FirmwareVersion: i.FirmwareVersion,
+	}, nil
+}
+
+func (p *Provider) Reboot(ctx context.Context, conn *deviceutil.Connection) error {
+	return errors.New("IOS XR Provider does not support rebooting the device")
+}
+
+func (p *Provider) FactoryReset(ctx context.Context, conn *deviceutil.Connection) error {
+	return errors.New("IOS XR Provider does not support factory reset")
+}
+
+func (p *Provider) Reprovision(cxt context.Context, conn *deviceutil.Connection) error {
+	return errors.New("IOS XR Provider does not support reprovisioning")
+}
+
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
 	if p.client == nil {
 		return errors.New("client is not connected")
@@ -61,7 +118,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	// SubInterface <PotySpeed><rack><slot><port>.<vlan-id> e.g TwentyFiveGigE0/0/0/3
 	// Bundle Interface/Port Channel Bundle-Ether<BundleID>
 	// Vlans over Bundle Bundle-Ether<BundleID>.<vlan-id>
-	_, err := ExtractInterfaceSpeedFromName(name)
+	_, err := ExtractOwnerFromInterfaceName(name)
 	if err != nil {
 		return err
 	}
@@ -236,7 +293,7 @@ func NewVlanSubinterface(firstTag, secondTag int32, vlanType string) VlanSubInte
 }
 
 func NewMTU(intName string, mtu int32) (MTUs, error) {
-	owner, err := ExtractInterfaceSpeedFromName(intName)
+	owner, err := ExtractOwnerFromInterfaceName(intName)
 	if err != nil {
 		message := "failed to extract MTU owner from interface name" + intName
 		return MTUs{}, errors.New(message)
