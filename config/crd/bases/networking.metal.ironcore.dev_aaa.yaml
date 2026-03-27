@@ -4,15 +4,13 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: aaas.networking.metal.ironcore.dev
+  name: aaa.networking.metal.ironcore.dev
 spec:
   group: networking.metal.ironcore.dev
   names:
     kind: AAA
     listKind: AAAList
-    plural: aaas
-    shortNames:
-    - aaa
+    plural: aaa
     singular: aaa
   scope: Namespaced
   versions:
@@ -29,7 +27,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: AAA is the Schema for the aaas API
+        description: AAA is the Schema for the aaa API
         properties:
           apiVersion:
             description: |-
@@ -54,9 +52,7 @@ spec:
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
             properties:
               accounting:
-                description: |-
-                  Accounting defines the AAA accounting method list.
-                  OpenConfig: /system/aaa/accounting
+                description: Accounting defines the AAA accounting method list.
                 properties:
                   methods:
                     description: |-
@@ -71,16 +67,11 @@ spec:
                           maxLength: 63
                           type: string
                         type:
-                          allOf:
-                          - enum:
-                            - Group
-                            - Local
-                            - None
-                          - enum:
-                            - Group
-                            - Local
-                            - None
                           description: Type is the type of AAA method.
+                          enum:
+                          - Group
+                          - Local
+                          - None
                           type: string
                       required:
                       - type
@@ -96,9 +87,8 @@ spec:
                 - methods
                 type: object
               authentication:
-                description: |-
-                  Authentication defines the AAA authentication method list.
-                  OpenConfig: /system/aaa/authentication
+                description: Authentication defines the AAA authentication method
+                  list.
                 properties:
                   methods:
                     description: |-
@@ -113,16 +103,11 @@ spec:
                           maxLength: 63
                           type: string
                         type:
-                          allOf:
-                          - enum:
-                            - Group
-                            - Local
-                            - None
-                          - enum:
-                            - Group
-                            - Local
-                            - None
                           description: Type is the type of AAA method.
+                          enum:
+                          - Group
+                          - Local
+                          - None
                           type: string
                       required:
                       - type
@@ -138,9 +123,7 @@ spec:
                 - methods
                 type: object
               authorization:
-                description: |-
-                  Authorization defines the AAA authorization method list.
-                  OpenConfig: /system/aaa/authorization
+                description: Authorization defines the AAA authorization method list.
                 properties:
                   methods:
                     description: |-
@@ -155,16 +138,11 @@ spec:
                           maxLength: 63
                           type: string
                         type:
-                          allOf:
-                          - enum:
-                            - Group
-                            - Local
-                            - None
-                          - enum:
-                            - Group
-                            - Local
-                            - None
                           description: Type is the type of AAA method.
+                          enum:
+                          - Group
+                          - Local
+                          - None
                           type: string
                       required:
                       - type
@@ -233,13 +211,9 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               serverGroups:
-                description: |-
-                  ServerGroups is the list of AAA server groups.
-                  OpenConfig: /system/aaa/server-groups/server-group
+                description: ServerGroups is the list of AAA server groups.
                 items:
-                  description: |-
-                    AAAServerGroup represents a named group of AAA servers.
-                    OpenConfig: /system/aaa/server-groups/server-group[name]
+                  description: AAAServerGroup represents a named group of AAA servers.
                   properties:
                     name:
                       description: Name is the name of the server group.
@@ -247,13 +221,10 @@ spec:
                       minLength: 1
                       type: string
                     servers:
-                      description: |-
-                        Servers is the list of servers in this group.
-                        OpenConfig: /system/aaa/server-groups/server-group/servers/server
+                      description: Servers is the list of servers in this group.
                       items:
-                        description: |-
-                          AAAServer represents a single AAA server within a group.
-                          OpenConfig: /system/aaa/server-groups/server-group/servers/server[address]
+                        description: AAAServer represents a single AAA server within
+                          a group.
                         properties:
                           address:
                             description: Address is the IP address or hostname of
@@ -261,11 +232,66 @@ spec:
                             maxLength: 253
                             minLength: 1
                             type: string
+                          radius:
+                            description: |-
+                              RADIUS contains RADIUS specific server configuration.
+                              Required when the parent server group type is RADIUS.
+                            properties:
+                              accountingPort:
+                                default: 1813
+                                description: |-
+                                  AccountingPort is the UDP port for RADIUS accounting requests.
+                                  Defaults to 1813 if not specified.
+                                format: int32
+                                maximum: 65535
+                                minimum: 1
+                                type: integer
+                              authenticationPort:
+                                default: 1812
+                                description: |-
+                                  AuthenticationPort is the UDP port for RADIUS authentication requests.
+                                  Defaults to 1812 if not specified.
+                                format: int32
+                                maximum: 65535
+                                minimum: 1
+                                type: integer
+                              keySecretRef:
+                                description: |-
+                                  KeySecretRef is a reference to a secret containing the shared key for this RADIUS server.
+                                  The secret must contain a key specified in the SecretKeySelector.
+                                properties:
+                                  key:
+                                    description: |-
+                                      Key is the of the entry in the secret resource's `data` or `stringData`
+                                      field to be used.
+                                    maxLength: 253
+                                    minLength: 1
+                                    type: string
+                                  name:
+                                    description: Name is unique within a namespace
+                                      to reference a secret resource.
+                                    maxLength: 253
+                                    minLength: 1
+                                    type: string
+                                  namespace:
+                                    description: |-
+                                      Namespace defines the space within which the secret name must be unique.
+                                      If omitted, the namespace of the object being reconciled will be used.
+                                    maxLength: 63
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
+                                x-kubernetes-map-type: atomic
+                            required:
+                            - keySecretRef
+                            type: object
                           tacacs:
                             description: |-
                               TACACS contains TACACS+ specific server configuration.
                               Required when the parent server group type is TACACS.
-                              OpenConfig augmentation: /system/aaa/server-groups/server-group/servers/server/tacacs
                             properties:
                               keySecretRef:
                                 description: |-
@@ -310,12 +336,9 @@ spec:
                             - keySecretRef
                             type: object
                           timeout:
-                            description: Timeout is the response timeout in seconds
-                              for this server.
-                            format: int32
-                            maximum: 60
-                            minimum: 1
-                            type: integer
+                            description: Timeout is the response timeout for this
+                              server.
+                            type: string
                         required:
                         - address
                         type: object
@@ -349,6 +372,8 @@ spec:
                   x-kubernetes-validations:
                   - message: servers in a TACACS group must have tacacs config
                     rule: self.type != 'TACACS' || self.servers.all(s, has(s.tacacs))
+                  - message: servers in a RADIUS group must have radius config
+                    rule: self.type != 'RADIUS' || self.servers.all(s, has(s.radius))
                 maxItems: 8
                 type: array
                 x-kubernetes-list-map-keys:

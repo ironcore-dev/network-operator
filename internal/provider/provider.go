@@ -638,10 +638,10 @@ type AAAProvider interface {
 type EnsureAAARequest struct {
 	AAA            *v1alpha1.AAA
 	ProviderConfig *ProviderConfig
-	// TACACSServerKeys contains the decrypted keys for each TACACS+ server,
+	// TACACSServerKeys contains the plain text keys for each TACACS+ server,
 	// keyed by server address.
 	TACACSServerKeys map[string]string
-	// RADIUSServerKeys contains the decrypted shared secrets for each RADIUS server,
+	// RADIUSServerKeys contains the plain text shared secrets for each RADIUS server,
 	// keyed by server address.
 	RADIUSServerKeys map[string]string
 }

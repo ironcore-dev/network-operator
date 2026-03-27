@@ -42,7 +42,7 @@ rules:
 - apiGroups:
   - networking.metal.ironcore.dev
   resources:
-  - aaas
+  - aaa
   - accesscontrollists
   - banners
   - bgp
@@ -78,7 +78,7 @@ rules:
 - apiGroups:
   - networking.metal.ironcore.dev
   resources:
-  - aaas/finalizers
+  - aaa/finalizers
   - accesscontrollists/finalizers
   - banners/finalizers
   - bgp/finalizers
@@ -108,7 +108,7 @@ rules:
 - apiGroups:
   - networking.metal.ironcore.dev
   resources:
-  - aaas/status
+  - aaa/status
   - accesscontrollists/status
   - banners/status
   - bgp/status

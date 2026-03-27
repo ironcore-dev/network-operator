@@ -44,9 +44,8 @@ spec:
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
             properties:
               configCommandsAuthorization:
-                description: |-
-                  ConfigCommandsAuthorization defines NX-OS config-commands authorization methods.
-                  Maps to: aaa authorization config-commands default <methods>
+                description: ConfigCommandsAuthorization defines config-commands authorization
+                  methods.
                 properties:
                   methods:
                     description: Methods is the ordered list of methods.
@@ -77,9 +76,8 @@ spec:
                 - methods
                 type: object
               consoleAuthentication:
-                description: |-
-                  ConsoleAuthentication defines NX-OS console-specific authentication methods.
-                  Maps to: aaa authentication login console <methods>
+                description: ConsoleAuthentication defines console-specific authentication
+                  methods.
                 properties:
                   methods:
                     description: Methods is the ordered list of methods.
@@ -110,24 +108,26 @@ spec:
                 - methods
                 type: object
               keyEncryption:
-                allOf:
-                - enum:
-                  - Type6
-                  - Type7
-                  - Clear
-                - enum:
-                  - Type6
-                  - Type7
-                  - Clear
                 default: Type7
                 description: KeyEncryption specifies the default encryption type for
                   TACACS+ keys.
+                enum:
+                - Type6
+                - Type7
+                - Clear
                 type: string
               loginErrorEnable:
-                description: |-
-                  LoginErrorEnable enables login error messages (NX-OS specific).
-                  Maps to: aaa authentication login error-enable
+                description: LoginErrorEnable enables login error messages.
                 type: boolean
+              radiusKeyEncryption:
+                default: Type7
+                description: RADIUSKeyEncryption specifies the default encryption
+                  type for RADIUS server keys.
+                enum:
+                - Type6
+                - Type7
+                - Clear
+                type: string
             type: object
         required:
         - spec

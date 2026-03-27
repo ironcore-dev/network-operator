@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/annotations"
 	"github.com/ironcore-dev/network-operator/internal/clientutil"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
@@ -52,9 +53,9 @@ type AAAReconciler struct {
 	Locker *resourcelock.ResourceLocker
 }
 
-// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=aaas,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=aaas/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=aaas/finalizers,verbs=update
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=aaa,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=aaa/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=aaa/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
 
@@ -99,6 +100,11 @@ func (r *AAAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 	device, err := deviceutil.GetDeviceByName(ctx, r, obj.Namespace, obj.Spec.DeviceRef.Name)
 	if err != nil {
 		return ctrl.Result{}, err
+	}
+
+	if annotations.IsPaused(device, obj) {
+		log.Info("Reconciliation is paused for this object")
+		return ctrl.Result{}, nil
 	}
 
 	if err := r.Locker.AcquireLock(ctx, device.Name, "aaa-controller"); err != nil {

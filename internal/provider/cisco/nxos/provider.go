@@ -3285,7 +3285,7 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 	for _, group := range req.AAA.Spec.ServerGroups {
 		switch group.Type {
 		case v1alpha1.AAAServerGroupTypeTACACS:
-			tacacsFeature := TACACSFeatureEnabled
+			tacacsFeature := TACACSFeature(AdminStEnabled)
 			conf = append(conf, &tacacsFeature)
 
 			for _, server := range group.Servers {
@@ -3300,7 +3300,7 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 					srv.Key = key
 				}
 				if server.Timeout != nil {
-					srv.Timeout = *server.Timeout
+					srv.Timeout = int32(server.Timeout.Duration.Seconds())
 				}
 				conf = append(conf, srv)
 			}
@@ -3322,14 +3322,14 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 					KeyEnc: MapRADIUSKeyEncryption(cfg.Spec.RADIUSKeyEncryption),
 				}
 				if server.RADIUS != nil {
-					srv.AuthPort = server.RADIUS.AuthPort
-					srv.AcctPort = server.RADIUS.AcctPort
+					srv.AuthPort = server.RADIUS.AuthenticationPort
+					srv.AcctPort = server.RADIUS.AccountingPort
 				}
 				if key, ok := req.RADIUSServerKeys[server.Address]; ok {
 					srv.Key = key
 				}
 				if server.Timeout != nil {
-					srv.Timeout = *server.Timeout
+					srv.Timeout = int32(server.Timeout.Duration.Seconds())
 				}
 				conf = append(conf, srv)
 			}
@@ -3442,7 +3442,7 @@ func (p *Provider) DeleteAAA(ctx context.Context, req *provider.DeleteAAARequest
 					return err
 				}
 			}
-			tacacsFeature := TACACSFeatureDisabled
+			tacacsFeature := TACACSFeature(AdminStDisabled)
 			conf = append(conf, &tacacsFeature)
 
 		case v1alpha1.AAAServerGroupTypeRADIUS:

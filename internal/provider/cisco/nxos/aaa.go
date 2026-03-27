@@ -22,16 +22,11 @@ var (
 )
 
 // TACACSFeature enables/disables the TACACS+ feature on NX-OS.
-type TACACSFeature string
+type TACACSFeature AdminSt
 
 func (*TACACSFeature) XPath() string {
 	return "System/fm-items/tacacsplus-items/adminSt"
 }
-
-const (
-	TACACSFeatureEnabled  TACACSFeature = "enabled"
-	TACACSFeatureDisabled TACACSFeature = "disabled"
-)
 
 // AAA configuration constants
 const (

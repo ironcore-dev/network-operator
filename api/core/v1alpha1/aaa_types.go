@@ -98,11 +98,9 @@ type AAAServer struct {
 	// +kubebuilder:validation:MaxLength=253
 	Address string `json:"address"`
 
-	// Timeout is the response timeout in seconds for this server.
+	// Timeout is the response timeout for this server.
 	// +optional
-	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=60
-	Timeout *int32 `json:"timeout,omitempty"`
+	Timeout *metav1.Duration `json:"timeout,omitempty"`
 
 	// TACACS contains TACACS+ specific server configuration.
 	// Required when the parent server group type is TACACS.
@@ -125,7 +123,7 @@ type AAAServerTACACS struct {
 	// +kubebuilder:default=49
 	Port int32 `json:"port,omitempty"`
 
-	// KeySecretRef is a reference to a secret containing the shared key for this TACACS+ server.
+	// KeySecretRef is a reference to a secret containing the plain text shared key for this TACACS+ server.
 	// The secret must contain a key specified in the SecretKeySelector.
 	// +required
 	KeySecretRef SecretKeySelector `json:"keySecretRef"`
@@ -133,23 +131,23 @@ type AAAServerTACACS struct {
 
 // AAAServerRADIUS contains RADIUS specific server configuration.
 type AAAServerRADIUS struct {
-	// AuthPort is the UDP port for RADIUS authentication requests.
+	// AuthenticationPort is the UDP port for RADIUS authentication requests.
 	// Defaults to 1812 if not specified.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	// +kubebuilder:default=1812
-	AuthPort int32 `json:"authPort,omitempty"`
+	AuthenticationPort int32 `json:"authenticationPort,omitempty"`
 
-	// AcctPort is the UDP port for RADIUS accounting requests.
+	// AccountingPort is the UDP port for RADIUS accounting requests.
 	// Defaults to 1813 if not specified.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	// +kubebuilder:default=1813
-	AcctPort int32 `json:"acctPort,omitempty"`
+	AccountingPort int32 `json:"accountingPort,omitempty"`
 
-	// KeySecretRef is a reference to a secret containing the shared key for this RADIUS server.
+	// KeySecretRef is a reference to a secret containing the plain text shared key for this RADIUS server.
 	// The secret must contain a key specified in the SecretKeySelector.
 	// +required
 	KeySecretRef SecretKeySelector `json:"keySecretRef"`
@@ -193,7 +191,6 @@ type AAAAccounting struct {
 type AAAMethod struct {
 	// Type is the type of AAA method.
 	// +required
-	// +kubebuilder:validation:Enum=Group;Local;None
 	Type AAAMethodType `json:"type"`
 
 	// GroupName is the name of the server group when Type is Group.
@@ -228,14 +225,13 @@ type AAAStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=aaas
+// +kubebuilder:resource:path=aaa
 // +kubebuilder:resource:singular=aaa
-// +kubebuilder:resource:shortName=aaa
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
-// AAA is the Schema for the aaas API
+// AAA is the Schema for the aaa API
 type AAA struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
