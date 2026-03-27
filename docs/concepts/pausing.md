@@ -55,8 +55,8 @@ condition. The `Paused` column is visible with `-o wide`:
 
 ```
 $ kubectl get vrfs -o wide
-NAME       VRF    DEVICE    READY   PAUSED   AGE
-vrf-prod   prod   leaf-01   True    True     5m
+NAME       VRF    DEVICE    READY     PAUSED   AGE
+vrf-prod   prod   leaf-01   Unknown   True     5m
 ```
 
 The condition message indicates the reason:
@@ -69,6 +69,35 @@ conditions:
     message: "Device spec.paused is set to true"
 ```
 
-::: warning
-The `Paused` condition does not affect the `Ready` condition.
+## Effect on the Ready Condition
+
+When a resource is paused, the `Ready` condition is set to `Unknown` with reason `Paused`. 
+
+```yaml
+conditions:
+  - type: Ready
+    status: "Unknown"
+    reason: Paused
+    message: "Reconciliation is paused"
+  - type: Paused
+    status: "True"
+    reason: Paused
+    message: "Device spec.paused is set to true"
+```
+
+The `kubectl get` output reflects this:
+
+```
+$ kubectl get vrfs -o wide
+NAME       VRF    DEVICE    READY     PAUSED   AGE
+vrf-prod   prod   leaf-01   Unknown   True     5m
+```
+
+Once the resource is unpaused, the controller runs a full reconcile and
+immediately sets `Ready` back to `True` or `False` based on the observed state.
+
+::: info Why Unknown and not False?
+`False` would imply the resource is broken. `Unknown` is the honest signal:
+the operator has stopped actively verifying the resource, so its current
+state is simply not known.
 :::

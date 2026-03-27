@@ -43,6 +43,17 @@ func EnsureCondition(ctx context.Context, c client.Client, device *v1alpha1.Devi
 		log.V(4).Info("Reconciliation is paused for this object", "reason", newCondition.Message)
 	}
 
+	// Set Ready=Unknown while paused: the operator is no longer actively
+	// verifying the resource, so its state cannot be determined.
+	if isPaused {
+		conditions.Set(obj, metav1.Condition{
+			Type:    v1alpha1.ReadyCondition,
+			Status:  metav1.ConditionUnknown,
+			Reason:  v1alpha1.PausedReason,
+			Message: "Reconciliation is paused",
+		})
+	}
+
 	// Only do a standalone status patch when pausing. When not paused,
 	// the condition is set in-memory and will be persisted by the normal
 	// reconciliation status update, avoiding an unnecessary extra reconcile.
