@@ -3,6 +3,8 @@
 
 package iosxr
 
+import "testing"
+
 func init() {
 	name := "TwentyFiveGigE0/0/0/14"
 
@@ -50,4 +52,59 @@ func init() {
 			RASuppress: true,
 		},
 	})
+}
+
+func TestValidateInterfaceName(t *testing.T) {
+	tests := []struct {
+		name      string
+		ifaceName string
+		wantErr   bool
+		errMsg    string
+	}{
+		{
+			name:      "valid TenGigE interface",
+			ifaceName: "TenGigE0001",
+			wantErr:   false,
+		},
+		{
+			name:      "valid TenGigE interface",
+			ifaceName: "TenGigE0001.100",
+			wantErr:   false,
+		},
+		{
+			name:      "missing ",
+			ifaceName: "eth-1-1",
+			wantErr:   true,
+		},
+		{
+			name:      "valid Bundle-Ether interface",
+			ifaceName: "Bundle-Ether1",
+			wantErr:   false,
+		},
+		{
+			name:      "valid Bundle-Ether with VLAN",
+			ifaceName: "Bundle-Ether1.100",
+			wantErr:   false,
+		},
+		{
+			name:      "valid BE interface",
+			ifaceName: "BE1",
+			wantErr:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateInterfaceName(tt.ifaceName)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Interface name %s accepted as valid, expected error", tt.ifaceName)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Interface name %s rejected as invalid, expected valid. Error: %v", tt.ifaceName, err)
+				}
+			}
+		})
+	}
 }

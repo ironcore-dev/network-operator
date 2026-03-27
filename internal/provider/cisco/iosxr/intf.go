@@ -4,13 +4,17 @@
 package iosxr
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+)
+
+var (
+	bundleEtherRE       = regexp.MustCompile(`^Bundle-Ether*`)
+	physicalInterfaceRE = regexp.MustCompile(`(TenGigE|TwentyFiveGigE|FortyGigE|HundredGigE|GigabitEthernet|Te|TF|Fo|Hu)(\d{0,4})(\.(\d+))?$`)
 )
 
 type IFaceSpeed string
@@ -171,9 +175,26 @@ func (phys *PhysIfState) XPath() string {
 	return fmt.Sprintf("Cisco-IOS-XR-ifmgr-oper:interface-properties/data-nodes/data-node[data-node-name=0/RP0/CPU0]/system-view/interfaces/interface[interface-name=%s]", phys.Name)
 }
 
+func ValidateInterfaceName(name string) error {
+	// Supported Interface name formats:
+	// Physical Interface <PortSpeed><rack><slot><port> e.g TwentyFiveGigE0/0/0/3
+	// SubInterface <PotySpeed><rack><slot><port>.<vlan-id> e.g TwentyFiveGigE0/0/0/3
+	// Bundle Interface/Port Channel Bundle-Ether<BundleID>
+	// Vlans over Bundle Bundle-Ether<BundleID>.<vlan-id>
+
+	beErr := CheckInterfaceNameTypeAggregate(name)
+	physErr := CheckInterfaceNameTypePhysical(name)
+
+	if beErr == nil && physErr != nil {
+		return nil
+	} else if beErr != nil && physErr == nil {
+		return nil
+	}
+	return fmt.Errorf("unsupported interface name format: %s", name)
+}
+
 func ExtractOwnerFromInterfaceName(ifaceName string) (IFaceSpeed, error) {
 	// Owner of bundle interfaces is 'etherbundle'
-	bundleEtherRE := regexp.MustCompile(`^Bundle-Ether*`)
 	if bundleEtherRE.MatchString(ifaceName) {
 		// For Bundle-Ether interfaces
 		return EtherBundle, nil
@@ -220,9 +241,6 @@ func MapInterfaceSpeedToNumeric(speed IFaceSpeed) (int32, error) {
 }
 
 func CheckInterfaceNameTypeAggregate(name string) error {
-	if name == "" {
-		return errors.New("interface name must not be empty")
-	}
 	// Matches Bundle-Ether<VLAN>[.<VLAN>] or BE<VLAN>[.<VLAN>]
 	re := regexp.MustCompile(`^(Bundle-Ether|BE)(\d+)(\.(\d+))?$`)
 	matches := re.FindStringSubmatch(name)
@@ -242,6 +260,16 @@ func CheckInterfaceNameTypeAggregate(name string) error {
 	// Check inner vlan if we have a subinterface
 	if matches[4] != "" {
 		return CheckVlanRange(matches[4])
+	}
+	return nil
+}
+
+func CheckInterfaceNameTypePhysical(name string) error {
+	if !physicalInterfaceRE.MatchString(name) {
+		return fmt.Errorf("unsupported physical interface format %s", name)
+	}
+	if _, err := ExtractVlanTagFromName(name); err != nil {
+		return err
 	}
 	return nil
 }

@@ -113,6 +113,10 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 
 	name := req.Interface.Spec.Name
 
+	if err := ValidateInterfaceName(name); err != nil {
+		return err
+	}
+
 	// Configure different interface types based on the interface name
 	// Interface <PortSpeed><rack><slot><port> e.g TwentyFiveGigE0/0/0/3
 	// SubInterface <PotySpeed><rack><slot><port>.<vlan-id> e.g TwentyFiveGigE0/0/0/3
