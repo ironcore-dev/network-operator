@@ -14,7 +14,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -89,7 +89,7 @@ type HTTPServer struct {
 	Client           client.Client
 	Logger           klog.Logger
 	Mux              *http.ServeMux
-	Recorder         record.EventRecorder
+	Recorder         events.EventRecorder
 	ValidateSourceIP bool
 	Provider         provider.ProvisioningProvider
 	Port             int
@@ -216,7 +216,7 @@ func (s *HTTPServer) HandleStatusReport(w http.ResponseWriter, r *http.Request) 
 		act.Error = report.Detail
 	}
 
-	s.Recorder.Eventf(device, "Normal", "Provisioning", "%s: %s", report.Status, report.Detail)
+	s.Recorder.Eventf(device, nil, "Normal", "Provisioning", "StatusReport", "%s: %s", report.Status, report.Detail)
 
 	if err := s.Client.Status().Update(ctx, device); err != nil {
 		s.Logger.Error(err, "Failed to update device status", "device", device.Name)

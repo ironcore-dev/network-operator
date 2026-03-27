@@ -8,10 +8,8 @@ import (
 	"errors"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
@@ -22,8 +20,7 @@ var prefixsetlog = logf.Log.WithName("prefixset-resource")
 
 // SetupPrefixSetWebhookWithManager registers the webhook for PrefixSets in the manager.
 func SetupPrefixSetWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha1.PrefixSet{}).
+	return ctrl.NewWebhookManagedBy(mgr, &v1alpha1.PrefixSet{}).
 		WithValidator(&PrefixSetCustomValidator{}).
 		Complete()
 }
@@ -34,32 +31,17 @@ func SetupPrefixSetWebhookWithManager(mgr ctrl.Manager) error {
 // when it is created, updated, or deleted.
 type PrefixSetCustomValidator struct{}
 
-var _ webhook.CustomValidator = &PrefixSetCustomValidator{}
+var _ admission.Validator[*v1alpha1.PrefixSet] = &PrefixSetCustomValidator{}
 
-// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type PrefixSet.
-func (v *PrefixSetCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	ps, ok := obj.(*v1alpha1.PrefixSet)
-	if !ok {
-		return nil, fmt.Errorf("expected a PrefixSets object but got %T", obj)
-	}
-
+// ValidateCreate implements admission.Validator so a webhook will be registered for the type PrefixSet.
+func (v *PrefixSetCustomValidator) ValidateCreate(_ context.Context, ps *v1alpha1.PrefixSet) (admission.Warnings, error) {
 	prefixsetlog.Info("Validation for PrefixSets upon creation", "name", ps.GetName())
 
 	return nil, validatePrefixSetSpec(ps)
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type PrefixSet.
-func (v *PrefixSetCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	prev, ok := oldObj.(*v1alpha1.PrefixSet)
-	if !ok {
-		return nil, fmt.Errorf("expected a PrefixSets object for the oldObj but got %T", oldObj)
-	}
-
-	curr, ok := newObj.(*v1alpha1.PrefixSet)
-	if !ok {
-		return nil, fmt.Errorf("expected a PrefixSets object for the newObj but got %T", newObj)
-	}
-
+// ValidateUpdate implements admission.Validator so a webhook will be registered for the type PrefixSet.
+func (v *PrefixSetCustomValidator) ValidateUpdate(_ context.Context, prev, curr *v1alpha1.PrefixSet) (admission.Warnings, error) {
 	prefixsetlog.Info("Validation for PrefixSets upon update", "name", curr.GetName())
 
 	if err := validatePrefixSetSpec(curr); err != nil {
@@ -73,8 +55,8 @@ func (v *PrefixSetCustomValidator) ValidateUpdate(_ context.Context, oldObj, new
 	return nil, nil
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type PrefixSet.
-func (v *PrefixSetCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+// ValidateDelete implements admission.Validator so a webhook will be registered for the type PrefixSet.
+func (v *PrefixSetCustomValidator) ValidateDelete(_ context.Context, _ *v1alpha1.PrefixSet) (admission.Warnings, error) {
 	return nil, nil
 }
 

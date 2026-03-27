@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -358,7 +358,7 @@ func TestHandleStatusReport(t *testing.T) {
 			server := &HTTPServer{
 				Client:   k8sClient,
 				Logger:   klog.NewKlogr(),
-				Recorder: record.NewFakeRecorder(10),
+				Recorder: events.NewFakeRecorder(10),
 			}
 
 			rr := httptest.NewRecorder()

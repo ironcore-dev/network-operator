@@ -8,10 +8,8 @@ import (
 	"errors"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
@@ -22,8 +20,7 @@ var interfacelog = logf.Log.WithName("interface-resource")
 
 // SetupInterfaceWebhookWithManager registers the webhook for Interfaces in the manager.
 func SetupInterfaceWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha1.Interface{}).
+	return ctrl.NewWebhookManagedBy(mgr, &v1alpha1.Interface{}).
 		WithValidator(&InterfaceCustomValidator{}).
 		Complete()
 }
@@ -34,34 +31,24 @@ func SetupInterfaceWebhookWithManager(mgr ctrl.Manager) error {
 // when it is created, updated, or deleted.
 type InterfaceCustomValidator struct{}
 
-var _ webhook.CustomValidator = &InterfaceCustomValidator{}
+var _ admission.Validator[*v1alpha1.Interface] = &InterfaceCustomValidator{}
 
-// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type Interface.
-func (v *InterfaceCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	intf, ok := obj.(*v1alpha1.Interface)
-	if !ok {
-		return nil, fmt.Errorf("expected a Interfaces object but got %T", obj)
-	}
-
+// ValidateCreate implements admission.Validator so a webhook will be registered for the type Interface.
+func (v *InterfaceCustomValidator) ValidateCreate(_ context.Context, intf *v1alpha1.Interface) (admission.Warnings, error) {
 	interfacelog.Info("Validation for Interfaces upon creation", "name", intf.GetName())
 
 	return nil, validateInterfaceSpec(intf)
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type Interface.
-func (v *InterfaceCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	intf, ok := newObj.(*v1alpha1.Interface)
-	if !ok {
-		return nil, fmt.Errorf("expected a Interfaces object for the newObj but got %T", newObj)
-	}
-
+// ValidateUpdate implements admission.Validator so a webhook will be registered for the type Interface.
+func (v *InterfaceCustomValidator) ValidateUpdate(_ context.Context, _, intf *v1alpha1.Interface) (admission.Warnings, error) {
 	interfacelog.Info("Validation for Interfaces upon update", "name", intf.GetName())
 
 	return nil, validateInterfaceSpec(intf)
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type Interface.
-func (v *InterfaceCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+// ValidateDelete implements admission.Validator so a webhook will be registered for the type Interface.
+func (v *InterfaceCustomValidator) ValidateDelete(_ context.Context, _ *v1alpha1.Interface) (admission.Warnings, error) {
 	return nil, nil
 }
 

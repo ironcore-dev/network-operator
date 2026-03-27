@@ -19,7 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -45,7 +45,7 @@ type DeviceReconciler struct {
 
 	// Recorder is used to record events for the controller.
 	// More info: https://book.kubebuilder.io/reference/raising-events
-	Recorder record.EventRecorder
+	Recorder events.EventRecorder
 
 	// Provider is the driver that will be used to create & delete the interface.
 	Provider provider.ProviderFunc
@@ -138,7 +138,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 			// Skip provisioning if the provider does not support it.
 			log.Info("Provider does not support provisioning, skipping")
 			obj.Status.Phase = v1alpha1.DevicePhaseFailed
-			r.Recorder.Event(obj, "Warning", "Unsupported", "Provider does not support provisioning")
+			r.Recorder.Eventf(obj, nil, "Warning", "Unsupported", "Reconcile", "Provider does not support provisioning")
 			return ctrl.Result{}, reconcile.TerminalError(errors.New("provider does not support provisioning"))
 		}
 
@@ -150,7 +150,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 			Message: "Device is being provisioned",
 		})
 		obj.Status.Phase = v1alpha1.DevicePhaseProvisioning
-		r.Recorder.Event(obj, "Normal", "ProvisioningStarted", "Device provisioning has started")
+		r.Recorder.Eventf(obj, nil, "Normal", "ProvisioningStarted", "Reconcile", "Device provisioning has started")
 		return ctrl.Result{}, nil
 
 	case v1alpha1.DevicePhaseProvisioning:
@@ -161,7 +161,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		}
 		if activeProv.StartTime.Add(time.Hour).After(time.Now()) {
 			obj.Status.Phase = v1alpha1.DevicePhaseFailed
-			r.Recorder.Event(obj, "Warning", "ProvisioningFailed", "Device provisioning has timed out")
+			r.Recorder.Eventf(obj, nil, "Warning", "ProvisioningFailed", "Reconcile", "Device provisioning has timed out")
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{RequeueAfter: 20 * time.Minute}, nil
@@ -185,7 +185,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 			return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
 		}
 		activeProv.EndTime = metav1.Now()
-		r.Recorder.Event(obj, "Normal", "Provisioned", "Device provisioning has completed successfully")
+		r.Recorder.Eventf(obj, nil, "Normal", "Provisioned", "Reconcile", "Device provisioning has completed successfully")
 		obj.Status.Phase = v1alpha1.DevicePhaseRunning
 		return ctrl.Result{}, nil
 
@@ -332,7 +332,7 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 	case v1alpha1.DeviceMaintenanceReboot:
 		// Reboot triggers a device restart. The device remains in its current phase
 		// and will resume normal operation after the reboot completes.
-		r.Recorder.Event(obj, "Normal", "RebootRequested", "Device reboot has been requested")
+		r.Recorder.Eventf(obj, nil, "Normal", "RebootRequested", "Maintenance", "Device reboot has been requested")
 		if err := prov.Reboot(ctx, conn); err != nil {
 			conditions.Set(obj, metav1.Condition{
 				Type:    v1alpha1.ReadyCondition,
@@ -340,14 +340,14 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 				Reason:  v1alpha1.MaintenanceFailedReason,
 				Message: fmt.Sprintf("Failed to reboot device: %v", err),
 			})
-			r.Recorder.Event(obj, "Warning", "RebootFailed", fmt.Sprintf("Device reboot has failed: %v", err))
+			r.Recorder.Eventf(obj, nil, "Warning", "RebootFailed", "Maintenance", "Device reboot has failed: %v", err)
 			return fmt.Errorf("failed to reboot device: %w", err)
 		}
 
 	case v1alpha1.DeviceMaintenanceFactoryReset:
 		// FactoryReset erases all device configuration and returns it to its original state.
 		// After completion, the device phase is reset to Pending to restart the lifecycle.
-		r.Recorder.Event(obj, "Normal", "FactoryResetRequested", "Device factory reset has been requested")
+		r.Recorder.Eventf(obj, nil, "Normal", "FactoryResetRequested", "Maintenance", "Device factory reset has been requested")
 		if err := prov.FactoryReset(ctx, conn); err != nil {
 			conditions.Set(obj, metav1.Condition{
 				Type:    v1alpha1.ReadyCondition,
@@ -355,7 +355,7 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 				Reason:  v1alpha1.MaintenanceFailedReason,
 				Message: fmt.Sprintf("Failed to factory reset device: %v", err),
 			})
-			r.Recorder.Event(obj, "Warning", "FactoryResetFailed", fmt.Sprintf("Device factory reset has failed: %v", err))
+			r.Recorder.Eventf(obj, nil, "Warning", "FactoryResetFailed", "Maintenance", "Device factory reset has failed: %v", err)
 			return fmt.Errorf("failed to reset device to factory defaults: %w", err)
 		}
 		obj.Status.Phase = v1alpha1.DevicePhasePending
@@ -363,7 +363,7 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 	case v1alpha1.DeviceMaintenanceReprovision:
 		// Reprovision prepares the device for re-provisioning without a full factory reset.
 		// The provider initiates the provisioning process, then the phase is reset to Pending.
-		r.Recorder.Event(obj, "Normal", "ReprovisionRequested", "Device reprovisioning has been requested")
+		r.Recorder.Eventf(obj, nil, "Normal", "ReprovisionRequested", "Maintenance", "Device reprovisioning has been requested")
 		if err := prov.Reprovision(ctx, conn); err != nil {
 			conditions.Set(obj, metav1.Condition{
 				Type:    v1alpha1.ReadyCondition,
@@ -371,7 +371,7 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 				Reason:  v1alpha1.MaintenanceFailedReason,
 				Message: fmt.Sprintf("Failed to prepare device for reprovisioning: %v", err),
 			})
-			r.Recorder.Event(obj, "Warning", "ReprovisionFailed", fmt.Sprintf("Device reprovisioning preparation has failed: %v", err))
+			r.Recorder.Eventf(obj, nil, "Warning", "ReprovisionFailed", "Maintenance", "Device reprovisioning preparation has failed: %v", err)
 			return fmt.Errorf("failed to prepare device for reprovisioning: %w", err)
 		}
 		obj.Status.Phase = v1alpha1.DevicePhasePending
@@ -380,11 +380,11 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 		// Reset phase is a soft reset that only changes the device phase to Pending without
 		// performing any device-side operations. This is useful for recovering from terminal
 		// states (e.g., Failed) after manual intervention.
-		r.Recorder.Event(obj, "Normal", "PhaseReset", "Device phase has been reset to Pending")
+		r.Recorder.Eventf(obj, nil, "Normal", "PhaseReset", "Maintenance", "Device phase has been reset to Pending")
 		obj.Status.Phase = v1alpha1.DevicePhasePending
 
 	default:
-		r.Recorder.Event(obj, "Warning", "UnknownMaintenanceAction", "Unknown maintenance action: %s"+action)
+		r.Recorder.Eventf(obj, nil, "Warning", "UnknownMaintenanceAction", "Maintenance", "Unknown maintenance action: %s", action)
 		return fmt.Errorf("unknown maintenance action: %s", action)
 	}
 

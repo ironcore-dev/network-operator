@@ -10,11 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
@@ -25,7 +23,7 @@ var bgplog = logf.Log.WithName("bgp-resource")
 
 // SetupBGPWebhookWithManager registers the webhook for BGP in the manager.
 func SetupBGPWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&v1alpha1.BGP{}).
+	return ctrl.NewWebhookManagedBy(mgr, &v1alpha1.BGP{}).
 		WithValidator(&BGPCustomValidator{}).
 		Complete()
 }
@@ -36,34 +34,24 @@ func SetupBGPWebhookWithManager(mgr ctrl.Manager) error {
 // when it is created, updated, or deleted.
 type BGPCustomValidator struct{}
 
-var _ webhook.CustomValidator = &BGPCustomValidator{}
+var _ admission.Validator[*v1alpha1.BGP] = &BGPCustomValidator{}
 
-// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type BGP.
-func (v *BGPCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	bgp, ok := obj.(*v1alpha1.BGP)
-	if !ok {
-		return nil, fmt.Errorf("expected a BGP object but got %T", obj)
-	}
-
+// ValidateCreate implements admission.Validator so a webhook will be registered for the type BGP.
+func (v *BGPCustomValidator) ValidateCreate(_ context.Context, bgp *v1alpha1.BGP) (admission.Warnings, error) {
 	bgplog.Info("Validation for BGP upon creation", "name", bgp.GetName())
 
 	return nil, validateASNumber(bgp.Spec.ASNumber)
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type BGP.
-func (v *BGPCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	bgp, ok := newObj.(*v1alpha1.BGP)
-	if !ok {
-		return nil, fmt.Errorf("expected a BGP object for the newObj but got %T", newObj)
-	}
-
+// ValidateUpdate implements admission.Validator so a webhook will be registered for the type BGP.
+func (v *BGPCustomValidator) ValidateUpdate(_ context.Context, _, bgp *v1alpha1.BGP) (admission.Warnings, error) {
 	bgplog.Info("Validation for BGP upon update", "name", bgp.GetName())
 
 	return nil, validateASNumber(bgp.Spec.ASNumber)
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type BGP.
-func (v *BGPCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+// ValidateDelete implements admission.Validator so a webhook will be registered for the type BGP.
+func (v *BGPCustomValidator) ValidateDelete(_ context.Context, _ *v1alpha1.BGP) (admission.Warnings, error) {
 	return nil, nil
 }
 

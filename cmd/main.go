@@ -213,7 +213,7 @@ func main() {
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Cache:                  cache.Options{ReaderFailOnMissingInformer: true, DefaultNamespaces: watchNamespaces},
-		Controller:             config.Controller{UsePriorityQueue: new(true), MaxConcurrentReconciles: maxConcurrentReconciles},
+		Controller:             config.Controller{MaxConcurrentReconciles: maxConcurrentReconciles},
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
@@ -276,7 +276,7 @@ func main() {
 	if err := (&corecontroller.DeviceReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("device-controller"),
+		Recorder:         mgr.GetEventRecorder("device-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		RequeueInterval:  requeueInterval,
@@ -288,7 +288,7 @@ func main() {
 	if err := (&corecontroller.InterfaceReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("interface-controller"),
+		Recorder:         mgr.GetEventRecorder("interface-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -301,7 +301,7 @@ func main() {
 	if err := (&corecontroller.BannerReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("banner-controller"),
+		Recorder:         mgr.GetEventRecorder("banner-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -313,7 +313,7 @@ func main() {
 	if err := (&corecontroller.UserReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("user-controller"),
+		Recorder:         mgr.GetEventRecorder("user-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -325,7 +325,7 @@ func main() {
 	if err := (&corecontroller.DNSReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("dns-controller"),
+		Recorder:         mgr.GetEventRecorder("dns-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -337,7 +337,7 @@ func main() {
 	if err := (&corecontroller.NTPReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("ntp-controller"),
+		Recorder:         mgr.GetEventRecorder("ntp-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -349,7 +349,7 @@ func main() {
 	if err := (&corecontroller.AccessControlListReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("acl-controller"),
+		Recorder:         mgr.GetEventRecorder("acl-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -361,7 +361,7 @@ func main() {
 	if err := (&corecontroller.CertificateReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("certificate-controller"),
+		Recorder:         mgr.GetEventRecorder("certificate-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -373,7 +373,7 @@ func main() {
 	if err := (&corecontroller.SNMPReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("snmp-controller"),
+		Recorder:         mgr.GetEventRecorder("snmp-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -385,7 +385,7 @@ func main() {
 	if err := (&corecontroller.SyslogReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("syslog-controller"),
+		Recorder:         mgr.GetEventRecorder("syslog-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -397,7 +397,7 @@ func main() {
 	if err := (&corecontroller.ManagementAccessReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("managementaccess-controller"),
+		Recorder:         mgr.GetEventRecorder("managementaccess-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -409,7 +409,7 @@ func main() {
 	if err := (&corecontroller.ISISReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("isis-controller"),
+		Recorder:         mgr.GetEventRecorder("isis-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -422,7 +422,7 @@ func main() {
 	if err := (&corecontroller.PIMReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("pim-controller"),
+		Recorder:         mgr.GetEventRecorder("pim-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -435,7 +435,7 @@ func main() {
 	if err := (&corecontroller.BGPReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("bgp-controller"),
+		Recorder:         mgr.GetEventRecorder("bgp-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -448,7 +448,7 @@ func main() {
 	if err := (&corecontroller.BGPPeerReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("bgppeer-controller"),
+		Recorder:         mgr.GetEventRecorder("bgppeer-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -461,7 +461,7 @@ func main() {
 	if err := (&corecontroller.LLDPReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("lldp-controller"),
+		Recorder:         mgr.GetEventRecorder("lldp-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -474,7 +474,7 @@ func main() {
 	if err := (&corecontroller.OSPFReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("ospf-controller"),
+		Recorder:         mgr.GetEventRecorder("ospf-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -487,7 +487,7 @@ func main() {
 	if err := (&corecontroller.VLANReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("vlan-controller"),
+		Recorder:         mgr.GetEventRecorder("vlan-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -500,7 +500,7 @@ func main() {
 	if err := (&corecontroller.VRFReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("vrf-controller"),
+		Recorder:         mgr.GetEventRecorder("vrf-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -513,7 +513,7 @@ func main() {
 	if err := (&nxcontroller.VPCDomainReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("cisco-nx-vpcdomain-controller"),
+		Recorder:         mgr.GetEventRecorder("cisco-nx-vpcdomain-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -526,7 +526,7 @@ func main() {
 	if err := (&corecontroller.NetworkVirtualizationEdgeReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("nve-controller"),
+		Recorder:         mgr.GetEventRecorder("nve-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -539,7 +539,7 @@ func main() {
 	if err := (&nxcontroller.SystemReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("cisco-nx-system-controller"),
+		Recorder:         mgr.GetEventRecorder("cisco-nx-system-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -551,7 +551,7 @@ func main() {
 	if err := (&corecontroller.EVPNInstanceReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("evpn-instance-controller"),
+		Recorder:         mgr.GetEventRecorder("evpn-instance-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -563,7 +563,7 @@ func main() {
 	if err := (&corecontroller.PrefixSetReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("prefixset-controller"),
+		Recorder:         mgr.GetEventRecorder("prefixset-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -575,7 +575,7 @@ func main() {
 	if err := (&corecontroller.RoutingPolicyReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("routingpolicy-controller"),
+		Recorder:         mgr.GetEventRecorder("routingpolicy-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -587,7 +587,7 @@ func main() {
 	if err := (&nxcontroller.BorderGatewayReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("cisco-nx-border-gateway-controller"),
+		Recorder:         mgr.GetEventRecorder("cisco-nx-border-gateway-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -642,7 +642,7 @@ func main() {
 		provisioningServer := &provisioning.HTTPServer{
 			Client:           mgr.GetClient(),
 			Logger:           klog.NewKlogr().WithName("provisioning"),
-			Recorder:         mgr.GetEventRecorderFor("provisioning"),
+			Recorder:         mgr.GetEventRecorder("provisioning"),
 			ValidateSourceIP: provisioningHTTPValidateSourceIP,
 			Provider:         provisioningProvider,
 			Port:             provisioningHTTPPort,
