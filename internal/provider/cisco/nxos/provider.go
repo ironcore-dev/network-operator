@@ -3300,7 +3300,7 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 					srv.Key = key
 				}
 				if server.Timeout != nil {
-					srv.Timeout = int32(server.Timeout.Duration.Seconds())
+					srv.Timeout = int32(server.Timeout.Seconds())
 				}
 				conf = append(conf, srv)
 			}
@@ -3329,7 +3329,7 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 					srv.Key = key
 				}
 				if server.Timeout != nil {
-					srv.Timeout = int32(server.Timeout.Duration.Seconds())
+					srv.Timeout = int32(server.Timeout.Seconds())
 				}
 				conf = append(conf, srv)
 			}
