@@ -15,16 +15,20 @@ import (
 var (
 	bundleEtherRE       = regexp.MustCompile(`^Bundle-Ether(\d+)(?:\.\d+)?$`)
 	physicalInterfaceRE = regexp.MustCompile(`^(TenGigE|TwentyFiveGigE|FortyGigE|HundredGigE|GigabitEthernet)(\d){1}(\/\d){2}(\/\d+){1}(.\d{1,5})?$`)
+	loopbackInterfaceRE = regexp.MustCompile(`^(Loopback|Lo)\d+$`)
+	mgmtEthInterfaceRe  = regexp.MustCompile(`^MgmtEth\d+\/RP\d+\/CPU\d+\/\d+$`)
 )
 
-type IFaceSpeed string
+type IFaceOwner string
 
 const (
-	Speed10G    IFaceSpeed = "TenGigE"
-	Speed25G    IFaceSpeed = "TwentyFiveGigE"
-	Speed40G    IFaceSpeed = "FortyGigE"
-	Speed100G   IFaceSpeed = "HundredGigE"
-	EtherBundle IFaceSpeed = "etherbundle"
+	Speed10G    IFaceOwner = "TenGigE"
+	Speed25G    IFaceOwner = "TwentyFiveGigE"
+	Speed40G    IFaceOwner = "FortyGigE"
+	Speed100G   IFaceOwner = "HundredGigE"
+	EtherBundle IFaceOwner = "etherbundle"
+	LoopBack    IFaceOwner = "Loopback"
+	MgmtEth     IFaceOwner = "MgmtEth"
 )
 
 type BundlePortActivity string
@@ -45,6 +49,16 @@ const (
 	StateAdminDown PhysIfStateType = "im-state-admin-down"
 	StateShutDown  PhysIfStateType = "im-state-shutdown"
 )
+
+type Ifaces struct {
+	PhysIfList []struct {
+		Name string `json:"interface-name"`
+	} `json:"interface-configuration"`
+}
+
+func (*Ifaces) XPath() string {
+	return "Cisco-IOS-XR-ifmgr-cfg:interface-configurations"
+}
 
 // Iface represents physical and bundle interfaces as part of the same struct as they share a lot of common configuration
 // and only differ in a few attributes like the interface name and the presence of bundle configuration or not.
@@ -183,10 +197,20 @@ func ValidateInterfaceName(name string) error {
 	return fmt.Errorf("unsupported interface name format: %s", name)
 }
 
-func ExtractInterfaceSpeedFromName(ifaceName string) (IFaceSpeed, error) {
-	// Owner of bundle interfaces is 'etherbundle'
+// Extract the owner of an interface based on the interface name.
+// For physical interfaces the owner matches the speed extracted from the interface name, e.g. 'TenGigE' for interface TwentyFiveGigE0/0/0/3
+// For bundle interfaces the owner is 'etherbundle'
+func ExtractOwnerFromInterfaceName(ifaceName string) (IFaceOwner, error) {
 	if bundleEtherRE.MatchString(ifaceName) {
 		return EtherBundle, nil
+	}
+
+	if loopbackInterfaceRE.MatchString(ifaceName) {
+		return LoopBack, nil
+	}
+
+	if mgmtEthInterfaceRe.MatchString(ifaceName) {
+		return MgmtEth, nil
 	}
 
 	// Match the port_type in an interface name <port_type>/<rack>/<slot/<module>/<port>
@@ -194,7 +218,7 @@ func ExtractInterfaceSpeedFromName(ifaceName string) (IFaceSpeed, error) {
 	re := regexp.MustCompile(`^\D*`)
 	speed := string(re.Find([]byte(ifaceName)))
 	if speed == "" {
-		return "", fmt.Errorf("failed to extract speed from interface name %s", ifaceName)
+		return "", fmt.Errorf("failed to extract interface speed from interface name %q", ifaceName)
 	}
 
 	switch speed {
@@ -207,7 +231,24 @@ func ExtractInterfaceSpeedFromName(ifaceName string) (IFaceSpeed, error) {
 	case string(Speed100G):
 		return Speed100G, nil
 	default:
-		return "", fmt.Errorf("unsupported interface type %s", speed)
+		return "", fmt.Errorf("unsupported interface speed %q", speed)
+	}
+}
+
+func MapInterfaceOwnerToSpeed(speed IFaceOwner) (int32, error) {
+	switch speed {
+	case Speed10G:
+		return 10_000, nil
+	case Speed25G:
+		return 25_000, nil
+	case Speed40G:
+		return 40_000, nil
+	case Speed100G:
+		return 100_000, nil
+	case EtherBundle, LoopBack, MgmtEth:
+		return 0, nil
+	default:
+		return 0, fmt.Errorf("unsupported interface owner %s", speed)
 	}
 }
 

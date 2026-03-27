@@ -158,41 +158,60 @@ func TestValidateInterfaceName(t *testing.T) {
 	}
 }
 
-func TestExtractInterfaceSpeedFromName(t *testing.T) {
+func TestExtractInterfaceOwnerFromName(t *testing.T) {
 	tests := []struct {
 		name          string
 		ifaceName     string
-		expectedSpeed IFaceSpeed
+		expectedOwner IFaceOwner
 		wantErr       bool
 	}{
 		{
 			name:          "TF short form for TwentyFiveGigE",
 			ifaceName:     "TwentyFiveGigE0/0/0/33",
-			expectedSpeed: Speed25G,
+			expectedOwner: Speed25G,
 			wantErr:       false,
 		},
 		{
 			name:          "TF short form for TwentyFiveGigE",
 			ifaceName:     "TF0/0/0/33",
-			expectedSpeed: "",
+			expectedOwner: "",
+			wantErr:       false,
+		},
+		{
+			name:          "Loopback interface",
+			ifaceName:     "Loopback0",
+			expectedOwner: LoopBack,
+			wantErr:       false,
+		},
+		{
+			name:          "Management Interface",
+			ifaceName:     "MgmtEth0/RP0/CPU0/0",
+			expectedOwner: MgmtEth,
+			wantErr:       false,
+		},
+		// Invalid interface name
+		{
+			name:          "Invalid interface name",
+			ifaceName:     "InvalidInterface",
+			expectedOwner: "",
 			wantErr:       true,
+		},
+		{
+			name:          "Invalid subinterface name",
+			ifaceName:     "TF0/0/0/33.100.100",
+			expectedOwner: "",
+			wantErr:       false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			speed, err := ExtractInterfaceSpeedFromName(tt.ifaceName)
-			if tt.wantErr {
-				if err == nil {
-					t.Errorf("ExtractInterfaceSpeedFromName(%s) expected error, got nil", tt.ifaceName)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("ExtractInterfaceSpeedFromName(%s) unexpected error: %v", tt.ifaceName, err)
-				}
-				if speed != tt.expectedSpeed {
-					t.Errorf("ExtractInterfaceSpeedFromName(%s) = %v, want %v", tt.ifaceName, speed, tt.expectedSpeed)
-				}
+			owner, err := ExtractOwnerFromInterfaceName(tt.ifaceName)
+			if tt.wantErr && err == nil {
+				t.Errorf("ExtractOwnerFromInterfaceName(%s) expected error, got nil", tt.ifaceName)
+			}
+			if owner != tt.expectedOwner {
+				t.Errorf("ExtractOwnerFromInterfaceName(%s) = %v, want %v", tt.ifaceName, owner, tt.expectedOwner)
 			}
 		})
 	}

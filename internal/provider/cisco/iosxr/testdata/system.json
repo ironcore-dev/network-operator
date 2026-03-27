@@ -1,0 +1,15 @@
+{
+  "platform-inventory": {
+    "racks": {
+      "rack": {
+        "attributes": {
+          "basic-info": {
+            "model-name": "NCS-57C3-MOD-SYS",
+            "serial-number": "9VT9OHZBC3H",
+            "firmware-version": "25.2.2"
+          }
+        }
+      }
+    }
+  }
+}

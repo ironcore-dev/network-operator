@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
@@ -20,6 +21,7 @@ import (
 
 var (
 	_ provider.Provider          = &Provider{}
+	_ provider.DeviceProvider    = &Provider{}
 	_ provider.InterfaceProvider = &Provider{}
 )
 
@@ -48,6 +50,71 @@ func (p *Provider) Disconnect(ctx context.Context, conn *deviceutil.Connection) 
 	return p.conn.Close()
 }
 
+func (p *Provider) ListPorts(ctx context.Context) ([]provider.DevicePort, error) {
+	iFaces := new(Ifaces)
+	err := p.client.GetConfig(ctx, iFaces)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list ports: %w", err)
+	}
+
+	dp := make([]provider.DevicePort, 0, len(iFaces.PhysIfList))
+	for _, intf := range iFaces.PhysIfList {
+		var s IFaceOwner
+		var n int32
+		if s, err = ExtractOwnerFromInterfaceName(intf.Name); err != nil {
+			return nil, fmt.Errorf("failed to map interface speed to numeric value: %w", err)
+		}
+
+		if n, err = MapInterfaceOwnerToSpeed(s); err != nil {
+			return nil, fmt.Errorf("failed to map interface speed to numeric value: %w", err)
+		}
+
+		dp = append(dp, provider.DevicePort{
+			ID:                  intf.Name,
+			Type:                string(s),
+			SupportedSpeedsGbps: []int32{n},
+		})
+	}
+	return dp, nil
+}
+
+func (p *Provider) GetDeviceInfo(ctx context.Context) (*provider.DeviceInfo, error) {
+	i := new(BasicDeviceInfo)
+
+	if err := p.client.GetState(ctx, i); err != nil {
+		return nil, err
+	}
+
+	return &provider.DeviceInfo{
+		Manufacturer:    Manufacturer,
+		Model:           i.Model,
+		SerialNumber:    i.SerialNumber,
+		FirmwareVersion: i.FirmwareVersion,
+		Hostname:        i.Hostname,
+	}, nil
+}
+
+func (p *Provider) GetLastRebootTime(ctx context.Context) (time.Time, error) {
+	t := new(SystemTime)
+	if err := p.client.GetState(ctx, t); err != nil {
+		return time.Time{}, err
+	}
+	uptimeDuration := time.Second * time.Duration(t.Uptime.Uptime) * -1
+	return t.CurrTime.ConvertToTime().Add(uptimeDuration), nil
+}
+
+func (p *Provider) Reboot(_ context.Context, conn *deviceutil.Connection) error {
+	return errors.New("IOS XR Provider does not support rebooting the device")
+}
+
+func (p *Provider) FactoryReset(_ context.Context, conn *deviceutil.Connection) error {
+	return errors.New("IOS XR Provider does not support factory reset")
+}
+
+func (p *Provider) Reprovision(_ context.Context, conn *deviceutil.Connection) error {
+	return errors.New("IOS XR Provider does not support reprovisioning")
+}
+
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
 	if p.client == nil {
 		return errors.New("client is not connected")
@@ -64,8 +131,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	// SubInterface <PotySpeed><rack><slot><port>.<vlan-id> e.g TwentyFiveGigE0/0/0/3
 	// Bundle Interface/Port Channel Bundle-Ether<BundleID>
 	// Vlans over Bundle Bundle-Ether<BundleID>.<vlan-id>
-	_, err := ExtractInterfaceSpeedFromName(name)
-	if err != nil {
+	if _, err := ExtractOwnerFromInterfaceName(name); err != nil {
 		return err
 	}
 
@@ -242,7 +308,7 @@ func NewVlanSubinterface(firstTag, secondTag int32, vlanType string) VlanSubInte
 }
 
 func NewMTU(intName string, mtu int32) (MTUs, error) {
-	owner, err := ExtractInterfaceSpeedFromName(intName)
+	owner, err := ExtractOwnerFromInterfaceName(intName)
 	if err != nil {
 		message := "failed to extract MTU owner from interface name" + intName
 		return MTUs{}, errors.New(message)
