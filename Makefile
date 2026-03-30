@@ -271,14 +271,15 @@ GO_COVERPKGS := $(shell go list ./... | grep -E '/internal')
 null :=
 space := $(null) $(null)
 comma := ,
+YEAR ?= $(shell date +%Y)
 
 check: FORCE static-check build/cover.html build-all
 	@printf "\e[1;32m>> All checks successful.\e[0m\n"
 
 generate: install-controller-gen
 	@printf "\e[1;36m>> controller-gen\e[0m\n"
-	@controller-gen crd rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-	@controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
+	@controller-gen crd rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases output:rbac:artifacts:config=config/rbac
+	@controller-gen object:headerFile="hack/boilerplate.go.txt",year=$(YEAR) paths="./..."
 	@controller-gen applyconfiguration:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 run-golangci-lint: FORCE install-golangci-lint
@@ -358,6 +359,7 @@ vars: FORCE
 	@printf "SED=$(SED)\n"
 	@printf "UNAME_S=$(UNAME_S)\n"
 	@printf "XARGS=$(XARGS)\n"
+	@printf "YEAR=$(YEAR)\n"
 help: FORCE
 	@printf "\n"
 	@printf "\e[1mUsage:\e[0m\n"
