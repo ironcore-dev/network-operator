@@ -2,7 +2,7 @@ apiVersion: v2
 name: network-operator
 description: A Helm chart to distribute the project network-operator
 type: application
-version: 0.1.0
+version: 0.0.0+dev
 dependencies:
   # See: https://github.com/sapcc/helm-charts/pkgs/container/helm-charts%2Fowner-info
   - name: owner-info
