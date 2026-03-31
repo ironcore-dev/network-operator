@@ -88,7 +88,7 @@ func New(ctx context.Context, conn grpc.ClientConnInterface, opts ...Option) (Cl
 		return nil, fmt.Errorf("gnmiext: failed to retrieve capabilities: %w", err)
 	}
 	encoding := gpb.Encoding(-1)
-	for _, e := range res.SupportedEncodings {
+	for _, e := range res.GetSupportedEncodings() {
 		switch e {
 		case gpb.Encoding_JSON, gpb.Encoding_JSON_IETF:
 			encoding = e
@@ -97,14 +97,14 @@ func New(ctx context.Context, conn grpc.ClientConnInterface, opts ...Option) (Cl
 		}
 	}
 	if encoding == -1 {
-		return nil, fmt.Errorf("gnmiext: unsupported encoding: %v", res.SupportedEncodings)
+		return nil, fmt.Errorf("gnmiext: unsupported encoding: %v", res.GetSupportedEncodings())
 	}
 	capabilities := &Capabilities{SupportedModels: make([]Model, len(res.GetSupportedModels()))}
 	for i, model := range res.GetSupportedModels() {
 		capabilities.SupportedModels[i] = Model{
-			Name:         model.Name,
-			Organization: model.Organization,
-			Version:      model.Version,
+			Name:         model.GetName(),
+			Organization: model.GetOrganization(),
+			Version:      model.GetVersion(),
 		}
 	}
 	logger := logr.FromSlogHandler(slog.Default().Handler())
@@ -219,21 +219,22 @@ func (c *client) get(ctx context.Context, dt gpb.GetRequest_DataType, conf ...Co
 	// for each path in the request.
 	//
 	// [gNMI spec]: https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#332-the-getresponse-message
-	if len(res.Notification) != len(conf) {
+	notifications := res.GetNotification()
+	if len(notifications) != len(conf) {
 		// This should never happen. If it does, it indicates a bug in the
 		// gNMI server.
-		return fmt.Errorf("gnmiext: unexpected number of notifications: got %d, want %d", len(res.Notification), len(conf))
+		return fmt.Errorf("gnmiext: unexpected number of notifications: got %d, want %d", len(notifications), len(conf))
 	}
 	// prevent bounds check in for the range loop below
 	// [Bounds Check Elimination]: https://go101.org/optimizations/5-bce.html
-	_ = res.Notification[len(conf)-1]
+	_ = notifications[len(conf)-1]
 	for i, cf := range conf {
-		n := res.Notification[i]
-		switch len(n.Update) {
+		n := notifications[i]
+		switch len(n.GetUpdate()) {
 		case 0:
 			return ErrNil
 		case 1:
-			b, err := c.Decode(n.Update[0].Val)
+			b, err := c.Decode(n.GetUpdate()[0].GetVal())
 			if err != nil {
 				return err
 			}
@@ -250,7 +251,7 @@ func (c *client) get(ctx context.Context, dt gpb.GetRequest_DataType, conf ...Co
 				return err
 			}
 		default:
-			return fmt.Errorf("gnmiext: unexpected number of updates: %d", len(n.Update))
+			return fmt.Errorf("gnmiext: unexpected number of updates: %d", len(n.GetUpdate()))
 		}
 	}
 	return nil
@@ -297,7 +298,7 @@ func (c *client) set(ctx context.Context, patch bool, conf ...Configurable) erro
 		}
 		r.Replace = append(r.Replace, u)
 	}
-	if len(r.Update) == 0 && len(r.Replace) == 0 {
+	if len(r.GetUpdate()) == 0 && len(r.GetReplace()) == 0 {
 		// All configurations are already up-to-date.
 		return nil
 	}
@@ -407,15 +408,15 @@ func (c *client) Encode(b []byte) *gpb.TypedValue {
 func (c *client) Decode(val *gpb.TypedValue) ([]byte, error) {
 	switch c.encoding {
 	case gpb.Encoding_JSON:
-		v, ok := val.Value.(*gpb.TypedValue_JsonVal)
+		v, ok := val.GetValue().(*gpb.TypedValue_JsonVal)
 		if !ok {
-			return nil, fmt.Errorf("gnmiext: unexpected value type: expected JsonVal, got %T", val.Value)
+			return nil, fmt.Errorf("gnmiext: unexpected value type: expected JsonVal, got %T", val.GetValue())
 		}
 		return v.JsonVal, nil
 	case gpb.Encoding_JSON_IETF:
-		v, ok := val.Value.(*gpb.TypedValue_JsonIetfVal)
+		v, ok := val.GetValue().(*gpb.TypedValue_JsonIetfVal)
 		if !ok {
-			return nil, fmt.Errorf("gnmiext: unexpected value type: expected JsonIetfVal, got %T", val.Value)
+			return nil, fmt.Errorf("gnmiext: unexpected value type: expected JsonIetfVal, got %T", val.GetValue())
 		}
 		return v.JsonIetfVal, nil
 	default:
