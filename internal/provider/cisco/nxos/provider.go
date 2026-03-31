@@ -935,6 +935,8 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				stp.Mode = SpanningTreeModeEdge
 			case nxv1alpha1.SpanningTreePortTypeNetwork:
 				stp.Mode = SpanningTreeModeNetwork
+			case nxv1alpha1.SpanningTreePortTypeTrunk:
+				stp.Mode = SpanningTreeModeTrunk
 			}
 			if cfg.Spec.SpanningTree.BPDUFilter != nil {
 				stp.BPDUfilter = AdminStDisable

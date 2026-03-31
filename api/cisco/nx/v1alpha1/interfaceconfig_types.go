@@ -49,7 +49,7 @@ type BufferBoost struct {
 }
 
 // SpanningTreePortType represents the spanning tree port type.
-// +kubebuilder:validation:Enum=Normal;Edge;Network
+// +kubebuilder:validation:Enum=Normal;Edge;Network;Trunk
 type SpanningTreePortType string
 
 const (
@@ -57,6 +57,8 @@ const (
 	SpanningTreePortTypeNormal SpanningTreePortType = "Normal"
 	// SpanningTreePortTypeEdge indicates an edge port (connects to end devices).
 	SpanningTreePortTypeEdge SpanningTreePortType = "Edge"
+	// SpanningTreePortTypeTrunk indicates a trunk port performing spanning tree calculations for multiple VLANs (connects to end devices and carries multiple VLANs).
+	SpanningTreePortTypeTrunk SpanningTreePortType = "Trunk"
 	// SpanningTreePortTypeNetwork indicates a network port (connects to other switches).
 	SpanningTreePortTypeNetwork SpanningTreePortType = "Network"
 )
