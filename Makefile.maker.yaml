@@ -40,6 +40,9 @@ license:
   copyright: 'SAP SE or an SAP affiliate company and IronCore contributors'
   spdx: Apache-2.0
 
+nix:
+  enabled: false
+
 reuse:
   # Custom REUSE.toml with minimal settings
   enabled: false
