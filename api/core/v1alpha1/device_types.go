@@ -144,11 +144,11 @@ type DeviceStatus struct {
 	FirmwareVersion string `json:"firmwareVersion,omitempty"`
 
 	// Provisioning is the list of provisioning attempts for the Device.
-	//+listType=map
-	//+listMapKey=startTime
-	//+patchStrategy=merge
-	//+patchMergeKey=startTime
-	//+optional
+	// +listType=map
+	// +listMapKey=startTime
+	// +patchStrategy=merge
+	// +patchMergeKey=startTime
+	// +optional
 	Provisioning []ProvisioningInfo `json:"provisioning,omitempty"`
 
 	// Ports is the list of ports on the Device.
@@ -160,22 +160,22 @@ type DeviceStatus struct {
 	PortSummary string `json:"portSummary,omitempty"`
 
 	// The conditions are a list of status objects that describe the state of the Device.
-	//+listType=map
-	//+listMapKey=type
-	//+patchStrategy=merge
-	//+patchMergeKey=type
-	//+optional
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 type ProvisioningInfo struct {
 	StartTime metav1.Time `json:"startTime"`
 	Token     string      `json:"token"`
-	//+optional
+	// +optional
 	EndTime metav1.Time `json:"endTime,omitzero"`
-	//+optional
+	// +optional
 	RebootTime metav1.Time `json:"reboot,omitzero"`
-	//+optional
+	// +optional
 	Error string `json:"error,omitempty"`
 }
 

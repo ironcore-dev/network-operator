@@ -104,11 +104,11 @@ type AccessControlListStatus struct {
 	EntriesSummary string `json:"entriesSummary,omitempty"`
 
 	// The conditions are a list of status objects that describe the state of the AccessControlList.
-	//+listType=map
-	//+listMapKey=type
-	//+patchStrategy=merge
-	//+patchMergeKey=type
-	//+optional
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 

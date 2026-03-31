@@ -47,11 +47,11 @@ type VLANSpec struct {
 // VLANStatus defines the observed state of VLAN.
 type VLANStatus struct {
 	// The conditions are a list of status objects that describe the state of the VLAN.
-	//+listType=map
-	//+listMapKey=type
-	//+patchStrategy=merge
-	//+patchMergeKey=type
-	//+optional
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// RoutedBy references the interface that provides Layer 3 routing for this VLAN, if any.

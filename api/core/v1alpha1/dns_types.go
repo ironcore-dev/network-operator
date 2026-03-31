@@ -67,11 +67,11 @@ type NameServer struct {
 // DNSStatus defines the observed state of DNS.
 type DNSStatus struct {
 	// The conditions are a list of status objects that describe the state of the DNS.
-	//+listType=map
-	//+listMapKey=type
-	//+patchStrategy=merge
-	//+patchMergeKey=type
-	//+optional
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 

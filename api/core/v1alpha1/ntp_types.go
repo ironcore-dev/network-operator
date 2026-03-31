@@ -64,11 +64,11 @@ type NTPServer struct {
 // NTPStatus defines the observed state of NTP.
 type NTPStatus struct {
 	// The conditions are a list of status objects that describe the state of the NTP.
-	//+listType=map
-	//+listMapKey=type
-	//+patchStrategy=merge
-	//+patchMergeKey=type
-	//+optional
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 

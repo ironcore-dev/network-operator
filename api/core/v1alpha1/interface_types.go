@@ -317,11 +317,11 @@ type MultiChassis struct {
 // InterfaceStatus defines the observed state of Interface.
 type InterfaceStatus struct {
 	// The conditions are a list of status objects that describe the state of the Interface.
-	//+listType=map
-	//+listMapKey=type
-	//+patchStrategy=merge
-	//+patchMergeKey=type
-	//+optional
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// MemberOf references the aggregate interface this interface is a member of, if any.

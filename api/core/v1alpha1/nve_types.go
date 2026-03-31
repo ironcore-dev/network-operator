@@ -106,11 +106,11 @@ type NetworkVirtualizationEdgeStatus struct {
 	// - "Degraded": the resource failed to reach or maintain its desired state
 	//
 	// The conditions are a list of status objects that describe the state of the NVE.
-	//+listType=map
-	//+listMapKey=type
-	//+patchStrategy=merge
-	//+patchMergeKey=type
-	//+optional
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// SourceInterfaceName is the resolved source interface IP address used for NVE encapsulation.

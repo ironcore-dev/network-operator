@@ -40,11 +40,11 @@ type CertificateSpec struct {
 // CertificateStatus defines the observed state of Certificate.
 type CertificateStatus struct {
 	// The conditions are a list of status objects that describe the state of the Certificate.
-	//+listType=map
-	//+listMapKey=type
-	//+patchStrategy=merge
-	//+patchMergeKey=type
-	//+optional
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 

@@ -94,11 +94,11 @@ const (
 // ISISStatus defines the observed state of ISIS.
 type ISISStatus struct {
 	// The conditions are a list of status objects that describe the state of the ISIS.
-	//+listType=map
-	//+listMapKey=type
-	//+patchStrategy=merge
-	//+patchMergeKey=type
-	//+optional
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 

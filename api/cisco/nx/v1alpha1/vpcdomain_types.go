@@ -185,11 +185,11 @@ type VPCDomainStatus struct {
 	// the interface used as peer-link determine the overall health and operational condition of
 	// the vPC domain.
 	//
-	//+listType=map
-	//+listMapKey=type
-	//+patchStrategy=merge
-	//+patchMergeKey=type
-	//+optional
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// Role indicates the current operational role of this vPC domain peer.

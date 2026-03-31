@@ -103,11 +103,11 @@ type RouteTarget struct {
 // VRFStatus defines the observed state of VRF.
 type VRFStatus struct {
 	// The conditions are a list of status objects that describe the state of the VRF.
-	//+listType=map
-	//+listMapKey=type
-	//+patchStrategy=merge
-	//+patchMergeKey=type
-	//+optional
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
