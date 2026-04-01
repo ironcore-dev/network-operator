@@ -113,7 +113,7 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 	if err := r.Locker.AcquireLock(ctx, device.Name, "user-controller"); err != nil {
 		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
 			log.Info("Device is already locked, requeuing reconciliation")
-			return ctrl.Result{RequeueAfter: time.Second}, nil
+			return ctrl.Result{RequeueAfter: Jitter(time.Second)}, nil
 		}
 		log.Error(err, "Failed to acquire device lock")
 		return ctrl.Result{}, err

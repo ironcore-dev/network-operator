@@ -35,7 +35,7 @@ import (
 
 	nxv1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	corev1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
-	controllercore "github.com/ironcore-dev/network-operator/internal/controller/core"
+	corecontroller "github.com/ironcore-dev/network-operator/internal/controller/core"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 )
 
@@ -121,7 +121,7 @@ func (r *VPCDomainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err := r.Locker.AcquireLock(ctx, device.Name, "cisco-nx-vpcdomain-controller"); err != nil {
 		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
 			log.Info("Device is already locked, requeuing reconciliation")
-			return ctrl.Result{RequeueAfter: time.Second}, nil
+			return ctrl.Result{RequeueAfter: corecontroller.Jitter(time.Second)}, nil
 		}
 		log.Error(err, "Failed to acquire device lock")
 		return ctrl.Result{}, err
@@ -200,7 +200,7 @@ func (r *VPCDomainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{RequeueAfter: controllercore.Jitter(r.RequeueInterval)}, nil
+	return ctrl.Result{RequeueAfter: corecontroller.Jitter(r.RequeueInterval)}, nil
 }
 
 // reconcile contains the main reconciliation logic for the VPCDomain resource.

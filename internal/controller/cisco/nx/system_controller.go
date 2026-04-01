@@ -28,6 +28,7 @@ import (
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
+	corecontroller "github.com/ironcore-dev/network-operator/internal/controller/core"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/paused"
 	"github.com/ironcore-dev/network-operator/internal/provider"
@@ -108,7 +109,7 @@ func (r *SystemReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 	if err := r.Locker.AcquireLock(ctx, device.Name, "cisco-nx-system-controller"); err != nil {
 		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
 			log.Info("Device is already locked, requeuing reconciliation")
-			return ctrl.Result{RequeueAfter: time.Second}, nil
+			return ctrl.Result{RequeueAfter: corecontroller.Jitter(time.Second)}, nil
 		}
 		log.Error(err, "Failed to acquire device lock")
 		return ctrl.Result{}, err
