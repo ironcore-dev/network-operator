@@ -143,6 +143,10 @@ type DeviceStatus struct {
 	// +optional
 	FirmwareVersion string `json:"firmwareVersion,omitempty"`
 
+	// LastRebootTime is the timestamp of the last reboot of the Device, if known.
+	// +optional
+	LastRebootTime metav1.Time `json:"lastRebootTime,omitempty"`
+
 	// Provisioning is the list of provisioning attempts for the Device.
 	// +listType=map
 	// +listMapKey=startTime
@@ -275,6 +279,7 @@ const (
 // +kubebuilder:printcolumn:name="Model",type=string,JSONPath=".status.model",priority=1
 // +kubebuilder:printcolumn:name="SerialNumber",type=string,JSONPath=".status.serialNumber",priority=1
 // +kubebuilder:printcolumn:name="FirmwareVersion",type=string,JSONPath=".status.firmwareVersion",priority=1
+// +kubebuilder:printcolumn:name="RebootTime",type="date",JSONPath=".status.lastRebootTime",priority=1
 // +kubebuilder:printcolumn:name="Ports",type=string,JSONPath=".status.portSummary",priority=1
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`

@@ -39,6 +39,10 @@ spec:
       name: FirmwareVersion
       priority: 1
       type: string
+    - jsonPath: .status.lastRebootTime
+      name: RebootTime
+      priority: 1
+      type: date
     - jsonPath: .status.portSummary
       name: Ports
       priority: 1
@@ -367,6 +371,11 @@ spec:
               firmwareVersion:
                 description: FirmwareVersion is the firmware version running on the
                   Device.
+                type: string
+              lastRebootTime:
+                description: LastRebootTime is the timestamp of the last reboot of
+                  the Device, if known.
+                format: date-time
                 type: string
               manufacturer:
                 description: Manufacturer is the manufacturer of the Device.

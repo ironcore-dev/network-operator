@@ -182,7 +182,8 @@ func (p *Provider) GetDeviceInfo(ctx context.Context) (*provider.DeviceInfo, err
 	m := new(Model)
 	s := new(SerialNumber)
 	fw := new(FirmwareVersion)
-	if err := p.client.GetState(ctx, m, s, fw); err != nil {
+	bt := new(BootTime)
+	if err := p.client.GetState(ctx, m, s, fw, bt); err != nil {
 		return nil, err
 	}
 
@@ -191,6 +192,7 @@ func (p *Provider) GetDeviceInfo(ctx context.Context) (*provider.DeviceInfo, err
 		Model:           string(*m),
 		SerialNumber:    string(*s),
 		FirmwareVersion: string(*fw),
+		LastRebootTime:  bt.Time,
 	}, nil
 }
 

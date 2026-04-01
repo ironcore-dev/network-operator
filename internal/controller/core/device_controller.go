@@ -310,6 +310,7 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 	device.Status.Model = info.Model
 	device.Status.SerialNumber = info.SerialNumber
 	device.Status.FirmwareVersion = info.FirmwareVersion
+	device.Status.LastRebootTime = metav1.NewTime(info.LastRebootTime)
 
 	conditions.Set(device, metav1.Condition{
 		Type:    v1alpha1.ReadyCondition,

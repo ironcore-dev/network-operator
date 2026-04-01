@@ -71,6 +71,8 @@ type DeviceInfo struct {
 	SerialNumber string
 	// FirmwareVersion is the firmware version running on the device, e.g. "10.4(3)".
 	FirmwareVersion string
+	// LastRebootTime is the timestamp of the last reboot of the device.
+	LastRebootTime time.Time
 }
 
 // InterfaceProvider is the interface for the realization of the Interface objects over different providers.

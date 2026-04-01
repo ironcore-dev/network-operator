@@ -46,6 +46,8 @@ var (
 	k8sManager   ctrl.Manager
 	testProvider = NewProvider()
 	testLocker   *resourcelock.ResourceLocker
+
+	lastRebootTime = time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 )
 
 func TestControllers(t *testing.T) {
@@ -479,6 +481,7 @@ func (p *Provider) GetDeviceInfo(context.Context) (*provider.DeviceInfo, error) 
 		Model:           "Model",
 		SerialNumber:    "123456789",
 		FirmwareVersion: "1.0.0",
+		LastRebootTime:  lastRebootTime,
 	}, nil
 }
 

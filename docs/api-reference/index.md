@@ -1002,6 +1002,7 @@ _Appears in:_
 | `model` _string_ | Model is the model identifier of the Device. |  | Optional: \{\} <br /> |
 | `serialNumber` _string_ | SerialNumber is the serial number of the Device. |  | Optional: \{\} <br /> |
 | `firmwareVersion` _string_ | FirmwareVersion is the firmware version running on the Device. |  | Optional: \{\} <br /> |
+| `lastRebootTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | LastRebootTime is the timestamp of the last reboot of the Device, if known. |  | Optional: \{\} <br /> |
 | `provisioning` _[ProvisioningInfo](#provisioninginfo) array_ | Provisioning is the list of provisioning attempts for the Device. |  | Optional: \{\} <br /> |
 | `ports` _[DevicePort](#deviceport) array_ | Ports is the list of ports on the Device. |  | Optional: \{\} <br /> |
 | `portSummary` _string_ | PortSummary shows a summary of the port configured, grouped by type, e.g. "1/4 (10g), 3/64 (100g)". |  | Optional: \{\} <br /> |

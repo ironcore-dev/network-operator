@@ -121,6 +121,7 @@ var _ = Describe("Device Controller", func() {
 				g.Expect(resource.Status.Model).To(Equal("Model"))
 				g.Expect(resource.Status.SerialNumber).To(Equal("123456789"))
 				g.Expect(resource.Status.FirmwareVersion).To(Equal("1.0.0"))
+				g.Expect(resource.Status.LastRebootTime.Time).To(BeTemporally("==", lastRebootTime))
 
 				g.Expect(resource.Status.Ports).To(HaveLen(8))
 				g.Expect(resource.Status.Ports[0].Name).To(Equal("eth1/1"))

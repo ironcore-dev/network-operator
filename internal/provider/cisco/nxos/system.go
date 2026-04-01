@@ -5,7 +5,10 @@ package nxos
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strconv"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -64,6 +67,38 @@ type BootPOAP string
 
 func (*BootPOAP) XPath() string {
 	return "/System/boot-items/poap"
+}
+
+type BootTime UnixTime
+
+func (*BootTime) XPath() string {
+	return "System/procsys-items/bootTime"
+}
+
+func (t *BootTime) UnmarshalJSON(b []byte) error {
+	return (*UnixTime)(t).UnmarshalJSON(b)
+}
+
+// UnixTime is a wrapper around time.Time that marshals/unmarshals to/from a Unix timestamp in seconds.
+type UnixTime struct {
+	time.Time `json:"-"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (t *UnixTime) UnmarshalJSON(b []byte) error {
+	var unix int64
+	if err := json.Unmarshal(b, &unix); err != nil {
+		var str string
+		if err := json.Unmarshal(b, &str); err != nil {
+			return fmt.Errorf("failed to unmarshal UnixTime: %w", err)
+		}
+		unix, err = strconv.ParseInt(str, 10, 64)
+		if err != nil {
+			return fmt.Errorf("failed to parse UnixTime string: %w", err)
+		}
+	}
+	t.Time = time.Unix(unix, 0)
+	return nil
 }
 
 func Reboot(ctx context.Context, conn *grpc.ClientConn) error {
