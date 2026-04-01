@@ -104,8 +104,8 @@ func main() {
 	flag.DurationVar(&requeueInterval, "requeue-interval", time.Hour, "The interval after which Kubernetes resources should be reconciled again regardless of whether they have changed.")
 	flag.IntVar(&maxConcurrentReconciles, "max-concurrent-reconciles", 1, "The maximum number of concurrent reconciles per controller. Defaults to 1.")
 	flag.StringVar(&lockerNamespace, "locker-namespace", "", "The namespace to use for resource locker coordination. If not specified, uses the namespace the manager is deployed in, or 'default' if undetectable.")
-	flag.DurationVar(&lockerDuration, "locker-duration", 30*time.Second, "The duration of the resource locker lease.")
-	flag.DurationVar(&lockerRenewInterval, "locker-renew-interval", 5*time.Second, "The interval at which the resource locker lease is renewed.")
+	flag.DurationVar(&lockerDuration, "locker-duration", 5*time.Second, "The duration of the resource locker lease.")
+	flag.DurationVar(&lockerRenewInterval, "locker-renew-interval", time.Second, "The interval at which the resource locker lease is renewed.")
 	flag.IntVar(&provisioningHTTPPort, "provisioning-http-port", 8080, "The port on which the provisioning HTTP server listens.")
 	flag.BoolVar(&provisioningHTTPValidateSourceIP, "provisioning-http-validate-source-ip", false, "If set, the provisioning HTTP server will validate the source IP of incoming requests against the DeviceIPLabel of Device resources.")
 	opts := zap.Options{
