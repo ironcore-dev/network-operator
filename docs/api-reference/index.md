@@ -1106,6 +1106,43 @@ _Appears in:_
 | `action` _[RouteTargetAction](#routetargetaction)_ | Action defines whether the route target is imported, exported, or both. |  | Enum: [Import Export Both] <br />Required: \{\} <br /> |
 
 
+#### EncapType
+
+_Underlying type:_ _string_
+
+
+
+_Validation:_
+- Enum: [802.1q 802.1ad]
+
+_Appears in:_
+- [Encapsulation](#encapsulation)
+
+| Field | Description |
+| --- | --- |
+| `802.1q` | EncapsulationTypeDot1Q indicates IEEE 802.1Q encapsulation.<br /> |
+| `802.1ad` | EncapsulationTypeQinQ indicates IEEE 802.1ad encapsulation.<br /> |
+
+
+#### Encapsulation
+
+
+
+Encapsulation defines config for an L3 subinterface.
+
+
+
+_Appears in:_
+- [InterfaceSpec](#interfacespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `type` _[EncapType](#encaptype)_ |  |  | Enum: [802.1q 802.1ad] <br />Required: \{\} <br /> |
+| `tag` _integer_ |  |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `innerTag` _integer_ | InnerTag specifies the inner VLAN ID for QinQ encapsulation.<br />Only applicable when Type is set to "QinQ". |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `outerTag` _integer_ | OuterTag specifies the outer VLAN ID for QinQ encapsulation.<br />Only applicable when Type is set to "QinQ". |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+
+
 #### Endpoint
 
 
@@ -1403,7 +1440,7 @@ _Appears in:_
 | `name` _string_ | Name is the name of the interface. |  | MaxLength: 255 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether the interface is administratively up or down. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
 | `description` _string_ | Description provides a human-readable description of the interface. |  | MaxLength: 255 <br />Optional: \{\} <br /> |
-| `type` _[InterfaceType](#interfacetype)_ | Type indicates the type of the interface. |  | Enum: [Physical Loopback Aggregate RoutedVLAN] <br />Required: \{\} <br /> |
+| `type` _[InterfaceType](#interfacetype)_ | Type indicates the type of the interface. |  | Enum: [Physical Loopback Aggregate RoutedVLAN Subinterface] <br />Required: \{\} <br /> |
 | `mtu` _integer_ | MTU (Maximum Transmission Unit) specifies the size of the largest packet that can be sent over the interface. |  | Maximum: 9216 <br />Minimum: 576 <br />Optional: \{\} <br /> |
 | `switchport` _[Switchport](#switchport)_ | Switchport defines the switchport configuration for the interface.<br />This is only applicable for Ethernet and Aggregate interfaces. |  | Optional: \{\} <br /> |
 | `ipv4` _[InterfaceIPv4](#interfaceipv4)_ | IPv4 defines the IPv4 configuration for the interface. |  | Optional: \{\} <br /> |
@@ -1412,6 +1449,8 @@ _Appears in:_
 | `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VrfRef is a reference to the VRF resource that this interface belongs to.<br />If not specified, the interface will be part of the default VRF.<br />This is only applicable for Layer 3 interfaces.<br />The referenced VRF must exist in the same namespace. |  | Optional: \{\} <br /> |
 | `bfd` _[BFD](#bfd)_ | BFD defines the Bidirectional Forwarding Detection configuration for the interface.<br />BFD is only applicable for Layer 3 interfaces. |  | Optional: \{\} <br /> |
 | `ethernet` _[Ethernet](#ethernet)_ | Ethernet defines the ethernet-specific configuration for physical interfaces.<br />This configuration is only applicable to Physical interfaces.<br />When omitted, ethernet parameters use their default values (e.g., FEC mode defaults to auto). |  | Optional: \{\} <br /> |
+| `encapsulation` _[Encapsulation](#encapsulation)_ | Encapsulation defines the subinterfaces config for an L3 interface. |  | Optional: \{\} <br /> |
+| `parentInterfaceRef` _[LocalObjectReference](#localobjectreference)_ | ParentInterfaceRef is a reference to the parent interface for this subinterface.<br />Required if the interface type is Subinterface. Must not be set for other interface types. |  | Optional: \{\} <br /> |
 
 
 #### InterfaceStatus
@@ -1438,7 +1477,7 @@ _Underlying type:_ _string_
 InterfaceType represents the type of the interface.
 
 _Validation:_
-- Enum: [Physical Loopback Aggregate RoutedVLAN]
+- Enum: [Physical Loopback Aggregate RoutedVLAN Subinterface]
 
 _Appears in:_
 - [InterfaceSpec](#interfacespec)
@@ -1449,6 +1488,7 @@ _Appears in:_
 | `Loopback` | InterfaceTypeLoopback indicates that the interface is a loopback interface.<br /> |
 | `Aggregate` | InterfaceTypeAggregate indicates that the interface is an aggregate (bundle) interface.<br /> |
 | `RoutedVLAN` | InterfaceTypeRoutedVLAN indicates that the interface is a routed VLAN interface (SVI/IRB).<br /> |
+| `Subinterface` | InterfaceTypeSubinterface indicates that the interface is a subinterface of an interface.<br /> |
 
 
 #### LACPMode

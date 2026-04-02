@@ -217,6 +217,50 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
+              encapsulation:
+                description: Encapsulation defines the subinterfaces config for an
+                  L3 interface.
+                properties:
+                  innerTag:
+                    description: |-
+                      InnerTag specifies the inner VLAN ID for QinQ encapsulation.
+                      Only applicable when Type is set to "QinQ".
+                    format: int32
+                    maximum: 4094
+                    minimum: 1
+                    type: integer
+                  outerTag:
+                    description: |-
+                      OuterTag specifies the outer VLAN ID for QinQ encapsulation.
+                      Only applicable when Type is set to "QinQ".
+                    format: int32
+                    maximum: 4094
+                    minimum: 1
+                    type: integer
+                  tag:
+                    format: int32
+                    maximum: 4094
+                    minimum: 1
+                    type: integer
+                  type:
+                    enum:
+                    - 802.1q
+                    - 802.1ad
+                    type: string
+                required:
+                - type
+                type: object
+                x-kubernetes-validations:
+                - message: tag must be specified for interfaces of type 802.1q
+                  rule: self.type != '802.1q' || has(self.tag)
+                - message: innerTag or outerTag must not be specified for interfaces
+                    of type 802.1q
+                  rule: self.type != '802.1q' || !(has(self.innerTag) || has(self.outerTag))
+                - message: innerTag and outerTag must be specified for interfaces
+                    of type 802.1ad
+                  rule: self.type != '802.1ad' || (has(self.innerTag) && has(self.outerTag))
+                - message: tag must not be specified for interfaces of type 802.1ad
+                  rule: self.type != '802.1ad' || !has(self.tag)
               ethernet:
                 description: |-
                   Ethernet defines the ethernet-specific configuration for physical interfaces.
@@ -301,6 +345,22 @@ spec:
                 x-kubernetes-validations:
                 - message: Name is immutable
                   rule: self == oldSelf
+              parentInterfaceRef:
+                description: |-
+                  ParentInterfaceRef is a reference to the parent interface for this subinterface.
+                  Required if the interface type is Subinterface. Must not be set for other interface types.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               providerConfigRef:
                 description: |-
                   ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
@@ -388,6 +448,7 @@ spec:
                 - Loopback
                 - Aggregate
                 - RoutedVLAN
+                - Subinterface
                 type: string
                 x-kubernetes-validations:
                 - message: Type is immutable
@@ -466,6 +527,16 @@ spec:
             - message: bfd must not be specified for Aggregate interfaces with switchport
                 configuration
               rule: self.type != 'Aggregate' || !has(self.switchport) || !has(self.bfd)
+            - message: encapsulation and parentInterfaceRef must only be specified
+                for subinterfaces
+              rule: self.type == 'Subinterface' || !(has(self.encapsulation) || has(self.parentInterfaceRef))
+            - message: subinterface must not have aggregation, switchport or vlanRef
+                configuration
+              rule: self.type != 'Subinterface' || !(has(self.aggregation) || has(self.switchport)
+                || has(self.vlanRef))
+            - message: encapsulation and parentInterfaceRef must both be specified
+                for subinterfaces
+              rule: self.type != 'Subinterface' || (has(self.encapsulation) && has(self.parentInterfaceRef))
             - message: bfd must not be specified for interfaces with switchport configuration
               rule: '!has(self.bfd) || !has(self.switchport)'
             - message: ethernet configuration must only be specified on interfaces

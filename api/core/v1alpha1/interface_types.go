@@ -25,6 +25,9 @@ import (
 // +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || !has(self.switchport) || !has(self.vrfRef)", message="vrfRef must not be specified for Aggregate interfaces with switchport configuration"
 // +kubebuilder:validation:XValidation:rule="self.type != 'Physical' || !has(self.switchport) || !has(self.vrfRef)", message="vrfRef must not be specified for Physical interfaces with switchport configuration"
 // +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || !has(self.switchport) || !has(self.bfd)", message="bfd must not be specified for Aggregate interfaces with switchport configuration"
+// +kubebuilder:validation:XValidation:rule="self.type == 'Subinterface' || !(has(self.encapsulation) || has(self.parentInterfaceRef))", message="encapsulation and parentInterfaceRef must only be specified for subinterfaces"
+// +kubebuilder:validation:XValidation:rule="self.type != 'Subinterface' || !(has(self.aggregation) || has(self.switchport) || has(self.vlanRef))",  message="subinterface must not have aggregation, switchport or vlanRef configuration"
+// +kubebuilder:validation:XValidation:rule="self.type != 'Subinterface' || (has(self.encapsulation) && has(self.parentInterfaceRef))", message="encapsulation and parentInterfaceRef must both be specified for subinterfaces"
 // +kubebuilder:validation:XValidation:rule="!has(self.bfd) || !has(self.switchport)", message="bfd must not be specified for interfaces with switchport configuration"
 // +kubebuilder:validation:XValidation:rule="self.type == 'Physical' || !has(self.ethernet)", message="ethernet configuration must only be specified on interfaces of type Physical"
 type InterfaceSpec struct {
@@ -104,6 +107,15 @@ type InterfaceSpec struct {
 	// When omitted, ethernet parameters use their default values (e.g., FEC mode defaults to auto).
 	// +optional
 	Ethernet *Ethernet `json:"ethernet,omitempty"`
+
+	// Encapsulation defines the subinterfaces config for an L3 interface.
+	// +optional
+	Encapsulation *Encapsulation `json:"encapsulation,omitempty"`
+
+	// ParentInterfaceRef is a reference to the parent interface for this subinterface.
+	// Required if the interface type is Subinterface. Must not be set for other interface types.
+	// +optional
+	ParentInterfaceRef *LocalObjectReference `json:"parentInterfaceRef,omitempty"`
 }
 
 // AdminState represents the administrative state of a resource.
@@ -120,7 +132,7 @@ const (
 )
 
 // InterfaceType represents the type of the interface.
-// +kubebuilder:validation:Enum=Physical;Loopback;Aggregate;RoutedVLAN
+// +kubebuilder:validation:Enum=Physical;Loopback;Aggregate;RoutedVLAN;Subinterface
 type InterfaceType string
 
 const (
@@ -132,6 +144,8 @@ const (
 	InterfaceTypeAggregate InterfaceType = "Aggregate"
 	// InterfaceTypeRoutedVLAN indicates that the interface is a routed VLAN interface (SVI/IRB).
 	InterfaceTypeRoutedVLAN InterfaceType = "RoutedVLAN"
+	// InterfaceTypeSubinterface indicates that the interface is a subinterface of an interface.
+	InterfaceTypeSubinterface InterfaceType = "Subinterface"
 )
 
 // Switchport defines the switchport configuration for an interface.
@@ -163,6 +177,44 @@ type Switchport struct {
 	// +kubebuilder:validation:items:Minimum=1
 	// +kubebuilder:validation:items:Maximum=4094
 	AllowedVlans []int32 `json:"allowedVlans,omitempty"`
+}
+
+// +kubebuilder:validation:Enum="802.1q";"802.1ad"
+type EncapType string
+
+const (
+	// EncapsulationTypeDot1Q indicates IEEE 802.1Q encapsulation.
+	EncapsulationTypeDot1Q EncapType = "802.1q"
+	// EncapsulationTypeQinQ indicates IEEE 802.1ad encapsulation.
+	EncapsulationTypeQinQ EncapType = "802.1ad"
+)
+
+// Encapsulation defines config for an L3 subinterface.
+// +kubebuilder:validation:XValidation:rule="self.type != '802.1q' || has(self.tag)", message="tag must be specified for interfaces of type 802.1q"
+// +kubebuilder:validation:XValidation:rule="self.type != '802.1q' || !(has(self.innerTag) || has(self.outerTag))", message="innerTag or outerTag must not be specified for interfaces of type 802.1q"
+// +kubebuilder:validation:XValidation:rule="self.type != '802.1ad' || (has(self.innerTag) && has(self.outerTag))", message="innerTag and outerTag must be specified for interfaces of type 802.1ad"
+// +kubebuilder:validation:XValidation:rule="self.type != '802.1ad' || !has(self.tag)", message="tag must not be specified for interfaces of type 802.1ad"
+type Encapsulation struct {
+	// +required
+	Type EncapType `json:"type"`
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4094
+	Tag int32 `json:"tag"`
+
+	// InnerTag specifies the inner VLAN ID for QinQ encapsulation.
+	// Only applicable when Type is set to "QinQ".
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4094
+	InnerTag int32 `json:"innerTag,omitempty"`
+
+	// OuterTag specifies the outer VLAN ID for QinQ encapsulation.
+	// Only applicable when Type is set to "QinQ".
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4094
+	OuterTag int32 `json:"outerTag,omitempty"`
 }
 
 // SwitchportMode represents the switchport mode of an interface.
