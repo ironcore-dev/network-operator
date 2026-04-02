@@ -15,7 +15,7 @@ import (
 	"github.com/openconfig/gnoi/factory_reset"
 	"github.com/openconfig/gnoi/system"
 
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
 const Manufacturer = "Cisco"

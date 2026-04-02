@@ -3,7 +3,7 @@
 
 package nxos
 
-import "github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+import "github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 
 // Version represents the operating system version of the target device.
 type Version string

@@ -11,7 +11,7 @@ import (
 
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 

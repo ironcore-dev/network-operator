@@ -18,6 +18,8 @@ import (
 	"github.com/openconfig/ygot/ygot"
 	"github.com/tidwall/gjson"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // Configurable represents a configuration item with a YANG path.
@@ -274,7 +276,7 @@ func (c *client) set(ctx context.Context, patch bool, conf ...Configurable) erro
 		}
 		got := cp.Deep(cf)
 		err = c.GetConfig(ctx, got)
-		if err != nil && !errors.Is(err, ErrNil) {
+		if err != nil && !errors.Is(err, ErrNil) && status.Code(err) != codes.NotFound {
 			return fmt.Errorf("gnmiext: failed to retrieve current config for %s: %w", cf.XPath(), err)
 		}
 		// If the current configuration is equal to the desired configuration, skip the update.

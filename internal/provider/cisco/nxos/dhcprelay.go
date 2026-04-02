@@ -6,7 +6,7 @@ package nxos
 import (
 	"net/netip"
 
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
 var _ gnmiext.Configurable = (*DHCPRelayConfig)(nil)

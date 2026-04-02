@@ -15,7 +15,7 @@ import (
 	"github.com/openconfig/gnoi/cert"
 	"google.golang.org/grpc"
 
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
 // Certificate represents a X.509 certificate and its associated private key.

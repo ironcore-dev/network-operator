@@ -3,7 +3,7 @@
 package nxos
 
 import (
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
 const (

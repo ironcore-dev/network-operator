@@ -10,7 +10,7 @@ import (
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
 var (

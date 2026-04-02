@@ -15,7 +15,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/tidwall/gjson"
 
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
 type TestCase struct {

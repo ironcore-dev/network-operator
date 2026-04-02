@@ -15,7 +15,7 @@ import (
 
 	"github.com/go-crypt/crypt/algorithm/shacrypt"
 
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
 var _ gnmiext.Configurable = (*User)(nil)
