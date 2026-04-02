@@ -8,16 +8,20 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/clientutil"
@@ -58,17 +62,19 @@ func GetOwnerDevice(ctx context.Context, r client.Reader, obj metav1.Object) (*v
 func GetDeviceByName(ctx context.Context, r client.Reader, namespace, name string) (*v1alpha1.Device, error) {
 	obj := new(v1alpha1.Device)
 	if err := r.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, obj); err != nil {
-		return nil, fmt.Errorf("failed to get %s/%s", v1alpha1.GroupVersion.WithKind(v1alpha1.DeviceKind).String(), name)
+		return nil, fmt.Errorf("failed to get %s/%s: %w", v1alpha1.GroupVersion.WithKind(v1alpha1.DeviceKind).String(), name, err)
 	}
 	return obj, nil
 }
 
+// GetDeviceBySerial finds and returns a Device object using the specified serial number.
+// It returns an error if no device or multiple devices with the same serial number are found.
+// Note: This function assumes that the [v1alpha1.DeviceSerialLabel] is unique across all Device objects in the cluster.
 func GetDeviceBySerial(ctx context.Context, r client.Reader, namespace, serial string) (*v1alpha1.Device, error) {
 	deviceList := &v1alpha1.DeviceList{}
 	listOpts := &client.ListOptions{
 		LabelSelector: labels.SelectorFromSet(labels.Set{v1alpha1.DeviceSerialLabel: serial}),
 	}
-
 	if err := r.List(ctx, deviceList, listOpts); err != nil {
 		return nil, fmt.Errorf("failed to list %s objects: %w", v1alpha1.GroupVersion.WithKind(v1alpha1.DeviceKind).String(), err)
 	}
@@ -82,8 +88,6 @@ func GetDeviceBySerial(ctx context.Context, r client.Reader, namespace, serial s
 }
 
 // Connection holds the necessary information to connect to a device's API.
-//
-// TODO(felix-kaestner): find a better place for this struct, maybe in a 'connection' package?
 type Connection struct {
 	// Address is the API address of the device, in the format "host:port".
 	Address string
@@ -150,7 +154,7 @@ func NewGrpcClient(ctx context.Context, conn *Connection, o ...Option) (*grpc.Cl
 		creds = credentials.NewTLS(conn.TLS)
 	}
 
-	opts := []grpc.DialOption{grpc.WithTransportCredentials(creds)}
+	opts := []grpc.DialOption{grpc.WithTransportCredentials(creds), grpc.WithUnaryInterceptor(TerminalErrorInterceptor())}
 	if conn.Username != "" && conn.Password != "" {
 		opts = append(opts, grpc.WithPerRPCCredentials(&auth{
 			Username: conn.Username,
@@ -215,4 +219,38 @@ func UnaryDefaultTimeoutInterceptor(timeout time.Duration) grpc.UnaryClientInter
 
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
+}
+
+// TerminalErrorInterceptor returns a gRPC unary client interceptor that wraps errors returned by the gRPC invoker
+// as terminal errors if their gRPC status code is in the set of non-retryable codes defined in [terminalCodes].
+func TerminalErrorInterceptor() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		return WrapTerminalError(invoker(ctx, method, req, reply, cc, opts...))
+	}
+}
+
+// WrapTerminalError wraps the given error as a terminal error if its gRPC status error
+// with a non-retryable code.
+func WrapTerminalError(err error) error {
+	if statusErr, ok := status.FromError(err); ok && slices.Contains(terminalCodes, statusErr.Code()) {
+		return reconcile.TerminalError(err)
+	}
+	return err
+}
+
+// terminalCodes holds the set of gRPC codes that are considered terminal.
+// That is, if an error has one of these codes, retrying the operation
+// is not expected to succeed.
+// This list is based on the gRPC documentation at https://grpc.io/docs/guides/status-codes.
+var terminalCodes = []codes.Code{
+	codes.Unknown,
+	codes.InvalidArgument,
+	codes.NotFound,
+	codes.AlreadyExists,
+	codes.PermissionDenied,
+	codes.FailedPrecondition,
+	codes.OutOfRange,
+	codes.Unimplemented,
+	codes.DataLoss,
+	codes.Unauthenticated,
 }
