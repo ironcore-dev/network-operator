@@ -30,6 +30,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
+	"github.com/ironcore-dev/network-operator/internal/transport/grpcext"
 )
 
 var (
@@ -71,7 +72,7 @@ func NewProvider() provider.Provider {
 }
 
 func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (err error) {
-	p.conn, err = deviceutil.NewGrpcClient(ctx, conn, deviceutil.WithDefaultTimeout(30*time.Second))
+	p.conn, err = grpcext.NewClient(ctx, conn, grpcext.WithDefaultTimeout(30*time.Second))
 	if err != nil {
 		return fmt.Errorf("failed to create grpc connection: %w", err)
 	}
