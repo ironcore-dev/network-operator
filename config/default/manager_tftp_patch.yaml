@@ -1,0 +1,7 @@
+# This patch adds the container port for the TFTP service.
+- op: add
+  path: /spec/template/spec/containers/0/ports/-
+  value:
+    containerPort: 1069
+    name: tftp
+    protocol: UDP

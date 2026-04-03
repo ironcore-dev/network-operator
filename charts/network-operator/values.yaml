@@ -34,24 +34,24 @@ manager:
   podSecurityContext:
     runAsNonRoot: true
     seccompProfile:
-        type: RuntimeDefault
+      type: RuntimeDefault
 
   ## Container-level security settings
   ##
   securityContext:
     allowPrivilegeEscalation: false
     capabilities:
-        drop:
-            - ALL
+      drop:
+        - ALL
 
   ## Resource limits and requests
   ##
   resources:
     limits:
-        memory: 512Mi
+      memory: 512Mi
     requests:
-        cpu: 150m
-        memory: 256Mi
+      cpu: 150m
+      memory: 256Mi
 
   ## Manager pod's affinity
   ##

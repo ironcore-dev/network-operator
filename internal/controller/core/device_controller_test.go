@@ -120,6 +120,7 @@ var _ = Describe("Device Controller", func() {
 				g.Expect(resource.Status.Manufacturer).To(Equal("Manufacturer"))
 				g.Expect(resource.Status.Model).To(Equal("Model"))
 				g.Expect(resource.Status.SerialNumber).To(Equal("123456789"))
+				g.Expect(resource.Labels).To(HaveKeyWithValue(v1alpha1.DeviceSerialLabel, "123456789"))
 				g.Expect(resource.Status.FirmwareVersion).To(Equal("1.0.0"))
 				g.Expect(resource.Status.LastRebootTime.Time).To(BeTemporally("==", lastRebootTime))
 
@@ -179,6 +180,37 @@ var _ = Describe("Device Controller", func() {
 				g.Expect(resource.Status.Conditions[0].Reason).To(Equal(v1alpha1.ProvisioningReason))
 				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
 				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+			}).Should(Succeed())
+		})
+
+		It("Should keep an existing mismatched serial label", func() {
+			By("Creating the custom resource for the Kind Device with a pre-set serial label")
+			device := &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+					Labels: map[string]string{
+						v1alpha1.DeviceSerialLabel: "manual-serial",
+					},
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.2:9339",
+						SecretRef: &v1alpha1.SecretReference{
+							Name: name,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+
+			By("Verifying the observed serial number is recorded without overwriting the existing label")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseRunning))
+				g.Expect(resource.Status.SerialNumber).To(Equal("123456789"))
+				g.Expect(resource.Labels).To(HaveKeyWithValue(v1alpha1.DeviceSerialLabel, "manual-serial"))
 			}).Should(Succeed())
 		})
 
