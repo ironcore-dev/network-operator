@@ -23,7 +23,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"google.golang.org/grpc"
-	kerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
@@ -146,7 +145,7 @@ func (p *Provider) Reprovision(ctx context.Context, conn *deviceutil.Connection)
 	}
 	defer func() {
 		if err := p.Disconnect(ctx, conn); err != nil {
-			reterr = kerrors.NewAggregate([]error{reterr, err})
+			reterr = errors.Join(reterr, err)
 		}
 	}()
 	// This is currently defunct on NX-OS, as enabling POAP requires a `copy running-config startup-config` which we

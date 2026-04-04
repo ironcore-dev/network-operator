@@ -7,11 +7,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ygnmi/ygnmi"
 	"github.com/openconfig/ygot/ygot"
 	"google.golang.org/grpc"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
@@ -50,7 +50,7 @@ func (p *Provider) Disconnect(context.Context, *deviceutil.Connection) error {
 }
 
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
-	log := ctrl.LoggerFrom(ctx)
+	log := logr.FromContextOrDiscard(ctx)
 
 	i := &Interface{Name: ygot.String(req.Interface.Spec.Name)}
 	switch req.Interface.Spec.AdminState {
