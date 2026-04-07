@@ -84,20 +84,20 @@ func (rl *ResourceLocker) AcquireLock(ctx context.Context, name, lockerID string
 
 		if err := rl.client.Create(ctx, lease); err != nil {
 			if apierrors.IsAlreadyExists(err) {
-				log.V(2).Info("Lease was created by another locker")
+				log.V(3).Info("Lease was created by another locker")
 				return ErrLockAlreadyHeld
 			}
 			return fmt.Errorf("resourcelock: failed to create lease: %w", err)
 		}
 
-		log.Info("Lock acquired, lease created")
+		log.V(2).Info("Lock acquired, lease created")
 		rl.startRenewal(ctx, name, lockerID)
 		return nil
 	}
 
 	// Lease exists - check if we already own it
 	if lease.Spec.HolderIdentity != nil && *lease.Spec.HolderIdentity == lockerID {
-		log.V(2).Info("Lock already held by this locker")
+		log.V(3).Info("Lock already held by this locker")
 		rl.startRenewal(ctx, name, lockerID)
 		return nil
 	}
@@ -106,7 +106,7 @@ func (rl *ResourceLocker) AcquireLock(ctx context.Context, name, lockerID string
 	if lease.Spec.RenewTime != nil && lease.Spec.LeaseDurationSeconds != nil {
 		expirationTime := lease.Spec.RenewTime.Add(time.Duration(*lease.Spec.LeaseDurationSeconds) * time.Second)
 		if time.Now().Before(expirationTime) {
-			log.V(2).Info("Lock held by another locker", "currentLocker", *lease.Spec.HolderIdentity)
+			log.V(3).Info("Lock held by another locker", "currentLocker", *lease.Spec.HolderIdentity)
 			return ErrLockAlreadyHeld
 		}
 	}
@@ -123,13 +123,13 @@ func (rl *ResourceLocker) AcquireLock(ctx context.Context, name, lockerID string
 
 	if err := rl.client.Update(ctx, lease); err != nil {
 		if apierrors.IsConflict(err) {
-			log.V(2).Info("Lease was claimed by another locker")
+			log.V(3).Info("Lease was claimed by another locker")
 			return ErrLockAlreadyHeld
 		}
 		return fmt.Errorf("resourcelock: failed to update lease: %w", err)
 	}
 
-	log.Info("Lock acquired, claimed expired lease", "previousLocker", previousLocker)
+	log.V(2).Info("Lock acquired, claimed expired lease", "previousLocker", previousLocker)
 	rl.startRenewal(ctx, name, lockerID)
 	return nil
 }
@@ -144,20 +144,20 @@ func (rl *ResourceLocker) ReleaseLock(ctx context.Context, name, lockerID string
 	lease := &coordinationv1.Lease{}
 	if err := rl.client.Get(ctx, client.ObjectKey{Namespace: rl.namespace, Name: name}, lease); err != nil {
 		if apierrors.IsNotFound(err) {
-			log.V(2).Info("Lease not found, nothing to release")
+			log.V(3).Info("Lease not found, nothing to release")
 			return nil
 		}
 		return fmt.Errorf("resourcelock: failed to get lease: %w", err)
 	}
 
 	if lease.Spec.HolderIdentity != nil && *lease.Spec.HolderIdentity != lockerID {
-		log.V(2).Info("Not the current locker, skipping release", "currentLocker", *lease.Spec.HolderIdentity)
+		log.V(3).Info("Not the current locker, skipping release", "currentLocker", *lease.Spec.HolderIdentity)
 		return nil
 	}
 
 	if err := rl.client.Delete(ctx, lease); err != nil {
 		if apierrors.IsNotFound(err) {
-			log.V(2).Info("Lease already deleted")
+			log.V(3).Info("Lease already deleted")
 			return nil
 		}
 		return fmt.Errorf("resourcelock: failed to delete lease: %w", err)
@@ -165,10 +165,10 @@ func (rl *ResourceLocker) ReleaseLock(ctx context.Context, name, lockerID string
 
 	if cancel, ok := rl.cancelFuncs.LoadAndDelete(name); ok {
 		cancel.(context.CancelFunc)()
-		log.V(2).Info("Stopped renewal goroutine")
+		log.V(3).Info("Stopped renewal goroutine")
 	}
 
-	log.Info("Lock released")
+	log.V(2).Info("Lock released")
 	return nil
 }
 
@@ -217,7 +217,7 @@ func (rl *ResourceLocker) renewUntilContextDone(ctx context.Context, name, locke
 		case <-ticker.C:
 			if err := rl.renewLease(ctx, name, lockerID); err != nil {
 				if apierrors.IsNotFound(err) {
-					log.V(2).Info("Lease not found during renewal, stopping renewal goroutine")
+					log.V(3).Info("Lease not found during renewal, stopping renewal goroutine")
 					return
 				}
 				if errors.Is(err, context.Canceled) {

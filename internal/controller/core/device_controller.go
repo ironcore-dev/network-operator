@@ -72,14 +72,14 @@ type DeviceReconciler struct {
 // - https://ahmet.im/blog/controller-pitfalls/#reconcile-method-shape
 func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
-	log.Info("Reconciling resource")
+	log.V(3).Info("Reconciling resource")
 
 	obj := new(v1alpha1.Device)
 	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
 		if apierrors.IsNotFound(err) {
 			// If the custom resource is not found then it usually means that it was deleted or not created
 			// In this way, we will stop the reconciliation
-			log.Info("Resource not found. Ignoring since object must be deleted")
+			log.V(3).Info("Resource not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -105,7 +105,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 
 	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
-		log.Info("Initializing status conditions")
+		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
 
@@ -425,7 +425,7 @@ func (r *DeviceReconciler) secretToDevices(ctx context.Context, obj client.Objec
 		if slices.ContainsFunc(dev.GetSecretRefs(), func(ref v1alpha1.SecretReference) bool {
 			return ref.Name == secret.Name && ref.Namespace == secret.Namespace
 		}) {
-			log.Info("Enqueuing Device for reconciliation", "Device", klog.KObj(&dev))
+			log.V(2).Info("Enqueuing Device for reconciliation", "Device", klog.KObj(&dev))
 			requests = append(requests, ctrl.Request{
 				NamespacedName: client.ObjectKey{
 					Name:      dev.Name,
@@ -463,7 +463,7 @@ func (r *DeviceReconciler) interfaceToDevices(ctx context.Context, obj client.Ob
 		return nil
 	}
 
-	log.Info("Enqueuing Device for reconciliation")
+	log.V(2).Info("Enqueuing Device for reconciliation")
 	return []ctrl.Request{{NamespacedName: client.ObjectKeyFromObject(dev)}}
 }
 

@@ -40,7 +40,7 @@ func EnsureCondition(ctx context.Context, c client.Client, device *v1alpha1.Devi
 	case statusChanged && !isPaused && oldCondition != nil:
 		log.Info("Unpausing reconciliation for this object")
 	case !statusChanged && isPaused:
-		log.V(4).Info("Reconciliation is paused for this object", "reason", newCondition.Message)
+		log.V(3).Info("Reconciliation is paused for this object", "reason", newCondition.Message)
 	}
 
 	// Set Ready=Unknown while paused: the operator is no longer actively

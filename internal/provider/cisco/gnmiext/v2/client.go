@@ -280,7 +280,7 @@ func (c *client) set(ctx context.Context, patch bool, conf ...Configurable) erro
 		// If the current configuration is equal to the desired configuration, skip the update.
 		// This avoids unnecessary updates and potential disruptions.
 		if err == nil && reflect.DeepEqual(cf, got) {
-			c.logger.V(1).Info("Configuration is already up-to-date", "path", cf.XPath())
+			c.logger.V(2).Info("Configuration is already up-to-date", "path", cf.XPath())
 			continue
 		}
 		b, err := c.Marshal(cf)

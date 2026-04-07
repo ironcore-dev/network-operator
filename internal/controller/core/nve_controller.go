@@ -73,12 +73,12 @@ type NetworkVirtualizationEdgeReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.22.1/pkg/reconcile
 func (r *NetworkVirtualizationEdgeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
-	log.Info("Reconciling resource")
+	log.V(3).Info("Reconciling resource")
 
 	obj := new(v1alpha1.NetworkVirtualizationEdge)
 	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Info("Resource not found. Ignoring reconciliation since object must be deleted")
+			log.V(3).Info("Resource not found. Ignoring reconciliation since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -110,7 +110,7 @@ func (r *NetworkVirtualizationEdgeReconciler) Reconcile(ctx context.Context, req
 
 	if err := r.Locker.AcquireLock(ctx, device.Name, "nve-controller"); err != nil {
 		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
-			log.Info("Device is already locked, requeuing reconciliation")
+			log.V(3).Info("Device is already locked, requeuing reconciliation")
 			return ctrl.Result{RequeueAfter: Jitter(time.Second), Priority: new(LockWaitPriorityDefault)}, nil
 		}
 		log.Error(err, "Failed to acquire device lock")
@@ -156,7 +156,7 @@ func (r *NetworkVirtualizationEdgeReconciler) Reconcile(ctx context.Context, req
 				return ctrl.Result{}, err
 			}
 		}
-		log.Info("Resource is being deleted, skipping reconciliation")
+		log.V(3).Info("Resource is being deleted, skipping reconciliation")
 		return ctrl.Result{}, nil
 	}
 
@@ -167,13 +167,13 @@ func (r *NetworkVirtualizationEdgeReconciler) Reconcile(ctx context.Context, req
 			log.Error(err, "Failed to add finalizer to resource")
 			return ctrl.Result{}, err
 		}
-		log.Info("Added finalizer to resource")
+		log.V(1).Info("Added finalizer to resource")
 		return ctrl.Result{}, nil
 	}
 
 	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
-		log.Info("Initializing status conditions")
+		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
 
@@ -501,7 +501,7 @@ func (r *NetworkVirtualizationEdgeReconciler) interfaceToNVE(ctx context.Context
 	for _, i := range nves.Items {
 		if i.Spec.SourceInterfaceRef.Name == intf.Spec.Name ||
 			(i.Spec.AnycastSourceInterfaceRef != nil && i.Spec.AnycastSourceInterfaceRef.Name == intf.Spec.Name) {
-			log.Info("Enqueuing NVE for reconciliation", "NVE", klog.KObj(&i))
+			log.V(2).Info("Enqueuing NVE for reconciliation", "NVE", klog.KObj(&i))
 			requests = append(requests, ctrl.Request{
 				NamespacedName: client.ObjectKey{
 					Name:      i.Name,
@@ -534,7 +534,7 @@ func (r *NetworkVirtualizationEdgeReconciler) deviceToNVEs(ctx context.Context, 
 
 	requests := make([]ctrl.Request, 0, len(list.Items))
 	for _, i := range list.Items {
-		log.Info("Enqueuing NVE for reconciliation", "NVE", klog.KObj(&i))
+		log.V(2).Info("Enqueuing NVE for reconciliation", "NVE", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
 			NamespacedName: client.ObjectKey{
 				Name:      i.Name,
@@ -565,7 +565,7 @@ func (r *NetworkVirtualizationEdgeReconciler) nvesForProviderConfig(ctx context.
 			m.Spec.ProviderConfigRef.Name == obj.GetName() &&
 			m.Spec.ProviderConfigRef.Kind == gkv.Kind &&
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
-			log.Info("Enqueuing NVE for reconciliation", "NVE", klog.KObj(&m))
+			log.V(2).Info("Enqueuing NVE for reconciliation", "NVE", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      m.Name,

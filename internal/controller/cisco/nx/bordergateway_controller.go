@@ -72,14 +72,14 @@ type BorderGatewayReconciler struct {
 // - https://ahmet.im/blog/controller-pitfalls/#reconcile-method-shape
 func (r *BorderGatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
-	log.Info("Reconciling resource")
+	log.V(3).Info("Reconciling resource")
 
 	obj := new(nxv1alpha1.BorderGateway)
 	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
 		if apierrors.IsNotFound(err) {
 			// If the custom resource is not found then it usually means that it was deleted or not created
 			// In this way, we will stop the reconciliation
-			log.Info("Resource not found. Ignoring since object must be deleted")
+			log.V(3).Info("Resource not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -111,7 +111,7 @@ func (r *BorderGatewayReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	if err := r.Locker.AcquireLock(ctx, device.Name, "cisco-nx-border-gateway-controller"); err != nil {
 		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
-			log.Info("Device is already locked, requeuing reconciliation")
+			log.V(3).Info("Device is already locked, requeuing reconciliation")
 			return ctrl.Result{RequeueAfter: corecontroller.Jitter(time.Second), Priority: new(corecontroller.LockWaitPriorityDefault)}, nil
 		}
 		log.Error(err, "Failed to acquire device lock")
@@ -148,7 +148,7 @@ func (r *BorderGatewayReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				return ctrl.Result{}, err
 			}
 		}
-		log.Info("Resource is being deleted, skipping reconciliation")
+		log.V(3).Info("Resource is being deleted, skipping reconciliation")
 		return ctrl.Result{}, nil
 	}
 
@@ -159,13 +159,13 @@ func (r *BorderGatewayReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			log.Error(err, "Failed to add finalizer to resource")
 			return ctrl.Result{}, err
 		}
-		log.Info("Added finalizer to resource")
+		log.V(1).Info("Added finalizer to resource")
 		return ctrl.Result{}, nil
 	}
 
 	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
-		log.Info("Initializing status conditions")
+		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
 
@@ -530,7 +530,7 @@ func (r *BorderGatewayReconciler) sourceInterfaceToBorderGateway(ctx context.Con
 	requests := []ctrl.Request{}
 	for _, bg := range bgws.Items {
 		if bg.Spec.SourceInterfaceRef.Name == intf.Name {
-			log.Info("Enqueuing BorderGateway for reconciliation", "BorderGateway", klog.KObj(&bg))
+			log.V(2).Info("Enqueuing BorderGateway for reconciliation", "BorderGateway", klog.KObj(&bg))
 			requests = append(requests, ctrl.Request{
 				NamespacedName: client.ObjectKey{
 					Name:      bg.Name,
@@ -564,7 +564,7 @@ func (r *BorderGatewayReconciler) interconnectInterfaceToBorderGateway(ctx conte
 		if slices.ContainsFunc(bg.Spec.InterconnectInterfaceRefs, func(ref nxv1alpha1.InterconnectInterfaceReference) bool {
 			return ref.Name == intf.Name
 		}) {
-			log.Info("Enqueuing BorderGateway for reconciliation", "BorderGateway", klog.KObj(&bg))
+			log.V(2).Info("Enqueuing BorderGateway for reconciliation", "BorderGateway", klog.KObj(&bg))
 			requests = append(requests, ctrl.Request{
 				NamespacedName: client.ObjectKey{
 					Name:      bg.Name,
@@ -598,7 +598,7 @@ func (r *BorderGatewayReconciler) bgpPeerToBorderGateway(ctx context.Context, ob
 		if slices.ContainsFunc(bg.Spec.BGPPeerRefs, func(ref nxv1alpha1.BGPPeerReference) bool {
 			return ref.Name == peer.Name
 		}) {
-			log.Info("Enqueuing BorderGateway for reconciliation", "BorderGateway", klog.KObj(&bg))
+			log.V(2).Info("Enqueuing BorderGateway for reconciliation", "BorderGateway", klog.KObj(&bg))
 			requests = append(requests, ctrl.Request{
 				NamespacedName: client.ObjectKey{
 					Name:      bg.Name,
@@ -632,7 +632,7 @@ func (r *BorderGatewayReconciler) deviceToBorderGateways(ctx context.Context, ob
 
 	requests := make([]ctrl.Request, 0, len(list.Items))
 	for _, i := range list.Items {
-		log.Info("Enqueuing BorderGateway for reconciliation", "BorderGateway", klog.KObj(&i))
+		log.V(2).Info("Enqueuing BorderGateway for reconciliation", "BorderGateway", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
 			NamespacedName: client.ObjectKey{
 				Name:      i.Name,

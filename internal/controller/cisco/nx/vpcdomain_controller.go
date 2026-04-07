@@ -86,12 +86,12 @@ type vpcdomainScope struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.21.0/pkg/reconcile
 func (r *VPCDomainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := logf.FromContext(ctx)
-	log.Info("Reconciling resource")
+	log.V(3).Info("Reconciling resource")
 
 	obj := new(nxv1.VPCDomain)
 	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Info("VPCDomain resource not found. Ignoring since object must be deleted.")
+			log.V(3).Info("VPCDomain resource not found. Ignoring since object must be deleted.")
 			return ctrl.Result{}, nil
 		}
 		log.Error(err, "Failed to get resource")
@@ -120,7 +120,7 @@ func (r *VPCDomainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	if err := r.Locker.AcquireLock(ctx, device.Name, "cisco-nx-vpcdomain-controller"); err != nil {
 		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
-			log.Info("Device is already locked, requeuing reconciliation")
+			log.V(3).Info("Device is already locked, requeuing reconciliation")
 			return ctrl.Result{RequeueAfter: corecontroller.Jitter(time.Second), Priority: new(corecontroller.LockWaitPriorityDefault)}, nil
 		}
 		log.Error(err, "Failed to acquire device lock")
@@ -157,7 +157,7 @@ func (r *VPCDomainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				return ctrl.Result{}, err
 			}
 		}
-		log.Info("Resource is being deleted, skipping reconciliation")
+		log.V(3).Info("Resource is being deleted, skipping reconciliation")
 		return ctrl.Result{}, nil
 	}
 
@@ -167,13 +167,13 @@ func (r *VPCDomainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			log.Error(err, "Failed to add finalizer to resource")
 			return ctrl.Result{}, err
 		}
-		log.Info("Added finalizer to resource")
+		log.V(1).Info("Added finalizer to resource")
 		return ctrl.Result{}, nil
 	}
 
 	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, corev1.ReadyCondition) {
-		log.Info("Initializing status conditions")
+		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
 
@@ -537,7 +537,7 @@ func (r *VPCDomainReconciler) deviceToVPCDomains(ctx context.Context, obj client
 
 	requests := make([]ctrl.Request, 0, len(list.Items))
 	for _, i := range list.Items {
-		log.Info("Enqueuing VPCDomain for reconciliation", "VPCDomain", klog.KObj(&i))
+		log.V(2).Info("Enqueuing VPCDomain for reconciliation", "VPCDomain", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
 			NamespacedName: client.ObjectKey{
 				Name:      i.Name,

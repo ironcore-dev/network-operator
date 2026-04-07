@@ -108,7 +108,7 @@ func GetDeviceConnection(ctx context.Context, r client.Reader, obj *v1alpha1.Dev
 
 		log := ctrl.LoggerFrom(ctx)
 		if certPool := x509.NewCertPool(); certPool.AppendCertsFromPEM(ca) {
-			log.Info("added CA certificate to x509 pool")
+			log.V(2).Info("added CA certificate to x509 pool")
 			conf = &tls.Config{RootCAs: certPool, MinVersion: tls.VersionTLS12}
 
 			if obj.Spec.Endpoint.TLS.Certificate != nil {
@@ -116,7 +116,7 @@ func GetDeviceConnection(ctx context.Context, r client.Reader, obj *v1alpha1.Dev
 				if err != nil {
 					return nil, err
 				}
-				log.Info("added client certificate tls configuration")
+				log.V(2).Info("added client certificate tls configuration")
 				conf.Certificates = []tls.Certificate{*cert}
 			}
 		} else {
