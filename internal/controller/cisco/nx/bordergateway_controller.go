@@ -112,7 +112,7 @@ func (r *BorderGatewayReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if err := r.Locker.AcquireLock(ctx, device.Name, "cisco-nx-border-gateway-controller"); err != nil {
 		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
 			log.Info("Device is already locked, requeuing reconciliation")
-			return ctrl.Result{RequeueAfter: corecontroller.Jitter(time.Second)}, nil
+			return ctrl.Result{RequeueAfter: corecontroller.Jitter(time.Second), Priority: new(corecontroller.LockWaitPriorityDefault)}, nil
 		}
 		log.Error(err, "Failed to acquire device lock")
 		return ctrl.Result{}, err

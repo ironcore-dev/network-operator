@@ -110,7 +110,7 @@ func (r *RoutingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if err := r.Locker.AcquireLock(ctx, device.Name, "routingpolicy-controller"); err != nil {
 		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
 			log.Info("Device is already locked, requeuing reconciliation")
-			return ctrl.Result{RequeueAfter: Jitter(time.Second)}, nil
+			return ctrl.Result{RequeueAfter: Jitter(time.Second), Priority: new(LockWaitPriorityDefault)}, nil
 		}
 		log.Error(err, "Failed to acquire device lock")
 		return ctrl.Result{}, err
