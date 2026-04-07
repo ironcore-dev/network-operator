@@ -17,8 +17,9 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	// Set runtime concurrency to match CPU limit imposed by Kubernetes
-	"github.com/sapcc/go-api-declarations/bininfo"
 	_ "go.uber.org/automaxprocs"
+
+	"github.com/sapcc/go-api-declarations/bininfo"
 	"go.uber.org/zap/zapcore"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,6 +36,11 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	// Import all supported provider implementations.
+	_ "github.com/ironcore-dev/network-operator/internal/provider/cisco/iosxr"
+	_ "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos"
+	_ "github.com/ironcore-dev/network-operator/internal/provider/openconfig"
+
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	nxcontroller "github.com/ironcore-dev/network-operator/internal/controller/cisco/nx"
@@ -45,11 +51,6 @@ import (
 	tftpserver "github.com/ironcore-dev/network-operator/internal/tftp"
 	webhooknxv1alpha1 "github.com/ironcore-dev/network-operator/internal/webhook/cisco/nx/v1alpha1"
 	webhookv1alpha1 "github.com/ironcore-dev/network-operator/internal/webhook/core/v1alpha1"
-
-	// Import all supported provider implementations.
-	_ "github.com/ironcore-dev/network-operator/internal/provider/cisco/iosxr"
-	_ "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos"
-	_ "github.com/ironcore-dev/network-operator/internal/provider/openconfig"
 	// +kubebuilder:scaffold:imports
 )
 
