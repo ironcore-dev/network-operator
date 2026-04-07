@@ -220,6 +220,9 @@ func (rl *ResourceLocker) renewUntilContextDone(ctx context.Context, name, locke
 					log.V(2).Info("Lease not found during renewal, stopping renewal goroutine")
 					return
 				}
+				if errors.Is(err, context.Canceled) {
+					return
+				}
 				log.Error(err, "Failed to renew lease")
 			}
 		case <-ctx.Done():
