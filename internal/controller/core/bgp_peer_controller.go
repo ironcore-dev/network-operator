@@ -65,6 +65,7 @@ type BGPPeerReconciler struct {
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgppeers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgppeers/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgppeers/finalizers,verbs=update
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgp,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -259,6 +260,24 @@ func (r *BGPPeerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				},
 			}),
 		).
+		// Watches enqueues BGPPeers for updates in BGP resources on the same device.
+		// Triggers on create, delete, and update events. For updates, only triggers
+		// when the BGP transitions from not-ready to ready.
+		Watches(
+			&v1alpha1.BGP{},
+			handler.EnqueueRequestsFromMapFunc(r.bgpToBGPPeers),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					oldBGP := e.ObjectOld.(*v1alpha1.BGP)
+					newBGP := e.ObjectNew.(*v1alpha1.BGP)
+					// Only trigger when the BGP transitions from not-ready to ready.
+					return !conditions.IsReady(oldBGP) && conditions.IsReady(newBGP)
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
 		Complete(r)
 }
 
@@ -288,6 +307,39 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (_ c
 	defer func() {
 		conditions.RecomputeReady(s.BGPPeer)
 	}()
+
+	// Check that at least one BGP resource exists for the device.
+	// A BGPPeer cannot function without a BGP process running on the same device.
+	bgpList := new(v1alpha1.BGPList)
+	if err := r.List(ctx, bgpList,
+		client.InNamespace(s.BGPPeer.Namespace),
+		client.MatchingLabels{v1alpha1.DeviceLabel: s.Device.Name},
+	); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to list BGP resources for device %q: %w", s.Device.Name, err)
+	}
+
+	if len(bgpList.Items) == 0 {
+		conditions.Set(s.BGPPeer, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.BGPNotFoundReason,
+			Message: fmt.Sprintf("no BGP resource found for device %q", s.Device.Name),
+		})
+		return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("no BGP resource found for device %q", s.Device.Name))
+	}
+
+	// Ensure at least one BGP resource on the device is ready before
+	// establishing peers. BGP has no operational condition, so its ready
+	// condition reflects only successful configuration.
+	if !slices.ContainsFunc(bgpList.Items, func(bgp v1alpha1.BGP) bool { return conditions.IsReady(&bgp) }) {
+		conditions.Set(s.BGPPeer, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.WaitingForDependenciesReason,
+			Message: fmt.Sprintf("BGP resource for device %q is not yet ready", s.Device.Name),
+		})
+		return ctrl.Result{}, nil
+	}
 
 	var sourceInterface string
 	if addr := s.BGPPeer.Spec.LocalAddress; addr != nil {
@@ -427,6 +479,39 @@ func (r *BGPPeerReconciler) deviceToBGPPeers(ctx context.Context, obj client.Obj
 	requests := make([]ctrl.Request, 0, len(list.Items))
 	for _, i := range list.Items {
 		log.V(2).Info("Enqueuing BGPPeer for reconciliation", "BGPPeer", klog.KObj(&i))
+		requests = append(requests, ctrl.Request{
+			NamespacedName: client.ObjectKey{
+				Name:      i.Name,
+				Namespace: i.Namespace,
+			},
+		})
+	}
+
+	return requests
+}
+
+// bgpToBGPPeers is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for BGPPeers when a BGP resource is created, deleted or updated on the same device.
+func (r *BGPPeerReconciler) bgpToBGPPeers(ctx context.Context, obj client.Object) []ctrl.Request {
+	bgp, ok := obj.(*v1alpha1.BGP)
+	if !ok {
+		panic(fmt.Sprintf("Expected a BGP but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "BGP", klog.KObj(bgp))
+
+	list := new(v1alpha1.BGPPeerList)
+	if err := r.List(ctx, list,
+		client.InNamespace(bgp.Namespace),
+		client.MatchingLabels{v1alpha1.DeviceLabel: bgp.Spec.DeviceRef.Name},
+	); err != nil {
+		log.Error(err, "Failed to list BGPPeers")
+		return nil
+	}
+
+	requests := make([]ctrl.Request, 0, len(list.Items))
+	for _, i := range list.Items {
+		log.Info("Enqueuing BGPPeer for reconciliation", "BGPPeer", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
 			NamespacedName: client.ObjectKey{
 				Name:      i.Name,

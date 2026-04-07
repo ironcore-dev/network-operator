@@ -12,14 +12,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/conditions"
 )
 
 var _ = Describe("BGPPeer Controller", func() {
 	Context("When reconciling a resource", func() {
 		const host = "10.0.0.1"
 		var (
-			name string
-			key  client.ObjectKey
+			name   string
+			key    client.ObjectKey
+			bgpKey client.ObjectKey
 		)
 
 		BeforeEach(func() {
@@ -38,11 +40,38 @@ var _ = Describe("BGPPeer Controller", func() {
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
 			name = device.Name
 			key = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
+
+			By("Creating a BGP resource for the Device")
+			bgp := &v1alpha1.BGP{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test-bgppeer-bgp-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.BGPSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
+					ASNumber:  intstr.FromInt(65000),
+					RouterID:  "10.0.0.10",
+				},
+			}
+			Expect(k8sClient.Create(ctx, bgp)).To(Succeed())
+			bgpKey = client.ObjectKey{Name: bgp.Name, Namespace: metav1.NamespaceDefault}
+
+			By("Waiting for the BGP resource to be fully configured")
+			Eventually(func(g Gomega) {
+				bgp := &v1alpha1.BGP{}
+				g.Expect(k8sClient.Get(ctx, bgpKey, bgp)).To(Succeed())
+				g.Expect(conditions.IsReady(bgp)).To(BeTrue())
+			}).Should(Succeed())
 		})
 
 		AfterEach(func() {
 			By("Cleaning up all BGPPeer resources")
 			Expect(k8sClient.DeleteAllOf(ctx, &v1alpha1.BGPPeer{}, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+
+			By("Cleaning up the BGP resource")
+			bgp := &v1alpha1.BGP{}
+			Expect(k8sClient.Get(ctx, bgpKey, bgp)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, bgp)).To(Succeed())
 
 			By("Cleaning up all Interface resources")
 			Expect(k8sClient.DeleteAllOf(ctx, &v1alpha1.Interface{}, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
@@ -256,6 +285,139 @@ var _ = Describe("BGPPeer Controller", func() {
 				g.Expect(resource.Status.Conditions[3].Type).To(Equal(v1alpha1.PausedCondition))
 				g.Expect(resource.Status.Conditions[3].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
+		})
+
+		It("Should set Configured=False with BGPNotFoundReason when no BGP resource exists on device", func() {
+			By("Creating a separate Device without a BGP resource")
+			device := &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test-bgppeer-nobgp-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.3:9339",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+			key := client.ObjectKey{Name: device.Name, Namespace: metav1.NamespaceDefault}
+
+			By("Creating a BGPPeer on the device that has no BGP")
+			bgppeer := &v1alpha1.BGPPeer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      device.Name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.BGPPeerSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
+					Address:   "10.0.0.2",
+					ASNumber:  intstr.FromInt(65001),
+				},
+			}
+			Expect(k8sClient.Create(ctx, bgppeer)).To(Succeed())
+
+			By("Verifying the controller sets ConfiguredCondition to False with BGPNotFoundReason")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.BGPPeer{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Conditions).To(HaveLen(4))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Reason).To(Equal(v1alpha1.BGPNotFoundReason))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.OperationalCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionUnknown))
+				g.Expect(resource.Status.Conditions[3].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[3].Status).To(Equal(metav1.ConditionFalse))
+			}).Should(Succeed())
+
+			By("Verifying the BGP peer is NOT configured in the provider")
+			Consistently(func(g Gomega) {
+				g.Expect(testProvider.BGPPeers.Has("10.0.0.2")).To(BeFalse(), "Provider should not have BGP peer configured")
+			}).Should(Succeed())
+
+			By("Cleaning up test-specific resources")
+			Expect(k8sClient.Delete(ctx, bgppeer)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
+		})
+
+		It("Should set Configured=False with WaitingForDependenciesReason when BGP exists but is not configured", func() {
+			By("Creating a separate Device")
+			unconfiguredDevice := &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test-bgppeer-uncfg-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.4:9339",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, unconfiguredDevice)).To(Succeed())
+			unconfiguredKey := client.ObjectKey{Name: unconfiguredDevice.Name, Namespace: metav1.NamespaceDefault}
+
+			By("Creating a paused BGP resource with DeviceLabel pre-set (will not be configured)")
+			bgp := &v1alpha1.BGP{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test-bgppeer-uncfg-bgp-",
+					Namespace:    metav1.NamespaceDefault,
+					Labels: map[string]string{
+						v1alpha1.DeviceLabel: unconfiguredDevice.Name,
+					},
+					Annotations: map[string]string{
+						v1alpha1.PausedAnnotation: "",
+					},
+				},
+				Spec: v1alpha1.BGPSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: unconfiguredDevice.Name},
+					ASNumber:  intstr.FromInt(65000),
+					RouterID:  "10.0.0.11",
+				},
+			}
+			Expect(k8sClient.Create(ctx, bgp)).To(Succeed())
+
+			By("Creating a BGPPeer on the device with the unconfigured BGP")
+			bgppeer := &v1alpha1.BGPPeer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      unconfiguredDevice.Name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.BGPPeerSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: unconfiguredDevice.Name},
+					Address:   "10.0.0.3",
+					ASNumber:  intstr.FromInt(65002),
+				},
+			}
+			Expect(k8sClient.Create(ctx, bgppeer)).To(Succeed())
+
+			By("Verifying the controller sets ConfiguredCondition to False with WaitingForDependenciesReason")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.BGPPeer{}
+				g.Expect(k8sClient.Get(ctx, unconfiguredKey, resource)).To(Succeed())
+				g.Expect(resource.Status.Conditions).To(HaveLen(4))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Reason).To(Equal(v1alpha1.WaitingForDependenciesReason))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.OperationalCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionUnknown))
+				g.Expect(resource.Status.Conditions[3].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[3].Status).To(Equal(metav1.ConditionFalse))
+			}).Should(Succeed())
+
+			By("Verifying the BGP peer is NOT configured in the provider")
+			Consistently(func(g Gomega) {
+				g.Expect(testProvider.BGPPeers.Has("10.0.0.3")).To(BeFalse(), "Provider should not have BGP peer configured")
+			}).Should(Succeed())
+
+			By("Cleaning up test-specific resources")
+			Expect(k8sClient.Delete(ctx, bgppeer)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, bgp)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, unconfiguredDevice, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
 		})
 	})
 })

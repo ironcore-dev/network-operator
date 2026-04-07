@@ -210,6 +210,14 @@ const (
 	PrefixSetNotFoundReason = "PrefixSetNotFound"
 )
 
+// Reasons that are specific to [BGPPeer] objects.
+const (
+	// BGPNotFoundReason indicates that no BGP resource was found for the device
+	// referenced by the BGPPeer. A BGPPeer cannot function without a BGP process
+	// running on the same device.
+	BGPNotFoundReason = "BGPNotFound"
+)
+
 // Reasons that are specific to [BorderGateway] objects.
 const (
 	// BGPPeerNotFoundReason indicates that a referenced BGPPeer was not found.
