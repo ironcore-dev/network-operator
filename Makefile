@@ -59,6 +59,15 @@ fmt: FORCE install-gofumpt
 	@printf "\e[1;36m>> gofumpt -l -w .\e[0m\n"
 	@gofumpt -l -w $(shell git ls-files '*.go' | grep -v '^internal/provider/openconfig')
 
+bin/golangci-lint-kube-api-linter:
+	@printf "\e[1;36m>> Installing golangci-lint-kube-api-linter...\e[0m\n"
+	@golangci-lint custom
+
+run-kubeapilinter: FORCE bin/golangci-lint-kube-api-linter
+	@printf "\e[1;36m>> bin/golangci-lint-kube-api-linter run --config=.golangci-kal.yaml\e[0m\n"
+	@bin/golangci-lint-kube-api-linter config verify --config=.golangci-kal.yaml
+	@bin/golangci-lint-kube-api-linter run --config=.golangci-kal.yaml
+
 # Run the e2e tests against a k8s cluster.
 test-e2e: FORCE
 	@command -v kind >/dev/null 2>&1 || { \
