@@ -14,8 +14,8 @@ import (
 )
 
 var (
-	_ gnmiext.Configurable = (*BGP)(nil)
-	_ gnmiext.Configurable = (*BGPDom)(nil)
+	_ gnmiext.DataElement = (*BGP)(nil)
+	_ gnmiext.DataElement = (*BGPDom)(nil)
 )
 
 type BGP struct {

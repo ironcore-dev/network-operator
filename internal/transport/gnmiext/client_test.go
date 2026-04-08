@@ -105,7 +105,7 @@ func TestClient_GetConfig(t *testing.T) {
 	tests := []struct {
 		name    string
 		conn    grpc.ClientConnInterface
-		conf    []Configurable
+		configs []DataElement
 		wantErr bool
 	}{
 		{
@@ -156,7 +156,7 @@ func TestClient_GetConfig(t *testing.T) {
 					}, nil
 				},
 			},
-			conf:    []Configurable{new(Hostname)},
+			configs: []DataElement{new(Hostname)},
 			wantErr: false,
 		},
 		{
@@ -226,12 +226,12 @@ func TestClient_GetConfig(t *testing.T) {
 					}, nil
 				},
 			},
-			conf:    []Configurable{new(Hostname), new(Hostname)},
+			configs: []DataElement{new(Hostname), new(Hostname)},
 			wantErr: false,
 		},
 		{
 			name:    "Empty list",
-			conf:    []Configurable{},
+			configs: []DataElement{},
 			wantErr: false,
 		},
 		{
@@ -260,7 +260,7 @@ func TestClient_GetConfig(t *testing.T) {
 					return nil, errors.New("get rpc failed")
 				},
 			},
-			conf:    []Configurable{new(Hostname)},
+			configs: []DataElement{new(Hostname)},
 			wantErr: true,
 		},
 		{
@@ -291,7 +291,7 @@ func TestClient_GetConfig(t *testing.T) {
 					}, nil
 				},
 			},
-			conf:    []Configurable{new(Hostname)},
+			configs: []DataElement{new(Hostname)},
 			wantErr: true,
 		},
 		{
@@ -326,7 +326,7 @@ func TestClient_GetConfig(t *testing.T) {
 					}, nil
 				},
 			},
-			conf:    []Configurable{new(Hostname)},
+			configs: []DataElement{new(Hostname)},
 			wantErr: true,
 		},
 		{
@@ -377,7 +377,7 @@ func TestClient_GetConfig(t *testing.T) {
 					}, nil
 				},
 			},
-			conf:    []Configurable{new(Hostname)},
+			configs: []DataElement{new(Hostname)},
 			wantErr: true,
 		},
 		{
@@ -443,7 +443,7 @@ func TestClient_GetConfig(t *testing.T) {
 					}, nil
 				},
 			},
-			conf:    []Configurable{new(Hostname)},
+			configs: []DataElement{new(Hostname)},
 			wantErr: true,
 		},
 		{
@@ -494,7 +494,7 @@ func TestClient_GetConfig(t *testing.T) {
 					}, nil
 				},
 			},
-			conf:    []Configurable{new(Hostname)},
+			configs: []DataElement{new(Hostname)},
 			wantErr: true,
 		},
 	}
@@ -506,7 +506,7 @@ func TestClient_GetConfig(t *testing.T) {
 				gnmi:     gpb.NewGNMIClient(test.conn),
 			}
 
-			err := client.GetConfig(t.Context(), test.conf...)
+			err := client.GetConfig(t.Context(), test.configs...)
 			if (err != nil) != test.wantErr {
 				t.Errorf("GetConfig() error = %v, wantErr %v", err, test.wantErr)
 			}
@@ -518,7 +518,7 @@ func TestClient_GetState(t *testing.T) {
 	tests := []struct {
 		name    string
 		conn    grpc.ClientConnInterface
-		conf    []Configurable
+		states  []DataElement
 		wantErr bool
 	}{
 		{
@@ -569,12 +569,12 @@ func TestClient_GetState(t *testing.T) {
 					}, nil
 				},
 			},
-			conf:    []Configurable{new(HostnameState)},
+			states:  []DataElement{new(HostnameState)},
 			wantErr: false,
 		},
 		{
 			name:    "Empty list",
-			conf:    []Configurable{},
+			states:  []DataElement{},
 			wantErr: false,
 		},
 	}
@@ -586,7 +586,7 @@ func TestClient_GetState(t *testing.T) {
 				gnmi:     gpb.NewGNMIClient(test.conn),
 			}
 
-			err := client.GetState(t.Context(), test.conf...)
+			err := client.GetState(t.Context(), test.states...)
 			if (err != nil) != test.wantErr {
 				t.Errorf("GetState() error = %v, wantErr %v", err, test.wantErr)
 			}
@@ -598,7 +598,7 @@ func TestClient_Update(t *testing.T) {
 	tests := []struct {
 		name    string
 		conn    grpc.ClientConnInterface
-		conf    []Configurable
+		updates []DataElement
 		wantErr bool
 	}{
 		{
@@ -680,7 +680,7 @@ func TestClient_Update(t *testing.T) {
 					}, nil
 				},
 			},
-			conf:    []Configurable{new(Hostname("new-hostname"))},
+			updates: []DataElement{new(Hostname("new-hostname"))},
 			wantErr: false,
 		},
 		{
@@ -731,7 +731,7 @@ func TestClient_Update(t *testing.T) {
 					}, nil
 				},
 			},
-			conf:    []Configurable{new(Hostname("test-hostname"))},
+			updates: []DataElement{new(Hostname("test-hostname"))},
 			wantErr: false,
 		},
 		{
@@ -760,7 +760,7 @@ func TestClient_Update(t *testing.T) {
 					return nil, errors.New("get rpc failed")
 				},
 			},
-			conf:    []Configurable{new(Hostname("test-hostname"))},
+			updates: []DataElement{new(Hostname("test-hostname"))},
 			wantErr: true,
 		},
 		{
@@ -840,12 +840,12 @@ func TestClient_Update(t *testing.T) {
 					return nil, errors.New("set rpc failed")
 				},
 			},
-			conf:    []Configurable{new(Hostname("new-hostname"))},
+			updates: []DataElement{new(Hostname("new-hostname"))},
 			wantErr: true,
 		},
 		{
 			name:    "Empty list",
-			conf:    []Configurable{},
+			updates: []DataElement{},
 			wantErr: false,
 		},
 	}
@@ -857,7 +857,7 @@ func TestClient_Update(t *testing.T) {
 				gnmi:     gpb.NewGNMIClient(test.conn),
 			}
 
-			err := client.Update(t.Context(), test.conf...)
+			err := client.Update(t.Context(), test.updates...)
 			if (err != nil) != test.wantErr {
 				t.Errorf("Update() error = %v, wantErr %v", err, test.wantErr)
 			}
@@ -869,7 +869,7 @@ func TestClient_Patch(t *testing.T) {
 	tests := []struct {
 		name    string
 		conn    grpc.ClientConnInterface
-		conf    []Configurable
+		patches []DataElement
 		wantErr bool
 	}{
 		{
@@ -951,7 +951,7 @@ func TestClient_Patch(t *testing.T) {
 					}, nil
 				},
 			},
-			conf:    []Configurable{new(Hostname("new-hostname"))},
+			patches: []DataElement{new(Hostname("new-hostname"))},
 			wantErr: false,
 		},
 		{
@@ -1002,12 +1002,12 @@ func TestClient_Patch(t *testing.T) {
 					}, nil
 				},
 			},
-			conf:    []Configurable{new(Hostname("test-hostname"))},
+			patches: []DataElement{new(Hostname("test-hostname"))},
 			wantErr: false,
 		},
 		{
 			name:    "Empty list",
-			conf:    []Configurable{},
+			patches: []DataElement{},
 			wantErr: false,
 		},
 	}
@@ -1019,7 +1019,7 @@ func TestClient_Patch(t *testing.T) {
 				gnmi:     gpb.NewGNMIClient(test.conn),
 			}
 
-			err := client.Patch(t.Context(), test.conf...)
+			err := client.Patch(t.Context(), test.patches...)
 			if (err != nil) != test.wantErr {
 				t.Errorf("Update() error = %v, wantErr %v", err, test.wantErr)
 			}
@@ -1031,7 +1031,7 @@ func TestClient_Delete(t *testing.T) {
 	tests := []struct {
 		name    string
 		conn    grpc.ClientConnInterface
-		conf    []Configurable
+		deletes []DataElement
 		wantErr bool
 	}{
 		{
@@ -1059,7 +1059,7 @@ func TestClient_Delete(t *testing.T) {
 					}, nil
 				},
 			},
-			conf:    []Configurable{new(Hostname)},
+			deletes: []DataElement{new(Hostname)},
 			wantErr: false,
 		},
 		{
@@ -1094,7 +1094,7 @@ func TestClient_Delete(t *testing.T) {
 					}, nil
 				},
 			},
-			conf:    []Configurable{new(DefaultableHostname)},
+			deletes: []DataElement{new(DefaultableHostname)},
 			wantErr: false,
 		},
 		{
@@ -1120,12 +1120,12 @@ func TestClient_Delete(t *testing.T) {
 					return nil, errors.New("set rpc failed")
 				},
 			},
-			conf:    []Configurable{new(Hostname)},
+			deletes: []DataElement{new(Hostname)},
 			wantErr: true,
 		},
 		{
 			name:    "Empty list",
-			conf:    []Configurable{},
+			deletes: []DataElement{},
 			wantErr: false,
 		},
 	}
@@ -1137,7 +1137,7 @@ func TestClient_Delete(t *testing.T) {
 				gnmi:     gpb.NewGNMIClient(test.conn),
 			}
 
-			err := client.Delete(context.Background(), test.conf...)
+			err := client.Delete(context.Background(), test.deletes...)
 			if (err != nil) != test.wantErr {
 				t.Errorf("Delete() error = %v, wantErr %v", err, test.wantErr)
 			}
@@ -1327,7 +1327,7 @@ func TestClient_Unmarshal(t *testing.T) {
 
 type Hostname string
 
-var _ Configurable = (*Hostname)(nil)
+var _ DataElement = (*Hostname)(nil)
 
 func (*Hostname) XPath() string { return "openconfig:system/config/hostname" }
 
@@ -1335,7 +1335,7 @@ func (*Hostname) XPath() string { return "openconfig:system/config/hostname" }
 
 type HostnameState string
 
-var _ Configurable = (*HostnameState)(nil)
+var _ DataElement = (*HostnameState)(nil)
 
 func (*HostnameState) XPath() string { return "openconfig:system/state/hostname" }
 
@@ -1344,8 +1344,8 @@ func (*HostnameState) XPath() string { return "openconfig:system/state/hostname"
 type DefaultableHostname string
 
 var (
-	_ Configurable = (*DefaultableHostname)(nil)
-	_ Defaultable  = (*DefaultableHostname)(nil)
+	_ DataElement = (*DefaultableHostname)(nil)
+	_ Defaultable = (*DefaultableHostname)(nil)
 )
 
 func (*DefaultableHostname) XPath() string { return "openconfig:system/config/hostname" }

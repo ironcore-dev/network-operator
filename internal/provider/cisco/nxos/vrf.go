@@ -11,7 +11,7 @@ const (
 	ManagementVRFName = "management"
 )
 
-var _ gnmiext.Configurable = (*VRF)(nil)
+var _ gnmiext.DataElement = (*VRF)(nil)
 
 type VRF struct {
 	Encap    Option[string] `json:"encap"`

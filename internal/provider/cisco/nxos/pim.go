@@ -6,13 +6,13 @@ package nxos
 import "github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 
 var (
-	_ gnmiext.Configurable = (*PIM)(nil)
-	_ gnmiext.Configurable = (*PIMDom)(nil)
-	_ gnmiext.Configurable = (*StaticRPItems)(nil)
-	_ gnmiext.Configurable = (*StaticRP)(nil)
-	_ gnmiext.Configurable = (*StaticRPGrp)(nil)
-	_ gnmiext.Configurable = (*AnycastPeerItems)(nil)
-	_ gnmiext.Configurable = (*PIMIfItems)(nil)
+	_ gnmiext.DataElement = (*PIM)(nil)
+	_ gnmiext.DataElement = (*PIMDom)(nil)
+	_ gnmiext.DataElement = (*StaticRPItems)(nil)
+	_ gnmiext.DataElement = (*StaticRP)(nil)
+	_ gnmiext.DataElement = (*StaticRPGrp)(nil)
+	_ gnmiext.DataElement = (*AnycastPeerItems)(nil)
+	_ gnmiext.DataElement = (*PIMIfItems)(nil)
 )
 
 type PIM struct {

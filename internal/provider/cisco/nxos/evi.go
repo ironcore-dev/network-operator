@@ -14,7 +14,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
-var _ gnmiext.Configurable = (*BDEVI)(nil)
+var _ gnmiext.DataElement = (*BDEVI)(nil)
 
 // BDEVI represents a Bridge Domain Ethernet VPN Instance (MAC-VRF).
 type BDEVI struct {

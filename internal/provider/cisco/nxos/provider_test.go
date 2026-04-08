@@ -20,12 +20,12 @@ import (
 
 type TestCase struct {
 	name string
-	val  gnmiext.Configurable
+	val  gnmiext.DataElement
 }
 
 var tests []TestCase
 
-func Register(name string, val gnmiext.Configurable) {
+func Register(name string, val gnmiext.DataElement) {
 	tests = append(tests, TestCase{
 		name: name,
 		val:  val,

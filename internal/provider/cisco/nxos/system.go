@@ -21,11 +21,11 @@ import (
 const Manufacturer = "Cisco"
 
 var (
-	_ gnmiext.Configurable = (*SystemJumboMTU)(nil)
-	_ gnmiext.Defaultable  = (*SystemJumboMTU)(nil)
-	_ gnmiext.Configurable = (*Model)(nil)
-	_ gnmiext.Configurable = (*SerialNumber)(nil)
-	_ gnmiext.Configurable = (*FirmwareVersion)(nil)
+	_ gnmiext.DataElement = (*SystemJumboMTU)(nil)
+	_ gnmiext.Defaultable = (*SystemJumboMTU)(nil)
+	_ gnmiext.DataElement = (*Model)(nil)
+	_ gnmiext.DataElement = (*SerialNumber)(nil)
+	_ gnmiext.DataElement = (*FirmwareVersion)(nil)
 )
 
 // SystemJumboMTU represents the jumbo MTU size configured on the system.
@@ -61,7 +61,7 @@ func (*FirmwareVersion) XPath() string {
 	return "System/showversion-items/nxosVersion"
 }
 
-var _ gnmiext.Configurable = (*BootPOAP)(nil)
+var _ gnmiext.DataElement = (*BootPOAP)(nil)
 
 type BootPOAP string
 

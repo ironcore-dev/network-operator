@@ -6,8 +6,8 @@ package nxos
 import "github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 
 var (
-	_ gnmiext.Configurable = (*NTP)(nil)
-	_ gnmiext.Defaultable  = (*NTP)(nil)
+	_ gnmiext.DataElement = (*NTP)(nil)
+	_ gnmiext.Defaultable = (*NTP)(nil)
 )
 
 // NTP represents the NTP configuration on a NX-OS device.

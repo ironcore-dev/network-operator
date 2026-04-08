@@ -91,8 +91,8 @@ func (c *Certificate) EncodeKeyPair() (private, public []byte, err error) {
 }
 
 var (
-	_ gnmiext.Configurable = (*Trustpoint)(nil)
-	_ gnmiext.Configurable = (*KeyPair)(nil)
+	_ gnmiext.DataElement = (*Trustpoint)(nil)
+	_ gnmiext.DataElement = (*KeyPair)(nil)
 )
 
 // Trustpoint represents a PKI trustpoint configuration on a NX-OS device.

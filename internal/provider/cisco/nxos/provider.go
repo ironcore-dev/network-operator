@@ -533,7 +533,7 @@ func (p *Provider) EnsureEVPNInstance(ctx context.Context, req *provider.EVPNIns
 		return err
 	}
 
-	conf := make([]gnmiext.Configurable, 0, 3)
+	updates := make([]gnmiext.DataElement, 0, 3)
 	if req.EVPNInstance.Spec.Type == v1alpha1.EVPNInstanceTypeBridged {
 		v := new(VLAN)
 		v.FabEncap = "vlan-" + strconv.FormatInt(int64(req.VLAN.Spec.ID), 10)
@@ -544,7 +544,7 @@ func (p *Provider) EnsureEVPNInstance(ctx context.Context, req *provider.EVPNIns
 		vxlan := new(VXLAN)
 		vxlan.AccEncap = "vxlan-" + strconv.FormatInt(int64(req.EVPNInstance.Spec.VNI), 10)
 		vxlan.FabEncap = v.FabEncap
-		conf = append(conf, vxlan)
+		updates = append(updates, vxlan)
 	}
 
 	vni := new(VNI)
@@ -552,7 +552,7 @@ func (p *Provider) EnsureEVPNInstance(ctx context.Context, req *provider.EVPNIns
 	if req.EVPNInstance.Spec.MulticastGroupAddress != "" {
 		vni.McastGroup = NewOption(req.EVPNInstance.Spec.MulticastGroupAddress)
 	}
-	conf = append(conf, vni)
+	updates = append(updates, vni)
 
 	switch req.EVPNInstance.Spec.Type {
 	case v1alpha1.EVPNInstanceTypeBridged:
@@ -592,25 +592,25 @@ func (p *Provider) EnsureEVPNInstance(ctx context.Context, req *provider.EVPNIns
 		if exports.EntItems.RttEntryList.Len() > 0 {
 			evi.RttpItems.RttPList.Set(exports)
 		}
-		conf = append(conf, evi)
+		updates = append(updates, evi)
 
 	case v1alpha1.EVPNInstanceTypeRouted:
 		vni.AssociateVrfFlag = true
 	}
 
-	return p.Update(ctx, conf...)
+	return p.Update(ctx, updates...)
 }
 
 func (p *Provider) DeleteEVPNInstance(ctx context.Context, req *provider.EVPNInstanceRequest) error {
-	conf := make([]gnmiext.Configurable, 0, 3)
+	deletes := make([]gnmiext.DataElement, 0, 3)
 
 	evi := new(BDEVI)
 	evi.Encap = "vxlan-" + strconv.FormatInt(int64(req.EVPNInstance.Spec.VNI), 10)
-	conf = append(conf, evi)
+	deletes = append(deletes, evi)
 
 	vni := new(VNI)
 	vni.Vni = req.EVPNInstance.Spec.VNI
-	conf = append(conf, vni)
+	deletes = append(deletes, vni)
 
 	if req.EVPNInstance.Spec.Type == v1alpha1.EVPNInstanceTypeBridged {
 		bd := new(BDItems)
@@ -619,11 +619,11 @@ func (p *Provider) DeleteEVPNInstance(ctx context.Context, req *provider.EVPNIns
 		}
 
 		if v := bd.GetByVXLAN(evi.Encap); v != nil {
-			conf = append(conf, v)
+			deletes = append(deletes, v)
 		}
 	}
 
-	return p.client.Delete(ctx, conf...)
+	return p.client.Delete(ctx, deletes...)
 }
 
 // isPointToPoint reports whether the given IPv4 configuration represents a
@@ -688,21 +688,21 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 	}
 
-	del := make([]gnmiext.Configurable, 0, 2)
+	deletes := make([]gnmiext.DataElement, 0, 2)
 	addrs := new(AddrList)
 	if err := p.client.GetConfig(ctx, addrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 		return err
 	}
 	for _, a := range addrs.GetAddrItemsByInterface(name) {
 		if addr == nil || a.Vrf != vrf {
-			del = append(del, a)
+			deletes = append(deletes, a)
 		}
 	}
-	if err := p.client.Delete(ctx, del...); err != nil {
+	if err := p.client.Delete(ctx, deletes...); err != nil {
 		return err
 	}
 
-	conf := make([]gnmiext.Configurable, 0, 4)
+	updates := make([]gnmiext.DataElement, 0, 4)
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
 		p := new(PhysIf)
@@ -774,7 +774,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			return err
 		}
 
-		conf = append(conf, p)
+		updates = append(updates, p)
 
 	case v1alpha1.InterfaceTypeLoopback:
 		lb := new(Loopback)
@@ -785,13 +785,13 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			lb.AdminSt = AdminStUp
 		}
 		lb.RtvrfMbrItems = NewVrfMember(name, vrf)
-		conf = append(conf, lb)
+		updates = append(updates, lb)
 
 	case v1alpha1.InterfaceTypeAggregate:
 		f := new(Feature)
 		f.Name = "lacp"
 		f.AdminSt = AdminStEnabled
-		conf = append(conf, f)
+		updates = append(updates, f)
 
 		pcNum, err := strconv.Atoi(name[2:])
 		if err != nil {
@@ -888,20 +888,20 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			pc.AggrExtdItems.BufferBoost = AdminStDisable
 		}
 
-		conf = append(conf, pc)
+		updates = append(updates, pc)
 
 		if req.MultiChassisID != nil {
 			v := new(VPCIf)
 			v.ID = int(*req.MultiChassisID)
 			v.SetPortChannel(name)
-			conf = append(conf, v)
+			updates = append(updates, v)
 		}
 
 	case v1alpha1.InterfaceTypeRoutedVLAN:
 		f := new(Feature)
 		f.Name = "ifvlan"
 		f.AdminSt = AdminStEnabled
-		conf = append(conf, f)
+		updates = append(updates, f)
 
 		svi := new(SwitchVirtualInterface)
 		svi.ID = name
@@ -917,7 +917,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 		svi.VlanID = req.VLAN.Spec.ID
 		svi.RtvrfMbrItems = NewVrfMember(name, vrf)
-		conf = append(conf, svi)
+		updates = append(updates, svi)
 
 		fwif := new(FabricFwdIf)
 		fwif.ID = name
@@ -934,7 +934,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 
 			fwif.AdminSt = AdminStEnabled
 			fwif.Mode = FwdModeAnycastGateway
-			conf = append(conf, fwif)
+			updates = append(updates, fwif)
 		default:
 			if err := p.client.Delete(ctx, fwif); err != nil {
 				return err
@@ -973,12 +973,12 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				}
 			}
 		}
-		conf = append(conf, stp)
+		updates = append(updates, stp)
 	}
 
 	// Add the address items last, as they depend on the interface being created first.
 	if addr != nil {
-		conf = append(conf, addr)
+		updates = append(updates, addr)
 	}
 
 	switch {
@@ -986,14 +986,14 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		f := new(Feature)
 		f.Name = "bfd"
 		f.AdminSt = AdminStEnabled
-		conf = append(conf, f)
+		updates = append(updates, f)
 
 		// Disable ICMP redirect messages on BFD-enabled interfaces.
 		// See: https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/106x/configuration/interfaces/cisco-nexus-9000-series-nx-os-interfaces-configuration-guide-release-106x/b-cisco-nexus-9000-nx-os-interfaces-configuration-guide-93x_chapter_01111.html
 		icmp := new(ICMPIf)
 		icmp.ID = name
 		icmp.Ctrl = "port-unreachable"
-		conf = append(conf, icmp)
+		updates = append(updates, icmp)
 
 		bfd := new(BFD)
 		bfd.ID = name
@@ -1013,18 +1013,18 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		if err := bfd.Validate(); err != nil {
 			return err
 		}
-		conf = append(conf, bfd)
+		updates = append(updates, bfd)
 
 	case req.Interface.Spec.BFD != nil && !req.Interface.Spec.BFD.Enabled:
 		f := new(Feature)
 		f.Name = "bfd"
 		f.AdminSt = AdminStEnabled
-		conf = append(conf, f)
+		updates = append(updates, f)
 
 		bfd := new(BFD)
 		bfd.ID = name
 		bfd.AdminSt = AdminStDisabled
-		conf = append(conf, bfd)
+		updates = append(updates, bfd)
 
 	default:
 		// BFD not specified — clean up any leftover BFD config on the interface.
@@ -1047,14 +1047,14 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		case v1alpha1.InterfaceTypeLoopback:
 			icmp.Ctrl = "port-unreachable,redirect"
-			conf = append(conf, icmp)
+			updates = append(updates, icmp)
 		case v1alpha1.InterfaceTypeRoutedVLAN:
 			icmp.Ctrl = "port-unreachable"
-			conf = append(conf, icmp)
+			updates = append(updates, icmp)
 		}
 	}
 
-	return p.Update(ctx, conf...)
+	return p.Update(ctx, updates...)
 }
 
 func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceRequest) error {
@@ -1063,44 +1063,44 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 		return err
 	}
 
-	conf := make([]gnmiext.Configurable, 0, 3)
+	deletes := make([]gnmiext.DataElement, 0, 3)
 	addrs := new(AddrList)
 	if err := p.client.GetConfig(ctx, addrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 		return err
 	}
 	for _, addr := range addrs.GetAddrItemsByInterface(name) {
-		conf = append(conf, addr)
+		deletes = append(deletes, addr)
 	}
 
 	bfd := new(BFD)
 	bfd.ID = name
-	conf = append(conf, bfd)
+	deletes = append(deletes, bfd)
 
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
 		i := new(PhysIf)
 		i.ID = name
-		conf = append(conf, i)
+		deletes = append(deletes, i)
 
 		stp := new(SpanningTree)
 		stp.IfName = name
 		if err = p.client.GetConfig(ctx, stp); err == nil {
-			conf = append(conf, stp)
+			deletes = append(deletes, stp)
 		}
 
 		icmp := new(ICMPIf)
 		icmp.ID = name
-		conf = append(conf, icmp)
+		deletes = append(deletes, icmp)
 
 	case v1alpha1.InterfaceTypeLoopback:
 		lb := new(Loopback)
 		lb.ID = name
-		conf = append(conf, lb)
+		deletes = append(deletes, lb)
 
 	case v1alpha1.InterfaceTypeAggregate:
 		pc := new(PortChannel)
 		pc.ID = name
-		conf = append(conf, pc)
+		deletes = append(deletes, pc)
 
 		v := new(VPCIfItems)
 		if err := p.client.GetConfig(ctx, v); err != nil && !errors.Is(err, gnmiext.ErrNil) {
@@ -1109,19 +1109,19 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 
 		// Make sure to delete any associated VPC interface.
 		if vpc := v.GetListItemByInterface(name); vpc != nil {
-			conf = append(conf, vpc)
+			deletes = append(deletes, vpc)
 		}
 
 	case v1alpha1.InterfaceTypeRoutedVLAN:
 		svi := new(SwitchVirtualInterface)
 		svi.ID = name
-		conf = append(conf, svi)
+		deletes = append(deletes, svi)
 
 	default:
 		return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
 	}
 
-	return p.client.Delete(ctx, conf...)
+	return p.client.Delete(ctx, deletes...)
 }
 
 func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.InterfaceRequest) (provider.InterfaceStatus, error) {
@@ -1205,7 +1205,7 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 	f.Name = "isis"
 	f.AdminSt = AdminStEnabled
 
-	conf := append(make([]gnmiext.Configurable, 0, 3), f)
+	updates := append(make([]gnmiext.DataElement, 0, 3), f)
 
 	if slices.ContainsFunc(req.Interfaces, func(intf *v1alpha1.Interface) bool {
 		return intf.Spec.BFD != nil && intf.Spec.BFD.Enabled
@@ -1213,7 +1213,7 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 		f := new(Feature)
 		f.Name = "bfd"
 		f.AdminSt = AdminStEnabled
-		conf = append(conf, f)
+		updates = append(updates, f)
 	}
 
 	i := new(ISIS)
@@ -1286,9 +1286,9 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 		}
 		dom.IfItems.IfList.Set(intf)
 	}
-	conf = append(conf, i)
+	updates = append(updates, i)
 
-	return p.Update(ctx, conf...)
+	return p.Update(ctx, updates...)
 }
 
 func (p *Provider) DeleteISIS(ctx context.Context, req *provider.DeleteISISRequest) error {
@@ -1361,13 +1361,13 @@ func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.Ens
 		}
 	}
 
-	conf := make([]gnmiext.Configurable, 0, 7)
-	conf = append(conf, gf, sf, g, gn, vty, con)
+	patches := make([]gnmiext.DataElement, 0, 7)
+	patches = append(patches, gf, sf, g, gn, vty, con)
 	if acl.Name != "" {
-		conf = append(conf, acl)
+		patches = append(patches, acl)
 	}
 
-	return p.Patch(ctx, conf...)
+	return p.Patch(ctx, patches...)
 }
 
 func (p *Provider) DeleteManagementAccess(ctx context.Context) error {
@@ -1466,12 +1466,12 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 		}
 	}
 
-	conf := make([]gnmiext.Configurable, 0, 3)
+	updates := make([]gnmiext.DataElement, 0, 3)
 
 	f := new(Feature)
 	f.Name = "ospf"
 	f.AdminSt = AdminStEnabled
-	conf = append(conf, f)
+	updates = append(updates, f)
 
 	o := new(OSPF)
 	o.AdminSt = AdminStEnabled
@@ -1479,7 +1479,7 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 		o.AdminSt = AdminStDisabled
 	}
 	o.Name = req.OSPF.Spec.Instance
-	conf = append(conf, o)
+	updates = append(updates, o)
 
 	dom := new(OSPFDom)
 	dom.Name = DefaultVRFName
@@ -1543,7 +1543,7 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 			fb := new(Feature)
 			fb.Name = "bfd"
 			fb.AdminSt = AdminStEnabled
-			conf = slices.Insert(conf, 1, gnmiext.Configurable(fb)) // insert before OSPF
+			updates = slices.Insert(updates, 1, gnmiext.DataElement(fb)) // insert before OSPF
 
 			intf.BFDCtrl = OspfBfdCtrlDisabled
 			if iface.Interface.Spec.BFD.Enabled {
@@ -1577,7 +1577,7 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 		dom.MaxlsapItems.MaxLsa = cfg.MaxLSA
 	}
 
-	return p.Update(ctx, conf...)
+	return p.Update(ctx, updates...)
 }
 
 func (p *Provider) DeleteOSPF(ctx context.Context, req *provider.DeleteOSPFRequest) error {
@@ -1702,12 +1702,12 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 		ifItems.IfList.Set(intf)
 	}
 
-	conf := make([]gnmiext.Configurable, 0, 3)
-	del := make([]gnmiext.Configurable, 0, 3)
+	updates := make([]gnmiext.DataElement, 0, 3)
+	deletes := make([]gnmiext.DataElement, 0, 3)
 
 	if len(rpItems.StaticRPList) > 0 {
 		// Diff group-to-RP bindings individually; replacing entire StaticRP entries fails on NX-OS
-		// with "child (Rn) cannot be added to deleted object Rn=rpgrplist-[...], Commit Failed".
+		// with "child (Rn) cannot be added to deleteseted object Rn=rpgrplist-[...], Commit Failed".
 		current := new(StaticRPItems)
 		if err := p.client.GetConfig(ctx, current); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 			return err
@@ -1716,50 +1716,50 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 			got, ok := current.StaticRPList.Get(rp.Key())
 			if !ok {
 				// StaticRP does not exist yet — add the entire entry.
-				conf = append(conf, rp)
+				updates = append(updates, rp)
 				continue
 			}
 			for _, grp := range rp.RpgrplistItems.RPGrpListList {
 				if gotGrp, ok := got.RpgrplistItems.RPGrpListList.Get(grp.Key()); !ok || !reflect.DeepEqual(gotGrp, grp) {
 					g := *grp
 					g.RpAddr = rp.Addr
-					conf = append(conf, &g)
+					updates = append(updates, &g)
 				}
 			}
 			for _, grp := range got.RpgrplistItems.RPGrpListList {
 				if _, ok := rp.RpgrplistItems.RPGrpListList.Get(grp.Key()); !ok {
 					g := *grp
 					g.RpAddr = rp.Addr
-					del = append(del, &g)
+					deletes = append(deletes, &g)
 				}
 			}
 		}
 		for _, rp := range current.StaticRPList {
 			if _, ok := rpItems.StaticRPList.Get(rp.Key()); !ok {
-				del = append(del, rp)
+				deletes = append(deletes, rp)
 			}
 		}
 	} else {
-		del = append(del, rpItems)
+		deletes = append(deletes, rpItems)
 	}
 
 	if len(apItems.AcastRPPeerList) > 0 {
-		conf = append(conf, apItems)
+		updates = append(updates, apItems)
 	} else {
-		del = append(del, apItems)
+		deletes = append(deletes, apItems)
 	}
 
 	if len(ifItems.IfList) > 0 {
-		conf = append(conf, ifItems)
+		updates = append(updates, ifItems)
 	} else {
-		del = append(del, ifItems)
+		deletes = append(deletes, ifItems)
 	}
 
-	if err := p.Update(ctx, conf...); err != nil {
+	if err := p.Update(ctx, updates...); err != nil {
 		return err
 	}
 
-	return p.client.Delete(ctx, del...)
+	return p.client.Delete(ctx, deletes...)
 }
 
 func (p *Provider) DeletePIM(ctx context.Context, _ *provider.DeletePIMRequest) error {
@@ -2515,7 +2515,7 @@ func (p *Provider) EnsureBorderGatewaySettings(ctx context.Context, req *BorderG
 		return err
 	}
 
-	conf := make([]gnmiext.Configurable, 0, 3)
+	updates := make([]gnmiext.DataElement, 0, 3)
 	bg := new(MultisiteItems)
 	bg.AdminSt = AdminStEnabled
 	if req.BorderGateway.Spec.AdminState == v1alpha1.AdminStateDown {
@@ -2526,10 +2526,10 @@ func (p *Provider) EnsureBorderGatewaySettings(ctx context.Context, req *BorderG
 	if bg.DelayRestoreSeconds < 30 || bg.DelayRestoreSeconds > 1000 {
 		return fmt.Errorf("border gateway: delay restore time %d seconds is out of range (30-1000)", bg.DelayRestoreSeconds)
 	}
-	conf = append(conf, bg)
+	updates = append(updates, bg)
 
 	bgi := MultisiteBorderGatewayInterface(req.SourceInterface.Spec.Name)
-	conf = append(conf, &bgi)
+	updates = append(updates, &bgi)
 
 	sc := new(StormControlItems)
 	for _, cfg := range req.BorderGateway.Spec.StormControl {
@@ -2552,11 +2552,11 @@ func (p *Provider) EnsureBorderGatewaySettings(ctx context.Context, req *BorderG
 		sc.EvpnStormControlList.Set(ctrl)
 	}
 
-	del := make([]gnmiext.Configurable, 0, 1)
+	deletes := make([]gnmiext.DataElement, 0, 1)
 	if sc.EvpnStormControlList.Len() == 0 {
-		del = append(del, sc)
+		deletes = append(deletes, sc)
 	} else {
-		conf = append(conf, sc)
+		updates = append(updates, sc)
 	}
 
 	peerItems := new(MultisitePeerItems)
@@ -2578,7 +2578,7 @@ func (p *Provider) EnsureBorderGatewaySettings(ctx context.Context, req *BorderG
 		ic, ok := interconnects[intf.ID]
 		if !ok {
 			if intf.MultisiteIfTracking != nil {
-				del = append(del, intf.MultisiteIfTracking)
+				deletes = append(deletes, intf.MultisiteIfTracking)
 			}
 			continue
 		}
@@ -2588,7 +2588,7 @@ func (p *Provider) EnsureBorderGatewaySettings(ctx context.Context, req *BorderG
 		}
 		intf.MultisiteIfTracking.IfName = intf.ID
 		intf.MultisiteIfTracking.Tracking = MultisiteIfTrackingModeFrom(ic.Tracking)
-		conf = append(conf, intf.MultisiteIfTracking)
+		updates = append(updates, intf.MultisiteIfTracking)
 	}
 
 	for _, peer := range peerItems.PeerList {
@@ -2597,23 +2597,23 @@ func (p *Provider) EnsureBorderGatewaySettings(ctx context.Context, req *BorderG
 		})
 		if idx == -1 {
 			if peer.PeerType != "" {
-				del = append(del, &MultisitePeer{Addr: peer.Addr})
+				deletes = append(deletes, &MultisitePeer{Addr: peer.Addr})
 			}
 			continue
 		}
 
-		conf = append(conf, &MultisitePeer{Addr: peer.Addr, PeerType: BorderGatewayPeerTypeFrom(req.Peers[idx].PeerType)})
+		updates = append(updates, &MultisitePeer{Addr: peer.Addr, PeerType: BorderGatewayPeerTypeFrom(req.Peers[idx].PeerType)})
 	}
 
-	if err := p.client.Delete(ctx, del...); err != nil {
+	if err := p.client.Delete(ctx, deletes...); err != nil {
 		return err
 	}
 
-	return p.Update(ctx, conf...)
+	return p.Update(ctx, updates...)
 }
 
 func (p *Provider) ResetBorderGatewaySettings(ctx context.Context) error {
-	conf := []gnmiext.Configurable{new(MultisiteItems), new(MultisiteBorderGatewayInterface), new(StormControlItems)}
+	deletes := []gnmiext.DataElement{new(MultisiteItems), new(MultisiteBorderGatewayInterface), new(StormControlItems)}
 	peerItems := new(MultisitePeerItems)
 	trackingItems := new(MultisiteIfTrackingItems)
 	if err := p.client.GetConfig(ctx, trackingItems, peerItems); err != nil && !errors.Is(err, gnmiext.ErrNil) {
@@ -2621,15 +2621,15 @@ func (p *Provider) ResetBorderGatewaySettings(ctx context.Context) error {
 	}
 	for _, intf := range trackingItems.PhysIfList {
 		if intf.MultisiteIfTracking != nil {
-			conf = append(conf, intf.MultisiteIfTracking)
+			deletes = append(deletes, intf.MultisiteIfTracking)
 		}
 	}
 	for _, peer := range peerItems.PeerList {
 		if peer.PeerType != "" {
-			conf = append(conf, &MultisitePeer{Addr: peer.Addr})
+			deletes = append(deletes, &MultisitePeer{Addr: peer.Addr})
 		}
 	}
-	return p.client.Delete(ctx, conf...)
+	return p.client.Delete(ctx, deletes...)
 }
 
 // EnsureNVE ensures that the NVE configuration on the device matches the desired state specified in the NVE custom resource.
@@ -2692,8 +2692,8 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) erro
 		n.AdvertiseVmac = vc.Spec.AdvertiseVirtualMAC
 	}
 
-	conf := make([]gnmiext.Configurable, 0, 3)
-	conf = append(conf, n)
+	patches := make([]gnmiext.DataElement, 0, 3)
+	patches = append(patches, n)
 
 	iv := new(NVEInfraVLANs)
 	for _, ivList := range vc.Spec.InfraVLANs {
@@ -2716,7 +2716,7 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) erro
 			}
 		}
 	} else {
-		conf = append(conf, iv)
+		patches = append(patches, iv)
 	}
 
 	ag := new(FabricFwd)
@@ -2724,9 +2724,9 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) erro
 		ag.AdminSt = string(AdminStEnabled)
 		ag.Address = req.NVE.Spec.AnycastGateway.VirtualMAC
 	}
-	conf = append(conf, ag)
+	patches = append(patches, ag)
 
-	return p.Patch(ctx, conf...)
+	return p.Patch(ctx, patches...)
 }
 
 func (p *Provider) DeleteNVE(ctx context.Context, req *provider.NVERequest) error {
@@ -2864,43 +2864,43 @@ func (p *Provider) GetLLDPStatus(ctx context.Context, req *provider.LLDPRequest)
 	return s, nil
 }
 
-func (p *Provider) Patch(ctx context.Context, conf ...gnmiext.Configurable) error {
+func (p *Provider) Patch(ctx context.Context, patches ...gnmiext.DataElement) error {
 	if NXVersion(p.client.Capabilities()) > VersionNX10_6_2 {
-		return p.client.Patch(ctx, conf...)
+		return p.client.Patch(ctx, patches...)
 	}
-	fa, conf := separateFeatureActivation(conf)
+	fa, patches := separateFeatureActivation(patches)
 	if err := p.client.Patch(ctx, fa...); err != nil {
 		return err
 	}
-	return p.client.Patch(ctx, conf...)
+	return p.client.Patch(ctx, patches...)
 }
 
-func (p *Provider) Update(ctx context.Context, conf ...gnmiext.Configurable) error {
+func (p *Provider) Update(ctx context.Context, updates ...gnmiext.DataElement) error {
 	if NXVersion(p.client.Capabilities()) > VersionNX10_6_2 {
-		return p.client.Update(ctx, conf...)
+		return p.client.Update(ctx, updates...)
 	}
-	fa, conf := separateFeatureActivation(conf)
+	fa, updates := separateFeatureActivation(updates)
 	if err := p.client.Update(ctx, fa...); err != nil {
 		return err
 	}
-	return p.client.Update(ctx, conf...)
+	return p.client.Update(ctx, updates...)
 }
 
 // separateFeatureActivation separates feature activation configurations from other configurations.
 // This is necessary for NX-OS versions <= 10.6(2) where feature activation must be performed before applying configurations.
 // For more details, see: https://github.com/ironcore-dev/network-operator/issues/148
-func separateFeatureActivation(conf []gnmiext.Configurable) (features, others []gnmiext.Configurable) {
+func separateFeatureActivation(el []gnmiext.DataElement) (features, others []gnmiext.DataElement) {
 	n := 0
-	fa := make([]gnmiext.Configurable, 0, len(conf))
-	for _, c := range conf {
-		if f, ok := c.(*Feature); ok {
+	fa := make([]gnmiext.DataElement, 0, len(el))
+	for _, e := range el {
+		if f, ok := e.(*Feature); ok {
 			fa = append(fa, f)
 			continue
 		}
-		conf[n] = c
+		el[n] = e
 		n++
 	}
-	return fa, conf[:n:n]
+	return fa, el[:n:n]
 }
 
 // EnsureDHCPRelay configures DHCP relay on the specified interfaces.
@@ -2916,7 +2916,7 @@ func (p *Provider) EnsureDHCPRelay(ctx context.Context, req *provider.DHCPRelayR
 		vrfName = req.VRF.Spec.Name
 	}
 
-	conf := new(DHCPRelayConfig)
+	updates := new(DHCPRelayConfig)
 	for _, intf := range req.Interfaces {
 		ifName, err := ShortName(intf.Spec.Name)
 		if err != nil {
@@ -2931,10 +2931,10 @@ func (p *Provider) EnsureDHCPRelay(ctx context.Context, req *provider.DHCPRelayR
 			}
 			relay.AddrItems.AddrList.Set(&DHCPRelayServer{Address: a, Vrf: vrfName})
 		}
-		conf.RelayIfList.Set(relay)
+		updates.RelayIfList.Set(relay)
 	}
 
-	return p.Update(ctx, f, conf)
+	return p.Update(ctx, f, updates)
 }
 
 // DeleteDHCPRelay removes all DHCP relay configurations from the device.

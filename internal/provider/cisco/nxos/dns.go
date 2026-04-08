@@ -5,7 +5,7 @@ package nxos
 
 import "github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 
-var _ gnmiext.Configurable = (*DNS)(nil)
+var _ gnmiext.DataElement = (*DNS)(nil)
 
 // DNS represents the DNS configuration on a NX-OS device.
 type DNS struct {

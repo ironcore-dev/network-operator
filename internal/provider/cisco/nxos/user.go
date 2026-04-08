@@ -18,7 +18,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
-var _ gnmiext.Configurable = (*User)(nil)
+var _ gnmiext.DataElement = (*User)(nil)
 
 // User represents a local user on a NX-OS device.
 type User struct {

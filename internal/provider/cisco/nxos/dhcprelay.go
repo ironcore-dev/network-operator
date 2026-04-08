@@ -9,7 +9,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
-var _ gnmiext.Configurable = (*DHCPRelayConfig)(nil)
+var _ gnmiext.DataElement = (*DHCPRelayConfig)(nil)
 
 // DHCPRelayConfig represents the complete DHCP relay configuration tree.
 type DHCPRelayConfig struct {

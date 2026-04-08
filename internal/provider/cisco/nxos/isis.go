@@ -8,7 +8,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
-var _ gnmiext.Configurable = (*ISIS)(nil)
+var _ gnmiext.DataElement = (*ISIS)(nil)
 
 // ISIS represents the IS-IS routing protocol configuration on a NX-OS device.
 type ISIS struct {

@@ -17,22 +17,22 @@ import (
 )
 
 var (
-	_ gnmiext.Configurable = (*Loopback)(nil)
-	_ gnmiext.Configurable = (*LoopbackOperItems)(nil)
-	_ gnmiext.Configurable = (*PhysIf)(nil)
-	_ gnmiext.Defaultable  = (*PhysIf)(nil)
-	_ gnmiext.Configurable = (*PhysIfOperItems)(nil)
-	_ gnmiext.Configurable = (*VrfMember)(nil)
-	_ gnmiext.Configurable = (*SpanningTree)(nil)
-	_ gnmiext.Configurable = (*MultisiteIfTracking)(nil)
-	_ gnmiext.Configurable = (*BFD)(nil)
-	_ gnmiext.Configurable = (*ICMPIf)(nil)
-	_ gnmiext.Configurable = (*PortChannel)(nil)
-	_ gnmiext.Configurable = (*PortChannelOperItems)(nil)
-	_ gnmiext.Configurable = (*SwitchVirtualInterface)(nil)
-	_ gnmiext.Configurable = (*SwitchVirtualInterfaceOperItems)(nil)
-	_ gnmiext.Configurable = (*AddrItem)(nil)
-	_ gnmiext.Configurable = (*FabricFwdIf)(nil)
+	_ gnmiext.DataElement = (*Loopback)(nil)
+	_ gnmiext.DataElement = (*LoopbackOperItems)(nil)
+	_ gnmiext.DataElement = (*PhysIf)(nil)
+	_ gnmiext.Defaultable = (*PhysIf)(nil)
+	_ gnmiext.DataElement = (*PhysIfOperItems)(nil)
+	_ gnmiext.DataElement = (*VrfMember)(nil)
+	_ gnmiext.DataElement = (*SpanningTree)(nil)
+	_ gnmiext.DataElement = (*MultisiteIfTracking)(nil)
+	_ gnmiext.DataElement = (*BFD)(nil)
+	_ gnmiext.DataElement = (*ICMPIf)(nil)
+	_ gnmiext.DataElement = (*PortChannel)(nil)
+	_ gnmiext.DataElement = (*PortChannelOperItems)(nil)
+	_ gnmiext.DataElement = (*SwitchVirtualInterface)(nil)
+	_ gnmiext.DataElement = (*SwitchVirtualInterfaceOperItems)(nil)
+	_ gnmiext.DataElement = (*AddrItem)(nil)
+	_ gnmiext.DataElement = (*FabricFwdIf)(nil)
 )
 
 // Loopback represents a loopback interface on a NX-OS device.
@@ -451,7 +451,7 @@ func Exists(ctx context.Context, client gnmiext.Client, names ...string) (bool, 
 	if len(names) == 0 {
 		return false, errors.New("at least one interface name must be provided")
 	}
-	conf := make([]gnmiext.Configurable, 0, len(names))
+	el := make([]gnmiext.DataElement, 0, len(names))
 	for _, name := range names {
 		if name == "" {
 			return false, errors.New("interface name must not be empty")
@@ -460,26 +460,26 @@ func Exists(ctx context.Context, client gnmiext.Client, names ...string) (bool, 
 			// mgmt0 is always present
 			continue
 		}
-		var c gnmiext.Configurable
+		var e gnmiext.DataElement
 		if matches := ethernetRe.FindStringSubmatch(name); matches != nil {
-			c = &PhysIf{ID: "eth" + matches[2]}
+			e = &PhysIf{ID: "eth" + matches[2]}
 		}
 		if matches := loopbackRe.FindStringSubmatch(name); matches != nil {
-			c = &Loopback{ID: "lo" + matches[2]}
+			e = &Loopback{ID: "lo" + matches[2]}
 		}
 		if matches := portchannelRe.FindStringSubmatch(name); matches != nil {
-			c = &PortChannel{ID: "po" + matches[2]}
+			e = &PortChannel{ID: "po" + matches[2]}
 		}
 		if matches := vlanRe.FindStringSubmatch(name); matches != nil {
-			c = &SwitchVirtualInterface{ID: "vlan" + matches[2]}
+			e = &SwitchVirtualInterface{ID: "vlan" + matches[2]}
 		}
-		if c == nil {
+		if e == nil {
 			return false, fmt.Errorf("unsupported interface format %q, expected one of: %s, %s, %s, %s, %s", name, mgmtRe.String(), ethernetRe.String(), loopbackRe.String(), portchannelRe.String(), vlanRe.String())
 		}
-		conf = append(conf, c)
+		el = append(el, e)
 	}
 	const batchSize = 10 // On Cisco NX-OS, more than 10 paths per single gNMI request lead to gRPC errors.
-	for batch := range slices.Chunk(conf, batchSize) {
+	for batch := range slices.Chunk(el, batchSize) {
 		if err := client.GetConfig(ctx, batch...); err != nil {
 			if errors.Is(err, gnmiext.ErrNil) {
 				return false, nil

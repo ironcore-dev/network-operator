@@ -8,7 +8,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
-var _ gnmiext.Configurable = (*RouteMap)(nil)
+var _ gnmiext.DataElement = (*RouteMap)(nil)
 
 type RouteMap struct {
 	Name     string `json:"name"`

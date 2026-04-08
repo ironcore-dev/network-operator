@@ -15,8 +15,8 @@ import (
 )
 
 var (
-	_ gnmiext.Configurable = (*VPCDomain)(nil)
-	_ gnmiext.Configurable = (*VPCIf)(nil)
+	_ gnmiext.DataElement = (*VPCDomain)(nil)
+	_ gnmiext.DataElement = (*VPCIf)(nil)
 )
 
 // VPCDomain represents the domain of a virtual Port Channel (vPC)

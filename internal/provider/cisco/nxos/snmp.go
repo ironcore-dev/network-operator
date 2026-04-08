@@ -10,13 +10,13 @@ import (
 )
 
 var (
-	_ gnmiext.Configurable = (*SNMPSysInfo)(nil)
-	_ gnmiext.Configurable = (*SNMPSrcIf)(nil)
-	_ gnmiext.Configurable = (*SNMPUser)(nil)
-	_ gnmiext.Configurable = (*SNMPHostItems)(nil)
-	_ gnmiext.Configurable = (*SNMPHost)(nil)
-	_ gnmiext.Configurable = (*SNMPCommunityItems)(nil)
-	_ gnmiext.Configurable = (*SNMPCommunity)(nil)
+	_ gnmiext.DataElement = (*SNMPSysInfo)(nil)
+	_ gnmiext.DataElement = (*SNMPSrcIf)(nil)
+	_ gnmiext.DataElement = (*SNMPUser)(nil)
+	_ gnmiext.DataElement = (*SNMPHostItems)(nil)
+	_ gnmiext.DataElement = (*SNMPHost)(nil)
+	_ gnmiext.DataElement = (*SNMPCommunityItems)(nil)
+	_ gnmiext.DataElement = (*SNMPCommunity)(nil)
 )
 
 // SNMPSysInfo represents the SNMP system information configuration on a NX-OS device.

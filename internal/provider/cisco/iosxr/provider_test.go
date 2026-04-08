@@ -21,12 +21,12 @@ import (
 
 type TestCase struct {
 	name string
-	val  gnmiext.Configurable
+	val  gnmiext.DataElement
 }
 
 var tests []TestCase
 
-func Register(name string, val gnmiext.Configurable) {
+func Register(name string, val gnmiext.DataElement) {
 	tests = append(tests, TestCase{
 		name: name,
 		val:  val,
@@ -92,11 +92,11 @@ func Test_Payload(t *testing.T) {
 type MockClient struct {
 	// Function fields for mocking different methods
 	CapabilitiesFunc func() *gnmiext.Capabilities
-	GetConfigFunc    func(ctx context.Context, conf ...gnmiext.Configurable) error
-	PatchFunc        func(ctx context.Context, conf ...gnmiext.Configurable) error
-	UpdateFunc       func(ctx context.Context, conf ...gnmiext.Configurable) error
-	DeleteFunc       func(ctx context.Context, conf ...gnmiext.Configurable) error
-	GetStateFunc     func(ctx context.Context, conf ...gnmiext.Configurable) error
+	GetConfigFunc    func(ctx context.Context, configs ...gnmiext.DataElement) error
+	PatchFunc        func(ctx context.Context, patches ...gnmiext.DataElement) error
+	UpdateFunc       func(ctx context.Context, updates ...gnmiext.DataElement) error
+	DeleteFunc       func(ctx context.Context, deletes ...gnmiext.DataElement) error
+	GetStateFunc     func(ctx context.Context, states ...gnmiext.DataElement) error
 }
 
 var _ gnmiext.Client = (*MockClient)(nil)
@@ -109,37 +109,37 @@ func (m *MockClient) Capabilities() *gnmiext.Capabilities {
 	return nil
 }
 
-func (m *MockClient) GetConfig(ctx context.Context, conf ...gnmiext.Configurable) error {
+func (m *MockClient) GetConfig(ctx context.Context, configs ...gnmiext.DataElement) error {
 	if m.GetConfigFunc != nil {
-		return m.GetConfigFunc(ctx, conf...)
+		return m.GetConfigFunc(ctx, configs...)
 	}
 	return nil
 }
 
-func (m *MockClient) GetState(ctx context.Context, conf ...gnmiext.Configurable) error {
+func (m *MockClient) GetState(ctx context.Context, states ...gnmiext.DataElement) error {
 	if m.GetStateFunc != nil {
-		return m.GetStateFunc(ctx, conf...)
+		return m.GetStateFunc(ctx, states...)
 	}
 	return nil
 }
 
-func (m *MockClient) Patch(ctx context.Context, conf ...gnmiext.Configurable) error {
+func (m *MockClient) Patch(ctx context.Context, patches ...gnmiext.DataElement) error {
 	if m.PatchFunc != nil {
-		return m.PatchFunc(ctx, conf...)
+		return m.PatchFunc(ctx, patches...)
 	}
 	return nil
 }
 
-func (m *MockClient) Update(ctx context.Context, conf ...gnmiext.Configurable) error {
+func (m *MockClient) Update(ctx context.Context, updates ...gnmiext.DataElement) error {
 	if m.UpdateFunc != nil {
-		return m.UpdateFunc(ctx, conf...)
+		return m.UpdateFunc(ctx, updates...)
 	}
 	return nil
 }
 
-func (m *MockClient) Delete(ctx context.Context, conf ...gnmiext.Configurable) error {
+func (m *MockClient) Delete(ctx context.Context, deletes ...gnmiext.DataElement) error {
 	if m.DeleteFunc != nil {
-		return m.DeleteFunc(ctx, conf...)
+		return m.DeleteFunc(ctx, deletes...)
 	}
 	return nil
 }
@@ -187,8 +187,8 @@ func Test_EnsureInterface(t *testing.T) {
 
 func Test_GetState(t *testing.T) {
 	m := &MockClient{
-		GetStateFunc: func(ctx context.Context, conf ...gnmiext.Configurable) error {
-			conf[0].(*PhysIfState).State = "im-state-up"
+		GetStateFunc: func(ctx context.Context, states ...gnmiext.DataElement) error {
+			states[0].(*PhysIfState).State = "im-state-up"
 			return nil
 		},
 	}

@@ -22,9 +22,12 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// Configurable represents a configuration item with a YANG path.
-type Configurable interface {
-	// XPath returns the YANG path for this configuration item.
+// DataElement represents a data element addressable by a YANG path.
+// A data element can refer to any level of the data tree — a single leaf,
+// a container, or an entire subtree — and may carry either configuration
+// or state data.
+type DataElement interface {
+	// XPath returns the YANG path for this data element.
 	// It may include an origin prefix (e.g., "openconfig:system/config/hostname").
 	XPath() string
 }
@@ -60,11 +63,11 @@ type Capabilities struct {
 
 type Client interface {
 	Capabilities() *Capabilities
-	GetConfig(ctx context.Context, conf ...Configurable) error
-	GetState(ctx context.Context, conf ...Configurable) error
-	Patch(ctx context.Context, conf ...Configurable) error
-	Update(ctx context.Context, conf ...Configurable) error
-	Delete(ctx context.Context, conf ...Configurable) error
+	GetConfig(context.Context, ...DataElement) error
+	GetState(context.Context, ...DataElement) error
+	Patch(context.Context, ...DataElement) error
+	Update(context.Context, ...DataElement) error
+	Delete(context.Context, ...DataElement) error
 }
 
 // Client is a gNMI client offering convenience methods for device configuration
@@ -136,57 +139,57 @@ func (c *client) Capabilities() *Capabilities {
 
 // GetConfig retrieves config and unmarshals it into the provided targets.
 // If some of the values for the given xpaths are not defined, [ErrNil] is returned.
-func (c *client) GetConfig(ctx context.Context, conf ...Configurable) error {
-	return c.get(ctx, gpb.GetRequest_CONFIG, conf...)
+func (c *client) GetConfig(ctx context.Context, el ...DataElement) error {
+	return c.get(ctx, gpb.GetRequest_CONFIG, el...)
 }
 
 // GetState retrieves state and unmarshals it into the provided targets.
 // If some of the values for the given xpaths are not defined, [ErrNil] is returned.
-func (c *client) GetState(ctx context.Context, conf ...Configurable) error {
-	return c.get(ctx, gpb.GetRequest_STATE, conf...)
+func (c *client) GetState(ctx context.Context, el ...DataElement) error {
+	return c.get(ctx, gpb.GetRequest_STATE, el...)
 }
 
 // Update replaces the configuration for the given set of items.4c890d
 // If the current configuration equals the desired configuration, the operation is skipped.
 // For partial updates that merge changes, use [Client.Patch] instead.
-func (c *client) Update(ctx context.Context, conf ...Configurable) error {
-	return c.set(ctx, false, conf...)
+func (c *client) Update(ctx context.Context, el ...DataElement) error {
+	return c.set(ctx, false, el...)
 }
 
 // Patch merges the configuration for the given set of items.
 // If the current configuration equals the desired configuration, the operation is skipped.
 // For full replacement of configuration, use [Client.Update] instead.
-func (c *client) Patch(ctx context.Context, conf ...Configurable) error {
-	return c.set(ctx, true, conf...)
+func (c *client) Patch(ctx context.Context, el ...DataElement) error {
+	return c.set(ctx, true, el...)
 }
 
 // Delete resets the configuration for the given set of items.
 // If an item implements [Defaultable], it's reset to default value.
 // Otherwise, the configuration is deleted.
-func (c *client) Delete(ctx context.Context, conf ...Configurable) error {
-	if len(conf) == 0 {
+func (c *client) Delete(ctx context.Context, el ...DataElement) error {
+	if len(el) == 0 {
 		return nil
 	}
 	r := new(gpb.SetRequest)
-	for _, cf := range conf {
-		path, err := StringToStructuredPath(cf.XPath())
+	for _, e := range el {
+		path, err := StringToStructuredPath(e.XPath())
 		if err != nil {
 			return err
 		}
-		if d, ok := cf.(Defaultable); ok {
+		if d, ok := e.(Defaultable); ok {
 			d.Default()
-			b, err := c.Marshal(cf)
+			b, err := c.Marshal(e)
 			if err != nil {
 				return err
 			}
-			c.logger.V(1).Info("Resetting to default", "path", cf.XPath(), "payload", string(b))
+			c.logger.V(1).Info("Resetting to default", "path", e.XPath(), "payload", string(b))
 			r.Replace = append(r.Replace, &gpb.Update{
 				Path: path,
 				Val:  c.Encode(b),
 			})
 			continue
 		}
-		c.logger.V(1).Info("Deleting", "path", cf.XPath())
+		c.logger.V(1).Info("Deleting", "path", e.XPath())
 		r.Delete = append(r.Delete, path)
 	}
 	if _, err := c.gnmi.Set(ctx, r); err != nil {
@@ -198,16 +201,16 @@ func (c *client) Delete(ctx context.Context, conf ...Configurable) error {
 // get retrieves data of the specified type (CONFIG or STATE) and unmarshals it
 // into the provided targets. If some of the values for the given xpaths are not
 // defined, [ErrNil] is returned.
-func (c *client) get(ctx context.Context, dt gpb.GetRequest_DataType, conf ...Configurable) error {
-	if len(conf) == 0 {
+func (c *client) get(ctx context.Context, dt gpb.GetRequest_DataType, el ...DataElement) error {
+	if len(el) == 0 {
 		return nil
 	}
 	r := &gpb.GetRequest{
 		Type:     dt,
 		Encoding: c.encoding,
 	}
-	for _, cf := range conf {
-		path, err := StringToStructuredPath(cf.XPath())
+	for _, e := range el {
+		path, err := StringToStructuredPath(e.XPath())
 		if err != nil {
 			return err
 		}
@@ -222,15 +225,15 @@ func (c *client) get(ctx context.Context, dt gpb.GetRequest_DataType, conf ...Co
 	//
 	// [gNMI spec]: https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#332-the-getresponse-message
 	notifications := res.GetNotification()
-	if len(notifications) != len(conf) {
+	if len(notifications) != len(el) {
 		// This should never happen. If it does, it indicates a bug in the
 		// gNMI server.
-		return fmt.Errorf("gnmiext: unexpected number of notifications: got %d, want %d", len(notifications), len(conf))
+		return fmt.Errorf("gnmiext: unexpected number of notifications: got %d, want %d", len(notifications), len(el))
 	}
 	// prevent bounds check in for the range loop below
 	// [Bounds Check Elimination]: https://go101.org/optimizations/5-bce.html
-	_ = notifications[len(conf)-1]
-	for i, cf := range conf {
+	_ = notifications[len(el)-1]
+	for i, e := range el {
 		n := notifications[i]
 		switch len(n.GetUpdate()) {
 		case 0:
@@ -249,7 +252,7 @@ func (c *client) get(ctx context.Context, dt gpb.GetRequest_DataType, conf ...Co
 			if len(b) == 0 {
 				return ErrNil
 			}
-			if err := c.Unmarshal(b, cf); err != nil {
+			if err := c.Unmarshal(b, e); err != nil {
 				return err
 			}
 		default:
@@ -264,32 +267,32 @@ func (c *client) get(ctx context.Context, dt gpb.GetRequest_DataType, conf ...Co
 // configuration. Otherwise, a full replacement is done.
 // If the current configuration equals the desired configuration, the operation
 // is skipped.
-func (c *client) set(ctx context.Context, patch bool, conf ...Configurable) error {
-	if len(conf) == 0 {
+func (c *client) set(ctx context.Context, patch bool, el ...DataElement) error {
+	if len(el) == 0 {
 		return nil
 	}
 	r := new(gpb.SetRequest)
-	for _, cf := range conf {
-		path, err := StringToStructuredPath(cf.XPath())
+	for _, e := range el {
+		path, err := StringToStructuredPath(e.XPath())
 		if err != nil {
 			return err
 		}
-		got := cp.Deep(cf)
+		got := cp.Deep(e)
 		err = c.GetConfig(ctx, got)
 		if err != nil && !errors.Is(err, ErrNil) && status.Code(err) != codes.NotFound {
-			return fmt.Errorf("gnmiext: failed to retrieve current config for %s: %w", cf.XPath(), err)
+			return fmt.Errorf("gnmiext: failed to retrieve current config for %s: %w", e.XPath(), err)
 		}
 		// If the current configuration is equal to the desired configuration, skip the update.
 		// This avoids unnecessary updates and potential disruptions.
-		if err == nil && reflect.DeepEqual(cf, got) {
-			c.logger.V(2).Info("Configuration is already up-to-date", "path", cf.XPath())
+		if err == nil && reflect.DeepEqual(e, got) {
+			c.logger.V(2).Info("Configuration is already up-to-date", "path", e.XPath())
 			continue
 		}
-		b, err := c.Marshal(cf)
+		b, err := c.Marshal(e)
 		if err != nil {
 			return err
 		}
-		c.logger.V(1).Info("Updating", "path", cf.XPath(), "payload", string(b), "patch", patch)
+		c.logger.V(1).Info("Updating", "path", e.XPath(), "payload", string(b), "patch", patch)
 		u := &gpb.Update{
 			Path: path,
 			Val:  c.Encode(b),

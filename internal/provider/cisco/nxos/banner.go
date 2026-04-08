@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	_ gnmiext.Configurable = (*Banner)(nil)
-	_ gnmiext.Defaultable  = (*Banner)(nil)
+	_ gnmiext.DataElement = (*Banner)(nil)
+	_ gnmiext.Defaultable = (*Banner)(nil)
 )
 
 // Banner represents the pre-login banner configuration of the device.

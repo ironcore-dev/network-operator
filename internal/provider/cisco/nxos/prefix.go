@@ -7,7 +7,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
-var _ gnmiext.Configurable = (*PrefixList)(nil)
+var _ gnmiext.DataElement = (*PrefixList)(nil)
 
 type PrefixList struct {
 	Name     string `json:"name"`

@@ -6,8 +6,8 @@ package nxos
 import "github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 
 var (
-	_ gnmiext.Configurable = (*Feature)(nil)
-	_ gnmiext.Defaultable  = (*Feature)(nil)
+	_ gnmiext.DataElement = (*Feature)(nil)
+	_ gnmiext.Defaultable = (*Feature)(nil)
 )
 
 // Feature represents a dynamic feature configuration on a NX-OS device.

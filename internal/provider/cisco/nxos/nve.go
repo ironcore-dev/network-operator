@@ -11,9 +11,9 @@ import (
 )
 
 var (
-	_ gnmiext.Configurable = (*NVE)(nil)
-	_ gnmiext.Configurable = (*NVEInfraVLANs)(nil)
-	_ gnmiext.Configurable = (*FabricFwd)(nil)
+	_ gnmiext.DataElement = (*NVE)(nil)
+	_ gnmiext.DataElement = (*NVEInfraVLANs)(nil)
+	_ gnmiext.DataElement = (*FabricFwd)(nil)
 )
 
 // NVE represents the Network Virtualization Edge interface (nve1).
