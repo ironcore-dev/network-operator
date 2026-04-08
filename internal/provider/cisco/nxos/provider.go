@@ -31,6 +31,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 	"github.com/ironcore-dev/network-operator/internal/transport/grpcext"
+	"github.com/ironcore-dev/network-operator/internal/transport/nxapi"
 )
 
 var (
@@ -65,6 +66,7 @@ var (
 type Provider struct {
 	conn   *grpc.ClientConn
 	client gnmiext.Client
+	nxapi  *nxapi.Client
 }
 
 func NewProvider() provider.Provider {
@@ -72,7 +74,9 @@ func NewProvider() provider.Provider {
 }
 
 func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (err error) {
-	p.conn, err = grpcext.NewClient(ctx, conn, grpcext.WithDefaultTimeout(30*time.Second))
+	// timeout is the default timeout for all HTTP/gRPC requests made by the provider.
+	const timeout = 30 * time.Second
+	p.conn, err = grpcext.NewClient(ctx, conn, grpcext.WithDefaultTimeout(timeout))
 	if err != nil {
 		return fmt.Errorf("failed to create grpc connection: %w", err)
 	}
@@ -81,7 +85,17 @@ func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (er
 		opts = append(opts, gnmiext.WithLogger(logger))
 	}
 	p.client, err = gnmiext.New(ctx, p.conn, opts...)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to create gnmi client: %w", err)
+	}
+	// NXAPI only uses the address for URI construction.
+	c := *conn
+	c.Address = netip.MustParseAddrPort(conn.Address).String()
+	p.nxapi, err = nxapi.NewClient(&c, timeout)
+	if err != nil {
+		return fmt.Errorf("failed to create nxapi client: %w", err)
+	}
+	return nil
 }
 
 func (p *Provider) Disconnect(_ context.Context, _ *deviceutil.Connection) error {
