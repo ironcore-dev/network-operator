@@ -240,16 +240,13 @@ func (r *PIMReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return bldr.
 		// Watches enqueues PIMs for updates in referenced Device resources.
-		// Triggers on create, delete, and update events when the Paused spec field changes.
+		// Triggers on create, delete, and update events when the device's effective pause state changes.
 		Watches(
 			&v1alpha1.Device{},
 			handler.EnqueueRequestsFromMapFunc(r.deviceToPIMs),
 			builder.WithPredicates(predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					oldDevice := e.ObjectOld.(*v1alpha1.Device)
-					newDevice := e.ObjectNew.(*v1alpha1.Device)
-					// Only trigger when Paused spec field changes.
-					return oldDevice.Spec.Paused != newDevice.Spec.Paused
+					return paused.DevicePausedChanged(e.ObjectOld, e.ObjectNew)
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false
@@ -358,7 +355,7 @@ func (r *PIMReconciler) finalize(ctx context.Context, s *pimScope) (reterr error
 }
 
 // deviceToPIMs is a [handler.MapFunc] to be used to enqueue requests for reconciliation
-// for PIMs when their referenced Device's Paused spec field changes.
+// for PIMs when their referenced Device's effective pause state changes.
 func (r *PIMReconciler) deviceToPIMs(ctx context.Context, obj client.Object) []ctrl.Request {
 	device, ok := obj.(*v1alpha1.Device)
 	if !ok {
