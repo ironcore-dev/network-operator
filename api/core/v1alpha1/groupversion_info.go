@@ -123,6 +123,11 @@ const (
 	// intended (e.g., a interface is up). It corresponds to the "oper-status" commonly found
 	// in the OpenConfig models (or "operSt" on Cisco).
 	OperationalCondition = "Operational"
+
+	// ReachableCondition indicates whether the controller can reach the device.
+	// This condition is set to True when the controller successfully connects to
+	// the device, and False when the connection attempt fails.
+	ReachableCondition = "Reachable"
 )
 
 // Reasons that are used across different objects.
@@ -138,6 +143,9 @@ const (
 
 	// NotPausedReason indicates that reconciliation is not paused.
 	NotPausedReason = "NotPaused"
+
+	// ReachableReason indicates that the controller can reach the device.
+	ReachableReason = "Reachable"
 
 	// UnreachableReason indicates that the controller cannot reach the device.
 	UnreachableReason = "Unreachable"

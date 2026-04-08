@@ -4,6 +4,7 @@
 package core
 
 import (
+	"errors"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -80,12 +81,14 @@ var _ = Describe("Device Controller", func() {
 				resource := &v1alpha1.Device{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
 				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseRunning))
-				g.Expect(resource.Status.Conditions).To(HaveLen(2))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(resource.Status.Conditions[0].Reason).To(Equal(v1alpha1.ReadyReason))
 				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
 				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.ReachableCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionTrue))
 			}).Should(Succeed())
 
 			By("Creating the custom resource for the Kind Interface")
@@ -111,11 +114,13 @@ var _ = Describe("Device Controller", func() {
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
 				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseRunning))
 
-				g.Expect(resource.Status.Conditions).To(HaveLen(2))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
 				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.ReachableCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionTrue))
 
 				g.Expect(resource.Status.Manufacturer).To(Equal("Manufacturer"))
 				g.Expect(resource.Status.Model).To(Equal("Model"))
@@ -174,12 +179,14 @@ var _ = Describe("Device Controller", func() {
 				resource := &v1alpha1.Device{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
 				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseProvisioning))
-				g.Expect(resource.Status.Conditions).To(HaveLen(2))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(resource.Status.Conditions[0].Reason).To(Equal(v1alpha1.ProvisioningReason))
 				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
 				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.ReachableCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionUnknown))
 			}).Should(Succeed())
 		})
 
@@ -372,12 +379,14 @@ var _ = Describe("Device Controller", func() {
 				resource := &v1alpha1.Device{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
 				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseRunning))
-				g.Expect(resource.Status.Conditions).To(HaveLen(2))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(resource.Status.Conditions[0].Reason).To(Equal(v1alpha1.ReadyReason))
 				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
 				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.ReachableCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionTrue))
 			}).Should(Succeed())
 		})
 
@@ -414,10 +423,12 @@ var _ = Describe("Device Controller", func() {
 				resource := &v1alpha1.Device{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
 				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseProvisioning))
-				g.Expect(resource.Status.Conditions).To(HaveLen(2))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
 				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.ReachableCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionUnknown))
 			}).Should(Succeed())
 
 			By("Setting the device to Running phase")
@@ -430,10 +441,12 @@ var _ = Describe("Device Controller", func() {
 				resource := &v1alpha1.Device{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
 				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseRunning))
-				g.Expect(resource.Status.Conditions).To(HaveLen(2))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
 				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.ReachableCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionTrue))
 			}).Should(Succeed())
 
 			By("Adding the reset-phase annotation to the device")
@@ -454,6 +467,61 @@ var _ = Describe("Device Controller", func() {
 				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseProvisioning))
 				_, exists := resource.Annotations[v1alpha1.DeviceMaintenanceAnnotation]
 				g.Expect(exists).To(BeFalse(), "Maintenance annotation should be removed after processing")
+			}).Should(Succeed())
+		})
+
+		It("Should set Reachable=False and Ready=Unknown when the device is unreachable", func() {
+			By("Making the provider return a connect error")
+			testProvider.SetConnectError(errors.New("connection refused"))
+
+			DeferCleanup(func() {
+				testProvider.SetConnectError(nil)
+			})
+
+			By("Creating the custom resource for the Kind Device")
+			device := &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.2:9339",
+						SecretRef: &v1alpha1.SecretReference{
+							Name: name,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+
+			By("Verifying Reachable=False and Ready=Unknown when connect fails")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseRunning))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionUnknown))
+				g.Expect(resource.Status.Conditions[0].Reason).To(Equal(v1alpha1.UnreachableReason))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.ReachableCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[2].Reason).To(Equal(v1alpha1.UnreachableReason))
+			}).Should(Succeed())
+
+			By("Clearing the connect error to simulate recovery")
+			testProvider.SetConnectError(nil)
+
+			By("Verifying Reachable=True and Ready=True after recovery")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.ReachableCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionTrue))
 			}).Should(Succeed())
 		})
 	})

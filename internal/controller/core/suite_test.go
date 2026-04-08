@@ -116,11 +116,11 @@ var _ = BeforeSuite(func() {
 	prov := func() provider.Provider { return testProvider }
 
 	err = (&DeviceReconciler{
-		Client:          k8sManager.GetClient(),
-		Scheme:          k8sManager.GetScheme(),
-		Recorder:        recorder,
-		Provider:        prov,
-		RequeueInterval: time.Second,
+		Client:            k8sManager.GetClient(),
+		Scheme:            k8sManager.GetScheme(),
+		Recorder:          recorder,
+		Provider:          prov,
+		HeartbeatInterval: time.Second,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -417,6 +417,8 @@ var (
 type Provider struct {
 	sync.Mutex
 
+	ConnectError error // if non-nil, Connect returns this error
+
 	Ports           sets.Set[string]
 	User            sets.Set[string]
 	PreLoginBanner  *string
@@ -460,7 +462,19 @@ func NewProvider() *Provider {
 	}
 }
 
-func (p *Provider) Connect(context.Context, *deviceutil.Connection) error    { return nil }
+// SetConnectError sets the error that Connect will return on subsequent calls.
+// Pass nil to clear the error and allow connections to succeed.
+func (p *Provider) SetConnectError(err error) {
+	p.Lock()
+	defer p.Unlock()
+	p.ConnectError = err
+}
+
+func (p *Provider) Connect(_ context.Context, _ *deviceutil.Connection) error {
+	p.Lock()
+	defer p.Unlock()
+	return p.ConnectError
+}
 func (p *Provider) Disconnect(context.Context, *deviceutil.Connection) error { return nil }
 
 func (p *Provider) ListPorts(context.Context) (ports []provider.DevicePort, err error) {

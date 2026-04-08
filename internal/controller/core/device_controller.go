@@ -50,9 +50,9 @@ type DeviceReconciler struct {
 	// Provider is the driver that will be used to create & delete the interface.
 	Provider provider.ProviderFunc
 
-	// RequeueInterval is the duration after which the controller should requeue the reconciliation,
+	// HeartbeatInterval is the duration after which the controller requeues the reconciliation,
 	// regardless of changes.
-	RequeueInterval time.Duration
+	HeartbeatInterval time.Duration
 }
 
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=devices,verbs=get;list;watch;create;update;patch;delete
@@ -104,7 +104,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 	}
 
 	orig := obj.DeepCopy()
-	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ReachableCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
@@ -182,7 +182,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		log.Info("Device provisioning completed, running post provisioning checks")
 		prov, _ := r.Provider().(provider.ProvisioningProvider)
 		if ok := prov.VerifyProvisioned(ctx, conn, obj); !ok {
-			return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
+			return ctrl.Result{RequeueAfter: r.HeartbeatInterval}, nil
 		}
 		activeProv.EndTime = metav1.Now()
 		r.Recorder.Eventf(obj, nil, "Normal", "Provisioned", "Reconcile", "Device provisioning has completed successfully")
@@ -212,13 +212,13 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, reconcile.TerminalError(err)
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: r.HeartbeatInterval}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if r.RequeueInterval == 0 {
-		return errors.New("requeue interval must not be 0")
+	if r.HeartbeatInterval == 0 {
+		return errors.New("heartbeat interval must not be 0")
 	}
 
 	labelSelector := metav1.LabelSelector{}
@@ -253,18 +253,31 @@ func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Device, prov provider.DeviceProvider, conn *deviceutil.Connection) (reterr error) {
 	if err := prov.Connect(ctx, conn); err != nil {
 		conditions.Set(device, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
+			Type:    v1alpha1.ReachableCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  v1alpha1.UnreachableReason,
-			Message: fmt.Sprintf("Failed to connect to provider: %v", err),
+			Message: fmt.Sprintf("Failed to connect to device: %v", err),
 		})
-		return fmt.Errorf("failed to connect to provider: %w", err)
+		conditions.Set(device, metav1.Condition{
+			Type:    v1alpha1.ReadyCondition,
+			Status:  metav1.ConditionUnknown,
+			Reason:  v1alpha1.UnreachableReason,
+			Message: "Device is not reachable",
+		})
+		return nil
 	}
 	defer func() {
 		if err := prov.Disconnect(ctx, conn); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()
+
+	conditions.Set(device, metav1.Condition{
+		Type:    v1alpha1.ReachableCondition,
+		Status:  metav1.ConditionTrue,
+		Reason:  v1alpha1.ReachableReason,
+		Message: "Device is reachable",
+	})
 
 	ports, err := prov.ListPorts(ctx)
 	if err != nil {
@@ -282,12 +295,10 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 	}
 
 	device.Status.Ports = make([]v1alpha1.DevicePort, len(ports))
-	n := int32(0)
 	for i, p := range ports {
 		var ref *v1alpha1.LocalObjectReference
 		if name, ok := m[p.ID]; ok {
 			ref = &v1alpha1.LocalObjectReference{Name: name}
-			n++
 		}
 		device.Status.Ports[i] = v1alpha1.DevicePort{
 			Name:                p.ID,

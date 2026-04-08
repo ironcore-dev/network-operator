@@ -82,6 +82,7 @@ func main() {
 	var watchFilterValue string
 	var providerName string
 	var requeueInterval time.Duration
+	var heartbeatInterval time.Duration
 	var tftpPort int
 	var tftpValidateSourceIP bool
 	var maxConcurrentReconciles int
@@ -105,6 +106,7 @@ func main() {
 	flag.StringVar(&watchFilterValue, "watch-filter", "", fmt.Sprintf("Label value that the controller watches to reconcile api objects. Label key is always %q. If unspecified, the controller watches for all api objects.", v1alpha1.WatchLabel))
 	flag.StringVar(&providerName, "provider", "openconfig", "The provider to use for the controller. If not specified, the default provider is used. Available providers: "+strings.Join(provider.Providers(), ", "))
 	flag.DurationVar(&requeueInterval, "requeue-interval", time.Hour, "The interval after which Kubernetes resources should be reconciled again regardless of whether they have changed.")
+	flag.DurationVar(&heartbeatInterval, "heartbeat-interval", 30*time.Second, "The interval after which the controller retries a reachability check on each device.")
 	flag.IntVar(&tftpPort, "tftp-port", 1069, "The port on which the inline TFTP server listens. Set to 0 to disable the TFTP server.")
 	flag.BoolVar(&tftpValidateSourceIP, "tftp-validate-source-ip", false, "If set, the TFTP server validates the source IP and requested serial-based filename against the same Device.")
 	flag.IntVar(&maxConcurrentReconciles, "max-concurrent-reconciles", 1, "The maximum number of concurrent reconciles per controller. Defaults to 1.")
@@ -279,12 +281,12 @@ func main() {
 	}
 
 	if err := (&corecontroller.DeviceReconciler{
-		Client:           mgr.GetClient(),
-		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorder("device-controller"),
-		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
-		RequeueInterval:  requeueInterval,
+		Client:            mgr.GetClient(),
+		Scheme:            mgr.GetScheme(),
+		Recorder:          mgr.GetEventRecorder("device-controller"),
+		WatchFilterValue:  watchFilterValue,
+		Provider:          prov,
+		HeartbeatInterval: heartbeatInterval,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Device")
 		os.Exit(1)
