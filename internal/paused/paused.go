@@ -72,8 +72,9 @@ func EnsureCondition(ctx context.Context, c client.Client, device *v1alpha1.Devi
 // computeCondition builds the Paused condition. A resource is paused when
 // any of the following apply (in priority order):
 //  1. device.spec.paused is true
-//  2. device's Reachable condition is not true (child resources only)
-//  3. the object carries [v1alpha1.PausedAnnotation]
+//  2. device.status.phase is not Running (child resources only)
+//  3. device's Reachable condition is not true (child resources only)
+//  4. the object carries [v1alpha1.PausedAnnotation]
 func computeCondition(device *v1alpha1.Device, obj Object) metav1.Condition {
 	condition := metav1.Condition{
 		Type:               v1alpha1.PausedCondition,
@@ -91,9 +92,15 @@ func computeCondition(device *v1alpha1.Device, obj Object) metav1.Condition {
 		}
 		// Phase and reachability checks only apply to child resources
 		// (device != obj). The device itself must not pause due to its
-		// own reachability — it needs to keep reconciling to set the
-		// Reachable condition.
+		// own phase or reachability — it needs to keep reconciling to
+		// reach Running and to set the Reachable condition.
 		if device != obj {
+			if device.Status.Phase != "" && device.Status.Phase != v1alpha1.DevicePhaseRunning {
+				condition.Status = metav1.ConditionTrue
+				condition.Reason = v1alpha1.PausedReason
+				condition.Message = "Device is not in phase Running"
+				return condition
+			}
 			if cond := conditions.Get(device, v1alpha1.ReachableCondition); cond != nil && cond.Status != metav1.ConditionTrue {
 				condition.Status = metav1.ConditionTrue
 				condition.Reason = v1alpha1.PausedReason
@@ -113,15 +120,17 @@ func computeCondition(device *v1alpha1.Device, obj Object) metav1.Condition {
 }
 
 // DevicePausedChanged reports whether the device's effective pause state changed
-// between the old and new object versions. It returns true when spec.paused
-// flipped or when the Reachable condition status changed, since both affect
-// whether child resources are paused.
-//
-// The effective pause state is determined by [computeCondition].
+// between the old and new object versions. The effective pause state is
+// determined by [computeCondition].
 func DevicePausedChanged(oldObj, newObj client.Object) bool {
 	oldDevice := oldObj.(*v1alpha1.Device)
 	newDevice := newObj.(*v1alpha1.Device)
 	if oldDevice.Spec.Paused != newDevice.Spec.Paused {
+		return true
+	}
+	oldPhasePaused := oldDevice.Status.Phase != "" && oldDevice.Status.Phase != v1alpha1.DevicePhaseRunning
+	newPhasePaused := newDevice.Status.Phase != "" && newDevice.Status.Phase != v1alpha1.DevicePhaseRunning
+	if oldPhasePaused != newPhasePaused {
 		return true
 	}
 	oldReachable := conditions.Get(oldDevice, v1alpha1.ReachableCondition)
