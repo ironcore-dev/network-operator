@@ -159,7 +159,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 			log.Info("Device has not made a provisioning request yet")
 			return ctrl.Result{RequeueAfter: 5 * time.Minute}, nil
 		}
-		if activeProv.StartTime.Add(time.Hour).After(time.Now()) {
+		if activeProv.StartTime.Add(time.Hour).Before(time.Now()) {
 			obj.Status.Phase = v1alpha1.DevicePhaseFailed
 			r.Recorder.Eventf(obj, nil, "Warning", "ProvisioningFailed", "Reconcile", "Device provisioning has timed out")
 			return ctrl.Result{}, nil
