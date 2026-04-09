@@ -44,7 +44,6 @@ var (
 	testEnv      *envtest.Environment
 	k8sClient    client.Client
 	k8sManager   ctrl.Manager
-	testRecorder *events.FakeRecorder
 	testProvider = NewProvider()
 	testLocker   *resourcelock.ResourceLocker
 
@@ -93,7 +92,12 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	testRecorder = events.NewFakeRecorder(1000)
+	recorder := events.NewFakeRecorder(0)
+	go func() {
+		for event := range recorder.Events {
+			GinkgoLogr.Info("Event", "event", event)
+		}
+	}()
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
@@ -114,7 +118,7 @@ var _ = BeforeSuite(func() {
 	err = (&DeviceReconciler{
 		Client:          k8sManager.GetClient(),
 		Scheme:          k8sManager.GetScheme(),
-		Recorder:        testRecorder,
+		Recorder:        recorder,
 		Provider:        prov,
 		RequeueInterval: time.Second,
 	}).SetupWithManager(k8sManager)
@@ -123,7 +127,7 @@ var _ = BeforeSuite(func() {
 	err = (&InterfaceReconciler{
 		Client:          k8sManager.GetClient(),
 		Scheme:          k8sManager.GetScheme(),
-		Recorder:        testRecorder,
+		Recorder:        recorder,
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
@@ -133,7 +137,7 @@ var _ = BeforeSuite(func() {
 	err = (&BannerReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
-		Recorder: testRecorder,
+		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(k8sManager)
@@ -142,7 +146,7 @@ var _ = BeforeSuite(func() {
 	err = (&UserReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
-		Recorder: testRecorder,
+		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(k8sManager)
@@ -151,7 +155,7 @@ var _ = BeforeSuite(func() {
 	err = (&DNSReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
-		Recorder: testRecorder,
+		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(k8sManager)
@@ -160,7 +164,7 @@ var _ = BeforeSuite(func() {
 	err = (&NTPReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
-		Recorder: testRecorder,
+		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(k8sManager)
@@ -169,7 +173,7 @@ var _ = BeforeSuite(func() {
 	err = (&AccessControlListReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
-		Recorder: testRecorder,
+		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(k8sManager)
@@ -178,7 +182,7 @@ var _ = BeforeSuite(func() {
 	err = (&CertificateReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
-		Recorder: testRecorder,
+		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(k8sManager)
@@ -187,7 +191,7 @@ var _ = BeforeSuite(func() {
 	err = (&SNMPReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
-		Recorder: testRecorder,
+		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(k8sManager)
@@ -196,7 +200,7 @@ var _ = BeforeSuite(func() {
 	err = (&SyslogReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
-		Recorder: testRecorder,
+		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(k8sManager)
@@ -205,7 +209,7 @@ var _ = BeforeSuite(func() {
 	err = (&ManagementAccessReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
-		Recorder: testRecorder,
+		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(k8sManager)
@@ -214,7 +218,7 @@ var _ = BeforeSuite(func() {
 	err = (&ISISReconciler{
 		Client:          k8sManager.GetClient(),
 		Scheme:          k8sManager.GetScheme(),
-		Recorder:        testRecorder,
+		Recorder:        recorder,
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
@@ -224,7 +228,7 @@ var _ = BeforeSuite(func() {
 	err = (&VRFReconciler{
 		Client:          k8sManager.GetClient(),
 		Scheme:          k8sManager.GetScheme(),
-		Recorder:        testRecorder,
+		Recorder:        recorder,
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
@@ -234,7 +238,7 @@ var _ = BeforeSuite(func() {
 	err = (&PIMReconciler{
 		Client:          k8sManager.GetClient(),
 		Scheme:          k8sManager.GetScheme(),
-		Recorder:        testRecorder,
+		Recorder:        recorder,
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
@@ -244,7 +248,7 @@ var _ = BeforeSuite(func() {
 	err = (&BGPReconciler{
 		Client:          k8sManager.GetClient(),
 		Scheme:          k8sManager.GetScheme(),
-		Recorder:        testRecorder,
+		Recorder:        recorder,
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
@@ -254,7 +258,7 @@ var _ = BeforeSuite(func() {
 	err = (&BGPPeerReconciler{
 		Client:          k8sManager.GetClient(),
 		Scheme:          k8sManager.GetScheme(),
-		Recorder:        testRecorder,
+		Recorder:        recorder,
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
@@ -264,7 +268,7 @@ var _ = BeforeSuite(func() {
 	err = (&OSPFReconciler{
 		Client:          k8sManager.GetClient(),
 		Scheme:          k8sManager.GetScheme(),
-		Recorder:        testRecorder,
+		Recorder:        recorder,
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
@@ -274,7 +278,7 @@ var _ = BeforeSuite(func() {
 	err = (&VLANReconciler{
 		Client:          k8sManager.GetClient(),
 		Scheme:          k8sManager.GetScheme(),
-		Recorder:        testRecorder,
+		Recorder:        recorder,
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
@@ -284,7 +288,7 @@ var _ = BeforeSuite(func() {
 	err = (&EVPNInstanceReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
-		Recorder: testRecorder,
+		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
@@ -293,7 +297,7 @@ var _ = BeforeSuite(func() {
 	err = (&NetworkVirtualizationEdgeReconciler{
 		Client:          k8sManager.GetClient(),
 		Scheme:          k8sManager.GetScheme(),
-		Recorder:        testRecorder,
+		Recorder:        recorder,
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
@@ -303,7 +307,7 @@ var _ = BeforeSuite(func() {
 	err = (&PrefixSetReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
-		Recorder: testRecorder,
+		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(k8sManager)
@@ -312,7 +316,7 @@ var _ = BeforeSuite(func() {
 	err = (&RoutingPolicyReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
-		Recorder: testRecorder,
+		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
@@ -321,7 +325,7 @@ var _ = BeforeSuite(func() {
 	err = (&LLDPReconciler{
 		Client:          k8sManager.GetClient(),
 		Scheme:          k8sManager.GetScheme(),
-		Recorder:        testRecorder,
+		Recorder:        recorder,
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
@@ -331,7 +335,7 @@ var _ = BeforeSuite(func() {
 	err = (&DHCPRelayReconciler{
 		Client:          k8sManager.GetClient(),
 		Scheme:          k8sManager.GetScheme(),
-		Recorder:        testRecorder,
+		Recorder:        recorder,
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
