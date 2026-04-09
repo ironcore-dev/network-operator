@@ -279,49 +279,73 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 		Message: "Device is reachable",
 	})
 
-	ports, err := prov.ListPorts(ctx)
+	// Reboot-gated queries: only fetch hardware info and ports when the device
+	// has rebooted since the last observed reboot time, or on first connection.
+	lastReboot, err := prov.GetLastRebootTime(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to list device ports: %w", err)
+		return fmt.Errorf("failed to get last reboot time: %w", err)
 	}
 
+	if device.Status.LastRebootTime.IsZero() || lastReboot.After(device.Status.LastRebootTime.Time) {
+		info, err := prov.GetDeviceInfo(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get device info: %w", err)
+		}
+		device.Status.Manufacturer = info.Manufacturer
+		device.Status.Model = info.Model
+		device.Status.SerialNumber = info.SerialNumber
+		device.Status.FirmwareVersion = info.FirmwareVersion
+		device.Status.LastRebootTime = metav1.NewTime(lastReboot)
+
+		ports, err := prov.ListPorts(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to list device ports: %w", err)
+		}
+		device.Status.Ports = make([]v1alpha1.DevicePort, len(ports))
+		for i, p := range ports {
+			device.Status.Ports[i] = v1alpha1.DevicePort{
+				Name:                p.ID,
+				Type:                p.Type,
+				SupportedSpeedsGbps: p.SupportedSpeedsGbps,
+				Transceiver:         p.Transceiver,
+			}
+			slices.Sort(device.Status.Ports[i].SupportedSpeedsGbps)
+		}
+
+		log := ctrl.LoggerFrom(ctx)
+		if device.Labels == nil {
+			device.Labels = map[string]string{}
+		}
+		if serial := strings.ToLower(device.Status.SerialNumber); serial != "" {
+			if device.Labels[v1alpha1.DeviceSerialLabel] == "" {
+				device.Labels[v1alpha1.DeviceSerialLabel] = serial
+			} else if device.Labels[v1alpha1.DeviceSerialLabel] != serial {
+				log.Info("Device serial label does not match observed device serial number", "labelSerial", device.Labels[v1alpha1.DeviceSerialLabel], "observedSerial", serial)
+			}
+		}
+	}
+
+	// Always rebuild InterfaceRef mappings from the local Interface list.
 	interfaces := new(v1alpha1.InterfaceList)
 	if err := r.List(ctx, interfaces, client.InNamespace(device.Namespace), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name}); err != nil {
 		return fmt.Errorf("failed to list interface resources for device: %w", err)
 	}
 
-	m := make(map[string]string) // ID => Resource Name
+	m := make(map[string]string) // port ID => Interface resource name
 	for _, intf := range interfaces.Items {
 		m[intf.Spec.Name] = intf.Name
 	}
 
-	device.Status.Ports = make([]v1alpha1.DevicePort, len(ports))
-	for i, p := range ports {
-		var ref *v1alpha1.LocalObjectReference
-		if name, ok := m[p.ID]; ok {
-			ref = &v1alpha1.LocalObjectReference{Name: name}
+	for i := range device.Status.Ports {
+		portName := device.Status.Ports[i].Name
+		var newRef *v1alpha1.LocalObjectReference
+		if name, ok := m[portName]; ok {
+			newRef = &v1alpha1.LocalObjectReference{Name: name}
 		}
-		device.Status.Ports[i] = v1alpha1.DevicePort{
-			Name:                p.ID,
-			Type:                p.Type,
-			SupportedSpeedsGbps: p.SupportedSpeedsGbps,
-			Transceiver:         p.Transceiver,
-			InterfaceRef:        ref,
-		}
-		slices.Sort(device.Status.Ports[i].SupportedSpeedsGbps)
+		device.Status.Ports[i].InterfaceRef = newRef
 	}
 
 	device.Status.PortSummary = PortSummary(device.Status.Ports)
-
-	info, err := prov.GetDeviceInfo(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get device details: %w", err)
-	}
-
-	device.Status.Manufacturer = info.Manufacturer
-	device.Status.Model = info.Model
-	device.Status.SerialNumber = info.SerialNumber
-	device.Status.FirmwareVersion = info.FirmwareVersion
-	device.Status.LastRebootTime = metav1.NewTime(info.LastRebootTime)
 
 	conditions.Set(device, metav1.Condition{
 		Type:    v1alpha1.ReadyCondition,
@@ -329,18 +353,6 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 		Reason:  v1alpha1.ReadyReason,
 		Message: "Device is healthy",
 	})
-
-	log := ctrl.LoggerFrom(ctx)
-	if device.Labels == nil {
-		device.Labels = map[string]string{}
-	}
-	if serial := strings.ToLower(device.Status.SerialNumber); serial != "" {
-		if device.Labels[v1alpha1.DeviceSerialLabel] == "" {
-			device.Labels[v1alpha1.DeviceSerialLabel] = serial
-		} else if device.Labels[v1alpha1.DeviceSerialLabel] != serial {
-			log.Info("Device serial label does not match observed device serial number", "labelSerial", device.Labels[v1alpha1.DeviceSerialLabel], "observedSerial", serial)
-		}
-	}
 
 	return nil
 }

@@ -35,6 +35,8 @@ type DeviceProvider interface {
 	// GetDeviceInfo retrieves basic information about the device,
 	// such as manufacturer, model, serial number, and firmware version.
 	GetDeviceInfo(context.Context) (*DeviceInfo, error)
+	// GetLastRebootTime retrieves the timestamp of the last device reboot.
+	GetLastRebootTime(context.Context) (time.Time, error)
 	// Reboot initiates a reboot of the device.
 	Reboot(context.Context, *deviceutil.Connection) error
 	// FactoryReset performs a factory reset of the device.
@@ -71,8 +73,6 @@ type DeviceInfo struct {
 	SerialNumber string
 	// FirmwareVersion is the firmware version running on the device, e.g. "10.4(3)".
 	FirmwareVersion string
-	// LastRebootTime is the timestamp of the last reboot of the device.
-	LastRebootTime time.Time
 }
 
 // InterfaceProvider is the interface for the realization of the Interface objects over different providers.

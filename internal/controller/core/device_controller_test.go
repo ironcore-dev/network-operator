@@ -524,5 +524,45 @@ var _ = Describe("Device Controller", func() {
 				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionTrue))
 			}).Should(Succeed())
 		})
+
+		It("Should update LastRebootTime in status when the device reboots", func() {
+			By("Creating the custom resource for the Kind Device")
+			device := &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.2:9339",
+						SecretRef: &v1alpha1.SecretReference{
+							Name: name,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+
+			By("Waiting for the initial reconcile to populate LastRebootTime")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.LastRebootTime.Time).To(BeTemporally("==", lastRebootTime))
+			}).Should(Succeed())
+
+			By("Advancing the reboot time in the provider to simulate a device reboot")
+			newRebootTime := lastRebootTime.Add(time.Hour)
+			testProvider.SetLastRebootTime(newRebootTime)
+			DeferCleanup(func() {
+				testProvider.SetLastRebootTime(lastRebootTime)
+			})
+
+			By("Verifying LastRebootTime in status is updated to the new value")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.LastRebootTime.Time).To(BeTemporally("==", newRebootTime))
+			}).Should(Succeed())
+		})
 	})
 })

@@ -196,8 +196,7 @@ func (p *Provider) GetDeviceInfo(ctx context.Context) (*provider.DeviceInfo, err
 	m := new(Model)
 	s := new(SerialNumber)
 	fw := new(FirmwareVersion)
-	bt := new(BootTime)
-	if err := p.client.GetState(ctx, m, s, fw, bt); err != nil {
+	if err := p.client.GetState(ctx, m, s, fw); err != nil {
 		return nil, err
 	}
 
@@ -206,8 +205,15 @@ func (p *Provider) GetDeviceInfo(ctx context.Context) (*provider.DeviceInfo, err
 		Model:           string(*m),
 		SerialNumber:    string(*s),
 		FirmwareVersion: string(*fw),
-		LastRebootTime:  bt.Time,
 	}, nil
+}
+
+func (p *Provider) GetLastRebootTime(ctx context.Context) (time.Time, error) {
+	bt := new(BootTime)
+	if err := p.client.GetState(ctx, bt); err != nil {
+		return time.Time{}, err
+	}
+	return bt.Time, nil
 }
 
 func (p *Provider) EnsureACL(ctx context.Context, req *provider.EnsureACLRequest) error {

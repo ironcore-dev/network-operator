@@ -417,7 +417,8 @@ var (
 type Provider struct {
 	sync.Mutex
 
-	ConnectError error // if non-nil, Connect returns this error
+	ConnectError   error // if non-nil, Connect returns this error
+	LastRebootTime time.Time
 
 	Ports           sets.Set[string]
 	User            sets.Set[string]
@@ -447,6 +448,7 @@ type Provider struct {
 
 func NewProvider() *Provider {
 	return &Provider{
+		LastRebootTime:  lastRebootTime,
 		Ports:           sets.New[string](),
 		User:            sets.New[string](),
 		ACLs:            sets.New[string](),
@@ -470,6 +472,13 @@ func (p *Provider) SetConnectError(err error) {
 	p.ConnectError = err
 }
 
+// SetLastRebootTime sets the time returned by GetLastRebootTime on subsequent calls.
+func (p *Provider) SetLastRebootTime(t time.Time) {
+	p.Lock()
+	defer p.Unlock()
+	p.LastRebootTime = t
+}
+
 func (p *Provider) Connect(_ context.Context, _ *deviceutil.Connection) error {
 	p.Lock()
 	defer p.Unlock()
@@ -489,13 +498,18 @@ func (p *Provider) ListPorts(context.Context) (ports []provider.DevicePort, err 
 	return
 }
 
+func (p *Provider) GetLastRebootTime(_ context.Context) (time.Time, error) {
+	p.Lock()
+	defer p.Unlock()
+	return p.LastRebootTime, nil
+}
+
 func (p *Provider) GetDeviceInfo(context.Context) (*provider.DeviceInfo, error) {
 	return &provider.DeviceInfo{
 		Manufacturer:    "Manufacturer",
 		Model:           "Model",
 		SerialNumber:    "123456789",
 		FirmwareVersion: "1.0.0",
-		LastRebootTime:  lastRebootTime,
 	}, nil
 }
 
