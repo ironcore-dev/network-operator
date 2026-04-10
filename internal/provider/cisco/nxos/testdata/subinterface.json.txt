@@ -1,0 +1,5 @@
+interface eth1/1.100
+ encapsulation dot1q 100
+ description L3 Subinterface on eth1/1
+ mtu 1500
+ no shutdown

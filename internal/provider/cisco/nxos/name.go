@@ -10,11 +10,13 @@ import (
 )
 
 var (
-	mgmtRe        = regexp.MustCompile(`(?i)^mgmt0$`)
-	ethernetRe    = regexp.MustCompile(`(?i)^(ethernet|eth)(\d+/\d+)$`)
-	loopbackRe    = regexp.MustCompile(`(?i)^(loopback|lo)(\d+)$`)
-	portchannelRe = regexp.MustCompile(`(?i)^(port-channel|po)(\d+)$`)
-	vlanRe        = regexp.MustCompile(`(?i)^(vlan)(\d+)$`)
+	mgmtRe          = regexp.MustCompile(`(?i)^mgmt0$`)
+	ethernetRe      = regexp.MustCompile(`(?i)^(ethernet|eth)(\d+/\d+)$`)
+	loopbackRe      = regexp.MustCompile(`(?i)^(loopback|lo)(\d+)$`)
+	portchannelRe   = regexp.MustCompile(`(?i)^(port-channel|po)(\d+)$`)
+	encapRoutedRe   = regexp.MustCompile(`(?i)^(ethernet|eth)(\d+/\d+)\.(\d+)$`)
+	encapRoutedPoRe = regexp.MustCompile(`(?i)^(port-channel|po)(\d+)\.(\d+)$`)
+	vlanRe          = regexp.MustCompile(`(?i)^(vlan)(\d+)$`)
 )
 
 // ShortName converts a full interface name to its short form.
@@ -38,7 +40,13 @@ func ShortName(name string) (string, error) {
 	if mgmtRe.MatchString(name) {
 		return "mgmt0", nil
 	}
-	return "", fmt.Errorf("unsupported interface format %q, expected one of: %q, %q, %q, %q, %q", name, mgmtRe.String(), ethernetRe.String(), loopbackRe.String(), portchannelRe.String(), vlanRe.String())
+	if matches := encapRoutedRe.FindStringSubmatch(name); matches != nil {
+		return "eth" + matches[2] + "." + matches[3], nil
+	}
+	if matches := encapRoutedPoRe.FindStringSubmatch(name); matches != nil {
+		return "po" + matches[2] + "." + matches[3], nil
+	}
+	return "", fmt.Errorf("unsupported interface format %q, expected one of: %q, %q, %q, %q, %q, %q", name, mgmtRe.String(), ethernetRe.String(), loopbackRe.String(), portchannelRe.String(), vlanRe.String(), encapRoutedRe.String())
 }
 
 func ShortNamePortChannel(name string) (string, error) {

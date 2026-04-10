@@ -965,6 +965,45 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				return err
 			}
 		}
+	case v1alpha1.InterfaceTypeSubinterface:
+		s := new(EncapRoutedInterface)
+		s.ID = name
+
+		if req.Interface.Spec.Description != "" {
+			s.Descr = NewOption(req.Interface.Spec.Description)
+		}
+
+		s.AdminSt = AdminStDown
+		if req.Interface.Spec.AdminState == v1alpha1.AdminStateUp {
+			s.AdminSt = AdminStUp
+		}
+
+		s.MTUInherit = true
+		s.MTU = DefaultMTU
+		if req.Interface.Spec.MTU != 0 {
+			s.MTU = req.Interface.Spec.MTU
+			s.MTUInherit = false
+		}
+
+		var encap string
+		switch req.Interface.Spec.Encapsulation.Type {
+		case v1alpha1.EncapsulationTypeDot1Q:
+			encap = "vlan-" + strconv.FormatInt(int64(req.Interface.Spec.Encapsulation.Tag), 10)
+		default:
+			return fmt.Errorf("unsupported encapsulation type: %s", req.Interface.Spec.Encapsulation.Type)
+		}
+		s.Encap = encap
+
+		if req.IPv4 != nil {
+			s.RtvrfMbrItems = NewVrfMember(name, vrf)
+		}
+
+		s.Medium = MediumBroadcast
+		if isPointToPoint(req.Interface.Spec.IPv4) {
+			s.Medium = MediumPointToPoint
+		}
+
+		updates = append(updates, s)
 
 	default:
 		return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
@@ -1141,7 +1180,10 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 		svi := new(SwitchVirtualInterface)
 		svi.ID = name
 		deletes = append(deletes, svi)
-
+	case v1alpha1.InterfaceTypeSubinterface:
+		s := new(EncapRoutedInterface)
+		s.ID = name
+		deletes = append(deletes, s)
 	default:
 		return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
 	}
@@ -1195,6 +1237,15 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 		}
 		operSt = svi.OperSt
 		operMsg = svi.OperStQual
+
+	case v1alpha1.InterfaceTypeSubinterface:
+		s := new(EncapRoutedInterfaceOperItems)
+		s.ID = name
+		if err := p.client.GetState(ctx, s); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return provider.InterfaceStatus{}, err
+		}
+		operSt = s.OperSt
+		operMsg = s.OperStQual
 
 	default:
 		return provider.InterfaceStatus{}, fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)

@@ -41,6 +41,16 @@ func init() {
 		UserCfgdFlags: UserFlagAdminState,
 	})
 
+	Register("subinterface", &EncapRoutedInterface{
+		ID:         "eth1/1.100",
+		MTU:        1500,
+		Medium:     MediumBroadcast,
+		MTUInherit: false,
+		Encap:      "100",
+		AdminSt:    AdminStUp,
+		Descr:      NewOption("L3 Subinterface on eth1/1"),
+	})
+
 	intfAddr4 := &AddrItem{ID: "lo0", Vrf: DefaultVRFName}
 	intfAddr4.AddrItems.AddrList.Set(&IntfAddr{
 		Addr: "10.0.0.10/32",

@@ -31,6 +31,8 @@ var (
 	_ gnmiext.DataElement = (*PortChannelOperItems)(nil)
 	_ gnmiext.DataElement = (*SwitchVirtualInterface)(nil)
 	_ gnmiext.DataElement = (*SwitchVirtualInterfaceOperItems)(nil)
+	_ gnmiext.DataElement = (*EncapRoutedInterface)(nil)
+	_ gnmiext.DataElement = (*EncapRoutedInterfaceOperItems)(nil)
 	_ gnmiext.DataElement = (*AddrItem)(nil)
 	_ gnmiext.DataElement = (*FabricFwdIf)(nil)
 )
@@ -118,6 +120,34 @@ type PhysIfOperItems struct {
 
 func (p *PhysIfOperItems) XPath() string {
 	return "System/intf-items/phys-items/PhysIf-list[id=" + p.ID + "]/phys-items"
+}
+
+// EncapRoutedInterface represents an Encapsulated Routed Subinterface.
+type EncapRoutedInterface struct {
+	ID            string         `json:"id"`
+	Medium        Medium         `json:"mediumType"`
+	MTU           int32          `json:"mtu"`
+	MTUInherit    bool           `json:"mtuInherit"`
+	Encap         string         `json:"encap"`
+	AdminSt       AdminSt2       `json:"adminSt"`
+	Descr         Option[string] `json:"descr"`
+	RtvrfMbrItems *VrfMember     `json:"rtvrfMbr-items,omitempty"`
+}
+
+func (*EncapRoutedInterface) IsListItem() {}
+
+func (s *EncapRoutedInterface) XPath() string {
+	return "System/intf-items/encrtd-items/EncRtdIf-list[id=" + s.ID + "]"
+}
+
+type EncapRoutedInterfaceOperItems struct {
+	ID         string `json:"-"`
+	OperSt     OperSt `json:"operSt"`
+	OperStQual string `json:"operStQual"`
+}
+
+func (s *EncapRoutedInterfaceOperItems) XPath() string {
+	return "System/intf-items/encrtd-items/EncRtdIf-list[id=" + s.ID + "]/encrtdif-items"
 }
 
 // VrfMember represents a VRF associtation for an interface.
@@ -475,6 +505,12 @@ func Exists(ctx context.Context, client gnmiext.Client, names ...string) (bool, 
 		}
 		if matches := vlanRe.FindStringSubmatch(name); matches != nil {
 			e = &SwitchVirtualInterface{ID: "vlan" + matches[2]}
+		}
+		if matches := encapRoutedRe.FindStringSubmatch(name); matches != nil {
+			e = &EncapRoutedInterface{ID: "eth" + matches[2] + "." + matches[3]}
+		}
+		if matches := encapRoutedPoRe.FindStringSubmatch(name); matches != nil {
+			e = &EncapRoutedInterface{ID: "po" + matches[2] + "." + matches[3]}
 		}
 		if e == nil {
 			return false, fmt.Errorf("unsupported interface format %q, expected one of: %s, %s, %s, %s, %s", name, mgmtRe.String(), ethernetRe.String(), loopbackRe.String(), portchannelRe.String(), vlanRe.String())
