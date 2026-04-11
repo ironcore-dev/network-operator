@@ -14,7 +14,7 @@ require (
 	github.com/openconfig/goyang v1.6.3
 	github.com/openconfig/ygnmi v0.14.0
 	github.com/openconfig/ygot v0.34.0
-	github.com/pin/tftp/v3 v3.1.0
+	github.com/pin/tftp/v3 v3.2.0
 	github.com/sapcc/go-api-declarations v1.21.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.18.0
