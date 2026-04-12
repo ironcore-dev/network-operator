@@ -201,13 +201,12 @@ func (r *BGPPeerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ 
 		}
 	}()
 
-	res, err := r.reconcile(ctx, s)
-	if err != nil {
+	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
 		return ctrl.Result{}, err
 	}
 
-	return res, nil
+	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -294,7 +293,7 @@ type bgpPeerScope struct {
 	Provider       provider.BGPPeerProvider
 }
 
-func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (_ ctrl.Result, reterr error) {
+func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (reterr error) {
 	if s.BGPPeer.Labels == nil {
 		s.BGPPeer.Labels = make(map[string]string)
 	}
@@ -304,7 +303,7 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (_ c
 	// Ensure the BGPPeer is owned by the Device.
 	if !controllerutil.HasControllerReference(s.BGPPeer) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.BGPPeer, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
@@ -314,7 +313,7 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (_ c
 
 	bgp, err := r.reconcileBGP(ctx, s.BGPPeer, s.Device)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	// BGP has no operational condition, so its ready condition reflects only successful configuration.
@@ -326,7 +325,7 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (_ c
 			Reason:  v1alpha1.WaitingForDependenciesReason,
 			Message: fmt.Sprintf("BGP %s is not yet ready", s.BGPPeer.Spec.BgpRef.Name),
 		})
-		return ctrl.Result{}, nil
+		return nil
 	}
 
 	var sourceInterface string
@@ -340,9 +339,9 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (_ c
 					Reason:  v1alpha1.InterfaceNotFoundReason,
 					Message: fmt.Sprintf("source interface %q not found", addr.InterfaceRef.Name),
 				})
-				return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("source interface %q not found", addr.InterfaceRef.Name))
+				return reconcile.TerminalError(fmt.Errorf("source interface %q not found", addr.InterfaceRef.Name))
 			}
-			return ctrl.Result{}, fmt.Errorf("failed to get source interface %q: %w", addr.InterfaceRef.Name, err)
+			return fmt.Errorf("failed to get source interface %q: %w", addr.InterfaceRef.Name, err)
 		}
 
 		if intf.Spec.DeviceRef.Name != s.Device.Name {
@@ -352,13 +351,13 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (_ c
 				Reason:  v1alpha1.CrossDeviceReferenceReason,
 				Message: fmt.Sprintf("source interface %q does not belong to device %q", intf.Name, s.Device.Name),
 			})
-			return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("source interface %q does not belong to device %q", intf.Name, s.Device.Name))
+			return reconcile.TerminalError(fmt.Errorf("source interface %q does not belong to device %q", intf.Name, s.Device.Name))
 		}
 		sourceInterface = intf.Spec.Name
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
@@ -378,7 +377,7 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (_ c
 	conditions.Set(s.BGPPeer, cond)
 
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	status, err := s.Provider.GetPeerStatus(ctx, &provider.BGPPeerStatusRequest{
@@ -386,7 +385,7 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (_ c
 		ProviderConfig: s.ProviderConfig,
 	})
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get bgp peer status: %w", err)
+		return fmt.Errorf("failed to get bgp peer status: %w", err)
 	}
 
 	cond = metav1.Condition{
@@ -427,7 +426,7 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (_ c
 	}
 	s.BGPPeer.Status.AdvertisedPrefixesSummary = strings.Join(summaries, ", ")
 
-	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, err
+	return nil
 }
 
 func (r *BGPPeerReconciler) finalize(ctx context.Context, s *bgpPeerScope) (reterr error) {

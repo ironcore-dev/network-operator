@@ -194,10 +194,12 @@ type VPCDomainStatus struct {
 
 	// Role indicates the current operational role of this vPC domain peer.
 	// +optional
+	// +kubebuilder:default=Unknown
 	Role VPCDomainRole `json:"role,omitempty"`
 
 	// KeepAliveStatus indicates the status of the peer via the keepalive link.
 	// +optional
+	// +kubebuilder:default=Unknown
 	KeepAliveStatus Status `json:"keepaliveStatus,omitempty"`
 
 	// KeepAliveStatusMsg provides additional information about the keepalive status, a list of strings reported by the device.
@@ -208,6 +210,7 @@ type VPCDomainStatus struct {
 	// the adjacency is lost, e.g., due to a shutdown link, the device will not be able to perform such check and the reported status
 	// will remain unchanged (with the value of the last check).
 	// +optional
+	// +kubebuilder:default=Unknown
 	PeerStatus Status `json:"peerStatus,omitempty"`
 
 	// PeerStatusMsg provides additional information about the peer status, a list of strings reported by the device.
@@ -224,7 +227,20 @@ type VPCDomainStatus struct {
 
 	// PeerLinkIfOperStatus is the Operational status of `PeerLinkIf`.
 	// +optional
+	// +kubebuilder:default=Unknown
 	PeerLinkIfOperStatus Status `json:"peerLinkIfOperStatus,omitempty"`
+}
+
+// Reset resets fields of the VPCDomainStatus to their default value.
+// This is used in the case where the controller failed to determine the status of the vPC domain.
+func (s *VPCDomainStatus) Reset() {
+	s.Role = VPCDomainRoleUnknown
+	s.KeepAliveStatus = StatusUnknown
+	s.KeepAliveStatusMsg = nil
+	s.PeerStatus = StatusUnknown
+	s.PeerStatusMsg = nil
+	s.PeerUptime = metav1.Duration{}
+	s.PeerLinkIfOperStatus = StatusUnknown
 }
 
 // The VPCDomainRole type represents the operational role of a vPC domain peer as returned by the device.

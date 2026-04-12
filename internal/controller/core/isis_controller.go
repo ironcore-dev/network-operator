@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -53,10 +54,6 @@ type ISISReconciler struct {
 
 	// Locker is used to synchronize operations on resources targeting the same device.
 	Locker *resourcelock.ResourceLocker
-
-	// RequeueInterval is the duration after which the controller should requeue the reconciliation,
-	// regardless of changes.
-	RequeueInterval time.Duration
 }
 
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=isis,verbs=get;list;watch;create;update;patch;delete
@@ -197,21 +194,16 @@ func (r *ISISReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		}
 	}()
 
-	res, err := r.reconcile(ctx, s)
-	if err != nil {
+	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
 		return ctrl.Result{}, err
 	}
 
-	return res, nil
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ISISReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
-	if r.RequeueInterval == 0 {
-		return errors.New("requeue interval must not be 0")
-	}
-
 	labelSelector := metav1.LabelSelector{}
 	if r.WatchFilterValue != "" {
 		labelSelector.MatchLabels = map[string]string{v1alpha1.WatchLabel: r.WatchFilterValue}
@@ -260,6 +252,24 @@ func (r *ISISReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 				},
 			}),
 		).
+		// Watches enqueues ISISs for updates in referenced Interface resources.
+		// Only triggers on create, delete and update events when the Configured condition changes.
+		Watches(
+			&v1alpha1.Interface{},
+			handler.EnqueueRequestsFromMapFunc(r.interfaceToISIS),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					oldInterface := e.ObjectOld.(*v1alpha1.Interface)
+					newInterface := e.ObjectNew.(*v1alpha1.Interface)
+					oldConfigured := conditions.Get(oldInterface, v1alpha1.ConfiguredCondition)
+					newConfigured := conditions.Get(newInterface, v1alpha1.ConfiguredCondition)
+					return ((oldConfigured == nil) != (newConfigured == nil)) || (newConfigured != nil && oldConfigured.Status != newConfigured.Status)
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
 		Complete(r)
 }
 
@@ -272,7 +282,7 @@ type isisScope struct {
 	Provider       provider.ISISProvider
 }
 
-func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (_ ctrl.Result, reterr error) {
+func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (reterr error) {
 	if s.ISIS.Labels == nil {
 		s.ISIS.Labels = make(map[string]string)
 	}
@@ -282,7 +292,7 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (_ ctrl.Re
 	// Ensure the ISIS is owned by the Device.
 	if !controllerutil.HasControllerReference(s.ISIS) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.ISIS, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
@@ -301,9 +311,9 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (_ ctrl.Re
 					Reason:  v1alpha1.InterfaceNotFoundReason,
 					Message: fmt.Sprintf("Interface %s not found", iface.Name),
 				})
-				return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("interface %s not found", iface.Name))
+				return reconcile.TerminalError(fmt.Errorf("interface %s not found", iface.Name))
 			}
-			return ctrl.Result{}, err
+			return err
 		}
 
 		if !conditions.IsConfigured(intf) {
@@ -313,14 +323,14 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (_ ctrl.Re
 				Reason:  v1alpha1.WaitingForDependenciesReason,
 				Message: "Waiting for referenced interfaces to become configured",
 			})
-			return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
+			return nil
 		}
 
 		interfaces = append(interfaces, intf)
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
@@ -340,7 +350,7 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (_ ctrl.Re
 	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.ISIS, cond)
 
-	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
+	return err
 }
 
 func (r *ISISReconciler) finalize(ctx context.Context, s *isisScope) (reterr error) {
@@ -357,6 +367,42 @@ func (r *ISISReconciler) finalize(ctx context.Context, s *isisScope) (reterr err
 		ISIS:           s.ISIS,
 		ProviderConfig: s.ProviderConfig,
 	})
+}
+
+// interfaceToOSPF is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for ISISs when one of their referenced Interface's changes.
+func (r *ISISReconciler) interfaceToISIS(ctx context.Context, obj client.Object) []ctrl.Request {
+	iface, ok := obj.(*v1alpha1.Interface)
+	if !ok {
+		panic(fmt.Sprintf("Expected a Interface but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "Interface", klog.KObj(iface))
+
+	list := new(v1alpha1.ISISList)
+	if err := r.List(ctx, list,
+		client.InNamespace(iface.Namespace),
+	); err != nil {
+		log.Error(err, "Failed to list ISISs")
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0, len(list.Items))
+	for _, i := range list.Items {
+		if slices.ContainsFunc(i.Spec.InterfaceRefs, func(ref v1alpha1.LocalObjectReference) bool {
+			return ref.Name == iface.Name
+		}) {
+			log.V(2).Info("Enqueuing ISIS for reconciliation", "ISIS", klog.KObj(&i))
+			requests = append(requests, reconcile.Request{
+				NamespacedName: client.ObjectKey{
+					Name:      i.Name,
+					Namespace: i.Namespace,
+				},
+			})
+		}
+	}
+
+	return requests
 }
 
 // deviceToISISs is a [handler.MapFunc] to be used to enqueue requests for reconciliation

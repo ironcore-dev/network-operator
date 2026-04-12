@@ -197,13 +197,12 @@ func (r *VLANReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		}
 	}()
 
-	res, err := r.reconcile(ctx, s)
-	if err != nil {
+	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
 		return ctrl.Result{}, err
 	}
 
-	return res, nil
+	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -272,7 +271,7 @@ type vlanScope struct {
 	Provider       provider.VLANProvider
 }
 
-func (r *VLANReconciler) reconcile(ctx context.Context, s *vlanScope) (_ ctrl.Result, reterr error) {
+func (r *VLANReconciler) reconcile(ctx context.Context, s *vlanScope) (reterr error) {
 	if s.VLAN.Labels == nil {
 		s.VLAN.Labels = make(map[string]string)
 	}
@@ -282,7 +281,7 @@ func (r *VLANReconciler) reconcile(ctx context.Context, s *vlanScope) (_ ctrl.Re
 	// Ensure the VLAN is owned by the Device.
 	if !controllerutil.HasControllerReference(s.VLAN) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.VLAN, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
@@ -291,7 +290,7 @@ func (r *VLANReconciler) reconcile(ctx context.Context, s *vlanScope) (_ ctrl.Re
 	}()
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
@@ -313,7 +312,7 @@ func (r *VLANReconciler) reconcile(ctx context.Context, s *vlanScope) (_ ctrl.Re
 		ProviderConfig: s.ProviderConfig,
 	})
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get vlan status: %w", err)
+		return fmt.Errorf("failed to get vlan status: %w", err)
 	}
 
 	cond = metav1.Condition{
@@ -329,7 +328,7 @@ func (r *VLANReconciler) reconcile(ctx context.Context, s *vlanScope) (_ ctrl.Re
 	}
 	conditions.Set(s.VLAN, cond)
 
-	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
+	return nil
 }
 
 func (r *VLANReconciler) finalize(ctx context.Context, s *vlanScope) (reterr error) {

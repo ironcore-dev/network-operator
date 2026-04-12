@@ -3853,14 +3853,14 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | Conditions represent the latest available observations about the vPCDomain state.<br />Standard conditions include:<br />- Ready: overall readiness of the vPC domain<br />- Configured: whether the vPCDomain configuration was successfully applied to the device<br />- Operational: whether the vPC domain is operationally up. This condition is true when<br />  the status fields `PeerLinkIfOperStatus`, `KeepAliveStatus`, and `PeerStatus` are all set<br />  to `UP`.<br />For this Cisco model there is not one single unique operational property that reflects the<br />operational status of the vPC domain. The combination of peer status, keepalive status, and<br />the interface used as peer-link determine the overall health and operational condition of<br />the vPC domain. |  | Optional: \{\} <br /> |
-| `role` _[VPCDomainRole](#vpcdomainrole)_ | Role indicates the current operational role of this vPC domain peer. |  | Optional: \{\} <br /> |
-| `keepaliveStatus` _[Status](#status)_ | KeepAliveStatus indicates the status of the peer via the keepalive link. |  | Optional: \{\} <br /> |
+| `role` _[VPCDomainRole](#vpcdomainrole)_ | Role indicates the current operational role of this vPC domain peer. | Unknown | Optional: \{\} <br /> |
+| `keepaliveStatus` _[Status](#status)_ | KeepAliveStatus indicates the status of the peer via the keepalive link. | Unknown | Optional: \{\} <br /> |
 | `keepaliveStatusMsg` _string array_ | KeepAliveStatusMsg provides additional information about the keepalive status, a list of strings reported by the device. |  | Optional: \{\} <br /> |
-| `peerStatus` _[Status](#status)_ | PeerStatus indicates the status of the vPC domain peer-link in the latest consistency check with the peer. This means that if<br />the adjacency is lost, e.g., due to a shutdown link, the device will not be able to perform such check and the reported status<br />will remain unchanged (with the value of the last check). |  | Optional: \{\} <br /> |
+| `peerStatus` _[Status](#status)_ | PeerStatus indicates the status of the vPC domain peer-link in the latest consistency check with the peer. This means that if<br />the adjacency is lost, e.g., due to a shutdown link, the device will not be able to perform such check and the reported status<br />will remain unchanged (with the value of the last check). | Unknown | Optional: \{\} <br /> |
 | `peerStatusMsg` _string array_ | PeerStatusMsg provides additional information about the peer status, a list of strings reported by the device. |  | Optional: \{\} <br /> |
 | `peerUptime` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | PeerUptime indicates how long the vPC domain peer has been up and reachable via keepalive. |  | Optional: \{\} <br /> |
 | `peerLinkIf` _string_ | PeerLinkIf is the name of the interface used as the vPC domain peer-link. |  | Optional: \{\} <br /> |
-| `peerLinkIfOperStatus` _[Status](#status)_ | PeerLinkIfOperStatus is the Operational status of `PeerLinkIf`. |  | Optional: \{\} <br /> |
+| `peerLinkIfOperStatus` _[Status](#status)_ | PeerLinkIfOperStatus is the Operational status of `PeerLinkIf`. | Unknown | Optional: \{\} <br /> |
 
 
 

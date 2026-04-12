@@ -199,7 +199,6 @@ func (r *NetworkVirtualizationEdgeReconciler) Reconcile(ctx context.Context, req
 		return ctrl.Result{}, err
 	}
 
-	// force a periodic requeue to enforce state is in sync
 	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
 }
 

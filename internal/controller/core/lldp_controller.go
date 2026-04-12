@@ -188,26 +188,23 @@ func (r *LLDPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		}
 	}()
 
-	res, err := r.reconcile(ctx, s)
-	if err != nil {
+	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
 		return ctrl.Result{}, err
 	}
-	return res, nil
+
+	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
 }
 
 type lldpScope struct {
-	Device     *v1alpha1.Device
-	LLDP       *v1alpha1.LLDP
-	Connection *deviceutil.Connection
-	Provider   provider.LLDPProvider
-	// ProviderConfig is the resource referenced by LLDP.Spec.ProviderConfigRef, if any.
+	Device         *v1alpha1.Device
+	LLDP           *v1alpha1.LLDP
+	Connection     *deviceutil.Connection
+	Provider       provider.LLDPProvider
 	ProviderConfig *provider.ProviderConfig
-	// Interfaces are the Interface resources referenced by LLDP.Spec.InterfaceRefs.
-	Interfaces []*v1alpha1.Interface
 }
 
-func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (_ ctrl.Result, reterr error) {
+func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (reterr error) {
 	if s.LLDP.Labels == nil {
 		s.LLDP.Labels = make(map[string]string)
 	}
@@ -216,7 +213,7 @@ func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (_ ctrl.Re
 	// Ensure LLDP resource is owned by the Device.
 	if !controllerutil.HasControllerReference(s.LLDP) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.LLDP, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
@@ -225,21 +222,20 @@ func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (_ ctrl.Re
 	}()
 
 	if err := r.validateUniqueLLDPPerDevice(ctx, s); err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	if err := r.validateProviderConfigRef(ctx, s); err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	interfaces, err := r.reconcileInterfaceRefs(ctx, s)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
-	s.Interfaces = interfaces
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
@@ -251,14 +247,14 @@ func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (_ ctrl.Re
 	err = s.Provider.EnsureLLDP(ctx, &provider.LLDPRequest{
 		LLDP:           s.LLDP,
 		ProviderConfig: s.ProviderConfig,
-		Interfaces:     s.Interfaces,
+		Interfaces:     interfaces,
 	})
 
 	cond := conditions.FromError(err)
 	conditions.Set(s.LLDP, cond)
 
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	status, err := s.Provider.GetLLDPStatus(ctx, &provider.LLDPRequest{
@@ -266,7 +262,7 @@ func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (_ ctrl.Re
 		ProviderConfig: s.ProviderConfig,
 	})
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get LLDP status: %w", err)
+		return fmt.Errorf("failed to get LLDP status: %w", err)
 	}
 
 	cond = metav1.Condition{
@@ -282,7 +278,7 @@ func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (_ ctrl.Re
 	}
 	conditions.Set(s.LLDP, cond)
 
-	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
+	return nil
 }
 
 // validateProviderConfigRef checks if the referenced provider configuration exists and is compatible with the target platform.

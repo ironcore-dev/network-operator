@@ -420,7 +420,6 @@ func main() {
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ISIS")
 		os.Exit(1)
@@ -433,7 +432,6 @@ func main() {
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PIM")
 		os.Exit(1)
@@ -511,7 +509,6 @@ func main() {
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VRF")
 		os.Exit(1)

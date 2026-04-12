@@ -197,13 +197,12 @@ func (r *BGPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 		}
 	}()
 
-	res, err := r.reconcile(ctx, s)
-	if err != nil {
+	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
 		return ctrl.Result{}, err
 	}
 
-	return res, nil
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -272,7 +271,7 @@ type bgpScope struct {
 	Provider       provider.BGPProvider
 }
 
-func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (_ ctrl.Result, reterr error) {
+func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (reterr error) {
 	if s.BGP.Labels == nil {
 		s.BGP.Labels = make(map[string]string)
 	}
@@ -282,12 +281,12 @@ func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (_ ctrl.Resu
 	// Ensure the BGP is owned by the Device.
 	if !controllerutil.HasControllerReference(s.BGP) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.BGP, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
@@ -306,7 +305,7 @@ func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (_ ctrl.Resu
 	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.BGP, cond)
 
-	return ctrl.Result{}, err
+	return err
 }
 
 func (r *BGPReconciler) finalize(ctx context.Context, s *bgpScope) (reterr error) {

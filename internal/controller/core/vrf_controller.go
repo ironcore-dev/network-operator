@@ -53,10 +53,6 @@ type VRFReconciler struct {
 
 	// Locker is used to synchronize operations on resources targeting the same device.
 	Locker *resourcelock.ResourceLocker
-
-	// RequeueInterval is the duration after which the controller should requeue the reconciliation,
-	// regardless of changes.
-	RequeueInterval time.Duration
 }
 
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vrfs,verbs=get;list;watch;create;update;patch;delete
@@ -199,13 +195,12 @@ func (r *VRFReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 		}
 	}()
 
-	res, err := r.reconcile(ctx, s)
-	if err != nil {
+	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
 		return ctrl.Result{}, err
 	}
 
-	return res, nil
+	return ctrl.Result{}, nil
 }
 
 // scope holds the different objects that are read and used during the reconcile.
@@ -217,7 +212,7 @@ type vrfScope struct {
 	Provider       provider.VRFProvider
 }
 
-func (r *VRFReconciler) reconcile(ctx context.Context, s *vrfScope) (_ ctrl.Result, reterr error) {
+func (r *VRFReconciler) reconcile(ctx context.Context, s *vrfScope) (reterr error) {
 	if s.VRF.Labels == nil {
 		s.VRF.Labels = make(map[string]string)
 	}
@@ -226,13 +221,13 @@ func (r *VRFReconciler) reconcile(ctx context.Context, s *vrfScope) (_ ctrl.Resu
 	// Ensure the VRF is owned by the Device.
 	if !controllerutil.HasControllerReference(s.VRF) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.VRF, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
 	// Connect to remote device using the provider.
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
@@ -251,19 +246,11 @@ func (r *VRFReconciler) reconcile(ctx context.Context, s *vrfScope) (_ ctrl.Resu
 	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.VRF, cond)
 
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
+	return err
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *VRFReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
-	if r.RequeueInterval == 0 {
-		return errors.New("requeue interval must not be 0")
-	}
-
 	labelSelector := metav1.LabelSelector{}
 	if r.WatchFilterValue != "" {
 		labelSelector.MatchLabels = map[string]string{v1alpha1.WatchLabel: r.WatchFilterValue}

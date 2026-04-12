@@ -199,13 +199,12 @@ func (r *DHCPRelayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}()
 
-	res, err := r.reconcile(ctx, s)
-	if err != nil {
+	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
 		return ctrl.Result{}, err
 	}
 
-	return res, nil
+	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
 }
 
 // scope holds the different objects that are read and used during the reconcile.
@@ -215,11 +214,9 @@ type dhcprelayScope struct {
 	Connection     *deviceutil.Connection
 	ProviderConfig *provider.ProviderConfig
 	Provider       provider.DHCPRelayProvider
-	interfaces     []*v1alpha1.Interface
-	vrf            *v1alpha1.VRF
 }
 
-func (r *DHCPRelayReconciler) reconcile(ctx context.Context, s *dhcprelayScope) (_ ctrl.Result, reterr error) {
+func (r *DHCPRelayReconciler) reconcile(ctx context.Context, s *dhcprelayScope) (reterr error) {
 	if s.DHCPRelay.Labels == nil {
 		s.DHCPRelay.Labels = make(map[string]string)
 	}
@@ -228,33 +225,31 @@ func (r *DHCPRelayReconciler) reconcile(ctx context.Context, s *dhcprelayScope) 
 	// Ensure the DHCPRelay is owned by the Device.
 	if !controllerutil.HasControllerReference(s.DHCPRelay) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.DHCPRelay, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
 	if err := r.validateUniqueResourcePerDevice(ctx, s); err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	if err := r.validateProviderConfigRef(ctx, s); err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	interfaces, err := r.reconcileInterfaceRefs(ctx, s)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
-	s.interfaces = interfaces
 
 	vrf, err := r.reconcileVRFRef(ctx, s)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
-	s.vrf = vrf
 
 	// Connect to remote device using the provider.
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
@@ -266,8 +261,8 @@ func (r *DHCPRelayReconciler) reconcile(ctx context.Context, s *dhcprelayScope) 
 	err = s.Provider.EnsureDHCPRelay(ctx, &provider.DHCPRelayRequest{
 		DHCPRelay:      s.DHCPRelay,
 		ProviderConfig: s.ProviderConfig,
-		Interfaces:     s.interfaces,
-		VRF:            s.vrf,
+		Interfaces:     interfaces,
+		VRF:            vrf,
 	})
 
 	cond := conditions.FromError(err)
@@ -276,22 +271,22 @@ func (r *DHCPRelayReconciler) reconcile(ctx context.Context, s *dhcprelayScope) 
 	conditions.Set(s.DHCPRelay, cond)
 
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	// Retrieve and update the status from the device; this include the list of interfaces that are actually configured on the device.
 	status, err := s.Provider.GetDHCPRelayStatus(ctx, &provider.DHCPRelayRequest{
 		DHCPRelay:      s.DHCPRelay,
 		ProviderConfig: s.ProviderConfig,
-		Interfaces:     s.interfaces,
+		Interfaces:     interfaces,
 	})
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get DHCP relay status: %w", err)
+		return fmt.Errorf("failed to get DHCP relay status: %w", err)
 	}
 
 	s.DHCPRelay.Status.ConfiguredInterfaces = status.ConfiguredInterfaces
 
-	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

@@ -200,13 +200,12 @@ func (r *OSPFReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		}
 	}()
 
-	res, err := r.reconcile(ctx, s)
-	if err != nil {
+	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
 		return ctrl.Result{}, err
 	}
 
-	return res, nil
+	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -263,6 +262,24 @@ func (r *OSPFReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 				},
 			}),
 		).
+		// Watches enqueues OSPFs for updates in referenced Interface resources.
+		// Only triggers on create, delete and update events when the Configured condition changes.
+		Watches(
+			&v1alpha1.Interface{},
+			handler.EnqueueRequestsFromMapFunc(r.interfaceToOSPF),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					oldInterface := e.ObjectOld.(*v1alpha1.Interface)
+					newInterface := e.ObjectNew.(*v1alpha1.Interface)
+					oldConfigured := conditions.Get(oldInterface, v1alpha1.ConfiguredCondition)
+					newConfigured := conditions.Get(newInterface, v1alpha1.ConfiguredCondition)
+					return ((oldConfigured == nil) != (newConfigured == nil)) || (newConfigured != nil && oldConfigured.Status != newConfigured.Status)
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
 		Complete(r)
 }
 
@@ -275,7 +292,7 @@ type ospfScope struct {
 	Provider       provider.OSPFProvider
 }
 
-func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Result, reterr error) {
+func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (reterr error) {
 	if s.OSPF.Labels == nil {
 		s.OSPF.Labels = make(map[string]string)
 	}
@@ -285,7 +302,7 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Re
 	// Ensure the OSPF is owned by the Device.
 	if !controllerutil.HasControllerReference(s.OSPF) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.OSPF, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
@@ -304,9 +321,9 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Re
 					Reason:  v1alpha1.InterfaceNotFoundReason,
 					Message: fmt.Sprintf("interface %q not found", ref.Name),
 				})
-				return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("interface %q not found", ref.Name))
+				return reconcile.TerminalError(fmt.Errorf("interface %q not found", ref.Name))
 			}
-			return ctrl.Result{}, err
+			return err
 		}
 
 		if !conditions.IsConfigured(intf) {
@@ -316,7 +333,7 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Re
 				Reason:  v1alpha1.WaitingForDependenciesReason,
 				Message: "Waiting for referenced interfaces to be configured",
 			})
-			return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
+			return nil
 		}
 
 		interfaces = append(interfaces, provider.OSPFInterface{
@@ -327,7 +344,7 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Re
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
@@ -346,7 +363,7 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Re
 	conditions.Set(s.OSPF, cond)
 
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	status, err := s.Provider.GetOSPFStatus(ctx, &provider.OSPFStatusRequest{
@@ -355,7 +372,7 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Re
 		ProviderConfig: s.ProviderConfig,
 	})
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get ospf status: %w", err)
+		return fmt.Errorf("failed to get ospf status: %w", err)
 	}
 
 	cond = metav1.Condition{
@@ -417,7 +434,7 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Re
 	s.OSPF.Status.AdjacencySummary = strings.Join(summaries, ", ")
 	s.OSPF.Status.ObservedGeneration = s.OSPF.Generation
 
-	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
+	return nil
 }
 
 func (r *OSPFReconciler) finalize(ctx context.Context, s *ospfScope) (reterr error) {
@@ -464,6 +481,42 @@ func (r *OSPFReconciler) deviceToOSPFs(ctx context.Context, obj client.Object) [
 				Namespace: i.Namespace,
 			},
 		})
+	}
+
+	return requests
+}
+
+// interfaceToOSPF is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for OSPFs when one of their referenced Interface's changes.
+func (r *OSPFReconciler) interfaceToOSPF(ctx context.Context, obj client.Object) []ctrl.Request {
+	iface, ok := obj.(*v1alpha1.Interface)
+	if !ok {
+		panic(fmt.Sprintf("Expected a Interface but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "Interface", klog.KObj(iface))
+
+	list := new(v1alpha1.OSPFList)
+	if err := r.List(ctx, list,
+		client.InNamespace(iface.Namespace),
+	); err != nil {
+		log.Error(err, "Failed to list OSPFs")
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0, len(list.Items))
+	for _, i := range list.Items {
+		if slices.ContainsFunc(i.Spec.InterfaceRefs, func(ref v1alpha1.OSPFInterface) bool {
+			return ref.Name == iface.Name
+		}) {
+			log.V(2).Info("Enqueuing OSPF for reconciliation", "OSPF", klog.KObj(&i))
+			requests = append(requests, reconcile.Request{
+				NamespacedName: client.ObjectKey{
+					Name:      i.Name,
+					Namespace: i.Namespace,
+				},
+			})
+		}
 	}
 
 	return requests

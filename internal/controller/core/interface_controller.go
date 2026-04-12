@@ -202,16 +202,15 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}()
 
-	res, err := r.reconcile(ctx, s)
-	if err != nil {
+	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
 		return ctrl.Result{}, err
 	}
 
-	return res, nil
+	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
 }
 
-var (
+const (
 	interfaceTypeKey          = ".spec.type"
 	interfaceUnnumberedRefKey = ".spec.ipv4.unnumbered.interfaceRef.name"
 	interfaceVlanRefKey       = ".spec.vlanRef.name"
@@ -403,7 +402,7 @@ type scope struct {
 	Provider       provider.InterfaceProvider
 }
 
-func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.Result, reterr error) {
+func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (reterr error) {
 	if s.Interface.Labels == nil {
 		s.Interface.Labels = make(map[string]string)
 	}
@@ -413,7 +412,7 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 	// Ensure the Interface is owned by the Device.
 	if !controllerutil.HasControllerReference(s.Interface) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.Interface, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
@@ -426,7 +425,7 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		var err error
 		members, err = r.reconcileMemberInterfaces(ctx, s)
 		if err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
@@ -436,7 +435,7 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		key := client.ObjectKey{Name: s.Interface.Status.MemberOf.Name, Namespace: s.Interface.Namespace}
 		if err := r.Get(ctx, key, aggregateParent); err != nil {
 			if !apierrors.IsNotFound(err) {
-				return ctrl.Result{}, fmt.Errorf("failed to get aggregate parent %q: %w", s.Interface.Status.MemberOf.Name, err)
+				return fmt.Errorf("failed to get aggregate parent %q: %w", s.Interface.Status.MemberOf.Name, err)
 			}
 			aggregateParent = nil
 		}
@@ -452,7 +451,7 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		var err error
 		vlan, err = r.reconcileVLAN(ctx, s)
 		if err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
@@ -461,7 +460,7 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		var err error
 		vrf, err = r.reconcileVRF(ctx, s)
 		if err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
@@ -470,12 +469,12 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		var err error
 		ip, err = r.reconcileIPv4(ctx, s)
 		if err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
@@ -499,7 +498,7 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 	conditions.Set(s.Interface, cond)
 
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	status, err := s.Provider.GetInterfaceStatus(ctx, &provider.InterfaceRequest{
@@ -507,7 +506,7 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		ProviderConfig: s.ProviderConfig,
 	})
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get interface status: %w", err)
+		return fmt.Errorf("failed to get interface status: %w", err)
 	}
 
 	cond = metav1.Condition{
@@ -526,7 +525,7 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 	}
 	conditions.Set(s.Interface, cond)
 
-	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
+	return nil
 }
 
 func (r *InterfaceReconciler) reconcileIPv4(ctx context.Context, s *scope) (provider.IPv4, error) {
@@ -870,7 +869,6 @@ func (r *InterfaceReconciler) interfaceToUnnumbered(ctx context.Context, obj cli
 	for _, i := range interfaces.Items {
 		if i.Spec.IPv4 != nil && i.Spec.IPv4.Unnumbered != nil && i.Spec.IPv4.Unnumbered.InterfaceRef.Name == intf.Name {
 			log.V(2).Info("Enqueuing Interface for reconciliation", "Interface", klog.KObj(&i))
-
 			requests = append(requests, ctrl.Request{
 				NamespacedName: client.ObjectKey{
 					Name:      i.Name,
