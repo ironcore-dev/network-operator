@@ -5,6 +5,8 @@ metadata:
 spec:
   deviceRef:
     name: spine2
+  bgpRef:
+    name: spine2-bgp
   address: 10.0.0.10
   asNumber: 65000
   localAddress:
@@ -23,6 +25,8 @@ metadata:
 spec:
   deviceRef:
     name: spine2
+  bgpRef:
+    name: spine2-bgp
   address: 10.0.0.11
   asNumber: 65000
   localAddress:
@@ -41,6 +45,8 @@ metadata:
 spec:
   deviceRef:
     name: spine2
+  bgpRef:
+    name: spine2-bgp
   address: 10.0.0.12
   asNumber: 65000
   localAddress:

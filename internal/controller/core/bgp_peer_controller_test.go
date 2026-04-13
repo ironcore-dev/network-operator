@@ -98,6 +98,7 @@ var _ = Describe("BGPPeer Controller", func() {
 				},
 				Spec: v1alpha1.BGPPeerSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
+					BgpRef:    v1alpha1.LocalObjectReference{Name: bgpKey.Name},
 					Address:   host,
 					ASNumber:  intstr.FromInt(65000),
 				},
@@ -172,6 +173,7 @@ var _ = Describe("BGPPeer Controller", func() {
 				},
 				Spec: v1alpha1.BGPPeerSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
+					BgpRef:    v1alpha1.LocalObjectReference{Name: bgpKey.Name},
 					Address:   host,
 					ASNumber:  intstr.FromInt(65000),
 					LocalAddress: &v1alpha1.BGPPeerLocalAddress{
@@ -211,6 +213,7 @@ var _ = Describe("BGPPeer Controller", func() {
 				},
 				Spec: v1alpha1.BGPPeerSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
+					BgpRef:    v1alpha1.LocalObjectReference{Name: bgpKey.Name},
 					Address:   host,
 					ASNumber:  intstr.FromInt(65000),
 					LocalAddress: &v1alpha1.BGPPeerLocalAddress{
@@ -261,6 +264,7 @@ var _ = Describe("BGPPeer Controller", func() {
 				},
 				Spec: v1alpha1.BGPPeerSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
+					BgpRef:    v1alpha1.LocalObjectReference{Name: bgpKey.Name},
 					Address:   host,
 					ASNumber:  intstr.FromInt(65000),
 					LocalAddress: &v1alpha1.BGPPeerLocalAddress{
@@ -287,32 +291,18 @@ var _ = Describe("BGPPeer Controller", func() {
 			}).Should(Succeed())
 		})
 
-		It("Should set Configured=False with BGPNotFoundReason when no BGP resource exists on device", func() {
-			By("Creating a separate Device without a BGP resource")
-			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgppeer-nobgp-",
-					Namespace:    metav1.NamespaceDefault,
-				},
-				Spec: v1alpha1.DeviceSpec{
-					Endpoint: v1alpha1.Endpoint{
-						Address: "192.168.10.3:9339",
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, device)).To(Succeed())
-			key := client.ObjectKey{Name: device.Name, Namespace: metav1.NamespaceDefault}
-
-			By("Creating a BGPPeer on the device that has no BGP")
+		It("Should set Configured=False with BGPNotFoundReason when bgpRef points to a non-existent BGP", func() {
+			By("Creating a BGPPeer with a non-existent bgpRef")
 			bgppeer := &v1alpha1.BGPPeer{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      device.Name,
+					Name:      name,
 					Namespace: metav1.NamespaceDefault,
 				},
 				Spec: v1alpha1.BGPPeerSpec{
-					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
-					Address:   "10.0.0.2",
-					ASNumber:  intstr.FromInt(65001),
+					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
+					BgpRef:    v1alpha1.LocalObjectReference{Name: "does-not-exist"},
+					Address:   host,
+					ASNumber:  intstr.FromInt(65000),
 				},
 			}
 			Expect(k8sClient.Create(ctx, bgppeer)).To(Succeed())
@@ -335,12 +325,8 @@ var _ = Describe("BGPPeer Controller", func() {
 
 			By("Verifying the BGP peer is NOT configured in the provider")
 			Consistently(func(g Gomega) {
-				g.Expect(testProvider.BGPPeers.Has("10.0.0.2")).To(BeFalse(), "Provider should not have BGP peer configured")
+				g.Expect(testProvider.BGPPeers.Has(host)).To(BeFalse(), "Provider should not have BGP peer configured")
 			}).Should(Succeed())
-
-			By("Cleaning up test-specific resources")
-			Expect(k8sClient.Delete(ctx, bgppeer)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
 		})
 
 		It("Should set Configured=False with WaitingForDependenciesReason when BGP exists but is not configured", func() {
@@ -359,14 +345,11 @@ var _ = Describe("BGPPeer Controller", func() {
 			Expect(k8sClient.Create(ctx, unconfiguredDevice)).To(Succeed())
 			unconfiguredKey := client.ObjectKey{Name: unconfiguredDevice.Name, Namespace: metav1.NamespaceDefault}
 
-			By("Creating a paused BGP resource with DeviceLabel pre-set (will not be configured)")
+			By("Creating a paused BGP resource (will not be configured)")
 			bgp := &v1alpha1.BGP{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "test-bgppeer-uncfg-bgp-",
 					Namespace:    metav1.NamespaceDefault,
-					Labels: map[string]string{
-						v1alpha1.DeviceLabel: unconfiguredDevice.Name,
-					},
 					Annotations: map[string]string{
 						v1alpha1.PausedAnnotation: "",
 					},
@@ -379,7 +362,7 @@ var _ = Describe("BGPPeer Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, bgp)).To(Succeed())
 
-			By("Creating a BGPPeer on the device with the unconfigured BGP")
+			By("Creating a BGPPeer referencing the unconfigured BGP")
 			bgppeer := &v1alpha1.BGPPeer{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      unconfiguredDevice.Name,
@@ -387,6 +370,7 @@ var _ = Describe("BGPPeer Controller", func() {
 				},
 				Spec: v1alpha1.BGPPeerSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: unconfiguredDevice.Name},
+					BgpRef:    v1alpha1.LocalObjectReference{Name: bgp.Name},
 					Address:   "10.0.0.3",
 					ASNumber:  intstr.FromInt(65002),
 				},

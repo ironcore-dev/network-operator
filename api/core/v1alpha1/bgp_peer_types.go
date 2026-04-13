@@ -24,6 +24,11 @@ type BGPPeerSpec struct {
 	// +optional
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
 
+	// BgpRef is a reference to the BGP instance this peer belongs to.
+	// The BGP object must exist in the same namespace.
+	// +required
+	BgpRef LocalObjectReference `json:"bgpRef"`
+
 	// AdminState indicates whether this BGP peer is administratively up or down.
 	// When Down, the BGP session with this peer is administratively shut down.
 	// +optional

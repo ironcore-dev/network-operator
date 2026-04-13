@@ -398,11 +398,15 @@ type EnsureBGPPeerRequest struct {
 	BGPPeer         *v1alpha1.BGPPeer
 	ProviderConfig  *ProviderConfig
 	SourceInterface string
+	// BGP is the resolved BGP instance referenced by BGPPeer.Spec.BgpRef.
+	BGP *v1alpha1.BGP
 }
 
 type DeleteBGPPeerRequest struct {
 	BGPPeer        *v1alpha1.BGPPeer
 	ProviderConfig *ProviderConfig
+	// BGP is the resolved BGP instance referenced by BGPPeer.Spec.BgpRef.
+	BGP *v1alpha1.BGP
 }
 
 type BGPPeerStatusRequest struct {

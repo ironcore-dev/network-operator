@@ -539,6 +539,7 @@ func (in *BGPPeerSpec) DeepCopyInto(out *BGPPeerSpec) {
 		*out = new(TypedLocalObjectReference)
 		**out = **in
 	}
+	out.BgpRef = in.BgpRef
 	out.ASNumber = in.ASNumber
 	if in.LocalAddress != nil {
 		in, out := &in.LocalAddress, &out.LocalAddress

@@ -433,6 +433,8 @@ metadata:
 spec:
   deviceRef:
     name: leaf1
+  bgpRef:
+    name: leaf1-bgp
   address: 10.0.0.1
   asNumber: 65000
   localAddress:

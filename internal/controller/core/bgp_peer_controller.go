@@ -271,7 +271,7 @@ func (r *BGPPeerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					oldBGP := e.ObjectOld.(*v1alpha1.BGP)
 					newBGP := e.ObjectNew.(*v1alpha1.BGP)
 					// Only trigger when the BGP transitions from not-ready to ready.
-					return !conditions.IsReady(oldBGP) && conditions.IsReady(newBGP)
+					return conditions.IsReady(oldBGP) != conditions.IsReady(newBGP)
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false
@@ -308,35 +308,19 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (_ c
 		conditions.RecomputeReady(s.BGPPeer)
 	}()
 
-	// Check that at least one BGP resource exists for the device.
-	// A BGPPeer cannot function without a BGP process running on the same device.
-	bgpList := new(v1alpha1.BGPList)
-	if err := r.List(ctx, bgpList,
-		client.InNamespace(s.BGPPeer.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: s.Device.Name},
-	); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to list BGP resources for device %q: %w", s.Device.Name, err)
+	bgp, err := r.reconcileBGP(ctx, s.BGPPeer, s.Device)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if len(bgpList.Items) == 0 {
-		conditions.Set(s.BGPPeer, metav1.Condition{
-			Type:    v1alpha1.ConfiguredCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  v1alpha1.BGPNotFoundReason,
-			Message: fmt.Sprintf("no BGP resource found for device %q", s.Device.Name),
-		})
-		return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("no BGP resource found for device %q", s.Device.Name))
-	}
-
-	// Ensure at least one BGP resource on the device is ready before
-	// establishing peers. BGP has no operational condition, so its ready
-	// condition reflects only successful configuration.
-	if !slices.ContainsFunc(bgpList.Items, func(bgp v1alpha1.BGP) bool { return conditions.IsReady(&bgp) }) {
+	// BGP has no operational condition, so its ready condition reflects only successful configuration.
+	// Wait for the BGP watch to re-trigger rather than requeuing periodically.
+	if !conditions.IsReady(bgp) {
 		conditions.Set(s.BGPPeer, metav1.Condition{
 			Type:    v1alpha1.ConfiguredCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  v1alpha1.WaitingForDependenciesReason,
-			Message: fmt.Sprintf("BGP resource for device %q is not yet ready", s.Device.Name),
+			Message: fmt.Sprintf("BGP %s is not yet ready", s.BGPPeer.Spec.BgpRef.Name),
 		})
 		return ctrl.Result{}, nil
 	}
@@ -379,10 +363,11 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (_ c
 	}()
 
 	// Ensure the BGPPeer is realized on the provider.
-	err := s.Provider.EnsureBGPPeer(ctx, &provider.EnsureBGPPeerRequest{
+	err = s.Provider.EnsureBGPPeer(ctx, &provider.EnsureBGPPeerRequest{
 		BGPPeer:         s.BGPPeer,
 		ProviderConfig:  s.ProviderConfig,
 		SourceInterface: sourceInterface,
+		BGP:             bgp,
 	})
 
 	cond := conditions.FromError(err)
@@ -442,6 +427,11 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (_ c
 }
 
 func (r *BGPPeerReconciler) finalize(ctx context.Context, s *bgpPeerScope) (reterr error) {
+	bgp, err := r.reconcileBGP(ctx, s.BGPPeer, s.Device)
+	if err != nil {
+		return err
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -454,6 +444,7 @@ func (r *BGPPeerReconciler) finalize(ctx context.Context, s *bgpPeerScope) (rete
 	return s.Provider.DeleteBGPPeer(ctx, &provider.DeleteBGPPeerRequest{
 		BGPPeer:        s.BGPPeer,
 		ProviderConfig: s.ProviderConfig,
+		BGP:            bgp,
 	})
 }
 
@@ -501,26 +492,59 @@ func (r *BGPPeerReconciler) bgpToBGPPeers(ctx context.Context, obj client.Object
 	log := ctrl.LoggerFrom(ctx, "BGP", klog.KObj(bgp))
 
 	list := new(v1alpha1.BGPPeerList)
-	if err := r.List(ctx, list,
-		client.InNamespace(bgp.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: bgp.Spec.DeviceRef.Name},
-	); err != nil {
+	if err := r.List(ctx, list, client.InNamespace(bgp.Namespace)); err != nil {
 		log.Error(err, "Failed to list BGPPeers")
 		return nil
 	}
 
-	requests := make([]ctrl.Request, 0, len(list.Items))
+	var requests []ctrl.Request
 	for _, i := range list.Items {
-		log.Info("Enqueuing BGPPeer for reconciliation", "BGPPeer", klog.KObj(&i))
-		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
-		})
+		if i.Spec.BgpRef.Name == bgp.Name {
+			log.Info("Enqueuing BGPPeer for reconciliation", "BGPPeer", klog.KObj(&i))
+			requests = append(requests, ctrl.Request{
+				NamespacedName: client.ObjectKey{
+					Name:      i.Name,
+					Namespace: i.Namespace,
+				},
+			})
+		}
 	}
 
 	return requests
+}
+
+// reconcileBGP resolves the referenced BGP instance.
+// Sets ConfiguredCondition and returns a terminal error when the BGP is not found
+// or belongs to a different device.
+func (r *BGPPeerReconciler) reconcileBGP(ctx context.Context, peer *v1alpha1.BGPPeer, device *v1alpha1.Device) (*v1alpha1.BGP, error) {
+	bgp := new(v1alpha1.BGP)
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      peer.Spec.BgpRef.Name,
+		Namespace: peer.Namespace,
+	}, bgp); err != nil {
+		if apierrors.IsNotFound(err) {
+			conditions.Set(peer, metav1.Condition{
+				Type:    v1alpha1.ConfiguredCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.BGPNotFoundReason,
+				Message: fmt.Sprintf("BGP %s not found", peer.Spec.BgpRef.Name),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("bgp %s not found", peer.Spec.BgpRef.Name))
+		}
+		return nil, fmt.Errorf("failed to get BGP %s: %w", peer.Spec.BgpRef.Name, err)
+	}
+
+	if bgp.Spec.DeviceRef.Name != device.Name {
+		conditions.Set(peer, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.CrossDeviceReferenceReason,
+			Message: fmt.Sprintf("BGP %s belongs to device %s, not %s", peer.Spec.BgpRef.Name, bgp.Spec.DeviceRef.Name, device.Name),
+		})
+		return nil, reconcile.TerminalError(fmt.Errorf("bgp %s belongs to different device", peer.Spec.BgpRef.Name))
+	}
+
+	return bgp, nil
 }
 
 // bgpPeersForProviderConfig is a [handler.MapFunc] to be used to enqueue requests for reconciliation

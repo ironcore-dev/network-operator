@@ -192,6 +192,22 @@ spec:
                   ASNumber is the autonomous system number (ASN) of the BGP peer.
                   Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
                 x-kubernetes-int-or-string: true
+              bgpRef:
+                description: |-
+                  BgpRef is a reference to the BGP instance this peer belongs to.
+                  The BGP object must exist in the same namespace.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               description:
                 description: |-
                   Description is an optional human-readable description for this BGP peer.
@@ -278,6 +294,7 @@ spec:
             required:
             - address
             - asNumber
+            - bgpRef
             - deviceRef
             type: object
           status:
