@@ -613,6 +613,11 @@ func (in *BGPRouteTargetPolicy) DeepCopy() *BGPRouteTargetPolicy {
 func (in *BGPSpec) DeepCopyInto(out *BGPSpec) {
 	*out = *in
 	out.DeviceRef = in.DeviceRef
+	if in.VrfRef != nil {
+		in, out := &in.VrfRef, &out.VrfRef
+		*out = new(LocalObjectReference)
+		**out = **in
+	}
 	if in.ProviderConfigRef != nil {
 		in, out := &in.ProviderConfigRef, &out.ProviderConfigRef
 		*out = new(TypedLocalObjectReference)

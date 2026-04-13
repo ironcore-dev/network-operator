@@ -34,3 +34,26 @@ spec:
         enabled: false
       routeTargetPolicy:
         retainAll: true
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGP
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: bgp-vrf-cc-admin
+spec:
+  deviceRef:
+    name: leaf1
+  vrfRef:
+    name: vrf-cc-admin
+  # See ./cisco/nx/v1alpha1_bgpconfig.yaml
+  # providerConfigRef:
+  #   apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+  #   kind: BGPConfig
+  #   name: bgpconfig-sample
+  asNumber: 65000
+  routerId: 10.0.0.10
+  addressFamilies:
+    ipv4Unicast:
+      enabled: true

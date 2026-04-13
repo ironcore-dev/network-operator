@@ -432,6 +432,7 @@ type Provider struct {
 	VRF             sets.Set[string]
 	PIM             *v1alpha1.PIM
 	BGP             *v1alpha1.BGP
+	BGPVRF          *v1alpha1.VRF
 	BGPPeers        sets.Set[string]
 	OSPF            sets.Set[string]
 	VLANs           sets.Set[int16]
@@ -736,6 +737,7 @@ func (p *Provider) EnsureBGP(_ context.Context, req *provider.EnsureBGPRequest) 
 	p.Lock()
 	defer p.Unlock()
 	p.BGP = req.BGP
+	p.BGPVRF = req.VRF
 	return nil
 }
 
@@ -743,6 +745,7 @@ func (p *Provider) DeleteBGP(context.Context, *provider.DeleteBGPRequest) error 
 	p.Lock()
 	defer p.Unlock()
 	p.BGP = nil
+	p.BGPVRF = nil
 	return nil
 }
 

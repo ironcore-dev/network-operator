@@ -11,6 +11,9 @@ func init() {
 	})
 	Register("bgp_dom", bgpDom)
 
+	bgpDomVrf := &BGPDom{Name: "CC-MGMT", RtrID: "1.1.1.1", RtrIDAuto: AdminStDisabled}
+	Register("bgp_dom_vrf", bgpDomVrf)
+
 	bgpDomAdvPip := &BGPDom{Name: DefaultVRFName, RtrID: "1.1.1.1", RtrIDAuto: AdminStDisabled}
 	bgpDomAdvPip.AfItems.DomAfList.Set(&BGPDomAfItem{
 		Type:         AddressFamilyL2EVPN,
@@ -23,6 +26,7 @@ func init() {
 	Register("bgp", bgp)
 
 	bgpPeer := &BGPPeer{
+		VRFName: DefaultVRFName,
 		Addr:    "1.1.1.1",
 		AdminSt: AdminStEnabled,
 		Asn:     "65000",

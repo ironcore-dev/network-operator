@@ -16,7 +16,16 @@ import (
 var (
 	_ gnmiext.DataElement = (*BGP)(nil)
 	_ gnmiext.DataElement = (*BGPDom)(nil)
+	_ gnmiext.DataElement = (*BGPDomItems)(nil)
+	_ gnmiext.DataElement = (*BGPPeerGroup)(nil)
 )
+
+// ownershipMarkerPeerGroup is written into every BGP domain managed by this
+// operator. It distinguishes operator-owned domains from those NX-OS creates
+// automatically (e.g. the default VRF dom created as a side effect of
+// configuring a non-default VRF BGP), and is used during deletion to decide
+// whether the BGP instance itself can be cleaned up.
+const ownershipMarkerPeerGroup = "__operator-managed__"
 
 type BGP struct {
 	AdminSt AdminSt `json:"adminSt"`
@@ -34,12 +43,40 @@ type BGPDom struct {
 	AfItems   struct {
 		DomAfList gnmiext.List[AddressFamily, *BGPDomAfItem] `json:"DomAf-list,omitzero"`
 	} `json:"af-items,omitzero"`
+	PeerContItems struct {
+		PeerContList gnmiext.List[string, *BGPPeerGroup] `json:"PeerCont-list,omitzero"`
+	} `json:"peercont-items,omitzero"`
 }
 
 func (*BGPDom) IsListItem() {}
 
+func (d *BGPDom) Key() string { return d.Name }
+
 func (d *BGPDom) XPath() string {
 	return "System/bgp-items/inst-items/dom-items/Dom-list[name=" + d.Name + "]"
+}
+
+// BGPDomItems is the container for all BGP domains configured on the device.
+type BGPDomItems struct {
+	DomList gnmiext.List[string, *BGPDom] `json:"Dom-list,omitzero"`
+}
+
+func (*BGPDomItems) XPath() string {
+	return "System/bgp-items/inst-items/dom-items"
+}
+
+// BGPPeerGroup is a template peer group under a BGP domain.
+type BGPPeerGroup struct {
+	VRFName string `json:"-"`
+	Name    string `json:"name"`
+}
+
+func (*BGPPeerGroup) IsListItem() {}
+
+func (g *BGPPeerGroup) Key() string { return g.Name }
+
+func (g *BGPPeerGroup) XPath() string {
+	return "System/bgp-items/inst-items/dom-items/Dom-list[name=" + g.VRFName + "]/peercont-items/PeerCont-list[name=" + g.Name + "]"
 }
 
 type BGPDomAfItem struct {
@@ -116,6 +153,7 @@ func (af *BGPDomAfItem) SetMultipath(m *v1alpha1.BGPMultipath) error {
 }
 
 type BGPPeer struct {
+	VRFName             string      `json:"-"`
 	Addr                string      `json:"addr"`
 	AdminSt             AdminSt     `json:"adminSt"`
 	Asn                 string      `json:"asn"`
@@ -131,7 +169,7 @@ type BGPPeer struct {
 func (*BGPPeer) IsListItem() {}
 
 func (p *BGPPeer) XPath() string {
-	return "System/bgp-items/inst-items/dom-items/Dom-list[name=default]/peer-items/Peer-list[addr=" + p.Addr + "]"
+	return "System/bgp-items/inst-items/dom-items/Dom-list[name=" + p.VRFName + "]/peer-items/Peer-list[addr=" + p.Addr + "]"
 }
 
 type BGPPeerAfItem struct {
@@ -144,6 +182,7 @@ type BGPPeerAfItem struct {
 func (af *BGPPeerAfItem) Key() AddressFamily { return af.Type }
 
 type BGPPeerOperItems struct {
+	VRFName      string        `json:"-"`
 	Addr         string        `json:"addr"`
 	OperSt       BGPPeerOperSt `json:"operSt"`
 	LastFlapTime time.Time     `json:"lastFlapTs"`
@@ -155,7 +194,7 @@ type BGPPeerOperItems struct {
 func (*BGPPeerOperItems) IsListItem() {}
 
 func (p *BGPPeerOperItems) XPath() string {
-	return "System/bgp-items/inst-items/dom-items/Dom-list[name=default]/peer-items/Peer-list[addr=" + p.Addr + "]/ent-items/PeerEntry-list[addr=" + p.Addr + "]"
+	return "System/bgp-items/inst-items/dom-items/Dom-list[name=" + p.VRFName + "]/peer-items/Peer-list[addr=" + p.Addr + "]/ent-items/PeerEntry-list[addr=" + p.Addr + "]"
 }
 
 type BGPPeerAfOperItems struct {

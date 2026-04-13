@@ -292,7 +292,7 @@ func (p *Provider) DeleteBanner(ctx context.Context, req *provider.DeleteBannerR
 	return p.client.Delete(ctx, b)
 }
 
-func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest) (reterr error) {
+func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest) (reterr error) { //nolint:gocyclo
 	f := new(Feature)
 	f.Name = "bgp"
 	f.AdminSt = AdminStEnabled
@@ -301,7 +301,38 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 	f2.Name = "evpn"
 	f2.AdminSt = AdminStEnabled
 
+	if err := p.Update(ctx, f, f2); err != nil {
+		return err
+	}
+
+	// If a BGP instance already exists, ensure it has the same ASN and Router-ID as the requested one.
+	// This prevents accidentally overwriting an existing BGP configuration, either by another BGP CR
+	// or manually configured outside of the operator's control.
+	// If it doesn't exist (ErrNil), we'll create it with the correct ASN and Router-ID below.
 	b := new(BGP)
+	err := p.client.GetConfig(ctx, b)
+	if err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	if err == nil && b.Asn != req.BGP.Spec.ASNumber.String() {
+		return fmt.Errorf("BGP instance on device already uses ASN %s, cannot configure with ASN %s", b.Asn, req.BGP.Spec.ASNumber.String())
+	}
+
+	dom := new(BGPDom)
+	dom.Name = DefaultVRFName
+	if req.VRF != nil {
+		dom.Name = req.VRF.Spec.Name
+	}
+
+	err = p.client.GetConfig(ctx, dom)
+	if err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	if err == nil && dom.RtrID != req.BGP.Spec.RouterID {
+		return fmt.Errorf("BGP domain %q on device already uses router ID %s, cannot configure with router ID %s", dom.Name, dom.RtrID, req.BGP.Spec.RouterID)
+	}
+
+	b = new(BGP)
 	b.AdminSt = AdminStEnabled
 	if req.BGP.Spec.AdminState == v1alpha1.AdminStateDown {
 		b.AdminSt = AdminStDisabled
@@ -313,7 +344,6 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 		return err
 	}
 
-	var err error
 	switch {
 	case asf == "" && strings.Contains(b.Asn, "."):
 		asf = AsFormatAsDot
@@ -332,10 +362,16 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 		}
 	}
 
-	dom := new(BGPDom)
+	dom = new(BGPDom)
 	dom.Name = DefaultVRFName
+	if req.VRF != nil {
+		dom.Name = req.VRF.Spec.Name
+	}
 	dom.RtrID = req.BGP.Spec.RouterID
 	dom.RtrIDAuto = AdminStDisabled
+
+	// Mark the dom as operator-managed so deleteBGPDom can identify it.
+	dom.PeerContItems.PeerContList.Set(&BGPPeerGroup{Name: ownershipMarkerPeerGroup})
 
 	if req.BGP.Spec.AddressFamilies != nil {
 		if af := req.BGP.Spec.AddressFamilies.Ipv4Unicast; af != nil && af.Enabled {
@@ -373,23 +409,66 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 		}
 	}
 
-	return p.Patch(ctx, f, f2, b, dom)
+	return p.Patch(ctx, b, dom)
 }
 
 func (p *Provider) DeleteBGP(ctx context.Context, req *provider.DeleteBGPRequest) error {
+	// Delete the VRF-scoped BGP domain and, if it was the last operator-managed
+	// one, the global BGP instance as well.
+	vrfName := DefaultVRFName
+	if req.VRF != nil {
+		vrfName = req.VRF.Spec.Name
+	}
+	return p.deleteBGP(ctx, vrfName)
+}
+
+// deleteBGP deletes the BGP domain for a VRF. If no remaining domain carries the
+// ownership marker or has any SAFIs/peer groups configured, the global BGP instance
+// (System/bgp-items/inst-items) is deleted as well. This preserves any
+// manually configured BGP domains outside the operator's control.
+// The function is a no-op when the BGP feature is disabled.
+func (p *Provider) deleteBGP(ctx context.Context, vrfName string) error {
+	f := &Feature{Name: "bgp"}
+	if err := p.client.GetConfig(ctx, f); err != nil || f.AdminSt != AdminStEnabled {
+		return err
+	}
+
+	if err := p.client.Delete(ctx, &BGPDom{Name: vrfName}); err != nil {
+		return err
+	}
+
+	// Retain the global BGP instance if any remaining dom is operator-managed
+	// or has non-empty configuration (address families or peer groups).
+	items := new(BGPDomItems)
+	if err := p.client.GetConfig(ctx, items); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	for _, d := range items.DomList {
+		if _, ok := d.PeerContItems.PeerContList.Get(ownershipMarkerPeerGroup); ok {
+			return nil
+		}
+		if len(d.AfItems.DomAfList) > 0 || len(d.PeerContItems.PeerContList) > 0 {
+			return nil
+		}
+	}
+
+	// No operator-managed or non-empty doms remain — delete the BGP instance.
 	return p.client.Delete(ctx, new(BGP))
 }
 
 func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPeerRequest) error {
-	// Ensure that the BGP instance exists and is configured on the "default" domain
-	// and return an error if it does not exist.
+	// Ensure that the BGP domain exists before configuring a peer under it.
 	bgp := new(BGPDom)
 	bgp.Name = DefaultVRFName
+	if req.VRF != nil {
+		bgp.Name = req.VRF.Spec.Name
+	}
 	if err := p.client.GetConfig(ctx, bgp); err != nil {
-		return fmt.Errorf("bgp peer: failed to get bgp instance 'default': %w", err)
+		return fmt.Errorf("bgp peer: failed to get bgp instance %q: %w", bgp.Name, err)
 	}
 
 	pe := new(BGPPeer)
+	pe.VRFName = bgp.Name
 	pe.Addr = req.BGPPeer.Spec.Address
 	pe.AdminSt = AdminStEnabled
 	if req.BGPPeer.Spec.AdminState == v1alpha1.AdminStateDown {
@@ -438,12 +517,20 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 
 func (p *Provider) DeleteBGPPeer(ctx context.Context, req *provider.DeleteBGPPeerRequest) error {
 	b := new(BGPPeer)
+	b.VRFName = DefaultVRFName
+	if req.VRF != nil {
+		b.VRFName = req.VRF.Spec.Name
+	}
 	b.Addr = req.BGPPeer.Spec.Address
 	return p.client.Delete(ctx, b)
 }
 
 func (p *Provider) GetPeerStatus(ctx context.Context, req *provider.BGPPeerStatusRequest) (provider.BGPPeerStatus, error) {
 	ps := new(BGPPeerOperItems)
+	ps.VRFName = DefaultVRFName
+	if req.VRF != nil {
+		ps.VRFName = req.VRF.Spec.Name
+	}
 	ps.Addr = req.BGPPeer.Spec.Address
 	if err := p.client.GetState(ctx, ps); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 		return provider.BGPPeerStatus{}, err
@@ -2401,7 +2488,13 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 func (p *Provider) DeleteVRF(ctx context.Context, req *provider.VRFRequest) error {
 	v := new(VRF)
 	v.Name = req.VRF.Spec.Name
-	return p.client.Delete(ctx, v)
+	if err := p.client.Delete(ctx, v); err != nil {
+		return err
+	}
+	// NX-OS does not automatically remove the BGP domain when a VRF is deleted.
+	// deleteBGPDom handles the feature check, dom deletion, and potential
+	// inst-items cleanup if this was the last operator-managed domain.
+	return p.deleteBGP(ctx, req.VRF.Spec.Name)
 }
 
 func (p *Provider) EnsureSystemSettings(ctx context.Context, s *nxv1alpha1.System) error {

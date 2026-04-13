@@ -376,11 +376,17 @@ type BGPProvider interface {
 type EnsureBGPRequest struct {
 	BGP            *v1alpha1.BGP
 	ProviderConfig *ProviderConfig
+	// VRF is the resolved VRF referenced by BGP.Spec.VrfRef.
+	// When nil, the provider shall use the default VRF.
+	VRF *v1alpha1.VRF
 }
 
 type DeleteBGPRequest struct {
 	BGP            *v1alpha1.BGP
 	ProviderConfig *ProviderConfig
+	// VRF is the resolved VRF referenced by BGP.Spec.VrfRef.
+	// When nil, the provider shall use the default VRF.
+	VRF *v1alpha1.VRF
 }
 
 // BGPPeerProvider is the interface for the realization of the BGPPeer objects over different providers.
@@ -401,6 +407,9 @@ type EnsureBGPPeerRequest struct {
 	SourceInterface string
 	// BGP is the resolved BGP instance referenced by BGPPeer.Spec.BgpRef.
 	BGP *v1alpha1.BGP
+	// VRF is the resolved VRF referenced by BGP.Spec.VrfRef.
+	// When nil, the provider shall use the default VRF.
+	VRF *v1alpha1.VRF
 }
 
 type DeleteBGPPeerRequest struct {
@@ -408,11 +417,17 @@ type DeleteBGPPeerRequest struct {
 	ProviderConfig *ProviderConfig
 	// BGP is the resolved BGP instance referenced by BGPPeer.Spec.BgpRef.
 	BGP *v1alpha1.BGP
+	// VRF is the resolved VRF referenced by BGP.Spec.VrfRef.
+	// When nil, the provider shall use the default VRF.
+	VRF *v1alpha1.VRF
 }
 
 type BGPPeerStatusRequest struct {
 	BGPPeer        *v1alpha1.BGPPeer
 	ProviderConfig *ProviderConfig
+	// VRF is the resolved VRF referenced by the BGP instance of this peer.
+	// When nil, the provider shall use the default VRF.
+	VRF *v1alpha1.VRF
 }
 
 type BGPPeerStatus struct {

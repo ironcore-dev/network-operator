@@ -12,12 +12,19 @@ import (
 )
 
 // BGPSpec defines the desired state of BGP
+// +kubebuilder:validation:XValidation:rule="(!has(self.vrfRef) && !has(oldSelf.vrfRef)) || (has(self.vrfRef) && has(oldSelf.vrfRef) && self.vrfRef == oldSelf.vrfRef)",message="VrfRef is immutable"
 type BGPSpec struct {
 	// DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
 	// Immutable.
 	// +required
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="DeviceRef is immutable"
 	DeviceRef LocalObjectReference `json:"deviceRef"`
+
+	// VrfRef is an optional reference to the VRF this BGP instance is scoped to.
+	// When omitted, the BGP instance is configured in the default VRF.
+	// Immutable.
+	// +optional
+	VrfRef *LocalObjectReference `json:"vrfRef,omitempty"`
 
 	// ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
 	// This reference is used to link the BGP to its provider-specific configuration.
@@ -31,7 +38,9 @@ type BGPSpec struct {
 
 	// ASNumber is the autonomous system number (ASN) for the BGP router.
 	// Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
+	// Immutable.
 	// +required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="ASNumber is immutable"
 	ASNumber intstr.IntOrString `json:"asNumber"`
 
 	// RouterID is the BGP router identifier, used in BGP messages to identify the originating router.

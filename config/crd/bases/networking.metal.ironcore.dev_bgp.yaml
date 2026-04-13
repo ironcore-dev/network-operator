@@ -250,7 +250,11 @@ spec:
                 description: |-
                   ASNumber is the autonomous system number (ASN) for the BGP router.
                   Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
+                  Immutable.
                 x-kubernetes-int-or-string: true
+                x-kubernetes-validations:
+                - message: ASNumber is immutable
+                  rule: self == oldSelf
               deviceRef:
                 description: |-
                   DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
@@ -310,11 +314,32 @@ spec:
                   Follows dotted quad notation (IPv4 format).
                 format: ipv4
                 type: string
+              vrfRef:
+                description: |-
+                  VrfRef is an optional reference to the VRF this BGP instance is scoped to.
+                  When omitted, the BGP instance is configured in the default VRF.
+                  Immutable.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
             required:
             - asNumber
             - deviceRef
             - routerId
             type: object
+            x-kubernetes-validations:
+            - message: VrfRef is immutable
+              rule: (!has(self.vrfRef) && !has(oldSelf.vrfRef)) || (has(self.vrfRef)
+                && has(oldSelf.vrfRef) && self.vrfRef == oldSelf.vrfRef)
           status:
             description: |-
               Status of the resource. This is set and updated automatically.
