@@ -121,7 +121,7 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&VPCDomainReconciler{

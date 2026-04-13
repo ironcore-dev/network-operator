@@ -227,6 +227,13 @@ func (r *EVPNInstanceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 		return err
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.EVPNInstance{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.EVPNInstance)
+		return []string{o.Spec.DeviceRef.Name}
+	}); err != nil {
+		return err
+	}
+
 	bldr := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.EVPNInstance{}).
 		Named("evpninstance").
@@ -458,7 +465,7 @@ func (r *EVPNInstanceReconciler) deviceToEVPNInstances(ctx context.Context, obj 
 	list := new(v1alpha1.EVPNInstanceList)
 	if err := r.List(ctx, list,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list EVPNInstances")
 		return nil

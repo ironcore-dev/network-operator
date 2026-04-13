@@ -202,7 +202,7 @@ func (r *PrefixSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *PrefixSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *PrefixSetReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	labelSelector := metav1.LabelSelector{}
 	if r.WatchFilterValue != "" {
 		labelSelector.MatchLabels = map[string]string{v1alpha1.WatchLabel: r.WatchFilterValue}
@@ -211,6 +211,13 @@ func (r *PrefixSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	filter, err := predicate.LabelSelectorPredicate(labelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to create label selector predicate: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.PrefixSet{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.PrefixSet)
+		return []string{o.Spec.DeviceRef.Name}
+	}); err != nil {
+		return err
 	}
 
 	bldr := ctrl.NewControllerManagedBy(mgr).
@@ -328,7 +335,7 @@ func (r *PrefixSetReconciler) deviceToPrefixSets(ctx context.Context, obj client
 	list := new(v1alpha1.PrefixSetList)
 	if err := r.List(ctx, list,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list PrefixSets")
 		return nil

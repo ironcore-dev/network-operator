@@ -310,6 +310,13 @@ func (r *DHCPRelayReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 		return fmt.Errorf("failed to create label selector predicate: %w", err)
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.DHCPRelay{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.DHCPRelay)
+		return []string{o.Spec.DeviceRef.Name}
+	}); err != nil {
+		return err
+	}
+
 	bldr := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.DHCPRelay{}).
 		Named("dhcprelay").
@@ -550,7 +557,7 @@ func (r *DHCPRelayReconciler) validateUniqueResourcePerDevice(ctx context.Contex
 	var list v1alpha1.DHCPRelayList
 	if err := r.List(ctx, &list,
 		client.InNamespace(s.DHCPRelay.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: s.Device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: s.Device.Name},
 	); err != nil {
 		return err
 	}
@@ -625,7 +632,7 @@ func (r *DHCPRelayReconciler) deviceToDHCPRelays(ctx context.Context, obj client
 	list := new(v1alpha1.DHCPRelayList)
 	if err := r.List(ctx, list,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list DHCPRelays")
 		return nil
@@ -657,7 +664,7 @@ func (r *DHCPRelayReconciler) interfaceToDHCPRelays(ctx context.Context, obj cli
 	list := new(v1alpha1.DHCPRelayList)
 	if err := r.List(ctx, list,
 		client.InNamespace(intf.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: intf.Spec.DeviceRef.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: intf.Spec.DeviceRef.Name},
 	); err != nil {
 		log.Error(err, "Failed to list DHCPRelays")
 		return nil
@@ -694,7 +701,7 @@ func (r *DHCPRelayReconciler) vrfToDHCPRelays(ctx context.Context, obj client.Ob
 	list := new(v1alpha1.DHCPRelayList)
 	if err := r.List(ctx, list,
 		client.InNamespace(vrf.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: vrf.Spec.DeviceRef.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: vrf.Spec.DeviceRef.Name},
 	); err != nil {
 		log.Error(err, "Failed to list DHCPRelays")
 		return nil

@@ -259,7 +259,7 @@ func (r *VRFReconciler) reconcile(ctx context.Context, s *vrfScope) (_ ctrl.Resu
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *VRFReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *VRFReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	if r.RequeueInterval == 0 {
 		return errors.New("requeue interval must not be 0")
 	}
@@ -272,6 +272,13 @@ func (r *VRFReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	filter, err := predicate.LabelSelectorPredicate(labelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to create label selector predicate: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.VRF{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.VRF)
+		return []string{o.Spec.DeviceRef.Name}
+	}); err != nil {
+		return err
 	}
 
 	bldr := ctrl.NewControllerManagedBy(mgr).
@@ -337,7 +344,7 @@ func (r *VRFReconciler) deviceToVRFs(ctx context.Context, obj client.Object) []c
 	list := new(v1alpha1.VRFList)
 	if err := r.List(ctx, list,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list VRFs")
 		return nil

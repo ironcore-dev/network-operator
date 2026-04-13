@@ -388,7 +388,7 @@ func (r *LLDPReconciler) validateUniqueLLDPPerDevice(ctx context.Context, s *lld
 	var list v1alpha1.LLDPList
 	if err := r.List(ctx, &list,
 		client.InNamespace(s.LLDP.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: s.Device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: s.Device.Name},
 	); err != nil {
 		return err
 	}
@@ -420,6 +420,13 @@ func (r *LLDPReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 	filter, err := predicate.LabelSelectorPredicate(labelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to create label selector predicate: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.LLDP{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.LLDP)
+		return []string{o.Spec.DeviceRef.Name}
+	}); err != nil {
+		return err
 	}
 
 	c := ctrl.NewControllerManagedBy(mgr).
@@ -512,7 +519,7 @@ func (r *LLDPReconciler) deviceToLLDPs(ctx context.Context, obj client.Object) [
 	lldps := new(v1alpha1.LLDPList)
 	if err := r.List(ctx, lldps,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list LLDPs")
 		return nil

@@ -422,7 +422,7 @@ func (r *VPCDomainReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 	}
 
 	// Index vPCs by their device reference
-	if err := mgr.GetFieldIndexer().IndexField(ctx, &nxv1.VPCDomain{}, ".spec.deviceRef.name", func(obj client.Object) []string {
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &nxv1.VPCDomain{}, corev1.DeviceRefIndexKey, func(obj client.Object) []string {
 		vpc := obj.(*nxv1.VPCDomain)
 		return []string{vpc.Spec.DeviceRef.Name}
 	}); err != nil {
@@ -486,7 +486,7 @@ func (r *VPCDomainReconciler) mapInterfaceToVPCDomain(ctx context.Context, obj c
 		client.InNamespace(vpc.Namespace),
 		client.MatchingFields{
 			".spec.peer.interfaceRef.name": iface.Name,
-			".spec.deviceRef.name":         iface.Spec.DeviceRef.Name,
+			corev1.DeviceRefIndexKey:       iface.Spec.DeviceRef.Name,
 		},
 	); err != nil {
 		return nil
@@ -526,7 +526,7 @@ func (r *VPCDomainReconciler) deviceToVPCDomains(ctx context.Context, obj client
 	list := new(nxv1.VPCDomainList)
 	if err := r.List(ctx, list,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{corev1.DeviceLabel: device.Name},
+		client.MatchingFields{corev1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list VPCDomains")
 		return nil

@@ -300,7 +300,7 @@ func (r *NetworkVirtualizationEdgeReconciler) validateUniqueNVEPerDevice(ctx con
 	var list v1alpha1.NetworkVirtualizationEdgeList
 	if err := r.List(ctx, &list,
 		client.InNamespace(s.NVE.Namespace),
-		client.MatchingFields{".spec.deviceRef.name": s.NVE.Spec.DeviceRef.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: s.NVE.Spec.DeviceRef.Name},
 	); err != nil {
 		return err
 	}
@@ -411,7 +411,7 @@ func (r *NetworkVirtualizationEdgeReconciler) SetupWithManager(ctx context.Conte
 	}
 
 	// Index NVEs by their DeviceRef.name for uniqueness checks.
-	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.NetworkVirtualizationEdge{}, ".spec.deviceRef.name", func(obj client.Object) []string {
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.NetworkVirtualizationEdge{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
 		vpc := obj.(*v1alpha1.NetworkVirtualizationEdge)
 		return []string{vpc.Spec.DeviceRef.Name}
 	}); err != nil {
@@ -523,7 +523,7 @@ func (r *NetworkVirtualizationEdgeReconciler) deviceToNVEs(ctx context.Context, 
 	list := new(v1alpha1.NetworkVirtualizationEdgeList)
 	if err := r.List(ctx, list,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list NVEs")
 		return nil

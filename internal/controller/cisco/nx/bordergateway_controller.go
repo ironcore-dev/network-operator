@@ -212,6 +212,13 @@ func (r *BorderGatewayReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		return fmt.Errorf("failed to create label selector predicate: %w", err)
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &nxv1alpha1.BorderGateway{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+		bg := obj.(*nxv1alpha1.BorderGateway)
+		return []string{bg.Spec.DeviceRef.Name}
+	}); err != nil {
+		return err
+	}
+
 	if err := mgr.GetFieldIndexer().IndexField(ctx, &nxv1alpha1.BorderGateway{}, borderGatewaySourceInterfaceRefKey, func(obj client.Object) []string {
 		bg := obj.(*nxv1alpha1.BorderGateway)
 		return []string{bg.Spec.SourceInterfaceRef.Name}
@@ -621,7 +628,7 @@ func (r *BorderGatewayReconciler) deviceToBorderGateways(ctx context.Context, ob
 	list := new(nxv1alpha1.BorderGatewayList)
 	if err := r.List(ctx, list,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list BorderGateways")
 		return nil

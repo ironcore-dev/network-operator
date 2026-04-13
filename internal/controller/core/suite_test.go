@@ -140,7 +140,7 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&UserReconciler{
@@ -149,7 +149,7 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&DNSReconciler{
@@ -158,7 +158,7 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&NTPReconciler{
@@ -167,7 +167,7 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&AccessControlListReconciler{
@@ -176,7 +176,7 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&CertificateReconciler{
@@ -185,7 +185,7 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&SNMPReconciler{
@@ -194,7 +194,7 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&SyslogReconciler{
@@ -203,7 +203,7 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&ManagementAccessReconciler{
@@ -212,7 +212,7 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&ISISReconciler{
@@ -222,7 +222,7 @@ var _ = BeforeSuite(func() {
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&VRFReconciler{
@@ -232,7 +232,7 @@ var _ = BeforeSuite(func() {
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&PIMReconciler{
@@ -242,7 +242,7 @@ var _ = BeforeSuite(func() {
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&BGPReconciler{
@@ -252,7 +252,7 @@ var _ = BeforeSuite(func() {
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&BGPPeerReconciler{
@@ -262,7 +262,7 @@ var _ = BeforeSuite(func() {
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&OSPFReconciler{
@@ -272,7 +272,7 @@ var _ = BeforeSuite(func() {
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&VLANReconciler{
@@ -282,7 +282,7 @@ var _ = BeforeSuite(func() {
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&EVPNInstanceReconciler{
@@ -310,7 +310,7 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&RoutingPolicyReconciler{

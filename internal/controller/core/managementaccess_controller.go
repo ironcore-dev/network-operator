@@ -202,7 +202,7 @@ func (r *ManagementAccessReconciler) Reconcile(ctx context.Context, req ctrl.Req
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *ManagementAccessReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *ManagementAccessReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	labelSelector := metav1.LabelSelector{}
 	if r.WatchFilterValue != "" {
 		labelSelector.MatchLabels = map[string]string{v1alpha1.WatchLabel: r.WatchFilterValue}
@@ -211,6 +211,13 @@ func (r *ManagementAccessReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	filter, err := predicate.LabelSelectorPredicate(labelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to create label selector predicate: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.ManagementAccess{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.ManagementAccess)
+		return []string{o.Spec.DeviceRef.Name}
+	}); err != nil {
+		return err
 	}
 
 	bldr := ctrl.NewControllerManagedBy(mgr).
@@ -319,7 +326,7 @@ func (r *ManagementAccessReconciler) deviceToManagementAccesses(ctx context.Cont
 	list := new(v1alpha1.ManagementAccessList)
 	if err := r.List(ctx, list,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list ManagementAccesses")
 		return nil

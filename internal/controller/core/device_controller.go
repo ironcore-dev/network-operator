@@ -24,6 +24,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -241,11 +242,16 @@ func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.secretToDevices),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
 		).
-		// Watches enqueues Devices for contained Interface resources.
+		// Watches enqueues Devices when an Interface is created or deleted,
+		// since Interface.Spec.Name is immutable and only create/delete events
+		// can change the device's port summary.
 		Watches(
 			&v1alpha1.Interface{},
 			handler.EnqueueRequestsFromMapFunc(r.interfaceToDevices),
-			builder.WithPredicates(predicate.Or(predicate.ResourceVersionChangedPredicate{}, predicate.LabelChangedPredicate{})),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc:  func(e event.UpdateEvent) bool { return false },
+				GenericFunc: func(e event.GenericEvent) bool { return false },
+			}),
 		).
 		Complete(r)
 }
@@ -327,7 +333,7 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 
 	// Always rebuild InterfaceRef mappings from the local Interface list.
 	interfaces := new(v1alpha1.InterfaceList)
-	if err := r.List(ctx, interfaces, client.InNamespace(device.Namespace), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name}); err != nil {
+	if err := r.List(ctx, interfaces, client.InNamespace(device.Namespace), client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name}); err != nil {
 		return fmt.Errorf("failed to list interface resources for device: %w", err)
 	}
 
@@ -467,11 +473,6 @@ func (r *DeviceReconciler) interfaceToDevices(ctx context.Context, obj client.Ob
 	intf, ok := obj.(*v1alpha1.Interface)
 	if !ok {
 		panic(fmt.Sprintf("Expected a Interface but got a %T", obj))
-	}
-
-	if intf.GetLabels()[v1alpha1.DeviceLabel] != intf.Spec.DeviceRef.Name {
-		// If the device label is not set (yet), we skip the event.
-		return nil
 	}
 
 	log := ctrl.LoggerFrom(ctx, "Interface", klog.KObj(intf), "Device", klog.KRef(intf.Namespace, intf.Spec.DeviceRef.Name))

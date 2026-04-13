@@ -312,7 +312,7 @@ func main() {
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Banner")
 		os.Exit(1)
 	}
@@ -324,7 +324,7 @@ func main() {
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "User")
 		os.Exit(1)
 	}
@@ -336,7 +336,7 @@ func main() {
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DNS")
 		os.Exit(1)
 	}
@@ -348,7 +348,7 @@ func main() {
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "NTP")
 		os.Exit(1)
 	}
@@ -360,7 +360,7 @@ func main() {
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AccessControlList")
 		os.Exit(1)
 	}
@@ -372,7 +372,7 @@ func main() {
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Certificate")
 		os.Exit(1)
 	}
@@ -384,7 +384,7 @@ func main() {
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SNMP")
 		os.Exit(1)
 	}
@@ -396,7 +396,7 @@ func main() {
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Syslog")
 		os.Exit(1)
 	}
@@ -408,7 +408,7 @@ func main() {
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ManagementAccess")
 		os.Exit(1)
 	}
@@ -421,7 +421,7 @@ func main() {
 		Provider:         prov,
 		Locker:           locker,
 		RequeueInterval:  requeueInterval,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ISIS")
 		os.Exit(1)
 	}
@@ -434,7 +434,7 @@ func main() {
 		Provider:         prov,
 		Locker:           locker,
 		RequeueInterval:  requeueInterval,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PIM")
 		os.Exit(1)
 	}
@@ -447,7 +447,7 @@ func main() {
 		Provider:         prov,
 		Locker:           locker,
 		RequeueInterval:  requeueInterval,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BGP")
 		os.Exit(1)
 	}
@@ -460,7 +460,7 @@ func main() {
 		Provider:         prov,
 		Locker:           locker,
 		RequeueInterval:  requeueInterval,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BGPPeer")
 		os.Exit(1)
 	}
@@ -486,7 +486,7 @@ func main() {
 		Provider:         prov,
 		Locker:           locker,
 		RequeueInterval:  requeueInterval,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OSPF")
 		os.Exit(1)
 	}
@@ -499,7 +499,7 @@ func main() {
 		Provider:         prov,
 		Locker:           locker,
 		RequeueInterval:  requeueInterval,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VLAN")
 		os.Exit(1)
 	}
@@ -512,7 +512,7 @@ func main() {
 		Provider:         prov,
 		Locker:           locker,
 		RequeueInterval:  requeueInterval,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VRF")
 		os.Exit(1)
 	}
@@ -550,7 +550,7 @@ func main() {
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "System")
 		os.Exit(1)
 	}
@@ -574,7 +574,7 @@ func main() {
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PrefixSet")
 		os.Exit(1)
 	}

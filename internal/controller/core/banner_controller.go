@@ -206,7 +206,7 @@ func (r *BannerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *BannerReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *BannerReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	labelSelector := metav1.LabelSelector{}
 	if r.WatchFilterValue != "" {
 		labelSelector.MatchLabels = map[string]string{v1alpha1.WatchLabel: r.WatchFilterValue}
@@ -215,6 +215,13 @@ func (r *BannerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	filter, err := predicate.LabelSelectorPredicate(labelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to create label selector predicate: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.Banner{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.Banner)
+		return []string{o.Spec.DeviceRef.Name}
+	}); err != nil {
+		return err
 	}
 
 	bldr := ctrl.NewControllerManagedBy(mgr).
@@ -343,7 +350,7 @@ func (r *BannerReconciler) deviceToBanners(ctx context.Context, obj client.Objec
 	list := new(v1alpha1.BannerList)
 	if err := r.List(ctx, list,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list Banners")
 		return nil

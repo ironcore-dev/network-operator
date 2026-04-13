@@ -228,6 +228,13 @@ func (r *RoutingPolicyReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		return err
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.RoutingPolicy{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.RoutingPolicy)
+		return []string{o.Spec.DeviceRef.Name}
+	}); err != nil {
+		return err
+	}
+
 	bldr := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.RoutingPolicy{}).
 		Named("routingpolicy").
@@ -456,7 +463,7 @@ func (r *RoutingPolicyReconciler) deviceToRoutingPolicies(ctx context.Context, o
 	list := new(v1alpha1.RoutingPolicyList)
 	if err := r.List(ctx, list,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list RoutingPolicies")
 		return nil

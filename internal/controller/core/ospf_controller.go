@@ -210,7 +210,7 @@ func (r *OSPFReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *OSPFReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *OSPFReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	if r.RequeueInterval == 0 {
 		return errors.New("requeue interval must not be 0")
 	}
@@ -223,6 +223,13 @@ func (r *OSPFReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	filter, err := predicate.LabelSelectorPredicate(labelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to create label selector predicate: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.OSPF{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.OSPF)
+		return []string{o.Spec.DeviceRef.Name}
+	}); err != nil {
+		return err
 	}
 
 	bldr := ctrl.NewControllerManagedBy(mgr).
@@ -442,7 +449,7 @@ func (r *OSPFReconciler) deviceToOSPFs(ctx context.Context, obj client.Object) [
 	list := new(v1alpha1.OSPFList)
 	if err := r.List(ctx, list,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list OSPFs")
 		return nil

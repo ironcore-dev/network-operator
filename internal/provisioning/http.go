@@ -432,7 +432,7 @@ func (s *HTTPServer) GetDeviceCertificate(w http.ResponseWriter, r *http.Request
 	c := clientutil.NewClient(s.Client, device.Namespace)
 
 	certList := v1alpha1.CertificateList{}
-	if err = c.List(ctx, &certList, client.InNamespace(device.Namespace), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name}); err != nil {
+	if err = c.List(ctx, &certList, client.InNamespace(device.Namespace), client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name}); err != nil {
 		s.Logger.Error(err, "Failed to list certificates", "device", device.Name)
 		http.Error(w, "Failed to list certificates", http.StatusInternalServerError)
 		return

@@ -202,7 +202,7 @@ func (r *SyslogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *SyslogReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *SyslogReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	labelSelector := metav1.LabelSelector{}
 	if r.WatchFilterValue != "" {
 		labelSelector.MatchLabels = map[string]string{v1alpha1.WatchLabel: r.WatchFilterValue}
@@ -211,6 +211,13 @@ func (r *SyslogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	filter, err := predicate.LabelSelectorPredicate(labelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to create label selector predicate: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.Syslog{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.Syslog)
+		return []string{o.Spec.DeviceRef.Name}
+	}); err != nil {
+		return err
 	}
 
 	bldr := ctrl.NewControllerManagedBy(mgr).
@@ -325,7 +332,7 @@ func (r *SyslogReconciler) deviceToSyslogs(ctx context.Context, obj client.Objec
 	list := new(v1alpha1.SyslogList)
 	if err := r.List(ctx, list,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list Syslogs")
 		return nil

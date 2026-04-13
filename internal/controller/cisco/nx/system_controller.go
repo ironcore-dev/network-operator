@@ -192,7 +192,7 @@ func (r *SystemReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *SystemReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *SystemReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	labelSelector := metav1.LabelSelector{}
 	if r.WatchFilterValue != "" {
 		labelSelector.MatchLabels = map[string]string{v1alpha1.WatchLabel: r.WatchFilterValue}
@@ -201,6 +201,13 @@ func (r *SystemReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	filter, err := predicate.LabelSelectorPredicate(labelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to create label selector predicate: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &nxv1alpha1.System{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*nxv1alpha1.System)
+		return []string{o.Spec.DeviceRef.Name}
+	}); err != nil {
+		return err
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
@@ -292,7 +299,7 @@ func (r *SystemReconciler) deviceToSystems(ctx context.Context, obj client.Objec
 	list := new(nxv1alpha1.SystemList)
 	if err := r.List(ctx, list,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list Systems")
 		return nil

@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
@@ -644,6 +645,7 @@ func TestGetDeviceCertificate(t *testing.T) {
 						Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
 					},
 					Spec: v1alpha1.CertificateSpec{
+						DeviceRef: v1alpha1.LocalObjectReference{Name: "test-device"},
 						SecretRef: v1alpha1.SecretReference{Name: "test-device-cert-secret-1"},
 					},
 				},
@@ -654,6 +656,7 @@ func TestGetDeviceCertificate(t *testing.T) {
 						Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
 					},
 					Spec: v1alpha1.CertificateSpec{
+						DeviceRef: v1alpha1.LocalObjectReference{Name: "test-device"},
 						SecretRef: v1alpha1.SecretReference{Name: "test-device-cert-secret-2"},
 					},
 				},
@@ -685,6 +688,7 @@ func TestGetDeviceCertificate(t *testing.T) {
 						Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
 					},
 					Spec: v1alpha1.CertificateSpec{
+						DeviceRef: v1alpha1.LocalObjectReference{Name: "test-device"},
 						SecretRef: v1alpha1.SecretReference{Name: "nonexistent-secret"},
 					},
 				},
@@ -716,6 +720,7 @@ func TestGetDeviceCertificate(t *testing.T) {
 						Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
 					},
 					Spec: v1alpha1.CertificateSpec{
+						DeviceRef: v1alpha1.LocalObjectReference{Name: "test-device"},
 						SecretRef: v1alpha1.SecretReference{Name: "test-device-cert-secret"},
 					},
 				},
@@ -759,6 +764,7 @@ func TestGetDeviceCertificate(t *testing.T) {
 						Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
 					},
 					Spec: v1alpha1.CertificateSpec{
+						DeviceRef: v1alpha1.LocalObjectReference{Name: "test-device"},
 						SecretRef: v1alpha1.SecretReference{Name: "test-device-cert-secret"},
 					},
 				},
@@ -808,6 +814,7 @@ func TestGetDeviceCertificate(t *testing.T) {
 						Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
 					},
 					Spec: v1alpha1.CertificateSpec{
+						DeviceRef: v1alpha1.LocalObjectReference{Name: "test-device"},
 						SecretRef: v1alpha1.SecretReference{Name: "test-device-cert-secret"},
 					},
 				},
@@ -846,7 +853,11 @@ func TestGetDeviceCertificate(t *testing.T) {
 				req.Header.Set("Authorization", tt.authorization)
 			}
 
-			clientBuilder := fake.NewClientBuilder().WithScheme(scheme.Scheme)
+			clientBuilder := fake.NewClientBuilder().
+				WithScheme(scheme.Scheme).
+				WithIndex(&v1alpha1.Certificate{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+					return []string{obj.(*v1alpha1.Certificate).Spec.DeviceRef.Name}
+				})
 			if tt.device != nil {
 				clientBuilder.WithObjects(tt.device).WithStatusSubresource(tt.device)
 			}
