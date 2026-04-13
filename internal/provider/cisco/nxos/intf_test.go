@@ -61,40 +61,63 @@ func init() {
 	Register("intf_addr4", intfAddr4)
 
 	pc := &PortChannel{
-		AccessVlan:    DefaultVLAN,
-		AdminSt:       AdminStUp,
-		Descr:         NewOption("vPC Leaf1 to Host1"),
-		ID:            "po10",
-		Layer:         Layer2,
-		MTU:           DefaultMTU,
-		Medium:        MediumBroadcast,
-		Mode:          SwitchportModeTrunk,
-		PcMode:        PortChannelModeActive,
-		NativeVlan:    DefaultVLAN,
-		TrunkVlans:    "10",
-		UserCfgdFlags: UserFlagAdminState,
+		AccessVlan:     DefaultVLAN,
+		AdminSt:        AdminStUp,
+		Descr:          NewOption("vPC Leaf1 to Host1"),
+		ID:             "po10",
+		VPCConvergence: AdminStDisable,
+		Layer:          Layer2,
+		MTU:            DefaultMTU,
+		Medium:         MediumBroadcast,
+		Mode:           SwitchportModeTrunk,
+		PcMode:         PortChannelModeActive,
+		NativeVlan:     DefaultVLAN,
+		SuspIndividual: AdminStEnable,
+		TrunkVlans:     "10",
+		UserCfgdFlags:  UserFlagAdminState,
 	}
 	pc.RsmbrIfsItems.RsMbrIfsList.Set(NewPortChannelMember("eth1/10"))
 	Register("pc", pc)
 
 	Register("pc_rtd", &PortChannel{
-		AccessVlan:    "unknown",
-		AdminSt:       AdminStUp,
-		Descr:         NewOption("L3 Port-Channel to Spine1"),
-		ID:            "po20",
-		Layer:         Layer3,
-		MTU:           9216,
-		Medium:        MediumPointToPoint,
-		Mode:          SwitchportModeAccess,
-		NativeVlan:    "unknown",
-		PcMode:        PortChannelModeActive,
-		TrunkVlans:    DefaultVLANRange,
-		UserCfgdFlags: UserFlagAdminState | UserFlagAdminLayer | UserFlagAdminMTU,
-		RtvrfMbrItems: NewVrfMember("po20", "default"),
+		AccessVlan:     "unknown",
+		AdminSt:        AdminStUp,
+		Descr:          NewOption("L3 Port-Channel to Spine1"),
+		ID:             "po20",
+		VPCConvergence: AdminStDisable,
+		Layer:          Layer3,
+		MTU:            9216,
+		Medium:         MediumPointToPoint,
+		Mode:           SwitchportModeAccess,
+		NativeVlan:     "unknown",
+		PcMode:         PortChannelModeActive,
+		SuspIndividual: AdminStEnable,
+		TrunkVlans:     DefaultVLANRange,
+		UserCfgdFlags:  UserFlagAdminState | UserFlagAdminLayer | UserFlagAdminMTU,
+		RtvrfMbrItems:  NewVrfMember("po20", "default"),
 		AggrExtdItems: struct {
 			BufferBoost AdminSt4 `json:"bufferBoost,omitempty"`
 		}{BufferBoost: AdminStEnable},
 	})
+
+	pcLacp := &PortChannel{
+		AccessVlan:     DefaultVLAN,
+		AdminSt:        AdminStUp,
+		Descr:          NewOption("vPC Leaf1 to Host1 (LACP)"),
+		ID:             "po1",
+		VPCConvergence: AdminStEnable,
+		Layer:          Layer2,
+		MTU:            DefaultMTU,
+		Medium:         MediumBroadcast,
+		Mode:           SwitchportModeTrunk,
+		PcMode:         PortChannelModeActive,
+		NativeVlan:     DefaultVLAN,
+		SuspIndividual: AdminStDisable,
+		TrunkVlans:     "10",
+		UserCfgdFlags:  UserFlagAdminState,
+	}
+	pcLacp.RsmbrIfsItems.RsMbrIfsList.Set(NewPortChannelMember("eth1/1"))
+	Register("pc_lacp", pcLacp)
 
 	svi := &SwitchVirtualInterface{
 		AdminSt: AdminStUp,

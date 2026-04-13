@@ -3473,6 +3473,23 @@ InterfaceConfig is the Schema for the interfaceconfigs API
 | `spec` _[InterfaceConfigSpec](#interfaceconfigspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
 
 
+#### InterfaceConfigLACP
+
+
+
+InterfaceConfigLACP defines LACP options for PortChannel interfaces.
+
+
+
+_Appears in:_
+- [InterfaceConfigSpec](#interfaceconfigspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `vpcConvergence` _boolean_ | VPCConvergence enables faster LACP convergence in a vPC topology. |  | Optional: \{\} <br /> |
+| `suspendIndividual` _boolean_ | SuspendIndividual controls whether a member port is suspended when<br />LACP PDUs are not received. Set to false to keep the port forwarding. |  | Optional: \{\} <br /> |
+
+
 #### InterfaceConfigSpec
 
 
@@ -3488,6 +3505,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `spanningTree` _[SpanningTree](#spanningtree)_ | SpanningTree defines the spanning tree configuration for the interface. |  | Optional: \{\} <br /> |
 | `bufferBoost` _[BufferBoost](#bufferboost)_ | BufferBoost defines the buffer boost configuration for the interface.<br />Buffer boost increases the shared buffer space allocation for the interface. |  | Optional: \{\} <br /> |
+| `lacp` _[InterfaceConfigLACP](#interfaceconfiglacp)_ | LACP defines LACP options for PortChannel (Aggregate) interfaces. |  | Optional: \{\} <br /> |
 
 
 #### KeepAlive

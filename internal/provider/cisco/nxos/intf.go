@@ -253,20 +253,22 @@ func (i *ICMPIf) XPath() string {
 
 // PortChannel represents a port-channel (LAG) interface.
 type PortChannel struct {
-	AccessVlan    string          `json:"accessVlan"`
-	AdminSt       AdminSt2        `json:"adminSt"`
-	Descr         Option[string]  `json:"descr"`
-	ID            string          `json:"id"`
-	Layer         Layer           `json:"layer"`
-	MTU           int32           `json:"mtu"`
-	Medium        Medium          `json:"medium"`
-	Mode          SwitchportMode  `json:"mode"`
-	PcMode        PortChannelMode `json:"pcMode"`
-	NativeVlan    string          `json:"nativeVlan"`
-	TrunkVlans    string          `json:"trunkVlans"`
-	UserCfgdFlags UserFlags       `json:"userCfgdFlags"`
-	RtvrfMbrItems *VrfMember      `json:"rtvrfMbr-items,omitempty"`
-	RsmbrIfsItems struct {
+	AccessVlan     string          `json:"accessVlan"`
+	AdminSt        AdminSt2        `json:"adminSt"`
+	Descr          Option[string]  `json:"descr"`
+	ID             string          `json:"id"`
+	VPCConvergence AdminSt4        `json:"lacpVpcConvergence"`
+	Layer          Layer           `json:"layer"`
+	MTU            int32           `json:"mtu"`
+	Medium         Medium          `json:"medium"`
+	Mode           SwitchportMode  `json:"mode"`
+	PcMode         PortChannelMode `json:"pcMode"`
+	NativeVlan     string          `json:"nativeVlan"`
+	SuspIndividual AdminSt4        `json:"suspIndividual"`
+	TrunkVlans     string          `json:"trunkVlans"`
+	UserCfgdFlags  UserFlags       `json:"userCfgdFlags"`
+	RtvrfMbrItems  *VrfMember      `json:"rtvrfMbr-items,omitempty"`
+	RsmbrIfsItems  struct {
 		RsMbrIfsList gnmiext.List[string, *PortChannelMember] `json:"RsMbrIfs-list,omitzero"`
 	} `json:"rsmbrIfs-items,omitzero"`
 	AggrExtdItems struct {

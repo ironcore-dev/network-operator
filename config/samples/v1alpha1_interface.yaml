@@ -127,6 +127,10 @@ metadata:
 spec:
   deviceRef:
     name: leaf1
+  # providerConfigRef:
+  #   apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+  #   kind: InterfaceConfig
+  #   name: lacp-vpc
   name: po10
   description: vPC to Host1
   adminState: Up

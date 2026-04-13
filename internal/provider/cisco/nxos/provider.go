@@ -1007,6 +1007,17 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			pc.AggrExtdItems.BufferBoost = AdminStDisable
 		}
 
+		pc.VPCConvergence = AdminStDisable
+		pc.SuspIndividual = AdminStEnable
+		if cfg.Spec.LACP != nil {
+			if cfg.Spec.LACP.VPCConvergence != nil && *cfg.Spec.LACP.VPCConvergence {
+				pc.VPCConvergence = AdminStEnable
+			}
+			if cfg.Spec.LACP.SuspendIndividual != nil && !*cfg.Spec.LACP.SuspendIndividual {
+				pc.SuspIndividual = AdminStDisable
+			}
+		}
+
 		updates = append(updates, pc)
 
 		if req.MultiChassisID != nil {
