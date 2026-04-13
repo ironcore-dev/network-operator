@@ -65,6 +65,8 @@ type DevicePort struct {
 }
 
 type DeviceInfo struct {
+	// Hostname is the hostname of the device.
+	Hostname string
 	// Manufacturer is the manufacturer of the device, e.g. "Cisco".
 	Manufacturer string
 	// Model is the model of the device, e.g. "N9K-C9332D-GX2B".

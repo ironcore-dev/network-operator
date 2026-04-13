@@ -297,6 +297,7 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 		if err != nil {
 			return fmt.Errorf("failed to get device info: %w", err)
 		}
+		device.Status.Hostname = info.Hostname
 		device.Status.Manufacturer = info.Manufacturer
 		device.Status.Model = info.Model
 		device.Status.SerialNumber = info.SerialNumber

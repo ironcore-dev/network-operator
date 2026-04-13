@@ -193,15 +193,22 @@ func (p *Provider) ListPorts(ctx context.Context) ([]provider.DevicePort, error)
 }
 
 func (p *Provider) GetDeviceInfo(ctx context.Context) (*provider.DeviceInfo, error) {
+	h := new(Hostname)
 	m := new(Model)
 	s := new(SerialNumber)
 	fw := new(FirmwareVersion)
+
+	// Hostname is a config item, not state
+	if err := p.client.GetConfig(ctx, h); err != nil {
+		return nil, err
+	}
 	if err := p.client.GetState(ctx, m, s, fw); err != nil {
 		return nil, err
 	}
 
 	return &provider.DeviceInfo{
 		Manufacturer:    Manufacturer,
+		Hostname:        string(*h),
 		Model:           string(*m),
 		SerialNumber:    string(*s),
 		FirmwareVersion: string(*fw),

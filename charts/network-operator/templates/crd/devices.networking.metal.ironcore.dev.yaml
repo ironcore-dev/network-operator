@@ -372,6 +372,9 @@ spec:
                 description: FirmwareVersion is the firmware version running on the
                   Device.
                 type: string
+              hostname:
+                description: Hostname is the hostname of the Device.
+                type: string
               lastRebootTime:
                 description: LastRebootTime is the timestamp of the last reboot of
                   the Device, if known.

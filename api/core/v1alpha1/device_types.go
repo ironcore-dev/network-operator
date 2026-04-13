@@ -128,6 +128,10 @@ type DeviceStatus struct {
 	// +required
 	Phase DevicePhase `json:"phase,omitempty"`
 
+	// Hostname is the hostname of the Device.
+	// +optional
+	Hostname string `json:"hostname,omitempty"`
+
 	// Manufacturer is the manufacturer of the Device.
 	// +optional
 	Manufacturer string `json:"manufacturer,omitempty"`

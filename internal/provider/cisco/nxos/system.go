@@ -39,6 +39,13 @@ func (s *SystemJumboMTU) Default() {
 	*s = 9216
 }
 
+// Hostname is the configured hostname of the device.
+type Hostname string
+
+func (*Hostname) XPath() string {
+	return "System/name"
+}
+
 // Model is the chassis model of the device, e.g. "N9K-C9336C-FX2".
 type Model string
 

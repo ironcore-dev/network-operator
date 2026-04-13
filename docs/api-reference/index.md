@@ -1038,6 +1038,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `phase` _[DevicePhase](#devicephase)_ | Phase represents the current phase of the Device. | Pending | Enum: [Pending Provisioning Running Failed Provisioned] <br />Required: \{\} <br /> |
+| `hostname` _string_ | Hostname is the hostname of the Device. |  | Optional: \{\} <br /> |
 | `manufacturer` _string_ | Manufacturer is the manufacturer of the Device. |  | Optional: \{\} <br /> |
 | `model` _string_ | Model is the model identifier of the Device. |  | Optional: \{\} <br /> |
 | `serialNumber` _string_ | SerialNumber is the serial number of the Device. |  | Optional: \{\} <br /> |
