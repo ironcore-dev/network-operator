@@ -67,20 +67,7 @@ type NXOSMethodList struct {
 	// +listType=atomic
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=4
-	Methods []NXOSMethod `json:"methods"`
-}
-
-// NXOSMethod represents a single AAA method in an NX-OS context.
-type NXOSMethod struct {
-	// Type is the method type.
-	// +required
-	// +kubebuilder:validation:Enum=Group;Local;None
-	Type string `json:"type"`
-
-	// GroupName is the server group name when Type is Group.
-	// +optional
-	// +kubebuilder:validation:MaxLength=63
-	GroupName string `json:"groupName,omitempty"`
+	Methods []v1alpha1.AAAMethod `json:"methods"`
 }
 
 // +kubebuilder:object:root=true

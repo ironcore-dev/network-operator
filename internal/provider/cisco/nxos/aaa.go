@@ -6,19 +6,19 @@ package nxos
 import (
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
-	gnmiext "github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
 var (
-	_ gnmiext.Configurable = (*TACACSFeature)(nil)
-	_ gnmiext.Configurable = (*TacacsPlusProvider)(nil)
-	_ gnmiext.Configurable = (*TacacsPlusProviderGroup)(nil)
-	_ gnmiext.Configurable = (*RadiusProvider)(nil)
-	_ gnmiext.Configurable = (*RadiusProviderGroup)(nil)
-	_ gnmiext.Configurable = (*AAADefaultAuth)(nil)
-	_ gnmiext.Configurable = (*AAAConsoleAuth)(nil)
-	_ gnmiext.Configurable = (*AAADefaultAuthor)(nil)
-	_ gnmiext.Configurable = (*AAADefaultAcc)(nil)
+	_ gnmiext.DataElement = (*TACACSFeature)(nil)
+	_ gnmiext.DataElement = (*TacacsPlusProvider)(nil)
+	_ gnmiext.DataElement = (*TacacsPlusProviderGroup)(nil)
+	_ gnmiext.DataElement = (*RadiusProvider)(nil)
+	_ gnmiext.DataElement = (*RadiusProviderGroup)(nil)
+	_ gnmiext.DataElement = (*AAADefaultAuth)(nil)
+	_ gnmiext.DataElement = (*AAAConsoleAuth)(nil)
+	_ gnmiext.DataElement = (*AAADefaultAuthor)(nil)
+	_ gnmiext.DataElement = (*AAADefaultAcc)(nil)
 )
 
 // TACACSFeature enables/disables the TACACS+ feature on NX-OS.
@@ -74,6 +74,26 @@ type TacacsPlusProviderGroupRefItems struct {
 	ProviderRefList gnmiext.List[string, *TacacsPlusProviderRef] `json:"ProviderRef-list,omitzero"`
 }
 
+// TacacsPlusProviderItems is the container for all TACACS+ server configurations on the device.
+// Used for reading the current state — not for writing.
+type TacacsPlusProviderItems struct {
+	ProviderList []TacacsPlusProvider `json:"TacacsPlusProvider-list,omitzero"`
+}
+
+func (*TacacsPlusProviderItems) XPath() string {
+	return "System/userext-items/tacacsext-items/tacacsplusprovider-items"
+}
+
+// TacacsPlusProviderGroupItems is the container for all TACACS+ server group configurations on the device.
+// Used for reading the current state — not for writing.
+type TacacsPlusProviderGroupItems struct {
+	GroupList []TacacsPlusProviderGroup `json:"TacacsPlusProviderGroup-list,omitzero"`
+}
+
+func (*TacacsPlusProviderGroupItems) XPath() string {
+	return "System/userext-items/tacacsext-items/tacacsplusprovidergroup-items"
+}
+
 type TacacsPlusProviderRef struct {
 	Name string `json:"name"`
 }
@@ -114,6 +134,26 @@ func (g *RadiusProviderGroup) XPath() string {
 
 type RadiusProviderGroupRefItems struct {
 	ProviderRefList gnmiext.List[string, *RadiusProviderRef] `json:"ProviderRef-list,omitzero"`
+}
+
+// RadiusProviderItems is the container for all RADIUS server configurations on the device.
+// Used for reading the current state — not for writing.
+type RadiusProviderItems struct {
+	ProviderList []RadiusProvider `json:"RadiusProvider-list,omitzero"`
+}
+
+func (*RadiusProviderItems) XPath() string {
+	return "System/userext-items/radiusext-items/radiusprovider-items"
+}
+
+// RadiusProviderGroupItems is the container for all RADIUS server group configurations on the device.
+// Used for reading the current state — not for writing.
+type RadiusProviderGroupItems struct {
+	GroupList []RadiusProviderGroup `json:"RadiusProviderGroup-list,omitzero"`
+}
+
+func (*RadiusProviderGroupItems) XPath() string {
+	return "System/userext-items/radiusext-items/radiusprovidergroup-items"
 }
 
 type RadiusProviderRef struct {
@@ -168,8 +208,8 @@ func (a *AAADefaultAuthor) XPath() string {
 }
 
 // AAADefaultAcc represents AAA default accounting configuration.
+// Note: "name" is a read-only operational field on NX-OS and must not be sent.
 type AAADefaultAcc struct {
-	Name          string `json:"name,omitempty"`
 	Realm         string `json:"realm,omitempty"`
 	ProviderGroup string `json:"providerGroup,omitempty"`
 	LocalRbac     bool   `json:"localRbac,omitempty"`
@@ -278,9 +318,9 @@ func MapRealm(methodType string) string {
 }
 
 // MapLocal checks if local is in a method list.
-func MapLocal(methods []nxv1alpha1.NXOSMethod) string {
+func MapLocal(methods []v1alpha1.AAAMethod) string {
 	for _, m := range methods {
-		if m.Type == "Local" {
+		if m.Type == v1alpha1.AAAMethodTypeLocal {
 			return AAAValueYes
 		}
 	}
@@ -288,7 +328,7 @@ func MapLocal(methods []nxv1alpha1.NXOSMethod) string {
 }
 
 // MapFallback determines fallback setting from a method list.
-func MapFallback(methods []nxv1alpha1.NXOSMethod) string {
+func MapFallback(methods []v1alpha1.AAAMethod) string {
 	if len(methods) > 1 {
 		return AAAValueYes
 	}

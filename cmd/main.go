@@ -579,7 +579,7 @@ func main() { //nolint:gocyclo
 	if err := (&corecontroller.AAAReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("aaa-controller"),
+		Recorder:         mgr.GetEventRecorder("aaa-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,

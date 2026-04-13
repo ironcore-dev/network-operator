@@ -1,0 +1,22 @@
+{
+  "userext-items": {
+    "tacacsext-items": {
+      "tacacsplusprovidergroup-items": {
+        "TacacsPlusProviderGroup-list": [
+          {
+            "name": "TACACS-SERVERS",
+            "vrf": "management",
+            "srcIf": "mgmt0",
+            "providerref-items": {
+              "ProviderRef-list": [
+                {
+                  "name": "10.1.1.1"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

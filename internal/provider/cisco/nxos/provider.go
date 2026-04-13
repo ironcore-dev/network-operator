@@ -3273,7 +3273,7 @@ func (p *Provider) GetDHCPRelayStatus(ctx context.Context, req *provider.DHCPRel
 }
 
 func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest) error {
-	var conf []gnmiext.Configurable
+	var conf []gnmiext.DataElement
 
 	// Read Cisco-specific config from ProviderConfig
 	var cfg nxv1alpha1.AAAConfig
@@ -3292,10 +3292,8 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 			for _, server := range group.Servers {
 				srv := &TacacsPlusProvider{
 					Name:   server.Address,
+					Port:   server.TACACS.Port,
 					KeyEnc: MapKeyEncryption(cfg.Spec.KeyEncryption),
-				}
-				if server.TACACS != nil {
-					srv.Port = server.TACACS.Port
 				}
 				if key, ok := req.TACACSServerKeys[server.Address]; ok {
 					srv.Key = key
@@ -3319,12 +3317,10 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 		case v1alpha1.AAAServerGroupTypeRADIUS:
 			for _, server := range group.Servers {
 				srv := &RadiusProvider{
-					Name:   server.Address,
-					KeyEnc: MapRADIUSKeyEncryption(cfg.Spec.RADIUSKeyEncryption),
-				}
-				if server.RADIUS != nil {
-					srv.AuthPort = server.RADIUS.AuthenticationPort
-					srv.AcctPort = server.RADIUS.AccountingPort
+					Name:     server.Address,
+					AuthPort: server.RADIUS.AuthenticationPort,
+					AcctPort: server.RADIUS.AccountingPort,
+					KeyEnc:   MapRADIUSKeyEncryption(cfg.Spec.RADIUSKeyEncryption),
 				}
 				if key, ok := req.RADIUSServerKeys[server.Address]; ok {
 					srv.Key = key
@@ -3370,11 +3366,11 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 			Fallback: MapFallback(methods),
 			Local:    MapLocal(methods),
 		}
-		if methods[0].Type == "Group" {
+		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
 			consoleAuth.Realm = MapRealmFromGroup(methods[0].GroupName, req.AAA.Spec.ServerGroups)
 			consoleAuth.ProviderGroup = methods[0].GroupName
 		} else {
-			consoleAuth.Realm = MapRealm(methods[0].Type)
+			consoleAuth.Realm = MapRealmFromMethodType(methods[0].Type)
 		}
 		conf = append(conf, consoleAuth)
 	}
@@ -3397,7 +3393,7 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 			CmdType:   "config",
 			LocalRbac: MapLocal(methods) == AAAValueYes,
 		}
-		if methods[0].Type == "Group" {
+		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
 			author.ProviderGroup = methods[0].GroupName
 		}
 		conf = append(conf, author)
@@ -3406,7 +3402,6 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 	if req.AAA.Spec.Accounting != nil && len(req.AAA.Spec.Accounting.Methods) > 0 {
 		methods := req.AAA.Spec.Accounting.Methods
 		acct := &AAADefaultAcc{
-			Name:      "Accounting",
 			LocalRbac: MapLocalFromMethodList(methods) == AAAValueYes,
 		}
 		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
@@ -3422,42 +3417,48 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 }
 
 func (p *Provider) DeleteAAA(ctx context.Context, req *provider.DeleteAAARequest) error {
-	// Reset all AAA method config to device defaults unconditionally.
-	// gNMI deletes are idempotent, so it is safe to reset even if a field
-	// was never configured.
-	conf := []gnmiext.Configurable{
-		&AAADefaultAcc{Name: "Accounting", Realm: AAARealmLocal, LocalRbac: true},
+	// Read what is currently on the device rather than relying on the spec.
+	// This ensures leftover servers/groups from previous reconciles are also removed.
+	tacacsProviders := new(TacacsPlusProviderItems)
+	tacacsGroups := new(TacacsPlusProviderGroupItems)
+	radiusProviders := new(RadiusProviderItems)
+	radiusGroups := new(RadiusProviderGroupItems)
+	for _, c := range []gnmiext.DataElement{tacacsProviders, tacacsGroups, radiusProviders, radiusGroups} {
+		if err := p.client.GetConfig(ctx, c); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+	}
+
+	// Build a single delete list. Groups are placed before servers to avoid
+	// reference violations when NX-OS processes the delete request.
+	toDelete := make([]gnmiext.DataElement, 0, len(tacacsGroups.GroupList)+len(tacacsProviders.ProviderList)+len(radiusGroups.GroupList)+len(radiusProviders.ProviderList))
+	for i := range tacacsGroups.GroupList {
+		toDelete = append(toDelete, &tacacsGroups.GroupList[i])
+	}
+	for i := range tacacsProviders.ProviderList {
+		toDelete = append(toDelete, &tacacsProviders.ProviderList[i])
+	}
+	for i := range radiusGroups.GroupList {
+		toDelete = append(toDelete, &radiusGroups.GroupList[i])
+	}
+	for i := range radiusProviders.ProviderList {
+		toDelete = append(toDelete, &radiusProviders.ProviderList[i])
+	}
+	if err := p.client.Delete(ctx, toDelete...); err != nil {
+		return err
+	}
+
+	// Reset AAA method config to device defaults.
+	conf := []gnmiext.DataElement{
+		&AAADefaultAcc{Realm: AAARealmLocal, LocalRbac: true},
 		&AAADefaultAuthor{CmdType: "config", LocalRbac: true},
 		&AAADefaultAuth{Realm: AAARealmLocal, Local: AAAValueYes, Fallback: AAAValueYes},
 		&AAAConsoleAuth{Realm: AAARealmLocal, Local: AAAValueYes, Fallback: AAAValueYes},
 	}
-
-	for _, group := range req.AAA.Spec.ServerGroups {
-		switch group.Type {
-		case v1alpha1.AAAServerGroupTypeTACACS:
-			if err := p.client.Delete(ctx, &TacacsPlusProviderGroup{Name: group.Name}); err != nil {
-				return err
-			}
-			for _, server := range group.Servers {
-				if err := p.client.Delete(ctx, &TacacsPlusProvider{Name: server.Address}); err != nil {
-					return err
-				}
-			}
-			tacacsFeature := TACACSFeature(AdminStDisabled)
-			conf = append(conf, &tacacsFeature)
-
-		case v1alpha1.AAAServerGroupTypeRADIUS:
-			if err := p.client.Delete(ctx, &RadiusProviderGroup{Name: group.Name}); err != nil {
-				return err
-			}
-			for _, server := range group.Servers {
-				if err := p.client.Delete(ctx, &RadiusProvider{Name: server.Address}); err != nil {
-					return err
-				}
-			}
-		}
+	if len(tacacsProviders.ProviderList) > 0 {
+		tacacsFeature := TACACSFeature(AdminStDisabled)
+		conf = append(conf, &tacacsFeature)
 	}
-
 	return p.Update(ctx, conf...)
 }
 

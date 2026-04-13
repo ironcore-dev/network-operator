@@ -1,0 +1,16 @@
+{
+  "userext-items": {
+    "tacacsext-items": {
+      "tacacsplusprovider-items": {
+        "TacacsPlusProvider-list": [
+          {
+            "name": "10.1.1.1",
+            "port": 49,
+            "keyEnc": "7",
+            "timeout": 5
+          }
+        ]
+      }
+    }
+  }
+}
