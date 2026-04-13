@@ -116,7 +116,7 @@ func (r *DHCPRelayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err := r.Locker.AcquireLock(ctx, device.Name, "dhcprelay-controller"); err != nil {
 		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
 			log.V(3).Info("Device is already locked, requeuing reconciliation")
-			return ctrl.Result{RequeueAfter: time.Second}, nil
+			return ctrl.Result{RequeueAfter: Jitter(time.Second), Priority: new(LockWaitPriorityDefault)}, nil
 		}
 		log.Error(err, "Failed to acquire device lock")
 		return ctrl.Result{}, err

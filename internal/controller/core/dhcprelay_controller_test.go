@@ -1122,5 +1122,71 @@ var _ = Describe("DHCPRelay Controller", func() {
 				g.Expect(cond.Message).To(ContainSubstring("not configured"))
 			}).Should(Succeed())
 		})
+
+		It("Should re-reconcile DHCPRelay when Interface becomes configured (watch trigger)", func() {
+			By("Creating DHCPRelay referencing a non-configured Interface")
+			dhcprelay := &v1alpha1.DHCPRelay{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test-dhcprelay-intfnr-watch-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DHCPRelaySpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName},
+					Servers:   []string{"192.168.1.1"},
+					InterfaceRefs: []v1alpha1.LocalObjectReference{
+						{Name: interfaceName},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, dhcprelay)).To(Succeed())
+			resourceName = dhcprelay.Name
+			resourceKey = client.ObjectKey{Name: resourceName, Namespace: metav1.NamespaceDefault}
+
+			By("Verifying DHCPRelay is not ready due to non-configured Interface")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, dhcprelay)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				cond := meta.FindStatusCondition(dhcprelay.Status.Conditions, v1alpha1.ConfiguredCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(cond.Reason).To(Equal(v1alpha1.WaitingForDependenciesReason))
+			}).Should(Succeed())
+
+			By("Creating the VRF to make the Interface configured")
+			vrf := &v1alpha1.VRF{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      nonExistentVrfName,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.VRFSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName},
+					Name:      "VRF-TEST",
+				},
+			}
+			Expect(k8sClient.Create(ctx, vrf)).To(Succeed())
+
+			By("Waiting for Interface to become configured")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, interfaceKey, intf)
+				g.Expect(err).NotTo(HaveOccurred())
+				cond := meta.FindStatusCondition(intf.Status.Conditions, v1alpha1.ConfiguredCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			}).Should(Succeed())
+
+			By("Verifying DHCPRelay becomes ready after Interface is configured (watch triggered re-reconciliation)")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, dhcprelay)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				cond := meta.FindStatusCondition(dhcprelay.Status.Conditions, v1alpha1.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			}).Should(Succeed())
+
+			By("Cleaning up the VRF resource")
+			Expect(k8sClient.Delete(ctx, vrf)).To(Succeed())
+		})
 	})
 })
