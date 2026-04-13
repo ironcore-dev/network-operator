@@ -19,6 +19,11 @@ type BGPSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="DeviceRef is immutable"
 	DeviceRef LocalObjectReference `json:"deviceRef"`
 
+	// VrfRef is an optional reference to the VRF this BGP instance is scoped to.
+	// When omitted, the BGP instance is configured in the default VRF.
+	// +optional
+	VrfRef *LocalObjectReference `json:"vrfRef,omitempty"`
+
 	// ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
 	// This reference is used to link the BGP to its provider-specific configuration.
 	// +optional

@@ -1,0 +1,16 @@
+{
+  "bgp-items": {
+    "inst-items": {
+      "asn": "65000",
+      "dom-items": {
+        "Dom-list": [
+          {
+            "name": "CC-MGMT",
+            "rtrId": "1.1.1.1",
+            "rtrIdAuto": "disabled"
+          }
+        ]
+      }
+    }
+  }
+}

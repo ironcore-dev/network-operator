@@ -66,6 +66,7 @@ type BGPPeerReconciler struct {
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgppeers/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgppeers/finalizers,verbs=update
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgp,verbs=get;list;watch
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vrfs,verbs=get;list;watch
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -261,8 +262,9 @@ func (r *BGPPeerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			}),
 		).
 		// Watches enqueues BGPPeers for updates in BGP resources on the same device.
-		// Triggers on create, delete, and update events. For updates, only triggers
-		// when the BGP transitions from not-ready to ready.
+		// Triggers on create, delete, and update events. For updates, triggers when
+		// the BGP ready state changes, or when VrfRef changes (which affects the VRF
+		// domain the peers are configured in).
 		Watches(
 			&v1alpha1.BGP{},
 			handler.EnqueueRequestsFromMapFunc(r.bgpToBGPPeers),
@@ -270,8 +272,21 @@ func (r *BGPPeerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					oldBGP := e.ObjectOld.(*v1alpha1.BGP)
 					newBGP := e.ObjectNew.(*v1alpha1.BGP)
-					// Only trigger when the BGP transitions from not-ready to ready.
-					return conditions.IsReady(oldBGP) != conditions.IsReady(newBGP)
+					return conditions.IsReady(oldBGP) != conditions.IsReady(newBGP) || !equality.Semantic.DeepEqual(oldBGP.Spec.VrfRef, newBGP.Spec.VrfRef)
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
+		// Watches enqueues BGPPeers for updates in VRF resources referenced by their BGP.
+		// Only triggers on create and delete events since VRF names are immutable.
+		Watches(
+			&v1alpha1.VRF{},
+			handler.EnqueueRequestsFromMapFunc(r.vrfToBGPPeers),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false
@@ -325,6 +340,11 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (_ c
 		return ctrl.Result{}, nil
 	}
 
+	vrf, err := r.reconcileVRF(ctx, s.BGPPeer, bgp, s.Device)
+	if err != nil {
+		return err
+	}
+
 	var sourceInterface string
 	if addr := s.BGPPeer.Spec.LocalAddress; addr != nil {
 		intf := new(v1alpha1.Interface)
@@ -368,6 +388,7 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (_ c
 		ProviderConfig:  s.ProviderConfig,
 		SourceInterface: sourceInterface,
 		BGP:             bgp,
+		VRF:             vrf,
 	})
 
 	cond := conditions.FromError(err)
@@ -380,6 +401,7 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (_ c
 	status, err := s.Provider.GetPeerStatus(ctx, &provider.BGPPeerStatusRequest{
 		BGPPeer:        s.BGPPeer,
 		ProviderConfig: s.ProviderConfig,
+		VRF:            vrf,
 	})
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to get bgp peer status: %w", err)
@@ -432,6 +454,11 @@ func (r *BGPPeerReconciler) finalize(ctx context.Context, s *bgpPeerScope) (rete
 		return err
 	}
 
+	vrf, err := r.reconcileVRF(ctx, s.BGPPeer, bgp, s.Device)
+	if err != nil {
+		return err
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -445,6 +472,7 @@ func (r *BGPPeerReconciler) finalize(ctx context.Context, s *bgpPeerScope) (rete
 		BGPPeer:        s.BGPPeer,
 		ProviderConfig: s.ProviderConfig,
 		BGP:            bgp,
+		VRF:            vrf,
 	})
 }
 
@@ -545,6 +573,82 @@ func (r *BGPPeerReconciler) reconcileBGP(ctx context.Context, peer *v1alpha1.BGP
 	}
 
 	return bgp, nil
+}
+
+// reconcileVRF resolves the VRF referenced by the BGP's VrfRef field.
+// Returns nil when no VrfRef is set, meaning the default VRF should be used.
+// Sets ConfiguredCondition and returns a terminal error when the VRF is not found or belongs to a different device.
+func (r *BGPPeerReconciler) reconcileVRF(ctx context.Context, peer *v1alpha1.BGPPeer, bgp *v1alpha1.BGP, device *v1alpha1.Device) (*v1alpha1.VRF, error) {
+	if bgp == nil || bgp.Spec.VrfRef == nil {
+		return nil, nil
+	}
+
+	vrf := new(v1alpha1.VRF)
+	if err := r.Get(ctx, types.NamespacedName{Name: bgp.Spec.VrfRef.Name, Namespace: peer.Namespace}, vrf); err != nil {
+		if apierrors.IsNotFound(err) {
+			conditions.Set(peer, metav1.Condition{
+				Type:    v1alpha1.ConfiguredCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.WaitingForDependenciesReason,
+				Message: fmt.Sprintf("VRF %s not found", bgp.Spec.VrfRef.Name),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("vrf %s not found", bgp.Spec.VrfRef.Name))
+		}
+		return nil, fmt.Errorf("failed to get VRF %s: %w", bgp.Spec.VrfRef.Name, err)
+	}
+
+	if vrf.Spec.DeviceRef.Name != device.Name {
+		conditions.Set(peer, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.CrossDeviceReferenceReason,
+			Message: fmt.Sprintf("VRF %s belongs to device %s, not %s", bgp.Spec.VrfRef.Name, vrf.Spec.DeviceRef.Name, device.Name),
+		})
+		return nil, reconcile.TerminalError(fmt.Errorf("vrf %s belongs to different device", bgp.Spec.VrfRef.Name))
+	}
+
+	return vrf, nil
+}
+
+// vrfToBGPPeers is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for BGPPeers when the VRF referenced by their BGP is created or deleted.
+func (r *BGPPeerReconciler) vrfToBGPPeers(ctx context.Context, obj client.Object) []ctrl.Request {
+	vrf, ok := obj.(*v1alpha1.VRF)
+	if !ok {
+		panic(fmt.Sprintf("Expected a VRF but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "VRF", klog.KObj(vrf))
+
+	bgpList := new(v1alpha1.BGPList)
+	if err := r.List(ctx, bgpList, client.InNamespace(vrf.Namespace)); err != nil {
+		log.Error(err, "Failed to list BGPs")
+		return nil
+	}
+
+	var requests []ctrl.Request
+	for _, bgp := range bgpList.Items {
+		if bgp.Spec.VrfRef == nil || bgp.Spec.VrfRef.Name != vrf.Name {
+			continue
+		}
+
+		peerList := new(v1alpha1.BGPPeerList)
+		if err := r.List(ctx, peerList, client.InNamespace(vrf.Namespace)); err != nil {
+			log.Error(err, "Failed to list BGPPeers")
+			return nil
+		}
+
+		for _, p := range peerList.Items {
+			if p.Spec.BgpRef.Name == bgp.Name {
+				log.V(2).Info("Enqueuing BGPPeer for reconciliation", "BGPPeer", klog.KObj(&p))
+				requests = append(requests, ctrl.Request{
+					NamespacedName: types.NamespacedName{Name: p.Name, Namespace: p.Namespace},
+				})
+			}
+		}
+	}
+
+	return requests
 }
 
 // bgpPeersForProviderConfig is a [handler.MapFunc] to be used to enqueue requests for reconciliation

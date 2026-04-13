@@ -116,6 +116,7 @@ func (af *BGPDomAfItem) SetMultipath(m *v1alpha1.BGPMultipath) error {
 }
 
 type BGPPeer struct {
+	VRFName             string      `json:"-"`
 	Addr                string      `json:"addr"`
 	AdminSt             AdminSt     `json:"adminSt"`
 	Asn                 string      `json:"asn"`
@@ -131,7 +132,7 @@ type BGPPeer struct {
 func (*BGPPeer) IsListItem() {}
 
 func (p *BGPPeer) XPath() string {
-	return "System/bgp-items/inst-items/dom-items/Dom-list[name=default]/peer-items/Peer-list[addr=" + p.Addr + "]"
+	return "System/bgp-items/inst-items/dom-items/Dom-list[name=" + p.VRFName + "]/peer-items/Peer-list[addr=" + p.Addr + "]"
 }
 
 type BGPPeerAfItem struct {
@@ -144,6 +145,7 @@ type BGPPeerAfItem struct {
 func (af *BGPPeerAfItem) Key() AddressFamily { return af.Type }
 
 type BGPPeerOperItems struct {
+	VRFName      string        `json:"-"`
 	Addr         string        `json:"addr"`
 	OperSt       BGPPeerOperSt `json:"operSt"`
 	LastFlapTime time.Time     `json:"lastFlapTs"`
@@ -155,7 +157,7 @@ type BGPPeerOperItems struct {
 func (*BGPPeerOperItems) IsListItem() {}
 
 func (p *BGPPeerOperItems) XPath() string {
-	return "System/bgp-items/inst-items/dom-items/Dom-list[name=default]/peer-items/Peer-list[addr=" + p.Addr + "]/ent-items/PeerEntry-list[addr=" + p.Addr + "]"
+	return "System/bgp-items/inst-items/dom-items/Dom-list[name=" + p.VRFName + "]/peer-items/Peer-list[addr=" + p.Addr + "]/ent-items/PeerEntry-list[addr=" + p.Addr + "]"
 }
 
 type BGPPeerAfOperItems struct {

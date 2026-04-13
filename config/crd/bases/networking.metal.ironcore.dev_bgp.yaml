@@ -310,6 +310,22 @@ spec:
                   Follows dotted quad notation (IPv4 format).
                 format: ipv4
                 type: string
+              vrfRef:
+                description: |-
+                  VrfRef is an optional reference to the VRF this BGP instance is scoped to.
+                  When omitted, the BGP instance is configured in the default VRF.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
             required:
             - asNumber
             - deviceRef

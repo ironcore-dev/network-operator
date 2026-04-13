@@ -328,6 +328,9 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 
 	dom := new(BGPDom)
 	dom.Name = DefaultVRFName
+	if req.VRF != nil {
+		dom.Name = req.VRF.Spec.Name
+	}
 	dom.RtrID = req.BGP.Spec.RouterID
 	dom.RtrIDAuto = AdminStDisabled
 
@@ -375,15 +378,18 @@ func (p *Provider) DeleteBGP(ctx context.Context, req *provider.DeleteBGPRequest
 }
 
 func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPeerRequest) error {
-	// Ensure that the BGP instance exists and is configured on the "default" domain
-	// and return an error if it does not exist.
+	// Ensure that the BGP domain exists before configuring a peer under it.
 	bgp := new(BGPDom)
 	bgp.Name = DefaultVRFName
+	if req.VRF != nil {
+		bgp.Name = req.VRF.Spec.Name
+	}
 	if err := p.client.GetConfig(ctx, bgp); err != nil {
-		return fmt.Errorf("bgp peer: failed to get bgp instance 'default': %w", err)
+		return fmt.Errorf("bgp peer: failed to get bgp instance %q: %w", bgp.Name, err)
 	}
 
 	pe := new(BGPPeer)
+	pe.VRFName = bgp.Name
 	pe.Addr = req.BGPPeer.Spec.Address
 	pe.AdminSt = AdminStEnabled
 	if req.BGPPeer.Spec.AdminState == v1alpha1.AdminStateDown {
@@ -432,12 +438,20 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 
 func (p *Provider) DeleteBGPPeer(ctx context.Context, req *provider.DeleteBGPPeerRequest) error {
 	b := new(BGPPeer)
+	b.VRFName = DefaultVRFName
+	if req.VRF != nil {
+		b.VRFName = req.VRF.Spec.Name
+	}
 	b.Addr = req.BGPPeer.Spec.Address
 	return p.client.Delete(ctx, b)
 }
 
 func (p *Provider) GetPeerStatus(ctx context.Context, req *provider.BGPPeerStatusRequest) (provider.BGPPeerStatus, error) {
 	ps := new(BGPPeerOperItems)
+	ps.VRFName = DefaultVRFName
+	if req.VRF != nil {
+		ps.VRFName = req.VRF.Spec.Name
+	}
 	ps.Addr = req.BGPPeer.Spec.Address
 	if err := p.client.GetState(ctx, ps); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 		return provider.BGPPeerStatus{}, err

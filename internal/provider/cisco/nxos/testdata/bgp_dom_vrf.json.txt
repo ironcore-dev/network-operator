@@ -1,0 +1,3 @@
+router bgp 65000
+ vrf CC-MGMT
+  router-id 1.1.1.1

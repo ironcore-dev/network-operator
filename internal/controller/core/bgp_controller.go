@@ -62,6 +62,7 @@ type BGPReconciler struct {
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgp,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgp/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgp/finalizers,verbs=update
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vrfs,verbs=get;list;watch
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -256,6 +257,20 @@ func (r *BGPReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				},
 			}),
 		).
+		// Watches enqueues BGPs for updates in referenced VRF resources.
+		// Only triggers on create and delete events since VRF names are immutable.
+		Watches(
+			&v1alpha1.VRF{},
+			handler.EnqueueRequestsFromMapFunc(r.vrfToBGPs),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
 		Complete(r)
 }
 
@@ -282,6 +297,11 @@ func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (_ ctrl.Resu
 		}
 	}
 
+	vrf, err := r.reconcileVRF(ctx, s.BGP, s.Device)
+	if err != nil {
+		return err
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -292,9 +312,10 @@ func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (_ ctrl.Resu
 	}()
 
 	// Ensure the BGP is realized on the provider.
-	err := s.Provider.EnsureBGP(ctx, &provider.EnsureBGPRequest{
+	err = s.Provider.EnsureBGP(ctx, &provider.EnsureBGPRequest{
 		BGP:            s.BGP,
 		ProviderConfig: s.ProviderConfig,
+		VRF:            vrf,
 	})
 
 	cond := conditions.FromError(err)
@@ -306,6 +327,11 @@ func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (_ ctrl.Resu
 }
 
 func (r *BGPReconciler) finalize(ctx context.Context, s *bgpScope) (reterr error) {
+	vrf, err := r.reconcileVRF(ctx, s.BGP, s.Device)
+	if err != nil {
+		return err
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -318,6 +344,7 @@ func (r *BGPReconciler) finalize(ctx context.Context, s *bgpScope) (reterr error
 	return s.Provider.DeleteBGP(ctx, &provider.DeleteBGPRequest{
 		BGP:            s.BGP,
 		ProviderConfig: s.ProviderConfig,
+		VRF:            vrf,
 	})
 }
 
@@ -383,5 +410,68 @@ func (r *BGPReconciler) bgpForProviderConfig(ctx context.Context, obj client.Obj
 		}
 	}
 
+	return requests
+}
+
+// reconcileVRF resolves the VRF referenced by the BGP's VrfRef field.
+// Returns nil when no VrfRef is set, meaning the default VRF should be used.
+// Sets ReadyCondition and returns a terminal error when the VRF is not found or belongs to a different device.
+func (r *BGPReconciler) reconcileVRF(ctx context.Context, bgp *v1alpha1.BGP, device *v1alpha1.Device) (*v1alpha1.VRF, error) {
+	if bgp.Spec.VrfRef == nil {
+		return nil, nil
+	}
+	vrf := new(v1alpha1.VRF)
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      bgp.Spec.VrfRef.Name,
+		Namespace: bgp.Namespace,
+	}, vrf); err != nil {
+		if apierrors.IsNotFound(err) {
+			conditions.Set(bgp, metav1.Condition{
+				Type:    v1alpha1.ReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.WaitingForDependenciesReason,
+				Message: fmt.Sprintf("VRF %s not found", bgp.Spec.VrfRef.Name),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("vrf %s not found", bgp.Spec.VrfRef.Name))
+		}
+		return nil, fmt.Errorf("failed to get VRF %s: %w", bgp.Spec.VrfRef.Name, err)
+	}
+	if vrf.Spec.DeviceRef.Name != device.Name {
+		conditions.Set(bgp, metav1.Condition{
+			Type:    v1alpha1.ReadyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.CrossDeviceReferenceReason,
+			Message: fmt.Sprintf("VRF %s belongs to device %s, not %s", bgp.Spec.VrfRef.Name, vrf.Spec.DeviceRef.Name, device.Name),
+		})
+		return nil, reconcile.TerminalError(fmt.Errorf("vrf %s belongs to different device", bgp.Spec.VrfRef.Name))
+	}
+	return vrf, nil
+}
+
+// vrfToBGPs is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for BGPs when their referenced VRF is created or deleted.
+func (r *BGPReconciler) vrfToBGPs(ctx context.Context, obj client.Object) []ctrl.Request {
+	vrf, ok := obj.(*v1alpha1.VRF)
+	if !ok {
+		panic(fmt.Sprintf("Expected a VRF but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "VRF", klog.KObj(vrf))
+
+	list := new(v1alpha1.BGPList)
+	if err := r.List(ctx, list, client.InNamespace(vrf.Namespace)); err != nil {
+		log.Error(err, "Failed to list BGPs")
+		return nil
+	}
+
+	var requests []ctrl.Request
+	for _, b := range list.Items {
+		if b.Spec.VrfRef != nil && b.Spec.VrfRef.Name == vrf.Name {
+			log.V(2).Info("Enqueuing BGP for reconciliation", "BGP", klog.KObj(&b))
+			requests = append(requests, ctrl.Request{
+				NamespacedName: types.NamespacedName{Name: b.Name, Namespace: b.Namespace},
+			})
+		}
+	}
 	return requests
 }
