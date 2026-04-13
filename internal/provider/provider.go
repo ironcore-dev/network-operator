@@ -410,6 +410,12 @@ type EnsureBGPPeerRequest struct {
 	// VRF is the resolved VRF referenced by BGP.Spec.VrfRef.
 	// When nil, the provider shall use the default VRF.
 	VRF *v1alpha1.VRF
+	// InboundRoutingPolicies maps each address family to the device-level name of
+	// the inbound routing policy to apply. Absent key means no policy is configured.
+	InboundRoutingPolicies map[v1alpha1.BGPAddressFamilyType]string
+	// OutboundRoutingPolicies maps each address family to the device-level name of
+	// the outbound routing policy to apply. Absent key means no policy is configured.
+	OutboundRoutingPolicies map[v1alpha1.BGPAddressFamilyType]string
 }
 
 type DeleteBGPPeerRequest struct {

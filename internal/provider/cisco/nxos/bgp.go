@@ -177,9 +177,27 @@ type BGPPeerAfItem struct {
 	SendComExt AdminSt        `json:"sendComExt"`
 	SendComStd AdminSt        `json:"sendComStd"`
 	Type       AddressFamily  `json:"type"`
+
+	RtCtrlPItems struct {
+		RtCtrlPList gnmiext.List[RtCtrlDirection, *BGPPeerAfRtCtrlP] `json:"RtCtrlP-list,omitzero"`
+	} `json:"rtctrl-items,omitzero"`
 }
 
 func (af *BGPPeerAfItem) Key() AddressFamily { return af.Type }
+
+type RtCtrlDirection string
+
+const (
+	RtCtrlDirectionIn  RtCtrlDirection = "in"
+	RtCtrlDirectionOut RtCtrlDirection = "out"
+)
+
+type BGPPeerAfRtCtrlP struct {
+	Direction RtCtrlDirection `json:"direction"`
+	RtMap     string          `json:"rtMap"`
+}
+
+func (r *BGPPeerAfRtCtrlP) Key() RtCtrlDirection { return r.Direction }
 
 type BGPPeerOperItems struct {
 	VRFName      string        `json:"-"`

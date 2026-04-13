@@ -107,6 +107,38 @@ spec:
                           When false, the address family is not negotiated with this peer.
                           Defaults to false.
                         type: boolean
+                      inboundRoutingPolicyRef:
+                        description: |-
+                          InboundRoutingPolicyRef references a RoutingPolicy applied to routes received from this peer
+                          for this address family.
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      outboundRoutingPolicyRef:
+                        description: |-
+                          OutboundRoutingPolicyRef references a RoutingPolicy applied to routes advertised to this peer
+                          for this address family.
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
                       routeReflectorClient:
                         description: |-
                           RouteReflectorClient indicates whether this peer should be treated as a route reflector client
@@ -133,6 +165,38 @@ spec:
                           When false, the address family is not negotiated with this peer.
                           Defaults to false.
                         type: boolean
+                      inboundRoutingPolicyRef:
+                        description: |-
+                          InboundRoutingPolicyRef references a RoutingPolicy applied to routes received from this peer
+                          for this address family.
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      outboundRoutingPolicyRef:
+                        description: |-
+                          OutboundRoutingPolicyRef references a RoutingPolicy applied to routes advertised to this peer
+                          for this address family.
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
                       routeReflectorClient:
                         description: |-
                           RouteReflectorClient indicates whether this peer should be treated as a route reflector client
@@ -159,6 +223,38 @@ spec:
                           When false, the address family is not negotiated with this peer.
                           Defaults to false.
                         type: boolean
+                      inboundRoutingPolicyRef:
+                        description: |-
+                          InboundRoutingPolicyRef references a RoutingPolicy applied to routes received from this peer
+                          for this address family.
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      outboundRoutingPolicyRef:
+                        description: |-
+                          OutboundRoutingPolicyRef references a RoutingPolicy applied to routes advertised to this peer
+                          for this address family.
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
                       routeReflectorClient:
                         description: |-
                           RouteReflectorClient indicates whether this peer should be treated as a route reflector client

@@ -508,6 +508,13 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 			if af.RouteReflectorClient {
 				item.Ctrl = NewOption(RouteReflectorClient)
 			}
+			afType := t.ToAddressFamilyType()
+			if name, ok := req.InboundRoutingPolicies[afType]; ok {
+				item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionIn, RtMap: name})
+			}
+			if name, ok := req.OutboundRoutingPolicies[afType]; ok {
+				item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionOut, RtMap: name})
+			}
 			pe.AfItems.PeerAfList.Set(item)
 		}
 	}

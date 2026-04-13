@@ -237,6 +237,9 @@ const (
 	// referenced by the BGPPeer. A BGPPeer cannot function without a BGP process
 	// running on the same device.
 	BGPNotFoundReason = "BGPNotFound"
+
+	// RoutingPolicyNotFoundReason indicates that a referenced RoutingPolicy was not found.
+	RoutingPolicyNotFoundReason = "RoutingPolicyNotFound"
 )
 
 // Reasons that are specific to [BorderGateway] objects.
