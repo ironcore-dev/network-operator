@@ -21,6 +21,10 @@ type InterfaceConfigSpec struct {
 	// Buffer boost increases the shared buffer space allocation for the interface.
 	// +optional
 	BufferBoost *BufferBoost `json:"bufferBoost,omitempty"`
+
+	// LACP defines LACP options for PortChannel (Aggregate) interfaces.
+	// +optional
+	LACP *InterfaceConfigLACP `json:"lacp,omitempty"`
 }
 
 // SpanningTree defines the spanning tree configuration for an interface.
@@ -48,6 +52,18 @@ type BufferBoost struct {
 	Enabled bool `json:"enabled"`
 }
 
+// InterfaceConfigLACP defines LACP options for PortChannel interfaces.
+type InterfaceConfigLACP struct {
+	// VPCConvergence enables faster LACP convergence in a vPC topology.
+	// +optional
+	VPCConvergence *bool `json:"vpcConvergence,omitempty"`
+
+	// SuspendIndividual controls whether a member port is suspended when
+	// LACP PDUs are not received. Set to false to keep the port forwarding.
+	// +optional
+	SuspendIndividual *bool `json:"suspendIndividual,omitempty"`
+}
+
 // SpanningTreePortType represents the spanning tree port type.
 // +kubebuilder:validation:Enum=Normal;Edge;Network;Trunk
 type SpanningTreePortType string
@@ -65,8 +81,8 @@ const (
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=interfaceconfigs
-// +kubebuilder:resource:singular=interfaceconfigs
-// +kubebuilder:resource:shortName=intcfg
+// +kubebuilder:resource:singular=interfaceconfig
+// +kubebuilder:resource:shortName=nxint
 
 // InterfaceConfig is the Schema for the interfaceconfigs API
 type InterfaceConfig struct {

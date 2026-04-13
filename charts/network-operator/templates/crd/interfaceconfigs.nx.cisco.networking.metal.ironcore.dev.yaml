@@ -15,8 +15,8 @@ spec:
     listKind: InterfaceConfigList
     plural: interfaceconfigs
     shortNames:
-    - intcfg
-    singular: interfaceconfigs
+    - nxint
+    singular: interfaceconfig
   scope: Namespaced
   versions:
   - name: v1alpha1
@@ -58,6 +58,20 @@ spec:
                     type: boolean
                 required:
                 - enabled
+                type: object
+              lacp:
+                description: LACP defines LACP options for PortChannel (Aggregate)
+                  interfaces.
+                properties:
+                  suspendIndividual:
+                    description: |-
+                      SuspendIndividual controls whether a member port is suspended when
+                      LACP PDUs are not received. Set to false to keep the port forwarding.
+                    type: boolean
+                  vpcConvergence:
+                    description: VPCConvergence enables faster LACP convergence in
+                      a vPC topology.
+                    type: boolean
                 type: object
               spanningTree:
                 description: SpanningTree defines the spanning tree configuration
