@@ -44,4 +44,21 @@ func init() {
 
 	bgwPeer := &MultisitePeer{Addr: "1.1.1.1", PeerType: BorderGatewayPeerTypeFabricExternal}
 	Register("bgw_peer", bgwPeer)
+
+	bgpPeerRp := &BGPPeer{
+		VRFName: "CC-MGMT",
+		Addr:    "10.0.0.1",
+		AdminSt: AdminStEnabled,
+		Asn:     "65000",
+		AsnType: PeerAsnTypeNone,
+	}
+	bgpPeerRpAf := &BGPPeerAfItem{
+		SendComExt: AdminStDisabled,
+		SendComStd: AdminStDisabled,
+		Type:       AddressFamilyIPv4Unicast,
+	}
+	bgpPeerRpAf.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionIn, RtMap: "ROUTE_MAP_IN"})
+	bgpPeerRpAf.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionOut, RtMap: "ROUTE_MAP_OUT"})
+	bgpPeerRp.AfItems.PeerAfList.Set(bgpPeerRpAf)
+	Register("bgp_dom_rp", bgpPeerRp)
 }

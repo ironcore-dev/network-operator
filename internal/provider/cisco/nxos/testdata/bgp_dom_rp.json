@@ -1,0 +1,41 @@
+{
+  "bgp-items": {
+    "inst-items": {
+      "asn": "65000",
+      "dom-items": {
+        "Dom-list": [
+          {
+            "name": "CC-MGMT",
+            "peer-items": {
+              "Peer-list": [
+                {
+                  "addr": "10.0.0.1",
+                  "adminSt": "enabled",
+                  "asn": "65000",
+                  "asnType": "none",
+                  "inheritContPeerCtrl": "",
+                  "af-items": {
+                    "PeerAf-list": [
+                      {
+                        "ctrl": "DME_UNSET_PROPERTY_MARKER",
+                        "sendComExt": "disabled",
+                        "sendComStd": "disabled",
+                        "type": "ipv4-ucast",
+                        "rtctrl-items": {
+                          "RtCtrlP-list": [
+                            { "direction": "in", "rtMap": "ROUTE_MAP_IN" },
+                            { "direction": "out", "rtMap": "ROUTE_MAP_OUT" }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

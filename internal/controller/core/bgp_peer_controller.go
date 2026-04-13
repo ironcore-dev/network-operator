@@ -67,6 +67,7 @@ type BGPPeerReconciler struct {
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgppeers/finalizers,verbs=update
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgp,verbs=get;list;watch
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vrfs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=routingpolicies,verbs=get;list;watch
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -293,6 +294,20 @@ func (r *BGPPeerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				},
 			}),
 		).
+		// Watches enqueues BGPPeers when a referenced RoutingPolicy is created or deleted.
+		// Only triggers on create and delete events since RoutingPolicy names are immutable.
+		Watches(
+			&v1alpha1.RoutingPolicy{},
+			handler.EnqueueRequestsFromMapFunc(r.routingPolicyToBGPPeers),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
 		Complete(r)
 }
 
@@ -345,6 +360,11 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (_ c
 		return err
 	}
 
+	inbound, outbound, err := r.reconcileRoutingPolicies(ctx, s.BGPPeer, s.Device)
+	if err != nil {
+		return err
+	}
+
 	var sourceInterface string
 	if addr := s.BGPPeer.Spec.LocalAddress; addr != nil {
 		intf := new(v1alpha1.Interface)
@@ -384,11 +404,13 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (_ c
 
 	// Ensure the BGPPeer is realized on the provider.
 	err = s.Provider.EnsureBGPPeer(ctx, &provider.EnsureBGPPeerRequest{
-		BGPPeer:         s.BGPPeer,
-		ProviderConfig:  s.ProviderConfig,
-		SourceInterface: sourceInterface,
-		BGP:             bgp,
-		VRF:             vrf,
+		BGPPeer:                 s.BGPPeer,
+		ProviderConfig:          s.ProviderConfig,
+		SourceInterface:         sourceInterface,
+		BGP:                     bgp,
+		VRF:                     vrf,
+		InboundRoutingPolicies:  inbound,
+		OutboundRoutingPolicies: outbound,
 	})
 
 	cond := conditions.FromError(err)
@@ -608,6 +630,109 @@ func (r *BGPPeerReconciler) reconcileVRF(ctx context.Context, peer *v1alpha1.BGP
 	}
 
 	return vrf, nil
+}
+
+// reconcileRoutingPolicies resolves the inbound and outbound routing policy references
+// on each enabled address family of the BGPPeer.
+// Returns two maps from BGPAddressFamilyType to the device-level policy name.
+// Sets ConfiguredCondition and returns a terminal error when a referenced policy
+// is not found or belongs to a different device.
+func (r *BGPPeerReconciler) reconcileRoutingPolicies(ctx context.Context, peer *v1alpha1.BGPPeer, device *v1alpha1.Device) (inbound, outbound map[v1alpha1.BGPAddressFamilyType]string, err error) {
+	if peer.Spec.AddressFamilies == nil {
+		return nil, nil, nil
+	}
+
+	inbound = make(map[v1alpha1.BGPAddressFamilyType]string)
+	outbound = make(map[v1alpha1.BGPAddressFamilyType]string)
+
+	for afType, af := range map[v1alpha1.BGPAddressFamilyType]*v1alpha1.BGPPeerAddressFamily{
+		v1alpha1.BGPAddressFamilyIpv4Unicast: peer.Spec.AddressFamilies.Ipv4Unicast,
+		v1alpha1.BGPAddressFamilyIpv6Unicast: peer.Spec.AddressFamilies.Ipv6Unicast,
+		v1alpha1.BGPAddressFamilyL2vpnEvpn:   peer.Spec.AddressFamilies.L2vpnEvpn,
+	} {
+		if af == nil || !af.Enabled {
+			continue
+		}
+		for ref, m := range map[*v1alpha1.LocalObjectReference]*map[v1alpha1.BGPAddressFamilyType]string{
+			af.InboundRoutingPolicyRef:  &inbound,
+			af.OutboundRoutingPolicyRef: &outbound,
+		} {
+			if ref == nil {
+				continue
+			}
+			rp := new(v1alpha1.RoutingPolicy)
+			if err := r.Get(ctx, types.NamespacedName{Name: ref.Name, Namespace: peer.Namespace}, rp); err != nil {
+				if apierrors.IsNotFound(err) {
+					conditions.Set(peer, metav1.Condition{
+						Type:    v1alpha1.ConfiguredCondition,
+						Status:  metav1.ConditionFalse,
+						Reason:  v1alpha1.RoutingPolicyNotFoundReason,
+						Message: fmt.Sprintf("RoutingPolicy %s not found", ref.Name),
+					})
+					return nil, nil, reconcile.TerminalError(fmt.Errorf("routing policy %s not found", ref.Name))
+				}
+				return nil, nil, fmt.Errorf("failed to get RoutingPolicy %s: %w", ref.Name, err)
+			}
+			if rp.Spec.DeviceRef.Name != device.Name {
+				conditions.Set(peer, metav1.Condition{
+					Type:    v1alpha1.ConfiguredCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  v1alpha1.CrossDeviceReferenceReason,
+					Message: fmt.Sprintf("RoutingPolicy %s belongs to device %s, not %s", ref.Name, rp.Spec.DeviceRef.Name, device.Name),
+				})
+				return nil, nil, reconcile.TerminalError(fmt.Errorf("routing policy %s belongs to different device", ref.Name))
+			}
+			(*m)[afType] = rp.Spec.Name
+		}
+	}
+
+	return inbound, outbound, nil
+}
+
+// routingPolicyToBGPPeers is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for BGPPeers when a RoutingPolicy referenced by one of their address families is created or deleted.
+func (r *BGPPeerReconciler) routingPolicyToBGPPeers(ctx context.Context, obj client.Object) []ctrl.Request {
+	rp, ok := obj.(*v1alpha1.RoutingPolicy)
+	if !ok {
+		panic(fmt.Sprintf("Expected a RoutingPolicy but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "RoutingPolicy", klog.KObj(rp))
+
+	list := new(v1alpha1.BGPPeerList)
+	if err := r.List(ctx, list, client.InNamespace(rp.Namespace)); err != nil {
+		log.Error(err, "Failed to list BGPPeers")
+		return nil
+	}
+
+	var requests []ctrl.Request
+	for _, p := range list.Items {
+		if p.Spec.AddressFamilies == nil {
+			continue
+		}
+		for _, af := range []*v1alpha1.BGPPeerAddressFamily{
+			p.Spec.AddressFamilies.Ipv4Unicast,
+			p.Spec.AddressFamilies.Ipv6Unicast,
+			p.Spec.AddressFamilies.L2vpnEvpn,
+		} {
+			if af == nil || !af.Enabled {
+				continue
+			}
+			if (af.InboundRoutingPolicyRef != nil && af.InboundRoutingPolicyRef.Name == rp.Name) ||
+				(af.OutboundRoutingPolicyRef != nil && af.OutboundRoutingPolicyRef.Name == rp.Name) {
+				log.V(2).Info("Enqueuing BGPPeer for reconciliation", "BGPPeer", klog.KObj(&p))
+				requests = append(requests, ctrl.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      p.Name,
+						Namespace: p.Namespace,
+					},
+				})
+				break
+			}
+		}
+	}
+
+	return requests
 }
 
 // vrfToBGPPeers is a [handler.MapFunc] to be used to enqueue requests for reconciliation

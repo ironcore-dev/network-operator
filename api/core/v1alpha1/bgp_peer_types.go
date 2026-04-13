@@ -118,6 +118,16 @@ type BGPPeerAddressFamily struct {
 	// for this specific address family. Defaults to false.
 	// +optional
 	RouteReflectorClient bool `json:"routeReflectorClient,omitempty"`
+
+	// InboundRoutingPolicyRef references a RoutingPolicy applied to routes received from this peer
+	// for this address family.
+	// +optional
+	InboundRoutingPolicyRef *LocalObjectReference `json:"inboundRoutingPolicyRef,omitempty"`
+
+	// OutboundRoutingPolicyRef references a RoutingPolicy applied to routes advertised to this peer
+	// for this address family.
+	// +optional
+	OutboundRoutingPolicyRef *LocalObjectReference `json:"outboundRoutingPolicyRef,omitempty"`
 }
 
 // BGPPeerStatus defines the observed state of BGPPeer.

@@ -41,3 +41,28 @@ spec:
     l2vpnEvpn:
       enabled: true
       sendCommunity: Both
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGPPeer
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: leaf1-spine1-filtered
+spec:
+  deviceRef:
+    name: leaf1
+  bgpRef:
+    name: bgp
+  address: 10.0.0.3
+  asNumber: 65000
+  localAddress:
+    interfaceRef:
+      name: lo0
+  addressFamilies:
+    ipv4Unicast:
+      enabled: true
+      inboundRoutingPolicyRef:
+        name: bgp-import-policy
+      outboundRoutingPolicyRef:
+        name: bgp-import-policy
