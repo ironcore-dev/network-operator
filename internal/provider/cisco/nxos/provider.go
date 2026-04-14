@@ -383,6 +383,13 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 			if rp := req.RedistributeDirectRoutePolicies[v1alpha1.BGPAddressFamilyIpv4Unicast]; rp != nil {
 				item.InterLeakPItems.InterLeakPList.Set(NewInterLeakPDirect(rp.Spec.Name))
 			}
+			item.ExportGwIP = AdminStDisabled
+			if cfg.Spec.AddressFamilies != nil &&
+				cfg.Spec.AddressFamilies.Ipv4Unicast != nil &&
+				cfg.Spec.AddressFamilies.Ipv4Unicast.ExportGatewayIP != nil &&
+				*cfg.Spec.AddressFamilies.Ipv4Unicast.ExportGatewayIP {
+				item.ExportGwIP = AdminStEnabled
+			}
 			dom.AfItems.DomAfList.Set(item)
 		}
 
@@ -394,6 +401,13 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 			}
 			if rp := req.RedistributeDirectRoutePolicies[v1alpha1.BGPAddressFamilyIpv6Unicast]; rp != nil {
 				item.InterLeakPItems.InterLeakPList.Set(NewInterLeakPDirect(rp.Spec.Name))
+			}
+			item.ExportGwIP = AdminStDisabled
+			if cfg.Spec.AddressFamilies != nil &&
+				cfg.Spec.AddressFamilies.Ipv6Unicast != nil &&
+				cfg.Spec.AddressFamilies.Ipv6Unicast.ExportGatewayIP != nil &&
+				*cfg.Spec.AddressFamilies.Ipv6Unicast.ExportGatewayIP {
+				item.ExportGwIP = AdminStEnabled
 			}
 			dom.AfItems.DomAfList.Set(item)
 		}

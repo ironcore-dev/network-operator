@@ -3280,6 +3280,8 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `l2vpnEvpn` _[BGPL2vpnEvpn](#bgpl2vpnevpn)_ | L2vpnEvpn configures L2VPN EVPN address family support. |  | Optional: \{\} <br /> |
+| `ipv4Unicast` _[BGPConfigUnicastAddressFamily](#bgpconfigunicastaddressfamily)_ | Ipv4Unicast configures specific IPv4 unicast address family settings. |  | Optional: \{\} <br /> |
+| `ipv6Unicast` _[BGPConfigUnicastAddressFamily](#bgpconfigunicastaddressfamily)_ | Ipv6Unicast configures specific IPv6 unicast address family settings. |  | Optional: \{\} <br /> |
 
 
 #### BGPConfigSpec
@@ -3296,6 +3298,23 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `addressFamilies` _[BGPConfigAddressFamilies](#bgpconfigaddressfamilies)_ | AddressFamilies configures supported BGP address families and their Cisco NX-OS specific settings. |  | Optional: \{\} <br /> |
+
+
+#### BGPConfigUnicastAddressFamily
+
+
+
+BGPConfigUnicastAddressFamily defines specific configuration shared
+across unicast BGP address families.
+
+
+
+_Appears in:_
+- [BGPConfigAddressFamilies](#bgpconfigaddressfamilies)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `exportGatewayIP` _boolean_ | ExportGatewayIP enables advertising the gateway IP in EVPN Type-5 routes,<br />required for symmetric IRB in VXLAN BGP EVPN topologies. |  | Optional: \{\} <br /> |
 
 
 #### BGPL2vpnEvpn

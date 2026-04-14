@@ -63,8 +63,15 @@ func init() {
 	Register("bgp_dom_rp", bgpPeerRp)
 
 	bgpDomRdst := &BGPDom{Name: "CC-CLOUD01", RtrID: "1.1.1.1", RtrIDAuto: AdminStDisabled}
-	rdstItem := &BGPDomAfItem{Type: AddressFamilyIPv4Unicast}
+	rdstItem := &BGPDomAfItem{Type: AddressFamilyIPv4Unicast, ExportGwIP: AdminStDisabled}
 	rdstItem.InterLeakPItems.InterLeakPList.Set(NewInterLeakPDirect("ROUTE_MAP"))
 	bgpDomRdst.AfItems.DomAfList.Set(rdstItem)
 	Register("bgp_dom_rdst", bgpDomRdst)
+
+	bgpDomExp := &BGPDom{Name: "CC-CLOUD01", RtrID: "1.1.1.1", RtrIDAuto: AdminStDisabled}
+	bgpDomExp.AfItems.DomAfList.Set(&BGPDomAfItem{
+		Type:       AddressFamilyIPv4Unicast,
+		ExportGwIP: AdminStEnabled,
+	})
+	Register("bgp_dom_exp", bgpDomExp)
 }

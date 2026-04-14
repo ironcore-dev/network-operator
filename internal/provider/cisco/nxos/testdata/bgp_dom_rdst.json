@@ -11,6 +11,7 @@
             "af-items": {
               "DomAf-list": [
                 {
+                  "exportGwIp": "disabled",
                   "type": "ipv4-ucast",
                   "interleak-items": {
                     "InterLeakP-list": [

@@ -12,7 +12,7 @@ spec:
   # providerConfigRef:
   #   apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
   #   kind: BGPConfig
-  #   name: bgpconfig-sample
+  #   name: bgpconfig-adv-pip
   asNumber: 65000
   routerId: 10.0.0.10
   addressFamilies:
@@ -45,13 +45,13 @@ metadata:
 spec:
   deviceRef:
     name: leaf1
-  vrfRef:
-    name: vrf-cc-admin
   # See ./cisco/nx/v1alpha1_bgpconfig.yaml
   # providerConfigRef:
   #   apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
   #   kind: BGPConfig
-  #   name: bgpconfig-sample
+  #   name: bgpconfig-export-gw
+  vrfRef:
+    name: vrf-cc-admin
   asNumber: 65000
   routerId: 10.0.0.10
   addressFamilies:

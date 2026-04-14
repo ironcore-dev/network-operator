@@ -23,6 +23,14 @@ type BGPConfigAddressFamilies struct {
 	// L2vpnEvpn configures L2VPN EVPN address family support.
 	// +optional
 	L2vpnEvpn *BGPL2vpnEvpn `json:"l2vpnEvpn,omitempty"`
+
+	// Ipv4Unicast configures specific IPv4 unicast address family settings.
+	// +optional
+	Ipv4Unicast *BGPConfigUnicastAddressFamily `json:"ipv4Unicast,omitempty"`
+
+	// Ipv6Unicast configures specific IPv6 unicast address family settings.
+	// +optional
+	Ipv6Unicast *BGPConfigUnicastAddressFamily `json:"ipv6Unicast,omitempty"`
 }
 
 // BGPL2vpnEvpn defines the configuration for L2VPN EVPN address family.
@@ -34,10 +42,19 @@ type BGPL2vpnEvpn struct {
 	AdvertisePIP bool `json:"advertisePIP,omitempty"`
 }
 
+// BGPConfigUnicastAddressFamily defines specific configuration shared
+// across unicast BGP address families.
+type BGPConfigUnicastAddressFamily struct {
+	// ExportGatewayIP enables advertising the gateway IP in EVPN Type-5 routes,
+	// required for symmetric IRB in VXLAN BGP EVPN topologies.
+	// +optional
+	ExportGatewayIP *bool `json:"exportGatewayIP,omitempty"`
+}
+
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=bgpconfigs
 // +kubebuilder:resource:singular=bgpconfig
-// +kubebuilder:resource:shortName=bgpcfg
+// +kubebuilder:resource:shortName=nxbgp
 
 // BGPConfig is the Schema for the bgpconfigs API
 type BGPConfig struct {

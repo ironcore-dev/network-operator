@@ -15,7 +15,7 @@ spec:
     listKind: BGPConfigList
     plural: bgpconfigs
     shortNames:
-    - bgpcfg
+    - nxbgp
     singular: bgpconfig
   scope: Namespaced
   versions:
@@ -48,6 +48,26 @@ spec:
                 description: AddressFamilies configures supported BGP address families
                   and their Cisco NX-OS specific settings.
                 properties:
+                  ipv4Unicast:
+                    description: Ipv4Unicast configures specific IPv4 unicast address
+                      family settings.
+                    properties:
+                      exportGatewayIP:
+                        description: |-
+                          ExportGatewayIP enables advertising the gateway IP in EVPN Type-5 routes,
+                          required for symmetric IRB in VXLAN BGP EVPN topologies.
+                        type: boolean
+                    type: object
+                  ipv6Unicast:
+                    description: Ipv6Unicast configures specific IPv6 unicast address
+                      family settings.
+                    properties:
+                      exportGatewayIP:
+                        description: |-
+                          ExportGatewayIP enables advertising the gateway IP in EVPN Type-5 routes,
+                          required for symmetric IRB in VXLAN BGP EVPN topologies.
+                        type: boolean
+                    type: object
                   l2vpnEvpn:
                     description: L2vpnEvpn configures L2VPN EVPN address family support.
                     properties:

@@ -1,20 +1,18 @@
 {
   "bgp-items": {
     "inst-items": {
+      "asn": "65000",
       "dom-items": {
         "Dom-list": [
           {
-            "name": "default",
+            "name": "CC-CLOUD01",
             "rtrId": "1.1.1.1",
             "rtrIdAuto": "disabled",
             "af-items": {
               "DomAf-list": [
                 {
-                  "exportGwIp": "disabled",
-                  "type": "l2vpn-evpn",
-                  "advPip": "enabled",
-                  "retainRttAll": "enabled",
-                  "retainRttRtMap": "DME_UNSET_PROPERTY_MARKER"
+                  "exportGwIp": "enabled",
+                  "type": "ipv4-ucast"
                 }
               ]
             }

@@ -82,6 +82,7 @@ func (g *BGPPeerGroup) XPath() string {
 type BGPDomAfItem struct {
 	MaxExtEcmp    int8          `json:"maxExtEcmp,omitempty"`
 	MaxExtIntEcmp int8          `json:"maxExtIntEcmp,omitempty"`
+	ExportGwIP    AdminSt       `json:"exportGwIp"`
 	Type          AddressFamily `json:"type"`
 
 	// The fields below are only valid for the l2vpn-evpn address family.
@@ -109,6 +110,7 @@ func (af BGPDomAfItem) MarshalJSON() ([]byte, error) {
 		return json.Marshal(struct {
 			MaxExtEcmp      int8          `json:"maxExtEcmp,omitempty"`
 			MaxExtIntEcmp   int8          `json:"maxExtIntEcmp,omitempty"`
+			ExportGwIP      AdminSt       `json:"exportGwIp"`
 			Type            AddressFamily `json:"type"`
 			InterLeakPItems struct {
 				InterLeakPList gnmiext.List[InterLeakPKey, *InterLeakP] `json:"InterLeakP-list,omitzero"`
@@ -116,10 +118,13 @@ func (af BGPDomAfItem) MarshalJSON() ([]byte, error) {
 		}{
 			MaxExtEcmp:      af.MaxExtEcmp,
 			MaxExtIntEcmp:   af.MaxExtIntEcmp,
+			ExportGwIP:      af.ExportGwIP,
 			Type:            af.Type,
 			InterLeakPItems: af.InterLeakPItems,
 		})
 	}
+	// ExportGwIP is not valid for l2vpn-evpn; set it to disabled.
+	cpy.ExportGwIP = AdminStDisabled
 	return json.Marshal(cpy)
 }
 
