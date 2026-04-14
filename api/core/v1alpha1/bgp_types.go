@@ -121,6 +121,19 @@ type BGPAddressFamily struct {
 	// When specified, overrides global multipath settings for this address family.
 	// +optional
 	Multipath *BGPMultipath `json:"multipath,omitempty"`
+
+	// RedistributeDirectRoutes controls redistribution of directly connected
+	// routes into this BGP address family.
+	// +optional
+	RedistributeDirectRoutes *BGPRedistributeDirectRoutes `json:"redistributeDirectRoutes,omitempty"`
+}
+
+// BGPRedistributeDirectRoutes configures redistribution of directly connected
+// routes into a BGP address family.
+type BGPRedistributeDirectRoutes struct {
+	// RoutingPolicyRef references a RoutingPolicy to apply during redistribution.
+	// +required
+	RoutingPolicyRef LocalObjectReference `json:"routingPolicyRef"`
 }
 
 // BGPL2vpnEvpn defines the configuration for L2VPN EVPN address family.

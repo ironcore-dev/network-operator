@@ -262,6 +262,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `enabled` _boolean_ | Enabled determines whether this address family is activated for BGP sessions.<br />When false, the address family is not negotiated with peers. |  | Optional: \{\} <br /> |
 | `multipath` _[BGPMultipath](#bgpmultipath)_ | Multipath configures address family specific multipath behavior.<br />When specified, overrides global multipath settings for this address family. |  | Optional: \{\} <br /> |
+| `redistributeDirectRoutes` _[BGPRedistributeDirectRoutes](#bgpredistributedirectroutes)_ | RedistributeDirectRoutes controls redistribution of directly connected<br />routes into this BGP address family. |  | Optional: \{\} <br /> |
 
 
 #### BGPAddressFamilyType
@@ -317,6 +318,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `enabled` _boolean_ | Enabled determines whether this address family is activated for BGP sessions.<br />When false, the address family is not negotiated with peers. |  | Optional: \{\} <br /> |
 | `multipath` _[BGPMultipath](#bgpmultipath)_ | Multipath configures address family specific multipath behavior.<br />When specified, overrides global multipath settings for this address family. |  | Optional: \{\} <br /> |
+| `redistributeDirectRoutes` _[BGPRedistributeDirectRoutes](#bgpredistributedirectroutes)_ | RedistributeDirectRoutes controls redistribution of directly connected<br />routes into this BGP address family. |  | Optional: \{\} <br /> |
 | `routeTargetPolicy` _[BGPRouteTargetPolicy](#bgproutetargetpolicy)_ | RouteTargetPolicy configures route target filtering behavior for EVPN routes.<br />Controls which routes are retained based on route target matching. |  | Optional: \{\} <br /> |
 
 
@@ -511,6 +513,24 @@ _Appears in:_
 | `addressFamilies` _[AddressFamilyStatus](#addressfamilystatus) array_ | AddressFamilies contains per-address-family statistics for this peer.<br />Only address families that are enabled and negotiated with the peer are included. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | ObservedGeneration reflects the .metadata.generation that was last processed by the controller. |  | Optional: \{\} <br /> |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the BGP. |  | Optional: \{\} <br /> |
+
+
+#### BGPRedistributeDirectRoutes
+
+
+
+BGPRedistributeDirectRoutes configures redistribution of directly connected
+routes into a BGP address family.
+
+
+
+_Appears in:_
+- [BGPAddressFamily](#bgpaddressfamily)
+- [BGPL2vpnEvpn](#bgpl2vpnevpn)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `routingPolicyRef` _[LocalObjectReference](#localobjectreference)_ | RoutingPolicyRef references a RoutingPolicy to apply during redistribution. |  | Required: \{\} <br /> |
 
 
 #### BGPRouteTargetPolicy
@@ -1559,6 +1579,7 @@ _Appears in:_
 - [BGPPeerLocalAddress](#bgppeerlocaladdress)
 - [BGPPeerReference](#bgppeerreference)
 - [BGPPeerSpec](#bgppeerspec)
+- [BGPRedistributeDirectRoutes](#bgpredistributedirectroutes)
 - [BGPSpec](#bgpspec)
 - [BannerSpec](#bannerspec)
 - [BorderGatewaySpec](#bordergatewayspec)

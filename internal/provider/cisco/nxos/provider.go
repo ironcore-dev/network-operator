@@ -341,6 +341,9 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 			if err := item.SetMultipath(af.Multipath); err != nil {
 				return err
 			}
+			if rp := req.RedistributeDirectRoutePolicies[v1alpha1.BGPAddressFamilyIpv4Unicast]; rp != nil {
+				item.InterLeakPItems.InterLeakPList.Set(NewInterLeakPDirect(rp.Spec.Name))
+			}
 			dom.AfItems.DomAfList.Set(item)
 		}
 
@@ -349,6 +352,9 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 			item.Type = AddressFamilyIPv6Unicast
 			if err := item.SetMultipath(af.Multipath); err != nil {
 				return err
+			}
+			if rp := req.RedistributeDirectRoutePolicies[v1alpha1.BGPAddressFamilyIpv6Unicast]; rp != nil {
+				item.InterLeakPItems.InterLeakPList.Set(NewInterLeakPDirect(rp.Spec.Name))
 			}
 			dom.AfItems.DomAfList.Set(item)
 		}

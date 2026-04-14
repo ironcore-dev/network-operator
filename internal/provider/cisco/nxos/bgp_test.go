@@ -61,4 +61,10 @@ func init() {
 	bgpPeerRpAf.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionOut, RtMap: "ROUTE_MAP_OUT"})
 	bgpPeerRp.AfItems.PeerAfList.Set(bgpPeerRpAf)
 	Register("bgp_dom_rp", bgpPeerRp)
+
+	bgpDomRdst := &BGPDom{Name: "CC-CLOUD01", RtrID: "1.1.1.1", RtrIDAuto: AdminStDisabled}
+	rdstItem := &BGPDomAfItem{Type: AddressFamilyIPv4Unicast}
+	rdstItem.InterLeakPItems.InterLeakPList.Set(NewInterLeakPDirect("ROUTE_MAP"))
+	bgpDomRdst.AfItems.DomAfList.Set(rdstItem)
+	Register("bgp_dom_rdst", bgpDomRdst)
 }

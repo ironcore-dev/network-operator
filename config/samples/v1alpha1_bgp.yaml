@@ -57,3 +57,27 @@ spec:
   addressFamilies:
     ipv4Unicast:
       enabled: true
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGP
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: bgp-rdst
+spec:
+  deviceRef:
+    name: leaf1
+  asNumber: 65000
+  routerId: 10.0.0.10
+  addressFamilies:
+    ipv4Unicast:
+      enabled: true
+      redistributeDirectRoutes:
+        routingPolicyRef:
+          name: bgp-import-policy
+    ipv6Unicast:
+      enabled: true
+      redistributeDirectRoutes:
+        routingPolicyRef:
+          name: bgp-import-policy

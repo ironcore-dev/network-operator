@@ -63,6 +63,7 @@ type BGPReconciler struct {
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgp/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgp/finalizers,verbs=update
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vrfs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=routingpolicies,verbs=get;list;watch
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -271,6 +272,20 @@ func (r *BGPReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				},
 			}),
 		).
+		// Watches enqueues BGPs when a referenced RoutingPolicy is created or deleted.
+		// Only triggers on create and delete events since RoutingPolicy names are immutable.
+		Watches(
+			&v1alpha1.RoutingPolicy{},
+			handler.EnqueueRequestsFromMapFunc(r.routingPolicyToBGPs),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
 		Complete(r)
 }
 
@@ -302,6 +317,11 @@ func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (_ ctrl.Resu
 		return err
 	}
 
+	redistPolicies, err := r.reconcileRedistributeDirectPolicies(ctx, s.BGP, s.Device)
+	if err != nil {
+		return err
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -313,9 +333,10 @@ func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (_ ctrl.Resu
 
 	// Ensure the BGP is realized on the provider.
 	err = s.Provider.EnsureBGP(ctx, &provider.EnsureBGPRequest{
-		BGP:            s.BGP,
-		ProviderConfig: s.ProviderConfig,
-		VRF:            vrf,
+		BGP:                             s.BGP,
+		ProviderConfig:                  s.ProviderConfig,
+		VRF:                             vrf,
+		RedistributeDirectRoutePolicies: redistPolicies,
 	})
 
 	cond := conditions.FromError(err)
@@ -446,6 +467,95 @@ func (r *BGPReconciler) reconcileVRF(ctx context.Context, bgp *v1alpha1.BGP, dev
 		return nil, reconcile.TerminalError(fmt.Errorf("vrf %s belongs to different device", bgp.Spec.VrfRef.Name))
 	}
 	return vrf, nil
+}
+
+// reconcileRedistributeDirectPolicies resolves the RoutingPolicyRef for
+// redistribute direct on each address family of the BGP instance.
+// Returns a map from BGPAddressFamilyType to the resolved RoutingPolicy.
+// Sets ReadyCondition and returns a terminal error when a referenced policy
+// is not found or belongs to a different device.
+func (r *BGPReconciler) reconcileRedistributeDirectPolicies(ctx context.Context, bgp *v1alpha1.BGP, device *v1alpha1.Device) (map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy, error) {
+	if bgp.Spec.AddressFamilies == nil {
+		return nil, nil
+	}
+
+	afs := map[v1alpha1.BGPAddressFamilyType]*v1alpha1.BGPAddressFamily{
+		v1alpha1.BGPAddressFamilyIpv4Unicast: bgp.Spec.AddressFamilies.Ipv4Unicast,
+		v1alpha1.BGPAddressFamilyIpv6Unicast: bgp.Spec.AddressFamilies.Ipv6Unicast,
+	}
+
+	policies := make(map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy, 2)
+	for afType, af := range afs {
+		if af == nil || af.RedistributeDirectRoutes == nil {
+			continue
+		}
+		ref := af.RedistributeDirectRoutes.RoutingPolicyRef
+		rp := new(v1alpha1.RoutingPolicy)
+		if err := r.Get(ctx, types.NamespacedName{Name: ref.Name, Namespace: bgp.Namespace}, rp); err != nil {
+			if apierrors.IsNotFound(err) {
+				conditions.Set(bgp, metav1.Condition{
+					Type:    v1alpha1.ReadyCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  v1alpha1.WaitingForDependenciesReason,
+					Message: fmt.Sprintf("RoutingPolicy %s not found", ref.Name),
+				})
+				return nil, reconcile.TerminalError(fmt.Errorf("routing policy %s not found", ref.Name))
+			}
+			return nil, fmt.Errorf("failed to get routing policy %s: %w", ref.Name, err)
+		}
+
+		if rp.Spec.DeviceRef.Name != device.Name {
+			conditions.Set(bgp, metav1.Condition{
+				Type:    v1alpha1.ReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.CrossDeviceReferenceReason,
+				Message: fmt.Sprintf("RoutingPolicy %s belongs to device %s, not %s", ref.Name, rp.Spec.DeviceRef.Name, device.Name),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("routing policy %s belongs to different device", ref.Name))
+		}
+		policies[afType] = rp
+	}
+
+	return policies, nil
+}
+
+// routingPolicyToBGPs is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for BGPs when a RoutingPolicy referenced by one of their address families is created or deleted.
+func (r *BGPReconciler) routingPolicyToBGPs(ctx context.Context, obj client.Object) []ctrl.Request {
+	rp, ok := obj.(*v1alpha1.RoutingPolicy)
+	if !ok {
+		panic(fmt.Sprintf("Expected a RoutingPolicy but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "RoutingPolicy", klog.KObj(rp))
+
+	list := new(v1alpha1.BGPList)
+	if err := r.List(ctx, list, client.InNamespace(rp.Namespace)); err != nil {
+		log.Error(err, "Failed to list BGPs")
+		return nil
+	}
+
+	var requests []ctrl.Request
+	for _, b := range list.Items {
+		if b.Spec.AddressFamilies != nil {
+			for _, af := range map[v1alpha1.BGPAddressFamilyType]*v1alpha1.BGPAddressFamily{
+				v1alpha1.BGPAddressFamilyIpv4Unicast: b.Spec.AddressFamilies.Ipv4Unicast,
+				v1alpha1.BGPAddressFamilyIpv6Unicast: b.Spec.AddressFamilies.Ipv6Unicast,
+			} {
+				if af != nil && af.RedistributeDirectRoutes != nil && af.RedistributeDirectRoutes.RoutingPolicyRef.Name == rp.Name {
+					log.V(2).Info("Enqueuing BGP for reconciliation", "BGP", klog.KObj(&b))
+					requests = append(requests, ctrl.Request{
+						NamespacedName: types.NamespacedName{
+							Name:      b.Name,
+							Namespace: b.Namespace,
+						},
+					})
+					break
+				}
+			}
+		}
+	}
+	return requests
 }
 
 // vrfToBGPs is a [handler.MapFunc] to be used to enqueue requests for reconciliation
