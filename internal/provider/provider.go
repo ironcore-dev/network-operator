@@ -379,6 +379,10 @@ type EnsureBGPRequest struct {
 	// VRF is the resolved VRF referenced by BGP.Spec.VrfRef.
 	// When nil, the provider shall use the default VRF.
 	VRF *v1alpha1.VRF
+	// RedistributeDirectRoutePolicies maps each address family to the resolved
+	// RoutingPolicy to apply when redistributing directly connected routes.
+	// Absent key means no redistribution is configured for that family.
+	RedistributeDirectRoutePolicies map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy
 }
 
 type DeleteBGPRequest struct {

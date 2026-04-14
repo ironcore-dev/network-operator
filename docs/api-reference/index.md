@@ -241,8 +241,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `ipv4Unicast` _[BGPAddressFamily](#bgpaddressfamily)_ | Ipv4Unicast configures IPv4 unicast address family support.<br />Enables exchange of IPv4 unicast routes between BGP peers. |  | Optional: \{\} <br /> |
-| `ipv6Unicast` _[BGPAddressFamily](#bgpaddressfamily)_ | Ipv6Unicast configures IPv6 unicast address family support.<br />Enables exchange of IPv6 unicast routes between BGP peers. |  | Optional: \{\} <br /> |
+| `ipv4Unicast` _[BGPUnicastAddressFamily](#bgpunicastaddressfamily)_ | Ipv4Unicast configures IPv4 unicast address family support.<br />Enables exchange of IPv4 unicast routes between BGP peers. |  | Optional: \{\} <br /> |
+| `ipv6Unicast` _[BGPUnicastAddressFamily](#bgpunicastaddressfamily)_ | Ipv6Unicast configures IPv6 unicast address family support.<br />Enables exchange of IPv6 unicast routes between BGP peers. |  | Optional: \{\} <br /> |
 | `l2vpnEvpn` _[BGPL2vpnEvpn](#bgpl2vpnevpn)_ | L2vpnEvpn configures L2VPN EVPN address family support.<br />Enables exchange of Ethernet VPN routes for overlay network services. |  | Optional: \{\} <br /> |
 
 
@@ -255,8 +255,8 @@ BGPAddressFamily defines common configuration for a BGP address family.
 
 
 _Appears in:_
-- [BGPAddressFamilies](#bgpaddressfamilies)
 - [BGPL2vpnEvpn](#bgpl2vpnevpn)
+- [BGPUnicastAddressFamily](#bgpunicastaddressfamily)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -331,6 +331,7 @@ BGPMultipath defines the configuration for BGP multipath behavior.
 _Appears in:_
 - [BGPAddressFamily](#bgpaddressfamily)
 - [BGPL2vpnEvpn](#bgpl2vpnevpn)
+- [BGPUnicastAddressFamily](#bgpunicastaddressfamily)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -513,6 +514,23 @@ _Appears in:_
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the BGP. |  | Optional: \{\} <br /> |
 
 
+#### BGPRedistributeDirectRoutes
+
+
+
+BGPRedistributeDirectRoutes configures redistribution of directly connected
+routes into a BGP address family.
+
+
+
+_Appears in:_
+- [BGPUnicastAddressFamily](#bgpunicastaddressfamily)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `routingPolicyRef` _[LocalObjectReference](#localobjectreference)_ | RoutingPolicyRef references a RoutingPolicy to apply during redistribution. |  | Required: \{\} <br /> |
+
+
 #### BGPRouteTargetPolicy
 
 
@@ -565,6 +583,24 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the BGP. |  | Optional: \{\} <br /> |
+
+
+#### BGPUnicastAddressFamily
+
+
+
+BGPUnicastAddressFamily defines configuration for IPv4 and IPv6 unicast address families.
+
+
+
+_Appears in:_
+- [BGPAddressFamilies](#bgpaddressfamilies)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `enabled` _boolean_ | Enabled determines whether this address family is activated for BGP sessions.<br />When false, the address family is not negotiated with peers. |  | Optional: \{\} <br /> |
+| `multipath` _[BGPMultipath](#bgpmultipath)_ | Multipath configures address family specific multipath behavior.<br />When specified, overrides global multipath settings for this address family. |  | Optional: \{\} <br /> |
+| `redistributeDirectRoutes` _[BGPRedistributeDirectRoutes](#bgpredistributedirectroutes)_ | RedistributeDirectRoutes controls redistribution of directly connected<br />routes into this BGP address family. |  | Optional: \{\} <br /> |
 
 
 #### Banner
@@ -1599,6 +1635,7 @@ _Appears in:_
 - [BGPPeerLocalAddress](#bgppeerlocaladdress)
 - [BGPPeerReference](#bgppeerreference)
 - [BGPPeerSpec](#bgppeerspec)
+- [BGPRedistributeDirectRoutes](#bgpredistributedirectroutes)
 - [BGPSpec](#bgpspec)
 - [BannerSpec](#bannerspec)
 - [BorderGatewaySpec](#bordergatewayspec)

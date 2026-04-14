@@ -196,6 +196,84 @@ var _ = Describe("BGP Controller", func() {
 			}).Should(Succeed())
 		})
 
+		It("Should reconcile BGP when a referenced RoutingPolicy is created", func() {
+			By("Creating a BGP with a redistributeDirectRoutes ref pointing to a non-existent RoutingPolicy")
+			bgp := &v1alpha1.BGP{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test-bgp-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.BGPSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
+					ASNumber:  intstr.FromInt(65000),
+					RouterID:  "10.0.0.20",
+					AddressFamilies: &v1alpha1.BGPAddressFamilies{
+						Ipv4Unicast: &v1alpha1.BGPUnicastAddressFamily{
+							BGPAddressFamily: v1alpha1.BGPAddressFamily{Enabled: true},
+							RedistributeDirectRoutes: &v1alpha1.BGPRedistributeDirectRoutes{
+								RoutingPolicyRef: v1alpha1.LocalObjectReference{Name: "test-policy"},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, bgp)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(k8sClient.Delete(ctx, bgp)).To(Succeed())
+				Eventually(func(g Gomega) {
+					b := &v1alpha1.BGP{}
+					g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgp), b))).To(BeTrue())
+				}).Should(Succeed())
+			})
+
+			By("Expecting ReadyCondition to be False with WaitingForDependencies reason")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.BGP{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgp), resource)).To(Succeed())
+				cond := conditions.Get(resource, v1alpha1.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(cond.Reason).To(Equal(v1alpha1.WaitingForDependenciesReason))
+			}).Should(Succeed())
+
+			By("Creating the RoutingPolicy")
+			rp := &v1alpha1.RoutingPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-policy",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.RoutingPolicySpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
+					Name:      "test-policy",
+					Statements: []v1alpha1.PolicyStatement{
+						{
+							Sequence: 10,
+							Actions: v1alpha1.PolicyActions{
+								RouteDisposition: v1alpha1.AcceptRoute,
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, rp)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(k8sClient.Delete(ctx, rp)).To(Succeed())
+				Eventually(func(g Gomega) {
+					r := &v1alpha1.RoutingPolicy{}
+					g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(rp), r))).To(BeTrue())
+				}).Should(Succeed())
+			})
+
+			By("Expecting ReadyCondition to become True after the RoutingPolicy is created")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.BGP{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgp), resource)).To(Succeed())
+				cond := conditions.Get(resource, v1alpha1.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			}).Should(Succeed())
+		})
+
 		It("Should reject VrfRef changes via the API server", func() {
 			By("Creating the custom resource for the Kind BGP")
 			bgp := &v1alpha1.BGP{

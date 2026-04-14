@@ -90,6 +90,10 @@ type BGPDomAfItem struct {
 	AdvPip         AdminSt        `json:"advPip,omitempty"`
 	RetainRttAll   AdminSt        `json:"retainRttAll,omitempty"`
 	RetainRttRtMap Option[string] `json:"retainRttRtMap"`
+
+	InterLeakPItems struct {
+		InterLeakPList gnmiext.List[InterLeakPKey, *InterLeakP] `json:"InterLeakP-list,omitzero"`
+	} `json:"interleak-items,omitzero"`
 }
 
 var (
@@ -103,13 +107,17 @@ func (af BGPDomAfItem) MarshalJSON() ([]byte, error) {
 	cpy := Copy(af)
 	if af.Type != AddressFamilyL2EVPN {
 		return json.Marshal(struct {
-			MaxExtEcmp    int8          `json:"maxExtEcmp,omitempty"`
-			MaxExtIntEcmp int8          `json:"maxExtIntEcmp,omitempty"`
-			Type          AddressFamily `json:"type"`
+			MaxExtEcmp      int8          `json:"maxExtEcmp,omitempty"`
+			MaxExtIntEcmp   int8          `json:"maxExtIntEcmp,omitempty"`
+			Type            AddressFamily `json:"type"`
+			InterLeakPItems struct {
+				InterLeakPList gnmiext.List[InterLeakPKey, *InterLeakP] `json:"InterLeakP-list,omitzero"`
+			} `json:"interleak-items,omitzero"`
 		}{
-			MaxExtEcmp:    af.MaxExtEcmp,
-			MaxExtIntEcmp: af.MaxExtIntEcmp,
-			Type:          af.Type,
+			MaxExtEcmp:      af.MaxExtEcmp,
+			MaxExtIntEcmp:   af.MaxExtIntEcmp,
+			Type:            af.Type,
+			InterLeakPItems: af.InterLeakPItems,
 		})
 	}
 	return json.Marshal(cpy)
@@ -132,6 +140,19 @@ func (af *BGPDomAfItem) UnmarshalJSON(v []byte) error {
 }
 
 func (af *BGPDomAfItem) Key() AddressFamily { return af.Type }
+
+// NewInterLeakPDirect creates an InterLeakP entry for redistributing directly
+// connected routes into a BGP address family.
+func NewInterLeakPDirect(rtMap string) *InterLeakP {
+	return &InterLeakP{
+		InterLeakPKey: InterLeakPKey{
+			Asn:   "none",
+			Inst:  "none",
+			Proto: RtLeakProtoDirect,
+		},
+		RtMap: rtMap,
+	}
+}
 
 func (af *BGPDomAfItem) SetMultipath(m *v1alpha1.BGPMultipath) error {
 	// Default from YANG model

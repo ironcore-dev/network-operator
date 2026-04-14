@@ -101,12 +101,12 @@ type BGPAddressFamilies struct {
 	// Ipv4Unicast configures IPv4 unicast address family support.
 	// Enables exchange of IPv4 unicast routes between BGP peers.
 	// +optional
-	Ipv4Unicast *BGPAddressFamily `json:"ipv4Unicast,omitempty"`
+	Ipv4Unicast *BGPUnicastAddressFamily `json:"ipv4Unicast,omitempty"`
 
 	// Ipv6Unicast configures IPv6 unicast address family support.
 	// Enables exchange of IPv6 unicast routes between BGP peers.
 	// +optional
-	Ipv6Unicast *BGPAddressFamily `json:"ipv6Unicast,omitempty"`
+	Ipv6Unicast *BGPUnicastAddressFamily `json:"ipv6Unicast,omitempty"`
 
 	// L2vpnEvpn configures L2VPN EVPN address family support.
 	// Enables exchange of Ethernet VPN routes for overlay network services.
@@ -125,6 +125,24 @@ type BGPAddressFamily struct {
 	// When specified, overrides global multipath settings for this address family.
 	// +optional
 	Multipath *BGPMultipath `json:"multipath,omitempty"`
+}
+
+// BGPUnicastAddressFamily defines configuration for IPv4 and IPv6 unicast address families.
+type BGPUnicastAddressFamily struct {
+	BGPAddressFamily `json:",inline"`
+
+	// RedistributeDirectRoutes controls redistribution of directly connected
+	// routes into this BGP address family.
+	// +optional
+	RedistributeDirectRoutes *BGPRedistributeDirectRoutes `json:"redistributeDirectRoutes,omitempty"`
+}
+
+// BGPRedistributeDirectRoutes configures redistribution of directly connected
+// routes into a BGP address family.
+type BGPRedistributeDirectRoutes struct {
+	// RoutingPolicyRef references a RoutingPolicy to apply during redistribution.
+	// +required
+	RoutingPolicyRef LocalObjectReference `json:"routingPolicyRef"`
 }
 
 // BGPL2vpnEvpn defines the configuration for L2VPN EVPN address family.

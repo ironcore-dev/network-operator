@@ -1,0 +1,33 @@
+{
+  "bgp-items": {
+    "inst-items": {
+      "asn": "65000",
+      "dom-items": {
+        "Dom-list": [
+          {
+            "name": "CC-CLOUD01",
+            "rtrId": "1.1.1.1",
+            "rtrIdAuto": "disabled",
+            "af-items": {
+              "DomAf-list": [
+                {
+                  "type": "ipv4-ucast",
+                  "interleak-items": {
+                    "InterLeakP-list": [
+                      {
+                        "asn": "none",
+                        "inst": "none",
+                        "proto": "direct",
+                        "rtMap": "ROUTE_MAP"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

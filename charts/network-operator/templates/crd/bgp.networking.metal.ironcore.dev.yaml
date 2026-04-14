@@ -122,6 +122,29 @@ spec:
                                 type: integer
                             type: object
                         type: object
+                      redistributeDirectRoutes:
+                        description: |-
+                          RedistributeDirectRoutes controls redistribution of directly connected
+                          routes into this BGP address family.
+                        properties:
+                          routingPolicyRef:
+                            description: RoutingPolicyRef references a RoutingPolicy
+                              to apply during redistribution.
+                            properties:
+                              name:
+                                description: |-
+                                  Name of the referent.
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                maxLength: 63
+                                minLength: 1
+                                type: string
+                            required:
+                            - name
+                            type: object
+                            x-kubernetes-map-type: atomic
+                        required:
+                        - routingPolicyRef
+                        type: object
                     type: object
                   ipv6Unicast:
                     description: |-
@@ -173,6 +196,29 @@ spec:
                                 minimum: 1
                                 type: integer
                             type: object
+                        type: object
+                      redistributeDirectRoutes:
+                        description: |-
+                          RedistributeDirectRoutes controls redistribution of directly connected
+                          routes into this BGP address family.
+                        properties:
+                          routingPolicyRef:
+                            description: RoutingPolicyRef references a RoutingPolicy
+                              to apply during redistribution.
+                            properties:
+                              name:
+                                description: |-
+                                  Name of the referent.
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                maxLength: 63
+                                minLength: 1
+                                type: string
+                            required:
+                            - name
+                            type: object
+                            x-kubernetes-map-type: atomic
+                        required:
+                        - routingPolicyRef
                         type: object
                     type: object
                   l2vpnEvpn:
