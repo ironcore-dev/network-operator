@@ -3417,49 +3417,27 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 }
 
 func (p *Provider) DeleteAAA(ctx context.Context, req *provider.DeleteAAARequest) error {
-	// Read what is currently on the device rather than relying on the spec.
-	// This ensures leftover servers/groups from previous reconciles are also removed.
-	tacacsProviders := new(TacacsPlusProviderItems)
-	tacacsGroups := new(TacacsPlusProviderGroupItems)
-	radiusProviders := new(RadiusProviderItems)
-	radiusGroups := new(RadiusProviderGroupItems)
-	for _, c := range []gnmiext.DataElement{tacacsProviders, tacacsGroups, radiusProviders, radiusGroups} {
-		if err := p.client.GetConfig(ctx, c); err != nil && !errors.Is(err, gnmiext.ErrNil) {
-			return err
-		}
-	}
-
-	// Build a single delete list. Groups are placed before servers to avoid
-	// reference violations when NX-OS processes the delete request.
-	toDelete := make([]gnmiext.DataElement, 0, len(tacacsGroups.GroupList)+len(tacacsProviders.ProviderList)+len(radiusGroups.GroupList)+len(radiusProviders.ProviderList))
-	for i := range tacacsGroups.GroupList {
-		toDelete = append(toDelete, &tacacsGroups.GroupList[i])
-	}
-	for i := range tacacsProviders.ProviderList {
-		toDelete = append(toDelete, &tacacsProviders.ProviderList[i])
-	}
-	for i := range radiusGroups.GroupList {
-		toDelete = append(toDelete, &radiusGroups.GroupList[i])
-	}
-	for i := range radiusProviders.ProviderList {
-		toDelete = append(toDelete, &radiusProviders.ProviderList[i])
-	}
-	if err := p.client.Delete(ctx, toDelete...); err != nil {
+	// Delete the whole server/group list containers in a single gNMI call.
+	// Groups are placed before providers to avoid reference violations.
+	// Deleting the containers also removes any leftover entries from previous reconciles.
+	if err := p.client.Delete(ctx,
+		new(TacacsPlusProviderGroupItems),
+		new(TacacsPlusProviderItems),
+		new(RadiusProviderGroupItems),
+		new(RadiusProviderItems),
+	); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 		return err
 	}
 
-	// Reset AAA method config to device defaults.
-	conf := []gnmiext.DataElement{
+	// Reset AAA method config and TACACS feature to device defaults.
+	tacacsFeature := TACACSFeature(AdminStDisabled)
+	return p.Update(ctx,
+		&tacacsFeature,
 		&AAADefaultAcc{Realm: AAARealmLocal, LocalRbac: true},
 		&AAADefaultAuthor{CmdType: "config", LocalRbac: true},
 		&AAADefaultAuth{Realm: AAARealmLocal, Local: AAAValueYes, Fallback: AAAValueYes},
 		&AAAConsoleAuth{Realm: AAARealmLocal, Local: AAAValueYes, Fallback: AAAValueYes},
-	}
-	if len(tacacsProviders.ProviderList) > 0 {
-		tacacsFeature := TACACSFeature(AdminStDisabled)
-		conf = append(conf, &tacacsFeature)
-	}
-	return p.Update(ctx, conf...)
+	)
 }
 
 func init() {
