@@ -48,6 +48,7 @@ rules:
 - apiGroups:
   - networking.metal.ironcore.dev
   resources:
+  - aaa
   - accesscontrollists
   - banners
   - bgp
@@ -83,6 +84,7 @@ rules:
 - apiGroups:
   - networking.metal.ironcore.dev
   resources:
+  - aaa/finalizers
   - accesscontrollists/finalizers
   - banners/finalizers
   - bgp/finalizers
@@ -112,6 +114,7 @@ rules:
 - apiGroups:
   - networking.metal.ironcore.dev
   resources:
+  - aaa/status
   - accesscontrollists/status
   - banners/status
   - bgp/status
@@ -143,6 +146,7 @@ rules:
 - apiGroups:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
+  - aaaconfigs
   - bgpconfigs
   - interfaceconfigs
   - lldpconfigs
