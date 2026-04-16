@@ -40,13 +40,11 @@ const (
 
 // TacacsPlusProvider represents a TACACS+ server host configuration.
 type TacacsPlusProvider struct {
-	Name         string `json:"name"`
-	Port         int32  `json:"port,omitempty"`
-	Key          string `json:"key,omitempty"`
-	KeyEnc       string `json:"keyEnc,omitempty"`
-	Timeout      int32  `json:"timeout,omitempty"`
-	Retries      int32  `json:"retries,omitempty"`
-	AuthProtocol string `json:"authProtocol,omitempty"`
+	Name    string `json:"name"`
+	Port    int32  `json:"port"`
+	Key     string `json:"key,omitempty"`
+	KeyEnc  string `json:"keyEnc"`
+	Timeout int32  `json:"timeout"`
 }
 
 func (*TacacsPlusProvider) IsListItem() {}
@@ -103,12 +101,11 @@ func (r *TacacsPlusProviderRef) Key() string { return r.Name }
 // RadiusProvider represents a RADIUS server host configuration.
 type RadiusProvider struct {
 	Name     string `json:"name"`
-	AuthPort int32  `json:"authPort,omitempty"`
-	AcctPort int32  `json:"acctPort,omitempty"`
+	AuthPort int32  `json:"authPort"`
+	AcctPort int32  `json:"acctPort"`
 	Key      string `json:"key,omitempty"`
-	KeyEnc   string `json:"keyEnc,omitempty"`
-	Timeout  int32  `json:"timeout,omitempty"`
-	Retries  int32  `json:"retries,omitempty"`
+	KeyEnc   string `json:"keyEnc"`
+	Timeout  int32  `json:"timeout"`
 }
 
 func (*RadiusProvider) IsListItem() {}

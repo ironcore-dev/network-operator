@@ -3291,9 +3291,10 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 
 			for _, server := range group.Servers {
 				srv := &TacacsPlusProvider{
-					Name:   server.Address,
-					Port:   server.TACACS.Port,
-					KeyEnc: MapKeyEncryption(cfg.Spec.KeyEncryption),
+					Name:    server.Address,
+					Port:    server.TACACS.Port,
+					KeyEnc:  MapKeyEncryption(cfg.Spec.KeyEncryption),
+					Timeout: 5, // YANG default
 				}
 				if key, ok := req.TACACSServerKeys[server.Address]; ok {
 					srv.Key = key
@@ -3321,6 +3322,7 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 					AuthPort: server.RADIUS.AuthenticationPort,
 					AcctPort: server.RADIUS.AccountingPort,
 					KeyEnc:   MapRADIUSKeyEncryption(cfg.Spec.RADIUSKeyEncryption),
+					Timeout:  5, // YANG default
 				}
 				if key, ok := req.RADIUSServerKeys[server.Address]; ok {
 					srv.Key = key
