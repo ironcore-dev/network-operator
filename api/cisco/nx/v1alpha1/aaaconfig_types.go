@@ -27,11 +27,11 @@ type AAAConfigSpec struct {
 
 	// ConsoleAuthentication defines console-specific authentication methods.
 	// +optional
-	ConsoleAuthentication *NXOSMethodList `json:"consoleAuthentication,omitempty"`
+	ConsoleAuthentication *AAAMethodList `json:"consoleAuthentication,omitempty"`
 
 	// ConfigCommandsAuthorization defines config-commands authorization methods.
 	// +optional
-	ConfigCommandsAuthorization *NXOSMethodList `json:"configCommandsAuthorization,omitempty"`
+	ConfigCommandsAuthorization *AAAMethodList `json:"configCommandsAuthorization,omitempty"`
 }
 
 // TACACSKeyEncryption defines the encryption type for TACACS+ server keys.
@@ -60,8 +60,8 @@ const (
 	RADIUSKeyEncryptionClear RADIUSKeyEncryption = "Clear"
 )
 
-// NXOSMethodList defines an ordered list of AAA methods for NX-OS specific contexts.
-type NXOSMethodList struct {
+// AAAMethodList defines an ordered list of AAA methods.
+type AAAMethodList struct {
 	// Methods is the ordered list of methods.
 	// +required
 	// +listType=atomic
