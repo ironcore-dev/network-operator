@@ -10,7 +10,6 @@ import (
 )
 
 var (
-	_ gnmiext.DataElement = (*TACACSFeature)(nil)
 	_ gnmiext.DataElement = (*TacacsPlusProvider)(nil)
 	_ gnmiext.DataElement = (*TacacsPlusProviderGroup)(nil)
 	_ gnmiext.DataElement = (*RadiusProvider)(nil)
@@ -20,13 +19,6 @@ var (
 	_ gnmiext.DataElement = (*AAADefaultAuthor)(nil)
 	_ gnmiext.DataElement = (*AAADefaultAcc)(nil)
 )
-
-// TACACSFeature enables/disables the TACACS+ feature on NX-OS.
-type TACACSFeature AdminSt
-
-func (*TACACSFeature) XPath() string {
-	return "System/fm-items/tacacsplus-items/adminSt"
-}
 
 // AAA configuration constants
 const (

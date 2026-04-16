@@ -3286,8 +3286,7 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 	for _, group := range req.AAA.Spec.ServerGroups {
 		switch group.Type {
 		case v1alpha1.AAAServerGroupTypeTACACS:
-			tacacsFeature := TACACSFeature(AdminStEnabled)
-			conf = append(conf, &tacacsFeature)
+			conf = append(conf, &Feature{Name: "tacacsplus", AdminSt: AdminStEnabled})
 
 			for _, server := range group.Servers {
 				srv := &TacacsPlusProvider{
@@ -3432,9 +3431,8 @@ func (p *Provider) DeleteAAA(ctx context.Context, req *provider.DeleteAAARequest
 	}
 
 	// Reset AAA method config and TACACS feature to device defaults.
-	tacacsFeature := TACACSFeature(AdminStDisabled)
 	return p.Update(ctx,
-		&tacacsFeature,
+		&Feature{Name: "tacacsplus", AdminSt: AdminStDisabled},
 		&AAADefaultAcc{Realm: AAARealmLocal, LocalRbac: true},
 		&AAADefaultAuthor{CmdType: "config", LocalRbac: true},
 		&AAADefaultAuth{Realm: AAARealmLocal, Local: AAAValueYes, Fallback: AAAValueYes},
