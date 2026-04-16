@@ -15,6 +15,7 @@ SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore con
 SPDX-License-Identifier: Apache-2.0
 
 ### Resource Types
+- [AAA](#aaa)
 - [BGP](#bgp)
 - [BGPPeer](#bgppeer)
 - [Banner](#banner)
@@ -39,6 +40,242 @@ SPDX-License-Identifier: Apache-2.0
 - [VLAN](#vlan)
 - [VRF](#vrf)
 
+
+
+#### AAA
+
+
+
+AAA is the Schema for the aaa API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `AAA` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[AAASpec](#aaaspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[AAAStatus](#aaastatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### AAAAccounting
+
+
+
+AAAAccounting defines the AAA accounting method list.
+
+
+
+_Appears in:_
+- [AAASpec](#aaaspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `methods` _[AAAMethod](#aaamethod) array_ | Methods is the ordered list of accounting methods.<br />Methods are tried in order until one succeeds or all fail. |  | MaxItems: 4 <br />MinItems: 1 <br />Required: \{\} <br /> |
+
+
+#### AAAAuthentication
+
+
+
+AAAAuthentication defines the AAA authentication method list.
+
+
+
+_Appears in:_
+- [AAASpec](#aaaspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `methods` _[AAAMethod](#aaamethod) array_ | Methods is the ordered list of authentication methods.<br />Methods are tried in order until one succeeds or all fail. |  | MaxItems: 4 <br />MinItems: 1 <br />Required: \{\} <br /> |
+
+
+#### AAAAuthorization
+
+
+
+AAAAuthorization defines the AAA authorization method list.
+
+
+
+_Appears in:_
+- [AAASpec](#aaaspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `methods` _[AAAMethod](#aaamethod) array_ | Methods is the ordered list of authorization methods.<br />Methods are tried in order until one succeeds or all fail. |  | MaxItems: 4 <br />MinItems: 1 <br />Required: \{\} <br /> |
+
+
+#### AAAMethod
+
+
+
+AAAMethod represents an AAA method.
+
+
+
+_Appears in:_
+- [AAAAccounting](#aaaaccounting)
+- [AAAAuthentication](#aaaauthentication)
+- [AAAAuthorization](#aaaauthorization)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `type` _[AAAMethodType](#aaamethodtype)_ | Type is the type of AAA method. |  | Enum: [Group Local None] <br />Required: \{\} <br /> |
+| `groupName` _string_ | GroupName is the name of the server group when Type is Group. |  | MaxLength: 63 <br />Optional: \{\} <br /> |
+
+
+#### AAAMethodType
+
+_Underlying type:_ _string_
+
+AAAMethodType defines the type of AAA method.
+
+_Validation:_
+- Enum: [Group Local None]
+
+_Appears in:_
+- [AAAMethod](#aaamethod)
+
+| Field | Description |
+| --- | --- |
+| `Group` | AAAMethodTypeGroup uses a server group (e.g., TACACS+ group).<br /> |
+| `Local` | AAAMethodTypeLocal uses the local user database.<br /> |
+| `None` | AAAMethodTypeNone allows access without authentication.<br /> |
+
+
+#### AAAServer
+
+
+
+AAAServer represents a single AAA server within a group.
+
+
+
+_Appears in:_
+- [AAAServerGroup](#aaaservergroup)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `address` _string_ | Address is the IP address or hostname of the server. |  | MaxLength: 253 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `timeout` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | Timeout is the response timeout for this server. |  | Optional: \{\} <br /> |
+| `tacacs` _[AAAServerTACACS](#aaaservertacacs)_ | TACACS contains TACACS+ specific server configuration.<br />Required when the parent server group type is TACACS. |  | Optional: \{\} <br /> |
+| `radius` _[AAAServerRADIUS](#aaaserverradius)_ | RADIUS contains RADIUS specific server configuration.<br />Required when the parent server group type is RADIUS. |  | Optional: \{\} <br /> |
+
+
+#### AAAServerGroup
+
+
+
+AAAServerGroup represents a named group of AAA servers.
+
+
+
+_Appears in:_
+- [AAASpec](#aaaspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name is the name of the server group. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `type` _[AAAServerGroupType](#aaaservergrouptype)_ | Type is the protocol type of this server group. |  | Enum: [TACACS RADIUS] <br />Required: \{\} <br /> |
+| `servers` _[AAAServer](#aaaserver) array_ | Servers is the list of servers in this group. |  | MaxItems: 16 <br />MinItems: 1 <br />Required: \{\} <br /> |
+| `vrfName` _string_ | VrfName is the VRF to use for communication with the servers in this group. |  | MaxLength: 63 <br />Optional: \{\} <br /> |
+| `sourceInterfaceName` _string_ | SourceInterfaceName is the source interface to use for communication with the servers. |  | MaxLength: 63 <br />Optional: \{\} <br /> |
+
+
+#### AAAServerGroupType
+
+_Underlying type:_ _string_
+
+AAAServerGroupType defines the protocol type of an AAA server group.
+
+_Validation:_
+- Enum: [TACACS RADIUS]
+
+_Appears in:_
+- [AAAServerGroup](#aaaservergroup)
+
+| Field | Description |
+| --- | --- |
+| `TACACS` | AAAServerGroupTypeTACACS is a TACACS+ server group.<br /> |
+| `RADIUS` | AAAServerGroupTypeRADIUS is a RADIUS server group.<br /> |
+
+
+#### AAAServerRADIUS
+
+
+
+AAAServerRADIUS contains RADIUS specific server configuration.
+
+
+
+_Appears in:_
+- [AAAServer](#aaaserver)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `authenticationPort` _integer_ | AuthenticationPort is the UDP port for RADIUS authentication requests.<br />Defaults to 1812 if not specified. | 1812 | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `accountingPort` _integer_ | AccountingPort is the UDP port for RADIUS accounting requests.<br />Defaults to 1813 if not specified. | 1813 | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `keySecretRef` _[SecretKeySelector](#secretkeyselector)_ | KeySecretRef is a reference to a secret containing the plain text shared key for this RADIUS server.<br />The secret must contain a key specified in the SecretKeySelector. |  | Required: \{\} <br /> |
+
+
+#### AAAServerTACACS
+
+
+
+AAAServerTACACS contains TACACS+ specific server configuration.
+
+
+
+_Appears in:_
+- [AAAServer](#aaaserver)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `port` _integer_ | Port is the TCP port of the TACACS+ server.<br />Defaults to 49 if not specified. | 49 | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `keySecretRef` _[SecretKeySelector](#secretkeyselector)_ | KeySecretRef is a reference to a secret containing the plain text shared key for this TACACS+ server.<br />The secret must contain a key specified in the SecretKeySelector. |  | Required: \{\} <br /> |
+
+
+#### AAASpec
+
+
+
+AAASpec defines the desired state of AAA.
+
+It models the Authentication, Authorization, and Accounting (AAA) configuration on a network device.
+
+
+
+_Appears in:_
+- [AAA](#aaa)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this AAA.<br />This reference is used to link the AAA to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `serverGroups` _[AAAServerGroup](#aaaservergroup) array_ | ServerGroups is the list of AAA server groups. |  | MaxItems: 8 <br />Optional: \{\} <br /> |
+| `authentication` _[AAAAuthentication](#aaaauthentication)_ | Authentication defines the AAA authentication method list. |  | Optional: \{\} <br /> |
+| `authorization` _[AAAAuthorization](#aaaauthorization)_ | Authorization defines the AAA authorization method list. |  | Optional: \{\} <br /> |
+| `accounting` _[AAAAccounting](#aaaaccounting)_ | Accounting defines the AAA accounting method list. |  | Optional: \{\} <br /> |
+
+
+#### AAAStatus
+
+
+
+AAAStatus defines the observed state of AAA.
+
+
+
+_Appears in:_
+- [AAA](#aaa)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the AAA. |  | Optional: \{\} <br /> |
 
 
 #### ACLAction
@@ -1654,6 +1891,7 @@ referenced object inside the same namespace.
 
 
 _Appears in:_
+- [AAASpec](#aaaspec)
 - [AccessControlListSpec](#accesscontrollistspec)
 - [Aggregation](#aggregation)
 - [BGPPeerAddressFamily](#bgppeeraddressfamily)
@@ -2805,6 +3043,8 @@ SecretKeySelector contains enough information to select a key of a Secret.
 
 
 _Appears in:_
+- [AAAServerRADIUS](#aaaserverradius)
+- [AAAServerTACACS](#aaaservertacacs)
 - [PasswordSource](#passwordsource)
 - [SSHPublicKeySource](#sshpublickeysource)
 - [TLS](#tls)
@@ -3089,6 +3329,7 @@ typed referenced object inside the same namespace.
 
 
 _Appears in:_
+- [AAASpec](#aaaspec)
 - [AccessControlListSpec](#accesscontrollistspec)
 - [BGPPeerSpec](#bgppeerspec)
 - [BGPSpec](#bgpspec)
@@ -3312,6 +3553,7 @@ _Appears in:_
 Package v1alpha1 contains API Schema definitions for the nx.cisco.networking.metal.ironcore.dev v1alpha1 API group.
 
 ### Resource Types
+- [AAAConfig](#aaaconfig)
 - [BGPConfig](#bgpconfig)
 - [BorderGateway](#bordergateway)
 - [InterfaceConfig](#interfaceconfig)
@@ -3321,6 +3563,42 @@ Package v1alpha1 contains API Schema definitions for the nx.cisco.networking.met
 - [System](#system)
 - [VPCDomain](#vpcdomain)
 
+
+
+#### AAAConfig
+
+
+
+AAAConfig is the Schema for the aaaconfigs API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `nx.cisco.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `AAAConfig` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[AAAConfigSpec](#aaaconfigspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+
+
+#### AAAConfigSpec
+
+
+
+AAAConfigSpec defines the desired state of AAAConfig
+
+
+
+_Appears in:_
+- [AAAConfig](#aaaconfig)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `loginErrorEnable` _boolean_ | LoginErrorEnable enables login error messages. |  | Optional: \{\} <br /> |
+| `keyEncryption` _[TACACSKeyEncryption](#tacacskeyencryption)_ | KeyEncryption specifies the default encryption type for TACACS+ keys. | Type7 | Enum: [Type6 Type7 Clear] <br /> |
+| `radiusKeyEncryption` _[RADIUSKeyEncryption](#radiuskeyencryption)_ | RADIUSKeyEncryption specifies the default encryption type for RADIUS server keys. | Type7 | Enum: [Type6 Type7 Clear] <br /> |
 
 
 #### AutoRecovery
@@ -3806,6 +4084,25 @@ _Appears in:_
 | `l3router` _[Enabled](#enabled)_ | L3Router enables Layer 3 peer-router functionality on this peer. | \{ enabled:false \} | Optional: \{\} <br /> |
 
 
+#### RADIUSKeyEncryption
+
+_Underlying type:_ _string_
+
+RADIUSKeyEncryption defines the encryption type for RADIUS server keys.
+
+_Validation:_
+- Enum: [Type6 Type7 Clear]
+
+_Appears in:_
+- [AAAConfigSpec](#aaaconfigspec)
+
+| Field | Description |
+| --- | --- |
+| `Type6` | RADIUSKeyEncryptionType6 uses AES encryption (more secure).<br /> |
+| `Type7` | RADIUSKeyEncryptionType7 uses Cisco Type 7 encryption (reversible).<br /> |
+| `Clear` | RADIUSKeyEncryptionClear sends the key in cleartext.<br /> |
+
+
 #### SSH
 
 
@@ -3948,6 +4245,25 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the Banner. |  | Optional: \{\} <br /> |
+
+
+#### TACACSKeyEncryption
+
+_Underlying type:_ _string_
+
+TACACSKeyEncryption defines the encryption type for TACACS+ server keys.
+
+_Validation:_
+- Enum: [Type6 Type7 Clear]
+
+_Appears in:_
+- [AAAConfigSpec](#aaaconfigspec)
+
+| Field | Description |
+| --- | --- |
+| `Type6` | TACACSKeyEncryptionType6 uses AES encryption (more secure).<br /> |
+| `Type7` | TACACSKeyEncryptionType7 uses Cisco Type 7 encryption (reversible).<br /> |
+| `Clear` | TACACSKeyEncryptionClear sends the key in cleartext.<br /> |
 
 
 #### TrafficType

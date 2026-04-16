@@ -50,16 +50,15 @@ spec:
                   methods:
                     description: Methods is the ordered list of methods.
                     items:
-                      description: NXOSMethod represents a single AAA method in an
-                        NX-OS context.
+                      description: AAAMethod represents an AAA method.
                       properties:
                         groupName:
-                          description: GroupName is the server group name when Type
-                            is Group.
+                          description: GroupName is the name of the server group when
+                            Type is Group.
                           maxLength: 63
                           type: string
                         type:
-                          description: Type is the method type.
+                          description: Type is the type of AAA method.
                           enum:
                           - Group
                           - Local
@@ -68,6 +67,9 @@ spec:
                       required:
                       - type
                       type: object
+                      x-kubernetes-validations:
+                      - message: groupName is required when type is Group
+                        rule: self.type != 'Group' || self.groupName != ""
                     maxItems: 4
                     minItems: 1
                     type: array
@@ -82,16 +84,15 @@ spec:
                   methods:
                     description: Methods is the ordered list of methods.
                     items:
-                      description: NXOSMethod represents a single AAA method in an
-                        NX-OS context.
+                      description: AAAMethod represents an AAA method.
                       properties:
                         groupName:
-                          description: GroupName is the server group name when Type
-                            is Group.
+                          description: GroupName is the name of the server group when
+                            Type is Group.
                           maxLength: 63
                           type: string
                         type:
-                          description: Type is the method type.
+                          description: Type is the type of AAA method.
                           enum:
                           - Group
                           - Local
@@ -100,6 +101,9 @@ spec:
                       required:
                       - type
                       type: object
+                      x-kubernetes-validations:
+                      - message: groupName is required when type is Group
+                        rule: self.type != 'Group' || self.groupName != ""
                     maxItems: 4
                     minItems: 1
                     type: array

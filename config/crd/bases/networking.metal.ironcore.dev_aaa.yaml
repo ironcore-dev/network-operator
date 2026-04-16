@@ -257,7 +257,7 @@ spec:
                                 type: integer
                               keySecretRef:
                                 description: |-
-                                  KeySecretRef is a reference to a secret containing the shared key for this RADIUS server.
+                                  KeySecretRef is a reference to a secret containing the plain text shared key for this RADIUS server.
                                   The secret must contain a key specified in the SecretKeySelector.
                                 properties:
                                   key:
@@ -295,7 +295,7 @@ spec:
                             properties:
                               keySecretRef:
                                 description: |-
-                                  KeySecretRef is a reference to a secret containing the shared key for this TACACS+ server.
+                                  KeySecretRef is a reference to a secret containing the plain text shared key for this TACACS+ server.
                                   The secret must contain a key specified in the SecretKeySelector.
                                 properties:
                                   key:
