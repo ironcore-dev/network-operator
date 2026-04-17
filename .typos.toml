@@ -17,6 +17,8 @@ mininum = "mininum"
 specifc = "specifc"
 # Go built-in keyword
 cpy = "cpy"
+# Documentation
+nd = "nd"
 
 [files]
 extend-exclude = [
