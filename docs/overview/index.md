@@ -1,6 +1,6 @@
 # Overview
 
-The Network Operator is a Kubernetes Operator that manages the lifecycle and configuration of network devices using Kubernetes-native declarative APIs.
+The Network Operator is a Kubernetes-native solution for automating the provisioning and lifecycle management of network devices. It extends the Kubernetes API to provide a declarative, multi-vendor network automation, allowing you to manage your network infrastructure with the same tools and workflows you use for your applications. By representing network devices and their configurations as Kubernetes objects, the operator bridges the gap between your cloud-native environment and your networking hardware.
 
 Users create Custom Resources such as `Device`, `Interface`, `BGP`, `VLAN`, and `VRF`. The operator reconciles those desired states, applies changes to real network devices through providers, and continuously reports device status back to Kubernetes.
 
