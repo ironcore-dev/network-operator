@@ -69,7 +69,10 @@ export default withMermaid({
         sidebar: [
             {
                 text: 'Overview',
-                items: [{ text: 'Index', link: '/overview/' }],
+                items: [
+                    { text: 'Index', link: '/overview/' },
+                    { text: 'Architecture', link: '/architecture-overview' },
+                ],
             },
             {
                 text: 'Concepts',
