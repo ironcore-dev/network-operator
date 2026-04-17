@@ -6,6 +6,7 @@ package e2e
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -50,7 +51,7 @@ func Run(cmd *exec.Cmd) (string, error) {
 
 // Apply takes a raw YAML resource and applies it to the cluster by
 // creating a temporary file and running 'kubectl apply -f'.
-func Apply(resource string) error {
+func Apply(ctx context.Context, resource string) error {
 	file, err := os.CreateTemp("", "resource-*.yaml")
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
@@ -64,7 +65,7 @@ func Apply(resource string) error {
 		return fmt.Errorf("failed to close temp file: %w", err)
 	}
 	// #nosec G204 G702
-	cmd := exec.Command("kubectl", "apply", "-f", file.Name())
+	cmd := exec.CommandContext(ctx, "kubectl", "apply", "-f", file.Name())
 	if _, err = Run(cmd); err != nil {
 		return fmt.Errorf("failed to apply resource: %w", err)
 	}
@@ -90,15 +91,15 @@ func CompareJSON(got, want string) error {
 }
 
 // InstallPrometheusOperator installs the prometheus Operator to be used to export the enabled metrics.
-func InstallPrometheusOperator() error {
-	cmd := exec.Command("kubectl", "create", "-f", prometheusURL)
+func InstallPrometheusOperator(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx, "kubectl", "create", "-f", prometheusURL)
 	_, err := Run(cmd)
 	return err
 }
 
 // UninstallPrometheusOperator uninstalls the prometheus
-func UninstallPrometheusOperator() {
-	cmd := exec.Command("kubectl", "delete", "-f", prometheusURL)
+func UninstallPrometheusOperator(ctx context.Context) {
+	cmd := exec.CommandContext(ctx, "kubectl", "delete", "-f", prometheusURL)
 	if _, err := Run(cmd); err != nil {
 		warnError(err)
 	}
@@ -106,7 +107,7 @@ func UninstallPrometheusOperator() {
 
 // IsPrometheusCRDsInstalled checks if any Prometheus CRDs are installed
 // by verifying the existence of key CRDs related to Prometheus.
-func IsPrometheusCRDsInstalled() bool {
+func IsPrometheusCRDsInstalled(ctx context.Context) bool {
 	// List of common Prometheus CRDs
 	prometheusCRDs := []string{
 		"prometheuses.monitoring.coreos.com",
@@ -114,7 +115,7 @@ func IsPrometheusCRDsInstalled() bool {
 		"prometheusagents.monitoring.coreos.com",
 	}
 
-	cmd := exec.Command("kubectl", "get", "crds", "-o", "custom-columns=NAME:.metadata.name")
+	cmd := exec.CommandContext(ctx, "kubectl", "get", "crds", "-o", "custom-columns=NAME:.metadata.name")
 	output, err := Run(cmd)
 	if err != nil {
 		return false
@@ -132,14 +133,14 @@ func IsPrometheusCRDsInstalled() bool {
 }
 
 // InstallCertManager installs the cert manager bundle.
-func InstallCertManager() error {
-	cmd := exec.Command("kubectl", "apply", "-f", certmanagerURL)
+func InstallCertManager(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx, "kubectl", "apply", "-f", certmanagerURL)
 	if _, err := Run(cmd); err != nil {
 		return err
 	}
 	// Wait for cert-manager-webhook to be ready, which can take time if cert-manager
 	// was re-installed after uninstalling on a cluster.
-	cmd = exec.Command("kubectl", "wait", "deployment.apps/cert-manager-webhook",
+	cmd = exec.CommandContext(ctx, "kubectl", "wait", "deployment.apps/cert-manager-webhook",
 		"--for", "condition=Available",
 		"--namespace", "cert-manager",
 		"--timeout", "5m",
@@ -150,8 +151,8 @@ func InstallCertManager() error {
 }
 
 // UninstallCertManager uninstalls the cert manager
-func UninstallCertManager() {
-	cmd := exec.Command("kubectl", "delete", "-f", certmanagerURL)
+func UninstallCertManager(ctx context.Context) {
+	cmd := exec.CommandContext(ctx, "kubectl", "delete", "-f", certmanagerURL)
 	if _, err := Run(cmd); err != nil {
 		warnError(err)
 	}
@@ -159,7 +160,7 @@ func UninstallCertManager() {
 
 // IsCertManagerCRDsInstalled checks if any Cert Manager CRDs are installed
 // by verifying the existence of key CRDs related to Cert Manager.
-func IsCertManagerCRDsInstalled() bool {
+func IsCertManagerCRDsInstalled(ctx context.Context) bool {
 	// List of common Cert Manager CRDs
 	certManagerCRDs := []string{
 		"certificates.cert-manager.io",
@@ -171,7 +172,7 @@ func IsCertManagerCRDsInstalled() bool {
 	}
 
 	// Execute the kubectl command to get all CRDs
-	cmd := exec.Command("kubectl", "get", "crds")
+	cmd := exec.CommandContext(ctx, "kubectl", "get", "crds")
 	output, err := Run(cmd)
 	if err != nil {
 		return false
@@ -191,7 +192,7 @@ func IsCertManagerCRDsInstalled() bool {
 }
 
 // LoadImageToKindClusterWithName loads a local docker image to the kind cluster
-func LoadImageToKindClusterWithName(name string) error {
+func LoadImageToKindClusterWithName(ctx context.Context, name string) error {
 	cluster := "kind"
 	if v, ok := os.LookupEnv("KIND_CLUSTER"); ok {
 		cluster = v
@@ -213,16 +214,16 @@ func LoadImageToKindClusterWithName(name string) error {
 		// https://github.com/containerd/nerdctl/blob/main/docs/command-reference.md#whale-nerdctl-save
 		// https://docs.podman.io/en/v5.3.0/markdown/podman-save.1.html
 		// #nosec G702
-		cmd := exec.Command(prov, "save", name, "--output", file.Name())
+		cmd := exec.CommandContext(ctx, prov, "save", name, "--output", file.Name())
 		if _, err = Run(cmd); err != nil {
 			return fmt.Errorf("failed to save image: %w", err)
 		}
 
-		cmd = exec.Command("kind", "load", "image-archive", file.Name(), "--name", cluster) //nolint:gosec
+		cmd = exec.CommandContext(ctx, "kind", "load", "image-archive", file.Name(), "--name", cluster) //nolint:gosec
 		_, err = Run(cmd)
 		return err
 	}
-	cmd := exec.Command("kind", "load", "docker-image", name, "--name", cluster)
+	cmd := exec.CommandContext(ctx, "kind", "load", "docker-image", name, "--name", cluster)
 	_, err := Run(cmd)
 	return err
 }
