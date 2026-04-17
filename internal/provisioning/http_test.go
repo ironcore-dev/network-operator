@@ -137,7 +137,7 @@ func TestGetClientIP(t *testing.T) {
 			tt.setupRequest(req)
 
 			ip, err := getClientIP(req)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, tt.expectedIP, ip)
 		})
 	}
