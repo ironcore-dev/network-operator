@@ -29,6 +29,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -37,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	// Import all supported provider implementations.
+	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	_ "github.com/ironcore-dev/network-operator/internal/provider/cisco/iosxr"
 	_ "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos"
 	_ "github.com/ironcore-dev/network-operator/internal/provider/openconfig"
@@ -273,6 +275,14 @@ func main() {
 		os.Exit(1)
 	}
 	setupLog.Info("Lease cache informer initialized", "namespace", lockerNamespace)
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.Device{}, deviceutil.DeviceEndpointIPField, func(o client.Object) []string {
+		return []string{o.(*v1alpha1.Device).EndpointIP()}
+	}); err != nil {
+		setupLog.Error(err, "unable to index Device by endpoint IP")
+		os.Exit(1)
+	}
+	setupLog.Info("Indexed Device by endpoint IP", "field", deviceutil.DeviceEndpointIPField)
 
 	// Add the ResourceLocker to the manager so it will be properly cleaned up on shutdown.
 	if err := mgr.Add(locker); err != nil {

@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -329,6 +330,13 @@ func (d *Device) GetSecretRefs() []SecretReference {
 		}
 	}
 	return refs
+}
+
+// EndpointIP returns the IP address part of the device's endpoint address.
+func (d *Device) EndpointIP() string {
+	// The address is validated by the kubebuilder validation pattern,
+	/// so we can safely split on ":" and take the first part as the IP.
+	return strings.Split(d.Spec.Endpoint.Address, ":")[0]
 }
 
 // +kubebuilder:object:root=true

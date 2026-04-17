@@ -67,7 +67,7 @@ func getBearerToken(r *http.Request) (string, error) {
 }
 
 func (s *HTTPServer) findDeviceAndValidateToken(ctx context.Context, serial, token string) (*v1alpha1.Device, *v1alpha1.ProvisioningInfo, int, error) {
-	device, err := deviceutil.GetDeviceBySerial(ctx, s.Client, "", serial)
+	device, err := deviceutil.GetDeviceBySerial(ctx, s.Client, serial)
 	if err != nil {
 		s.Logger.Error(err, "Failed to get device by serial", "serial", serial, "error", err)
 		return nil, nil, http.StatusInternalServerError, fmt.Errorf("Failed to find device by serial: %w", err)
@@ -253,7 +253,7 @@ func (s *HTTPServer) HandleProvisioningRequest(w http.ResponseWriter, r *http.Re
 	}
 
 	s.Logger.Info("provisioning request received", "serial", serial)
-	device, err := deviceutil.GetDeviceBySerial(ctx, s.Client, "", serial)
+	device, err := deviceutil.GetDeviceBySerial(ctx, s.Client, serial)
 	if err != nil {
 		s.Logger.Error(err, "Failed to find device by serial", "serial", serial, "error", err)
 		http.Error(w, "Failed to find device by serial", http.StatusInternalServerError)

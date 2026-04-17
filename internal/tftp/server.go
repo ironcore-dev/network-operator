@@ -37,17 +37,6 @@ type manager interface {
 }
 
 func New(ctx context.Context, addr string, verify bool, mgr manager, logger klog.Logger) (*Server, error) {
-	if err := mgr.GetFieldIndexer().IndexField(ctx, &corev1.Device{}, deviceEndpointIPField, func(obj client.Object) []string {
-		device := obj.(*corev1.Device)
-		ip := endpointIP(device.Spec.Endpoint.Address)
-		if ip == "" {
-			return nil
-		}
-		return []string{ip}
-	}); err != nil {
-		return nil, err
-	}
-
 	return &Server{addr: addr, verify: verify, reader: mgr.GetClient(), logger: logger}, nil
 }
 

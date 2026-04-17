@@ -22,9 +22,15 @@ import (
 // ErrNoDevice is returned when the device label could not be found on the object passed in.
 var ErrNoDevice = fmt.Errorf("no %q label present", v1alpha1.DeviceLabel)
 
+// ErrNoOwnerDevice is returned when no Device owner reference is found on the object.
+var ErrNoOwnerDevice = errors.New("no Device owner reference found")
+
+// GetDeviceFromMetadata resolves the Device for obj by first checking owner
+// references, then falling back to the [v1alpha1.DeviceLabel] label.
+// Returns an error if the device could not be determined.
 func GetDeviceFromMetadata(ctx context.Context, r client.Reader, obj metav1.Object) (*v1alpha1.Device, error) {
-	if d, err := GetOwnerDevice(ctx, r, obj); err == nil && d != nil {
-		return d, nil
+	if d, err := GetOwnerDevice(ctx, r, obj); !errors.Is(err, ErrNoOwnerDevice) {
+		return d, err
 	}
 	name, ok := obj.GetLabels()[v1alpha1.DeviceLabel]
 	if !ok || name == "" {
@@ -34,6 +40,7 @@ func GetDeviceFromMetadata(ctx context.Context, r client.Reader, obj metav1.Obje
 }
 
 // GetOwnerDevice returns the Device object owning the current resource.
+// Returns [ErrNoOwnerDevice] when no matching owner reference is found.
 func GetOwnerDevice(ctx context.Context, r client.Reader, obj metav1.Object) (*v1alpha1.Device, error) {
 	for _, ref := range obj.GetOwnerReferences() {
 		if ref.Kind != v1alpha1.DeviceKind {
@@ -47,7 +54,7 @@ func GetOwnerDevice(ctx context.Context, r client.Reader, obj metav1.Object) (*v
 			return GetDeviceByName(ctx, r, obj.GetNamespace(), ref.Name)
 		}
 	}
-	return nil, nil
+	return nil, ErrNoOwnerDevice
 }
 
 // GetDeviceByName finds and returns a Device object using the specified selector.
@@ -59,10 +66,29 @@ func GetDeviceByName(ctx context.Context, r client.Reader, namespace, name strin
 	return obj, nil
 }
 
+// DeviceEndpointIPField is the cache field index key used to look up Device objects by
+// the IP part of spec.endpoint.address. Callers must register this index on the
+// controller-runtime field indexer before calling [GetDeviceByEndpointIP].
+const DeviceEndpointIPField = "device.endpoint.ip"
+
+// GetDeviceByEndpointIP finds and returns a Device object by matching the IP portion of
+// its spec.endpoint.address against ip. It returns an error if no device is found.
+// The caller must have registered the [DeviceEndpointIPField] index before using this function.
+func GetDeviceByEndpointIP(ctx context.Context, r client.Reader, ip string) (*v1alpha1.Device, error) {
+	deviceList := &v1alpha1.DeviceList{}
+	if err := r.List(ctx, deviceList, client.MatchingFields{DeviceEndpointIPField: ip}); err != nil {
+		return nil, fmt.Errorf("failed to list %s objects by endpoint IP: %w", v1alpha1.GroupVersion.WithKind(v1alpha1.DeviceKind).String(), err)
+	}
+	if len(deviceList.Items) == 0 {
+		return nil, fmt.Errorf("no %s object found with endpoint IP %q", v1alpha1.GroupVersion.WithKind(v1alpha1.DeviceKind).String(), ip)
+	}
+	return &deviceList.Items[0], nil
+}
+
 // GetDeviceBySerial finds and returns a Device object using the specified serial number.
 // It returns an error if no device or multiple devices with the same serial number are found.
 // Note: This function assumes that the [v1alpha1.DeviceSerialLabel] is unique across all Device objects in the cluster.
-func GetDeviceBySerial(ctx context.Context, r client.Reader, namespace, serial string) (*v1alpha1.Device, error) {
+func GetDeviceBySerial(ctx context.Context, r client.Reader, serial string) (*v1alpha1.Device, error) {
 	deviceList := &v1alpha1.DeviceList{}
 	listOpts := &client.ListOptions{
 		LabelSelector: labels.SelectorFromSet(labels.Set{v1alpha1.DeviceSerialLabel: serial}),
