@@ -57,7 +57,7 @@ func Apply(resource string) error {
 	}
 	// #nosec G703
 	defer func() { _ = os.Remove(file.Name()) }()
-	if _, err = file.Write([]byte(resource)); err != nil {
+	if _, err = file.WriteString(resource); err != nil {
 		return fmt.Errorf("failed to write to temp file: %w", err)
 	}
 	if err = file.Close(); err != nil {

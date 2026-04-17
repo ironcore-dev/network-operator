@@ -4,6 +4,7 @@
 package gnmiext
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -1243,7 +1244,7 @@ func TestClient_Marshal(t *testing.T) {
 				t.Errorf("Marshal() error = %v, wantErr %v", err, test.wantErr)
 				return
 			}
-			if !test.wantErr && string(got) != string(test.want) {
+			if !test.wantErr && !bytes.Equal(got, test.want) {
 				t.Errorf("Marshal() = %s, want %s", got, test.want)
 			}
 		})

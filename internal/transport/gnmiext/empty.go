@@ -43,7 +43,7 @@ func (e *Empty) UnmarshalJSON(b []byte) error {
 		*e = false
 		return nil
 	}
-	if !nullRe.MatchString(string(b)) {
+	if !nullRe.Match(b) {
 		return fmt.Errorf("gnmiext: invalid empty value: %s", string(b))
 	}
 	*e = true

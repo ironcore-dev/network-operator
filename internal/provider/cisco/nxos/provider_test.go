@@ -122,7 +122,7 @@ func sortSlices(v any) any {
 			if err != nil {
 				return 0
 			}
-			return strings.Compare(string(a), string(b))
+			return bytes.Compare(a, b)
 		})
 		return result
 	default:
