@@ -71,7 +71,7 @@ export default withMermaid({
                 text: 'Overview',
                 items: [
                     { text: 'Index', link: '/overview/' },
-                    { text: 'Architecture Overview', link: '/architecture-overview' },
+                    { text: 'Architecture', link: '/architecture-overview' },
                 ],
             },
             {
