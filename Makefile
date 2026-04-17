@@ -111,10 +111,7 @@ kind-create: FORCE
 	  echo "Kind is not installed. Please install Kind manually."; \
 	  exit 1; \
 	}
-	@kind get clusters | grep -q $(KIND_CLUSTER) || { \
-	  printf "\e[1;36m>> kind create cluster --name=$(KIND_CLUSTER)\e[0m\n"; \
-	  kind create cluster --name=$(KIND_CLUSTER); \
-	}
+	KIND_CLUSTER_NAME=$(KIND_CLUSTER) CONTAINER_TOOL=$(CONTAINER_TOOL) ./hack/kind-with-registry.sh
 
 # Delete the Kind cluster created for local development and testing.
 kind-delete: FORCE
@@ -123,7 +120,8 @@ kind-delete: FORCE
 	  exit 1; \
 	}
 	@printf "\e[1;36m>> kind delete cluster --name=$(KIND_CLUSTER)\e[0m\n"
-	@kind delete cluster --name=$(KIND_CLUSTER)
+	KIND_EXPERIMENTAL_PROVIDER=$(CONTAINER_TOOL) kind delete cluster --name=$(KIND_CLUSTER)
+	$(CONTAINER_TOOL) stop kind-registry && $(CONTAINER_TOOL) rm kind-registry
 
 tilt-up: FORCE kind-create
 	@command -v tilt >/dev/null 2>&1 || { \
