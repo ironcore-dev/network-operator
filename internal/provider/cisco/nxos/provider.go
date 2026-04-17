@@ -75,7 +75,7 @@ func NewProvider() provider.Provider {
 func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (err error) {
 	// timeout is the default timeout for all HTTP/gRPC requests made by the provider.
 	const timeout = 30 * time.Second
-	p.conn, err = grpcext.NewClient(ctx, conn, grpcext.WithDefaultTimeout(timeout))
+	p.conn, err = grpcext.NewClient(conn, grpcext.WithDefaultTimeout(timeout))
 	if err != nil {
 		return fmt.Errorf("failed to create grpc connection: %w", err)
 	}

@@ -23,7 +23,7 @@ import (
 // NewClient creates a new gRPC client connection to a specified device using the provided [deviceutil.Connection].
 // The connection will use TLS if the [deviceutil.Connection.TLS] field is set, otherwise it will use an insecure connection.
 // If the [deviceutil.Connection.Username] and [deviceutil.Connection.Password] fields are set, basic authentication in the form of metadata will be used.
-func NewClient(ctx context.Context, conn *deviceutil.Connection, o ...Option) (*grpc.ClientConn, error) {
+func NewClient(conn *deviceutil.Connection, o ...Option) (*grpc.ClientConn, error) {
 	creds := insecure.NewCredentials()
 	if conn.TLS != nil {
 		creds = credentials.NewTLS(conn.TLS)

@@ -33,7 +33,7 @@ func NewProvider() provider.Provider {
 }
 
 func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (err error) {
-	p.conn, err = grpcext.NewClient(ctx, conn)
+	p.conn, err = grpcext.NewClient(conn)
 	if err != nil {
 		return fmt.Errorf("failed to create grpc connection: %w", err)
 	}
