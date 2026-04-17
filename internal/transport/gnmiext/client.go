@@ -334,6 +334,18 @@ func (c *client) Marshal(v any) (b []byte, err error) {
 // zeroUnknownFields sets struct fields to their zero value
 // if they are not present in the provided JSON byte slice.
 func zeroUnknownFields(b []byte, rv reflect.Value) {
+	// IsNil is only valid for pointer, map, slice, chan, func, and interface kinds.
+	switch rv.Kind() {
+	case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Chan, reflect.Func, reflect.Interface:
+		if rv.IsNil() {
+			return
+		}
+	default:
+	}
+	if len(b) == 0 && !rv.IsZero() && rv.CanSet() {
+		rv.Set(reflect.Zero(rv.Type()))
+		return
+	}
 	switch rv.Kind() {
 	case reflect.Pointer:
 		zeroUnknownFields(b, rv.Elem())
@@ -343,18 +355,13 @@ func zeroUnknownFields(b []byte, rv reflect.Value) {
 			if tag, ok := rt.Field(i).Tag.Lookup("json"); ok {
 				parts := strings.Split(tag, ",")
 				if parts[0] != "" && parts[0] != "-" {
-					sf := rv.Field(i)
 					raw := gjson.GetBytes(b, parts[0]).Raw
-					if raw != "" {
-						zeroUnknownFields([]byte(raw), sf)
-						continue
-					}
-					if !sf.IsZero() && sf.CanSet() {
-						sf.Set(reflect.Zero(sf.Type()))
-					}
+					zeroUnknownFields([]byte(raw), rv.Field(i))
 				}
 			}
 		}
+	default:
+		return
 	}
 }
 
