@@ -23,6 +23,7 @@ type ManagementAccessConfigSpec struct {
 	SSH SSH `json:"ssh,omitzero"`
 }
 
+// Console defines the configuration for the terminal console access on the device.
 type Console struct {
 	// Timeout defines the inactivity timeout for console sessions.
 	// If a session is inactive for the specified duration, it will be automatically disconnected.

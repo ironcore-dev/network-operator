@@ -3386,7 +3386,7 @@ _Appears in:_
 
 
 
-
+Console defines the configuration for the terminal console access on the device.
 
 
 
@@ -3711,7 +3711,8 @@ _Appears in:_
 
 
 
-
+StormControl defines the storm control configuration for the border gateway, allowing to rate-limit
+BUM (Broadcast, Unknown unicast, Multicast) traffic on the border gateway interface.
 
 
 

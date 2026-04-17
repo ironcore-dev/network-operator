@@ -195,6 +195,9 @@ spec:
                   StormControl is the storm control configuration for the border gateway, allowing to rate-limit
                   BUM (Broadcast, Unknown unicast, Multicast) traffic on the border gateway interface.
                 items:
+                  description: |-
+                    StormControl defines the storm control configuration for the border gateway, allowing to rate-limit
+                    BUM (Broadcast, Unknown unicast, Multicast) traffic on the border gateway interface.
                   properties:
                     level:
                       description: |-

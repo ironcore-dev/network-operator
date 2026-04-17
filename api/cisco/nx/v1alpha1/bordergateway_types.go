@@ -118,6 +118,8 @@ const (
 	BGPPeerTypeFabricBorderLeaf BGPPeerType = "FabricBorderLeaf"
 )
 
+// StormControl defines the storm control configuration for the border gateway, allowing to rate-limit
+// BUM (Broadcast, Unknown unicast, Multicast) traffic on the border gateway interface.
 type StormControl struct {
 	// Level is the suppression level as a percentage of the interface bandwidth.
 	// Must be a floating point number between 1.0 and 100.0.
