@@ -30,7 +30,7 @@ func TestUri(t *testing.T) {
 		},
 		{
 			desc:      "with TLS uses https",
-			conn:      &deviceutil.Connection{Address: "10.0.0.1:443", TLS: &tls.Config{}},
+			conn:      &deviceutil.Connection{Address: "10.0.0.1:443", TLS: &tls.Config{MinVersion: tls.VersionTLS12}},
 			wantProto: "https",
 		},
 	}
