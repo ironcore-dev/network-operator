@@ -163,6 +163,7 @@ var Endpoint = struct {
 
 // ReadEnv reads required environment variables and populates the global Endpoint struct.
 func ReadEnv(t *testing.T) {
+	t.Helper()
 	Endpoint.Addr = MustGetEnv(t, "ADDR")
 	Endpoint.User = MustGetEnv(t, "USER")
 	Endpoint.Pass = MustGetEnv(t, "PASS")
