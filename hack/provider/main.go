@@ -63,7 +63,7 @@ type refStoreReader struct {
 	store ReferenceStore
 }
 
-func (r *refStoreReader) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+func (r *refStoreReader) Get(_ context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
 	o := r.store.Get(key.Name, key.Namespace)
 	if o == nil {
 		return fmt.Errorf("resource %s/%s not found in reference files", key.Namespace, key.Name)
@@ -80,7 +80,7 @@ func (r *refStoreReader) Get(ctx context.Context, key client.ObjectKey, obj clie
 	return nil
 }
 
-func (r *refStoreReader) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+func (r *refStoreReader) List(_ context.Context, _ client.ObjectList, _ ...client.ListOption) error {
 	return errors.New("List operation not supported by refStoreReader")
 }
 
