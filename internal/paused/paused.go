@@ -62,7 +62,7 @@ func EnsureCondition(ctx context.Context, c client.Client, device *v1alpha1.Devi
 		return isPaused, false, nil
 	}
 
-	if err = c.Status().Patch(ctx, obj, client.MergeFrom(orig)); err != nil {
+	if err := c.Status().Patch(ctx, obj, client.MergeFrom(orig)); err != nil {
 		return isPaused, false, err
 	}
 
