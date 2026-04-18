@@ -4,18 +4,19 @@
 package tftpserver
 
 import (
-	"context"
+	"bytes"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	tftp "github.com/pin/tftp/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	corev1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 )
 
 func TestParseSerial(t *testing.T) {
@@ -27,135 +28,179 @@ func TestParseSerial(t *testing.T) {
 		{name: "strip serial prefix and extension", in: "serial-test-123.boot", want: "test-123"},
 		{name: "no prefix with extension", in: "test-123.boot", want: "test-123"},
 		{name: "keep first segment before dot", in: "serial-test-123.boot.cfg", want: "test-123"},
-		{name: "trim spaces", in: "  serial-test-123.boot  ", want: "serial-test-123"},
+		{name: "trim spaces", in: "  serial-test-123.boot  ", want: "test-123"},
 		{name: "empty", in: "", want: ""},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, parseSerial(tt.in))
-		})
-	}
-}
-
-func TestEndpointIP(t *testing.T) {
-	tests := []struct {
-		name string
-		in   string
-		want string
-	}{
-		{name: "ip and port", in: "10.0.0.8:22", want: "10.0.0.8"},
-		{name: "ip only", in: "10.0.0.8", want: "10.0.0.8"},
-		{name: "empty", in: "", want: ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, endpointIP(tt.in))
-		})
-	}
-}
-
-func TestLookupBySerial(t *testing.T) {
-	sch := runtime.NewScheme()
-	require.NoError(t, clientgoscheme.AddToScheme(sch))
-	require.NoError(t, corev1.AddToScheme(sch))
-
-	dev := &corev1.Device{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "device-1",
-			Namespace: "default",
-			Labels: map[string]string{
-				corev1.DeviceSerialLabel: "SER-001",
-			},
-		},
-		Spec: corev1.DeviceSpec{Endpoint: corev1.Endpoint{Address: "10.0.0.10:22"}},
-	}
-
-	cl := fake.NewClientBuilder().WithScheme(sch).WithObjects(dev).Build()
-	srv := &Server{reader: cl}
-
-	t.Run("found", func(t *testing.T) {
-		got, err := srv.lookupBySerial(context.Background(), "SER-001")
-		require.NoError(t, err)
-		require.NotNil(t, got)
-		assert.Equal(t, "device-1", got.Name)
-	})
-
-	t.Run("not found", func(t *testing.T) {
-		got, err := srv.lookupBySerial(context.Background(), "SER-404")
-		require.NoError(t, err)
-		assert.Nil(t, got)
-	})
-}
-
-func TestLookupByIP(t *testing.T) {
-	sch := runtime.NewScheme()
-	require.NoError(t, clientgoscheme.AddToScheme(sch))
-	require.NoError(t, corev1.AddToScheme(sch))
-
-	dev := &corev1.Device{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "device-1",
-			Namespace: "default",
-		},
-		Spec: corev1.DeviceSpec{Endpoint: corev1.Endpoint{Address: "10.0.0.10:22"}},
-	}
-
-	cl := fake.NewClientBuilder().
-		WithScheme(sch).
-		WithObjects(dev).
-		WithIndex(&corev1.Device{}, deviceEndpointIPField, func(obj client.Object) []string {
-			d, ok := obj.(*corev1.Device)
-			if !ok {
-				return nil
+			if got := parseSerial(tt.in); got != tt.want {
+				t.Errorf("parseSerial(%q) = %q, want %q", tt.in, got, tt.want)
 			}
-			return []string{endpointIP(d.Spec.Endpoint.Address)}
-		}).
-		Build()
-
-	srv := &Server{reader: cl}
-
-	t.Run("found", func(t *testing.T) {
-		got, err := srv.lookupByIP(context.Background(), "10.0.0.10")
-		require.NoError(t, err)
-		require.NotNil(t, got)
-		assert.Equal(t, "device-1", got.Name)
-	})
-
-	t.Run("not found", func(t *testing.T) {
-		got, err := srv.lookupByIP(context.Background(), "10.0.0.99")
-		require.NoError(t, err)
-		assert.Nil(t, got)
-	})
+		})
+	}
 }
 
-func TestResolveBootScript(t *testing.T) {
-	sch := runtime.NewScheme()
-	require.NoError(t, clientgoscheme.AddToScheme(sch))
-	require.NoError(t, corev1.AddToScheme(sch))
+func TestServer(t *testing.T) {
+	tests := []struct {
+		name           string
+		device         *v1alpha1.Device
+		filename       string
+		validateSource bool
+		wantErr        bool
+		wantContent    string
+	}{
+		{
+			name: "serve bootscript by serial",
+			device: &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-device",
+					Namespace: metav1.NamespaceDefault,
+					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "test-serial-001"},
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint:     v1alpha1.Endpoint{Address: "127.0.0.1:9339"},
+					Provisioning: &v1alpha1.Provisioning{BootScript: v1alpha1.TemplateSource{Inline: new("#!/bin/sh\necho hello")}},
+				},
+			},
+			filename:    "serial-test-serial-001.cfg",
+			wantContent: "#!/bin/sh\necho hello",
+		},
+		{
+			name: "unknown serial returns error",
+			device: &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-device",
+					Namespace: metav1.NamespaceDefault,
+					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "test-serial-001"},
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint:     v1alpha1.Endpoint{Address: "127.0.0.1:9339"},
+					Provisioning: &v1alpha1.Provisioning{BootScript: v1alpha1.TemplateSource{Inline: new("#!/bin/sh\necho hello")}},
+				},
+			},
+			filename: "serial-unknown.cfg",
+			wantErr:  true,
+		},
+		{
+			name: "empty bootscript returns error",
+			device: &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "no-script-device",
+					Namespace: metav1.NamespaceDefault,
+					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "test-serial-001"},
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{Address: "127.0.0.1:9339"},
+				},
+			},
+			filename: "serial-test-serial-001.cfg",
+			wantErr:  true,
+		},
+		{
+			name: "verify mode: matching IP and serial passes",
+			device: &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-device",
+					Namespace: metav1.NamespaceDefault,
+					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "test-serial-001"},
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint:     v1alpha1.Endpoint{Address: "127.0.0.1:9339"},
+					Provisioning: &v1alpha1.Provisioning{BootScript: v1alpha1.TemplateSource{Inline: new("#!/bin/sh\necho hello")}},
+				},
+				Status: v1alpha1.DeviceStatus{SerialNumber: "test-serial-001"},
+			},
+			filename:       "serial-test-serial-001.cfg",
+			validateSource: true,
+			wantContent:    "#!/bin/sh\necho hello",
+		},
+		{
+			name: "verify mode: IP mismatch rejected",
+			device: &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-device",
+					Namespace: metav1.NamespaceDefault,
+					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "test-serial-001"},
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint:     v1alpha1.Endpoint{Address: "10.0.0.99:9339"},
+					Provisioning: &v1alpha1.Provisioning{BootScript: v1alpha1.TemplateSource{Inline: new("#!/bin/sh\necho hello")}},
+				},
+				Status: v1alpha1.DeviceStatus{SerialNumber: "test-serial-001"},
+			},
+			filename:       "serial-test-serial-001.cfg",
+			validateSource: true,
+			wantErr:        true,
+		},
+		{
+			name: "verify mode: serial mismatch rejected",
+			device: &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-device",
+					Namespace: metav1.NamespaceDefault,
+					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "test-serial-001"},
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint:     v1alpha1.Endpoint{Address: "127.0.0.1:9339"},
+					Provisioning: &v1alpha1.Provisioning{BootScript: v1alpha1.TemplateSource{Inline: new("#!/bin/sh\necho hello")}},
+				},
+				Status: v1alpha1.DeviceStatus{SerialNumber: "test-serial-001"},
+			},
+			filename:       "serial-different-serial.cfg",
+			validateSource: true,
+			wantErr:        true,
+		},
+	}
 
-	cl := fake.NewClientBuilder().WithScheme(sch).Build()
-	ctx := context.Background()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fc := fake.NewClientBuilder().
+				WithScheme(scheme.Scheme).
+				WithObjects(tt.device).
+				WithIndex(&v1alpha1.Device{}, deviceutil.DeviceEndpointIPField, func(o client.Object) []string {
+					return []string{o.(*v1alpha1.Device).EndpointIP()}
+				}).
+				Build()
 
-	t.Run("nil provisioning returns nil", func(t *testing.T) {
-		got := resolveBootScript(ctx, cl, "default", nil)
-		assert.Nil(t, got)
-	})
+			srv := &Server{
+				Client:         fc,
+				Logger:         klog.NewKlogr(),
+				ValidateSource: tt.validateSource,
+				Port:           16900,
+			}
+			go func() {
+				if err := srv.Start(t.Context()); err != nil {
+					t.Errorf("start server: %v", err)
+				}
+			}()
 
-	t.Run("inline bootscript", func(t *testing.T) {
-		inline := "#!/bin/sh\necho hello"
-		p := &corev1.Provisioning{BootScript: corev1.TemplateSource{Inline: &inline}}
+			tc, err := tftp.NewClient("127.0.0.1:16900")
+			if err != nil {
+				t.Fatalf("create TFTP client: %v", err)
+			}
 
-		got := resolveBootScript(ctx, cl, "default", p)
-		require.NotNil(t, got)
-		assert.Equal(t, inline, string(got))
-	})
+			wt, err := tc.Receive(tt.filename, "octet")
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			var buf bytes.Buffer
+			if _, err = wt.WriteTo(&buf); err != nil {
+				t.Fatalf("WriteTo: %v", err)
+			}
+			if got := buf.String(); got != tt.wantContent {
+				t.Errorf("content = %q, want %q", got, tt.wantContent)
+			}
+		})
+	}
+}
 
-	t.Run("missing template source returns nil", func(t *testing.T) {
-		p := &corev1.Provisioning{BootScript: corev1.TemplateSource{}}
-
-		got := resolveBootScript(ctx, cl, "default", p)
-		assert.Nil(t, got)
-	})
+func init() {
+	utilruntime.Must(v1alpha1.AddToScheme(scheme.Scheme))
 }

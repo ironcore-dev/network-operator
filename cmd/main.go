@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
@@ -86,7 +85,7 @@ func main() {
 	var requeueInterval time.Duration
 	var heartbeatInterval time.Duration
 	var tftpPort int
-	var tftpValidateSourceIP bool
+	var tftpValidateSource bool
 	var maxConcurrentReconciles int
 	var lockerNamespace string
 	var lockerDuration time.Duration
@@ -110,7 +109,7 @@ func main() {
 	flag.DurationVar(&requeueInterval, "requeue-interval", time.Hour, "The interval after which Kubernetes resources should be reconciled again regardless of whether they have changed.")
 	flag.DurationVar(&heartbeatInterval, "heartbeat-interval", 30*time.Second, "The interval after which the controller retries a reachability check on each device.")
 	flag.IntVar(&tftpPort, "tftp-port", 1069, "The port on which the inline TFTP server listens. Set to 0 to disable the TFTP server.")
-	flag.BoolVar(&tftpValidateSourceIP, "tftp-validate-source-ip", false, "If set, the TFTP server validates the source IP and requested serial-based filename against the same Device.")
+	flag.BoolVar(&tftpValidateSource, "tftp-validate-source", false, "If set, the TFTP server validates the source IP and requested serial-based filename against the same Device.")
 	flag.IntVar(&maxConcurrentReconciles, "max-concurrent-reconciles", 1, "The maximum number of concurrent reconciles per controller. Defaults to 1.")
 	flag.StringVar(&lockerNamespace, "locker-namespace", "", "The namespace to use for resource locker coordination. If not specified, uses the namespace the manager is deployed in, or 'default' if undetectable.")
 	flag.DurationVar(&lockerDuration, "locker-duration", 5*time.Second, "The duration of the resource locker lease.")
@@ -673,7 +672,7 @@ func main() {
 	if provisioningHTTPPort != 0 && ok {
 		provisioningServer := &provisioning.HTTPServer{
 			Client:           mgr.GetClient(),
-			Logger:           klog.NewKlogr().WithName("provisioning"),
+			Logger:           ctrl.Log.WithName("provisioning"),
 			Recorder:         mgr.GetEventRecorder("provisioning"),
 			ValidateSourceIP: provisioningHTTPValidateSourceIP,
 			Provider:         provisioningProvider,
@@ -688,14 +687,13 @@ func main() {
 
 	// Start inline TFTP server when the configured port is non-zero.
 	if tftpPort != 0 {
-		tftpAddr := fmt.Sprintf(":%d", tftpPort)
-		srv, err := tftpserver.New(ctx, tftpAddr, tftpValidateSourceIP, mgr, klog.NewKlogr().WithName("tftp"))
-		if err != nil {
-			setupLog.Error(err, "unable to initialize TFTP server")
-			os.Exit(1)
+		srv := &tftpserver.Server{
+			Client:         mgr.GetClient(),
+			Logger:         ctrl.Log.WithName("provisioning"),
+			ValidateSource: tftpValidateSource,
+			Port:           tftpPort,
 		}
-
-		setupLog.Info("Adding inline TFTP server to manager", "address", tftpAddr, "validateSourceIP", tftpValidateSourceIP)
+		setupLog.Info("Adding inline TFTP server to manager", "port", tftpPort, "validateSource", tftpValidateSource)
 		if err := mgr.Add(srv); err != nil {
 			setupLog.Error(err, "unable to add TFTP server to manager")
 			os.Exit(1)
