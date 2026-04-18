@@ -235,14 +235,17 @@ func (r *NetworkVirtualizationEdgeReconciler) reconcile(ctx context.Context, s *
 		return err
 	}
 
-	sourceIf, err := r.validateInterfaceRef(ctx, &s.NVE.Spec.SourceInterfaceRef, s)
+	sourceIf, err := r.reconcileInterfaceRef(ctx, &s.NVE.Spec.SourceInterfaceRef, s)
 	if err != nil {
 		return err
 	}
 
-	anycastIf, err := r.validateInterfaceRef(ctx, s.NVE.Spec.AnycastSourceInterfaceRef, s)
-	if err != nil {
-		return err
+	var anycastIf *v1alpha1.Interface
+	if s.NVE.Spec.AnycastSourceInterfaceRef != nil {
+		anycastIf, err = r.reconcileInterfaceRef(ctx, s.NVE.Spec.AnycastSourceInterfaceRef, s)
+		if err != nil {
+			return err
+		}
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
@@ -317,11 +320,8 @@ func (r *NetworkVirtualizationEdgeReconciler) validateUniqueNVEPerDevice(ctx con
 	return nil
 }
 
-// validateInterfaceRef checks that the referenced interface exists, is of type Loopback, and belongs to the same device as the NVE.
-func (r *NetworkVirtualizationEdgeReconciler) validateInterfaceRef(ctx context.Context, interfaceRef *v1alpha1.LocalObjectReference, s *nveScope) (*v1alpha1.Interface, error) {
-	if interfaceRef == nil {
-		return nil, nil
-	}
+// reconcileInterfaceRef checks that the referenced interface exists, is of type Loopback, and belongs to the same device as the NVE.
+func (r *NetworkVirtualizationEdgeReconciler) reconcileInterfaceRef(ctx context.Context, interfaceRef *v1alpha1.LocalObjectReference, s *nveScope) (*v1alpha1.Interface, error) {
 	intf := new(v1alpha1.Interface)
 	intf.Name = interfaceRef.Name
 	intf.Namespace = s.NVE.Namespace

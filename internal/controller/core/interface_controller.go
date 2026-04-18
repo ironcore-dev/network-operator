@@ -497,7 +497,7 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (reterr e
 	}
 
 	var ip provider.IPv4
-	if s.Interface.Spec.IPv4 != nil {
+	if s.Interface.Spec.IPv4 != nil && (len(s.Interface.Spec.IPv4.Addresses) > 0 || s.Interface.Spec.IPv4.Unnumbered != nil) {
 		var err error
 		ip, err = r.reconcileIPv4(ctx, s)
 		if err != nil {
@@ -610,9 +610,9 @@ func (r *InterfaceReconciler) reconcileIPv4(ctx context.Context, s *scope) (prov
 		}
 
 		return provider.IPv4Unnumbered{SourceInterface: intf.Spec.Name}, nil
+	default:
+		panic("unreachable")
 	}
-
-	return nil, nil
 }
 
 // reconcileVLAN ensures that the referenced VLAN exists, belongs to the same device as the RoutedVLAN interface.

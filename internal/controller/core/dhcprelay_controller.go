@@ -242,9 +242,12 @@ func (r *DHCPRelayReconciler) reconcile(ctx context.Context, s *dhcprelayScope) 
 		return err
 	}
 
-	vrf, err := r.reconcileVRFRef(ctx, s)
-	if err != nil {
-		return err
+	var vrf *v1alpha1.VRF
+	if s.DHCPRelay.Spec.VrfRef != nil {
+		vrf, err = r.reconcileVRFRef(ctx, s)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Connect to remote device using the provider.
@@ -503,9 +506,6 @@ func (r *DHCPRelayReconciler) reconcileInterfaceRef(ctx context.Context, interfa
 }
 
 func (r *DHCPRelayReconciler) reconcileVRFRef(ctx context.Context, s *dhcprelayScope) (*v1alpha1.VRF, error) {
-	if s.DHCPRelay.Spec.VrfRef == nil {
-		return nil, nil
-	}
 	vrf := new(v1alpha1.VRF)
 	if err := r.Get(ctx, types.NamespacedName{
 		Name:      s.DHCPRelay.Spec.VrfRef.Name,
