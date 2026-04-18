@@ -150,7 +150,7 @@ var _ = BeforeSuite(func() {
 
 	Eventually(func() error {
 		var namespace corev1.Namespace
-		return k8sClient.Get(context.Background(), client.ObjectKey{Name: metav1.NamespaceDefault}, &namespace)
+		return k8sClient.Get(ctx, client.ObjectKey{Name: metav1.NamespaceDefault}, &namespace)
 	}).Should(Succeed())
 })
 

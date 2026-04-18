@@ -133,7 +133,7 @@ func TestGetClientIP(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test", http.NoBody)
 			tt.setupRequest(req)
 
 			ip, err := getClientIP(req)
@@ -179,7 +179,7 @@ func TestGetBearerToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test", http.NoBody)
 			if tt.authorization != "" {
 				req.Header.Set("Authorization", tt.authorization)
 			}
@@ -345,7 +345,7 @@ func TestHandleStatusReport(t *testing.T) {
 				url += "?serial=" + tt.serial
 			}
 
-			req := httptest.NewRequest(tt.method, url, body)
+			req := httptest.NewRequestWithContext(t.Context(), tt.method, url, body)
 			if tt.authorization != "" {
 				req.Header.Set("Authorization", tt.authorization)
 			}
@@ -372,7 +372,7 @@ func TestHandleStatusReport(t *testing.T) {
 
 			if tt.validateDevice != nil {
 				var device v1alpha1.Device
-				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: tt.device.Name, Namespace: tt.device.Namespace}, &device)
+				err := k8sClient.Get(t.Context(), types.NamespacedName{Name: tt.device.Name, Namespace: tt.device.Namespace}, &device)
 				require.NoError(t, err)
 				tt.validateDevice(t, &device)
 			}
@@ -484,7 +484,7 @@ func TestHandleProvisioningRequest(t *testing.T) {
 				url += "?serial=" + tt.serial
 			}
 
-			req := httptest.NewRequest(http.MethodGet, url, http.NoBody)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, url, http.NoBody)
 			if tt.remoteAddr != "" {
 				req.RemoteAddr = tt.remoteAddr
 			}
@@ -848,7 +848,7 @@ func TestGetDeviceCertificate(t *testing.T) {
 				url += "?serial=" + tt.serial
 			}
 
-			req := httptest.NewRequest(tt.method, url, http.NoBody)
+			req := httptest.NewRequestWithContext(t.Context(), tt.method, url, http.NoBody)
 			if tt.authorization != "" {
 				req.Header.Set("Authorization", tt.authorization)
 			}
@@ -1111,7 +1111,7 @@ func TestGetMTLSClientCA(t *testing.T) {
 				url += "?serial=" + tt.serial
 			}
 
-			req := httptest.NewRequest(tt.method, url, http.NoBody)
+			req := httptest.NewRequestWithContext(t.Context(), tt.method, url, http.NoBody)
 			if tt.authorization != "" {
 				req.Header.Set("Authorization", tt.authorization)
 			}

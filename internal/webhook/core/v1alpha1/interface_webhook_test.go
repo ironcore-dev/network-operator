@@ -4,7 +4,6 @@
 package v1alpha1
 
 import (
-	"context"
 	"net/netip"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -51,7 +50,7 @@ var _ = Describe("Interface Webhook", func() {
 					{Prefix: netip.MustParsePrefix("10.0.1.1/32")},
 				},
 			}
-			_, err := validator.ValidateCreate(context.Background(), obj)
+			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -61,7 +60,7 @@ var _ = Describe("Interface Webhook", func() {
 					{Prefix: netip.MustParsePrefix("2001:db8::1/128")},
 				},
 			}
-			_, err := validator.ValidateCreate(context.Background(), obj)
+			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("invalid IPv4 address"))
 			Expect(err.Error()).To(ContainSubstring("address is IPv6"))
@@ -74,7 +73,7 @@ var _ = Describe("Interface Webhook", func() {
 					{Prefix: netip.MustParsePrefix("10.0.0.128/25")},
 				},
 			}
-			_, err := validator.ValidateCreate(context.Background(), obj)
+			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("overlaps with"))
 		})
@@ -86,7 +85,7 @@ var _ = Describe("Interface Webhook", func() {
 					{Prefix: netip.MustParsePrefix("10.0.0.128/25")},
 				},
 			}
-			_, err := validator.ValidateUpdate(context.Background(), oldObj, obj)
+			_, err := validator.ValidateUpdate(ctx, oldObj, obj)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("overlaps with"))
 		})
@@ -96,7 +95,7 @@ var _ = Describe("Interface Webhook", func() {
 			obj.Labels = map[string]string{
 				v1alpha1.PhysicalInterfaceNeighborLabel: "peer-interface",
 			}
-			_, err := validator.ValidateCreate(context.Background(), obj)
+			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -105,7 +104,7 @@ var _ = Describe("Interface Webhook", func() {
 			obj.Labels = map[string]string{
 				v1alpha1.PhysicalInterfaceNeighborLabel: "peer-interface",
 			}
-			_, err := validator.ValidateCreate(context.Background(), obj)
+			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -114,7 +113,7 @@ var _ = Describe("Interface Webhook", func() {
 			obj.Labels = map[string]string{
 				v1alpha1.PhysicalInterfaceNeighborLabel: "peer-interface",
 			}
-			_, err := validator.ValidateCreate(context.Background(), obj)
+			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -123,7 +122,7 @@ var _ = Describe("Interface Webhook", func() {
 			obj.Labels = map[string]string{
 				v1alpha1.PhysicalInterfaceNeighborLabel: "peer-interface",
 			}
-			_, err := validator.ValidateCreate(context.Background(), obj)
+			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -132,7 +131,7 @@ var _ = Describe("Interface Webhook", func() {
 			obj.Annotations = map[string]string{
 				v1alpha1.PhysicalInterfaceNeighborRawAnnotation: "spine-switch-01::Ethernet48",
 			}
-			_, err := validator.ValidateCreate(context.Background(), obj)
+			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -141,7 +140,7 @@ var _ = Describe("Interface Webhook", func() {
 			obj.Annotations = map[string]string{
 				v1alpha1.PhysicalInterfaceNeighborRawAnnotation: "spine-switch-01::Ethernet48",
 			}
-			_, err := validator.ValidateCreate(context.Background(), obj)
+			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -150,7 +149,7 @@ var _ = Describe("Interface Webhook", func() {
 			obj.Annotations = map[string]string{
 				v1alpha1.PhysicalInterfaceNeighborRawAnnotation: "spine-switch-01::Ethernet48",
 			}
-			_, err := validator.ValidateCreate(context.Background(), obj)
+			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -162,7 +161,7 @@ var _ = Describe("Interface Webhook", func() {
 			obj.Annotations = map[string]string{
 				v1alpha1.PhysicalInterfaceNeighborRawAnnotation: "spine-switch-01::Ethernet48",
 			}
-			_, err := validator.ValidateCreate(context.Background(), obj)
+			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("cannot set both"))
 		})

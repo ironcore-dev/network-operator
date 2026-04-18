@@ -1138,7 +1138,7 @@ func TestClient_Delete(t *testing.T) {
 				gnmi:     gpb.NewGNMIClient(test.conn),
 			}
 
-			err := client.Delete(context.Background(), test.deletes...)
+			err := client.Delete(t.Context(), test.deletes...)
 			if (err != nil) != test.wantErr {
 				t.Errorf("Delete() error = %v, wantErr %v", err, test.wantErr)
 			}

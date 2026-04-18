@@ -4,7 +4,6 @@ package main_test
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -244,7 +243,7 @@ func Create(t *testing.T, obj client.Object) {
 	}
 	t.Logf("created %T %s/%s", obj, obj.GetNamespace(), obj.GetName())
 	t.Cleanup(func() {
-		if err := k8sClient.Delete(context.Background(), obj); err != nil {
+		if err := k8sClient.Delete(t.Context(), obj); err != nil {
 			t.Fatalf("failed to delete %T: %v", obj, err)
 		}
 		t.Logf("deleted %T %s/%s", obj, obj.GetNamespace(), obj.GetName())

@@ -148,7 +148,7 @@ func Test_EnsureInterface(t *testing.T) {
 	m := &MockClient{}
 	p := &Provider{client: m}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	name := "TwentyFiveGigE0/0/0/14"
 	var prefix netip.Prefix
@@ -198,8 +198,7 @@ func Test_GetState(t *testing.T) {
 		conn:   nil,
 	}
 
-	ctx := context.Background()
-
+	ctx := t.Context()
 	name := "TwentyFiveGigE0/0/0/14"
 
 	req := &provider.InterfaceRequest{
