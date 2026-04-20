@@ -2164,7 +2164,7 @@ func (p *Provider) EnsureSyslog(ctx context.Context, req *provider.EnsureSyslogR
 	origin := new(SyslogOrigin)
 	addr, err := netip.ParseAddr(cfg.OriginID)
 	switch {
-	case strings.ToLower(cfg.OriginID) == "hostname":
+	case strings.EqualFold(cfg.OriginID, "hostname"):
 		origin.Idtype = "hostname"
 	case err == nil && addr.IsValid():
 		origin.Idtype = "ip"

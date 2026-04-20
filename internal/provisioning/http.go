@@ -59,7 +59,7 @@ func getBearerToken(r *http.Request) (string, error) {
 	}
 
 	parts := strings.Split(authHeader, " ")
-	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
 		return "", errInvalidAuthorizationFormat
 	}
 
