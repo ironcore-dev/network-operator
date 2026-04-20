@@ -230,7 +230,7 @@ func (s *HTTPServer) HandleStatusReport(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-type ProvisioningResponse struct {
+type Response struct {
 	ProvisioningToken string         `json:"provisioningToken"`
 	Image             v1alpha1.Image `json:"image"`
 	UserAccounts      []UserAccount  `json:"userAccounts"`
@@ -319,7 +319,7 @@ func (s *HTTPServer) HandleProvisioningRequest(w http.ResponseWriter, r *http.Re
 		HashAlgorithm:  hashAlgorithm,
 	}
 
-	response := ProvisioningResponse{
+	response := Response{
 		ProvisioningToken: act.Token,
 		Image:             device.Spec.Provisioning.Image,
 		UserAccounts:      []UserAccount{ua},

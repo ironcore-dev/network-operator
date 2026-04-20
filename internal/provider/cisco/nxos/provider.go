@@ -1523,7 +1523,7 @@ func (p *Provider) DeleteNTP(ctx context.Context) error {
 	return p.client.Delete(ctx, n, f)
 }
 
-type NXOSPF struct {
+type OSPFConfig struct {
 	// PropagateDefaultRoute is equivalent to the CLI command `default-information originate`
 	PropagateDefaultRoute *bool
 	// RedistributionConfigs is a list of redistribution configurations for the OSPF process.
@@ -1547,7 +1547,7 @@ type RedistributionConfig struct {
 }
 
 func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFRequest) error {
-	var cfg NXOSPF
+	var cfg OSPFConfig
 	if req.ProviderConfig != nil {
 		if err := req.ProviderConfig.Into(&cfg); err != nil {
 			return err

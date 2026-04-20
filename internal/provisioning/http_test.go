@@ -390,7 +390,7 @@ func TestHandleProvisioningRequest(t *testing.T) {
 		validateSourceIP bool
 		expectedStatus   int
 		expectedBody     string
-		validateResponse func(*testing.T, *ProvisioningResponse)
+		validateResponse func(*testing.T, *Response)
 	}{
 		{
 			name:           "reject requests without serial parameter",
@@ -465,7 +465,7 @@ func TestHandleProvisioningRequest(t *testing.T) {
 			secret:           testSecret.DeepCopy(),
 			validateSourceIP: true,
 			expectedStatus:   http.StatusOK,
-			validateResponse: func(t *testing.T, res *ProvisioningResponse) {
+			validateResponse: func(t *testing.T, res *Response) {
 				assert.Equal(t, "validtoken", res.ProvisioningToken)
 				assert.Equal(t, "http://example.com/image.bin", res.Image.URL)
 				assert.Equal(t, "test-device", res.Hostname)
@@ -515,7 +515,7 @@ func TestHandleProvisioningRequest(t *testing.T) {
 
 			if tt.validateResponse != nil {
 				assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
-				var res ProvisioningResponse
+				var res Response
 				err := json.Unmarshal(rr.Body.Bytes(), &res)
 				require.NoError(t, err)
 				tt.validateResponse(t, &res)
