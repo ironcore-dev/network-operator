@@ -22,7 +22,7 @@ if [ "$("${CONTAINER_TOOL}" inspect -f '{{.State.Running}}' "${REGISTRY_NAME}" 2
   "${CONTAINER_TOOL}" run -d --restart=always -p "127.0.0.1:${REGISTRY_PORT}:5000" --network bridge --name "${REGISTRY_NAME}" registry:3
 fi
 
-# 2. Create kind cluster
+# 2. Create kind cluster with registry config
 cat <<EOF | kind create cluster --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
@@ -31,6 +31,10 @@ nodes:
 - role: control-plane
   labels:
     topology.kubernetes.io/zone: eu-de-1a
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry]
+    config_path = "/etc/containerd/certs.d"
 EOF
 
 # 3. Add the registry config to the nodes
