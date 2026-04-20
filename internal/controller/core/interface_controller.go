@@ -215,6 +215,7 @@ const (
 	interfaceUnnumberedRefKey = ".spec.ipv4.unnumbered.interfaceRef.name"
 	interfaceVlanRefKey       = ".spec.vlanRef.name"
 	interfaceVrfRefKey        = ".spec.vrfRef.name"
+	interfaceParentRefKey     = ".spec.parentInterfaceRef.name"
 )
 
 // SetupWithManager sets up the controller with the Manager.
@@ -277,6 +278,16 @@ func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 		return err
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.Interface{}, interfaceParentRefKey, func(obj client.Object) []string {
+		intf := obj.(*v1alpha1.Interface)
+		if intf.Spec.ParentInterfaceRef == nil {
+			return nil
+		}
+		return []string{intf.Spec.ParentInterfaceRef.Name}
+	}); err != nil {
+		return err
+	}
+
 	bldr := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Interface{}).
 		Named("interface").
@@ -299,6 +310,19 @@ func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 		Watches(
 			&v1alpha1.Interface{},
 			handler.EnqueueRequestsFromMapFunc(r.interfaceToUnnumbered),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
+		// Watches enqueues subinterfaces when their parent interface changes.
+		Watches(
+			&v1alpha1.Interface{},
+			handler.EnqueueRequestsFromMapFunc(r.parentToSubinterfaces),
 			builder.WithPredicates(predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					return false
@@ -409,8 +433,9 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (reterr e
 
 	s.Interface.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
-	// Ensure the Interface is owned by the Device.
-	if !controllerutil.HasControllerReference(s.Interface) {
+	// Ensure the Interface (except subinterfaces) is owned by the Device.
+	// Subinterfaces have their parent interface as owner, and the parent interface is owned by the Device.
+	if !controllerutil.HasControllerReference(s.Interface) && s.Interface.Spec.Type != v1alpha1.InterfaceTypeSubinterface {
 		if err := controllerutil.SetOwnerReference(s.Device, s.Interface, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
@@ -438,6 +463,13 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (reterr e
 				return fmt.Errorf("failed to get aggregate parent %q: %w", s.Interface.Status.MemberOf.Name, err)
 			}
 			aggregateParent = nil
+		}
+	}
+
+	if s.Interface.Spec.Type == v1alpha1.InterfaceTypeSubinterface {
+		err := r.reconcileSubinterfaces(ctx, s)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -763,6 +795,79 @@ func (r *InterfaceReconciler) reconcileMemberInterfaces(ctx context.Context, s *
 	return members, nil
 }
 
+// reconcileSubinterfaces ensures that the parent interfaces exist and belong to the same device as the subinterface.
+// It also updates the subinterfaces owner reference to the parent interface
+func (r *InterfaceReconciler) reconcileSubinterfaces(ctx context.Context, s *scope) error {
+	parentIntf := new(v1alpha1.Interface)
+
+	key := client.ObjectKey{Name: s.Interface.Spec.ParentInterfaceRef.Name, Namespace: s.Interface.Namespace}
+	if err := r.Get(ctx, key, parentIntf); err != nil {
+		if apierrors.IsNotFound(err) {
+			conditions.Set(s.Interface, metav1.Condition{
+				Type:    v1alpha1.ConfiguredCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.ParentInterfaceNotFoundReason,
+				Message: fmt.Sprintf("referenced parent interface %q for not found", key),
+			})
+			return reconcile.TerminalError(fmt.Errorf("failed to get parent interface %q: %w", s.Interface.Spec.ParentInterfaceRef.Name, err))
+		}
+		return err
+	}
+
+	// Check matching device reference
+	if parentIntf.Spec.DeviceRef.Name != s.Device.Name {
+		conditions.Set(s.Interface, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.CrossDeviceReferenceReason,
+			Message: fmt.Sprintf("parent interface %q belongs to a different device", key),
+		})
+		return reconcile.TerminalError(fmt.Errorf("parent interface %q belongs to device %q in not ready state", s.Interface.Spec.ParentInterfaceRef.Name, parentIntf.Spec.DeviceRef.Name))
+	}
+
+	// Check if parent interface is an aggregate or physical interface
+	if parentIntf.Spec.Type != v1alpha1.InterfaceTypePhysical && parentIntf.Spec.Type != v1alpha1.InterfaceTypeAggregate {
+		conditions.Set(s.Interface, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.InvalidParentInterfaceTypeReason,
+			Message: fmt.Sprintf("parent interface %q is not of type Physical or Aggregate, got %q", key, parentIntf.Spec.Type),
+		})
+		return reconcile.TerminalError(fmt.Errorf("parent interface %q is not of type Physical or Aggregate, got %q", s.Interface.Spec.ParentInterfaceRef.Name, parentIntf.Spec.Type))
+	}
+
+	// L2 interfaces do not support subinterfaces config
+	if parentIntf.Spec.Switchport != nil {
+		conditions.Set(s.Interface, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.InvalidInterfaceTypeReason,
+			Message: fmt.Sprintf("parent interface %q is an L2 interface", key),
+		})
+		return reconcile.TerminalError(fmt.Errorf("parent interface %q is an L2 interface", s.Interface.Spec.ParentInterfaceRef.Name))
+	}
+
+	// Ensure the Subinterface is owned by the parent interface.
+	if !controllerutil.HasControllerReference(s.Interface) {
+		if err := controllerutil.SetOwnerReference(parentIntf, s.Interface, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
+			return reconcile.TerminalError(err)
+		}
+	}
+
+	// Parent interface must be configured
+	if !conditions.IsConfigured(parentIntf) {
+		conditions.Set(s.Interface, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.ParentInterfaceNotConfiguredReason,
+			Message: fmt.Sprintf("parent interface %q not ready", key),
+		})
+		return reconcile.TerminalError(fmt.Errorf("parent interface %q in not ready state", s.Interface.Spec.ParentInterfaceRef.Name))
+	}
+
+	return nil
+}
+
 func (r *InterfaceReconciler) finalize(ctx context.Context, s *scope) (reterr error) {
 	if s.Interface.Spec.Aggregation != nil {
 		if err := r.finalizeMemberInterfaces(ctx, s); err != nil {
@@ -938,6 +1043,43 @@ func (r *InterfaceReconciler) aggregateToMembers(ctx context.Context, obj client
 				Namespace: intf.Namespace,
 			},
 		})
+	}
+
+	return requests
+}
+
+// parentToSubinterfaces is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for Subinterfaces based on their parent Interface.
+func (r *InterfaceReconciler) parentToSubinterfaces(ctx context.Context, obj client.Object) []ctrl.Request {
+	intf, ok := obj.(*v1alpha1.Interface)
+	if !ok {
+		panic(fmt.Sprintf("Expected a Interface but got a %T", obj))
+	}
+
+	if intf.Spec.Type != v1alpha1.InterfaceTypePhysical && intf.Spec.Type != v1alpha1.InterfaceTypeAggregate {
+		return nil
+	}
+
+	log := ctrl.LoggerFrom(ctx, "Interface", klog.KObj(intf))
+	interfaces := new(v1alpha1.InterfaceList)
+
+	// List all interfaces in the same namespace with a parent interface reference to the physical interface.
+	if err := r.List(ctx, interfaces, client.InNamespace(intf.Namespace), client.MatchingFields{interfaceParentRefKey: intf.Name}); err != nil {
+		log.Error(err, "Failed to list Interfaces")
+		return nil
+	}
+
+	requests := []ctrl.Request{}
+	for _, i := range interfaces.Items {
+		if i.Spec.ParentInterfaceRef != nil && i.Spec.ParentInterfaceRef.Name == intf.Name {
+			log.V(2).Info("Enqueuing SubInterface for reconciliation", "SubInterface", klog.KObj(&i))
+			requests = append(requests, ctrl.Request{
+				NamespacedName: client.ObjectKey{
+					Name:      i.Name,
+					Namespace: i.Namespace,
+				},
+			})
+		}
 	}
 
 	return requests

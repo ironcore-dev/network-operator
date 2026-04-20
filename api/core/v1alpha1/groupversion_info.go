@@ -208,6 +208,15 @@ const (
 
 	// VRFNotFoundReason indicates that a referenced VRF was not found.
 	VRFNotFoundReason = "VRFNotFound"
+
+	// ParentInterfaceNotFoundReason indicates that a referenced parent interface for a subinterface was not found.
+	ParentInterfaceNotFoundReason = "ParentInterfaceNotFound"
+
+	// ParentInterfaceNotConfiguredReason indicates that the parent interface of a subinterface is not configured.
+	ParentInterfaceNotConfiguredReason = "ParentInterfaceNotConfigured"
+
+	// InvalidParentInterfaceTypeReason indicates that a referenced parent interface type is not supported.
+	InvalidParentInterfaceTypeReason = "InvalidParentInterfaceType"
 )
 
 // Reasons that are specific to [Device] objects.

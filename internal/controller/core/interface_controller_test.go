@@ -754,6 +754,143 @@ var _ = Describe("Interface Controller", func() {
 			}).Should(Succeed())
 		})
 
+		It("Should fail reconcile when parent interface does not exist for subinterface", func() {
+			By("Creating a Subinterface referencing a non-existent parent")
+			subintf := &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:   v1alpha1.LocalObjectReference{Name: name},
+					Name:        name + ".100",
+					AdminState:  v1alpha1.AdminStateUp,
+					Description: "Subinterface without parent",
+					Type:        v1alpha1.InterfaceTypeSubinterface,
+					ParentInterfaceRef: &v1alpha1.LocalObjectReference{
+						Name: "non-existent-parent",
+					},
+					Encapsulation: &v1alpha1.Encapsulation{
+						Type: v1alpha1.EncapsulationTypeDot1Q,
+						Tag:  100,
+					},
+					IPv4: &v1alpha1.InterfaceIPv4{
+						Addresses: []v1alpha1.IPPrefix{{Prefix: netip.MustParsePrefix("10.0.0.100/24")}},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, subintf)).To(Succeed())
+
+			By("Verifying the controller sets parent interface not ready status")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Conditions).To(HaveLen(4))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Reason).To(Equal(v1alpha1.ParentInterfaceNotFoundReason))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.OperationalCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionUnknown))
+				g.Expect(resource.Status.Conditions[3].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[3].Status).To(Equal(metav1.ConditionFalse))
+			}).Should(Succeed())
+		})
+
+		It("Should successfully reconcile parent Physical interface and Subinterface", func() {
+			const parentName = "test-parent-eth"
+			const subinterfaceName = "test-subintf"
+
+			By("Creating a Physical parent interface")
+			parentIntf := &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      parentName,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:   v1alpha1.LocalObjectReference{Name: name},
+					Name:        parentName,
+					AdminState:  v1alpha1.AdminStateUp,
+					Description: "Parent Physical Interface",
+					MTU:         9000,
+					Type:        v1alpha1.InterfaceTypePhysical,
+				},
+			}
+			Expect(k8sClient.Create(ctx, parentIntf)).To(Succeed())
+
+			By("Verifying the parent Physical interface is ready")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: parentName, Namespace: metav1.NamespaceDefault}, resource)).To(Succeed())
+				g.Expect(resource.Status.Conditions).To(HaveLen(4))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionTrue))
+			}).Should(Succeed())
+
+			By("Creating a Subinterface referencing the parent")
+			subintf := &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      subinterfaceName,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:   v1alpha1.LocalObjectReference{Name: name},
+					Name:        parentName + ".100",
+					AdminState:  v1alpha1.AdminStateUp,
+					Description: "Subinterface with 802.1q encapsulation",
+					Type:        v1alpha1.InterfaceTypeSubinterface,
+					ParentInterfaceRef: &v1alpha1.LocalObjectReference{
+						Name: parentName,
+					},
+					Encapsulation: &v1alpha1.Encapsulation{
+						Type: v1alpha1.EncapsulationTypeDot1Q,
+						Tag:  100,
+					},
+					IPv4: &v1alpha1.InterfaceIPv4{
+						Addresses: []v1alpha1.IPPrefix{{Prefix: netip.MustParsePrefix("10.0.100.1/24")}},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, subintf)).To(Succeed())
+
+			By("Verifying the controller sets the parent interface as owner reference")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: subinterfaceName, Namespace: metav1.NamespaceDefault}, resource)).To(Succeed())
+				g.Expect(resource.OwnerReferences).To(HaveLen(1))
+				g.Expect(resource.OwnerReferences[0].Kind).To(Equal("Interface"))
+				g.Expect(resource.OwnerReferences[0].Name).To(Equal(parentName))
+			}).Should(Succeed())
+
+			By("Verifying the subinterface status is ready")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: subinterfaceName, Namespace: metav1.NamespaceDefault}, resource)).To(Succeed())
+				g.Expect(resource.Status.Conditions).To(HaveLen(4))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.OperationalCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[3].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[3].Status).To(Equal(metav1.ConditionFalse))
+			}).Should(Succeed())
+
+			By("Verifying the Subinterface is configured in the provider")
+			Eventually(func(g Gomega) {
+				g.Expect(testProvider.Ports.Has(parentName+".100")).To(BeTrue(), "Provider should have Subinterface configured")
+			}).Should(Succeed())
+
+			By("Verifying the parent Physical interface is configured in the provider")
+			Eventually(func(g Gomega) {
+				g.Expect(testProvider.Ports.Has(parentName)).To(BeTrue(), "Provider should have parent Physical Interface configured")
+			}).Should(Succeed())
+		})
+
 		It("Should handle unnumbered reference to non-Loopback Interface", func() {
 			By("Creating a Physical Interface to be referenced")
 			phys := &v1alpha1.Interface{
