@@ -258,9 +258,9 @@ func UncommentCode(filename, target, prefix string) error {
 		return err
 	}
 
-	idx := strings.Index(string(content), target)
-	if idx < 0 {
-		if strings.Contains(string(content), target[len(prefix):]) {
+	before, after, ok := bytes.Cut(content, []byte(target))
+	if !ok {
+		if bytes.Contains(content, []byte(target)[len(prefix):]) {
 			return nil // already uncommented
 		}
 
@@ -268,7 +268,7 @@ func UncommentCode(filename, target, prefix string) error {
 	}
 
 	out := new(bytes.Buffer)
-	if _, err = out.Write(content[:idx]); err != nil {
+	if _, err = out.Write(before); err != nil {
 		return err
 	}
 
@@ -290,7 +290,7 @@ func UncommentCode(filename, target, prefix string) error {
 		}
 	}
 
-	if _, err = out.Write(content[idx+len(target):]); err != nil {
+	if _, err = out.Write(after); err != nil {
 		return err
 	}
 
