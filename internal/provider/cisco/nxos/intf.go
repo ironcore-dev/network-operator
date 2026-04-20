@@ -50,8 +50,9 @@ func (l *Loopback) XPath() string {
 }
 
 type LoopbackOperItems struct {
-	ID     string `json:"-"`
-	OperSt OperSt `json:"operSt"`
+	ID         string `json:"-"`
+	OperSt     OperSt `json:"operSt"`
+	OperStQual string `json:"operStQual"`
 }
 
 func (l *LoopbackOperItems) XPath() string {
@@ -110,8 +111,9 @@ func (p *PhysIf) Default() {
 }
 
 type PhysIfOperItems struct {
-	ID     string `json:"-"`
-	OperSt OperSt `json:"operSt"`
+	ID         string `json:"-"`
+	OperSt     OperSt `json:"operSt"`
+	OperStQual string `json:"operStQual"`
 }
 
 func (p *PhysIfOperItems) XPath() string {
@@ -265,7 +267,7 @@ func (p *PortChannel) XPath() string {
 type PortChannelOperItems struct {
 	ID         string `json:"-"`
 	OperSt     OperSt `json:"operSt"`
-	OperStQual string `json:"operStQual,omitempty"`
+	OperStQual string `json:"operStQual"`
 }
 
 func (p *PortChannelOperItems) XPath() string {
@@ -289,8 +291,9 @@ func (s *SwitchVirtualInterface) XPath() string {
 }
 
 type SwitchVirtualInterfaceOperItems struct {
-	ID     string `json:"-"`
-	OperSt OperSt `json:"operSt"`
+	ID         string `json:"-"`
+	OperSt     OperSt `json:"operSt"`
+	OperStQual string `json:"operStQual"`
 }
 
 func (*SwitchVirtualInterfaceOperItems) IsListItem() {}

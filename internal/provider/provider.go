@@ -133,6 +133,7 @@ type InterfaceStatus struct {
 	// OperStatus indicates whether the interface is operationally up (true) or down (false).
 	OperStatus bool
 	// OperMessage provides additional information about the operational status of the interface.
+	// Leave empty if the provider does not return any additional information.
 	OperMessage string
 }
 

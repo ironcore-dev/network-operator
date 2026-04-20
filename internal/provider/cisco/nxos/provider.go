@@ -1161,6 +1161,7 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 			return provider.InterfaceStatus{}, err
 		}
 		operSt = phys.OperSt
+		operMsg = phys.OperStQual
 
 	case v1alpha1.InterfaceTypeLoopback:
 		lb := new(LoopbackOperItems)
@@ -1169,6 +1170,7 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 			return provider.InterfaceStatus{}, err
 		}
 		operSt = lb.OperSt
+		operMsg = lb.OperStQual
 
 	case v1alpha1.InterfaceTypeAggregate:
 		pc := new(PortChannelOperItems)
@@ -1186,9 +1188,17 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 			return provider.InterfaceStatus{}, err
 		}
 		operSt = svi.OperSt
+		operMsg = svi.OperStQual
 
 	default:
 		return provider.InterfaceStatus{}, fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
+	}
+
+	// When an interface is operationally up, the operational message will be "none".
+	// In this case, we return an empty string for the operational message to avoid confusion.
+	const operMsgNone = "none"
+	if operSt == OperStUp && operMsg == operMsgNone {
+		operMsg = ""
 	}
 
 	return provider.InterfaceStatus{
