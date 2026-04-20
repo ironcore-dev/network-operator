@@ -394,7 +394,7 @@ func serviceAccountToken(ctx context.Context) (string, error) {
 
 	// Temporary file to store the token request
 	secretName := serviceAccountName + "-token-request"
-	tokenRequestFile := filepath.Join("/tmp", secretName)
+	tokenRequestFile := filepath.Join(os.TempDir(), secretName)
 	if err := os.WriteFile(tokenRequestFile, []byte(tokenRequestRawString), os.FileMode(0o644)); err != nil {
 		return "", err
 	}
