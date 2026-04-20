@@ -741,7 +741,7 @@ func performCreate(ctx context.Context, prov provider.Provider, obj client.Objec
 		})
 
 	case *v1alpha1.ManagementAccess:
-		map_, ok := prov.(provider.ManagementAccessProvider)
+		mgmtProvider, ok := prov.(provider.ManagementAccessProvider)
 		if !ok {
 			return errors.New("provider does not implement ManagementAccessProvider")
 		}
@@ -755,7 +755,7 @@ func performCreate(ctx context.Context, prov provider.Provider, obj client.Objec
 			}
 		}
 
-		return map_.EnsureManagementAccess(ctx, &provider.EnsureManagementAccessRequest{
+		return mgmtProvider.EnsureManagementAccess(ctx, &provider.EnsureManagementAccessRequest{
 			ManagementAccess: res,
 			ProviderConfig:   cfg,
 		})
