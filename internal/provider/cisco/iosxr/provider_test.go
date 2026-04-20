@@ -214,7 +214,7 @@ func Test_GetState(t *testing.T) {
 		t.Fatalf("EnsureInterface() error = %v", err)
 	}
 
-	if status.OperStatus != true {
+	if !status.OperStatus {
 		t.Fatalf("GetInterfaceStatus() expected OperStatus=true, got false")
 	}
 }
