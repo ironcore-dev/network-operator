@@ -83,7 +83,7 @@ func (m *MockProvider) HashProvisioningPassword(password string) (string, string
 	return "hashedpass", "sha256", nil
 }
 
-func (p *MockProvider) VerifyProvisioned(ctx context.Context, conn *deviceutil.Connection, device *v1alpha1.Device) bool {
+func (m *MockProvider) VerifyProvisioned(ctx context.Context, conn *deviceutil.Connection, device *v1alpha1.Device) bool {
 	return true
 }
 

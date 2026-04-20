@@ -57,8 +57,8 @@ func (rp *StaticRP) Key() string { return rp.Addr }
 
 func (*StaticRP) IsListItem() {}
 
-func (s *StaticRP) XPath() string {
-	return "System/pim-items/inst-items/dom-items/Dom-list[name=default]/staticrp-items/rp-items/StaticRP-list[addr=" + s.Addr + "]"
+func (rp *StaticRP) XPath() string {
+	return "System/pim-items/inst-items/dom-items/Dom-list[name=default]/staticrp-items/rp-items/StaticRP-list[addr=" + rp.Addr + "]"
 }
 
 type StaticRPGrp struct {
