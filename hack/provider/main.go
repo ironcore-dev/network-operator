@@ -413,7 +413,7 @@ func performOperation(ctx context.Context, prov provider.Provider, obj client.Ob
 	}
 }
 
-func performCreate(ctx context.Context, prov provider.Provider, obj client.Object, c *clientutil.Client) error {
+func performCreate(ctx context.Context, prov provider.Provider, obj client.Object, c *clientutil.Client) error { //nolint:gocyclo
 	switch res := obj.(type) {
 	case *v1alpha1.AccessControlList:
 		ap, ok := prov.(provider.ACLProvider)
@@ -1058,7 +1058,7 @@ func performCreate(ctx context.Context, prov provider.Provider, obj client.Objec
 	}
 }
 
-func performDelete(ctx context.Context, prov provider.Provider, obj client.Object) error {
+func performDelete(ctx context.Context, prov provider.Provider, obj client.Object) error { //nolint:gocyclo
 	switch resource := obj.(type) {
 	case *v1alpha1.AccessControlList:
 		ap, ok := prov.(provider.ACLProvider)

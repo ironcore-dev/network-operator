@@ -661,7 +661,7 @@ func isPointToPoint(ipv4 *v1alpha1.InterfaceIPv4) bool {
 	return false
 }
 
-func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
+func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error { //nolint:gocyclo
 	name, err := ShortName(req.Interface.Spec.Name)
 	if err != nil {
 		return err
@@ -2260,7 +2260,7 @@ func (p *Provider) GetVLANStatus(ctx context.Context, req *provider.VLANRequest)
 	}, nil
 }
 
-func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) error {
+func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) error { //nolint:gocyclo
 	v := new(VRF)
 	v.Name = req.VRF.Spec.Name
 	if req.VRF.Spec.Description != "" {

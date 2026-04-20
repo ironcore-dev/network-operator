@@ -43,6 +43,10 @@ CONTAINER_TOOL ?= docker
 # KIND_CLUSTER defines the name of the Kind cluster to be used for the tilt setup.
 KIND_CLUSTER ?= network
 
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+
 install-gofumpt: FORCE
 	@if ! hash gofumpt 2>/dev/null; then printf "\e[1;36m>> Installing gofumpt...\e[0m\n"; go install mvdan.cc/gofumpt@latest; fi
 
@@ -54,6 +58,15 @@ install-kustomize: FORCE
 
 install-crd-ref-docs: FORCE
 	@if ! hash crd-ref-docs 2>/dev/null; then printf "\e[1;36m>> Installing crd-ref-docs...\e[0m\n"; go install github.com/elastic/crd-ref-docs@latest; fi
+
+bin/golangci-lint-custom: .custom-gcl.yaml
+	@hash golangci-lint 2>/dev/null || (printf "\e[1;31m>> golangci-lint not found, please install it first\e[0m\n"; exit 1)
+	golangci-lint custom --destination $(LOCALBIN) --name golangci-lint-custom
+
+lint: FORCE bin/golangci-lint-custom ## Run golangci-lint linter
+	@printf "\e[1;36m>> golangci-lint\e[0m\n"
+	@bin/golangci-lint-custom config verify
+	@bin/golangci-lint-custom run
 
 fmt: FORCE install-gofumpt
 	@printf "\e[1;36m>> gofumpt -l -w .\e[0m\n"

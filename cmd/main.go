@@ -67,7 +67,7 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
-func main() {
+func main() { //nolint:gocyclo
 	// if called with `--version`, report version and exit
 	bininfo.HandleVersionArgument()
 

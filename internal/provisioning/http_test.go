@@ -79,7 +79,7 @@ type MockProvider struct {
 	mock.Mock
 }
 
-func (m *MockProvider) HashProvisioningPassword(password string) (string, string, error) { //nolint:gocritic
+func (m *MockProvider) HashProvisioningPassword(password string) (string, string, error) {
 	return "hashedpass", "sha256", nil
 }
 

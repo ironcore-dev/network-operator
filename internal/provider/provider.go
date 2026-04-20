@@ -649,7 +649,7 @@ type DHCPRelayStatus struct {
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.
-type ProviderFunc func() Provider
+type ProviderFunc func() Provider //nolint:revive // stutter is intentional; ProviderFunc is the established name used across all controllers
 
 // providers holds all registered providers.
 // It should be accessed in a thread-safe manner and kept private to this package.
@@ -702,7 +702,7 @@ func GetProviderConfig(ctx context.Context, r client.Reader, namespace string, r
 }
 
 // ProviderConfig is a wrapper around an [unstructured.Unstructured] object that represents a provider-specific configuration.
-type ProviderConfig struct {
+type ProviderConfig struct { //nolint:revive // stutter is intentional; ProviderConfig is the established name used across all controllers and API types
 	obj *unstructured.Unstructured
 }
 

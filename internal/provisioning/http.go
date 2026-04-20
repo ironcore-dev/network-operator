@@ -112,7 +112,7 @@ func (s *HTTPServer) Start(ctx context.Context) error {
 		s.Logger.Info("Shutting down provisioning server")
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer shutdownCancel()
-		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		if err := httpServer.Shutdown(shutdownCtx); err != nil { //nolint:contextcheck
 			s.Logger.Error(err, "Error shutting down provisioning server")
 		}
 	}()
