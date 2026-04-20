@@ -47,7 +47,7 @@ var (
 	testProvider = NewProvider()
 	testLocker   *resourcelock.ResourceLocker
 
-	lastRebootTime = time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	lastRebootTime = time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)
 )
 
 func TestControllers(t *testing.T) {
