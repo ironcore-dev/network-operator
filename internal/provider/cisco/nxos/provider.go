@@ -721,7 +721,9 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		p := new(PhysIf)
 		p.Default()
 		p.ID = name
-		p.Descr = req.Interface.Spec.Description
+		if req.Interface.Spec.Description != "" {
+			p.Descr = NewOption(req.Interface.Spec.Description)
+		}
 		if req.Interface.Spec.AdminState == v1alpha1.AdminStateUp {
 			p.AdminSt = AdminStUp
 		}
@@ -792,7 +794,9 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	case v1alpha1.InterfaceTypeLoopback:
 		lb := new(Loopback)
 		lb.ID = name
-		lb.Descr = req.Interface.Spec.Description
+		if req.Interface.Spec.Description != "" {
+			lb.Descr = NewOption(req.Interface.Spec.Description)
+		}
 		lb.AdminSt = AdminStDown
 		if req.Interface.Spec.AdminState == v1alpha1.AdminStateUp {
 			lb.AdminSt = AdminStUp
@@ -816,7 +820,9 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 
 		pc := new(PortChannel)
 		pc.ID = name
-		pc.Descr = req.Interface.Spec.Description
+		if req.Interface.Spec.Description != "" {
+			pc.Descr = NewOption(req.Interface.Spec.Description)
+		}
 		pc.AdminSt = AdminStDown
 		if req.Interface.Spec.AdminState == v1alpha1.AdminStateUp {
 			pc.AdminSt = AdminStUp

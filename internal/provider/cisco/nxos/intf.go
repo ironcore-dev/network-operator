@@ -35,12 +35,12 @@ var (
 	_ gnmiext.DataElement = (*FabricFwdIf)(nil)
 )
 
-// Loopback represents a loopback interface on a NX-OS device.
+// Loopback represents a loopback interface.
 type Loopback struct {
-	AdminSt       AdminSt2   `json:"adminSt"`
-	Descr         string     `json:"descr"`
-	ID            string     `json:"id"`
-	RtvrfMbrItems *VrfMember `json:"rtvrfMbr-items,omitempty"`
+	AdminSt       AdminSt2       `json:"adminSt"`
+	Descr         Option[string] `json:"descr"`
+	ID            string         `json:"id"`
+	RtvrfMbrItems *VrfMember     `json:"rtvrfMbr-items,omitempty"`
 }
 
 func (*Loopback) IsListItem() {}
@@ -64,15 +64,15 @@ const (
 	DefaultMTU       = 1500
 )
 
-// PhysIf represents a physical (ethernet) interface on a NX-OS device.
+// PhysIf represents a physical (ethernet) interface.
 type PhysIf struct {
 	AccessVlan    string         `json:"accessVlan"`
 	AdminSt       AdminSt2       `json:"adminSt,omitempty"`
-	Descr         string         `json:"descr"`
+	Descr         Option[string] `json:"descr"`
 	FecMode       FecMode        `json:"FECMode"`
 	ID            string         `json:"id"`
 	Layer         Layer          `json:"layer"`
-	MTU           int32          `json:"mtu,omitempty"`
+	MTU           int32          `json:"mtu"`
 	Medium        Medium         `json:"medium"`
 	Mode          SwitchportMode `json:"mode"`
 	NativeVlan    string         `json:"nativeVlan"`
@@ -219,14 +219,14 @@ func (i *ICMPIf) XPath() string {
 	return "System/icmpv4-items/inst-items/dom-items/Dom-list[name=default]/if-items/If-list[id=" + i.ID + "]"
 }
 
-// PortChannel represents a port-channel (LAG) interface on a NX-OS device.
+// PortChannel represents a port-channel (LAG) interface.
 type PortChannel struct {
 	AccessVlan    string          `json:"accessVlan"`
 	AdminSt       AdminSt2        `json:"adminSt"`
-	Descr         string          `json:"descr,omitempty"`
+	Descr         Option[string]  `json:"descr"`
 	ID            string          `json:"id"`
 	Layer         Layer           `json:"layer"`
-	MTU           int32           `json:"mtu,omitempty"`
+	MTU           int32           `json:"mtu"`
 	Medium        Medium          `json:"medium"`
 	Mode          SwitchportMode  `json:"mode"`
 	PcMode        PortChannelMode `json:"pcMode"`

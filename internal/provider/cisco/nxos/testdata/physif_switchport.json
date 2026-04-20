@@ -9,6 +9,7 @@
           "FECMode": "auto",
           "id": "eth1/10",
           "layer": "Layer2",
+          "mtu": 1500,
           "medium": "broadcast",
           "mode": "trunk",
           "nativeVlan": "vlan-1",

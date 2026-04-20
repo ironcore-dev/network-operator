@@ -6,7 +6,7 @@ package nxos
 func init() {
 	Register("loopback", &Loopback{
 		ID:            "lo0",
-		Descr:         "Test",
+		Descr:         NewOption("Test"),
 		AdminSt:       AdminStUp,
 		RtvrfMbrItems: NewVrfMember("lo0", ManagementVRFName),
 	})
@@ -14,7 +14,7 @@ func init() {
 	Register("physif_rtd", &PhysIf{
 		AdminSt:       AdminStUp,
 		ID:            "eth1/1",
-		Descr:         "Leaf1 to Spine1",
+		Descr:         NewOption("Leaf1 to Spine1"),
 		FecMode:       FecModeAuto,
 		Layer:         Layer3,
 		MTU:           9216,
@@ -29,9 +29,10 @@ func init() {
 	Register("physif_switchport", &PhysIf{
 		AdminSt:       AdminStUp,
 		ID:            "eth1/10",
-		Descr:         "Leaf1 to Host1",
+		Descr:         NewOption("Leaf1 to Host1"),
 		FecMode:       FecModeAuto,
 		Layer:         Layer2,
+		MTU:           DefaultMTU,
 		Medium:        MediumBroadcast,
 		Mode:          SwitchportModeTrunk,
 		AccessVlan:    DefaultVLAN,
@@ -52,9 +53,10 @@ func init() {
 	pc := &PortChannel{
 		AccessVlan:    DefaultVLAN,
 		AdminSt:       AdminStUp,
-		Descr:         "vPC Leaf1 to Host1",
+		Descr:         NewOption("vPC Leaf1 to Host1"),
 		ID:            "po10",
 		Layer:         Layer2,
+		MTU:           DefaultMTU,
 		Medium:        MediumBroadcast,
 		Mode:          SwitchportModeTrunk,
 		PcMode:        PortChannelModeActive,
@@ -68,7 +70,7 @@ func init() {
 	Register("pc_rtd", &PortChannel{
 		AccessVlan:    "unknown",
 		AdminSt:       AdminStUp,
-		Descr:         "L3 Port-Channel to Spine1",
+		Descr:         NewOption("L3 Port-Channel to Spine1"),
 		ID:            "po20",
 		Layer:         Layer3,
 		MTU:           9216,

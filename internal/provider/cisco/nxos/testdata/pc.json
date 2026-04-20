@@ -8,6 +8,7 @@
           "descr": "vPC Leaf1 to Host1",
           "id": "po10",
           "layer": "Layer2",
+          "mtu": 1500,
           "medium": "broadcast",
           "mode": "trunk",
           "pcMode": "active",
