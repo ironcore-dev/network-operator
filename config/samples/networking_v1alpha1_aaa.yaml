@@ -1,9 +1,4 @@
 # Example AAA configuration with TACACS+ servers
-# This configures:
-# - feature tacacs+
-# - tacacs-server hosts with encrypted keys
-# - AAA server group for TACACS+
-# - AAA authentication, authorization, and accounting
 ---
 apiVersion: v1
 kind: Secret
@@ -15,9 +10,6 @@ stringData:
   # Replace with your actual TACACS+ server shared secret
   server-key: "supersecretkey"
 ---
-# Cisco NX-OS specific AAA configuration
-# This configures vendor-specific settings like key encryption type,
-# login error messages, console authentication, and config-commands authorization.
 apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
 kind: AAAConfig
 metadata:
@@ -49,7 +41,7 @@ spec:
 
   # Reference to the Cisco NX-OS specific AAA configuration
   providerConfigRef:
-    group: nx.cisco.networking.metal.ironcore.dev
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
     kind: AAAConfig
     name: aaa-tacacs-nxos
 

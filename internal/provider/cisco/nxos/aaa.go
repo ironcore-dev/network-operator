@@ -154,7 +154,7 @@ func (r *RadiusProviderRef) Key() string { return r.Name }
 // AAADefaultAuth represents AAA default authentication configuration.
 type AAADefaultAuth struct {
 	Realm         string `json:"realm,omitempty"`
-	ProviderGroup string `json:"providerGroup,omitempty"`
+	ProviderGroup string `json:"providerGroup"`
 	Fallback      string `json:"fallback,omitempty"`
 	Local         string `json:"local,omitempty"`
 	None          string `json:"none,omitempty"`
@@ -169,7 +169,7 @@ func (*AAADefaultAuth) XPath() string {
 // AAAConsoleAuth represents AAA console authentication configuration.
 type AAAConsoleAuth struct {
 	Realm         string `json:"realm,omitempty"`
-	ProviderGroup string `json:"providerGroup,omitempty"`
+	ProviderGroup string `json:"providerGroup"`
 	Fallback      string `json:"fallback,omitempty"`
 	Local         string `json:"local,omitempty"`
 	None          string `json:"none,omitempty"`
@@ -185,7 +185,7 @@ func (*AAAConsoleAuth) XPath() string {
 // Note: "name" and "realm" are read-only operational fields on NX-OS and must not be sent.
 type AAADefaultAuthor struct {
 	CmdType          string `json:"cmdType"`
-	ProviderGroup    string `json:"providerGroup,omitempty"`
+	ProviderGroup    string `json:"providerGroup"`
 	LocalRbac        bool   `json:"localRbac,omitempty"`
 	AuthorMethodNone bool   `json:"authorMethodNone,omitempty"`
 }
@@ -200,7 +200,7 @@ func (a *AAADefaultAuthor) XPath() string {
 // Note: "name" is a read-only operational field on NX-OS and must not be sent.
 type AAADefaultAcc struct {
 	Realm         string `json:"realm,omitempty"`
-	ProviderGroup string `json:"providerGroup,omitempty"`
+	ProviderGroup string `json:"providerGroup"`
 	LocalRbac     bool   `json:"localRbac,omitempty"`
 	AccMethodNone bool   `json:"accMethodNone,omitempty"`
 }

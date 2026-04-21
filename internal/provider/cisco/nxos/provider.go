@@ -3283,12 +3283,17 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 		}
 	}
 
+	// Collect desired server addresses per protocol to detect stale entries.
+	desiredTACACS := map[string]bool{}
+	desiredRADIUS := map[string]bool{}
+
 	for _, group := range req.AAA.Spec.ServerGroups {
 		switch group.Type {
 		case v1alpha1.AAAServerGroupTypeTACACS:
 			conf = append(conf, &Feature{Name: "tacacsplus", AdminSt: AdminStEnabled})
 
 			for _, server := range group.Servers {
+				desiredTACACS[server.Address] = true
 				srv := &TacacsPlusProvider{
 					Name:    server.Address,
 					Port:    server.TACACS.Port,
@@ -3316,6 +3321,7 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 
 		case v1alpha1.AAAServerGroupTypeRADIUS:
 			for _, server := range group.Servers {
+				desiredRADIUS[server.Address] = true
 				srv := &RadiusProvider{
 					Name:     server.Address,
 					AuthPort: server.RADIUS.AuthenticationPort,
@@ -3414,30 +3420,89 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 		conf = append(conf, acct)
 	}
 
-	return p.Update(ctx, conf...)
-}
-
-func (p *Provider) DeleteAAA(ctx context.Context, req *provider.DeleteAAARequest) error {
-	// Delete the whole server/group list containers in a single gNMI call.
-	// Groups are placed before providers to avoid reference violations.
-	// Deleting the containers also removes any leftover entries from previous reconciles.
-	if err := p.client.Delete(ctx,
-		new(TacacsPlusProviderGroupItems),
-		new(TacacsPlusProviderItems),
-		new(RadiusProviderGroupItems),
-		new(RadiusProviderItems),
-	); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+	if err := p.Update(ctx, conf...); err != nil {
 		return err
 	}
 
-	// Reset AAA method config and TACACS feature to device defaults.
-	return p.Update(ctx,
-		&Feature{Name: "tacacsplus", AdminSt: AdminStDisabled},
+	// Remove TACACS+ server host entries that are on the device but no longer in the spec.
+	// This must happen after the Update above so the server is first dropped from the group's
+	// ProviderRef-list — NX-OS rejects deleting a server that is still referenced by a group.
+	if len(desiredTACACS) > 0 {
+		current := new(TacacsPlusProviderItems)
+		if err := p.client.GetConfig(ctx, current); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+		var stale []gnmiext.DataElement
+		for i := range current.ProviderList {
+			if !desiredTACACS[current.ProviderList[i].Name] {
+				stale = append(stale, &TacacsPlusProvider{Name: current.ProviderList[i].Name})
+			}
+		}
+		if len(stale) > 0 {
+			if err := p.client.Delete(ctx, stale...); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+				return err
+			}
+		}
+	}
+
+	// Same for RADIUS server host entries.
+	if len(desiredRADIUS) > 0 {
+		current := new(RadiusProviderItems)
+		if err := p.client.GetConfig(ctx, current); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+		var stale []gnmiext.DataElement
+		for i := range current.ProviderList {
+			if !desiredRADIUS[current.ProviderList[i].Name] {
+				stale = append(stale, &RadiusProvider{Name: current.ProviderList[i].Name})
+			}
+		}
+		if len(stale) > 0 {
+			if err := p.client.Delete(ctx, stale...); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (p *Provider) DeleteAAA(ctx context.Context, req *provider.DeleteAAARequest) error {
+	// Step 1: Reset AAA auth realms to local in a separate call before touching the
+	// TACACS feature flag. NX-OS rolls back the entire gNMI SET batch if any item
+	// fails validation, so mixing the feature-disable with auth resets causes all
+	// resets to be silently reverted when the feature cannot be disabled while groups
+	// are still present.
+	if err := p.Update(ctx,
 		&AAADefaultAcc{Realm: AAARealmLocal, LocalRbac: true},
 		&AAADefaultAuthor{CmdType: "config", LocalRbac: true},
 		&AAADefaultAuth{Realm: AAARealmLocal, Local: AAAValueYes, Fallback: AAAValueYes},
 		&AAAConsoleAuth{Realm: AAARealmLocal, Local: AAAValueYes, Fallback: AAAValueYes},
-	)
+	); err != nil {
+		return err
+	}
+
+	// Step 2: Delete server group and server containers for the configured protocols only.
+	// Groups must be deleted before servers to avoid reference violations.
+	// NX-OS does not allow deleting the built-in RADIUS group container when no RADIUS
+	// servers are configured, so only delete what was actually provisioned.
+	var toDelete []gnmiext.DataElement
+	for _, group := range req.AAA.Spec.ServerGroups {
+		switch group.Type {
+		case v1alpha1.AAAServerGroupTypeTACACS:
+			toDelete = append(toDelete, new(TacacsPlusProviderGroupItems), new(TacacsPlusProviderItems))
+		case v1alpha1.AAAServerGroupTypeRADIUS:
+			toDelete = append(toDelete, new(RadiusProviderGroupItems), new(RadiusProviderItems))
+		}
+	}
+	if len(toDelete) > 0 {
+		if err := p.client.Delete(ctx, toDelete...); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+	}
+
+	// Step 3: Disable the TACACS feature only after groups are gone.
+	return p.Update(ctx, &Feature{Name: "tacacsplus", AdminSt: AdminStDisabled})
 }
 
 func init() {

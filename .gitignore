@@ -32,3 +32,4 @@ charts/**/*.tgz
 *.swp
 *.swo
 *~
+config/samples/test-aaa-qa.yaml
