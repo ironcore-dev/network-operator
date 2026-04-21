@@ -5,15 +5,20 @@ package pool
 
 import (
 	"context"
-	"strconv"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	poolv1alpha1 "github.com/ironcore-dev/network-operator/api/pool/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
@@ -27,13 +32,8 @@ type IPPrefixPoolReconciler struct {
 
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=ipprefixpools,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=ipprefixpools/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=ipprefixpools/finalizers,verbs=update
+// +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=ipprefixes,verbs=get;list;watch
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.2/pkg/reconcile
 func (r *IPPrefixPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 	log.Info("Reconciling resource")
@@ -69,8 +69,17 @@ func (r *IPPrefixPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}()
 
+	prefixes := &poolv1alpha1.IPPrefixList{}
+	if err := r.List(
+		ctx, prefixes,
+		client.InNamespace(pool.Namespace),
+		client.MatchingFields{poolRefIndexKey: pool.Name},
+	); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	pool.Status.Allocated = int64(len(prefixes.Items))
 	pool.Status.Total = pool.Total().String()
-	pool.Status.Allocated = strconv.Itoa(pool.Allocated())
 
 	if pool.IsExhausted() {
 		conditions.Set(pool, metav1.Condition{
@@ -96,5 +105,26 @@ func (r *IPPrefixPoolReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&poolv1alpha1.IPPrefixPool{}).
 		Named("pool-ipprefixpool").
+		// Watches enqueues IPPrefixPools based on updates of contained IPPrefix resources.
+		// Only triggers on create and delete events since poolRefs are immutable.
+		Watches(
+			&poolv1alpha1.IPPrefix{},
+			handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
+				return []reconcile.Request{{
+					NamespacedName: types.NamespacedName{
+						Name:      obj.(*poolv1alpha1.IPPrefix).Spec.PoolRef.Name,
+						Namespace: obj.GetNamespace(),
+					},
+				}}
+			}),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
 		Complete(r)
 }

@@ -3,6 +3,8 @@
 
 package v1alpha1
 
+import "sigs.k8s.io/controller-runtime/pkg/client"
+
 // LocalObjectReference contains enough information to locate a
 // referenced object inside the same namespace.
 // +structType=atomic
@@ -41,6 +43,16 @@ type TypedLocalObjectReference struct {
 	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:Pattern=`^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/)?([a-z0-9]([-a-z0-9]*[a-z0-9])?)$`
 	APIVersion string `json:"apiVersion"`
+}
+
+// TypedLocalObjectRefFromObject builds a TypedLocalObjectReference from a [client.Object].
+func TypedLocalObjectRefFromObject(obj client.Object) *TypedLocalObjectReference {
+	gvk := obj.GetObjectKind().GroupVersionKind()
+	return &TypedLocalObjectReference{
+		APIVersion: gvk.GroupVersion().String(),
+		Kind:       gvk.Kind,
+		Name:       obj.GetName(),
+	}
 }
 
 // SecretReference represents a Secret Reference. It has enough information to retrieve a Secret

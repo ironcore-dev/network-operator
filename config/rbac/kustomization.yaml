@@ -137,3 +137,12 @@ resources:
 - indexpool_admin_role.yaml
 - indexpool_editor_role.yaml
 - indexpool_viewer_role.yaml
+- ipprefix_admin_role.yaml
+- ipprefix_editor_role.yaml
+- ipprefix_viewer_role.yaml
+- ipaddress_admin_role.yaml
+- ipaddress_editor_role.yaml
+- ipaddress_viewer_role.yaml
+- index_admin_role.yaml
+- index_editor_role.yaml
+- index_viewer_role.yaml

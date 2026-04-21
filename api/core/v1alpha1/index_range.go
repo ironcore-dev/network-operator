@@ -15,8 +15,8 @@ import (
 // +kubebuilder:validation:Pattern=`^[0-9]+\.\.[0-9]+$`
 // +kubebuilder:object:generate=false
 type IndexRange struct {
-	Start uint64 `json:"-"`
-	End   uint64 `json:"-"`
+	Start int64 `json:"-"`
+	End   int64 `json:"-"`
 }
 
 // ParseIndexRange parses a string in the format "start..end" into an [IndexRange].
@@ -25,11 +25,11 @@ func ParseIndexRange(s string) (IndexRange, error) {
 	if len(parts) != 2 {
 		return IndexRange{}, fmt.Errorf("invalid index range %q", s)
 	}
-	start, err := strconv.ParseUint(strings.TrimSpace(parts[0]), 10, 64)
+	start, err := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
 	if err != nil {
 		return IndexRange{}, fmt.Errorf("invalid index range start %q: %w", parts[0], err)
 	}
-	end, err := strconv.ParseUint(strings.TrimSpace(parts[1]), 10, 64)
+	end, err := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64)
 	if err != nil {
 		return IndexRange{}, fmt.Errorf("invalid index range end %q: %w", parts[1], err)
 	}

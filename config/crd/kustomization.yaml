@@ -32,6 +32,9 @@ resources:
 - bases/pool.networking.metal.ironcore.dev_ipaddresspools.yaml
 - bases/pool.networking.metal.ironcore.dev_ipprefixpools.yaml
 - bases/pool.networking.metal.ironcore.dev_claims.yaml
+- bases/pool.networking.metal.ironcore.dev_indices.yaml
+- bases/pool.networking.metal.ironcore.dev_ipaddresses.yaml
+- bases/pool.networking.metal.ironcore.dev_ipprefixes.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_bordergateways.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_managementaccessconfigs.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_networkvirtualizationedgeconfigs.yaml

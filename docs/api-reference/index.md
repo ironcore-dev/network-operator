@@ -10,6 +10,9 @@
 
 ## networking.metal.ironcore.dev/v1alpha1
 
+SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+SPDX-License-Identifier: Apache-2.0
+
 Package v1alpha1 contains API Schema definitions for the networking.metal.ironcore.dev v1alpha1 API group.
 
 SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
@@ -1677,6 +1680,21 @@ _Appears in:_
 | `FloodAndLearn` | HostReachabilityTypeFloodAndLearn uses data-plane learning for MAC addresses.<br /> |
 
 
+#### IPAddr
+
+
+
+IPAddr represents a single IP address (IPv4 or IPv6).
+
+_Validation:_
+- Format: ip
+- Type: string
+
+_Appears in:_
+- [IPAddressSpec](#ipaddressspec)
+
+
+
 #### IPPrefix
 
 
@@ -1690,10 +1708,9 @@ _Validation:_
 
 _Appears in:_
 - [ACLEntry](#aclentry)
-- [ClaimAllocation](#claimallocation)
 - [IPAddressPoolSpec](#ipaddresspoolspec)
-- [IPPrefixAllocation](#ipprefixallocation)
 - [IPPrefixPoolPrefix](#ipprefixpoolprefix)
+- [IPPrefixSpec](#ipprefixspec)
 - [InterfaceIPv4](#interfaceipv4)
 - [MulticastGroups](#multicastgroups)
 - [PrefixEntry](#prefixentry)
@@ -2071,10 +2088,7 @@ _Appears in:_
 - [DevicePort](#deviceport)
 - [EVPNInstanceSpec](#evpninstancespec)
 - [EthernetSegmentSpec](#ethernetsegmentspec)
-- [IPAddressAllocation](#ipaddressallocation)
-- [IPPrefixAllocation](#ipprefixallocation)
 - [ISISSpec](#isisspec)
-- [IndexAllocation](#indexallocation)
 - [InterconnectInterfaceReference](#interconnectinterfacereference)
 - [InterfaceIPv4Unnumbered](#interfaceipv4unnumbered)
 - [InterfaceSpec](#interfacespec)
@@ -3521,11 +3535,15 @@ _Appears in:_
 - [BannerSpec](#bannerspec)
 - [CertificateSpec](#certificatespec)
 - [ClaimSpec](#claimspec)
+- [ClaimStatus](#claimstatus)
 - [DHCPRelaySpec](#dhcprelayspec)
 - [DNSSpec](#dnsspec)
 - [EVPNInstanceSpec](#evpninstancespec)
 - [EthernetSegmentSpec](#ethernetsegmentspec)
+- [IPAddressSpec](#ipaddressspec)
+- [IPPrefixSpec](#ipprefixspec)
 - [ISISSpec](#isisspec)
+- [IndexSpec](#indexspec)
 - [InterfaceSpec](#interfacespec)
 - [LLDPSpec](#lldpspec)
 - [ManagementAccessSpec](#managementaccessspec)
@@ -4585,9 +4603,14 @@ Package v1alpha1 contains API Schema definitions for the pool.networking.metal.i
 
 ### Resource Types
 - [Claim](#claim)
+- [IPAddress](#ipaddress)
 - [IPAddressPool](#ipaddresspool)
+- [IPPrefix](#ipprefix)
 - [IPPrefixPool](#ipprefixpool)
+- [Index](#index)
 - [IndexPool](#indexpool)
+
+
 
 
 
@@ -4610,30 +4633,30 @@ Claim is the Schema for the claims API
 | `status` _[ClaimStatus](#claimstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
 
 
-#### ClaimAllocation
+#### ClaimRef
 
 
 
-ClaimAllocation holds the allocated resource value for a claim.
+ClaimRef identifies the Claim bound to an allocation object.
 
 
 
 _Appears in:_
-- [ClaimStatus](#claimstatus)
+- [IPAddressSpec](#ipaddressspec)
+- [IPPrefixSpec](#ipprefixspec)
+- [IndexSpec](#indexspec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `index` _integer_ | Index is set when the allocation is sourced from an IndexPool. |  | Optional: \{\} <br /> |
-| `ipAddress` _string_ | IPAddress is set when the allocation is sourced from an IPAddressPool. |  | Optional: \{\} <br /> |
-| `prefix` _[IPPrefix](#ipprefix)_ | Prefix is set when the allocation is sourced from an IPPrefixPool. |  | Format: cidr <br />Type: string <br />Optional: \{\} <br /> |
-| `value` _string_ | Value is the string representation of the allocated resource. |  | Optional: \{\} <br /> |
+| `name` _string_ | Name is the name of the Claim. |  | Required: \{\} <br /> |
+| `uid` _[UID](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#uid-types-pkg)_ | UID is the UID of the Claim. When both name and UID match, the<br />allocation is considered fully bound. When the name matches but the<br />UID is stale or empty (e.g. after the original Claim was deleted and<br />recreated), the claim controller will only rebind if the allocation<br />carries the 'pool.networking.metal.ironcore.dev/allow-binding' annotation. |  | Required: \{\} <br /> |
 
 
 #### ClaimSpec
 
 
 
-ClaimSpec defines the desired state of Claim
+ClaimSpec defines the desired state of Claim.
 
 
 
@@ -4659,26 +4682,27 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the Claim resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
-| `allocation` _[ClaimAllocation](#claimallocation)_ | Allocation describes the resource reserved for this claim. |  | Optional: \{\} <br /> |
+| `allocationRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | AllocationRef references the bound allocation object (Index, IPAddress, or IPPrefix).<br />Set by the claim controller after successful binding. |  | Optional: \{\} <br /> |
+| `value` _string_ | Value is the allocated resource as a string, mirrored from the bound allocation<br />for convenient access without chasing the reference. |  | Optional: \{\} <br /> |
 
 
-#### IPAddressAllocation
-
-
-
-IPAddressAllocation represents a reserved IP address for a claim.
+#### IPAddress
 
 
 
-_Appears in:_
-- [IPAddressPoolStatus](#ipaddresspoolstatus)
+IPAddress is the Schema for the ipaddresses API.
+
+
+
+
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `claimRef` _[LocalObjectReference](#localobjectreference)_ | ClaimRef references the claim holding the allocation. |  | Required: \{\} <br /> |
-| `claimUID` _[UID](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#uid-types-pkg)_ | ClaimUID is the UID of the claim holding the allocation. |  | Required: \{\} <br /> |
-| `address` _string_ | Address is the allocated IP address. |  | Format: ip <br />Required: \{\} <br /> |
-| `retained` _boolean_ | Retained indicates the allocation must not be reused after claim deletion. |  | Optional: \{\} <br /> |
+| `apiVersion` _string_ | `pool.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `IPAddress` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[IPAddressSpec](#ipaddressspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[IPAddressStatus](#ipaddressstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
 
 
 #### IPAddressPool
@@ -4730,29 +4754,62 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `allocated` _string_ | Allocated is the number of allocated IP addresses. |  | Optional: \{\} <br /> |
+| `allocated` _integer_ | Allocated is the number of allocated IP addresses. |  | Optional: \{\} <br /> |
 | `total` _string_ | Total is the number of allocatable IP addresses. |  | Optional: \{\} <br /> |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the IPAddressPool resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
-| `allocations` _[IPAddressAllocation](#ipaddressallocation) array_ | Allocations tracks which IP addresses are reserved by which claims. |  | Optional: \{\} <br /> |
 
 
-#### IPPrefixAllocation
+#### IPAddressSpec
 
 
 
-IPPrefixAllocation represents a reserved prefix for a claim.
+IPAddressSpec defines the desired state of IPAddress.
 
 
 
 _Appears in:_
-- [IPPrefixPoolStatus](#ipprefixpoolstatus)
+- [IPAddress](#ipaddress)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `claimRef` _[LocalObjectReference](#localobjectreference)_ | ClaimRef references the claim holding the allocation. |  | Required: \{\} <br /> |
-| `claimUID` _[UID](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#uid-types-pkg)_ | ClaimUID is the UID of the claim holding the allocation. |  | Required: \{\} <br /> |
-| `prefix` _[IPPrefix](#ipprefix)_ | Prefix is the allocated prefix. |  | Format: cidr <br />Type: string <br />Required: \{\} <br /> |
-| `retained` _boolean_ | Retained indicates the allocation must not be reused after claim deletion. |  | Optional: \{\} <br /> |
+| `poolRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | PoolRef references the IPAddressPool this address was allocated from.<br />Immutable. |  | Required: \{\} <br /> |
+| `address` _[IPAddr](#ipaddr)_ | Address is the reserved IP address.<br />Immutable. |  | Format: ip <br />Type: string <br />Required: \{\} <br /> |
+| `claimRef` _[ClaimRef](#claimref)_ | ClaimRef references the Claim bound to this address.<br />Nil when the address is unbound (pre-provisioned or retained). |  | Optional: \{\} <br /> |
+
+
+#### IPAddressStatus
+
+
+
+IPAddressStatus defines the observed state of IPAddress.
+
+
+
+_Appears in:_
+- [IPAddress](#ipaddress)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the IPAddress resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+
+
+#### IPPrefix
+
+
+
+IPPrefix is the Schema for the ipprefixes API.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `pool.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `IPPrefix` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[IPPrefixSpec](#ipprefixspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[IPPrefixStatus](#ipprefixstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
 
 
 #### IPPrefixPool
@@ -4821,29 +4878,62 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `allocated` _string_ | Allocated is the number of allocated prefixes. |  | Optional: \{\} <br /> |
+| `allocated` _integer_ | Allocated is the number of allocated prefixes. |  | Optional: \{\} <br /> |
 | `total` _string_ | Total is the number of allocatable prefixes. |  | Optional: \{\} <br /> |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the IPPrefixPool resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
-| `allocations` _[IPPrefixAllocation](#ipprefixallocation) array_ | Allocations tracks which prefixes are reserved by which claims. |  | Optional: \{\} <br /> |
 
 
-#### IndexAllocation
+#### IPPrefixSpec
 
 
 
-IndexAllocation represents a reserved index for a claim.
+IPPrefixSpec defines the desired state of IPPrefix.
 
 
 
 _Appears in:_
-- [IndexPoolStatus](#indexpoolstatus)
+- [IPPrefix](#ipprefix)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `claimRef` _[LocalObjectReference](#localobjectreference)_ | ClaimRef references the claim holding the allocation. |  | Required: \{\} <br /> |
-| `claimUID` _[UID](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#uid-types-pkg)_ | ClaimUID is the UID of the claim holding the allocation. |  | Required: \{\} <br /> |
-| `index` _integer_ | Index is the allocated value. |  | Required: \{\} <br /> |
-| `retained` _boolean_ | Retained indicates the allocation must not be reused after claim deletion. |  | Optional: \{\} <br /> |
+| `poolRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | PoolRef references the IPPrefixPool this prefix was allocated from.<br />Immutable. |  | Required: \{\} <br /> |
+| `prefix` _[IPPrefix](#ipprefix)_ | Prefix is the reserved CIDR prefix.<br />Immutable. |  | Format: cidr <br />Type: string <br />Required: \{\} <br /> |
+| `claimRef` _[ClaimRef](#claimref)_ | ClaimRef references the Claim bound to this prefix.<br />Nil when the prefix is unbound (pre-provisioned or retained). |  | Optional: \{\} <br /> |
+
+
+#### IPPrefixStatus
+
+
+
+IPPrefixStatus defines the observed state of IPPrefix.
+
+
+
+_Appears in:_
+- [IPPrefix](#ipprefix)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the IPPrefix resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+
+
+#### Index
+
+
+
+Index is the Schema for the indices API.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `pool.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `Index` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[IndexSpec](#indexspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[IndexStatus](#indexstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
 
 
 #### IndexPool
@@ -4895,10 +4985,45 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `allocated` _string_ | Allocated is the number of allocated indices. |  | Optional: \{\} <br /> |
+| `allocated` _integer_ | Allocated is the number of allocated indices. |  | Optional: \{\} <br /> |
 | `total` _string_ | Total is the number of allocatable indices. |  | Optional: \{\} <br /> |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the IndexPool resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
-| `allocations` _[IndexAllocation](#indexallocation) array_ | Allocations tracks which indices are reserved by which claims. |  | Optional: \{\} <br /> |
+
+
+#### IndexSpec
+
+
+
+IndexSpec defines the desired state of Index.
+
+
+
+_Appears in:_
+- [Index](#index)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `poolRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | PoolRef references the IndexPool this index was allocated from.<br />Immutable. |  | Required: \{\} <br /> |
+| `index` _integer_ | Index is the reserved value.<br />Immutable. |  | Minimum: 0 <br />Required: \{\} <br /> |
+| `claimRef` _[ClaimRef](#claimref)_ | ClaimRef references the Claim bound to this index.<br />Nil when the index is unbound (pre-provisioned or retained). |  | Optional: \{\} <br /> |
+
+
+#### IndexStatus
+
+
+
+IndexStatus defines the observed state of Index.
+
+
+
+_Appears in:_
+- [Index](#index)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the Index resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+
+
 
 
 #### ReclaimPolicy

@@ -17,7 +17,7 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.allocation.value
+    - jsonPath: .status.value
       name: Value
       type: string
     - jsonPath: .status.conditions[?(@.type=="Allocated")].status
@@ -99,32 +99,40 @@ spec:
               Read-only.
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
             properties:
-              allocation:
-                description: Allocation describes the resource reserved for this claim.
+              allocationRef:
+                description: |-
+                  AllocationRef references the bound allocation object (Index, IPAddress, or IPPrefix).
+                  Set by the claim controller after successful binding.
                 properties:
-                  index:
-                    description: Index is set when the allocation is sourced from
-                      an IndexPool.
-                    format: int64
-                    type: integer
-                  ipAddress:
-                    description: IPAddress is set when the allocation is sourced from
-                      an IPAddressPool.
+                  apiVersion:
+                    description: APIVersion is the api group version of the resource
+                      being referenced.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/)?([a-z0-9]([-a-z0-9]*[a-z0-9])?)$
                     type: string
-                  prefix:
-                    description: Prefix is set when the allocation is sourced from
-                      an IPPrefixPool.
-                    format: cidr
+                  kind:
+                    description: |-
+                      Kind of the resource being referenced.
+                      Kind must consist of alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                     type: string
-                  value:
-                    description: Value is the string representation of the allocated
-                      resource.
+                  name:
+                    description: |-
+                      Name of the resource being referenced.
+                      Name must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string
+                required:
+                - apiVersion
+                - kind
+                - name
                 type: object
-                x-kubernetes-validations:
-                - message: exactly one allocation field must be set
-                  rule: '[has(self.index), has(self.ipAddress), has(self.prefix)].filter(x,
-                    x).size() == 1'
+                x-kubernetes-map-type: atomic
               conditions:
                 description: |-
                   conditions represent the current state of the Claim resource.
@@ -188,6 +196,11 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              value:
+                description: |-
+                  Value is the allocated resource as a string, mirrored from the bound allocation
+                  for convenient access without chasing the reference.
+                type: string
             type: object
         required:
         - spec

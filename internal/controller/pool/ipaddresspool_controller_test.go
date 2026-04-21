@@ -42,7 +42,7 @@ var _ = Describe("IPAddressPool Controller", func() {
 			current := &poolv1alpha1.IPAddressPool{}
 			g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(pool), current)).To(Succeed())
 			g.Expect(current.Status.Total).To(Equal("256"))
-			g.Expect(current.Status.Allocated).To(Equal("0"))
+			g.Expect(current.Status.Allocated).To(Equal(int64(0)))
 		}).Should(Succeed())
 	})
 
@@ -75,18 +75,32 @@ var _ = Describe("IPAddressPool Controller", func() {
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, singlePool))).To(Succeed())
 		})
 
-		By("Patching the pool status with all addresses allocated")
+		By("Waiting for the pool total to be reconciled")
 		Eventually(func(g Gomega) {
 			current := &poolv1alpha1.IPAddressPool{}
 			g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(singlePool), current)).To(Succeed())
 			g.Expect(current.Status.Total).To(Equal("1"))
 		}).Should(Succeed())
 
-		orig := singlePool.DeepCopy()
-		singlePool.Status.Allocations = []poolv1alpha1.IPAddressAllocation{
-			{ClaimRef: corev1alpha1.LocalObjectReference{Name: "dummy"}, Address: "10.9.9.1"},
+		By("Creating an IPAddress object to fill the single slot")
+		ipa := &poolv1alpha1.IPAddress{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "ipa-",
+				Namespace:    metav1.NamespaceDefault,
+			},
+			Spec: poolv1alpha1.IPAddressSpec{
+				PoolRef: corev1alpha1.TypedLocalObjectReference{
+					APIVersion: poolv1alpha1.GroupVersion.String(),
+					Kind:       "IPAddressPool",
+					Name:       singlePool.Name,
+				},
+				Address: corev1alpha1.MustParseAddr("10.9.9.1"),
+			},
 		}
-		Expect(k8sClient.Status().Patch(ctx, singlePool, client.MergeFrom(orig))).To(Succeed())
+		Expect(k8sClient.Create(ctx, ipa)).To(Succeed())
+		DeferCleanup(func() {
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, ipa))).To(Succeed())
+		})
 
 		Eventually(func(g Gomega) {
 			current := &poolv1alpha1.IPAddressPool{}

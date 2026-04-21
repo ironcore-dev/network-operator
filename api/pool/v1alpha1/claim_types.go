@@ -4,15 +4,52 @@
 package v1alpha1
 
 import (
-	"strconv"
+	"context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
 
-// ClaimSpec defines the desired state of Claim
+// Allocation is an interface implemented by allocation objects (Index, IPAddress, IPPrefix).
+// +kubebuilder:object:generate=false
+type Allocation interface {
+	client.Object
+
+	// Value returns the allocated value as a string.
+	Value() string
+
+	// ClaimRef returns the ClaimRef bound to this allocation, or nil if unbound.
+	ClaimRef() *ClaimRef
+
+	// SetClaimRef sets or clears the ClaimRef on this allocation.
+	SetClaimRef(*ClaimRef)
+}
+
+// Pool is an interface that abstracts over the different pool types (IndexPool, IPAddressPool, IPPrefixPool) that a Claim can reference.
+// +kubebuilder:object:generate=false
+type Pool interface {
+	client.Object
+
+	// IsExhausted reports whether all allocatable resources in the pool are taken.
+	IsExhausted() bool
+
+	// ReclaimPolicy returns the pool's configured reclaim policy.
+	ReclaimPolicy() ReclaimPolicy
+
+	// ListAllocations lists allocation objects matching the given options.
+	ListAllocations(ctx context.Context, c client.Client, opts ...client.ListOption) ([]Allocation, error)
+
+	// Allocate picks the next free value from the pool's ranges/prefixes,
+	// given the existing allocations for this pool, and returns a new Allocation
+	// with a ready-to-create object, deterministic name, and the allocated value.
+	// Returns ErrPoolExhausted when no free value remains.
+	Allocate(claim *Claim, existing []Allocation) (Allocation, error)
+}
+
+// ClaimSpec defines the desired state of Claim.
 type ClaimSpec struct {
 	// PoolRef references the allocation pool to allocate from.
 	// PoolRef is immutable once set.
@@ -36,46 +73,15 @@ type ClaimStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// Allocation describes the resource reserved for this claim.
+	// AllocationRef references the bound allocation object (Index, IPAddress, or IPPrefix).
+	// Set by the claim controller after successful binding.
 	// +optional
-	Allocation *ClaimAllocation `json:"allocation,omitempty"`
-}
+	AllocationRef *corev1alpha1.TypedLocalObjectReference `json:"allocationRef,omitempty"`
 
-// ClaimAllocation holds the allocated resource value for a claim.
-// +kubebuilder:validation:XValidation:rule="[has(self.index), has(self.ipAddress), has(self.prefix)].filter(x, x).size() == 1",message="exactly one allocation field must be set"
-type ClaimAllocation struct {
-	// Index is set when the allocation is sourced from an IndexPool.
-	// +optional
-	Index *uint64 `json:"index,omitempty"`
-
-	// IPAddress is set when the allocation is sourced from an IPAddressPool.
-	// +optional
-	IPAddress *string `json:"ipAddress,omitempty"`
-
-	// Prefix is set when the allocation is sourced from an IPPrefixPool.
-	// +optional
-	Prefix *corev1alpha1.IPPrefix `json:"prefix,omitempty"`
-
-	// Value is the string representation of the allocated resource.
+	// Value is the allocated resource as a string, mirrored from the bound allocation
+	// for convenient access without chasing the reference.
 	// +optional
 	Value string `json:"value,omitempty"`
-}
-
-// String implements [fmt.Stringer].
-func (a *ClaimAllocation) String() string {
-	if a == nil {
-		return ""
-	}
-	switch {
-	case a.Index != nil:
-		return strconv.FormatUint(*a.Index, 10)
-	case a.IPAddress != nil:
-		return *a.IPAddress
-	case a.Prefix != nil:
-		return a.Prefix.String()
-	default:
-		return ""
-	}
 }
 
 // +kubebuilder:object:root=true
@@ -83,7 +89,7 @@ func (a *ClaimAllocation) String() string {
 // +kubebuilder:resource:path=claims
 // +kubebuilder:resource:singular=claim
 // +kubebuilder:resource:shortName=claim
-// +kubebuilder:printcolumn:name="Value",type=string,JSONPath=`.status.allocation.value`
+// +kubebuilder:printcolumn:name="Value",type=string,JSONPath=`.status.value`
 // +kubebuilder:printcolumn:name="Allocated",type=string,JSONPath=`.status.conditions[?(@.type=="Allocated")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

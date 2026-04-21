@@ -4,12 +4,15 @@
 package v1alpha1
 
 import (
+	"context"
+	"fmt"
 	"math/big"
 	"net/netip"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
@@ -37,7 +40,7 @@ type IPAddressPoolStatus struct {
 
 	// Allocated is the number of allocated IP addresses.
 	// +optional
-	Allocated string `json:"allocated,omitempty"`
+	Allocated int64 `json:"allocated"`
 
 	// Total is the number of allocatable IP addresses.
 	// +optional
@@ -50,30 +53,6 @@ type IPAddressPoolStatus struct {
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-
-	// Allocations tracks which IP addresses are reserved by which claims.
-	// +optional
-	Allocations []IPAddressAllocation `json:"allocations,omitempty"`
-}
-
-// IPAddressAllocation represents a reserved IP address for a claim.
-type IPAddressAllocation struct {
-	// ClaimRef references the claim holding the allocation.
-	// +required
-	ClaimRef corev1alpha1.LocalObjectReference `json:"claimRef"`
-
-	// ClaimUID is the UID of the claim holding the allocation.
-	// +required
-	ClaimUID types.UID `json:"claimUID"`
-
-	// Address is the allocated IP address.
-	// +required
-	// +kubebuilder:validation:Format=ip
-	Address string `json:"address"`
-
-	// Retained indicates the allocation must not be reused after claim deletion.
-	// +optional
-	Retained bool `json:"retained,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -81,10 +60,11 @@ type IPAddressAllocation struct {
 // +kubebuilder:resource:path=ipaddresspools
 // +kubebuilder:resource:singular=ipaddresspool
 // +kubebuilder:resource:shortName=ippool
-// +kubebuilder:printcolumn:name="Allocated",type=string,JSONPath=`.status.allocated`
+// +kubebuilder:printcolumn:name="Allocated",type=integer,JSONPath=`.status.allocated`
 // +kubebuilder:printcolumn:name="Total",type=string,JSONPath=`.status.total`,priority=1
 // +kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.status.conditions[?(@.type=="Available")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 43",message="pool name must not exceed 43 characters"
 
 // IPAddressPool is the Schema for the ipaddresspools API
 type IPAddressPool struct {
@@ -117,29 +97,14 @@ func (p *IPAddressPool) Total() *big.Int {
 	return total
 }
 
-// Allocated returns the number of currently allocated IP addresses.
-func (p *IPAddressPool) Allocated() int {
-	return len(p.Status.Allocations)
-}
-
 // IsExhausted returns true if all available IP addresses have been allocated.
 func (p *IPAddressPool) IsExhausted() bool {
 	total := p.Total()
 	if total.Sign() == 0 {
 		return true
 	}
-	allocated := big.NewInt(int64(p.Allocated()))
+	allocated := big.NewInt(p.Status.Allocated)
 	return allocated.Cmp(total) >= 0
-}
-
-// FindAllocation returns the ClaimAllocation for the given claim, or nil if not found.
-func (p *IPAddressPool) FindAllocation(claim *Claim) *ClaimAllocation {
-	for _, a := range p.Status.Allocations {
-		if a.ClaimRef.Name == claim.Name && a.ClaimUID == claim.UID {
-			return &ClaimAllocation{IPAddress: &a.Address, Value: a.Address}
-		}
-	}
-	return nil
 }
 
 // GetConditions implements conditions.Getter.
@@ -152,81 +117,67 @@ func (p *IPAddressPool) SetConditions(conditions []metav1.Condition) {
 	p.Status.Conditions = conditions
 }
 
-// Allocate finds the first free IP address in the pool's prefixes and records it as an allocation for the given claim.
-func (p *IPAddressPool) Allocate(claim *Claim) (*ClaimAllocation, error) {
-	allocated := make(map[netip.Addr]struct{}, len(p.Status.Allocations))
-	for _, a := range p.Status.Allocations {
-		if addr, err := netip.ParseAddr(a.Address); err == nil {
-			allocated[addr] = struct{}{}
-		}
+// ReclaimPolicy returns the pool's reclaim policy.
+func (p *IPAddressPool) ReclaimPolicy() ReclaimPolicy {
+	return p.Spec.ReclaimPolicy
+}
+
+// ListAllocations lists all IPAddress objects matching the given options.
+func (p *IPAddressPool) ListAllocations(ctx context.Context, c client.Client, opts ...client.ListOption) ([]Allocation, error) {
+	list := &IPAddressList{}
+	if err := c.List(ctx, list, opts...); err != nil {
+		return nil, err
+	}
+	allocs := make([]Allocation, len(list.Items))
+	for i := range list.Items {
+		allocs[i] = &list.Items[i]
+	}
+	return allocs, nil
+}
+
+// sanitizeValue replaces characters that are invalid in Kubernetes names.
+func sanitizeValue(value string) string {
+	return strings.NewReplacer(".", "-", "/", "-", ":", "-").Replace(value)
+}
+
+// Allocate finds the first free IP address in the pool's prefixes and returns
+// an IPAddress allocation object for the given claim.
+func (p *IPAddressPool) Allocate(claim *Claim, existing []Allocation) (Allocation, error) {
+	allocated := make(map[netip.Addr]struct{}, len(existing))
+	for _, obj := range existing {
+		allocated[obj.(*IPAddress).Spec.Address.Addr] = struct{}{}
 	}
 	for _, prefix := range p.Spec.Prefixes {
 		masked := prefix.Masked()
 		for addr := masked.Addr(); masked.Contains(addr); addr = addr.Next() {
 			if _, taken := allocated[addr]; !taken {
-				addrStr := addr.String()
-				p.Status.Allocations = append(p.Status.Allocations, IPAddressAllocation{
-					ClaimRef: corev1alpha1.LocalObjectReference{Name: claim.Name},
-					ClaimUID: claim.UID,
-					Address:  addrStr,
-				})
-				return &ClaimAllocation{
-					IPAddress: &addrStr,
-					Value:     addrStr,
+				value := addr.String()
+				return &IPAddress{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: GroupVersion.String(),
+						Kind:       "IPAddress",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      fmt.Sprintf("%s-%s", p.Name, sanitizeValue(value)),
+						Namespace: p.Namespace,
+					},
+					Spec: IPAddressSpec{
+						PoolRef: corev1alpha1.TypedLocalObjectReference{
+							APIVersion: GroupVersion.String(),
+							Kind:       "IPAddressPool",
+							Name:       p.Name,
+						},
+						Address: corev1alpha1.IPAddr{Addr: addr},
+						ClaimRef: &ClaimRef{
+							Name: claim.Name,
+							UID:  claim.UID,
+						},
+					},
 				}, nil
 			}
 		}
 	}
 	return nil, ErrPoolExhausted
-}
-
-// AllocatePreferred reserves the specific IP address given by preferred for the claim.
-// Returns ErrPreferredValueUnavailable if the value is outside the pool's configured
-// prefixes or is already taken by another claim.
-func (p *IPAddressPool) AllocatePreferred(claim *Claim, preferred string) (*ClaimAllocation, error) {
-	addr, err := netip.ParseAddr(preferred)
-	if err != nil {
-		return nil, ErrPreferredValueUnavailable
-	}
-	inRange := false
-	for _, prefix := range p.Spec.Prefixes {
-		if prefix.Masked().Contains(addr) {
-			inRange = true
-			break
-		}
-	}
-	if !inRange {
-		return nil, ErrPreferredValueUnavailable
-	}
-	addrStr := addr.String()
-	for _, a := range p.Status.Allocations {
-		if a.Address == addrStr {
-			return nil, ErrPreferredValueUnavailable
-		}
-	}
-	p.Status.Allocations = append(p.Status.Allocations, IPAddressAllocation{
-		ClaimRef: corev1alpha1.LocalObjectReference{Name: claim.Name},
-		ClaimUID: claim.UID,
-		Address:  addrStr,
-	})
-	return &ClaimAllocation{IPAddress: &addrStr, Value: addrStr}, nil
-}
-
-// Reclaim applies the pool's reclaim policy for the given claim.
-// On Recycle (default) the allocation is removed; on Retain it is kept with Retained=true.
-func (p *IPAddressPool) Reclaim(claim *Claim) {
-	for i := range p.Status.Allocations {
-		a := &p.Status.Allocations[i]
-		if a.ClaimRef.Name != claim.Name || a.ClaimUID != claim.UID {
-			continue
-		}
-		if p.Spec.ReclaimPolicy == ReclaimPolicyRetain {
-			a.Retained = true
-			continue
-		}
-		p.Status.Allocations = append(p.Status.Allocations[:i], p.Status.Allocations[i+1:]...)
-		return
-	}
 }
 
 // +kubebuilder:object:root=true

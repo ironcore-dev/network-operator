@@ -4,11 +4,10 @@
 package v1alpha1
 
 import (
-	"reflect"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
@@ -17,7 +16,7 @@ func TestIndexPool_Total(t *testing.T) {
 	tests := []struct {
 		name string
 		pool IndexPool
-		want uint64
+		want int64
 	}{
 		{
 			name: "empty ranges",
@@ -85,72 +84,6 @@ func TestIndexPool_Total(t *testing.T) {
 	}
 }
 
-func TestIndexPool_Allocated(t *testing.T) {
-	tests := []struct {
-		name string
-		pool IndexPool
-		want int
-	}{
-		{
-			name: "no allocations",
-			pool: IndexPool{
-				Status: IndexPoolStatus{
-					Allocations: []IndexAllocation{},
-				},
-			},
-			want: 0,
-		},
-		{
-			name: "single allocation",
-			pool: IndexPool{
-				Status: IndexPoolStatus{
-					Allocations: []IndexAllocation{
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-1"},
-							ClaimUID: types.UID("uid-1"),
-							Index:    1,
-						},
-					},
-				},
-			},
-			want: 1,
-		},
-		{
-			name: "multiple allocations",
-			pool: IndexPool{
-				Status: IndexPoolStatus{
-					Allocations: []IndexAllocation{
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-1"},
-							ClaimUID: types.UID("uid-1"),
-							Index:    1,
-						},
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-2"},
-							ClaimUID: types.UID("uid-2"),
-							Index:    2,
-						},
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-3"},
-							ClaimUID: types.UID("uid-3"),
-							Index:    3,
-						},
-					},
-				},
-			},
-			want: 3,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if got := test.pool.Allocated(); got != test.want {
-				t.Errorf("Allocated() = %v, want %v", got, test.want)
-			}
-		})
-	}
-}
-
 func TestIndexPool_IsExhausted(t *testing.T) {
 	tests := []struct {
 		name string
@@ -160,12 +93,8 @@ func TestIndexPool_IsExhausted(t *testing.T) {
 		{
 			name: "empty pool - exhausted",
 			pool: IndexPool{
-				Spec: IndexPoolSpec{
-					Ranges: []corev1alpha1.IndexRange{},
-				},
-				Status: IndexPoolStatus{
-					Allocations: []IndexAllocation{},
-				},
+				Spec:   IndexPoolSpec{Ranges: []corev1alpha1.IndexRange{}},
+				Status: IndexPoolStatus{Allocated: 0},
 			},
 			want: true,
 		},
@@ -177,9 +106,7 @@ func TestIndexPool_IsExhausted(t *testing.T) {
 						corev1alpha1.MustParseIndexRange("1..10"),
 					},
 				},
-				Status: IndexPoolStatus{
-					Allocations: []IndexAllocation{},
-				},
+				Status: IndexPoolStatus{Allocated: 0},
 			},
 			want: false,
 		},
@@ -191,20 +118,7 @@ func TestIndexPool_IsExhausted(t *testing.T) {
 						corev1alpha1.MustParseIndexRange("1..10"),
 					},
 				},
-				Status: IndexPoolStatus{
-					Allocations: []IndexAllocation{
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-1"},
-							ClaimUID: types.UID("uid-1"),
-							Index:    1,
-						},
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-2"},
-							ClaimUID: types.UID("uid-2"),
-							Index:    2,
-						},
-					},
-				},
+				Status: IndexPoolStatus{Allocated: 2},
 			},
 			want: false,
 		},
@@ -216,25 +130,7 @@ func TestIndexPool_IsExhausted(t *testing.T) {
 						corev1alpha1.MustParseIndexRange("1..3"),
 					},
 				},
-				Status: IndexPoolStatus{
-					Allocations: []IndexAllocation{
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-1"},
-							ClaimUID: types.UID("uid-1"),
-							Index:    1,
-						},
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-2"},
-							ClaimUID: types.UID("uid-2"),
-							Index:    2,
-						},
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-3"},
-							ClaimUID: types.UID("uid-3"),
-							Index:    3,
-						},
-					},
-				},
+				Status: IndexPoolStatus{Allocated: 3},
 			},
 			want: true,
 		},
@@ -246,48 +142,9 @@ func TestIndexPool_IsExhausted(t *testing.T) {
 						corev1alpha1.MustParseIndexRange("1..2"),
 					},
 				},
-				Status: IndexPoolStatus{
-					Allocations: []IndexAllocation{
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-1"},
-							ClaimUID: types.UID("uid-1"),
-							Index:    1,
-						},
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-2"},
-							ClaimUID: types.UID("uid-2"),
-							Index:    2,
-						},
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-3"},
-							ClaimUID: types.UID("uid-3"),
-							Index:    3,
-						},
-					},
-				},
+				Status: IndexPoolStatus{Allocated: 5},
 			},
 			want: true,
-		},
-		{
-			name: "multiple ranges - partially allocated",
-			pool: IndexPool{
-				Spec: IndexPoolSpec{
-					Ranges: []corev1alpha1.IndexRange{
-						corev1alpha1.MustParseIndexRange("1..10"),
-						corev1alpha1.MustParseIndexRange("20..30"),
-					},
-				},
-				Status: IndexPoolStatus{
-					Allocations: []IndexAllocation{
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-1"},
-							ClaimUID: types.UID("uid-1"),
-							Index:    1,
-						},
-					},
-				},
-			},
-			want: false,
 		},
 	}
 
@@ -300,174 +157,72 @@ func TestIndexPool_IsExhausted(t *testing.T) {
 	}
 }
 
-func TestIndexPool_FindAllocation(t *testing.T) {
-	tests := []struct {
-		name  string
-		pool  IndexPool
-		claim Claim
-		want  *ClaimAllocation
-	}{
-		{
-			name: "empty allocations returns nil",
-			pool: IndexPool{
-				Status: IndexPoolStatus{
-					Allocations: []IndexAllocation{},
-				},
-			},
-			claim: Claim{ObjectMeta: metav1.ObjectMeta{Name: "c1", UID: "uid1"}},
-			want:  nil,
-		},
-		{
-			name: "matching claim returns allocation",
-			pool: IndexPool{
-				Status: IndexPoolStatus{
-					Allocations: []IndexAllocation{
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "c1"},
-							ClaimUID: types.UID("uid1"),
-							Index:    5,
-						},
-					},
-				},
-			},
-			claim: Claim{ObjectMeta: metav1.ObjectMeta{Name: "c1", UID: "uid1"}},
-			want:  &ClaimAllocation{Index: new(uint64(5)), Value: "5"},
-		},
-		{
-			name: "different claim name returns nil",
-			pool: IndexPool{
-				Status: IndexPoolStatus{
-					Allocations: []IndexAllocation{
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "c1"},
-							ClaimUID: types.UID("uid1"),
-							Index:    5,
-						},
-					},
-				},
-			},
-			claim: Claim{ObjectMeta: metav1.ObjectMeta{Name: "other", UID: "uid1"}},
-			want:  nil,
-		},
-		{
-			name: "different claim UID returns nil",
-			pool: IndexPool{
-				Status: IndexPoolStatus{
-					Allocations: []IndexAllocation{
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "c1"},
-							ClaimUID: types.UID("uid1"),
-							Index:    5,
-						},
-					},
-				},
-			},
-			claim: Claim{ObjectMeta: metav1.ObjectMeta{Name: "c1", UID: "other-uid"}},
-			want:  nil,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got := test.pool.FindAllocation(&test.claim)
-			if !reflect.DeepEqual(got, test.want) {
-				t.Errorf("FindAllocation() = %v, want %v", got, test.want)
-			}
-		})
-	}
-}
-
 func TestIndexPool_Allocate(t *testing.T) {
 	tests := []struct {
-		name      string
-		pool      IndexPool
-		claim     Claim
-		wantErr   bool
-		checkFunc func(t *testing.T, pool *IndexPool, alloc *ClaimAllocation)
+		name     string
+		pool     IndexPool
+		existing []client.Object
+		wantVal  string
+		wantName string
+		wantErr  bool
 	}{
 		{
-			name: "empty pool range allocates first index",
+			name: "empty pool allocates first index",
 			pool: IndexPool{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-pool", Namespace: "default"},
 				Spec: IndexPoolSpec{
 					Ranges: []corev1alpha1.IndexRange{
 						corev1alpha1.MustParseIndexRange("1..3"),
 					},
 				},
 			},
-			claim: Claim{ObjectMeta: metav1.ObjectMeta{Name: "test-claim", UID: "test-uid"}},
-			checkFunc: func(t *testing.T, pool *IndexPool, alloc *ClaimAllocation) {
-				if alloc.Index == nil {
-					t.Fatal("Index is nil, want non-nil")
-				}
-				if *alloc.Index != 1 {
-					t.Errorf("Index = %v, want 1", *alloc.Index)
-				}
-				if alloc.Value != "1" {
-					t.Errorf("Value = %q, want %q", alloc.Value, "1")
-				}
-				recorded := pool.Status.Allocations[len(pool.Status.Allocations)-1]
-				if recorded.ClaimRef.Name != "test-claim" {
-					t.Errorf("ClaimRef.Name = %q, want %q", recorded.ClaimRef.Name, "test-claim")
-				}
-				if recorded.ClaimUID != "test-uid" {
-					t.Errorf("ClaimUID = %q, want %q", recorded.ClaimUID, "test-uid")
-				}
-			},
+			existing: nil,
+			wantVal:  "1",
+			wantName: "test-pool-1",
 		},
 		{
-			name: "one already allocated allocates next index",
+			name: "skips already allocated index",
 			pool: IndexPool{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-pool", Namespace: "default"},
 				Spec: IndexPoolSpec{
 					Ranges: []corev1alpha1.IndexRange{
 						corev1alpha1.MustParseIndexRange("1..3"),
 					},
 				},
-				Status: IndexPoolStatus{
-					Allocations: []IndexAllocation{
-						{ClaimRef: corev1alpha1.LocalObjectReference{Name: "existing"}, ClaimUID: "existing-uid", Index: 1},
-					},
-				},
 			},
-			claim: Claim{ObjectMeta: metav1.ObjectMeta{Name: "test-claim", UID: "test-uid"}},
-			checkFunc: func(t *testing.T, pool *IndexPool, alloc *ClaimAllocation) {
-				if alloc.Index == nil {
-					t.Fatal("Index is nil, want non-nil")
-				}
-				if *alloc.Index != 2 {
-					t.Errorf("Index = %v, want 2", *alloc.Index)
-				}
-				recorded := pool.Status.Allocations[len(pool.Status.Allocations)-1]
-				if recorded.ClaimRef.Name != "test-claim" {
-					t.Errorf("ClaimRef.Name = %q, want %q", recorded.ClaimRef.Name, "test-claim")
-				}
-				if recorded.ClaimUID != "test-uid" {
-					t.Errorf("ClaimUID = %q, want %q", recorded.ClaimUID, "test-uid")
-				}
+			existing: []client.Object{
+				&Index{Spec: IndexSpec{Index: 1}},
 			},
+			wantVal:  "2",
+			wantName: "test-pool-2",
 		},
 		{
 			name: "all allocated returns error",
 			pool: IndexPool{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-pool", Namespace: "default"},
 				Spec: IndexPoolSpec{
 					Ranges: []corev1alpha1.IndexRange{
 						corev1alpha1.MustParseIndexRange("1..2"),
 					},
 				},
-				Status: IndexPoolStatus{
-					Allocations: []IndexAllocation{
-						{ClaimRef: corev1alpha1.LocalObjectReference{Name: "c1"}, ClaimUID: "uid1", Index: 1},
-						{ClaimRef: corev1alpha1.LocalObjectReference{Name: "c2"}, ClaimUID: "uid2", Index: 2},
-					},
-				},
 			},
-			claim:   Claim{ObjectMeta: metav1.ObjectMeta{Name: "test-claim", UID: "test-uid"}},
+			existing: []client.Object{
+				&Index{Spec: IndexSpec{Index: 1}},
+				&Index{Spec: IndexSpec{Index: 2}},
+			},
 			wantErr: true,
 		},
 	}
 
+	claim := &Claim{ObjectMeta: metav1.ObjectMeta{Name: "test-claim", UID: "test-uid"}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			alloc, err := test.pool.Allocate(&test.claim)
+			allocs := make([]Allocation, len(test.existing))
+			for i, obj := range test.existing {
+				allocs[i] = obj.(Allocation)
+			}
+
+			result, err := test.pool.Allocate(claim, allocs)
 			if test.wantErr {
 				if err == nil {
 					t.Fatal("Allocate() expected error, got nil")
@@ -477,8 +232,11 @@ func TestIndexPool_Allocate(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Allocate() unexpected error: %v", err)
 			}
-			if test.checkFunc != nil {
-				test.checkFunc(t, &test.pool, alloc)
+			if result.Value() != test.wantVal {
+				t.Errorf("Value = %q, want %q", result.Value(), test.wantVal)
+			}
+			if result.GetName() != test.wantName {
+				t.Errorf("Name = %q, want %q", result.GetName(), test.wantName)
 			}
 		})
 	}

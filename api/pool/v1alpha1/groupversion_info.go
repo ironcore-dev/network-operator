@@ -18,15 +18,6 @@ var (
 	// ErrPoolExhausted is returned by Allocate when no free value remains in the pool.
 	ErrPoolExhausted = errors.New("pool is exhausted")
 
-	// ErrAllocationInconsistent is returned when a claim carries an allocation in its
-	// status that is not reflected in the pool's allocations, indicating external
-	// modification or a partial write that requires manual intervention.
-	ErrAllocationInconsistent = errors.New("claim allocation is inconsistent with pool")
-
-	// ErrPreferredValueUnavailable is returned by AllocatePreferred when the requested
-	// value is outside the pool's configured ranges/prefixes or is already taken.
-	ErrPreferredValueUnavailable = errors.New("preferred value unavailable")
-
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme.
 	SchemeBuilder = runtime.NewSchemeBuilder(func(s *runtime.Scheme) error {
 		metav1.AddToGroupVersion(s, GroupVersion)
@@ -40,6 +31,13 @@ var (
 const (
 	// FinalizerName is the identifier used by pool controllers to perform cleanup before a resource is deleted.
 	FinalizerName = "pool.networking.metal.ironcore.dev/finalizer"
+)
+
+const (
+	// AllowBindingAnnotation permits an allocation object whose claimRef name matches
+	// a Claim but whose UID is stale (e.g. after the Claim was deleted and recreated)
+	// to be rebound by updating the UID to the current Claim.
+	AllowBindingAnnotation = "pool.networking.metal.ironcore.dev/allow-binding"
 )
 
 // Allocated condition — set on Claim; reports whether it has successfully reserved a resource.
@@ -59,23 +57,9 @@ const (
 	// PoolExhaustedReason indicates that a pool has no available allocations.
 	PoolExhaustedReason = "PoolExhausted"
 
-	// AllocationFailedReason indicates that allocation could not be completed.
-	AllocationFailedReason = "AllocationFailed"
-
-	// PreferredValueUnavailableReason indicates that the requested preferred value is not available.
-	PreferredValueUnavailableReason = "PreferredValueUnavailable"
-)
-
-// Annotation keys
-const (
-	// PreferredValueAnnotation is an optional annotation on a Claim that requests a specific
-	// allocation value. The format depends on the pool type:
-	//   - IndexPool: decimal uint64, e.g. "64512"
-	//   - IPAddressPool: IP address string, e.g. "10.0.0.42"
-	//   - IPPrefixPool: CIDR string, e.g. "192.168.5.0/24"
-	// If the value is unavailable the claim enters a terminal error state with reason
-	// PreferredValueUnavailable. Remove the annotation to fall back to normal allocation.
-	PreferredValueAnnotation = "pool.networking.metal.ironcore.dev/preferred-value"
+	// MultipleAllocationsReason indicates that more than one allocation object
+	// is bound to the same claim.
+	MultipleAllocationsReason = "MultipleAllocations"
 )
 
 // Available condition — set on pool types; reports whether the pool has free capacity.
@@ -88,4 +72,19 @@ const (
 
 	// ExhaustedReason indicates the pool has no free slots.
 	ExhaustedReason = "Exhausted"
+)
+
+// Valid condition — set on allocation objects (Index, IPAddress, IPPrefix).
+const (
+	// ValidCondition reports whether an allocation object's value is valid within the referenced pool.
+	ValidCondition = "Valid"
+
+	// ValueInRangeReason indicates the value falls within the pool's configured ranges/prefixes.
+	ValueInRangeReason = "ValueInRange"
+
+	// ValueOutOfRangeReason indicates the value falls outside the pool's configured ranges/prefixes.
+	ValueOutOfRangeReason = "ValueOutOfRange"
+
+	// PoolNotFoundForValidationReason indicates the referenced pool does not exist.
+	PoolNotFoundForValidationReason = "PoolNotFound"
 )

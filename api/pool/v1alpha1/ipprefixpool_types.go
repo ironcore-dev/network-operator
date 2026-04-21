@@ -4,12 +4,14 @@
 package v1alpha1
 
 import (
+	"context"
+	"fmt"
 	"math/big"
 	"net/netip"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
@@ -37,7 +39,7 @@ type IPPrefixPoolStatus struct {
 
 	// Allocated is the number of allocated prefixes.
 	// +optional
-	Allocated string `json:"allocated,omitempty"`
+	Allocated int64 `json:"allocated"`
 
 	// Total is the number of allocatable prefixes.
 	// +optional
@@ -50,10 +52,6 @@ type IPPrefixPoolStatus struct {
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-
-	// Allocations tracks which prefixes are reserved by which claims.
-	// +optional
-	Allocations []IPPrefixAllocation `json:"allocations,omitempty"`
 }
 
 // IPPrefixPoolPrefix defines a pool prefix and the target length to allocate.
@@ -69,34 +67,16 @@ type IPPrefixPoolPrefix struct {
 	PrefixLength int32 `json:"prefixLength"`
 }
 
-// IPPrefixAllocation represents a reserved prefix for a claim.
-type IPPrefixAllocation struct {
-	// ClaimRef references the claim holding the allocation.
-	// +required
-	ClaimRef corev1alpha1.LocalObjectReference `json:"claimRef"`
-
-	// ClaimUID is the UID of the claim holding the allocation.
-	// +required
-	ClaimUID types.UID `json:"claimUID"`
-
-	// Prefix is the allocated prefix.
-	// +required
-	Prefix corev1alpha1.IPPrefix `json:"prefix"`
-
-	// Retained indicates the allocation must not be reused after claim deletion.
-	// +optional
-	Retained bool `json:"retained,omitempty"`
-}
-
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=ipprefixpools
 // +kubebuilder:resource:singular=ipprefixpool
 // +kubebuilder:resource:shortName=pfxpool
-// +kubebuilder:printcolumn:name="Allocated",type=string,JSONPath=`.status.allocated`
+// +kubebuilder:printcolumn:name="Allocated",type=integer,JSONPath=`.status.allocated`
 // +kubebuilder:printcolumn:name="Total",type=string,JSONPath=`.status.total`,priority=1
 // +kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.status.conditions[?(@.type=="Available")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 43",message="pool name must not exceed 43 characters"
 
 // IPPrefixPool is the Schema for the ipprefixpools API
 type IPPrefixPool struct {
@@ -134,29 +114,14 @@ func (p *IPPrefixPool) Total() *big.Int {
 	return total
 }
 
-// Allocated returns the number of currently allocated prefixes.
-func (p *IPPrefixPool) Allocated() int {
-	return len(p.Status.Allocations)
-}
-
 // IsExhausted returns true if all available prefixes have been allocated.
 func (p *IPPrefixPool) IsExhausted() bool {
 	total := p.Total()
 	if total.Sign() == 0 {
 		return true
 	}
-	allocated := big.NewInt(int64(p.Allocated()))
+	allocated := big.NewInt(p.Status.Allocated)
 	return allocated.Cmp(total) >= 0
-}
-
-// FindAllocation returns the ClaimAllocation for the given claim, or nil if not found.
-func (p *IPPrefixPool) FindAllocation(claim *Claim) *ClaimAllocation {
-	for _, a := range p.Status.Allocations {
-		if a.ClaimRef.Name == claim.Name && a.ClaimUID == claim.UID {
-			return &ClaimAllocation{Prefix: &a.Prefix, Value: a.Prefix.String()}
-		}
-	}
-	return nil
 }
 
 // GetConditions implements conditions.Getter.
@@ -167,6 +132,24 @@ func (p *IPPrefixPool) GetConditions() []metav1.Condition {
 // SetConditions implements conditions.Setter.
 func (p *IPPrefixPool) SetConditions(conditions []metav1.Condition) {
 	p.Status.Conditions = conditions
+}
+
+// ReclaimPolicy returns the pool's reclaim policy.
+func (p *IPPrefixPool) ReclaimPolicy() ReclaimPolicy {
+	return p.Spec.ReclaimPolicy
+}
+
+// ListAllocations lists all IPPrefix objects matching the given options.
+func (p *IPPrefixPool) ListAllocations(ctx context.Context, c client.Client, opts ...client.ListOption) ([]Allocation, error) {
+	list := &IPPrefixList{}
+	if err := c.List(ctx, list, opts...); err != nil {
+		return nil, err
+	}
+	allocs := make([]Allocation, len(list.Items))
+	for i := range list.Items {
+		allocs[i] = &list.Items[i]
+	}
+	return allocs, nil
 }
 
 // stepAddr advances addr by 2^n by treating the address as a big-endian
@@ -200,11 +183,12 @@ func stepAddr(addr netip.Addr, n int) netip.Addr {
 	return result
 }
 
-// Allocate finds the first free sub-prefix and records it in the pool's status.
-func (p *IPPrefixPool) Allocate(claim *Claim) (*ClaimAllocation, error) {
-	allocated := make(map[netip.Prefix]struct{}, len(p.Status.Allocations))
-	for _, a := range p.Status.Allocations {
-		allocated[a.Prefix.Prefix] = struct{}{}
+// Allocate finds the first free sub-prefix and returns an IPPrefix allocation
+// object for the given claim.
+func (p *IPPrefixPool) Allocate(claim *Claim, existing []Allocation) (Allocation, error) {
+	allocated := make(map[netip.Prefix]struct{}, len(existing))
+	for _, obj := range existing {
+		allocated[obj.(*IPPrefix).Spec.Prefix.Prefix] = struct{}{}
 	}
 	for _, prefix := range p.Spec.Prefixes {
 		masked := prefix.Prefix.Masked()
@@ -220,70 +204,32 @@ func (p *IPPrefixPool) Allocate(claim *Claim) (*ClaimAllocation, error) {
 		for addr := masked.Addr(); masked.Contains(addr); addr = stepAddr(addr, stepBits) {
 			candidate := netip.PrefixFrom(addr, target)
 			if _, taken := allocated[candidate]; !taken {
-				prefix := corev1alpha1.IPPrefix{Prefix: candidate}
-				p.Status.Allocations = append(p.Status.Allocations, IPPrefixAllocation{
-					ClaimRef: corev1alpha1.LocalObjectReference{Name: claim.Name},
-					ClaimUID: claim.UID,
-					Prefix:   prefix,
-				})
-				return &ClaimAllocation{
-					Prefix: &prefix,
-					Value:  prefix.String(),
+				return &IPPrefix{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: GroupVersion.String(),
+						Kind:       "IPPrefix",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      fmt.Sprintf("%s-%s", p.Name, sanitizeValue(candidate.String())),
+						Namespace: p.Namespace,
+					},
+					Spec: IPPrefixSpec{
+						PoolRef: corev1alpha1.TypedLocalObjectReference{
+							APIVersion: GroupVersion.String(),
+							Kind:       "IPPrefixPool",
+							Name:       p.Name,
+						},
+						Prefix: corev1alpha1.IPPrefix{Prefix: candidate},
+						ClaimRef: &ClaimRef{
+							Name: claim.Name,
+							UID:  claim.UID,
+						},
+					},
 				}, nil
 			}
 		}
 	}
 	return nil, ErrPoolExhausted
-}
-
-// AllocatePreferred reserves the specific prefix given by preferred for the claim.
-// Returns ErrPreferredValueUnavailable if the value is outside the pool's configured
-// prefixes or is already taken by another claim.
-func (p *IPPrefixPool) AllocatePreferred(claim *Claim, preferred string) (*ClaimAllocation, error) {
-	candidate, err := netip.ParsePrefix(preferred)
-	if err != nil {
-		return nil, ErrPreferredValueUnavailable
-	}
-	candidate = candidate.Masked()
-	inRange := false
-	for _, pp := range p.Spec.Prefixes {
-		if int32(candidate.Bits()) == pp.PrefixLength && pp.Prefix.Masked().Contains(candidate.Addr()) { // #nosec G115
-			inRange = true
-			break
-		}
-	}
-	if !inRange {
-		return nil, ErrPreferredValueUnavailable
-	}
-	for _, a := range p.Status.Allocations {
-		if a.Prefix.Prefix == candidate {
-			return nil, ErrPreferredValueUnavailable
-		}
-	}
-	prefix := corev1alpha1.IPPrefix{Prefix: candidate}
-	p.Status.Allocations = append(p.Status.Allocations, IPPrefixAllocation{
-		ClaimRef: corev1alpha1.LocalObjectReference{Name: claim.Name},
-		ClaimUID: claim.UID,
-		Prefix:   prefix,
-	})
-	return &ClaimAllocation{Prefix: &prefix, Value: prefix.String()}, nil
-}
-
-// Reclaim applies the pool's reclaim policy for the given claim.
-// On Recycle (default) the allocation is removed; on Retain it is kept with Retained=true.
-func (p *IPPrefixPool) Reclaim(claim *Claim) {
-	for i := range p.Status.Allocations {
-		a := &p.Status.Allocations[i]
-		if a.ClaimRef.Name != claim.Name || a.ClaimUID != claim.UID {
-			continue
-		}
-		if p.Spec.ReclaimPolicy == ReclaimPolicyRetain {
-			a.Retained = true
-			continue
-		}
-		p.Status.Allocations = append(p.Status.Allocations[:i], p.Status.Allocations[i+1:]...)
-		return
-	}
 }
 
 // +kubebuilder:object:root=true

@@ -350,4 +350,31 @@ resources:
   kind: Claim
   path: github.com/ironcore-dev/network-operator/api/pool/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: networking.metal.ironcore.dev
+  group: pool
+  kind: Index
+  path: github.com/ironcore-dev/network-operator/api/pool/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: networking.metal.ironcore.dev
+  group: pool
+  kind: IPAddress
+  path: github.com/ironcore-dev/network-operator/api/pool/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: networking.metal.ironcore.dev
+  group: pool
+  kind: IPPrefix
+  path: github.com/ironcore-dev/network-operator/api/pool/v1alpha1
+  version: v1alpha1
 version: "3"

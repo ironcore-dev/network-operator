@@ -45,7 +45,7 @@ var _ = Describe("IPPrefixPool Controller", func() {
 			current := &poolv1alpha1.IPPrefixPool{}
 			g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(pool), current)).To(Succeed())
 			g.Expect(current.Status.Total).To(Equal("16"))
-			g.Expect(current.Status.Allocated).To(Equal("0"))
+			g.Expect(current.Status.Allocated).To(Equal(int64(0)))
 		}).Should(Succeed())
 	})
 
@@ -61,7 +61,7 @@ var _ = Describe("IPPrefixPool Controller", func() {
 	})
 
 	It("Should set Available=False when the pool is exhausted", func() {
-		By("Creating a pool with a single prefix so it can be exhausted")
+		By("Creating a pool with two /31 prefixes so it can be exhausted")
 		singlePool := &poolv1alpha1.IPPrefixPool{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "ipprefixpool-single-",
@@ -81,19 +81,34 @@ var _ = Describe("IPPrefixPool Controller", func() {
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, singlePool))).To(Succeed())
 		})
 
-		By("Patching the pool status with all prefixes allocated")
+		By("Waiting for the pool total to be reconciled")
 		Eventually(func(g Gomega) {
 			current := &poolv1alpha1.IPPrefixPool{}
 			g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(singlePool), current)).To(Succeed())
 			g.Expect(current.Status.Total).To(Equal("2"))
 		}).Should(Succeed())
 
-		orig := singlePool.DeepCopy()
-		singlePool.Status.Allocations = []poolv1alpha1.IPPrefixAllocation{
-			{ClaimRef: corev1alpha1.LocalObjectReference{Name: "dummy-1"}, Prefix: corev1alpha1.MustParsePrefix("10.9.0.0/31")},
-			{ClaimRef: corev1alpha1.LocalObjectReference{Name: "dummy-2"}, Prefix: corev1alpha1.MustParsePrefix("10.9.0.2/31")},
+		By("Creating IPPrefix objects to fill both slots")
+		for _, cidr := range []string{"10.9.0.0/31", "10.9.0.2/31"} {
+			pfx := &poolv1alpha1.IPPrefix{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "pfx-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: poolv1alpha1.IPPrefixSpec{
+					PoolRef: corev1alpha1.TypedLocalObjectReference{
+						APIVersion: poolv1alpha1.GroupVersion.String(),
+						Kind:       "IPPrefixPool",
+						Name:       singlePool.Name,
+					},
+					Prefix: corev1alpha1.MustParsePrefix(cidr),
+				},
+			}
+			Expect(k8sClient.Create(ctx, pfx)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, pfx))).To(Succeed())
+			})
 		}
-		Expect(k8sClient.Status().Patch(ctx, singlePool, client.MergeFrom(orig))).To(Succeed())
 
 		Eventually(func(g Gomega) {
 			current := &poolv1alpha1.IPPrefixPool{}

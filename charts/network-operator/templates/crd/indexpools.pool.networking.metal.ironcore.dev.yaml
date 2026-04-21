@@ -22,7 +22,7 @@ spec:
   - additionalPrinterColumns:
     - jsonPath: .status.allocated
       name: Allocated
-      type: string
+      type: integer
     - jsonPath: .status.total
       name: Total
       priority: 1
@@ -93,44 +93,8 @@ spec:
             properties:
               allocated:
                 description: Allocated is the number of allocated indices.
-                type: string
-              allocations:
-                description: Allocations tracks which indices are reserved by which
-                  claims.
-                items:
-                  description: IndexAllocation represents a reserved index for a claim.
-                  properties:
-                    claimRef:
-                      description: ClaimRef references the claim holding the allocation.
-                      properties:
-                        name:
-                          description: |-
-                            Name of the referent.
-                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          maxLength: 63
-                          minLength: 1
-                          type: string
-                      required:
-                      - name
-                      type: object
-                      x-kubernetes-map-type: atomic
-                    claimUID:
-                      description: ClaimUID is the UID of the claim holding the allocation.
-                      type: string
-                    index:
-                      description: Index is the allocated value.
-                      format: int64
-                      type: integer
-                    retained:
-                      description: Retained indicates the allocation must not be reused
-                        after claim deletion.
-                      type: boolean
-                  required:
-                  - claimRef
-                  - claimUID
-                  - index
-                  type: object
-                type: array
+                format: int64
+                type: integer
               conditions:
                 description: |-
                   conditions represent the current state of the IndexPool resource.
@@ -201,6 +165,9 @@ spec:
         required:
         - spec
         type: object
+        x-kubernetes-validations:
+        - message: pool name must not exceed 43 characters
+          rule: size(self.metadata.name) <= 43
     served: true
     storage: true
     subresources:

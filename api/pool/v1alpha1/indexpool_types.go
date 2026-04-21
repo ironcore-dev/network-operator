@@ -4,11 +4,12 @@
 package v1alpha1
 
 import (
-	"strconv"
+	"context"
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
@@ -37,7 +38,7 @@ type IndexPoolStatus struct {
 
 	// Allocated is the number of allocated indices.
 	// +optional
-	Allocated string `json:"allocated,omitempty"`
+	Allocated int64 `json:"allocated"`
 
 	// Total is the number of allocatable indices.
 	// +optional
@@ -52,29 +53,6 @@ type IndexPoolStatus struct {
 	// +patchMergeKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-
-	// Allocations tracks which indices are reserved by which claims.
-	// +optional
-	Allocations []IndexAllocation `json:"allocations,omitempty"`
-}
-
-// IndexAllocation represents a reserved index for a claim.
-type IndexAllocation struct {
-	// ClaimRef references the claim holding the allocation.
-	// +required
-	ClaimRef corev1alpha1.LocalObjectReference `json:"claimRef"`
-
-	// ClaimUID is the UID of the claim holding the allocation.
-	// +required
-	ClaimUID types.UID `json:"claimUID"`
-
-	// Index is the allocated value.
-	// +required
-	Index uint64 `json:"index"`
-
-	// Retained indicates the allocation must not be reused after claim deletion.
-	// +optional
-	Retained bool `json:"retained,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -82,10 +60,11 @@ type IndexAllocation struct {
 // +kubebuilder:resource:path=indexpools
 // +kubebuilder:resource:singular=indexpool
 // +kubebuilder:resource:shortName=idxpool
-// +kubebuilder:printcolumn:name="Allocated",type=string,JSONPath=`.status.allocated`
+// +kubebuilder:printcolumn:name="Allocated",type=integer,JSONPath=`.status.allocated`
 // +kubebuilder:printcolumn:name="Total",type=string,JSONPath=`.status.total`,priority=1
 // +kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.status.conditions[?(@.type=="Available")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 43",message="pool name must not exceed 43 characters"
 
 // IndexPool is the Schema for the indexpools API
 type IndexPool struct {
@@ -105,32 +84,17 @@ type IndexPool struct {
 }
 
 // Total returns the total number of allocatable indices in the pool.
-func (p *IndexPool) Total() uint64 {
-	var total uint64
+func (p *IndexPool) Total() int64 {
+	var total int64
 	for _, r := range p.Spec.Ranges {
 		total += r.End - r.Start + 1
 	}
 	return total
 }
 
-// Allocated returns the number of currently allocated indices.
-func (p *IndexPool) Allocated() int {
-	return len(p.Status.Allocations)
-}
-
 // IsExhausted returns true if all available indices have been allocated.
 func (p *IndexPool) IsExhausted() bool {
-	return uint64(p.Allocated()) >= p.Total() // #nosec G115
-}
-
-// FindAllocation returns the ClaimAllocation for the given claim, or nil if not found.
-func (p *IndexPool) FindAllocation(claim *Claim) *ClaimAllocation {
-	for _, a := range p.Status.Allocations {
-		if a.ClaimRef.Name == claim.Name && a.ClaimUID == claim.UID {
-			return &ClaimAllocation{Index: &a.Index, Value: strconv.FormatUint(a.Index, 10)}
-		}
-	}
-	return nil
+	return p.Status.Allocated >= p.Total()
 }
 
 // GetConditions implements conditions.Getter.
@@ -143,77 +107,63 @@ func (p *IndexPool) SetConditions(conditions []metav1.Condition) {
 	p.Status.Conditions = conditions
 }
 
-// Allocate finds the first free index across all ranges, records the allocation,
-// and returns a ClaimAllocation describing the reserved index.
-func (p *IndexPool) Allocate(claim *Claim) (*ClaimAllocation, error) {
-	allocated := make(map[uint64]struct{}, len(p.Status.Allocations))
-	for _, a := range p.Status.Allocations {
-		allocated[a.Index] = struct{}{}
+// ReclaimPolicy returns the pool's reclaim policy.
+func (p *IndexPool) ReclaimPolicy() ReclaimPolicy {
+	return p.Spec.ReclaimPolicy
+}
+
+// ListAllocations lists all Index objects matching the given options.
+func (p *IndexPool) ListAllocations(ctx context.Context, c client.Client, opts ...client.ListOption) ([]Allocation, error) {
+	list := &IndexList{}
+	if err := c.List(ctx, list, opts...); err != nil {
+		return nil, err
+	}
+	allocs := make([]Allocation, len(list.Items))
+	for i := range list.Items {
+		allocs[i] = &list.Items[i]
+	}
+	return allocs, nil
+}
+
+// Allocate finds the first free index across all ranges and returns an Index
+// allocation object for the given claim.
+func (p *IndexPool) Allocate(claim *Claim, existing []Allocation) (Allocation, error) {
+	allocated := make(map[int64]struct{}, len(existing))
+	for _, obj := range existing {
+		idx := obj.(*Index)
+		if idx.Spec.Index >= 0 {
+			allocated[idx.Spec.Index] = struct{}{}
+		}
 	}
 	for _, r := range p.Spec.Ranges {
 		for idx := r.Start; idx <= r.End; idx++ {
 			if _, taken := allocated[idx]; !taken {
-				p.Status.Allocations = append(p.Status.Allocations, IndexAllocation{
-					ClaimRef: corev1alpha1.LocalObjectReference{Name: claim.Name},
-					ClaimUID: claim.UID,
-					Index:    idx,
-				})
-				return &ClaimAllocation{
-					Index: &idx,
-					Value: strconv.FormatUint(idx, 10),
+				return &Index{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: GroupVersion.String(),
+						Kind:       "Index",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      fmt.Sprintf("%s-%d", p.Name, idx),
+						Namespace: p.Namespace,
+					},
+					Spec: IndexSpec{
+						PoolRef: corev1alpha1.TypedLocalObjectReference{
+							APIVersion: GroupVersion.String(),
+							Kind:       "IndexPool",
+							Name:       p.Name,
+						},
+						Index: idx,
+						ClaimRef: &ClaimRef{
+							Name: claim.Name,
+							UID:  claim.UID,
+						},
+					},
 				}, nil
 			}
 		}
 	}
 	return nil, ErrPoolExhausted
-}
-
-// AllocatePreferred reserves the specific index given by preferred for the claim.
-// Returns ErrPreferredValueUnavailable if the value is outside the pool's configured
-// ranges or is already taken by another claim.
-func (p *IndexPool) AllocatePreferred(claim *Claim, preferred string) (*ClaimAllocation, error) {
-	idx, err := strconv.ParseUint(preferred, 10, 64)
-	if err != nil {
-		return nil, ErrPreferredValueUnavailable
-	}
-	inRange := false
-	for _, r := range p.Spec.Ranges {
-		if idx >= r.Start && idx <= r.End {
-			inRange = true
-			break
-		}
-	}
-	if !inRange {
-		return nil, ErrPreferredValueUnavailable
-	}
-	for _, a := range p.Status.Allocations {
-		if a.Index == idx {
-			return nil, ErrPreferredValueUnavailable
-		}
-	}
-	p.Status.Allocations = append(p.Status.Allocations, IndexAllocation{
-		ClaimRef: corev1alpha1.LocalObjectReference{Name: claim.Name},
-		ClaimUID: claim.UID,
-		Index:    idx,
-	})
-	return &ClaimAllocation{Index: &idx, Value: strconv.FormatUint(idx, 10)}, nil
-}
-
-// Reclaim applies the pool's reclaim policy for the given claim.
-// On Recycle (default) the allocation is removed; on Retain it is kept with Retained=true.
-func (p *IndexPool) Reclaim(claim *Claim) {
-	for i := range p.Status.Allocations {
-		a := &p.Status.Allocations[i]
-		if a.ClaimRef.Name != claim.Name || a.ClaimUID != claim.UID {
-			continue
-		}
-		if p.Spec.ReclaimPolicy == ReclaimPolicyRetain {
-			a.Retained = true
-			continue
-		}
-		p.Status.Allocations = append(p.Status.Allocations[:i], p.Status.Allocations[i+1:]...)
-		return
-	}
 }
 
 // +kubebuilder:object:root=true

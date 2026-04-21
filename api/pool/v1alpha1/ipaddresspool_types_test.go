@@ -5,11 +5,10 @@ package v1alpha1
 
 import (
 	"math/big"
-	"reflect"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
@@ -109,72 +108,6 @@ func TestIPAddressPool_Total(t *testing.T) {
 	}
 }
 
-func TestIPAddressPool_Allocated(t *testing.T) {
-	tests := []struct {
-		name string
-		pool IPAddressPool
-		want int
-	}{
-		{
-			name: "no allocations",
-			pool: IPAddressPool{
-				Status: IPAddressPoolStatus{
-					Allocations: []IPAddressAllocation{},
-				},
-			},
-			want: 0,
-		},
-		{
-			name: "single allocation",
-			pool: IPAddressPool{
-				Status: IPAddressPoolStatus{
-					Allocations: []IPAddressAllocation{
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-1"},
-							ClaimUID: types.UID("uid-1"),
-							Address:  "192.168.1.1",
-						},
-					},
-				},
-			},
-			want: 1,
-		},
-		{
-			name: "multiple allocations",
-			pool: IPAddressPool{
-				Status: IPAddressPoolStatus{
-					Allocations: []IPAddressAllocation{
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-1"},
-							ClaimUID: types.UID("uid-1"),
-							Address:  "192.168.1.1",
-						},
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-2"},
-							ClaimUID: types.UID("uid-2"),
-							Address:  "192.168.1.2",
-						},
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-3"},
-							ClaimUID: types.UID("uid-3"),
-							Address:  "192.168.1.3",
-						},
-					},
-				},
-			},
-			want: 3,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if got := test.pool.Allocated(); got != test.want {
-				t.Errorf("Allocated() = %v, want %v", got, test.want)
-			}
-		})
-	}
-}
-
 func TestIPAddressPool_IsExhausted(t *testing.T) {
 	tests := []struct {
 		name string
@@ -184,12 +117,8 @@ func TestIPAddressPool_IsExhausted(t *testing.T) {
 		{
 			name: "empty pool - exhausted",
 			pool: IPAddressPool{
-				Spec: IPAddressPoolSpec{
-					Prefixes: []corev1alpha1.IPPrefix{},
-				},
-				Status: IPAddressPoolStatus{
-					Allocations: []IPAddressAllocation{},
-				},
+				Spec:   IPAddressPoolSpec{Prefixes: []corev1alpha1.IPPrefix{}},
+				Status: IPAddressPoolStatus{Allocated: 0},
 			},
 			want: true,
 		},
@@ -201,9 +130,7 @@ func TestIPAddressPool_IsExhausted(t *testing.T) {
 						corev1alpha1.MustParsePrefix("192.168.1.0/30"),
 					},
 				},
-				Status: IPAddressPoolStatus{
-					Allocations: []IPAddressAllocation{},
-				},
+				Status: IPAddressPoolStatus{Allocated: 0},
 			},
 			want: false,
 		},
@@ -215,15 +142,7 @@ func TestIPAddressPool_IsExhausted(t *testing.T) {
 						corev1alpha1.MustParsePrefix("192.168.1.0/30"),
 					},
 				},
-				Status: IPAddressPoolStatus{
-					Allocations: []IPAddressAllocation{
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-1"},
-							ClaimUID: types.UID("uid-1"),
-							Address:  "192.168.1.1",
-						},
-					},
-				},
+				Status: IPAddressPoolStatus{Allocated: 2},
 			},
 			want: false,
 		},
@@ -235,30 +154,7 @@ func TestIPAddressPool_IsExhausted(t *testing.T) {
 						corev1alpha1.MustParsePrefix("192.168.1.0/30"),
 					},
 				},
-				Status: IPAddressPoolStatus{
-					Allocations: []IPAddressAllocation{
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-1"},
-							ClaimUID: types.UID("uid-1"),
-							Address:  "192.168.1.0",
-						},
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-2"},
-							ClaimUID: types.UID("uid-2"),
-							Address:  "192.168.1.1",
-						},
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-3"},
-							ClaimUID: types.UID("uid-3"),
-							Address:  "192.168.1.2",
-						},
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-4"},
-							ClaimUID: types.UID("uid-4"),
-							Address:  "192.168.1.3",
-						},
-					},
-				},
+				Status: IPAddressPoolStatus{Allocated: 4},
 			},
 			want: true,
 		},
@@ -267,50 +163,12 @@ func TestIPAddressPool_IsExhausted(t *testing.T) {
 			pool: IPAddressPool{
 				Spec: IPAddressPoolSpec{
 					Prefixes: []corev1alpha1.IPPrefix{
-						corev1alpha1.MustParsePrefix("192.168.1.0/31"),
+						corev1alpha1.MustParsePrefix("192.168.1.0/30"),
 					},
 				},
-				Status: IPAddressPoolStatus{
-					Allocations: []IPAddressAllocation{
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-1"},
-							ClaimUID: types.UID("uid-1"),
-							Address:  "192.168.1.0",
-						},
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-2"},
-							ClaimUID: types.UID("uid-2"),
-							Address:  "192.168.1.1",
-						},
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-3"},
-							ClaimUID: types.UID("uid-3"),
-							Address:  "192.168.1.2",
-						},
-					},
-				},
+				Status: IPAddressPoolStatus{Allocated: 10},
 			},
 			want: true,
-		},
-		{
-			name: "IPv6 pool - not exhausted",
-			pool: IPAddressPool{
-				Spec: IPAddressPoolSpec{
-					Prefixes: []corev1alpha1.IPPrefix{
-						corev1alpha1.MustParsePrefix("2001:db8::/126"),
-					},
-				},
-				Status: IPAddressPoolStatus{
-					Allocations: []IPAddressAllocation{
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "claim-1"},
-							ClaimUID: types.UID("uid-1"),
-							Address:  "2001:db8::1",
-						},
-					},
-				},
-			},
-			want: false,
 		},
 	}
 
@@ -323,162 +181,72 @@ func TestIPAddressPool_IsExhausted(t *testing.T) {
 	}
 }
 
-func TestIPAddressPool_FindAllocation(t *testing.T) {
-	tests := []struct {
-		name  string
-		pool  IPAddressPool
-		claim Claim
-		want  *ClaimAllocation
-	}{
-		{
-			name: "empty allocations returns nil",
-			pool: IPAddressPool{
-				Status: IPAddressPoolStatus{
-					Allocations: []IPAddressAllocation{},
-				},
-			},
-			claim: Claim{ObjectMeta: metav1.ObjectMeta{Name: "c1", UID: "uid1"}},
-			want:  nil,
-		},
-		{
-			name: "matching claim returns allocation",
-			pool: IPAddressPool{
-				Status: IPAddressPoolStatus{
-					Allocations: []IPAddressAllocation{
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "c1"},
-							ClaimUID: types.UID("uid1"),
-							Address:  "10.0.0.1",
-						},
-					},
-				},
-			},
-			claim: Claim{ObjectMeta: metav1.ObjectMeta{Name: "c1", UID: "uid1"}},
-			want:  &ClaimAllocation{IPAddress: new("10.0.0.1"), Value: "10.0.0.1"},
-		},
-		{
-			name: "different claim name returns nil",
-			pool: IPAddressPool{
-				Status: IPAddressPoolStatus{
-					Allocations: []IPAddressAllocation{
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "c1"},
-							ClaimUID: types.UID("uid1"),
-							Address:  "10.0.0.1",
-						},
-					},
-				},
-			},
-			claim: Claim{ObjectMeta: metav1.ObjectMeta{Name: "other", UID: "uid1"}},
-			want:  nil,
-		},
-		{
-			name: "different claim UID returns nil",
-			pool: IPAddressPool{
-				Status: IPAddressPoolStatus{
-					Allocations: []IPAddressAllocation{
-						{
-							ClaimRef: corev1alpha1.LocalObjectReference{Name: "c1"},
-							ClaimUID: types.UID("uid1"),
-							Address:  "10.0.0.1",
-						},
-					},
-				},
-			},
-			claim: Claim{ObjectMeta: metav1.ObjectMeta{Name: "c1", UID: "other-uid"}},
-			want:  nil,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got := test.pool.FindAllocation(&test.claim)
-			if !reflect.DeepEqual(got, test.want) {
-				t.Errorf("FindAllocation() = %v, want %v", got, test.want)
-			}
-		})
-	}
-}
-
 func TestIPAddressPool_Allocate(t *testing.T) {
 	tests := []struct {
-		name      string
-		pool      IPAddressPool
-		claim     Claim
-		wantErr   bool
-		checkFunc func(t *testing.T, pool *IPAddressPool, alloc *ClaimAllocation)
+		name     string
+		pool     IPAddressPool
+		existing []client.Object
+		wantVal  string
+		wantName string
+		wantErr  bool
 	}{
 		{
-			name: "prefix 10.0.0.0/30 allocates first address",
+			name: "empty pool allocates first address",
 			pool: IPAddressPool{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-pool", Namespace: "default"},
 				Spec: IPAddressPoolSpec{
 					Prefixes: []corev1alpha1.IPPrefix{
 						corev1alpha1.MustParsePrefix("10.0.0.0/30"),
 					},
 				},
 			},
-			claim: Claim{ObjectMeta: metav1.ObjectMeta{Name: "test-claim", UID: "test-uid"}},
-			checkFunc: func(t *testing.T, pool *IPAddressPool, alloc *ClaimAllocation) {
-				if alloc.IPAddress == nil {
-					t.Fatal("IPAddress is nil, want non-nil")
-				}
-				if *alloc.IPAddress != "10.0.0.0" {
-					t.Errorf("IPAddress = %q, want %q", *alloc.IPAddress, "10.0.0.0")
-				}
-				if alloc.Value != "10.0.0.0" {
-					t.Errorf("Value = %q, want %q", alloc.Value, "10.0.0.0")
-				}
-			},
+			existing: nil,
+			wantVal:  "10.0.0.0",
+			wantName: "test-pool-10-0-0-0",
 		},
 		{
-			name: "10.0.0.0 already allocated allocates next address",
+			name: "skips already allocated address",
 			pool: IPAddressPool{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-pool", Namespace: "default"},
 				Spec: IPAddressPoolSpec{
 					Prefixes: []corev1alpha1.IPPrefix{
 						corev1alpha1.MustParsePrefix("10.0.0.0/30"),
 					},
 				},
-				Status: IPAddressPoolStatus{
-					Allocations: []IPAddressAllocation{
-						{ClaimRef: corev1alpha1.LocalObjectReference{Name: "existing"}, ClaimUID: "existing-uid", Address: "10.0.0.0"},
-					},
-				},
 			},
-			claim: Claim{ObjectMeta: metav1.ObjectMeta{Name: "test-claim", UID: "test-uid"}},
-			checkFunc: func(t *testing.T, pool *IPAddressPool, alloc *ClaimAllocation) {
-				if alloc.IPAddress == nil {
-					t.Fatal("IPAddress is nil, want non-nil")
-				}
-				if *alloc.IPAddress != "10.0.0.1" {
-					t.Errorf("IPAddress = %q, want %q", *alloc.IPAddress, "10.0.0.1")
-				}
+			existing: []client.Object{
+				&IPAddress{Spec: IPAddressSpec{Address: corev1alpha1.MustParseAddr("10.0.0.0")}},
 			},
+			wantVal:  "10.0.0.1",
+			wantName: "test-pool-10-0-0-1",
 		},
 		{
-			name: "all 4 addresses of /30 allocated returns error",
+			name: "all allocated returns error",
 			pool: IPAddressPool{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-pool", Namespace: "default"},
 				Spec: IPAddressPoolSpec{
 					Prefixes: []corev1alpha1.IPPrefix{
-						corev1alpha1.MustParsePrefix("10.0.0.0/30"),
-					},
-				},
-				Status: IPAddressPoolStatus{
-					Allocations: []IPAddressAllocation{
-						{ClaimRef: corev1alpha1.LocalObjectReference{Name: "c1"}, ClaimUID: "uid1", Address: "10.0.0.0"},
-						{ClaimRef: corev1alpha1.LocalObjectReference{Name: "c2"}, ClaimUID: "uid2", Address: "10.0.0.1"},
-						{ClaimRef: corev1alpha1.LocalObjectReference{Name: "c3"}, ClaimUID: "uid3", Address: "10.0.0.2"},
-						{ClaimRef: corev1alpha1.LocalObjectReference{Name: "c4"}, ClaimUID: "uid4", Address: "10.0.0.3"},
+						corev1alpha1.MustParsePrefix("10.0.0.0/31"),
 					},
 				},
 			},
-			claim:   Claim{ObjectMeta: metav1.ObjectMeta{Name: "test-claim", UID: "test-uid"}},
+			existing: []client.Object{
+				&IPAddress{Spec: IPAddressSpec{Address: corev1alpha1.MustParseAddr("10.0.0.0")}},
+				&IPAddress{Spec: IPAddressSpec{Address: corev1alpha1.MustParseAddr("10.0.0.1")}},
+			},
 			wantErr: true,
 		},
 	}
 
+	claim := &Claim{ObjectMeta: metav1.ObjectMeta{Name: "test-claim", UID: "test-uid"}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			alloc, err := test.pool.Allocate(&test.claim)
+			allocs := make([]Allocation, len(test.existing))
+			for i, obj := range test.existing {
+				allocs[i] = obj.(Allocation)
+			}
+
+			result, err := test.pool.Allocate(claim, allocs)
 			if test.wantErr {
 				if err == nil {
 					t.Fatal("Allocate() expected error, got nil")
@@ -488,8 +256,11 @@ func TestIPAddressPool_Allocate(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Allocate() unexpected error: %v", err)
 			}
-			if test.checkFunc != nil {
-				test.checkFunc(t, &test.pool, alloc)
+			if result.Value() != test.wantVal {
+				t.Errorf("Value = %q, want %q", result.Value(), test.wantVal)
+			}
+			if result.GetName() != test.wantName {
+				t.Errorf("Name = %q, want %q", result.GetName(), test.wantName)
 			}
 		})
 	}

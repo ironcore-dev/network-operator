@@ -29,6 +29,9 @@ resources:
 - v1alpha1_indexpool.yaml
 - v1alpha1_ipaddresspool.yaml
 - v1alpha1_ipprefixpool.yaml
+- v1alpha1_index.yaml
+- v1alpha1_ipaddress.yaml
+- v1alpha1_ipprefix.yaml
 - v1alpha1_claim.yaml
 - cisco/nx/v1alpha1_bordergateway.yaml
 - cisco/nx/v1alpha1_managementaccessconfig.yaml

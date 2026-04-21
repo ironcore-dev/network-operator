@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -27,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	poolv1alpha1 "github.com/ironcore-dev/network-operator/api/pool/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 )
@@ -35,19 +35,16 @@ import (
 type ClaimReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
-
-	// Recorder is used to record events for the controller.
-	// More info: https://book.kubebuilder.io/reference/raising-events
-	Recorder record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=claims,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=claims/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=claims/finalizers,verbs=update
+// +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=indices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=indexpools,verbs=get;list;watch
-// +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=indexpools/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=ipaddresses,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=ipaddresspools,verbs=get;list;watch
-// +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=ipaddresspools/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=ipprefixes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=ipprefixpools,verbs=get;list;watch
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=ipprefixpools/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
@@ -120,13 +117,58 @@ func (r *ClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ct
 	return ctrl.Result{}, nil
 }
 
-const claimPoolRefKey = ".spec.poolRef"
+const (
+	claimPoolRefKey  = ".spec.poolRef"
+	claimRefIndexKey = ".spec.claimRef.name"
+)
+
+// errAllocationConflict is returned when a concurrent controller already created
+// an allocation object with the same deterministic name. The caller should retry
+// with a fresh view of existing allocations.
+var errAllocationConflict = errors.New("allocation conflict")
+
+// errMultipleAllocations is returned when more than one allocation object is
+// bound to the same claim, indicating an inconsistency that requires manual cleanup.
+var errMultipleAllocations = errors.New("multiple allocations bound to claim")
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ClaimReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
+	// Index Claims by their poolRef for pool-change watches.
 	if err := mgr.GetFieldIndexer().IndexField(ctx, &poolv1alpha1.Claim{}, claimPoolRefKey, func(obj client.Object) []string {
 		ref := obj.(*poolv1alpha1.Claim).Spec.PoolRef
 		return []string{fmt.Sprintf("%s/%s/%s", ref.APIVersion, ref.Kind, ref.Name)}
+	}); err != nil {
+		return err
+	}
+
+	// Index Index/IPAddress/IPPrefix objects by claimRef.name so the claim controller
+	// can efficiently look up the allocation object bound to a given claim.
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &poolv1alpha1.Index{}, claimRefIndexKey, func(obj client.Object) []string {
+		ref := obj.(*poolv1alpha1.Index).Spec.ClaimRef
+		if ref == nil {
+			return nil
+		}
+		return []string{ref.Name}
+	}); err != nil {
+		return err
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &poolv1alpha1.IPAddress{}, claimRefIndexKey, func(obj client.Object) []string {
+		ref := obj.(*poolv1alpha1.IPAddress).Spec.ClaimRef
+		if ref == nil {
+			return nil
+		}
+		return []string{ref.Name}
+	}); err != nil {
+		return err
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &poolv1alpha1.IPPrefix{}, claimRefIndexKey, func(obj client.Object) []string {
+		ref := obj.(*poolv1alpha1.IPPrefix).Spec.ClaimRef
+		if ref == nil {
+			return nil
+		}
+		return []string{ref.Name}
 	}); err != nil {
 		return err
 	}
@@ -135,7 +177,7 @@ func (r *ClaimReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager
 		For(&poolv1alpha1.Claim{}).
 		Named("pool-claim").
 		// Watches enqueues Claims for updates in referenced IndexPool resources.
-		// Triggers on create, delete, and update events when the allocation status changes.
+		// Triggers on create, delete, and update events when the allocated count changes.
 		Watches(
 			&poolv1alpha1.IndexPool{},
 			handler.EnqueueRequestsFromMapFunc(r.claimsForPoolRef(poolv1alpha1.GroupVersion.WithKind("IndexPool"))),
@@ -143,8 +185,7 @@ func (r *ClaimReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					oldPool := e.ObjectOld.(*poolv1alpha1.IndexPool)
 					newPool := e.ObjectNew.(*poolv1alpha1.IndexPool)
-					// Only trigger when Allocations status field changes.
-					return !equality.Semantic.DeepEqual(oldPool.Status.Allocations, newPool.Status.Allocations)
+					return oldPool.Status.Allocated != newPool.Status.Allocated || oldPool.Status.Total != newPool.Status.Total
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false
@@ -152,7 +193,7 @@ func (r *ClaimReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager
 			}),
 		).
 		// Watches enqueues Claims for updates in referenced IPAddressPool resources.
-		// Triggers on create, delete, and update events when the allocation status changes.
+		// Triggers on create, delete, and update events when the allocated count changes.
 		Watches(
 			&poolv1alpha1.IPAddressPool{},
 			handler.EnqueueRequestsFromMapFunc(r.claimsForPoolRef(poolv1alpha1.GroupVersion.WithKind("IPAddressPool"))),
@@ -160,8 +201,7 @@ func (r *ClaimReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					oldPool := e.ObjectOld.(*poolv1alpha1.IPAddressPool)
 					newPool := e.ObjectNew.(*poolv1alpha1.IPAddressPool)
-					// Only trigger when Allocations status field changes.
-					return !equality.Semantic.DeepEqual(oldPool.Status.Allocations, newPool.Status.Allocations)
+					return oldPool.Status.Allocated != newPool.Status.Allocated || oldPool.Status.Total != newPool.Status.Total
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false
@@ -169,7 +209,7 @@ func (r *ClaimReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager
 			}),
 		).
 		// Watches enqueues Claims for updates in referenced IPPrefixPool resources.
-		// Triggers on create, delete, and update events when the allocation status changes.
+		// Triggers on create, delete, and update events when the allocated count changes.
 		Watches(
 			&poolv1alpha1.IPPrefixPool{},
 			handler.EnqueueRequestsFromMapFunc(r.claimsForPoolRef(poolv1alpha1.GroupVersion.WithKind("IPPrefixPool"))),
@@ -177,38 +217,31 @@ func (r *ClaimReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					oldPool := e.ObjectOld.(*poolv1alpha1.IPPrefixPool)
 					newPool := e.ObjectNew.(*poolv1alpha1.IPPrefixPool)
-					// Only trigger when Allocations status field changes.
-					return !equality.Semantic.DeepEqual(oldPool.Status.Allocations, newPool.Status.Allocations)
+					return oldPool.Status.Allocated != newPool.Status.Allocated || oldPool.Status.Total != newPool.Status.Total
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false
 				},
 			}),
 		).
+		// Watches enqueues Claims when a pre-provisioned allocation object with the
+		// allow-binding annotation is created, updated or deleted with a matching claimRef name.
+		Watches(
+			&poolv1alpha1.Index{},
+			handler.EnqueueRequestsFromMapFunc(r.claimForAllocation),
+			builder.WithPredicates(allowBindingPredicate()),
+		).
+		Watches(
+			&poolv1alpha1.IPAddress{},
+			handler.EnqueueRequestsFromMapFunc(r.claimForAllocation),
+			builder.WithPredicates(allowBindingPredicate()),
+		).
+		Watches(
+			&poolv1alpha1.IPPrefix{},
+			handler.EnqueueRequestsFromMapFunc(r.claimForAllocation),
+			builder.WithPredicates(allowBindingPredicate()),
+		).
 		Complete(r)
-}
-
-// Pool is an interface that abstracts over the different types of pools (IndexPool, IPAddressPool, IPPrefixPool) that a Claim can reference.
-type Pool interface {
-	client.Object
-
-	// IsExhausted reports whether all allocatable resources in the pool are taken.
-	IsExhausted() bool
-
-	// FindAllocation returns the existing ClaimAllocation for the given claim, or nil if none exists.
-	FindAllocation(claim *poolv1alpha1.Claim) *poolv1alpha1.ClaimAllocation
-
-	// Allocate reserves the next available resource for the claim and records it in the pool status.
-	// Returns ErrPoolExhausted when no resources are left.
-	Allocate(claim *poolv1alpha1.Claim) (*poolv1alpha1.ClaimAllocation, error)
-
-	// AllocatePreferred reserves the specific value given by preferred for the claim.
-	// Returns ErrPreferredValueUnavailable if the value is outside the pool's configured
-	// ranges/prefixes or is already taken by another claim.
-	AllocatePreferred(claim *poolv1alpha1.Claim, preferred string) (*poolv1alpha1.ClaimAllocation, error)
-
-	// Reclaim applies the pool's ReclaimPolicy for the given claim on deletion.
-	Reclaim(claim *poolv1alpha1.Claim)
 }
 
 func (r *ClaimReconciler) reconcile(ctx context.Context, claim *poolv1alpha1.Claim) error {
@@ -235,7 +268,7 @@ func (r *ClaimReconciler) reconcile(ctx context.Context, claim *poolv1alpha1.Cla
 		return reconcile.TerminalError(fmt.Errorf("poolRef apiVersion must be %s", poolv1alpha1.GroupVersion.String()))
 	}
 
-	var pool Pool
+	var pool poolv1alpha1.Pool
 	switch ref.Kind {
 	case "IndexPool":
 		pool = new(poolv1alpha1.IndexPool)
@@ -253,39 +286,82 @@ func (r *ClaimReconciler) reconcile(ctx context.Context, claim *poolv1alpha1.Cla
 		return reconcile.TerminalError(errors.New("poolRef kind must be one of IndexPool, IPAddressPool, or IPPrefixPool"))
 	}
 
-	preferred := claim.Annotations[poolv1alpha1.PreferredValueAnnotation]
-	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		if err := r.Get(ctx, client.ObjectKey{Name: claim.Spec.PoolRef.Name, Namespace: claim.Namespace}, pool); err != nil {
+	// Allocate a value from the pool. Retries on conflict when a concurrent
+	// controller creates an allocation object with the same deterministic name.
+	var bound poolv1alpha1.Allocation
+	err = retry.OnError(retry.DefaultBackoff, func(err error) bool {
+		return errors.Is(err, errAllocationConflict)
+	}, func() error {
+		if err := r.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: claim.Namespace}, pool); err != nil {
 			return err
 		}
-		// Check if the claim is already allocated in the pool.
-		if alloc := pool.FindAllocation(claim); alloc != nil {
-			claim.Status.Allocation = alloc
-			return nil
+
+		// Ensure the pool owns the claim for garbage collection on pool deletion.
+		if err := controllerutil.SetOwnerReference(pool, claim, r.Scheme); err != nil {
+			return err
 		}
-		// If the claim has an allocation in its status that is not reflected in the pool,
-		// we have an inconsistency that requires manual intervention.
-		if claim.Status.Allocation != nil {
-			return poolv1alpha1.ErrAllocationInconsistent
-		}
-		var alloc *poolv1alpha1.ClaimAllocation
-		if preferred != "" {
-			alloc, err = pool.AllocatePreferred(claim, preferred)
-		} else {
-			if pool.IsExhausted() {
-				return poolv1alpha1.ErrPoolExhausted
-			}
-			alloc, err = pool.Allocate(claim)
-		}
+
+		// Look for an allocation object already referencing this claim by name.
+		allocs, err := pool.ListAllocations(ctx, r.Client, client.InNamespace(claim.Namespace), client.MatchingFields{claimRefIndexKey: claim.Name})
 		if err != nil {
 			return err
 		}
-		if err := r.Status().Update(ctx, pool); err != nil {
+		var matched []poolv1alpha1.Allocation
+		for _, alloc := range allocs {
+			ref := alloc.ClaimRef()
+			if ref == nil || ref.Name != claim.Name {
+				continue
+			}
+			if ref.UID != claim.UID {
+				// Stale UID — only rebind if the allow-binding annotation is set.
+				if _, ok := alloc.GetAnnotations()[poolv1alpha1.AllowBindingAnnotation]; !ok {
+					continue
+				}
+				alloc.SetClaimRef(&poolv1alpha1.ClaimRef{Name: claim.Name, UID: claim.UID})
+				if err := r.Update(ctx, alloc); err != nil {
+					return err
+				}
+			}
+			matched = append(matched, alloc)
+		}
+		if len(matched) > 1 {
+			return errMultipleAllocations
+		}
+		if len(matched) == 1 {
+			bound = matched[0]
+			return nil
+		}
+
+		if pool.IsExhausted() {
+			return poolv1alpha1.ErrPoolExhausted
+		}
+
+		// List all allocation objects for this pool to determine used values.
+		existing, err := pool.ListAllocations(ctx, r.Client, client.InNamespace(claim.Namespace), client.MatchingFields{poolRefIndexKey: pool.GetName()})
+		if err != nil {
 			return err
 		}
-		// Only update the claim status after successfully updating the pool status to avoid
-		// inconsistencies where the claim status shows an allocation not reserved in the pool.
-		claim.Status.Allocation = alloc
+
+		alloc, err := pool.Allocate(claim, existing)
+		if err != nil {
+			return err
+		}
+
+		// Set the pool as owner for garbage collection on pool deletion.
+		if err := controllerutil.SetOwnerReference(pool, alloc, r.Scheme); err != nil {
+			return err
+		}
+
+		// Create the allocation object. AlreadyExists means a concurrent controller
+		// grabbed the same slot — retry with a fresh list.
+		if err := r.Create(ctx, alloc); err != nil {
+			if apierrors.IsAlreadyExists(err) {
+				return errAllocationConflict
+			}
+			return err
+		}
+
+		bound = alloc
 		return nil
 	})
 
@@ -295,7 +371,15 @@ func (r *ClaimReconciler) reconcile(ctx context.Context, claim *poolv1alpha1.Cla
 			Type:    poolv1alpha1.AllocatedCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  poolv1alpha1.PoolNotFoundReason,
-			Message: fmt.Sprintf("Referenced pool %s not found", claim.Spec.PoolRef.Name),
+			Message: fmt.Sprintf("Referenced pool %s not found", ref.Name),
+		})
+		return reconcile.TerminalError(err)
+	case errors.Is(err, errMultipleAllocations):
+		conditions.Set(claim, metav1.Condition{
+			Type:    poolv1alpha1.AllocatedCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  poolv1alpha1.MultipleAllocationsReason,
+			Message: "Multiple allocation objects are bound to this claim",
 		})
 		return reconcile.TerminalError(err)
 	case errors.Is(err, poolv1alpha1.ErrPoolExhausted):
@@ -304,22 +388,6 @@ func (r *ClaimReconciler) reconcile(ctx context.Context, claim *poolv1alpha1.Cla
 			Status:  metav1.ConditionFalse,
 			Reason:  poolv1alpha1.PoolExhaustedReason,
 			Message: "Referenced pool is exhausted",
-		})
-		return reconcile.TerminalError(err)
-	case errors.Is(err, poolv1alpha1.ErrPreferredValueUnavailable):
-		conditions.Set(claim, metav1.Condition{
-			Type:    poolv1alpha1.AllocatedCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  poolv1alpha1.PreferredValueUnavailableReason,
-			Message: fmt.Sprintf("Preferred value %q is not available in pool %s; remove the annotation to allow any available value to be allocated", preferred, claim.Spec.PoolRef.Name),
-		})
-		return reconcile.TerminalError(err)
-	case errors.Is(err, poolv1alpha1.ErrAllocationInconsistent):
-		conditions.Set(claim, metav1.Condition{
-			Type:    poolv1alpha1.AllocatedCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  poolv1alpha1.AllocationFailedReason,
-			Message: fmt.Sprintf("Claim has an allocation in status that is not reflected in pool %s; manual intervention required", claim.Spec.PoolRef.Name),
 		})
 		return reconcile.TerminalError(err)
 	case err != nil:
@@ -331,10 +399,16 @@ func (r *ClaimReconciler) reconcile(ctx context.Context, claim *poolv1alpha1.Cla
 			Reason:  poolv1alpha1.AllocatedReason,
 			Message: "Successfully allocated from pool",
 		})
+		claim.Status.Value = bound.Value()
+		if gvks, _, err := r.Scheme.ObjectKinds(bound); err == nil && len(gvks) > 0 {
+			bound.GetObjectKind().SetGroupVersionKind(gvks[0])
+		}
+		claim.Status.AllocationRef = v1alpha1.TypedLocalObjectRefFromObject(bound)
 		return nil
 	}
 }
 
+// finalize releases the allocation bound to the claim according to the pool's reclaim policy.
 func (r *ClaimReconciler) finalize(ctx context.Context, claim *poolv1alpha1.Claim) error {
 	ref := claim.Spec.PoolRef
 
@@ -343,7 +417,7 @@ func (r *ClaimReconciler) finalize(ctx context.Context, claim *poolv1alpha1.Clai
 		return nil //nolint:nilerr
 	}
 
-	var pool Pool
+	var pool poolv1alpha1.Pool
 	switch ref.Kind {
 	case "IndexPool":
 		pool = new(poolv1alpha1.IndexPool)
@@ -355,13 +429,29 @@ func (r *ClaimReconciler) finalize(ctx context.Context, claim *poolv1alpha1.Clai
 		return nil
 	}
 
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		if err := r.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: claim.Namespace}, pool); err != nil {
-			return client.IgnoreNotFound(err)
+	if err := r.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: claim.Namespace}, pool); err != nil {
+		return client.IgnoreNotFound(err)
+	}
+
+	bound, err := pool.ListAllocations(ctx, r.Client, client.InNamespace(claim.Namespace), client.MatchingFields{claimRefIndexKey: claim.Name})
+	if err != nil {
+		return err
+	}
+
+	for _, alloc := range bound {
+		if alloc.ClaimRef() == nil || alloc.ClaimRef().UID != claim.UID {
+			continue
 		}
-		pool.Reclaim(claim)
-		return r.Status().Update(ctx, pool)
-	})
+		// Recycle: delete the allocation object to free the slot.
+		if pool.ReclaimPolicy() == poolv1alpha1.ReclaimPolicyRecycle {
+			return client.IgnoreNotFound(r.Delete(ctx, alloc))
+		}
+		// Retain: clear the claimRef so the allocation persists as reserved but unbound.
+		alloc.SetClaimRef(nil)
+		return r.Update(ctx, alloc)
+	}
+
+	return nil
 }
 
 // claimsForPoolRef returns a [handler.MapFunc] that enqueues requests for reconciliation
@@ -390,5 +480,45 @@ func (r *ClaimReconciler) claimsForPoolRef(gvk schema.GroupVersionKind) handler.
 		}
 
 		return requests
+	}
+}
+
+// claimForAllocation enqueues the Claim referenced by an allocation object's claimRef.
+func (r *ClaimReconciler) claimForAllocation(_ context.Context, obj client.Object) []reconcile.Request {
+	alloc, ok := obj.(poolv1alpha1.Allocation)
+	if !ok {
+		return nil
+	}
+	ref := alloc.ClaimRef()
+	if ref == nil {
+		return nil
+	}
+	return []reconcile.Request{{
+		NamespacedName: types.NamespacedName{
+			Name:      ref.Name,
+			Namespace: obj.GetNamespace(),
+		},
+	}}
+}
+
+// allowBindingPredicate filters for allocation objects that carry the allow-binding annotation.
+func allowBindingPredicate() predicate.Funcs {
+	hasAnnotation := func(obj client.Object) bool {
+		_, ok := obj.GetAnnotations()[poolv1alpha1.AllowBindingAnnotation]
+		return ok
+	}
+	return predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return hasAnnotation(e.Object)
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return hasAnnotation(e.ObjectNew)
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return hasAnnotation(e.Object)
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			return false
+		},
 	}
 }

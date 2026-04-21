@@ -42,7 +42,7 @@ var _ = Describe("IndexPool Controller", func() {
 			current := &poolv1alpha1.IndexPool{}
 			g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(pool), current)).To(Succeed())
 			g.Expect(current.Status.Total).To(Equal("10"))
-			g.Expect(current.Status.Allocated).To(Equal("0"))
+			g.Expect(current.Status.Allocated).To(Equal(int64(0)))
 		}).Should(Succeed())
 	})
 
@@ -58,24 +58,38 @@ var _ = Describe("IndexPool Controller", func() {
 	})
 
 	It("Should set Available=False when the pool is exhausted", func() {
-		By("Exhausting the pool by filling all allocations in status")
+		By("Waiting for the pool total to be reconciled")
 		Eventually(func(g Gomega) {
 			current := &poolv1alpha1.IndexPool{}
 			g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(pool), current)).To(Succeed())
 			g.Expect(current.Status.Total).To(Equal("10"))
 		}).Should(Succeed())
 
-		By("Patching the pool status with full allocations")
-		orig := pool.DeepCopy()
-		allocations := make([]poolv1alpha1.IndexAllocation, 10)
-		for i := range allocations {
-			allocations[i] = poolv1alpha1.IndexAllocation{
-				ClaimRef: corev1alpha1.LocalObjectReference{Name: "dummy"},
-				Index:    uint64(i + 1),
+		By("Creating Index objects to fill all 10 slots")
+		var createdIndices []*poolv1alpha1.Index
+		for i := 1; i <= 10; i++ {
+			idx := &poolv1alpha1.Index{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "idx-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: poolv1alpha1.IndexSpec{
+					PoolRef: corev1alpha1.TypedLocalObjectReference{
+						APIVersion: poolv1alpha1.GroupVersion.String(),
+						Kind:       "IndexPool",
+						Name:       pool.Name,
+					},
+					Index: int64(i),
+				},
 			}
+			Expect(k8sClient.Create(ctx, idx)).To(Succeed())
+			createdIndices = append(createdIndices, idx)
 		}
-		pool.Status.Allocations = allocations
-		Expect(k8sClient.Status().Patch(ctx, pool, client.MergeFrom(orig))).To(Succeed())
+		DeferCleanup(func() {
+			for _, idx := range createdIndices {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, idx))).To(Succeed())
+			}
+		})
 
 		Eventually(func(g Gomega) {
 			current := &poolv1alpha1.IndexPool{}

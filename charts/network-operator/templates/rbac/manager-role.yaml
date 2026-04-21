@@ -196,7 +196,10 @@ rules:
   resources:
   - claims
   - indexpools
+  - indices
+  - ipaddresses
   - ipaddresspools
+  - ipprefixes
   - ipprefixpools
   verbs:
   - create
@@ -210,9 +213,6 @@ rules:
   - pool.networking.metal.ironcore.dev
   resources:
   - claims/finalizers
-  - indexpools/finalizers
-  - ipaddresspools/finalizers
-  - ipprefixpools/finalizers
   verbs:
   - update
 - apiGroups:
@@ -220,7 +220,10 @@ rules:
   resources:
   - claims/status
   - indexpools/status
+  - indices/status
+  - ipaddresses/status
   - ipaddresspools/status
+  - ipprefixes/status
   - ipprefixpools/status
   verbs:
   - get

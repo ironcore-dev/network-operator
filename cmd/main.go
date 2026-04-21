@@ -756,13 +756,37 @@ func main() { //nolint:gocyclo
 	}
 
 	if err := (&poolcontroller.ClaimReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("claim-controller"),
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "Claim")
 		os.Exit(1)
 	}
+
+	if err := (&poolcontroller.IndexReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "pool-index")
+		os.Exit(1)
+	}
+
+	if err := (&poolcontroller.IPAddressReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "pool-ipaddress")
+		os.Exit(1)
+	}
+
+	if err := (&poolcontroller.IPPrefixReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "pool-ipprefix")
+		os.Exit(1)
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {
