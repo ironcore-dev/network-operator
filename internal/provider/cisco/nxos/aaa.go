@@ -159,7 +159,6 @@ type AAADefaultAuth struct {
 	Local         string `json:"local,omitempty"`
 	None          string `json:"none,omitempty"`
 	ErrEn         bool   `json:"errEn,omitempty"`
-	AuthProtocol  string `json:"authProtocol,omitempty"`
 }
 
 func (*AAADefaultAuth) XPath() string {
@@ -174,7 +173,6 @@ type AAAConsoleAuth struct {
 	Local         string `json:"local,omitempty"`
 	None          string `json:"none,omitempty"`
 	ErrEn         bool   `json:"errEn,omitempty"`
-	AuthProtocol  string `json:"authProtocol,omitempty"`
 }
 
 func (*AAAConsoleAuth) XPath() string {
