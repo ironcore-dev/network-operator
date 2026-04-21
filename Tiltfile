@@ -139,6 +139,12 @@ k8s_resource(new_name='lldp', objects=['leaf1-lldp:lldp'], trigger_mode=TRIGGER_
 k8s_yaml('./config/samples/v1alpha1_dhcprelay.yaml')
 k8s_resource(new_name='dhcprelay', objects=['dhcprelay:dhcprelay'], resource_deps=['eth1-1'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
+k8s_yaml('./config/samples/v1alpha1_aaa.yaml')
+k8s_resource(new_name='aaa', objects=['aaa-tacacs:aaa'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+# Uncomment the following lines for NX-OS specific AAA config
+# k8s_yaml('./config/samples/cisco/nx/v1alpha1_aaaconfig.yaml')
+# k8s_resource(new_name='aaaconfig', objects=['aaa-tacacs-nxos:aaaconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')
 print('👉 Tilt will automatically rebuild and redeploy when changes are detected')

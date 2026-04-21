@@ -1,5 +1,3 @@
-# Example AAA configuration with TACACS+ servers
----
 apiVersion: v1
 kind: Secret
 metadata:
@@ -7,27 +5,7 @@ metadata:
   namespace: default
 type: Opaque
 stringData:
-  # Replace with your actual TACACS+ server shared secret
   server-key: "supersecretkey"
----
-apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
-kind: AAAConfig
-metadata:
-  name: aaa-tacacs-nxos
-  namespace: default
-spec:
-  keyEncryption: Type7
-  loginErrorEnable: true
-  consoleAuthentication:
-    methods:
-      - type: Group
-        groupName: GR_TACACS
-      - type: Local
-  configCommandsAuthorization:
-    methods:
-      - type: Group
-        groupName: GR_TACACS
-      - type: Local
 ---
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: AAA
@@ -35,11 +13,9 @@ metadata:
   name: aaa-tacacs
   namespace: default
 spec:
-  # Reference to the Device this AAA configuration belongs to
   deviceRef:
     name: my-switch
 
-  # Reference to the Cisco NX-OS specific AAA configuration
   providerConfigRef:
     apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
     kind: AAAConfig

@@ -1,0 +1,20 @@
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: AAAConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: aaa-tacacs-nxos
+spec:
+  keyEncryption: Type7
+  loginErrorEnable: true
+  consoleAuthentication:
+    methods:
+      - type: Group
+        groupName: GR_TACACS
+      - type: Local
+  configCommandsAuthorization:
+    methods:
+      - type: Group
+        groupName: GR_TACACS
+      - type: Local

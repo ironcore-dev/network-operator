@@ -32,4 +32,6 @@ resources:
 - cisco/nx/v1alpha1_interfaceconfig.yaml
 - cisco/nx/v1alpha1_lldpconfig.yaml
 - cisco/nx/v1alpha1_bgpconfig.yaml
+- v1alpha1_aaa.yaml
+- cisco/nx/v1alpha1_aaaconfig.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples
