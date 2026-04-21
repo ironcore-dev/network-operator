@@ -48,6 +48,26 @@ kubectl annotate vrf vrf-prod networking.metal.ironcore.dev/paused-
 ```
 :::
 
+## Automatic Pausing
+
+Child resources are also paused automatically when the device is not in a
+state where configuration can be applied. This happens without any manual
+intervention. The following conditions trigger automatic pausing, evaluated
+in priority order:
+
+| Priority | Cause                                                             |
+| -------- | ----------------------------------------------------------------- |
+| 1        | `spec.paused: true` on the Device                                 |
+| 2        | Device `status.phase` is not `Running`                            |
+| 3        | Device `Reachable` condition is not `True`                        |
+| 4        | `networking.metal.ironcore.dev/paused` annotation on the resource |
+
+::: info
+The Device itself is exempt from automatic pausing (priorities 2 and 3). It
+must continue reconciling in order to transition out of non-Running phases
+and to update the `Reachable` condition.
+:::
+
 ## Paused Condition
 
 Every resource reflects its pause state in `.status.conditions` with a `Paused`
