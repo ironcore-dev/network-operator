@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"maps"
 	"net/netip"
+	"reflect"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,6 +26,37 @@ import (
 type Provider interface {
 	Connect(context.Context, *deviceutil.Connection) error
 	Disconnect(context.Context, *deviceutil.Connection) error
+}
+
+type Fields interface {
+	SupportedFields() []string
+}
+
+func ExtractApiAttributes(i any) []string {
+	fields := reflect.VisibleFields(reflect.TypeOf(i))
+
+	//Todo - check if type is struct
+	//Todo - check if type contains spec
+
+	var fieldNames []string
+	for i := range fields {
+
+		fieldNames = append(fieldNames, strings.ToLower(fields[i].Name))
+	}
+	return fieldNames
+}
+
+func CheckFieldSupport(f Fields, i any) (bool, []string) {
+	apiAttributes := ExtractApiAttributes(i)
+
+	//Todo - Return list of none-supported fields
+	var missing []string
+	for _, attr := range apiAttributes {
+		if !slices.Contains(f.SupportedFields(), strings.ToLower(attr)) {
+			missing = append(missing, attr)
+		}
+	}
+	return len(missing) == 0, missing
 }
 
 type DeviceProvider interface {
@@ -78,6 +111,7 @@ type DeviceInfo struct {
 // InterfaceProvider is the interface for the realization of the Interface objects over different providers.
 type InterfaceProvider interface {
 	Provider
+	Fields
 
 	// EnsureInterface call is responsible for Interface realization on the provider.
 	EnsureInterface(context.Context, *EnsureInterfaceRequest) error

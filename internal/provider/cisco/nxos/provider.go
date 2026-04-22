@@ -661,10 +661,21 @@ func isPointToPoint(ipv4 *v1alpha1.InterfaceIPv4) bool {
 	return false
 }
 
+func (p *Provider) SupportedFields() []string {
+	return []string{
+		"deviceref", "providerconfigref", "name", "adminstate", "description", "type", "mtu", "switchport", "ipv4",
+		"aggregation", "vlanref", "vrfref", "bfd", "ethernet", "encapsulation", "parentinterfaceref",
+	}
+}
+
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
 	name, err := ShortName(req.Interface.Spec.Name)
 	if err != nil {
 		return err
+	}
+	//ToDo - check available fields
+	if ok, missing := provider.CheckFieldSupport(p, req.Interface.Spec); !ok {
+		return fmt.Errorf("interface: unsupported fields in spec for interface %q: %v", req.Interface.Spec.Name, missing)
 	}
 
 	var cfg nxv1alpha1.InterfaceConfig
