@@ -16,7 +16,7 @@ sequenceDiagram
 	participant CFG as Config Reconciler
 	participant BOOT as Provisioning HTTP / TFTP
 	participant P as Provider / Transport
-	participant ND as Network Device
+	participant DEVICE as Network Device
 
 	U->>API: Apply Device or config CR
 	opt Webhook registered for this kind
@@ -34,17 +34,17 @@ sequenceDiagram
 		alt Provisioning is configured and phase is Pending
 			DEV->>API: Set phase=Provisioning and Ready=False
 			DEV-->>API: Requeue for follow-up checks
-			ND->>+BOOT: Request bootstrap config
+			DEVICE->>+BOOT: Request bootstrap config
 			BOOT->>API: Read Device, secrets, and bootstrap assets
-			BOOT-->>ND: Return provisioning config, certs, or boot script
-			ND->>BOOT: Report provisioning progress
+			BOOT-->>DEVICE: Return provisioning config, certs, or boot script
+			DEVICE->>BOOT: Report provisioning progress
 			BOOT->>API: Update provisioning status
 			API-)MGR: Watch event for Device update
 		end
 
 		DEV->>+P: Connect to provider
-		P->>ND: Read device facts and ports
-		ND-->>P: Inventory and operational state
+		P->>DEVICE: Read device facts and ports
+		DEVICE-->>P: Inventory and operational state
 		P-->>-DEV: Device details
 		DEV->>API: Patch status, labels, and Ready condition
 		DEV-->>-MGR: Reconcile complete
@@ -57,8 +57,8 @@ sequenceDiagram
 		CFG->>CFG: Acquire per-device lock
 		CFG->>API: Ensure finalizer, device label, and owner reference
 		CFG->>+P: Connect using device endpoint and credentials
-		P->>ND: Ensure intended configuration
-		ND-->>P: Apply result
+		P->>DEVICE: Ensure intended configuration
+		DEVICE-->>P: Apply result
 		P-->>-CFG: Success or error
 		CFG->>API: Patch Ready condition and status
 		CFG->>CFG: Release per-device lock
@@ -88,7 +88,7 @@ sequenceDiagram
 	participant DEV as DeviceReconciler
 	participant BOOT as Provisioning HTTP / TFTP
 	participant P as Provider / Transport
-	participant ND as Network Device
+	participant DEVICE as Network Device
 
 	U->>API: Apply Device CR
 	API-->>U: Object persisted
@@ -101,18 +101,18 @@ sequenceDiagram
 	alt Provisioning configured and phase is Pending
 		DEV->>API: Set phase=Provisioning and Ready=False
 		DEV-->>API: Requeue for follow-up checks
-		ND->>+BOOT: Request bootstrap config
+		DEVICE->>+BOOT: Request bootstrap config
 		BOOT->>API: Read Device, secrets, and bootstrap assets
-		BOOT-->>ND: Return provisioning config, certs, or boot script
-		ND->>BOOT: Report provisioning progress
+		BOOT-->>DEVICE: Return provisioning config, certs, or boot script
+		DEVICE->>BOOT: Report provisioning progress
 		BOOT->>API: Update provisioning status
 		API-)MGR: Watch event for Device update
 		DEV->>API: Requeue until provisioning completes
 	end
 
 	DEV->>+P: Connect to provider
-	P->>ND: Read device facts and ports
-	ND-->>P: Inventory and operational state
+	P->>DEVICE: Read device facts and ports
+	DEVICE-->>P: Inventory and operational state
 	P-->>-DEV: Device details
 	DEV->>API: Patch status, labels, and Ready condition
 	DEV-->>-MGR: Reconcile complete
@@ -130,7 +130,7 @@ sequenceDiagram
 	participant MGR as Controller Manager
 	participant CFG as Config Reconciler
 	participant P as Provider / Transport
-	participant ND as Network Device
+	participant DEVICE as Network Device
 
 	U->>API: Apply config CR
 	opt Webhook registered for this kind
@@ -147,8 +147,8 @@ sequenceDiagram
 	CFG->>CFG: Acquire per-device lock
 	CFG->>API: Ensure finalizer, device label, and owner reference
 	CFG->>+P: Connect using device endpoint and credentials
-	P->>ND: Ensure intended configuration
-	ND-->>P: Apply result
+	P->>DEVICE: Ensure intended configuration
+	DEVICE-->>P: Apply result
 	P-->>-CFG: Success or error
 	CFG->>API: Patch Ready condition and status
 	CFG->>CFG: Release per-device lock

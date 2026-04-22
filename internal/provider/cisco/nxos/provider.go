@@ -3273,9 +3273,6 @@ func (p *Provider) GetDHCPRelayStatus(ctx context.Context, req *provider.DHCPRel
 }
 
 func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest) error {
-	var conf []gnmiext.DataElement
-
-	// Read Cisco-specific config from ProviderConfig
 	var cfg nxv1alpha1.AAAConfig
 	if req.ProviderConfig != nil {
 		if err := req.ProviderConfig.Into(&cfg); err != nil {
@@ -3283,9 +3280,10 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 		}
 	}
 
-	// Collect desired server addresses per protocol to detect stale entries.
-	desiredTACACS := map[string]bool{}
-	desiredRADIUS := map[string]bool{}
+	desiredTACACS := map[string]struct{}{}
+	desiredRADIUS := map[string]struct{}{}
+
+	var conf []gnmiext.DataElement
 
 	for _, group := range req.AAA.Spec.ServerGroups {
 		switch group.Type {
@@ -3293,12 +3291,12 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 			conf = append(conf, &Feature{Name: "tacacsplus", AdminSt: AdminStEnabled})
 
 			for _, server := range group.Servers {
-				desiredTACACS[server.Address] = true
+				desiredTACACS[server.Address] = struct{}{}
 				srv := &TacacsPlusProvider{
 					Name:    server.Address,
 					Port:    server.TACACS.Port,
 					KeyEnc:  MapKeyEncryption(cfg.Spec.KeyEncryption),
-					Timeout: 5, // YANG default
+					Timeout: 5,
 				}
 				if key, ok := req.TACACSServerKeys[server.Address]; ok {
 					srv.Key = key
@@ -3321,13 +3319,13 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 
 		case v1alpha1.AAAServerGroupTypeRADIUS:
 			for _, server := range group.Servers {
-				desiredRADIUS[server.Address] = true
+				desiredRADIUS[server.Address] = struct{}{}
 				srv := &RadiusProvider{
 					Name:     server.Address,
 					AuthPort: server.RADIUS.AuthenticationPort,
 					AcctPort: server.RADIUS.AccountingPort,
 					KeyEnc:   MapRADIUSKeyEncryption(cfg.Spec.RADIUSKeyEncryption),
-					Timeout:  5, // YANG default
+					Timeout:  5,
 				}
 				if key, ok := req.RADIUSServerKeys[server.Address]; ok {
 					srv.Key = key
@@ -3350,9 +3348,12 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 		}
 	}
 
+	// Always take full ownership of the auth config. If not specified in the spec,
+	// reset to the device default (local auth).
+	authen := &AAADefaultAuth{Realm: AAARealmLocal, Local: AAAValueYes, Fallback: AAAValueYes}
 	if req.AAA.Spec.Authentication != nil && len(req.AAA.Spec.Authentication.Methods) > 0 {
 		methods := req.AAA.Spec.Authentication.Methods
-		authen := &AAADefaultAuth{
+		authen = &AAADefaultAuth{
 			ErrEn:    cfg.Spec.LoginErrorEnable,
 			Fallback: MapFallbackFromMethodList(methods),
 			Local:    MapLocalFromMethodList(methods),
@@ -3363,12 +3364,13 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 		} else {
 			authen.Realm = MapRealmFromMethodType(methods[0].Type)
 		}
-		conf = append(conf, authen)
 	}
+	conf = append(conf, authen)
 
+	consoleAuth := &AAAConsoleAuth{Realm: AAARealmLocal, Local: AAAValueYes, Fallback: AAAValueYes}
 	if cfg.Spec.ConsoleAuthentication != nil && len(cfg.Spec.ConsoleAuthentication.Methods) > 0 {
 		methods := cfg.Spec.ConsoleAuthentication.Methods
-		consoleAuth := &AAAConsoleAuth{
+		consoleAuth = &AAAConsoleAuth{
 			ErrEn:    cfg.Spec.LoginErrorEnable,
 			Fallback: MapFallback(methods),
 			Local:    MapLocal(methods),
@@ -3379,36 +3381,37 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 		} else {
 			consoleAuth.Realm = MapRealmFromMethodType(methods[0].Type)
 		}
-		conf = append(conf, consoleAuth)
 	}
+	conf = append(conf, consoleAuth)
 
+	// ConfigCommandsAuthorization (Cisco-specific) takes priority over the core Authorization field.
+	author := &AAADefaultAuthor{CmdType: "config", LocalRbac: true}
 	if req.AAA.Spec.Authorization != nil && len(req.AAA.Spec.Authorization.Methods) > 0 {
 		methods := req.AAA.Spec.Authorization.Methods
-		author := &AAADefaultAuthor{
+		author = &AAADefaultAuthor{
 			CmdType:   "config",
 			LocalRbac: MapLocalFromMethodList(methods) == AAAValueYes,
 		}
 		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
 			author.ProviderGroup = methods[0].GroupName
 		}
-		conf = append(conf, author)
 	}
-
 	if cfg.Spec.ConfigCommandsAuthorization != nil && len(cfg.Spec.ConfigCommandsAuthorization.Methods) > 0 {
 		methods := cfg.Spec.ConfigCommandsAuthorization.Methods
-		author := &AAADefaultAuthor{
+		author = &AAADefaultAuthor{
 			CmdType:   "config",
 			LocalRbac: MapLocal(methods) == AAAValueYes,
 		}
 		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
 			author.ProviderGroup = methods[0].GroupName
 		}
-		conf = append(conf, author)
 	}
+	conf = append(conf, author)
 
+	acct := &AAADefaultAcc{Realm: AAARealmLocal, LocalRbac: true}
 	if req.AAA.Spec.Accounting != nil && len(req.AAA.Spec.Accounting.Methods) > 0 {
 		methods := req.AAA.Spec.Accounting.Methods
-		acct := &AAADefaultAcc{
+		acct = &AAADefaultAcc{
 			LocalRbac: MapLocalFromMethodList(methods) == AAAValueYes,
 		}
 		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
@@ -3417,62 +3420,43 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 		} else {
 			acct.Realm = MapRealmFromMethodType(methods[0].Type)
 		}
-		conf = append(conf, acct)
+	}
+	conf = append(conf, acct)
+
+	// Fetch current server lists before applying desired state to compute stale entries.
+	currentTACACS := new(TacacsPlusProviderItems)
+	if err := p.client.GetConfig(ctx, currentTACACS); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	currentRADIUS := new(RadiusProviderItems)
+	if err := p.client.GetConfig(ctx, currentRADIUS); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
 	}
 
 	if err := p.Update(ctx, conf...); err != nil {
 		return err
 	}
 
-	// Remove TACACS+ server host entries that are on the device but no longer in the spec.
-	// This must happen after the Update above so the server is first dropped from the group's
-	// ProviderRef-list — NX-OS rejects deleting a server that is still referenced by a group.
-	if len(desiredTACACS) > 0 {
-		current := new(TacacsPlusProviderItems)
-		if err := p.client.GetConfig(ctx, current); err != nil && !errors.Is(err, gnmiext.ErrNil) {
-			return err
-		}
-		var stale []gnmiext.DataElement
-		for i := range current.ProviderList {
-			if !desiredTACACS[current.ProviderList[i].Name] {
-				stale = append(stale, &TacacsPlusProvider{Name: current.ProviderList[i].Name})
-			}
-		}
-		if len(stale) > 0 {
-			if err := p.client.Delete(ctx, stale...); err != nil && !errors.Is(err, gnmiext.ErrNil) {
-				return err
-			}
+	// Remove server host entries no longer in the spec. The Update above already
+	// dropped stale entries from the group ProviderRef-lists, so the deletes below
+	// are safe (NX-OS rejects deleting a server that is still group-referenced).
+	var stale []gnmiext.DataElement
+	for i := range currentTACACS.ProviderList {
+		if _, ok := desiredTACACS[currentTACACS.ProviderList[i].Name]; !ok {
+			stale = append(stale, &TacacsPlusProvider{Name: currentTACACS.ProviderList[i].Name})
 		}
 	}
-
-	// Same for RADIUS server host entries.
-	if len(desiredRADIUS) > 0 {
-		current := new(RadiusProviderItems)
-		if err := p.client.GetConfig(ctx, current); err != nil && !errors.Is(err, gnmiext.ErrNil) {
-			return err
-		}
-		var stale []gnmiext.DataElement
-		for i := range current.ProviderList {
-			if !desiredRADIUS[current.ProviderList[i].Name] {
-				stale = append(stale, &RadiusProvider{Name: current.ProviderList[i].Name})
-			}
-		}
-		if len(stale) > 0 {
-			if err := p.client.Delete(ctx, stale...); err != nil && !errors.Is(err, gnmiext.ErrNil) {
-				return err
-			}
+	for i := range currentRADIUS.ProviderList {
+		if _, ok := desiredRADIUS[currentRADIUS.ProviderList[i].Name]; !ok {
+			stale = append(stale, &RadiusProvider{Name: currentRADIUS.ProviderList[i].Name})
 		}
 	}
-
-	return nil
+	return p.client.Delete(ctx, stale...)
 }
 
 func (p *Provider) DeleteAAA(ctx context.Context, req *provider.DeleteAAARequest) error {
-	// Step 1: Reset AAA auth realms to local in a separate call before touching the
-	// TACACS feature flag. NX-OS rolls back the entire gNMI SET batch if any item
-	// fails validation, so mixing the feature-disable with auth resets causes all
-	// resets to be silently reverted when the feature cannot be disabled while groups
-	// are still present.
+	// Step 1: Reset auth realms to local before deleting groups. NX-OS may leave auth
+	// in a broken state if the referenced provider group is removed while still active.
 	if err := p.Update(ctx,
 		&AAADefaultAcc{Realm: AAARealmLocal, LocalRbac: true},
 		&AAADefaultAuthor{CmdType: "config", LocalRbac: true},
@@ -3482,26 +3466,19 @@ func (p *Provider) DeleteAAA(ctx context.Context, req *provider.DeleteAAARequest
 		return err
 	}
 
-	// Step 2: Delete server group and server containers for the configured protocols only.
-	// Groups must be deleted before servers to avoid reference violations.
-	// NX-OS does not allow deleting the built-in RADIUS group container when no RADIUS
-	// servers are configured, so only delete what was actually provisioned.
-	var toDelete []gnmiext.DataElement
-	for _, group := range req.AAA.Spec.ServerGroups {
-		switch group.Type {
-		case v1alpha1.AAAServerGroupTypeTACACS:
-			toDelete = append(toDelete, new(TacacsPlusProviderGroupItems), new(TacacsPlusProviderItems))
-		case v1alpha1.AAAServerGroupTypeRADIUS:
-			toDelete = append(toDelete, new(RadiusProviderGroupItems), new(RadiusProviderItems))
-		}
-	}
-	if len(toDelete) > 0 {
-		if err := p.client.Delete(ctx, toDelete...); err != nil && !errors.Is(err, gnmiext.ErrNil) {
-			return err
-		}
+	// Step 2: Unconditionally delete all TACACS+ and RADIUS server groups and servers.
+	// Groups must precede servers in the delete to avoid reference violations.
+	// ErrNil is returned when a container is already empty, which is safe to ignore.
+	if err := p.client.Delete(ctx,
+		new(TacacsPlusProviderGroupItems),
+		new(TacacsPlusProviderItems),
+		new(RadiusProviderGroupItems),
+		new(RadiusProviderItems),
+	); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
 	}
 
-	// Step 3: Disable the TACACS feature only after groups are gone.
+	// Step 3: Disable the TACACS feature after groups are gone.
 	return p.Update(ctx, &Feature{Name: "tacacsplus", AdminSt: AdminStDisabled})
 }
 
