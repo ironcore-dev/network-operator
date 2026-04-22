@@ -162,7 +162,7 @@ func (r *VPCDomainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	orig := obj.DeepCopy()
-	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition, v1alpha1.OperationalCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
@@ -302,7 +302,7 @@ func (r *VPCDomainReconciler) reconcile(ctx context.Context, s *vpcdomainScope) 
 	}
 
 	var vrf *v1alpha1.VRF
-	if s.VPCDomain.Spec.Peer.KeepAlive.VrfRef == nil {
+	if s.VPCDomain.Spec.Peer.KeepAlive.VrfRef != nil {
 		vrf, err = r.reconcileKeepAliveVRF(ctx, s)
 		if err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, fmt.Errorf("failed to reconcile referenced resource: %w", err)})
