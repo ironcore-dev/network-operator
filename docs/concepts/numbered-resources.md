@@ -2,14 +2,15 @@
 
 The Network Operator provides a pool-based allocation system for numbered resources such as
 indices (ASNs, VLAN IDs, route distinguishers), IP addresses, and IP prefixes. Resources are
-claimed via a `Claim` object that references a pool; the controller allocates a value
-automatically and writes it back to the claim's status.
+claimed via a `Claim` object that references a pool; the controller allocates a value by creating
+a dedicated allocation object (`Index`, `IPAddress`, or `IPPrefix`) and writes a reference back
+to the claim's status.
 
 <script setup>
 import { useData } from 'vitepress'
 import { computed } from 'vue'
-import allocationImageLight from '../assets/numbered-resources.png?url'
-import allocationImageDark from '../assets/numbered-resources-dark.png?url'
+import allocationImageLight from '../assets/numbered-resources.svg?url'
+import allocationImageDark from '../assets/numbered-resources-dark.svg?url'
 
 const { isDark } = useData()
 const allocationImage = computed(() => isDark.value ? allocationImageDark : allocationImageLight)
@@ -21,11 +22,11 @@ const allocationImage = computed(() => isDark.value ? allocationImageDark : allo
 
 Three pool types are available, each targeting a different kind of resource:
 
-| Pool Kind       | Allocates                   | Example use case                       |
-| --------------- | --------------------------- | -------------------------------------- |
-| `IndexPool`     | `uint64` Index              | ASN, VLAN ID, VNI, Route Distinguisher |
-| `IPAddressPool` | Single IP Address           | Loopback Address, Router ID            |
-| `IPPrefixPool`  | IP Prefix of a given length | Subnet                                 |
+| Pool Kind       | Allocates                   | Allocation Object | Example use case                       |
+| --------------- | --------------------------- | ----------------- | -------------------------------------- |
+| `IndexPool`     | `int64` Index               | `Index`           | ASN, VLAN ID, VNI, Route Distinguisher |
+| `IPAddressPool` | Single IP Address           | `IPAddress`       | Loopback Address, Router ID            |
+| `IPPrefixPool`  | IP Prefix of a given length | `IPPrefix`        | Subnet                                 |
 
 ## Concepts
 
@@ -34,9 +35,10 @@ Three pool types are available, each targeting a different kind of resource:
 A pool defines the set of values that can be allocated. Each pool type has a
 `spec.reclaimPolicy` field controlling what happens when a `Claim` is deleted:
 
-- **`Recycle`** (default) — the allocation is returned to the pool and can be reused.
-- **`Retain`** — the allocation is kept in the pool status as reserved and will never be
-  reused, even after the claim is gone.
+- **`Recycle`** (default) — the allocation object is deleted and the value becomes available
+  for reuse.
+- **`Retain`** — the allocation object's `claimRef` is cleared but the object itself is kept,
+  reserving the value. The allocation can be rebound later using the `allow-binding` annotation.
 
 The example below creates an `IndexPool` covering the private-use ASN ranges defined in
 [RFC 6996](https://datatracker.ietf.org/doc/html/rfc6996):
@@ -60,7 +62,8 @@ For IP-based pools, sample manifests for all pool types are available in the rep
 
 #### Pool Status
 
-Each pool tracks allocations and exposes utilisation counters:
+Each pool tracks the number of allocations (by counting allocation objects) and exposes
+utilisation counters:
 
 ```bash
 $ kubectl get indexpools
@@ -71,12 +74,36 @@ asn-pool   3           True        10m
 The `Available` condition is set to `True` while there is at least one free slot, and
 transitions to `False` (reason `Exhausted`) when all values have been allocated.
 
+### Allocation Objects
+
+When a claim is reconciled, the controller creates a dedicated Kubernetes object — `Index`,
+`IPAddress`, or `IPPrefix` — with a deterministic name derived from the pool name and the
+allocated value (e.g. `asn-pool-64512`). This deterministic naming prevents duplicate
+allocations: if two controllers race for the same value, exactly one `Create` succeeds and
+the other retries with the next available value.
+
+Each allocation object has:
+
+- **`spec.poolRef`** — a back-reference to the owning pool.
+- **`spec.claimRef`** — identifies the bound `Claim` by name and UID.
+- **A value field** — `spec.index`, `spec.address`, or `spec.prefix` depending on the type.
+
+The allocation type controllers validate each object's value against its pool's ranges/prefixes
+and set a `Valid` condition.
+
+Sample manifests for allocation objects (useful for pre-provisioning) are available:
+
+- [`config/samples/v1alpha1_index.yaml`](https://github.com/ironcore-dev/network-operator/blob/main/config/samples/v1alpha1_index.yaml)
+- [`config/samples/v1alpha1_ipaddress.yaml`](https://github.com/ironcore-dev/network-operator/blob/main/config/samples/v1alpha1_ipaddress.yaml)
+- [`config/samples/v1alpha1_ipprefix.yaml`](https://github.com/ironcore-dev/network-operator/blob/main/config/samples/v1alpha1_ipprefix.yaml)
+
 ### Claim
 
 A `Claim` references a pool via `spec.poolRef` and, once reconciled, receives the
-allocated value in `status.allocation`. The controller guarantees idempotency: if a
-claim already has an allocation in the pool status (matched by name and UID), it is
-returned as-is without allocating a new value.
+allocated value in `status.value` and a reference to the allocation object in
+`status.allocationRef`. The controller guarantees idempotency: if an allocation object
+already exists with a matching `claimRef` (by name and UID), it is returned as-is without
+allocating a new value.
 
 The example below creates a claim against the `asn-pool` defined above:
 
@@ -97,69 +124,60 @@ Additional sample manifests for claims against each pool type are available in t
 
 The `Allocated` condition on the claim reflects the current state:
 
-| Condition status | Reason                      | Meaning                                                          |
-| ---------------- | --------------------------- | ---------------------------------------------------------------- |
-| `True`           | `Allocated`                 | A value has been successfully allocated.                         |
-| `False`          | `PoolExhausted`             | No values remain in the pool (terminal error).                   |
-| `False`          | `PreferredValueUnavailable` | The requested preferred value is not available (terminal error). |
-| `False`          | `PoolNotFound`              | The referenced pool does not exist (yet).                        |
+| Condition status | Reason          | Meaning                                        |
+| ---------------- | --------------- | ---------------------------------------------- |
+| `True`           | `Allocated`     | A value has been successfully allocated.       |
+| `False`          | `PoolExhausted` | No values remain in the pool (terminal error). |
+| `False`          | `PoolNotFound`  | The referenced pool does not exist (yet).      |
 
 ### Allocation Result
 
-Once allocated, `status.allocation` contains a type-specific field plus a `value` string that
-is always present regardless of pool type:
-
-| Pool type       | Field       | Example         |
-| --------------- | ----------- | --------------- |
-| `IndexPool`     | `index`     | `65001`         |
-| `IPAddressPool` | `ipAddress` | `"10.0.0.5"`    |
-| `IPPrefixPool`  | `prefix`    | `"10.2.0.0/26"` |
-
-For the `leaf1-asn` claim created above, the allocated ASN is accessible via the `value` field,
-which is always set to the string representation of the allocated resource:
+Once allocated, `status.value` contains the string representation of the allocated resource
+and `status.allocationRef` references the allocation object:
 
 ```bash
-$ kubectl get claim leaf1-asn -o jsonpath='{.status.allocation.value}'
+$ kubectl get claim leaf1-asn -o jsonpath='{.status.value}'
 64512
+
+$ kubectl get claim leaf1-asn -o jsonpath='{.status.allocationRef.name}'
+asn-pool-64512
 ```
 
-## Requesting a Preferred Value
+## Pre-provisioning and Rebinding
 
-A specific value can be requested by setting the annotation
-`pool.networking.metal.ironcore.dev/preferred-value` on the claim:
+Instead of letting the controller pick the next available value, you can pre-provision an
+allocation object with a specific value. To allow a `Claim` to bind to it, the allocation
+object must:
+
+1. Have a `spec.claimRef` with the `name` of the expected claim.
+2. Carry the `pool.networking.metal.ironcore.dev/allow-binding` annotation.
+
+When the claim controller finds an allocation whose `claimRef.name` matches but whose UID is
+stale (or empty), and the annotation is present, it updates the UID to bind the allocation to
+the current claim.
 
 ```yaml
 apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
-kind: Claim
+kind: Index
 metadata:
-  name: leaf1-asn
+  name: asn-pool-65001
   annotations:
-    pool.networking.metal.ironcore.dev/preferred-value: "65001"
+    pool.networking.metal.ironcore.dev/allow-binding: "true"
 spec:
   poolRef:
+    apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
     kind: IndexPool
     name: asn-pool
+  index: 65001
+  claimRef:
+    name: leaf1-asn
 ```
 
-The annotation works the same way for all pool types:
-
-| Pool type       | Example annotation value |
-| --------------- | ------------------------ |
-| `IndexPool`     | `"65001"`                |
-| `IPAddressPool` | `"10.0.0.42"`            |
-| `IPPrefixPool`  | `"10.2.5.0/24"`          |
-
-If the preferred value is outside the pool's configured ranges or already taken by another
-claim, the claim enters a terminal error state with the `PreferredValueUnavailable` reason.
-**Removing the annotation** re-triggers reconciliation and the controller falls back to
-allocating the next available value automatically.
+This mechanism also enables rebinding after a claim is deleted and recreated with the same
+name — the retained allocation (with `Retain` reclaim policy) can be rebound if the
+`allow-binding` annotation is set.
 
 ::: tip
-The annotation is read but not consumed — it stays on the object. This means you can
-inspect a claim and immediately see which value was requested.
-:::
-
-::: warning
-A `PreferredValueUnavailable` error is terminal. The controller will not retry until
-the annotation is changed or removed.
+The `allow-binding` annotation is only checked when the `claimRef.name` matches but the UID
+does not. A fully bound allocation (matching name and UID) is always returned directly.
 :::
