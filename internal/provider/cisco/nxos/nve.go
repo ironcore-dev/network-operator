@@ -123,7 +123,7 @@ func (*NVEOper) IsListItem() {}
 // Should use only PATCH operations: `FabricFwdIf` also modifies this model.
 type FabricFwd struct {
 	// AdminSt defines the administrative state of fabric forwarding
-	AdminSt string `json:"adminSt"`
+	AdminSt AdminSt `json:"adminSt"`
 	// Address defines the anycast gateway MAC address
 	Address string `json:"amac"`
 }

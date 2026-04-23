@@ -2723,15 +2723,26 @@ func (p *Provider) ResetBorderGatewaySettings(ctx context.Context) error {
 // EnsureNVE ensures that the NVE configuration on the device matches the desired state specified in the NVE custom resource.
 // If no provider config is provided then the provider will use default settings.
 func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) error {
+	features := make([]gnmiext.DataElement, 0, 3)
+
 	f1 := new(Feature)
 	f1.Name = "evpn"
 	f1.AdminSt = AdminStEnabled
+	features = append(features, f1)
 
 	f2 := new(Feature)
 	f2.Name = "nvo"
 	f2.AdminSt = AdminStEnabled
+	features = append(features, f2)
 
-	if err := p.Patch(ctx, f1, f2); err != nil {
+	if req.NVE.Spec.AnycastGateway != nil {
+		f3 := new(Feature)
+		f3.Name = "hmm"
+		f3.AdminSt = AdminStEnabled
+		features = append(features, f3)
+	}
+
+	if err := p.Patch(ctx, features...); err != nil {
 		return err
 	}
 
@@ -2808,8 +2819,9 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) erro
 	}
 
 	ag := new(FabricFwd)
+	ag.AdminSt = AdminStDisabled
 	if req.NVE.Spec.AnycastGateway != nil {
-		ag.AdminSt = string(AdminStEnabled)
+		ag.AdminSt = AdminStEnabled
 		ag.Address = req.NVE.Spec.AnycastGateway.VirtualMAC
 	}
 	patches = append(patches, ag)
