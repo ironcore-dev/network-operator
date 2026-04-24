@@ -31,6 +31,10 @@ golangciLint:
     - internal/provider/openconfig
   timeout: 10m
 
+shellCheck:
+  ignorePaths:
+    - 'docs/node_modules/*'
+
 goReleaser:
   createConfig: true
 

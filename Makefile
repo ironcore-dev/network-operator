@@ -229,10 +229,10 @@ install-setup-envtest: FORCE
 # To add additional flags or values (before the default ones), specify the variable in the environment, e.g. `GO_BUILDFLAGS='-tags experimental' make`.
 # To override the default flags or values, specify the variable on the command line, e.g. `make GO_BUILDFLAGS='-tags experimental'`.
 GO_BUILDFLAGS +=
-GO_LDFLAGS +=
-GO_TESTFLAGS +=
-GO_TESTENV +=
-GO_BUILDENV += CGO_ENABLED=0
+GO_LDFLAGS    +=
+GO_TESTFLAGS  +=
+GO_TESTENV    +=
+GO_BUILDENV   += CGO_ENABLED=0
 
 # These definitions are overridable, e.g. to provide fixed version/commit values when
 # no .git directory is present or to provide a fixed build date for reproducibility.
@@ -284,7 +284,7 @@ run-golangci-lint: FORCE install-golangci-lint
 
 run-shellcheck: FORCE install-shellcheck
 	@printf "\e[1;36m>> shellcheck\e[0m\n"
-	@find .  -type f \( -name '*.bash' -o -name '*.ksh' -o -name '*.zsh' -o -name '*.sh' -o -name '*.shlib' \) -exec shellcheck  {} +
+	@find . \( -path '*/docs/node_modules/*/*' -prune \) -o \( -path 'docs/node_modules/*' -prune \) -o -type f \( -name '*.bash' -o -name '*.ksh' -o -name '*.zsh' -o -name '*.sh' -o -name '*.shlib' \) -exec shellcheck  {} +
 
 run-typos: FORCE install-typos
 	@printf "\e[1;36m>> typos\e[0m\n"
