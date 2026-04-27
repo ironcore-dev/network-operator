@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	bundleEtherRE       = regexp.MustCompile(`^Bundle-Ether(\d+)(?:\.\d+)?$`)
+	bundleEtherRE       = regexp.MustCompile(`^(Bundle-Ether|bundle-ether)(\d+)(\.\d+)?$`)
 	physicalInterfaceRE = regexp.MustCompile(`^(TenGigE|TwentyFiveGigE|FortyGigE|HundredGigE|GigabitEthernet)(\d){1}(\/\d){2}(\/\d+){1}(.\d{1,5})?$`)
 	loopbackInterfaceRE = regexp.MustCompile(`^(Loopback|Lo)\d+$`)
 	mgmtEthInterfaceRe  = regexp.MustCompile(`^MgmtEth\d+\/RP\d+\/CPU\d+\/\d+$`)
@@ -269,58 +269,48 @@ func CheckInterfaceNameTypePhysical(name string) error {
 	return nil
 }
 
-func ExtractVlanTagFromName(name string) (vlanID int32, err error) {
-	res := strings.Split(name, ".")
-	switch len(res) {
-	case 1:
-		return 0, nil
-	case 2:
-		vlan, err := strconv.ParseInt(res[1], 10, 32)
-		if err != nil {
-			return 0, fmt.Errorf("failed to parse VLAN ID from interface name %q: %w", name, err)
-		}
-		return int32(vlan), nil
+// ExtractBundleAndSubinterfaceID extracts the subinterface ID and bundle ID from an interface name.
+// If the interface is a physical interface, the bundle ID will be 0 and the subinterface ID will be extracted if present.
+// TwentyFiveGigE0/0/0/3.4095 -> (0, 4095), Bundle-Ether200 -> (200, 0), Bundle-Ether200.4095 -> (200, 4095)
+func ExtractBundleAndSubinterfaceID(name string) (int32, int32, error) {
+	beMatchGroups := bundleEtherRE.FindStringSubmatch(name)
+	physMatchGroups := physicalInterfaceRE.FindStringSubmatch(name)
+
+	var bID string
+	var sID string
+
+	var bundleID int32
+	var subIfaceID int32
+
+	switch {
+	case len(beMatchGroups) == 3:
+		bID = beMatchGroups[2]
+	case len(beMatchGroups) == 4:
+		bID = beMatchGroups[2]
+		sID = strings.ReplaceAll(beMatchGroups[3], ".", "")
+	case len(physMatchGroups) == 6:
+		sID = strings.ReplaceAll(physMatchGroups[5], ".", "")
 	default:
-		return 0, fmt.Errorf("unexpected interface name format %q, expected <interface> or <interface>.<vlan>", name)
-	}
-}
-
-func ExtractBundleAndSubinterfaceID(name string) (bundleID, subinterfaceID int32, err error) {
-	// Extract bundle ID and optional subinterface ID from Bundle-Ether<id> or Bundle-Ether<id>.<subif_id>
-	// Examples: Bundle-Ether200 -> (200, 0), Bundle-Ether200.4095 -> (200, 4095)
-
-	// Remove the "Bundle-Ether" or "BE" prefix
-	var idPart string
-
-	if !bundleEtherRE.MatchString(name) {
-		return 0, 0, fmt.Errorf("interface name %q does not start with Bundle-Ether or bundle-ether", name)
-	}
-	idPart = strings.TrimPrefix(strings.TrimPrefix(name, "Bundle-Ether"), "bundle-ether")
-	parts := strings.Split(idPart, ".")
-
-	if len(parts) == 0 || parts[0] == "" {
-		return 0, 0, fmt.Errorf("failed to extract bundle ID from interface name %q", name)
+		return 0, 0, fmt.Errorf("interface name %q does not start with Bundle-Ether or bundle-ether or match physical interface pattern", name)
 	}
 
-	// Parse bundle ID
-	id, err := strconv.ParseInt(parts[0], 10, 32)
-	if err != nil {
-		return 0, 0, fmt.Errorf("failed to parse bundle ID from interface name %q: %w", name, err)
+	if bID != "" {
+		bundleIDInt, err := strconv.ParseInt(bID, 10, 32)
+		if err != nil {
+			return 0, 0, fmt.Errorf("failed to parse bundle ID from interface name %q: %w", name, err)
+		}
+		bundleID = int32(bundleIDInt)
 	}
-	bundleID = int32(id)
 
-	// Parse subinterface ID if present
-	if len(parts) == 2 {
-		subIfaceIDInt, err := strconv.ParseInt(parts[1], 10, 32)
+	if sID != "" {
+		subIfaceIDInt, err := strconv.ParseInt(sID, 10, 32)
 		if err != nil {
 			return 0, 0, fmt.Errorf("failed to parse subinterface ID from interface name %q: %w", name, err)
 		}
-		subinterfaceID = int32(subIfaceIDInt)
-	} else if len(parts) > 2 {
-		return 0, 0, fmt.Errorf("unexpected interface name format %q, expected Bundle-Ether<id> or Bundle-Ether<id>.<subif_id>", name)
+		subIfaceID = int32(subIfaceIDInt)
 	}
 
-	return bundleID, subinterfaceID, nil
+	return bundleID, subIfaceID, nil
 }
 
 func CheckVlanRange(vlan string) error {

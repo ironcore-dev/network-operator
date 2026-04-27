@@ -83,6 +83,20 @@ func TestExtractBundleAndSubinterfaceID(t *testing.T) {
 			expectedSubIfaceID: 0,
 			wantErr:            true,
 		},
+		{
+			name:               "bundle-ether",
+			input:              "bundle-ether200",
+			expectedBundleID:   200,
+			expectedSubIfaceID: 0,
+			wantErr:            false,
+		},
+		{
+			name:               "TenGigE",
+			input:              "TenGigE0/0/0/1.100",
+			expectedBundleID:   0,
+			expectedSubIfaceID: 100,
+			wantErr:            false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -90,11 +104,11 @@ func TestExtractBundleAndSubinterfaceID(t *testing.T) {
 			bundleID, subIfaceID, err := ExtractBundleAndSubinterfaceID(tt.input)
 			if tt.wantErr {
 				if err == nil {
-					t.Errorf("ExtractBundleAndSubinterfaceId(%s) expected error, got nil", tt.input)
+					t.Errorf("ExtractBundleAndSubinterfaceID(%s) expected error, got nil", tt.input)
 				}
 			} else {
 				if err != nil {
-					t.Errorf("ExtractBundleAndSubinterfaceId(%s) unexpected error: %v", tt.input, err)
+					t.Errorf("ExtractBundleAndSubinterfaceID(%s) unexpected error: %v", tt.input, err)
 				}
 				if bundleID != tt.expectedBundleID {
 					t.Errorf("ExtractBundleAndSubinterfaceId(%s) bundleID = %v, want %v", tt.input, bundleID, tt.expectedBundleID)

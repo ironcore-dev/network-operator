@@ -155,37 +155,13 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		if bundleName == "" {
 			iface.Statistics.LoadInterval = uint8(30)
 
-			vlan, err := ExtractVlanTagFromName(name)
+			// TODO(sven-rosenzweig): support IPv6 addresses, IPv6 neighbor config
+
+			ipv4, err := NewIPv4(req.Interface.Spec.IPv4)
 			if err != nil {
 				return err
 			}
-
-			// Configure Subinterface
-			if vlan != 0 {
-				iface.SubInterface = NewVlanSubinterface(vlan, 0, "vlan-type-dot1q")
-				iface.ModeNoPhysical = "default"
-			}
-
-			if req.Interface.Spec.IPv4 != nil {
-				if len(req.Interface.Spec.IPv4.Addresses) > 1 {
-					message := "multiple IPv4 addresses configured for interface " + name
-					return errors.New(message)
-				}
-
-				// (fixme): support IPv6 addresses, IPv6 neighbor config
-				prefix := req.Interface.Spec.IPv4.Addresses[0]
-				ip := prefix.Addr().String()
-				netmask := net.IP(net.CIDRMask(prefix.Bits(), 32)).String()
-
-				iface.IPv4Network = IPv4Network{
-					Addresses: AddressesIPv4{
-						Primary: Primary{
-							Address: ip,
-							Netmask: netmask,
-						},
-					},
-				}
-			}
+			iface.IPv4Network = ipv4
 
 			if req.Interface.Spec.MTU != 0 {
 				mtu, err := NewMTU(name, req.Interface.Spec.MTU)
@@ -221,6 +197,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		if req.Interface.Spec.AdminState == v1alpha1.AdminStateDown {
 			iface.Shutdown = gnmiext.Empty(true)
 		}
+		iface.Active = "act"
 		conf = append(conf, iface)
 
 		return updateInterface(ctx, p.client, conf...)
@@ -229,7 +206,13 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			return err
 		}
 
-		iface := NewBundleInterface(req.Interface)
+		iface := Iface{
+			Name:           name,
+			Description:    req.Interface.Spec.Description,
+			Active:         "act",
+			ModeNoPhysical: "default",
+			Mode:           gnmiext.Empty(false),
+		}
 
 		bundleID, subinterfaceID, err := ExtractBundleAndSubinterfaceID(name)
 		if err != nil {
@@ -256,60 +239,63 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				},
 			}
 			conf = append(conf, &iface)
-		} else {
-			// (fixme): introduce new interface type subresource first. comes via different PR
-			return fmt.Errorf("subinterfaces for bundle interfaces are not supported yet: %q", name)
-
-			// Bundle subinterface configuration
-			// make sure the parent bundle-ether interface bundle-ether<id> exits
-			// parentBunndle := strings.Split(name, ".")[0]
-			// tmp := cp.Deep(req.Interface)
-			// tmp.Spec.Name = parentBunndle
-			// bundle := NewBundleInterface(tmp)
-			// conf = append(conf, &bundle)
-
-			// Unset for bundle subinterfaces
-			// iface.Mode = gnmiext.Empty(false)
-			// iface.ModeNoPhysical = "default"
-			// iface.SubInterface = VlanSubInterface{
-			// 	VlanIdentifier: VlanIdentifier{
-			// 		FirstTag: req.Interface.Spec.Switchport.AccessVlan,
-			// 		VlanType: "vlan-type-dot1q",
-			// 	},
-			// }
-
-			// Subinterface configures QAndQ vlan
-			// if req.Interface.Spec.Switchport.InnerVlan != 0 {
-			//	iface.SubInterface.VlanIdentifier.SecondTag = req.Interface.Spec.Switchport.InnerVlan
-			//	iface.SubInterface.VlanIdentifier.VlanType = "vlan-type-dot1ad"
-			// }
-			// conf = append(conf, &iface)
 		}
 		return updateInterface(ctx, p.client, conf...)
-	case v1alpha1.InterfaceTypeLoopback, v1alpha1.InterfaceTypeRoutedVLAN, v1alpha1.InterfaceTypeSubinterface:
+	case v1alpha1.InterfaceTypeSubinterface:
+
+		// Set Interface mode to virtual is required for bundle interfaces
+		iface := Iface{
+			Name:           name,
+			Description:    req.Interface.Spec.Description,
+			Active:         "act",
+			Mode:           gnmiext.Empty(false),
+			ModeNoPhysical: "default",
+		}
+
+		_, subinterfaceID, err := ExtractBundleAndSubinterfaceID(name)
+		if err != nil {
+			return err
+		}
+
+		if subinterfaceID == 0 {
+			return fmt.Errorf("no subinterface ID in interfacename specified. pattern: <interface-name>.<subinterface-id>, got %q", name)
+		}
+
+		iface.SubInterface = VlanSubInterface{
+			VlanIdentifier: VlanIdentifier{
+				FirstTag: req.Interface.Spec.Encapsulation.Tag,
+				VlanType: "vlan-type-dot1q",
+			},
+		}
+
+		// Subinterface configures QAndQ vlan
+		if req.Interface.Spec.Encapsulation.InnerTag != 0 {
+			iface.SubInterface.VlanIdentifier.FirstTag = req.Interface.Spec.Encapsulation.OuterTag
+			iface.SubInterface.VlanIdentifier.SecondTag = req.Interface.Spec.Encapsulation.InnerTag
+			iface.SubInterface.VlanIdentifier.VlanType = "vlan-type-dot1ad"
+		}
+
+		if req.Interface.Spec.MTU != 0 {
+			mtu, err := NewMTU(name, req.Interface.Spec.MTU)
+			if err != nil {
+				return err
+			}
+			iface.MTUs = mtu
+		}
+
+		ipv4, err := NewIPv4(req.Interface.Spec.IPv4)
+		if err != nil {
+			return err
+		}
+		iface.IPv4Network = ipv4
+
+		conf = append(conf, &iface)
+		return updateInterface(ctx, p.client, conf...)
+	case v1alpha1.InterfaceTypeLoopback, v1alpha1.InterfaceTypeRoutedVLAN:
 		return fmt.Errorf("interface type %q is currently not supported", req.Interface.Spec.Type)
 	default:
 		return fmt.Errorf("unexpected interface type %q", req.Interface.Spec.Type)
 	}
-}
-
-func NewBundleInterface(req *v1alpha1.Interface) Iface {
-	bundle := Iface{
-		Name:        req.Spec.Name,
-		Description: req.Spec.Description,
-		// Set Interface mode to virtual for bundle interfaces
-		Mode: gnmiext.Empty(true),
-	}
-	return bundle
-}
-
-func NewVlanSubinterface(firstTag, secondTag int32, vlanType string) VlanSubInterface {
-	subInt := VlanSubInterface{}
-
-	subInt.VlanIdentifier.FirstTag = firstTag
-	subInt.VlanIdentifier.SecondTag = secondTag
-	subInt.VlanIdentifier.VlanType = vlanType
-	return subInt
 }
 
 func NewMTU(intName string, mtu int32) (MTUs, error) {
@@ -322,6 +308,29 @@ func NewMTU(intName string, mtu int32) (MTUs, error) {
 		MTU:   mtu,
 		Owner: string(owner),
 	}}}, nil
+}
+
+func NewIPv4(ips *v1alpha1.InterfaceIPv4) (IPv4Network, error) {
+	if ips == nil || len(ips.Addresses) == 0 {
+		return IPv4Network{}, nil
+	}
+
+	if len(ips.Addresses) > 1 {
+		return IPv4Network{}, errors.New("multiple IPv4 addresses configured for interface, only one is supported")
+	}
+
+	prefix := ips.Addresses[0]
+	ip := prefix.Addr().String()
+	netmask := net.IP(net.CIDRMask(prefix.Bits(), 32)).String()
+
+	return IPv4Network{
+		Addresses: AddressesIPv4{
+			Primary: Primary{
+				Address: ip,
+				Netmask: netmask,
+			},
+		},
+	}, nil
 }
 
 func updateInterface(ctx context.Context, client gnmiext.Client, conf ...gnmiext.DataElement) error {
