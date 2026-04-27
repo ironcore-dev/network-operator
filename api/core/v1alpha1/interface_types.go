@@ -197,10 +197,11 @@ const (
 type Encapsulation struct {
 	// +required
 	Type EncapType `json:"type"`
+
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=4094
-	Tag int32 `json:"tag"`
+	Tag int32 `json:"tag,omitempty"`
 
 	// InnerTag specifies the inner VLAN ID for QinQ encapsulation.
 	// Only applicable when Type is set to "QinQ".
