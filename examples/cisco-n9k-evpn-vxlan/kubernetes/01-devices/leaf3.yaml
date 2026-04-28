@@ -2,6 +2,7 @@ apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Device
 metadata:
   labels:
+    topology.kubernetes.io/zone: qa-de-1a
     networking.metal.ironcore.dev/role: evpn-leaf
   name: leaf3
 spec:

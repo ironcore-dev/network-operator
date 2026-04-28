@@ -1,0 +1,82 @@
+apiVersion: evpn.networking.metal.ironcore.dev/v1alpha1
+kind: Fabric
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: fabric
+spec:
+  # Selects all devices in the qa-de-1a zone as fabric members.
+  deviceSelector:
+    matchLabels:
+      topology.kubernetes.io/zone: qa-de-1a
+  # Loopback addresses are allocated from the referenced IPAddressPool.
+  loopbacks:
+    ipAddressPoolRef:
+      name: loopback-pool
+  # OSPF underlay using numbered /31 point-to-point links.
+  # Interfaces with role "fabric" in the qa-de-1a zone participate.
+  underlay:
+    protocol: OSPF # or ISIS
+    interfaceSelector:
+      matchLabels:
+        networking.metal.ironcore.dev/role: fabric
+    addressing:
+      ipPrefixPoolRef:
+        name: underlay-p2p-pool
+  # iBGP EVPN overlay with spine devices as route reflectors for leaf clients.
+  overlay:
+    protocol: IBGP
+    ibgp:
+      asNumber: 65000
+      routeReflectors:
+        - name: spine-rrs
+          deviceSelector:
+            matchLabels:
+              networking.metal.ironcore.dev/role: evpn-spine
+          clientDeviceSelector:
+            matchLabels:
+              networking.metal.ironcore.dev/role: evpn-leaf
+  # PIM sparse mode for BUM traffic with anycast rendezvous points on spines.
+  bum:
+    type: Multicast
+    pim:
+      anycastRendezvousPoints:
+      - name: spine-rp
+        multicastGroups: [ 224.0.0.0/4 ]
+        deviceSelector:
+          matchLabels:
+            networking.metal.ironcore.dev/role: evpn-spine
+        clientDeviceSelector:
+          matchLabels:
+            networking.metal.ironcore.dev/role: evpn-leaf
+  # Leaf devices act as VTEPs with a shared anycast gateway MAC.
+  vtep:
+    deviceSelector:
+      matchLabels:
+        networking.metal.ironcore.dev/role: evpn-leaf
+    anycastGateway:
+      virtualMAC: f0:0c:c1:5c:00:00
+---
+apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+kind: IPAddressPool
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: loopback-pool
+spec:
+  prefixes:
+    - 10.0.0.0/16
+---
+apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+kind: IPPrefixPool
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: underlay-p2p-pool
+spec:
+  prefixes:
+    - 10.1.0.0/16
+  allocationPrefixLength: 31
