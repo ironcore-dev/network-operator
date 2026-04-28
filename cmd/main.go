@@ -44,9 +44,11 @@ import (
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	evpnv1alpha1 "github.com/ironcore-dev/network-operator/api/evpn/v1alpha1"
 	poolv1alpha1 "github.com/ironcore-dev/network-operator/api/pool/v1alpha1"
 	nxcontroller "github.com/ironcore-dev/network-operator/internal/controller/cisco/nx"
 	corecontroller "github.com/ironcore-dev/network-operator/internal/controller/core"
+	evpncontroller "github.com/ironcore-dev/network-operator/internal/controller/evpn"
 	poolcontroller "github.com/ironcore-dev/network-operator/internal/controller/pool"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/provisioning"
@@ -72,6 +74,7 @@ func init() {
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(nxv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(poolv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(evpnv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -811,6 +814,14 @@ func main() { //nolint:gocyclo
 		}
 	}
 
+	if err := (&evpncontroller.FabricReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorder("fabric-controller"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "Fabric")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {

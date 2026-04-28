@@ -40,6 +40,32 @@ rules:
   - create
   - patch
 - apiGroups:
+  - evpn.networking.metal.ironcore.dev
+  resources:
+  - fabrics
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - evpn.networking.metal.ironcore.dev
+  resources:
+  - fabrics/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - evpn.networking.metal.ironcore.dev
+  resources:
+  - fabrics/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - networking.metal.ironcore.dev
   resources:
   - aaa

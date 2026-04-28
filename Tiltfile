@@ -161,6 +161,9 @@ k8s_resource(new_name='claim-index', objects=['claim-index:claim'], resource_dep
 k8s_resource(new_name='claim-ipaddress', objects=['claim-ipaddress:claim'], resource_deps=['ipaddresspool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='claim-prefix', objects=['claim-prefix:claim'], resource_deps=['ipprefixpool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
+k8s_yaml('./config/samples/v1alpha1_fabric.yaml')
+k8s_resource(new_name='fabric', objects=['fabric:fabric', 'loopback-pool:ipaddresspool', 'underlay-p2p-pool:ipprefixpool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')
 print('👉 Tilt will automatically rebuild and redeploy when changes are detected')

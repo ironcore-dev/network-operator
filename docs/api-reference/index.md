@@ -1,11 +1,322 @@
 # API Reference
 
 ## Packages
+- [evpn.networking.metal.ironcore.dev/v1alpha1](#evpnnetworkingmetalironcoredevv1alpha1)
 - [networking.metal.ironcore.dev/v1alpha1](#networking-metal-ironcore-dev-v1alpha1)
 - [nx.cisco.networking.metal.ironcore.dev/v1alpha1](#nx-cisco-networking-metal-ironcore-dev-v1alpha1)
 - [pool.networking.metal.ironcore.dev/v1alpha1](#pool-networking-metal-ironcore-dev-v1alpha1)
 - [xe.cisco.networking.metal.ironcore.dev/v1alpha1](#xe-cisco-networking-metal-ironcore-dev-v1alpha1)
 - [xr.cisco.networking.metal.ironcore.dev/v1alpha1](#xr-cisco-networking-metal-ironcore-dev-v1alpha1)
+
+
+## evpn.networking.metal.ironcore.dev/v1alpha1
+
+Package v1alpha1 contains API Schema definitions for the evpn.networking.metal.ironcore.dev v1alpha1 API group.
+
+### Resource Types
+- [Fabric](#fabric)
+
+
+
+#### AnycastRendezvousPoint
+
+
+
+AnycastRendezvousPoint defines an anycast PIM rendezvous point group.
+
+
+
+_Appears in:_
+- [FabricPIMSpec](#fabricpimspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | name is a unique identifier for this rendezvous point group within the fabric. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `multicastGroups` _[IPPrefix](#ipprefix) array_ | multicastGroups lists the multicast group address ranges served by this<br />rendezvous point. Each entry must be a valid IPv4 multicast CIDR prefix. |  | Format: cidr <br />MinItems: 1 <br />Type: string <br />Required: \{\} <br /> |
+| `deviceSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#labelselector-v1-meta)_ | deviceSelector identifies which devices are configured as rendezvous points<br />in this group. |  | Required: \{\} <br /> |
+| `clientDeviceSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#labelselector-v1-meta)_ | clientDeviceSelector identifies the devices that register with the rendezvous<br />points in this group. |  | Required: \{\} <br /> |
+
+
+#### BUMType
+
+_Underlying type:_ _string_
+
+BUMType is the mechanism used to handle BUM (Broadcast, Unknown unicast,
+Multicast) traffic in the fabric.
+
+_Validation:_
+- Enum: [Multicast]
+
+_Appears in:_
+- [FabricBUMSpec](#fabricbumspec)
+
+| Field | Description |
+| --- | --- |
+| `Multicast` | BUMTypeMulticast uses PIM sparse mode for BUM traffic forwarding.<br /> |
+
+
+#### Fabric
+
+
+
+Fabric is the Schema for the fabrics API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `evpn.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `Fabric` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[FabricSpec](#fabricspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[FabricStatus](#fabricstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### FabricAnycastGatewaySpec
+
+
+
+FabricAnycastGatewaySpec configures the anycast gateway on VTEP devices.
+
+
+
+_Appears in:_
+- [FabricVTEPSpec](#fabricvtepspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `virtualMAC` _string_ | virtualMAC is the shared MAC address used by all anycast gateway instances<br />across the fabric. Must be a valid IEEE 802 MAC address in colon-separated<br />hexadecimal notation (e.g. f0:0c:c1:5c:00:00). |  | Pattern: `^([0-9a-fA-F]\{2\}:)\{5\}[0-9a-fA-F]\{2\}$` <br />Required: \{\} <br /> |
+
+
+#### FabricBUMSpec
+
+
+
+FabricBUMSpec defines how BUM (Broadcast, Unknown unicast, Multicast) traffic
+is forwarded across the fabric.
+
+
+
+_Appears in:_
+- [FabricSpec](#fabricspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `type` _[BUMType](#bumtype)_ | type selects the BUM forwarding mechanism. |  | Enum: [Multicast] <br />Required: \{\} <br /> |
+| `pim` _[FabricPIMSpec](#fabricpimspec)_ | pim configures PIM sparse mode when type is Multicast. |  | Optional: \{\} <br /> |
+
+
+#### FabricIBGPSpec
+
+
+
+FabricIBGPSpec configures the iBGP overlay control plane.
+
+
+
+_Appears in:_
+- [FabricOverlaySpec](#fabricoverlayspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | asNumber is the BGP autonomous system number shared by all devices in the<br />iBGP fabric. Supports both plain format (1-4294967295) and dotted notation<br />(1-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
+| `routeReflectors` _[RouteReflectorGroup](#routereflectorgroup) array_ | routeReflectors lists the route reflector groups that provide iBGP scalability.<br />Each group designates a set of reflectors and their client devices. |  | MinItems: 1 <br />Required: \{\} <br /> |
+
+
+#### FabricLoopbacksSpec
+
+
+
+FabricLoopbacksSpec configures IP address allocation for loopback interfaces.
+
+
+
+_Appears in:_
+- [FabricSpec](#fabricspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `ipAddressPoolRef` _[LocalObjectReference](#localobjectreference)_ | ipAddressPoolRef references the IPAddressPool from which loopback addresses<br />are allocated for devices in the fabric. |  | Required: \{\} <br /> |
+
+
+#### FabricOverlaySpec
+
+
+
+FabricOverlaySpec defines the overlay control-plane configuration.
+
+
+
+_Appears in:_
+- [FabricSpec](#fabricspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `protocol` _[OverlayProtocol](#overlayprotocol)_ | protocol is the control-plane protocol used for the EVPN overlay. |  | Enum: [IBGP] <br />Required: \{\} <br /> |
+| `ibgp` _[FabricIBGPSpec](#fabricibgpspec)_ | ibgp configures the iBGP overlay when protocol is IBGP. |  | Optional: \{\} <br /> |
+
+
+#### FabricPIMSpec
+
+
+
+FabricPIMSpec configures PIM sparse mode for BUM traffic.
+
+
+
+_Appears in:_
+- [FabricBUMSpec](#fabricbumspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `anycastRendezvousPoints` _[AnycastRendezvousPoint](#anycastrendezvouspoint) array_ | anycastRendezvousPoints lists the anycast rendezvous point groups used for<br />PIM sparse mode. Anycast RPs share the same IP address across multiple<br />devices for redundancy. |  | MinItems: 1 <br />Required: \{\} <br /> |
+
+
+#### FabricSpec
+
+
+
+FabricSpec defines the desired state of Fabric.
+
+
+
+_Appears in:_
+- [Fabric](#fabric)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#labelselector-v1-meta)_ | deviceSelector identifies which devices are members of this fabric.<br />All devices whose labels match this selector will be enrolled.<br />A device must not match the deviceSelector of more than one Fabric;<br />overlapping selectors lead to undefined behaviour as both controllers<br />will compete for ownership of the device's sub-resources. |  | Required: \{\} <br /> |
+| `loopbacks` _[FabricLoopbacksSpec](#fabricloopbacksspec)_ | loopbacks configures IP address allocation for loopback interfaces on<br />fabric devices. |  | Required: \{\} <br /> |
+| `underlay` _[FabricUnderlaySpec](#fabricunderlayspec)_ | underlay defines the underlay routing configuration for the fabric. |  | Required: \{\} <br /> |
+| `overlay` _[FabricOverlaySpec](#fabricoverlayspec)_ | overlay defines the overlay control-plane configuration for the fabric. |  | Required: \{\} <br /> |
+| `bum` _[FabricBUMSpec](#fabricbumspec)_ | bum defines how BUM traffic is forwarded across the fabric. |  | Required: \{\} <br /> |
+| `vtep` _[FabricVTEPSpec](#fabricvtepspec)_ | vtep identifies the VTEP devices and configures their anycast gateway. |  | Required: \{\} <br /> |
+
+
+#### FabricStatus
+
+
+
+FabricStatus defines the observed state of Fabric.
+
+
+
+_Appears in:_
+- [Fabric](#fabric)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the Fabric resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+
+
+#### FabricUnderlayAddressingSpec
+
+
+
+FabricUnderlayAddressingSpec configures how IP addresses are assigned to
+underlay point-to-point links.
+
+
+
+_Appears in:_
+- [FabricUnderlaySpec](#fabricunderlayspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `ipPrefixPoolRef` _[LocalObjectReference](#localobjectreference)_ | ipPrefixPoolRef references the IPPrefixPool from which point-to-point<br />prefixes are allocated for underlay interfaces. |  | Optional: \{\} <br /> |
+| `unnumbered` _boolean_ | unnumbered controls whether underlay interfaces use unnumbered addressing<br />(borrowing from loopback0) instead of dedicated point-to-point addresses. | false | Optional: \{\} <br /> |
+
+
+#### FabricUnderlaySpec
+
+
+
+FabricUnderlaySpec defines the underlay network configuration.
+
+
+
+_Appears in:_
+- [FabricSpec](#fabricspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `protocol` _[UnderlayProtocol](#underlayprotocol)_ | protocol is the routing protocol used to build IP reachability across the<br />fabric underlay. |  | Enum: [OSPF ISIS] <br />Required: \{\} <br /> |
+| `interfaceSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#labelselector-v1-meta)_ | interfaceSelector identifies which interfaces participate in the underlay.<br />Interfaces on fabric devices matching these labels will be enrolled in the<br />underlay routing process. |  | Required: \{\} <br /> |
+| `addressing` _[FabricUnderlayAddressingSpec](#fabricunderlayaddressingspec)_ | addressing configures how IP addresses are assigned to underlay interfaces. |  | Required: \{\} <br /> |
+
+
+#### FabricVTEPSpec
+
+
+
+FabricVTEPSpec identifies which devices act as VXLAN Tunnel Endpoints (VTEPs)
+and optionally configures their shared anycast gateway.
+
+
+
+_Appears in:_
+- [FabricSpec](#fabricspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#labelselector-v1-meta)_ | deviceSelector identifies which devices are configured as VTEPs. |  | Required: \{\} <br /> |
+| `anycastGateway` _[FabricAnycastGatewaySpec](#fabricanycastgatewayspec)_ | anycastGateway configures the anycast gateway shared across all VTEP devices. |  | Optional: \{\} <br /> |
+
+
+#### OverlayProtocol
+
+_Underlying type:_ _string_
+
+OverlayProtocol is the control-plane protocol used for the overlay network.
+
+_Validation:_
+- Enum: [IBGP]
+
+_Appears in:_
+- [FabricOverlaySpec](#fabricoverlayspec)
+
+| Field | Description |
+| --- | --- |
+| `IBGP` | OverlayProtocolIBGP uses iBGP EVPN for the overlay control plane.<br /> |
+
+
+#### RouteReflectorGroup
+
+
+
+RouteReflectorGroup defines a set of BGP route reflectors and their clients.
+
+
+
+_Appears in:_
+- [FabricIBGPSpec](#fabricibgpspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | name is a unique identifier for this route reflector group within the fabric. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `deviceSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#labelselector-v1-meta)_ | deviceSelector identifies which devices act as route reflectors in this group. |  | Required: \{\} <br /> |
+| `clientDeviceSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#labelselector-v1-meta)_ | clientDeviceSelector identifies the devices that are route reflector clients<br />for this group. |  | Required: \{\} <br /> |
+
+
+#### UnderlayProtocol
+
+_Underlying type:_ _string_
+
+UnderlayProtocol is the routing protocol used for the underlay network.
+
+_Validation:_
+- Enum: [OSPF ISIS]
+
+_Appears in:_
+- [FabricUnderlaySpec](#fabricunderlayspec)
+
+| Field | Description |
+| --- | --- |
+| `OSPF` | UnderlayProtocolOSPF uses OSPF for underlay routing.<br /> |
+| `ISIS` | UnderlayProtocolISIS uses IS-IS for underlay routing.<br /> |
+
 
 
 ## networking.metal.ironcore.dev/v1alpha1
@@ -1705,6 +2016,7 @@ _Validation:_
 
 _Appears in:_
 - [ACLEntry](#aclentry)
+- [AnycastRendezvousPoint](#anycastrendezvouspoint)
 - [IPAddressPoolSpec](#ipaddresspoolspec)
 - [IPPrefixPoolSpec](#ipprefixpoolspec)
 - [IPPrefixSpec](#ipprefixspec)
@@ -2085,6 +2397,8 @@ _Appears in:_
 - [DevicePort](#deviceport)
 - [EVPNInstanceSpec](#evpninstancespec)
 - [EthernetSegmentSpec](#ethernetsegmentspec)
+- [FabricLoopbacksSpec](#fabricloopbacksspec)
+- [FabricUnderlayAddressingSpec](#fabricunderlayaddressingspec)
 - [ISISSpec](#isisspec)
 - [InterconnectInterfaceReference](#interconnectinterfacereference)
 - [InterfaceIPv4Unnumbered](#interfaceipv4unnumbered)
