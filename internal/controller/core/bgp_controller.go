@@ -358,7 +358,10 @@ func (r *BGPReconciler) finalize(ctx context.Context, s *bgpScope) (reterr error
 			return client.IgnoreNotFound(err)
 		}
 		if vrf.Spec.DeviceRef.Name != s.Device.Name {
-			return reconcile.TerminalError(fmt.Errorf("vrf %s belongs to different device", s.BGP.Spec.VrfRef.Name))
+			// If the VRF belongs to a different device, the BGP was never successfully reconciled
+			// (reconcileVRF would have returned a terminal error), so there is nothing to clean up
+			// on the provider. Allow the finalizer to be removed.
+			return nil
 		}
 	}
 
