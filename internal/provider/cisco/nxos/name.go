@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+
+	"github.com/ironcore-dev/network-operator/internal/apistatus"
 )
 
 var (
@@ -46,7 +48,10 @@ func ShortName(name string) (string, error) {
 	if matches := encapRoutedPoRe.FindStringSubmatch(name); matches != nil {
 		return "po" + matches[2] + "." + matches[3], nil
 	}
-	return "", fmt.Errorf("unsupported interface format %q, expected one of: %q, %q, %q, %q, %q, %q", name, mgmtRe.String(), ethernetRe.String(), loopbackRe.String(), portchannelRe.String(), vlanRe.String(), encapRoutedRe.String())
+	return "", apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+		Field:       "spec.name",
+		Description: fmt.Sprintf("unsupported interface format %q, expected one of: %q, %q, %q, %q, %q, %q", name, mgmtRe.String(), ethernetRe.String(), loopbackRe.String(), portchannelRe.String(), vlanRe.String(), encapRoutedRe.String()),
+	})
 }
 
 func ShortNamePortChannel(name string) (string, error) {
@@ -72,5 +77,8 @@ func shortNameWithPrefix(name, prefix string, re *regexp.Regexp) (string, error)
 	if matches := re.FindStringSubmatch(name); matches != nil {
 		return prefix + matches[2], nil
 	}
-	return "", fmt.Errorf("invalid interface format %q, expected %q", name, re.String())
+	return "", apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+		Field:       "spec.name",
+		Description: fmt.Sprintf("invalid interface format %q, expected %q", name, re.String()),
+	})
 }

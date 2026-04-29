@@ -26,6 +26,7 @@ import (
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
@@ -268,11 +269,17 @@ func (p *Provider) EnsureBanner(ctx context.Context, req *provider.EnsureBannerR
 	// See: https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/104x/configuration/fundamentals/cisco-nexus-9000-series-nx-os-fundamentals-configuration-guide-release-104x/m-basic-device-management.html#task_1174841
 	lines := strings.Split(req.Message, "\n")
 	if len(lines) > 40 {
-		return errors.New("banner: maximum of 40 lines allowed")
+		return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+			Field:       "spec.message",
+			Description: fmt.Sprintf("banner exceeds the 40-line limit on NX-OS (%d lines)", len(lines)),
+		})
 	}
 	for i, line := range lines {
 		if n := utf8.RuneCountInString(line); n > 255 {
-			return fmt.Errorf("banner: line %d exceeds 255 characters (%d)", i+1, n)
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "spec.message",
+				Description: fmt.Sprintf("line %d exceeds the 255-character limit on NX-OS (%d characters)", i+1, n),
+			})
 		}
 	}
 
@@ -492,7 +499,7 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		bgp.Name = req.VRF.Spec.Name
 	}
 	if err := p.client.GetConfig(ctx, bgp); err != nil {
-		return fmt.Errorf("bgp peer: failed to get bgp instance %q: %w", bgp.Name, err)
+		return apistatus.NewFailedPreconditionError(fmt.Sprintf("bgp peer: BGP instance %q must be configured on the device before peers can be realized: %v", bgp.Name, err))
 	}
 
 	pe := new(BGPPeer)
@@ -679,7 +686,9 @@ func (p *Provider) EnsureEVPNInstance(ctx context.Context, req *provider.EVPNIns
 		v := new(VLAN)
 		v.FabEncap = "vlan-" + strconv.FormatInt(int64(req.VLAN.Spec.ID), 10)
 		if err := p.client.GetConfig(ctx, v); err != nil {
-			return fmt.Errorf("evpn instance: failed to get vlan %d: %w", req.VLAN.Spec.ID, err)
+			return apistatus.NewFailedPreconditionError(
+				fmt.Sprintf("evpn instance: VLAN %d must exist on the device before an EVPN instance can be realized: %v", req.VLAN.Spec.ID, err),
+			)
 		}
 
 		vxlan := new(VXLAN)
@@ -1139,7 +1148,10 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		updates = append(updates, s)
 
 	default:
-		return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
+		return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+			Field:       "spec.type",
+			Description: fmt.Sprintf("unsupported interface type: %s", req.Interface.Spec.Type),
+		})
 	}
 
 	if (req.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical || req.Interface.Spec.Type == v1alpha1.InterfaceTypeAggregate) && req.IPv4 == nil && (req.AggregateParent == nil || req.AggregateParent.Spec.IPv4 == nil) {
@@ -1320,7 +1332,10 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 		s.ID = name
 		deletes = append(deletes, s)
 	default:
-		return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
+		return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+			Field:       "spec.type",
+			Description: fmt.Sprintf("unsupported interface type: %s", req.Interface.Spec.Type),
+		})
 	}
 
 	return p.client.Delete(ctx, deletes...)
@@ -1401,7 +1416,10 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 		operMsg = s.OperStQual
 
 	default:
-		return provider.InterfaceStatus{}, fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
+		return provider.InterfaceStatus{}, apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+			Field:       "spec.type",
+			Description: fmt.Sprintf("unsupported interface type: %s", req.Interface.Spec.Type),
+		})
 	}
 
 	// When an interface is operationally up, the operational message will be "none".
@@ -1749,14 +1767,20 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 	dom.BwRefUnit = BwRefUnitMbps
 	if cfg.ReferenceBandwidthMbps != 0 {
 		if cfg.ReferenceBandwidthMbps < 1 || cfg.ReferenceBandwidthMbps > 999999 {
-			return fmt.Errorf("ospf: reference bandwidth %d is out of range (1-999999 Mbps)", cfg.ReferenceBandwidthMbps)
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "providerConfig.referenceBandwidthMbps",
+				Description: fmt.Sprintf("reference bandwidth %d Mbps is out of range, must be between 1 and 999999 Mbps", cfg.ReferenceBandwidthMbps),
+			})
 		}
 		dom.BwRef = cfg.ReferenceBandwidthMbps
 	}
 	dom.Dist = DefaultDist
 	if cfg.Distance != 0 {
 		if cfg.Distance < 1 || cfg.Distance > 255 {
-			return fmt.Errorf("ospf: distance %d is out of range (1-255)", cfg.Distance)
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "providerConfig.distance",
+				Description: fmt.Sprintf("distance %d is out of range, must be between 1 and 255", cfg.Distance),
+			})
 		}
 		dom.Dist = cfg.Distance
 	}
@@ -1949,7 +1973,10 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 		intf.ID = name
 		switch req.Interfaces[i].Mode {
 		case v1alpha1.PIMModeDense:
-			return errors.New("pim: dense mode is not supported on Cisco NX-OS devices")
+			return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+				Field:       "spec.interfaces[*].mode",
+				Description: "PIM dense mode is not supported on Cisco NX-OS devices",
+			})
 		case v1alpha1.PIMModeSparse:
 			intf.PimSparseMode = true
 		}
@@ -2784,7 +2811,10 @@ func (p *Provider) EnsureBorderGatewaySettings(ctx context.Context, req *BorderG
 	bg.SiteID = strconv.FormatInt(req.BorderGateway.Spec.MultisiteID, 10)
 	bg.DelayRestoreSeconds = int64(math.Round(req.BorderGateway.Spec.DelayRestoreTime.Seconds()))
 	if bg.DelayRestoreSeconds < 30 || bg.DelayRestoreSeconds > 1000 {
-		return fmt.Errorf("border gateway: delay restore time %d seconds is out of range (30-1000)", bg.DelayRestoreSeconds)
+		return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+			Field:       "spec.delayRestoreTime",
+			Description: fmt.Sprintf("delay restore time %d seconds is out of range, must be between 30 and 1000 seconds", bg.DelayRestoreSeconds),
+		})
 	}
 	updates = append(updates, bg)
 
@@ -2796,7 +2826,10 @@ func (p *Provider) EnsureBorderGatewaySettings(ctx context.Context, req *BorderG
 		ctrl := new(StormControlItem)
 		f, err := strconv.ParseFloat(cfg.Level, 64)
 		if err != nil {
-			return fmt.Errorf("border gateway: invalid storm control level %q: %w", cfg.Level, err)
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "spec.stormControl[*].level",
+				Description: fmt.Sprintf("storm control level %q is not a valid floating-point percentage", cfg.Level),
+			})
 		}
 		ctrl.Floatlevel = strconv.FormatFloat(f, 'f', 6, 64)
 		switch cfg.Traffic {
@@ -2807,7 +2840,10 @@ func (p *Provider) EnsureBorderGatewaySettings(ctx context.Context, req *BorderG
 		case nxv1alpha1.TrafficTypeUnicast:
 			ctrl.Name = StormControlTypeUnicast
 		default:
-			return fmt.Errorf("border gateway: unsupported storm control traffic type %q", cfg.Traffic)
+			return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+				Field:       "spec.stormControl[*].traffic",
+				Description: fmt.Sprintf("storm control traffic type %q is not supported on this platform", cfg.Traffic),
+			})
 		}
 		sc.EvpnStormControlList.Set(ctrl)
 	}
