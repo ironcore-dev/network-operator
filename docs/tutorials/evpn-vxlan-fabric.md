@@ -25,8 +25,8 @@ A spine-leaf EVPN/VXLAN fabric demonstrating Layer 2 extension across a routed I
 import { useData } from 'vitepress'
 import { onMounted, ref, computed } from 'vue'
 import demoUrl from '../assets/evpn-vxlan-topology.cast?url'
-import topologyImageLight from '../assets/evpn-vxlan-topology.png?url'
-import topologyImageDark from '../assets/evpn-vxlan-topology-dark.png?url'
+import topologyImageLight from '../assets/evpn-vxlan-topology.svg?url'
+import topologyImageDark from '../assets/evpn-vxlan-topology-dark.svg?url'
 
 const { isDark } = useData()
 const topologyImage = computed(() =>
