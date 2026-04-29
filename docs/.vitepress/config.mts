@@ -11,7 +11,7 @@ export default withMermaid({
             'link',
             {
                 rel: 'icon',
-                href: 'https://raw.githubusercontent.com/ironcore-dev/network-operator/refs/heads/main/docs/assets/network-operator-logo.png',
+                href: 'https://raw.githubusercontent.com/ironcore-dev/ironcore/refs/heads/main/docs/assets/logo_borderless.svg',
             },
         ],
     ],
@@ -57,7 +57,7 @@ export default withMermaid({
         },
 
         logo: {
-            src: 'https://raw.githubusercontent.com/ironcore-dev/network-operator/refs/heads/main/docs/assets/network-operator-logo.png',
+            src: 'https://raw.githubusercontent.com/ironcore-dev/ironcore/refs/heads/main/docs/assets/logo_borderless.svg',
             width: 24,
             height: 24,
         },
