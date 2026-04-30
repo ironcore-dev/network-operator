@@ -3282,146 +3282,25 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 
 	desiredTACACS := map[string]struct{}{}
 	desiredRADIUS := map[string]struct{}{}
-
 	var conf []gnmiext.DataElement
 
 	for _, group := range req.AAA.Spec.ServerGroups {
 		switch group.Type {
 		case v1alpha1.AAAServerGroupTypeTACACS:
-			conf = append(conf, &Feature{Name: "tacacsplus", AdminSt: AdminStEnabled})
-
-			for _, server := range group.Servers {
-				desiredTACACS[server.Address] = struct{}{}
-				srv := &TacacsPlusProvider{
-					Name:    server.Address,
-					Port:    server.TACACS.Port,
-					KeyEnc:  MapKeyEncryption(cfg.Spec.KeyEncryption),
-					Timeout: 5,
-				}
-				if key, ok := req.TACACSServerKeys[server.Address]; ok {
-					srv.Key = key
-				}
-				if server.Timeout != nil {
-					srv.Timeout = int32(server.Timeout.Seconds())
-				}
-				conf = append(conf, srv)
-			}
-
-			grp := &TacacsPlusProviderGroup{
-				Name:  group.Name,
-				Vrf:   group.VrfName,
-				SrcIf: group.SourceInterfaceName,
-			}
-			for _, server := range group.Servers {
-				grp.ProviderRefItems.ProviderRefList.Set(&TacacsPlusProviderRef{Name: server.Address})
-			}
-			conf = append(conf, grp)
-
+			conf = append(conf, buildTACACSSGroupConf(group, req, cfg, desiredTACACS)...)
 		case v1alpha1.AAAServerGroupTypeRADIUS:
-			for _, server := range group.Servers {
-				desiredRADIUS[server.Address] = struct{}{}
-				srv := &RadiusProvider{
-					Name:     server.Address,
-					AuthPort: server.RADIUS.AuthenticationPort,
-					AcctPort: server.RADIUS.AccountingPort,
-					KeyEnc:   MapRADIUSKeyEncryption(cfg.Spec.RADIUSKeyEncryption),
-					Timeout:  5,
-				}
-				if key, ok := req.RADIUSServerKeys[server.Address]; ok {
-					srv.Key = key
-				}
-				if server.Timeout != nil {
-					srv.Timeout = int32(server.Timeout.Seconds())
-				}
-				conf = append(conf, srv)
-			}
-
-			grp := &RadiusProviderGroup{
-				Name:  group.Name,
-				Vrf:   group.VrfName,
-				SrcIf: group.SourceInterfaceName,
-			}
-			for _, server := range group.Servers {
-				grp.ProviderRefItems.ProviderRefList.Set(&RadiusProviderRef{Name: server.Address})
-			}
-			conf = append(conf, grp)
+			conf = append(conf, buildRADIUSGroupConf(group, req, cfg, desiredRADIUS)...)
 		}
 	}
 
 	// Always take full ownership of the auth config. If not specified in the spec,
 	// reset to the device default (local auth).
-	authen := &AAADefaultAuth{Realm: AAARealmLocal, Local: AAAValueYes, Fallback: AAAValueYes}
-	if req.AAA.Spec.Authentication != nil && len(req.AAA.Spec.Authentication.Methods) > 0 {
-		methods := req.AAA.Spec.Authentication.Methods
-		authen = &AAADefaultAuth{
-			ErrEn:    cfg.Spec.LoginErrorEnable,
-			Fallback: MapFallbackFromMethodList(methods),
-			Local:    MapLocalFromMethodList(methods),
-		}
-		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
-			authen.Realm = MapRealmFromGroup(methods[0].GroupName, req.AAA.Spec.ServerGroups)
-			authen.ProviderGroup = methods[0].GroupName
-		} else {
-			authen.Realm = MapRealmFromMethodType(methods[0].Type)
-		}
-	}
-	conf = append(conf, authen)
-
-	consoleAuth := &AAAConsoleAuth{Realm: AAARealmLocal, Local: AAAValueYes, Fallback: AAAValueYes}
-	if cfg.Spec.ConsoleAuthentication != nil && len(cfg.Spec.ConsoleAuthentication.Methods) > 0 {
-		methods := cfg.Spec.ConsoleAuthentication.Methods
-		consoleAuth = &AAAConsoleAuth{
-			ErrEn:    cfg.Spec.LoginErrorEnable,
-			Fallback: MapFallback(methods),
-			Local:    MapLocal(methods),
-		}
-		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
-			consoleAuth.Realm = MapRealmFromGroup(methods[0].GroupName, req.AAA.Spec.ServerGroups)
-			consoleAuth.ProviderGroup = methods[0].GroupName
-		} else {
-			consoleAuth.Realm = MapRealmFromMethodType(methods[0].Type)
-		}
-	}
-	conf = append(conf, consoleAuth)
-
-	// ConfigCommandsAuthorization (Cisco-specific) takes priority over the core Authorization field.
-	author := &AAADefaultAuthor{CmdType: "config", LocalRbac: true}
-	if req.AAA.Spec.Authorization != nil && len(req.AAA.Spec.Authorization.Methods) > 0 {
-		methods := req.AAA.Spec.Authorization.Methods
-		author = &AAADefaultAuthor{
-			CmdType:   "config",
-			LocalRbac: MapLocalFromMethodList(methods) == AAAValueYes,
-		}
-		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
-			author.ProviderGroup = methods[0].GroupName
-		}
-	}
-	if cfg.Spec.ConfigCommandsAuthorization != nil && len(cfg.Spec.ConfigCommandsAuthorization.Methods) > 0 {
-		methods := cfg.Spec.ConfigCommandsAuthorization.Methods
-		author = &AAADefaultAuthor{
-			CmdType:   "config",
-			LocalRbac: MapLocal(methods) == AAAValueYes,
-		}
-		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
-			author.ProviderGroup = methods[0].GroupName
-		}
-	}
-	conf = append(conf, author)
-
-	acct := &AAADefaultAcc{Realm: AAARealmLocal, LocalRbac: true}
-	if req.AAA.Spec.Accounting != nil && len(req.AAA.Spec.Accounting.Methods) > 0 {
-		methods := req.AAA.Spec.Accounting.Methods
-		acct = &AAADefaultAcc{
-			LocalRbac: MapLocalFromMethodList(methods) == AAAValueYes,
-		}
-		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
-			acct.Realm = MapRealmFromGroup(methods[0].GroupName, req.AAA.Spec.ServerGroups)
-			acct.ProviderGroup = methods[0].GroupName
-		} else {
-			acct.Realm = MapRealmFromMethodType(methods[0].Type)
-		}
-	}
-	conf = append(conf, acct)
+	conf = append(conf,
+		buildDefaultAuth(req, cfg),
+		buildConsoleAuth(req, cfg),
+		buildAuthorization(req, cfg),
+		buildAccounting(req),
+	)
 
 	// Fetch current server lists before applying desired state to compute stale entries.
 	currentTACACS := new(TacacsPlusProviderItems)

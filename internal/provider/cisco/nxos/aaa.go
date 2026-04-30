@@ -6,6 +6,7 @@ package nxos
 import (
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
@@ -320,4 +321,144 @@ func MapFallback(methods []v1alpha1.AAAMethod) string {
 		return AAAValueYes
 	}
 	return AAAValueNo
+}
+
+func buildTACACSSGroupConf(group v1alpha1.AAAServerGroup, req *provider.EnsureAAARequest, cfg nxv1alpha1.AAAConfig, desired map[string]struct{}) []gnmiext.DataElement {
+	var conf []gnmiext.DataElement
+	conf = append(conf, &Feature{Name: "tacacsplus", AdminSt: AdminStEnabled})
+	for _, server := range group.Servers {
+		desired[server.Address] = struct{}{}
+		srv := &TacacsPlusProvider{
+			Name:    server.Address,
+			Port:    server.TACACS.Port,
+			KeyEnc:  MapKeyEncryption(cfg.Spec.KeyEncryption),
+			Timeout: 5,
+		}
+		if key, ok := req.TACACSServerKeys[server.Address]; ok {
+			srv.Key = key
+		}
+		if server.Timeout != nil {
+			srv.Timeout = int32(server.Timeout.Seconds())
+		}
+		conf = append(conf, srv)
+	}
+	grp := &TacacsPlusProviderGroup{
+		Name:  group.Name,
+		Vrf:   group.VrfName,
+		SrcIf: group.SourceInterfaceName,
+	}
+	for _, server := range group.Servers {
+		grp.ProviderRefItems.ProviderRefList.Set(&TacacsPlusProviderRef{Name: server.Address})
+	}
+	return append(conf, grp)
+}
+
+func buildRADIUSGroupConf(group v1alpha1.AAAServerGroup, req *provider.EnsureAAARequest, cfg nxv1alpha1.AAAConfig, desired map[string]struct{}) []gnmiext.DataElement {
+	var conf []gnmiext.DataElement
+	for _, server := range group.Servers {
+		desired[server.Address] = struct{}{}
+		srv := &RadiusProvider{
+			Name:     server.Address,
+			AuthPort: server.RADIUS.AuthenticationPort,
+			AcctPort: server.RADIUS.AccountingPort,
+			KeyEnc:   MapRADIUSKeyEncryption(cfg.Spec.RADIUSKeyEncryption),
+			Timeout:  5,
+		}
+		if key, ok := req.RADIUSServerKeys[server.Address]; ok {
+			srv.Key = key
+		}
+		if server.Timeout != nil {
+			srv.Timeout = int32(server.Timeout.Seconds())
+		}
+		conf = append(conf, srv)
+	}
+	grp := &RadiusProviderGroup{
+		Name:  group.Name,
+		Vrf:   group.VrfName,
+		SrcIf: group.SourceInterfaceName,
+	}
+	for _, server := range group.Servers {
+		grp.ProviderRefItems.ProviderRefList.Set(&RadiusProviderRef{Name: server.Address})
+	}
+	return append(conf, grp)
+}
+
+func buildDefaultAuth(req *provider.EnsureAAARequest, cfg nxv1alpha1.AAAConfig) *AAADefaultAuth {
+	if req.AAA.Spec.Authentication == nil || len(req.AAA.Spec.Authentication.Methods) == 0 {
+		return &AAADefaultAuth{Realm: AAARealmLocal, Local: AAAValueYes, Fallback: AAAValueYes}
+	}
+	methods := req.AAA.Spec.Authentication.Methods
+	authen := &AAADefaultAuth{
+		ErrEn:    cfg.Spec.LoginErrorEnable,
+		Fallback: MapFallbackFromMethodList(methods),
+		Local:    MapLocalFromMethodList(methods),
+	}
+	if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
+		authen.Realm = MapRealmFromGroup(methods[0].GroupName, req.AAA.Spec.ServerGroups)
+		authen.ProviderGroup = methods[0].GroupName
+	} else {
+		authen.Realm = MapRealmFromMethodType(methods[0].Type)
+	}
+	return authen
+}
+
+func buildConsoleAuth(req *provider.EnsureAAARequest, cfg nxv1alpha1.AAAConfig) *AAAConsoleAuth {
+	if cfg.Spec.ConsoleAuthentication == nil || len(cfg.Spec.ConsoleAuthentication.Methods) == 0 {
+		return &AAAConsoleAuth{Realm: AAARealmLocal, Local: AAAValueYes, Fallback: AAAValueYes}
+	}
+	methods := cfg.Spec.ConsoleAuthentication.Methods
+	auth := &AAAConsoleAuth{
+		ErrEn:    cfg.Spec.LoginErrorEnable,
+		Fallback: MapFallback(methods),
+		Local:    MapLocal(methods),
+	}
+	if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
+		auth.Realm = MapRealmFromGroup(methods[0].GroupName, req.AAA.Spec.ServerGroups)
+		auth.ProviderGroup = methods[0].GroupName
+	} else {
+		auth.Realm = MapRealmFromMethodType(methods[0].Type)
+	}
+	return auth
+}
+
+func buildAuthorization(req *provider.EnsureAAARequest, cfg nxv1alpha1.AAAConfig) *AAADefaultAuthor {
+	author := &AAADefaultAuthor{CmdType: "config", LocalRbac: true}
+	if req.AAA.Spec.Authorization != nil && len(req.AAA.Spec.Authorization.Methods) > 0 {
+		methods := req.AAA.Spec.Authorization.Methods
+		author = &AAADefaultAuthor{
+			CmdType:   "config",
+			LocalRbac: MapLocalFromMethodList(methods) == AAAValueYes,
+		}
+		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
+			author.ProviderGroup = methods[0].GroupName
+		}
+	}
+	if cfg.Spec.ConfigCommandsAuthorization != nil && len(cfg.Spec.ConfigCommandsAuthorization.Methods) > 0 {
+		methods := cfg.Spec.ConfigCommandsAuthorization.Methods
+		author = &AAADefaultAuthor{
+			CmdType:   "config",
+			LocalRbac: MapLocal(methods) == AAAValueYes,
+		}
+		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
+			author.ProviderGroup = methods[0].GroupName
+		}
+	}
+	return author
+}
+
+func buildAccounting(req *provider.EnsureAAARequest) *AAADefaultAcc {
+	if req.AAA.Spec.Accounting == nil || len(req.AAA.Spec.Accounting.Methods) == 0 {
+		return &AAADefaultAcc{Realm: AAARealmLocal, LocalRbac: true}
+	}
+	methods := req.AAA.Spec.Accounting.Methods
+	acct := &AAADefaultAcc{
+		LocalRbac: MapLocalFromMethodList(methods) == AAAValueYes,
+	}
+	if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
+		acct.Realm = MapRealmFromGroup(methods[0].GroupName, req.AAA.Spec.ServerGroups)
+		acct.ProviderGroup = methods[0].GroupName
+	} else {
+		acct.Realm = MapRealmFromMethodType(methods[0].Type)
+	}
+	return acct
 }
