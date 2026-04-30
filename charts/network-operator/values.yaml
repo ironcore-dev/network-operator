@@ -17,7 +17,9 @@ manager:
 
   image:
     repository: ghcr.io/ironcore-dev/network-operator
-    tag: latest
+    ## Image tag (defaults to Chart.appVersion if not set)
+    ##
+    # tag: ""
     pullPolicy: IfNotPresent
 
   ## Arguments
@@ -174,7 +176,3 @@ webhook:
 prometheus:
   enable: false
 
-## NetworkPolicy to restrict access to the controller manager.
-##
-networkPolicy:
-  enable: false
