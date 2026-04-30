@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+# SPDX-License-Identifier: Apache-2.0
+
+kind: guide
+title: "Architecture"
+description: "How Network Operator reconciles declarative CRDs into device configurations"
+prompt: |
+  Explain the network-operator architecture from a user's perspective. Cover:
+  1. The reconciliation model: user applies CRD -> controller detects change -> builds device config -> pushes to device
+  2. How the core CRDs (platform-agnostic) relate to platform-specific CRDs (e.g. NX-OS)
+  3. How Device registration and credentials work
+  4. The role of status conditions and finalizers
+  5. How multi-device and multi-vendor support is structured
+  6. EVPN/VXLAN fabric provisioning as a concrete example
+  Keep the tone practical. Operators should understand how their YAML manifests
+  translate into network device configuration.
+context: |
+  Network Operator is a set of Kubernetes controllers that reconcile CRD
+  specs into network device configurations. It follows standard controller-runtime
+  patterns: watch CRDs, compare desired vs actual, push diffs to devices.
+
+  Architecture layers:
+    - API layer (api/): CRD type definitions (core + platform-specific)
+    - Controller layer (internal/controller/): reconciliation logic per CRD
+    - Provider layer: device communication (NX-API for NX-OS, gNMI planned)
+
+  Core vs Platform-specific:
+    - Core CRDs (api/core/v1alpha1/) define the abstract intent (e.g. "Interface")
+    - Platform CRDs (api/cisco/nx/v1alpha1/) add vendor-specific knobs
+    - Controllers translate core intent into platform-native configuration
+
+  Reconciliation flow:
+    1. User applies a CRD manifest (e.g. Interface spec)
+    2. Controller watches for changes via controller-runtime
+    3. Controller resolves the target Device reference
+    4. Controller builds the platform-native payload (e.g. NX-API JSON)
+    5. Controller pushes config to device and updates status conditions
+    6. Finalizers ensure cleanup on deletion
+
+  Key patterns:
+    - DeviceRef: all config CRDs reference a Device by name
+    - Status conditions: Ready, Degraded, Progressing
+    - Pausing: CRDs support a paused field to halt reconciliation
+    - Ownership: child resources are owned by their parent Device
+sources:
+  - api/core/v1alpha1
+  - api/cisco/nx/v1alpha1
+  - internal/controller

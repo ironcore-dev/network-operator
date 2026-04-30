@@ -233,6 +233,13 @@ verbatim: |
     @docker build -t $(DOCS_IMG) -f docs/Dockerfile docs --load
     @docker run --rm --init -p 5173:5173 -v $(ROOT_DIR)/docs:/workspace -v /workspace/node_modules $(DOCS_IMG)
 
+  install-gnosis: FORCE
+    @if ! hash gnosis 2>/dev/null; then printf "\e[1;36m>> Installing gnosis...\e[0m\n"; go install github.com/cobaltcore-dev/gnosis/cmd/gnosis@latest; fi
+
+  docs-generate: install-gnosis
+    @printf "\e[1;36m>> gnosis generate\e[0m\n"
+    @gnosis generate
+
   docs: install-crd-ref-docs
     crd-ref-docs --source-path=./api --config=./hack/api-reference/config.yaml --renderer=markdown --output-path=./docs/api-reference/index.md
     @$(SED) -i \

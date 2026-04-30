@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+# SPDX-License-Identifier: Apache-2.0
+
+kind: guide
+title: "Getting Started"
+description: "Deploy Network Operator and configure your first network device"
+prompt: |
+  Write a step-by-step getting started guide for network-operator. Cover:
+  1. Prerequisites (Kubernetes cluster, kubectl, Helm)
+  2. Installing network-operator via Helm chart
+  3. Registering a network device using the Device CRD
+  4. Applying a basic Interface configuration
+  5. Verifying the configuration was pushed to the device
+  6. Next steps (BGP, VLANs, routing policies)
+  Keep examples realistic for a data center operator provisioning Cisco NX-OS switches.
+  Use the CRD field names from the context below exactly as written.
+context: |
+  Network Operator is a Kubernetes-native platform for automating multi-vendor
+  data center network devices. It uses CRDs to declaratively manage device
+  configurations and reconciles them against the actual device state.
+
+  Supported platforms: Cisco NX-OS (primary), OpenConfig (planned).
+
+  Core CRDs (api/core/v1alpha1):
+    - Device: represents a managed network device (address, credentials, platform)
+    - Interface: ethernet, loopback, port-channel interfaces
+    - BGP / BGPPeer: BGP routing configuration and neighbor peers
+    - VRF: virtual routing and forwarding instances
+    - VLAN: VLAN definitions
+    - ACL: access control lists
+    - OSPF / ISIS: IGP routing protocols
+    - NVE / EVPNInstance: VXLAN overlay and EVPN configuration
+    - PrefixSet / RoutingPolicy: route filtering and policy
+    - NTP / DNS / Syslog / SNMP: device services
+    - DHCPRelay / LLDP / Certificate / Banner / User: misc device config
+
+  Platform-specific CRDs (api/cisco/nx/v1alpha1):
+    - BGPConfig: NX-OS-specific BGP address-family configuration
+    - InterfaceConfig: NX-OS-specific interface settings
+    - NVEConfig / LLDPConfig / System: NX-OS platform details
+    - BorderGateway / VPCDomain: NX-OS multisite and vPC
+
+  Helm chart: deploy/helm/network-operator
+  Controller: manages reconciliation loops for each CRD type
+sources:
+  - api/core/v1alpha1
+  - api/cisco/nx/v1alpha1
+  - deploy/helm/network-operator
