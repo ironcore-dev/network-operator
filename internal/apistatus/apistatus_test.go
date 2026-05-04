@@ -105,8 +105,11 @@ func TestWrapTerminalError(t *testing.T) {
 		err          error
 		wantTerminal bool
 	}{
-		{"StatusError", apistatus.NewFailedPreconditionError("BGP instance must be configured before BGP peers can be realized"), true},
-		{"Wrapped", fmt.Errorf("outer: %w", apistatus.NewFailedPreconditionError("BGP instance must be configured before BGP peers can be realized")), true},
+		{"InvalidArgument", apistatus.NewInvalidArgumentError(apistatus.FieldViolation{Field: "spec.mtu", Description: "x"}), true},
+		{"UnsupportedField", apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{Field: "spec.type", Description: "x"}), true},
+		{"WrappedUnsupportedField", fmt.Errorf("outer: %w", apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{Field: "spec.type", Description: "x"})), true},
+		{"FailedPrecondition", apistatus.NewFailedPreconditionError("BGP instance must be configured before BGP peers can be realized"), false},
+		{"WrappedFailedPrecondition", fmt.Errorf("outer: %w", apistatus.NewFailedPreconditionError("BGP instance must be configured")), false},
 		{"Plain", errors.New("transient"), false},
 		{"Nil", nil, false},
 	}

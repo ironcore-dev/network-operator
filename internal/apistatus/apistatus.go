@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
-// Package apistatus provides a typed terminal error for provider implementations.
+// Package apistatus provides a typed structured error for provider implementations.
 package apistatus
 
 import (
@@ -29,7 +29,10 @@ const (
 	CodeUnsupportedField
 
 	// CodeFailedPrecondition signals that a precondition on the device or
-	// environment is not met. Retrying will not resolve it.
+	// environment is not met. Unlike other codes, this is retryable — the
+	// precondition may become true on a future attempt (e.g. a BGP process
+	// configured out-of-band). [WrapTerminalError] does not promote these
+	// errors to terminal.
 	CodeFailedPrecondition
 )
 
@@ -65,9 +68,10 @@ type FieldViolation struct {
 	Description string
 }
 
-// StatusError is a terminal, non-retryable error returned by provider
-// implementations. It carries a Code, an optional top-level Message,
-// and an optional list of FieldViolations.
+// StatusError is a structured error returned by provider implementations.
+// It carries a Code, an optional top-level Message, and an optional list of
+// FieldViolations. Whether the error is terminal depends on the Code — see
+// [WrapTerminalError].
 type StatusError struct {
 	Code            Code
 	Message         string
@@ -115,7 +119,9 @@ func NewUnsupportedFieldError(violations ...FieldViolation) *StatusError {
 }
 
 // NewFailedPreconditionError returns a [StatusError] with [CodeFailedPrecondition]
-// for a precondition that is not met and cannot be resolved by retrying.
+// for a precondition that is not yet met. These errors are retryable —
+// controller-runtime exponential backoff will requeue the request so the
+// precondition can be rechecked on a future attempt.
 func NewFailedPreconditionError(message string) *StatusError {
 	return &StatusError{
 		Code:    CodeFailedPrecondition,
@@ -130,8 +136,12 @@ func FromError(err error) (*StatusError, bool) {
 	return se, ok
 }
 
-// WrapTerminalError wraps err as a [reconcile.TerminalError] if it is or
-// contains a [*StatusError]. All other errors are returned unchanged.
+// WrapTerminalError wraps err as a [reconcile.TerminalError] if it contains a
+// [*StatusError] with a non-retryable code ([CodeInvalidArgument] or
+// [CodeUnsupportedField]). [CodeFailedPrecondition] errors are returned
+// unchanged so the controller-runtime exponential backoff can requeue them —
+// the precondition may become true on a future attempt.
+// All other errors are also returned unchanged.
 //
 // Example usage in a controller:
 //
@@ -142,8 +152,13 @@ func FromError(err error) (*StatusError, bool) {
 //	    return apistatus.WrapTerminalError(err)
 //	}
 func WrapTerminalError(err error) error {
-	if errors.Is(err, &StatusError{}) {
-		return reconcile.TerminalError(err)
+	if se, ok := FromError(err); ok {
+		switch se.Code {
+		case CodeInvalidArgument, CodeUnsupportedField:
+			return reconcile.TerminalError(err)
+		default:
+			// Other codes are not considered terminal — return the original error
+		}
 	}
 	return err
 }
