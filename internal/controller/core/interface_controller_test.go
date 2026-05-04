@@ -5,12 +5,14 @@ package core
 
 import (
 	"net/netip"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
@@ -1251,6 +1253,124 @@ var _ = Describe("Interface Controller", func() {
 				g.Expect(resource.Status.Conditions[3].Type).To(Equal(v1alpha1.PausedCondition))
 				g.Expect(resource.Status.Conditions[3].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
+		})
+	})
+
+	Context("Interface Update Predicate", func() {
+		var p interfaceUpdatePredicate
+
+		BeforeEach(func() {
+			p = interfaceUpdatePredicate{}
+		})
+
+		It("Should allow update when Neighbors field is added", func() {
+			oldIntf := &v1alpha1.Interface{
+				Status: v1alpha1.InterfaceStatus{
+					Neighbors: nil,
+				},
+			}
+			newIntf := &v1alpha1.Interface{
+				Status: v1alpha1.InterfaceStatus{
+					Neighbors: []v1alpha1.Neighbor{{
+						SystemName: "switch-1",
+						ChassisID:  "00:11:22:33:44:55",
+						PortID:     "Eth1/1",
+					}},
+				},
+			}
+			e := event.UpdateEvent{ObjectOld: oldIntf, ObjectNew: newIntf}
+			Expect(p.Update(e)).To(BeTrue())
+		})
+
+		It("Should allow update when neighbor SystemName changes", func() {
+			oldIntf := &v1alpha1.Interface{
+				Status: v1alpha1.InterfaceStatus{
+					Neighbors: []v1alpha1.Neighbor{{
+						SystemName:     "switch-1",
+						ChassisID:      "00:11:22:33:44:55",
+						PortID:         "Eth1/1",
+						ExpirationTime: metav1.NewTime(time.Now()),
+					}},
+				},
+			}
+			newIntf := oldIntf.DeepCopy()
+			newIntf.Status.Neighbors[0].SystemName = "switch-2"
+
+			e := event.UpdateEvent{ObjectOld: oldIntf, ObjectNew: newIntf}
+			Expect(p.Update(e)).To(BeTrue())
+		})
+
+		It("Should block update when only ExpirationTime changes", func() {
+			now := time.Now()
+			conditions := []metav1.Condition{
+				{Type: v1alpha1.ReadyCondition, Status: metav1.ConditionTrue},
+				{Type: v1alpha1.ConfiguredCondition, Status: metav1.ConditionTrue},
+				{Type: v1alpha1.OperationalCondition, Status: metav1.ConditionTrue},
+				{Type: v1alpha1.PausedCondition, Status: metav1.ConditionFalse},
+			}
+			oldIntf := &v1alpha1.Interface{
+				Status: v1alpha1.InterfaceStatus{
+					Conditions: conditions,
+					Neighbors: []v1alpha1.Neighbor{{
+						SystemName:     "switch-1",
+						ChassisID:      "00:11:22:33:44:55",
+						PortID:         "Eth1/1",
+						ExpirationTime: metav1.NewTime(now),
+					}},
+				},
+			}
+			newIntf := oldIntf.DeepCopy()
+			newIntf.Status.Neighbors[0].ExpirationTime = metav1.NewTime(now.Add(120 * time.Second))
+
+			e := event.UpdateEvent{ObjectOld: oldIntf, ObjectNew: newIntf}
+			Expect(p.Update(e)).To(BeFalse())
+		})
+
+		It("Should allow update when neighbor is removed", func() {
+			oldIntf := &v1alpha1.Interface{
+				Status: v1alpha1.InterfaceStatus{
+					Neighbors: []v1alpha1.Neighbor{{SystemName: "switch-1"}},
+				},
+			}
+			newIntf := &v1alpha1.Interface{
+				Status: v1alpha1.InterfaceStatus{
+					Neighbors: nil,
+				},
+			}
+			e := event.UpdateEvent{ObjectOld: oldIntf, ObjectNew: newIntf}
+			Expect(p.Update(e)).To(BeTrue())
+		})
+
+		It("Should allow update when generation changes", func() {
+			oldIntf := &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Status: v1alpha1.InterfaceStatus{
+					Neighbors: []v1alpha1.Neighbor{{
+						ExpirationTime: metav1.NewTime(time.Now()),
+					}},
+				},
+			}
+			newIntf := oldIntf.DeepCopy()
+			newIntf.Generation = 2
+			newIntf.Status.Neighbors[0].ExpirationTime = metav1.NewTime(time.Now().Add(120 * time.Second))
+
+			e := event.UpdateEvent{ObjectOld: oldIntf, ObjectNew: newIntf}
+			Expect(p.Update(e)).To(BeTrue())
+		})
+
+		It("Should allow update when conditions are not fully initialized", func() {
+			oldIntf := &v1alpha1.Interface{
+				Status: v1alpha1.InterfaceStatus{
+					Conditions: []metav1.Condition{
+						{Type: v1alpha1.ReadyCondition, Status: metav1.ConditionUnknown},
+						{Type: v1alpha1.PausedCondition, Status: metav1.ConditionTrue},
+					},
+				},
+			}
+			newIntf := oldIntf.DeepCopy()
+
+			e := event.UpdateEvent{ObjectOld: oldIntf, ObjectNew: newIntf}
+			Expect(p.Update(e)).To(BeTrue())
 		})
 	})
 })

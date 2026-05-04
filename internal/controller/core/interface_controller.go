@@ -290,7 +290,12 @@ func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 	}
 
 	bldr := ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.Interface{}).
+		For(&v1alpha1.Interface{}, builder.WithPredicates(predicate.Or(
+			predicate.GenerationChangedPredicate{},
+			predicate.LabelChangedPredicate{},
+			predicate.AnnotationChangedPredicate{},
+			interfaceUpdatePredicate{},
+		))).
 		Named("interface").
 		WithEventFilter(filter)
 
@@ -416,6 +421,43 @@ func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 			}),
 		).
 		Complete(r)
+}
+
+// interfaceUpdatePredicate passes status-only updates through unless the
+// neighbor ExpirationTime is the only change. Without this filter the status
+// patch would immediately trigger a redundant second reconcile because the
+// controller updates the ExpirationTime in the status during every reconcile loop.
+// This would cause repeated reconciles every time the controller tries to update
+// the status, even if there are no changes to the spec.
+type interfaceUpdatePredicate struct {
+	predicate.Funcs
+}
+
+// Update implements predicate.Predicate.
+func (interfaceUpdatePredicate) Update(e event.UpdateEvent) bool {
+	oldIntf, ok := e.ObjectOld.(*v1alpha1.Interface)
+	if !ok {
+		return true
+	}
+	newIntf, ok := e.ObjectNew.(*v1alpha1.Interface)
+	if !ok {
+		return true
+	}
+	// Always reconcile if conditions haven't been fully initialized.
+	// InitializeConditions adds Ready/Configured/Operational, and paused.EnsureCondition
+	// adds Paused. Until all 4 are present, we must allow reconciles to complete setup.
+	if len(newIntf.Status.Conditions) < 4 {
+		return true
+	}
+	oldStatus := oldIntf.Status.DeepCopy()
+	newStatus := newIntf.Status.DeepCopy()
+	for i := range oldStatus.Neighbors {
+		oldStatus.Neighbors[i].ExpirationTime = metav1.Time{}
+	}
+	for i := range newStatus.Neighbors {
+		newStatus.Neighbors[i].ExpirationTime = metav1.Time{}
+	}
+	return !equality.Semantic.DeepEqual(oldStatus, newStatus)
 }
 
 // scope holds the different objects that are read and used during the reconcile.
