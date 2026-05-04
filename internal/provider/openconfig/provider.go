@@ -200,6 +200,11 @@ func (p *Provider) GetInterfaceStatus(context.Context, *provider.InterfaceReques
 	return provider.InterfaceStatus{}, nil
 }
 
+func (p *Provider) InterfaceNameEqual(_ context.Context, a, b string) (bool, error) {
+	// TODO: implement provider specific logic to compare interface names
+	return a == b, nil
+}
+
 func init() {
 	provider.Register("openconfig", NewProvider)
 }

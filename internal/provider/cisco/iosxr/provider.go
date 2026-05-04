@@ -297,6 +297,11 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 	}, nil
 }
 
+func (p *Provider) InterfaceNameEqual(_ context.Context, a, b string) (bool, error) {
+	// TODO: implement provider specific logic to compare interface names
+	return a == b, nil
+}
+
 func init() {
 	provider.Register("cisco-iosxr-gnmi", NewProvider)
 }

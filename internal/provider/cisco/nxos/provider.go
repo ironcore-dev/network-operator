@@ -1332,18 +1332,36 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 	}
 
 	var (
-		operSt  OperSt
-		operMsg string
+		operSt          OperSt
+		operMsg         string
+		lldpAdjacencies []provider.LLDPAdjacency
 	)
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
 		phys := new(PhysIfOperItems)
 		phys.ID = name
-		if err := p.client.GetState(ctx, phys); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		lldpAdj := new(LLDPAdjacencyItems)
+		lldpAdj.ID = name
+		if err := p.client.GetState(ctx, phys, lldpAdj); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 			return provider.InterfaceStatus{}, err
 		}
 		operSt = phys.OperSt
 		operMsg = phys.OperStQual
+
+		lldpAdjacencies = make([]provider.LLDPAdjacency, 0, len(lldpAdj.AdjItems.AdjEpList))
+		for _, adj := range lldpAdj.AdjItems.AdjEpList {
+			neighbor := provider.LLDPAdjacency{
+				ChassisID:       adj.ChassisIDV,
+				ChassisIDType:   adj.ChassisIDT,
+				PortID:          adj.PortIDV,
+				PortIDType:      adj.PortIDT,
+				PortDescription: adj.PortDesc,
+				SysName:         adj.SysName,
+				SysDescription:  adj.SysDesc,
+				TTL:             time.Duration(adj.TTL) * time.Second,
+			}
+			lldpAdjacencies = append(lldpAdjacencies, neighbor)
+		}
 
 	case v1alpha1.InterfaceTypeLoopback:
 		lb := new(LoopbackOperItems)
@@ -1392,10 +1410,25 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 		operMsg = ""
 	}
 
-	return provider.InterfaceStatus{
-		OperStatus:  operSt == OperStUp,
-		OperMessage: operMsg,
-	}, nil
+	status := provider.InterfaceStatus{
+		OperStatus:      operSt == OperStUp,
+		OperMessage:     operMsg,
+		LLDPAdjacencies: lldpAdjacencies,
+	}
+
+	return status, nil
+}
+
+func (p *Provider) InterfaceNameEqual(_ context.Context, a, b string) (bool, error) {
+	shortA, err := ShortName(a)
+	if err != nil {
+		return false, fmt.Errorf("invalid interface name: %w", err)
+	}
+	shortB, err := ShortName(b)
+	if err != nil {
+		return false, fmt.Errorf("invalid interface name: %w", err)
+	}
+	return shortA == shortB, nil
 }
 
 var ErrInterfaceNotFound = errors.New("one or more interfaces do not exist")

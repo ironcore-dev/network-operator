@@ -87,6 +87,8 @@ type InterfaceProvider interface {
 	DeleteInterface(context.Context, *InterfaceRequest) error
 	// GetInterfaceStatus call is responsible for retrieving the current status of the Interface from the provider.
 	GetInterfaceStatus(context.Context, *InterfaceRequest) (InterfaceStatus, error)
+	// InterfaceNameEqual reports whether two interface names refer to the same interface on the provider.
+	InterfaceNameEqual(context.Context, string, string) (bool, error)
 }
 
 type EnsureInterfaceRequest struct {
@@ -137,6 +139,20 @@ type InterfaceStatus struct {
 	// OperMessage provides additional information about the operational status of the interface.
 	// Leave empty if the provider does not return any additional information.
 	OperMessage string
+	// LLDPAdjacencies provides information about the directly connected neighbors on this interface, if available.
+	LLDPAdjacencies []LLDPAdjacency
+}
+
+// LLDPAdjacency represents information about a directly connected neighbor on an interface, as discovered through LLDP.
+type LLDPAdjacency struct {
+	SysName         string
+	SysDescription  string
+	ChassisID       string
+	ChassisIDType   uint8
+	PortID          string
+	PortIDType      uint8
+	PortDescription string
+	TTL             time.Duration
 }
 
 // BannerProvider is the interface for the realization of the Banner objects over different providers.

@@ -41,3 +41,27 @@ func (*LLDPOper) IsListItem() {}
 func (*LLDPOper) XPath() string {
 	return "System/fm-items/lldp-items"
 }
+
+// LLDPAdjacencyItems represents the LLDP neighbor information for a single interface.
+type LLDPAdjacencyItems struct {
+	// ID is the identifier of the interface for which the LLDP neighbor information is being retrieved, e.g., "eth1/1".
+	ID       string `json:"-"`
+	AdjItems struct {
+		AdjEpList []struct {
+			ChassisIDT uint8  `json:"chassisIdT"`
+			ChassisIDV string `json:"chassisIdV"`
+			PortIDT    uint8  `json:"portIdT"`
+			PortIDV    string `json:"portIdV"`
+			PortDesc   string `json:"portDesc,omitempty"`
+			SysName    string `json:"sysName,omitempty"`
+			SysDesc    string `json:"sysDesc,omitempty"`
+			TTL        int32  `json:"ttl"`
+		} `json:"AdjEp-list,omitzero"`
+	} `json:"adj-items,omitzero"`
+}
+
+func (p *LLDPAdjacencyItems) XPath() string {
+	return "System/lldp-items/inst-items/if-items/If-list[id=" + p.ID + "]"
+}
+
+func (*LLDPAdjacencyItems) IsListItem() {}
