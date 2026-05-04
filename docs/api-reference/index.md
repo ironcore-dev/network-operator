@@ -763,6 +763,29 @@ _Appears in:_
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the Certificate. |  | Optional: \{\} <br /> |
 
 
+#### ChassisIDType
+
+_Underlying type:_ _string_
+
+ChassisIDType represents the chassis ID subtype for LLDP neighbor information.
+See IEEE 802.1AB-2016 section 8.5.2.2 for details.
+
+
+
+_Appears in:_
+- [Neighbor](#neighbor)
+
+| Field | Description |
+| --- | --- |
+| `ChassisComponent` | ChassisIDTypeChassisComponent is `EntPhysicalAlias` when entPhysClass has a value of ‘chassis(3)’ (IETF RFC 6933)<br /> |
+| `InterfaceAlias` | ChassisIDTypeInterfaceAlias is `ifAlias` (IETF RFC 2863)<br /> |
+| `PortComponent` | ChassisIDTypePortComponent is `entPhysicalAlias` when `entPhysicalClass` has a value ‘port(10)’ or ‘backplane(4)’ (IETF RFC 6933)<br /> |
+| `MACAddress` | ChassisIDTypeMACAddress is the MAC address (IEEE Std 802)<br /> |
+| `NetworkAddress` | ChassisIDTypeNetworkAddress is an octet string representation of a particular network family and address.<br /> |
+| `InterfaceName` | ChassisIDTypeInterfaceName is `ifName` (IETF RFC 2863)<br /> |
+| `Local` | ChassisIDTypeLocal is an alphanumeric string that and is locally assigned<br /> |
+
+
 #### ChecksumType
 
 _Underlying type:_ _string_
@@ -1508,6 +1531,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the Interface. |  | Optional: \{\} <br /> |
 | `memberOf` _[LocalObjectReference](#localobjectreference)_ | MemberOf references the aggregate interface this interface is a member of, if any.<br />This field only applies to physical interfaces that are part of an aggregate interface. |  | Optional: \{\} <br /> |
+| `neighbors` _[Neighbor](#neighbor) array_ | Neighbors contains a list of neighbor interfaces connected to this interface and discovered with LLDP.<br />If a single interface has multiple neighbor adjacencies, we validate each adjacency against the same one label/annotation. |  | Optional: \{\} <br /> |
 
 
 #### InterfaceType
@@ -1911,6 +1935,51 @@ _Appears in:_
 | `vrfName` _string_ | The name of the vrf used to communicate with the DNS server. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 
 
+#### Neighbor
+
+
+
+Neighbor represents an LLDP neighbor discovered on an interface.
+It includes the results of the LLDP adjacency validation against the expected neighbor information from the interface's labels or annotations.
+
+
+
+_Appears in:_
+- [InterfaceStatus](#interfacestatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `chassisId` _string_ | ChassisID contains an octet string indicating the specific chassis ID of the neighbor.<br />Its semantics are defined by the ChassisIDType field. |  | Required: \{\} <br /> |
+| `chassisIdType` _[ChassisIDType](#chassisidtype)_ | ChassisIDType represents the chassis ID subtype.<br />Full list of types can be found in IEEE 802.1AB-2016 Table 8-2. |  | Enum: [ChassisComponent InterfaceAlias PortComponent MACAddress NetworkAddress InterfaceName Local] <br />Required: \{\} <br /> |
+| `portId` _string_ | PortID contains an octet string indicating the specific port ID of the neighbor.<br />Its semantics are defined by the PortIDType field. |  | Required: \{\} <br /> |
+| `portIdType` _[PortIDType](#portidtype)_ | PortIDType represents the port ID subtype.<br />Full list of types can be found in IEEE 802.1AB-2016 Table 8-3. |  | Enum: [InterfaceAlias PortComponent MACAddress NetworkAddress InterfaceName AgentCircuitID Local] <br />Required: \{\} <br /> |
+| `systemName` _string_ | SystemName is an alpha-numeric string that indicates the system’s administratively assigned name. |  | Optional: \{\} <br /> |
+| `systemDescription` _string_ | SystemDescription is a textual description of the neighbor, should include hardware and software information<br />If the device supports IETF RFC 3418, this is the `sysDescr` |  | Optional: \{\} <br /> |
+| `portDescription` _string_ | PortDescription contains the port description of the neighbor port.<br />If the device supports IETF RFC 2863, this is the `ifDescr` |  | Optional: \{\} <br /> |
+| `expirationTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | ExpirationTime is the time when the LLDP neighbor information expires.<br />It is calculated based on the TTL. |  | Required: \{\} <br /> |
+| `validation` _[NeighborValidation](#neighborvalidation)_ | Validation indicates whether the LLDP neighbor information matches the information in the label or annotations of the interface.<br />Empty when no validation source (label or annotation) is configured on the interface. |  | Enum: [NotFound Verified DeviceMismatch PortMismatch] <br />Optional: \{\} <br /> |
+
+
+#### NeighborValidation
+
+_Underlying type:_ _string_
+
+NeighborValidation represents the result of the validation of the LLDP neighbor information against the expected values from the interface's labels or annotations.
+
+_Validation:_
+- Enum: [NotFound Verified DeviceMismatch PortMismatch]
+
+_Appears in:_
+- [Neighbor](#neighbor)
+
+| Field | Description |
+| --- | --- |
+| `NotFound` | NeighborNotFound indicates that the resource referenced in the PhysicalInterfaceNeighborLabel label could not be found.<br /> |
+| `Verified` | NeighborVerified indicates that the LLDP neighbor information has been verified and matches the expected values.<br /> |
+| `DeviceMismatch` | NeighborDeviceMismatch indicates that the LLDP neighbor information does not match the expected values, indicating a potential misconfiguration or unexpected neighbor.<br /> |
+| `PortMismatch` | NeighborPortMismatch indicates that the LLDP neighbor information does not match the expected port information, indicating a potential misconfiguration or unexpected neighbor.<br /> |
+
+
 #### NetworkVirtualizationEdge
 
 
@@ -2273,6 +2342,29 @@ _Appears in:_
 | `sequence` _integer_ | The sequence number of the policy statement. |  | Minimum: 1 <br />Required: \{\} <br /> |
 | `conditions` _[PolicyConditions](#policyconditions)_ | Conditions define the match criteria for this statement.<br />If no conditions are specified, the statement matches all routes. |  | Optional: \{\} <br /> |
 | `actions` _[PolicyActions](#policyactions)_ | Actions define what to do when conditions match. |  | Required: \{\} <br /> |
+
+
+#### PortIDType
+
+_Underlying type:_ _string_
+
+PortIDType represents the port ID subtype for LLDP neighbor information.
+See IEEE 802.1AB-2016 section 8.5.3.2 for details.
+
+
+
+_Appears in:_
+- [Neighbor](#neighbor)
+
+| Field | Description |
+| --- | --- |
+| `InterfaceAlias` | PortIDTypeInterfaceAlias is `ifAlias` (IETF RFC 2863)<br /> |
+| `PortComponent` | PortIDTypePortComponent is `entPhysicalAlias` when `entPhysicalClass` has a value ‘port(10)’ or ‘backplane(4)’ (IETF RFC 6933)<br /> |
+| `MACAddress` | PortIDTypeMACAddress is the MAC address (IEEE Std 802)<br /> |
+| `NetworkAddress` | PortIDTypeNetworkAddress is an octet string representation of a particular network family and address.<br /> |
+| `InterfaceName` | PortIDTypeInterfaceName is `ifName` (IETF RFC 2863)<br /> |
+| `AgentCircuitID` | PortIDTypeAgentCircuitID is the agent circuit ID (IETF RFC 3046)<br /> |
+| `Local` | PortIDTypeLocal is an alphanumeric string that and is locally assigned<br /> |
 
 
 #### PrefixEntry

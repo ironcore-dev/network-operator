@@ -381,7 +381,161 @@ type InterfaceStatus struct {
 	// This field only applies to physical interfaces that are part of an aggregate interface.
 	// +optional
 	MemberOf *LocalObjectReference `json:"memberOf,omitempty"`
+
+	// Neighbors contains a list of neighbor interfaces connected to this interface and discovered with LLDP.
+	// If a single interface has multiple neighbor adjacencies, we validate each adjacency against the same one label/annotation.
+	// +optional
+	Neighbors []Neighbor `json:"neighbors,omitempty"`
 }
+
+// Neighbor represents an LLDP neighbor discovered on an interface.
+// It includes the results of the LLDP adjacency validation against the expected neighbor information from the interface's labels or annotations.
+type Neighbor struct {
+	// ChassisID contains an octet string indicating the specific chassis ID of the neighbor.
+	// Its semantics are defined by the ChassisIDType field.
+	// +required
+	ChassisID string `json:"chassisId"`
+
+	// ChassisIDType represents the chassis ID subtype.
+	// Full list of types can be found in IEEE 802.1AB-2016 Table 8-2.
+	// +required
+	// +kubebuilder:validation:Enum=ChassisComponent;InterfaceAlias;PortComponent;MACAddress;NetworkAddress;InterfaceName;Local
+	ChassisIDType ChassisIDType `json:"chassisIdType"`
+
+	// PortID contains an octet string indicating the specific port ID of the neighbor.
+	// Its semantics are defined by the PortIDType field.
+	// +required
+	PortID string `json:"portId"`
+
+	// PortIDType represents the port ID subtype.
+	// Full list of types can be found in IEEE 802.1AB-2016 Table 8-3.
+	// +required
+	// +kubebuilder:validation:Enum=InterfaceAlias;PortComponent;MACAddress;NetworkAddress;InterfaceName;AgentCircuitID;Local
+	PortIDType PortIDType `json:"portIdType"`
+
+	// SystemName is an alpha-numeric string that indicates the system’s administratively assigned name.
+	// +optional
+	SystemName string `json:"systemName,omitempty"`
+
+	// SystemDescription is a textual description of the neighbor, should include hardware and software information
+	// If the device supports IETF RFC 3418, this is the `sysDescr`
+	// +optional
+	SystemDescription string `json:"systemDescription,omitempty"`
+
+	// PortDescription contains the port description of the neighbor port.
+	// If the device supports IETF RFC 2863, this is the `ifDescr`
+	// +optional
+	PortDescription string `json:"portDescription,omitempty"`
+
+	// ExpirationTime is the time when the LLDP neighbor information expires.
+	// It is calculated based on the TTL.
+	// +required
+	ExpirationTime metav1.Time `json:"expirationTime"`
+
+	// Validation indicates whether the LLDP neighbor information matches the information in the label or annotations of the interface.
+	// Empty when no validation source (label or annotation) is configured on the interface.
+	// +optional
+	Validation NeighborValidation `json:"validation,omitempty"`
+}
+
+// ChassisIDType represents the chassis ID subtype for LLDP neighbor information.
+// See IEEE 802.1AB-2016 section 8.5.2.2 for details.
+type ChassisIDType string
+
+const (
+	// ChassisIDTypeChassisComponent is `EntPhysicalAlias` when entPhysClass has a value of ‘chassis(3)’ (IETF RFC 6933)
+	ChassisIDTypeChassisComponent ChassisIDType = "ChassisComponent"
+	// ChassisIDTypeInterfaceAlias is `ifAlias` (IETF RFC 2863)
+	ChassisIDTypeInterfaceAlias ChassisIDType = "InterfaceAlias"
+	// ChassisIDTypePortComponent is `entPhysicalAlias` when `entPhysicalClass` has a value ‘port(10)’ or ‘backplane(4)’ (IETF RFC 6933)
+	ChassisIDTypePortComponent ChassisIDType = "PortComponent"
+	// ChassisIDTypeMACAddress is the MAC address (IEEE Std 802)
+	ChassisIDTypeMACAddress ChassisIDType = "MACAddress"
+	// ChassisIDTypeNetworkAddress is an octet string representation of a particular network family and address.
+	ChassisIDTypeNetworkAddress ChassisIDType = "NetworkAddress"
+	// ChassisIDTypeInterfaceName is `ifName` (IETF RFC 2863)
+	ChassisIDTypeInterfaceName ChassisIDType = "InterfaceName"
+	// ChassisIDTypeLocal is an alphanumeric string that and is locally assigned
+	ChassisIDTypeLocal ChassisIDType = "Local"
+)
+
+func ChassisIDTypeFromValue(value uint8) (ChassisIDType, bool) {
+	switch value {
+	case 1:
+		return ChassisIDTypeChassisComponent, true
+	case 2:
+		return ChassisIDTypeInterfaceAlias, true
+	case 3:
+		return ChassisIDTypePortComponent, true
+	case 4:
+		return ChassisIDTypeMACAddress, true
+	case 5:
+		return ChassisIDTypeNetworkAddress, true
+	case 6:
+		return ChassisIDTypeInterfaceName, true
+	case 7:
+		return ChassisIDTypeLocal, true
+	default:
+		return "", false
+	}
+}
+
+// PortIDType represents the port ID subtype for LLDP neighbor information.
+// See IEEE 802.1AB-2016 section 8.5.3.2 for details.
+type PortIDType string
+
+const (
+	// PortIDTypeInterfaceAlias is `ifAlias` (IETF RFC 2863)
+	PortIDTypeInterfaceAlias PortIDType = "InterfaceAlias"
+	// PortIDTypePortComponent is `entPhysicalAlias` when `entPhysicalClass` has a value ‘port(10)’ or ‘backplane(4)’ (IETF RFC 6933)
+	PortIDTypePortComponent PortIDType = "PortComponent"
+	// PortIDTypeMACAddress is the MAC address (IEEE Std 802)
+	PortIDTypeMACAddress PortIDType = "MACAddress"
+	// PortIDTypeNetworkAddress is an octet string representation of a particular network family and address.
+	PortIDTypeNetworkAddress PortIDType = "NetworkAddress"
+	// PortIDTypeInterfaceName is `ifName` (IETF RFC 2863)
+	PortIDTypeInterfaceName PortIDType = "InterfaceName"
+	// PortIDTypeAgentCircuitID is the agent circuit ID (IETF RFC 3046)
+	PortIDTypeAgentCircuitID PortIDType = "AgentCircuitID"
+	// PortIDTypeLocal is an alphanumeric string that and is locally assigned
+	PortIDTypeLocal PortIDType = "Local"
+)
+
+func PortIDTypeFromValue(value uint8) (PortIDType, bool) {
+	switch value {
+	case 1:
+		return PortIDTypeInterfaceAlias, true
+	case 2:
+		return PortIDTypePortComponent, true
+	case 3:
+		return PortIDTypeMACAddress, true
+	case 4:
+		return PortIDTypeNetworkAddress, true
+	case 5:
+		return PortIDTypeInterfaceName, true
+	case 6:
+		return PortIDTypeAgentCircuitID, true
+	case 7:
+		return PortIDTypeLocal, true
+	default:
+		return "", false
+	}
+}
+
+// NeighborValidation represents the result of the validation of the LLDP neighbor information against the expected values from the interface's labels or annotations.
+// +kubebuilder:validation:Enum=NotFound;Verified;DeviceMismatch;PortMismatch
+type NeighborValidation string
+
+const (
+	// NeighborNotFound indicates that the resource referenced in the PhysicalInterfaceNeighborLabel label could not be found.
+	NeighborNotFound NeighborValidation = "NotFound"
+	// NeighborVerified indicates that the LLDP neighbor information has been verified and matches the expected values.
+	NeighborVerified NeighborValidation = "Verified"
+	// NeighborDeviceMismatch indicates that the LLDP neighbor information does not match the expected values, indicating a potential misconfiguration or unexpected neighbor.
+	NeighborDeviceMismatch NeighborValidation = "DeviceMismatch"
+	// NeighborPortMismatch indicates that the LLDP neighbor information does not match the expected port information, indicating a potential misconfiguration or unexpected neighbor.
+	NeighborPortMismatch NeighborValidation = "PortMismatch"
+)
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status

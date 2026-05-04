@@ -80,8 +80,9 @@ const PhysicalInterfaceNeighborLabel = "networking.metal.ironcore.dev/interface-
 
 // PhysicalInterfaceNeighborRawAnnotation stores raw neighbor identification for interfaces
 // connected to unmanaged devices (devices without an Interface resource).
-// The value format is "chassisID::portID" where:
-//   - chassisID: The LLDP chassis identifier (MAC address or system name)
+// The value format is "(chassisID|sysName)::portID" where:
+//   - chassisID: The LLDP Chassis ID (e.g. MAC address)
+//   - sysName: The LLDP System Name (optional TLV)
 //   - portID: The LLDP port identifier (interface name, alias, or MAC address)
 //
 // Example: "00:1a:2b:3c:4d:5e::Ethernet1/1" or "spine-switch-01::Ethernet48"

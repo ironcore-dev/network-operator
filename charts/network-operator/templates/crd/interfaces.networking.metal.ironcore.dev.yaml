@@ -625,6 +625,89 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
+              neighbors:
+                description: |-
+                  Neighbors contains a list of neighbor interfaces connected to this interface and discovered with LLDP.
+                  If a single interface has multiple neighbor adjacencies, we validate each adjacency against the same one label/annotation.
+                items:
+                  description: |-
+                    Neighbor represents an LLDP neighbor discovered on an interface.
+                    It includes the results of the LLDP adjacency validation against the expected neighbor information from the interface's labels or annotations.
+                  properties:
+                    chassisId:
+                      description: |-
+                        ChassisID contains an octet string indicating the specific chassis ID of the neighbor.
+                        Its semantics are defined by the ChassisIDType field.
+                      type: string
+                    chassisIdType:
+                      description: |-
+                        ChassisIDType represents the chassis ID subtype.
+                        Full list of types can be found in IEEE 802.1AB-2016 Table 8-2.
+                      enum:
+                      - ChassisComponent
+                      - InterfaceAlias
+                      - PortComponent
+                      - MACAddress
+                      - NetworkAddress
+                      - InterfaceName
+                      - Local
+                      type: string
+                    expirationTime:
+                      description: |-
+                        ExpirationTime is the time when the LLDP neighbor information expires.
+                        It is calculated based on the TTL.
+                      format: date-time
+                      type: string
+                    portDescription:
+                      description: |-
+                        PortDescription contains the port description of the neighbor port.
+                        If the device supports IETF RFC 2863, this is the `ifDescr`
+                      type: string
+                    portId:
+                      description: |-
+                        PortID contains an octet string indicating the specific port ID of the neighbor.
+                        Its semantics are defined by the PortIDType field.
+                      type: string
+                    portIdType:
+                      description: |-
+                        PortIDType represents the port ID subtype.
+                        Full list of types can be found in IEEE 802.1AB-2016 Table 8-3.
+                      enum:
+                      - InterfaceAlias
+                      - PortComponent
+                      - MACAddress
+                      - NetworkAddress
+                      - InterfaceName
+                      - AgentCircuitID
+                      - Local
+                      type: string
+                    systemDescription:
+                      description: |-
+                        SystemDescription is a textual description of the neighbor, should include hardware and software information
+                        If the device supports IETF RFC 3418, this is the `sysDescr`
+                      type: string
+                    systemName:
+                      description: SystemName is an alpha-numeric string that indicates
+                        the system’s administratively assigned name.
+                      type: string
+                    validation:
+                      description: |-
+                        Validation indicates whether the LLDP neighbor information matches the information in the label or annotations of the interface.
+                        Empty when no validation source (label or annotation) is configured on the interface.
+                      enum:
+                      - NotFound
+                      - Verified
+                      - DeviceMismatch
+                      - PortMismatch
+                      type: string
+                  required:
+                  - chassisId
+                  - chassisIdType
+                  - expirationTime
+                  - portId
+                  - portIdType
+                  type: object
+                type: array
             type: object
         required:
         - spec
