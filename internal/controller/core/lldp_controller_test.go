@@ -1057,4 +1057,356 @@ var _ = Describe("LLDP Controller", func() {
 			Expect(k8sClient.Delete(ctx, intf)).To(Succeed())
 		})
 	})
+
+	Context("When Interface is created after LLDP", func() {
+		var (
+			deviceName    string
+			interfaceName string
+			resourceKey   client.ObjectKey
+			deviceKey     client.ObjectKey
+			interfaceKey  client.ObjectKey
+			device        *v1alpha1.Device
+			lldp          *v1alpha1.LLDP
+			intf          *v1alpha1.Interface
+		)
+
+		BeforeEach(func() {
+			By("Creating the Device resource")
+			device = &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "testlldp-watch-device-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.7:9339",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+			deviceName = device.Name
+			deviceKey = client.ObjectKey{Name: deviceName, Namespace: metav1.NamespaceDefault}
+			resourceKey = client.ObjectKey{Name: deviceName + "-lldp", Namespace: metav1.NamespaceDefault}
+			interfaceName = deviceName + "-intf"
+			interfaceKey = client.ObjectKey{Name: interfaceName, Namespace: metav1.NamespaceDefault}
+		})
+
+		AfterEach(func() {
+			By("Cleaning up the LLDP resource")
+			lldp = &v1alpha1.LLDP{}
+			err := k8sClient.Get(ctx, resourceKey, lldp)
+			if err == nil {
+				Expect(k8sClient.Delete(ctx, lldp)).To(Succeed())
+
+				By("Waiting for LLDP resource to be fully deleted")
+				Eventually(func(g Gomega) {
+					err := k8sClient.Get(ctx, resourceKey, &v1alpha1.LLDP{})
+					g.Expect(errors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
+			}
+
+			By("Cleaning up the Interface resource")
+			intf = &v1alpha1.Interface{}
+			err = k8sClient.Get(ctx, interfaceKey, intf)
+			if err == nil {
+				Expect(k8sClient.Delete(ctx, intf)).To(Succeed())
+				Eventually(func(g Gomega) {
+					err := k8sClient.Get(ctx, interfaceKey, &v1alpha1.Interface{})
+					g.Expect(errors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
+			}
+
+			By("Cleaning up the Device resource")
+			err = k8sClient.Get(ctx, deviceKey, device)
+			if err == nil {
+				Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
+			}
+
+			By("Verifying the provider has been cleaned up")
+			Eventually(func(g Gomega) {
+				g.Expect(testProvider.LLDP).To(BeNil(), "Provider should have no LLDP configured")
+			}).Should(Succeed())
+		})
+
+		It("Should re-reconcile LLDP when referenced Interface is created", func() {
+			By("Creating LLDP with InterfaceRef to non-existent Interface")
+			lldp = &v1alpha1.LLDP{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      deviceName + "-lldp",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.LLDPSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
+					AdminState: v1alpha1.AdminStateUp,
+					InterfaceRefs: []v1alpha1.LLDPInterface{{
+						LocalObjectReference: v1alpha1.LocalObjectReference{Name: interfaceName},
+						AdminState:           v1alpha1.AdminStateUp,
+					}},
+				},
+			}
+			Expect(k8sClient.Create(ctx, lldp)).To(Succeed())
+
+			By("Verifying LLDP is not ready due to missing Interface")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, lldp)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				cond := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.ConfiguredCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(cond.Reason).To(Equal(v1alpha1.WaitingForDependenciesReason))
+			}).Should(Succeed())
+
+			By("Creating the referenced Interface")
+			intf = &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      interfaceName,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
+					Name:       "Ethernet1/1",
+					Type:       v1alpha1.InterfaceTypePhysical,
+					AdminState: v1alpha1.AdminStateUp,
+				},
+			}
+			Expect(k8sClient.Create(ctx, intf)).To(Succeed())
+
+			By("Verifying LLDP becomes ready after Interface is created (watch triggered re-reconciliation)")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, lldp)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				cond := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+
+				cond = meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.ConfiguredCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			}).Should(Succeed())
+		})
+
+		It("Should re-reconcile LLDP when referenced Interface is deleted", func() {
+			By("Creating the Interface first")
+			intf = &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      interfaceName,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
+					Name:       "Ethernet1/1",
+					Type:       v1alpha1.InterfaceTypePhysical,
+					AdminState: v1alpha1.AdminStateUp,
+				},
+			}
+			Expect(k8sClient.Create(ctx, intf)).To(Succeed())
+
+			By("Creating LLDP with InterfaceRef")
+			lldp = &v1alpha1.LLDP{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      deviceName + "-lldp",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.LLDPSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
+					AdminState: v1alpha1.AdminStateUp,
+					InterfaceRefs: []v1alpha1.LLDPInterface{{
+						LocalObjectReference: v1alpha1.LocalObjectReference{Name: interfaceName},
+						AdminState:           v1alpha1.AdminStateUp,
+					}},
+				},
+			}
+			Expect(k8sClient.Create(ctx, lldp)).To(Succeed())
+
+			By("Verifying LLDP is ready")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, lldp)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				cond := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			}).Should(Succeed())
+
+			By("Deleting the referenced Interface")
+			Expect(k8sClient.Delete(ctx, intf)).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, interfaceKey, &v1alpha1.Interface{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
+			// Clear intf so AfterEach doesn't try to delete it again
+			intf = nil
+
+			By("Verifying LLDP becomes not-ready after Interface is deleted (watch triggered re-reconciliation)")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, lldp)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				cond := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.ConfiguredCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(cond.Reason).To(Equal(v1alpha1.WaitingForDependenciesReason))
+			}).Should(Succeed())
+		})
+	})
+
+	Context("When LLDP operational status is degraded", func() {
+		var (
+			deviceName  string
+			resourceKey client.ObjectKey
+			deviceKey   client.ObjectKey
+			device      *v1alpha1.Device
+			lldp        *v1alpha1.LLDP
+		)
+
+		BeforeEach(func() {
+			By("Creating the Device resource")
+			device = &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "testlldp-oper-device-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.8:9339",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+			deviceName = device.Name
+			deviceKey = client.ObjectKey{Name: deviceName, Namespace: metav1.NamespaceDefault}
+			resourceKey = client.ObjectKey{Name: deviceName + "-lldp", Namespace: metav1.NamespaceDefault}
+		})
+
+		AfterEach(func() {
+			By("Resetting provider LLDP operational status to true")
+			testProvider.Lock()
+			testProvider.LLDPOperStatus = true
+			testProvider.Unlock()
+
+			By("Cleaning up the LLDP resource")
+			lldp = &v1alpha1.LLDP{}
+			err := k8sClient.Get(ctx, resourceKey, lldp)
+			if err == nil {
+				Expect(k8sClient.Delete(ctx, lldp)).To(Succeed())
+
+				By("Waiting for LLDP resource to be fully deleted")
+				Eventually(func(g Gomega) {
+					err := k8sClient.Get(ctx, resourceKey, &v1alpha1.LLDP{})
+					g.Expect(errors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
+			}
+
+			By("Cleaning up the Device resource")
+			err = k8sClient.Get(ctx, deviceKey, device)
+			if err == nil {
+				Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
+			}
+
+			By("Verifying the provider has been cleaned up")
+			Eventually(func(g Gomega) {
+				g.Expect(testProvider.LLDP).To(BeNil(), "Provider should have no LLDP configured")
+			}).Should(Succeed())
+		})
+
+		It("Should set OperationalCondition to False when LLDP is operationally down", func() {
+			By("Setting provider to return operational status down")
+			testProvider.Lock()
+			testProvider.LLDPOperStatus = false
+			testProvider.Unlock()
+
+			By("Creating LLDP resource")
+			lldp = &v1alpha1.LLDP{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      deviceName + "-lldp",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.LLDPSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
+					AdminState: v1alpha1.AdminStateUp,
+				},
+			}
+			Expect(k8sClient.Create(ctx, lldp)).To(Succeed())
+
+			By("Verifying OperationalCondition is False with DegradedReason")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, lldp)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				cond := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.OperationalCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(cond.Reason).To(Equal(v1alpha1.DegradedReason))
+				g.Expect(cond.Message).To(ContainSubstring("operationally down"))
+			}).Should(Succeed())
+
+			By("Verifying ReadyCondition is also False due to degraded operational status")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, lldp)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				cond := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			}).Should(Succeed())
+		})
+
+		It("Should recover when LLDP becomes operationally up", func() {
+			By("Setting provider to return operational status down")
+			testProvider.Lock()
+			testProvider.LLDPOperStatus = false
+			testProvider.Unlock()
+
+			By("Creating LLDP resource")
+			lldp = &v1alpha1.LLDP{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      deviceName + "-lldp",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.LLDPSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
+					AdminState: v1alpha1.AdminStateUp,
+				},
+			}
+			Expect(k8sClient.Create(ctx, lldp)).To(Succeed())
+
+			By("Verifying OperationalCondition is False")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, lldp)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				cond := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.OperationalCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			}).Should(Succeed())
+
+			By("Setting provider to return operational status up")
+			testProvider.Lock()
+			testProvider.LLDPOperStatus = true
+			testProvider.Unlock()
+
+			By("Verifying OperationalCondition becomes True after requeue")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, lldp)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				cond := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.OperationalCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(cond.Reason).To(Equal(v1alpha1.OperationalReason))
+			}).Should(Succeed())
+
+			By("Verifying ReadyCondition is also True")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, lldp)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				cond := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			}).Should(Succeed())
+		})
+	})
 })

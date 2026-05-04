@@ -441,6 +441,8 @@ type Provider struct {
 	RoutingPolicies sets.Set[string]
 	NVE             *v1alpha1.NetworkVirtualizationEdge
 	LLDP            *v1alpha1.LLDP
+	LLDPOperStatus  bool
+	LLDPNeighbors   map[string]*provider.LLDPAdjacency
 	DHCPRelay       *v1alpha1.DHCPRelay
 }
 
@@ -459,6 +461,8 @@ func NewProvider() *Provider {
 		EVIs:            sets.New[int32](),
 		PrefixSets:      sets.New[string](),
 		RoutingPolicies: sets.New[string](),
+		LLDPOperStatus:  true,
+		LLDPNeighbors:   make(map[string]*provider.LLDPAdjacency),
 	}
 }
 
@@ -545,10 +549,23 @@ func (p *Provider) DeleteInterface(_ context.Context, req *provider.InterfaceReq
 	return nil
 }
 
-func (p *Provider) GetInterfaceStatus(context.Context, *provider.InterfaceRequest) (provider.InterfaceStatus, error) {
-	return provider.InterfaceStatus{
+func (p *Provider) GetInterfaceStatus(_ context.Context, req *provider.InterfaceRequest) (provider.InterfaceStatus, error) {
+	p.Lock()
+	defer p.Unlock()
+
+	status := provider.InterfaceStatus{
 		OperStatus: true,
-	}, nil
+	}
+
+	if neighbor, ok := p.LLDPNeighbors[req.Interface.Spec.Name]; ok {
+		status.LLDPAdjacencies = []provider.LLDPAdjacency{*neighbor}
+	}
+
+	return status, nil
+}
+
+func (p *Provider) InterfaceNameEqual(_ context.Context, a, b string) (bool, error) {
+	return a == b, nil
 }
 
 func (p *Provider) EnsureBanner(_ context.Context, req *provider.EnsureBannerRequest) error {
@@ -903,7 +920,9 @@ func (p *Provider) DeleteLLDP(_ context.Context, req *provider.LLDPRequest) erro
 }
 
 func (p *Provider) GetLLDPStatus(_ context.Context, _ *provider.LLDPRequest) (provider.LLDPStatus, error) {
-	return provider.LLDPStatus{OperStatus: true}, nil
+	p.Lock()
+	defer p.Unlock()
+	return provider.LLDPStatus{OperStatus: p.LLDPOperStatus}, nil
 }
 
 func (p *Provider) EnsureDHCPRelay(_ context.Context, req *provider.DHCPRelayRequest) error {
@@ -931,4 +950,16 @@ func (p *Provider) GetDHCPRelayStatus(_ context.Context, req *provider.DHCPRelay
 		}
 	}
 	return status, nil
+}
+
+// SetLLDPNeighbor is a test helper to configure LLDP neighbor information for an interface.
+func (p *Provider) SetLLDPNeighbor(interfaceName, sysName, chassisID, portID string, ttl uint32) {
+	p.Lock()
+	defer p.Unlock()
+	p.LLDPNeighbors[interfaceName] = &provider.LLDPAdjacency{
+		SysName:   sysName,
+		ChassisID: chassisID,
+		PortID:    portID,
+		TTL:       time.Duration(ttl) * time.Second,
+	}
 }

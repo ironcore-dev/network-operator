@@ -433,6 +433,7 @@ func (r *LLDPReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 	for _, gvk := range v1alpha1.LLDPDependencies {
 		obj := &unstructured.Unstructured{}
 		obj.SetGroupVersionKind(gvk)
+
 		c = c.Watches(
 			obj,
 			handler.EnqueueRequestsFromMapFunc(r.mapProviderConfigToLLDP),
@@ -440,21 +441,35 @@ func (r *LLDPReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 		)
 	}
 
-	// Watches enqueues LLDPs for updates in referenced Device resources.
-	// Triggers on create, delete, and update events when the device's effective pause state changes.
-	c = c.Watches(
-		&v1alpha1.Device{},
-		handler.EnqueueRequestsFromMapFunc(r.deviceToLLDPs),
-		builder.WithPredicates(predicate.Funcs{
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return paused.DevicePausedChanged(e.ObjectOld, e.ObjectNew)
-			},
-			GenericFunc: func(e event.GenericEvent) bool {
-				return false
-			},
-		}),
-	)
-
+	c = c.
+		// Triggers on create, delete, and update events when the device's effective pause state changes.
+		// Watches enqueues LLDPs for updates in referenced Device resources.
+		Watches(
+			&v1alpha1.Device{},
+			handler.EnqueueRequestsFromMapFunc(r.deviceToLLDPs),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return paused.DevicePausedChanged(e.ObjectOld, e.ObjectNew)
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
+		// Watches enqueues LLDPs for updates in referenced Interface resources.
+		// This ensures LLDP reconciles when a referenced Interface is created or updated.
+		Watches(
+			&v1alpha1.Interface{},
+			handler.EnqueueRequestsFromMapFunc(r.interfaceToLLDPs),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		)
 	return c.Complete(r)
 }
 
@@ -530,6 +545,44 @@ func (r *LLDPReconciler) deviceToLLDPs(ctx context.Context, obj client.Object) [
 				Namespace: l.Namespace,
 			},
 		})
+	}
+
+	return requests
+}
+
+// interfaceToLLDPs is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for LLDPs when a referenced Interface is created or updated.
+func (r *LLDPReconciler) interfaceToLLDPs(ctx context.Context, obj client.Object) []ctrl.Request {
+	intf, ok := obj.(*v1alpha1.Interface)
+	if !ok {
+		panic(fmt.Sprintf("Expected an Interface but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "Interface", klog.KObj(intf))
+
+	list := new(v1alpha1.LLDPList)
+	if err := r.List(ctx, list,
+		client.InNamespace(intf.Namespace),
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: intf.Spec.DeviceRef.Name},
+	); err != nil {
+		log.Error(err, "Failed to list LLDPs")
+		return nil
+	}
+
+	var requests []ctrl.Request
+	for _, lldp := range list.Items {
+		for _, ifRef := range lldp.Spec.InterfaceRefs {
+			if ifRef.Name == intf.Name {
+				log.V(2).Info("Enqueuing LLDP for reconciliation", "LLDP", klog.KObj(&lldp))
+				requests = append(requests, ctrl.Request{
+					NamespacedName: client.ObjectKey{
+						Name:      lldp.Name,
+						Namespace: lldp.Namespace,
+					},
+				})
+				break
+			}
+		}
 	}
 
 	return requests

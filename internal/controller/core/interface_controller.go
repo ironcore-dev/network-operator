@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/netip"
 	"slices"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -541,7 +542,22 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (reterr e
 		return fmt.Errorf("failed to get interface status: %w", err)
 	}
 
-	cond = metav1.Condition{
+	r.reconcileInterfaceStatus(ctx, s, &status)
+
+	return nil
+}
+
+func (r *InterfaceReconciler) reconcileInterfaceStatus(ctx context.Context, s *scope, status *provider.InterfaceStatus) {
+	// Neighbor adjacencies is only metadata and should not prevent reconciliation
+	if s.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical && len(status.LLDPAdjacencies) > 0 {
+		if err := r.updateNeighborAdjacenciesStatus(ctx, s, status); err != nil {
+			ctrl.LoggerFrom(ctx).Error(err, "failed to update neighbor adjacency status", "interface", klog.KObj(s.Interface))
+		}
+	} else {
+		s.Interface.Status.Neighbors = nil
+	}
+
+	cond := metav1.Condition{
 		Type:    v1alpha1.OperationalCondition,
 		Status:  metav1.ConditionTrue,
 		Reason:  v1alpha1.OperationalReason,
@@ -556,8 +572,135 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (reterr e
 		cond.Message = fmt.Sprintf("Device returned %q", status.OperMessage)
 	}
 	conditions.Set(s.Interface, cond)
+}
 
-	return nil
+// updateNeighborAdjacenciesStatus updates the Interface status with the LLDP neighbor adjacencies returned by the provider.
+// It validates the adjacencies by looking at the corresponding label/annotation.
+// It first attempts to validate through label (neighbor is managed by the operator and exists as a kubernetes resource).
+// If that fails, it attempts to validate through annotation (neighbor is not managed by the operator).
+// Only returns an error if there is an issue during the validation process, but does not return an error if the validation fails (i.e. the adjacency is marked as invalid).
+func (r *InterfaceReconciler) updateNeighborAdjacenciesStatus(ctx context.Context, s *scope, status *provider.InterfaceStatus) error {
+	type neighborKey struct{ ChassisID, PortID string }
+
+	existingNeighbors := make(map[neighborKey]v1alpha1.Neighbor)
+	for _, n := range s.Interface.Status.Neighbors {
+		existingNeighbors[neighborKey{n.ChassisID, n.PortID}] = n
+	}
+
+	log := ctrl.LoggerFrom(ctx)
+	if len(status.LLDPAdjacencies) > 1 {
+		log.V(1).Info("Multiple LLDP adjacencies found for a single interface, will validate each adjacency against one single label/annotation", "interface", klog.KObj(s.Interface), "adjacencyCount", len(status.LLDPAdjacencies))
+	}
+
+	var errs []error
+	neighbors := make([]v1alpha1.Neighbor, 0, len(status.LLDPAdjacencies))
+	for _, adj := range status.LLDPAdjacencies {
+		chassisIDType, ok := v1alpha1.ChassisIDTypeFromValue(adj.ChassisIDType)
+		if !ok {
+			log.V(1).Info("Skipping LLDP adjacency with unknown chassis ID type", "chassisID", adj.ChassisID, "chassisIDType", adj.ChassisIDType)
+			continue
+		}
+		portIDType, ok := v1alpha1.PortIDTypeFromValue(adj.PortIDType)
+		if !ok {
+			log.V(1).Info("Skipping LLDP adjacency with unknown port ID type", "chassisID", adj.ChassisID, "portIDType", adj.PortIDType)
+			continue
+		}
+
+		adjacency := v1alpha1.Neighbor{
+			SystemName:        adj.SysName,
+			SystemDescription: adj.SysDescription,
+			ChassisID:         adj.ChassisID,
+			ChassisIDType:     chassisIDType,
+			PortID:            adj.PortID,
+			PortIDType:        portIDType,
+			PortDescription:   adj.PortDescription,
+			ExpirationTime:    metav1.NewTime(time.Now().Add(adj.TTL).Truncate(time.Second)),
+		}
+
+		// NOTE: the operator runs a single provider currently, so s.Provider is used for the
+		// remote device as well. If multi-provider support is added, the remote device's
+		// provider must be resolved here instead.
+		if neighborLabelValue, ok := s.Interface.Labels[v1alpha1.PhysicalInterfaceNeighborLabel]; ok {
+			var err error
+			if adjacency.Validation, err = r.validateLLDPAdjacencyThroughLabel(ctx, s.Provider, s.Interface, &adjacency, neighborLabelValue); err != nil {
+				errs = append(errs, fmt.Errorf("failed to validate LLDP adjacency %q/%q through label %q: %w", adj.ChassisID, adj.PortID, neighborLabelValue, err))
+			}
+		}
+
+		if neighborAnnotationValue, ok := s.Interface.Annotations[v1alpha1.PhysicalInterfaceNeighborRawAnnotation]; ok && adjacency.Validation == "" {
+			var err error
+			if adjacency.Validation, err = r.validateLLDPAdjacencyThroughAnnotation(ctx, s.Interface, &adjacency, neighborAnnotationValue); err != nil {
+				errs = append(errs, fmt.Errorf("failed to validate LLDP adjacency %q/%q through annotation %q: %w", adj.ChassisID, adj.PortID, neighborAnnotationValue, err))
+			}
+		}
+		neighbors = append(neighbors, adjacency)
+	}
+
+	s.Interface.Status.Neighbors = neighbors
+
+	return kerrors.NewAggregate(errs)
+}
+
+func (r *InterfaceReconciler) validateLLDPAdjacencyThroughLabel(ctx context.Context, remoteProvider provider.InterfaceProvider, intf *v1alpha1.Interface, n *v1alpha1.Neighbor, label string) (v1alpha1.NeighborValidation, error) {
+	key := client.ObjectKey{
+		Name:      label,
+		Namespace: intf.Namespace,
+	}
+
+	remoteIntf := new(v1alpha1.Interface)
+	if err := r.Get(ctx, key, remoteIntf); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return "", fmt.Errorf("failed to get neighbor interface %w", err)
+		}
+		return v1alpha1.NeighborNotFound, nil
+	}
+
+	log := ctrl.LoggerFrom(ctx, "LLDP validation", klog.KObj(intf))
+
+	remoteDevice, err := deviceutil.GetOwnerDevice(ctx, r, remoteIntf)
+	if err != nil {
+		return "", fmt.Errorf("could not find the device owning interface %q: %w", remoteIntf.Name, err)
+	}
+
+	if remoteDevice.Status.Hostname == "" {
+		return "", fmt.Errorf("the neighbor device does not have a hostname yet, cannot validate adjacency: neighborInterface=%q", remoteIntf.Name)
+	}
+
+	if remoteDevice.Status.Hostname != n.SystemName {
+		log.V(1).Info("the neighbor device hostname does not match", "expected", n.SystemName, "actual", remoteDevice.Status.Hostname)
+		return v1alpha1.NeighborDeviceMismatch, nil
+	}
+
+	equal, err := remoteProvider.InterfaceNameEqual(ctx, remoteIntf.Spec.Name, n.PortID)
+	if err != nil {
+		return "", fmt.Errorf("failed to compare interface names %q and %q: %w", remoteIntf.Spec.Name, n.PortID, err)
+	}
+	if !equal {
+		log.V(1).Info("the neighbor interface name does not match", "expected", n.PortID, "actual", remoteIntf.Spec.Name)
+		return v1alpha1.NeighborPortMismatch, nil
+	}
+
+	return v1alpha1.NeighborVerified, nil
+}
+
+func (r *InterfaceReconciler) validateLLDPAdjacencyThroughAnnotation(ctx context.Context, intf *v1alpha1.Interface, n *v1alpha1.Neighbor, annotation string) (v1alpha1.NeighborValidation, error) {
+	remoteDeviceID, remotePortID, ok := strings.Cut(annotation, "::")
+	if !ok || remoteDeviceID == "" || remotePortID == "" {
+		return "", errors.New("invalid neighbor annotation value, expected format is <deviceIdentifier>::<portID>")
+	}
+
+	log := ctrl.LoggerFrom(ctx, "LLDP validation", klog.KObj(intf))
+	if remoteDeviceID != n.ChassisID && remoteDeviceID != n.SystemName {
+		log.V(1).Info("the neighbor device identifier does not match", "annotationValue", remoteDeviceID, "chassisID", n.ChassisID, "systemName", n.SystemName)
+		return v1alpha1.NeighborDeviceMismatch, nil
+	}
+
+	if remotePortID != n.PortID {
+		log.V(1).Info("the neighbor port identifier does not match", "annotationValue", remotePortID, "portID", n.PortID)
+		return v1alpha1.NeighborPortMismatch, nil
+	}
+
+	return v1alpha1.NeighborVerified, nil
 }
 
 func (r *InterfaceReconciler) reconcileIPv4(ctx context.Context, s *scope) (provider.IPv4, error) {
