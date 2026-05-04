@@ -5,3 +5,16 @@
 # Windows users contributing will need to use a modern version of git
 # and editors capable of LF line endings.
 *.go text eol=lf diff=golang
+
+# Generated files — collapsed in PR diffs, excluded from language stats.
+api/**/zz_generated.deepcopy.go linguist-generated
+charts/network-operator/templates/** linguist-generated
+charts/network-operator/templates/NOTES.txt -linguist-generated
+charts/network-operator/templates/_helpers.tpl -linguist-generated
+config/crd/bases/** linguist-generated
+config/rbac/role.yaml linguist-generated
+config/webhook/manifests.yaml linguist-generated
+docs/api-reference/** linguist-generated
+docs/package-lock.json linguist-generated
+go.sum linguist-generated
+test/gnmi/go.sum linguist-generated
