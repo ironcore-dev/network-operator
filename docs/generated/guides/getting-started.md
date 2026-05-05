@@ -1,289 +1,233 @@
 ---
 title: Getting Started
 description: Deploy Network Operator and configure your first network device
-gnosis_hash: aa516507
-body_hash: ff44ad1d
+gnosis_hash: 4124bd7e
+body_hash: e6312e7f
 ---
 
 # Getting Started
 
-This guide walks you through installing network-operator on a Kubernetes cluster and provisioning your first Cisco NX-OS switch using declarative CRD-based configuration. By the end, you will have a managed device registered, an interface configured, and the configuration verified as applied.
+This guide walks you through installing network-operator, registering your first Cisco NX-OS switch, pushing an interface configuration, and verifying that the configuration was applied. By the end, you will have a working foundation to build out BGP, VLANs, and routing policies.
 
 ## Prerequisites
 
-Before you begin, ensure the following tools and resources are available.
+Before you begin, ensure the following are available in your environment:
 
-### Kubernetes Cluster
-
-You need a running Kubernetes cluster (version 1.24 or later is recommended). The cluster must have network reachability to the out-of-band management interfaces of the switches you intend to manage.
-
-Verify your cluster is accessible:
-
-```bash
-kubectl cluster-info
-```
-
-### kubectl
-
-Install `kubectl` matching your cluster version. Confirm it is working:
+- **Kubernetes cluster** (v1.26 or later recommended) with sufficient permissions to install CRDs and deploy controllers. A single namespace is sufficient for getting started.
+- **kubectl** configured to reach the cluster (`kubectl cluster-info` should succeed).
+- **Helm 3.10+** for chart installation (`helm version` should succeed).
+- **Network reachability** from the Kubernetes worker nodes to the management address of your NX-OS switches. The controller connects to each device over the address specified in the `Device` resource.
+- **Device credentials** stored in a Kubernetes Secret of type `kubernetes.io/basic-auth` containing `username` and `password` keys. Create one now:
 
 ```bash
-kubectl version --client
+kubectl create namespace network-operator
+kubectl -n network-operator create secret generic spine-01-creds \
+  --type=kubernetes.io/basic-auth \
+  --from-literal=username=admin \
+  --from-literal=password=<your-password>
 ```
 
-### Helm
-
-Install Helm v3.10 or later. Confirm the installation:
-
-```bash
-helm version
-```
+---
 
 ## Installing network-operator via Helm
 
-The network-operator is distributed as a Helm chart located at `charts/network-operator` in the project repository.
-
-### Add the Helm repository
-
-If the chart is published to a Helm repository, add it first:
+Add the chart repository and install the operator into the `network-operator` namespace:
 
 ```bash
 helm repo add network-operator https://charts.example.com/network-operator
 helm repo update
-```
 
-If you are working from a local checkout of the repository, you can reference the chart path directly in the steps below.
-
-### Create a namespace
-
-It is recommended to install network-operator into a dedicated namespace:
-
-```bash
-kubectl create namespace network-operator
-```
-
-### Install the chart
-
-Install the Helm chart with the release name `network-operator`:
-
-```bash
 helm install network-operator network-operator/network-operator \
   --namespace network-operator \
+  --create-namespace \
   --wait
 ```
 
-To install from a local chart directory:
+Verify that the controller pod is running:
 
 ```bash
-helm install network-operator ./charts/network-operator \
-  --namespace network-operator \
-  --wait
-```
-
-### Verify the installation
-
-Confirm that the controller pods are running:
-
-```bash
-kubectl get pods -n network-operator
+kubectl -n network-operator get pods
 ```
 
 You should see output similar to:
 
 ```
-NAME                                        READY   STATUS    RESTARTS   AGE
-network-operator-controller-7d9f85b-xkp2n  1/1     Running   0          60s
+NAME                                  READY   STATUS    RESTARTS   AGE
+network-operator-controller-<hash>    1/1     Running   0          30s
 ```
 
-The controller manages reconciliation loops for each CRD type and begins watching for resources as soon as it is running.
+The Helm chart installs all CRDs automatically. Confirm they are registered:
+
+```bash
+kubectl get crds | grep network-operator
+```
+
+---
 
 ## Registering a Network Device
 
-A `Device` resource represents a managed network switch. It contains the management address and the credentials needed to connect to the device. All other CRDs reference a `Device` by name through the `deviceRef` field.
-
-### Create a credentials secret
-
-The controller authenticates to the device using a Kubernetes secret of type `kubernetes.io/basic-auth`. Create one for your NX-OS switch:
-
-```bash
-kubectl create secret generic nxos-leaf01-creds \
-  --type=kubernetes.io/basic-auth \
-  --from-literal=username=admin \
-  --from-literal=password=<your-password> \
-  --namespace network-operator
-```
-
-### Apply the Device resource
-
-Create a file named `device-leaf01.yaml` with the following content. The `endpoint.address` field must be in `IP:Port` format, and `endpoint.secretRef.name` must reference the secret created above.
+Create a `Device` resource to register your NX-OS switch with the operator. The `spec.endpoint.address` field must be the management IP and port of the device. The `spec.endpoint.secretRef` field points to the `kubernetes.io/basic-auth` Secret you created above.
 
 ```yaml
+# spine-01.yaml
 apiVersion: core.network-operator.example.com/v1alpha1
 kind: Device
 metadata:
-  name: leaf01
+  name: spine-01
   namespace: network-operator
 spec:
   endpoint:
-    address: "10.0.0.101:57400"
+    address: "10.0.0.1:22"
     secretRef:
-      name: nxos-leaf01-creds
+      name: spine-01-creds
+      namespace: network-operator
 ```
 
 Apply it:
 
 ```bash
-kubectl apply -f device-leaf01.yaml
+kubectl apply -f spine-01.yaml
 ```
 
-### Verify the device is connected
-
-The controller will attempt to connect to the device and populate the `status` fields. Check the device status:
+The controller will connect to the device and populate `status` fields including `manufacturer`, `model`, `serialNumber`, `firmwareVersion`, and the list of physical ports. Check the device status:
 
 ```bash
-kubectl get device leaf01 -n network-operator -o yaml
+kubectl -n network-operator get device spine-01 -o yaml
 ```
 
-Look for the `status.phase` field and the `status.conditions` list. A healthy device will show a phase of `Ready` and a condition with `type: Available` and `status: "True"`. The controller also populates informational fields such as `status.manufacturer`, `status.model`, `status.firmwareVersion`, and `status.serialNumber` when the device is reachable.
+Look for `status.phase` to become `Ready` and inspect the discovered `status.ports`. A healthy device will also have a `status.conditions` entry of type `Ready` with `status: "True"`.
+
+> **Note:** If `status.phase` does not become `Ready` within a few minutes, verify network reachability and check the controller logs:
+> ```bash
+> kubectl -n network-operator logs -l app=network-operator-controller
+> ```
+
+### Pausing reconciliation
+
+If you need to temporarily prevent the operator from pushing changes to a device (for example, during a maintenance window), set `spec.paused: true` on the `Device` resource. The controller will stop reconciling all objects associated with that device until `paused` is removed or set back to `false`.
+
+---
 
 ## Applying a Basic Interface Configuration
 
-With the device registered, you can now configure its interfaces using the `Interface` CRD. Every `Interface` resource must reference the owning device through `spec.deviceRef.name`.
+Once the device is registered, create an `Interface` resource to configure a routed Layer 3 interface. Every interface resource must reference its owning device via the `spec.deviceRef.name` field.
 
-### Configure a routed Layer 3 interface
-
-The following example configures a physical Ethernet interface on `leaf01` with an IPv4 address. The `spec.type` field identifies the interface type, `spec.name` must match the interface name on the device, and `spec.adminState` controls whether the interface is brought up.
+The following example configures `Ethernet1/1` on `spine-01` as a routed Layer 3 interface with an IPv4 address and an MTU of 9216 bytes, which is typical for a data center fabric spine uplink.
 
 ```yaml
+# spine-01-eth1-1.yaml
 apiVersion: core.network-operator.example.com/v1alpha1
 kind: Interface
 metadata:
-  name: leaf01-eth1-1
+  name: spine-01-eth1-1
   namespace: network-operator
 spec:
   deviceRef:
-    name: leaf01
-  name: "Ethernet1/1"
-  type: Physical
+    name: spine-01
+  name: Ethernet1/1
+  type: Ethernet
   adminState: Up
-  description: "Uplink to spine01"
+  description: "Uplink to leaf-01 Ethernet1/49"
   mtu: 9216
   ipv4:
     addresses:
-      - "192.168.100.1/31"
-```
-
-Apply the resource:
-
-```bash
-kubectl apply -f interface-eth1-1.yaml
-```
-
-### Configure a loopback interface
-
-Loopback interfaces are commonly used as BGP router IDs and NVE source interfaces in data center fabrics:
-
-```yaml
-apiVersion: core.network-operator.example.com/v1alpha1
-kind: Interface
-metadata:
-  name: leaf01-loopback0
-  namespace: network-operator
-spec:
-  deviceRef:
-    name: leaf01
-  name: "Loopback0"
-  type: Loopback
-  adminState: Up
-  description: "Router ID loopback"
-  ipv4:
-    addresses:
-      - "10.0.255.1/32"
+      - "192.168.100.0/31"
 ```
 
 Apply it:
 
 ```bash
-kubectl apply -f interface-loopback0.yaml
+kubectl apply -f spine-01-eth1-1.yaml
 ```
+
+### Configuring a loopback interface
+
+Loopback interfaces are commonly used as BGP router IDs and NVE source interfaces. Configure one alongside your Ethernet interface:
+
+```yaml
+# spine-01-lo0.yaml
+apiVersion: core.network-operator.example.com/v1alpha1
+kind: Interface
+metadata:
+  name: spine-01-lo0
+  namespace: network-operator
+spec:
+  deviceRef:
+    name: spine-01
+  name: loopback0
+  type: Loopback
+  adminState: Up
+  description: "Router ID / BGP source"
+  ipv4:
+    addresses:
+      - "10.255.0.1/32"
+```
+
+```bash
+kubectl apply -f spine-01-lo0.yaml
+```
+
+---
 
 ## Verifying the Configuration Was Pushed to the Device
 
-The network-operator controller reconciles each resource against the actual device state and reports the result through the `status` field of the CRD.
-
-### Check the Interface status
+After applying an `Interface` resource, the controller reconciles the desired state against the device. Check the resource status:
 
 ```bash
-kubectl get interface leaf01-eth1-1 -n network-operator -o yaml
+kubectl -n network-operator get interface spine-01-eth1-1 -o yaml
 ```
 
-Examine the `status.conditions` list in the output. The controller uses standard condition types:
-
-| Condition type | Meaning |
-|---|---|
-| `Available` | The configuration has been successfully applied and is active on the device. |
-| `Progressing` | The controller is currently applying the configuration. |
-| `Degraded` | The controller encountered an error pushing the configuration. |
-
-A successfully applied interface will show a condition similar to:
+In the output, inspect the `status.conditions` list. A successfully applied configuration will contain a condition of type `Ready` with `status: "True"` and a `reason` indicating the configuration was pushed. For example:
 
 ```yaml
 status:
   conditions:
-    - type: Available
+    - type: Ready
       status: "True"
       reason: ConfigurationApplied
-      lastTransitionTime: "2024-01-15T10:30:00Z"
+      lastTransitionTime: "2024-06-01T12:00:00Z"
 ```
 
-### Use kubectl to list all interface statuses
+If the condition shows `status: "False"`, the `message` field will describe the error. Common issues include connectivity failures, authentication errors, or unsupported configuration values for the target platform.
+
+You can also list all interface resources and their readiness at a glance:
 
 ```bash
-kubectl get interfaces -n network-operator
+kubectl -n network-operator get interfaces
 ```
 
-### Confirm directly on the device
-
-You can also verify the configuration directly on the NX-OS switch using the NX-OS CLI:
-
-```
-leaf01# show interface Ethernet1/1
-leaf01# show running-config interface Ethernet1/1
-```
-
-The IP address, MTU, description, and administrative state should match what was declared in the `Interface` resource.
-
-### Pause reconciliation for troubleshooting
-
-If you need to temporarily stop the controller from reconciling a device (for example, during a maintenance window), set `spec.paused: true` on the `Device` resource:
+To confirm the configuration on the device itself, SSH to the switch and verify:
 
 ```bash
-kubectl patch device leaf01 -n network-operator \
-  --type=merge -p '{"spec":{"paused":true}}'
+# On the NX-OS device:
+show interface Ethernet1/1
+show ip interface Ethernet1/1
 ```
 
-Remember to set `paused: false` to resume normal reconciliation.
+The interface should show the configured IP address, MTU, and admin state.
+
+---
 
 ## Next Steps
 
-With a device registered and a basic interface configured, you are ready to build out the rest of your data center network using network-operator's declarative CRDs.
+With a device registered and a basic interface configured, you are ready to build out the full data center network fabric. The following CRDs are the logical next steps:
 
-### BGP
+### BGP routing
 
-Configure BGP routing using the `BGP` and `BGPPeer` CRDs. The `BGP` resource sets the router-level parameters such as `spec.asNumber` and `spec.routerId`, while `BGPPeer` resources define individual neighbor sessions. Each `BGPPeer` references the parent `BGP` instance through `spec.bgpRef.name`. For Cisco NX-OS-specific address-family tuning such as advertising the primary IP (`advertisePIP`) or gateway IP export, use the `BGPConfig` CRD from the `api/cisco/nx/v1alpha1` package.
+Use the `BGP` CRD to configure a BGP router instance on the device, specifying `spec.asNumber` and `spec.routerId`. Create `BGPPeer` resources to define eBGP or iBGP neighbors, referencing the BGP instance via `spec.bgpRef.name` and the local source interface via `spec.localAddress.interfaceRef`. For NX-OS-specific address-family settings such as EVPN PIP advertisement, use the `BGPConfig` CRD from the `cisco/nx` API group.
 
 ### VLANs
 
-Define VLANs with the `VLAN` CRD using `spec.id` and `spec.name`. Layer 3 switching for a VLAN is enabled by creating an `Interface` of type `RoutedVLAN` that references the VLAN via `spec.vlanRef.name`.
+Define VLANs on a device using the `VLAN` CRD, setting `spec.id` (1–4094) and an optional `spec.name`. Trunk or access switchport behavior on physical interfaces is controlled through `spec.switchport` on the `Interface` resource, where `spec.switchport.mode`, `spec.switchport.allowedVlans`, and `spec.switchport.accessVlan` give you full Layer 2 control.
 
-### Routing Policies
+### Routing policies and prefix filtering
 
-Control route advertisement and filtering using `PrefixSet` and `RoutingPolicy` resources. A `PrefixSet` defines named prefix lists referenced by `RoutingPolicy` statements. Policy statements contain `conditions` (prefix matching) and `actions` (route disposition and BGP attribute manipulation such as community tagging or AS-path prepending). Routing policies are attached to BGP peers via the `spec.addressFamilies.ipv4Unicast.inboundRoutingPolicyRef` and `outboundRoutingPolicyRef` fields on `BGPPeer`.
+Create `PrefixSet` resources to define named lists of IP prefixes with optional mask length ranges. Reference these in `RoutingPolicy` resources using `spec.statements[].conditions.matchPrefixSet.prefixSetRef`. Policies can accept or reject routes and apply BGP community tagging via `spec.statements[].actions.bgpActions`. Attach policies to BGP peers using `spec.addressFamilies.ipv4Unicast.inboundRoutingPolicyRef` and `spec.addressFamilies.ipv4Unicast.outboundRoutingPolicyRef` on the `BGPPeer` resource.
 
-### VXLAN and EVPN
+### VXLAN / EVPN overlay
 
-For VXLAN overlay fabrics, configure `NetworkVirtualizationEdge` (NVE) resources to define the VTEP, `EVPNInstance` resources to define VXLAN Network Identifiers (VNIs), and VRFs with route targets for L3VNI routing. Enable the `l2vpnEvpn` address family on your `BGP` resource to exchange EVPN routes between VTEPs.
+For a VXLAN BGP EVPN fabric, configure a `NetworkVirtualizationEdge` (NVE) resource pointing its `spec.sourceInterfaceRef` to a loopback interface. Then create `EVPNInstance` resources with the appropriate `spec.vni` and `spec.type` (Bridged for L2VNI) to bind VLANs to the overlay. VRF resources with `spec.vni` set enable L3VNI support for inter-tenant routing.
 
-### Additional Device Services
+### Device services
 
-network-operator also manages operational services on NX-OS devices including `NTP`, `DNS`, `Syslog`, `SNMP`, `LLDP`, `User`, and `Banner` resources. Each follows the same pattern: create a resource in the same namespace as the target `Device` and reference it via `spec.deviceRef.name`.
+Once the core forwarding plane is established, configure operational services such as `NTP`, `DNS`, `Syslog`, and `SNMP` by creating the respective CRDs and referencing the device via `spec.deviceRef.name` in each resource — the same pattern used by all configuration objects in network-operator.

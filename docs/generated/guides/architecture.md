@@ -1,237 +1,203 @@
 ---
 title: Architecture
 description: How Network Operator reconciles declarative CRDs into device configurations
-gnosis_hash: 0f39c23c
-body_hash: e3d86a7b
+gnosis_hash: 605d5949
+body_hash: dcea5613
 ---
 
 # Architecture
 
-## Overview
-
-Network Operator is a set of Kubernetes controllers that reconcile CRD specifications into live network device configurations. The core idea is simple: you describe the desired state of a network device in a YAML manifest, apply it to Kubernetes, and the operator pushes the corresponding configuration to the device. No scripting, no manual CLI sessions — the operator handles translation and delivery.
-
-The system follows standard controller-runtime patterns: watch CRDs for changes, compare desired state against actual device state, compute a diff, and push updates. This makes it composable with standard Kubernetes tooling — GitOps pipelines, admission webhooks, RBAC, and status monitoring all work as expected.
-
----
+Network Operator is a set of Kubernetes controllers that continuously reconcile CRD manifests into running configuration on network devices. If you are familiar with how cert-manager or external-dns work, the model is the same: you describe desired state in YAML, Kubernetes stores it, and a controller loop makes the device match that description.
 
 ## The Reconciliation Model
 
-When you apply a manifest to Kubernetes, the following sequence takes place:
+Every configuration resource in network-operator follows the same lifecycle:
 
-1. **You apply a CRD manifest.** For example, an `Interface` spec describing a routed interface with an IPv4 address, or a `BGP` spec describing a BGP router instance.
+1. **You apply a manifest.** For example, an `Interface` or a `BGP` object with the settings you want.
+2. **The controller detects the change.** Controllers are built on `controller-runtime` and watch their respective CRD kinds. Any create, update, or delete event triggers a reconcile.
+3. **The controller resolves the target device.** Every configuration CRD carries a `deviceRef` field (a `LocalObjectReference`) that names the `Device` object in the same namespace. The controller looks up that `Device` to retrieve the management endpoint and credentials.
+4. **The controller builds a platform-native payload.** It translates the abstract spec fields into the API format the device understands — for NX-OS, this is NX-API JSON. Other transports (e.g. gNMI) are planned.
+5. **The controller pushes the configuration and updates status.** After the device acknowledges the change, the controller writes the result back to the resource's `.status.conditions`.
 
-2. **The controller detects the change.** controller-runtime watches the relevant CRD type and enqueues a reconciliation request whenever the object is created, updated, or deleted.
-
-3. **The controller resolves the target Device.** Every configuration CRD carries a `deviceRef` field (of type `LocalObjectReference`) that names the `Device` object in the same namespace. The controller fetches that `Device` to obtain connection details.
-
-4. **The controller builds the platform-native payload.** Using the spec fields, the controller constructs the vendor-specific API call — for example, an NX-API JSON payload for Cisco NX-OS.
-
-5. **The controller pushes the config to the device and updates status.** After a successful push, the controller writes status conditions back to the object. On failure, it sets a `Degraded` condition and requeues for retry.
-
-6. **Finalizers ensure cleanup on deletion.** When you delete a CRD object, the finalizer prevents immediate removal until the controller has removed the corresponding configuration from the device.
-
-A concrete example: applying a `VRF` manifest with `deviceRef.name: leaf-01` causes the VRF controller to look up the `Device` named `leaf-01`, connect to it, and configure the VRF with the specified name, VNI, route distinguisher, and route targets.
-
----
+The loop is level-triggered, not edge-triggered. If a push fails, the controller re-queues and retries. If someone manually changes the device outside of Kubernetes, the next reconcile cycle detects the drift and corrects it.
 
 ## API Layers
 
-The API is structured in four conceptual layers, from physical to intent:
+The API is structured in four layers, each building on the one below:
 
-| Layer | Description |
-|---|---|
-| **Physical** | Devices, interfaces, links — the raw hardware representation |
-| **Bricks** | Vendor-abstract configuration; one brick maps to one device with status |
-| **Transit** | Translates network demands into brick configurations |
-| **Intent** | High-level constructs: networks, external connections, routing domains |
+| Layer | Purpose | Examples |
+|---|---|---|
+| **Physical** | Physical inventory — devices, interfaces, links | `Device`, `Interface` |
+| **Bricks** | Vendor-abstract configuration, one brick per device | `BGP`, `OSPF`, `VRF`, `VLAN` |
+| **Transit** | Translates network demands into brick configs | Routing policies, prefix sets |
+| **Intent** | High-level intent — networks, external connections, routing domains | `EVPNInstance`, `NetworkVirtualizationEdge` |
 
-Most operators interact with the Physical and Bricks layers directly. The higher layers compose those primitives into fabric-wide constructs.
-
----
+Most day-to-day operator work happens at the Bricks and Intent layers. The Physical layer resources (`Device`) are typically created once during initial setup.
 
 ## Core CRDs and Platform-Specific CRDs
 
+Network-operator separates **what you want** from **how a specific platform implements it**.
+
 ### Core CRDs
 
-Core CRDs, defined under `api/core/v1alpha1`, express platform-agnostic intent. They cover a broad range of network constructs:
+Core CRDs live in the `api/core/v1alpha1` package. They express vendor-neutral intent using fields that map to standard networking concepts. Examples include:
 
-- **Physical layer:** `Device`, `Interface`, `VLAN`
-- **Routing:** `BGP`, `BGPPeer`, `OSPF`, `ISIS`, `PIM`, `VRF`, `RoutingPolicy`, `PrefixSet`
-- **Overlay:** `EVPNInstance`, `NetworkVirtualizationEdge`, `DHCPRelay`
-- **Management & security:** `NTP`, `DNS`, `Syslog`, `SNMP`, `Banner`, `User`, `Certificate`, `AccessControlList`, `ManagementAccess`
-- **Platform features:** `LLDP`, `VPCDomain`, `BorderGateway`, `System`
-
-Each of these types exposes fields that are meaningful across vendors. For example, `BGPSpec` defines `asNumber`, `routerId`, and `addressFamilies` — concepts that exist on every BGP implementation.
-
-Every core config CRD has a `providerConfigRef` field (of type `*TypedLocalObjectReference`) that optionally links to a platform-specific configuration object. If omitted, the provider applies the platform's default settings.
+- `Interface` — describes an interface with `name`, `type`, `adminState`, `ipv4`, `mtu`, `switchport`, and references to `vlanRef`, `vrfRef`, and `parentInterfaceRef`.
+- `BGP` — describes a BGP router with `asNumber`, `routerId`, `addressFamilies`, and an optional `vrfRef`.
+- `VRF` — describes a VRF with `name`, `routeDistinguisher`, and `routeTargets`.
+- `VLAN`, `OSPF`, `ISIS`, `PIM`, `EVPNInstance`, `NetworkVirtualizationEdge`, and many others.
 
 ### Platform-Specific CRDs
 
-Platform CRDs, defined under `api/cisco/nx/v1alpha1` (and similar paths for other vendors), carry vendor-specific knobs that have no generic equivalent. Examples include:
+Platform CRDs live in vendor-specific packages (e.g. `api/cisco/nx/v1alpha1`). They provide vendor knobs that have no generic equivalent. Examples:
 
-- **`InterfaceConfig`** — NX-OS-specific interface settings such as spanning-tree port type, BPDU guard, buffer boost, and LACP vPC convergence options.
-- **`LLDPConfig`** — NX-OS LLDP `initDelay` and `holdTime` values.
-- **`BGPConfig`** — NX-OS-specific BGP settings such as PIP advertisement for EVPN and gateway IP export for symmetric IRB.
-- **`NetworkVirtualizationEdgeConfig`** — NX-OS NVE settings including virtual MAC advertisement and infra-VLAN list.
-- **`ManagementAccessConfig`** — NX-OS console timeout and SSH VTY ACL settings.
-- **`VPCDomain`** — Cisco vPC domain configuration including peer-link, keepalive, auto-recovery, and role priority.
+- `InterfaceConfig` — adds NX-OS-specific settings like `SpanningTree` port type, `BufferBoost`, and LACP `vpcConvergence` options.
+- `BGPConfig` — adds NX-OS-specific BGP address family settings such as `advertisePIP` for EVPN and `exportGatewayIP` for symmetric IRB.
+- `LLDPConfig` — adds NX-OS-specific `initDelay` and `holdTime` timers.
+- `NetworkVirtualizationEdgeConfig` — adds NX-OS NVE options like `advertiseVirtualMAC`, `holdDownTime`, and `infraVLANs`.
+- `ManagementAccessConfig` — adds NX-OS console timeout and SSH ACL settings.
+- `System` — adds NX-OS system-level settings: `jumboMtu`, `reservedVlan`, `vlanLongName`.
+- `VPCDomain`, `BorderGateway` — NX-OS-specific constructs for vPC and EVPN multisite.
 
-The relationship is: the core CRD references the platform CRD via `providerConfigRef`. This keeps the core manifest portable while allowing per-platform customisation where needed.
+### Linking Core to Platform CRDs
+
+Core CRDs carry an optional `providerConfigRef` field of type `TypedLocalObjectReference`. When set, this field points to the corresponding platform-specific resource:
 
 ```yaml
-# Core CRD — platform-agnostic
-apiVersion: network.example.io/v1alpha1
-kind: LLDP
+# Core CRD
+apiVersion: core/v1alpha1
+kind: Interface
+metadata:
+  name: eth1-1
 spec:
   deviceRef:
-    name: leaf-01
-  adminState: Up
+    name: leaf01
   providerConfigRef:
-    apiVersion: network.example.io/v1alpha1
-    kind: LLDPConfig
-    name: leaf-01-lldp-config
-
----
-# Platform CRD — NX-OS specific knobs
-apiVersion: network.cisco.nx/v1alpha1
-kind: LLDPConfig
-spec:
-  initDelay: 5
-  holdTime: 120
+    apiVersion: cisco.nx/v1alpha1
+    kind: InterfaceConfig
+    name: eth1-1-nxos
+  name: Ethernet1/1
+  type: Physical
+  adminState: Up
 ```
 
----
+This decoupling lets you keep environment-independent intent in core resources and vendor-specific tuning in platform resources, rather than embedding NX-OS CLI details directly into the core spec.
 
 ## Device Registration and Credentials
 
-Before any configuration CRD can be reconciled, a `Device` object must exist in the same namespace.
+Before any configuration resource can be reconciled, a `Device` object must exist in the same namespace.
 
-### Device Spec
+### The Device Object
 
-`DeviceSpec` contains two key sections:
+`DeviceSpec` holds two mandatory pieces of information:
 
-**`endpoint`** (required) — specifies how to reach the device:
-- `address`: management address in `IP:Port` format.
-- `secretRef`: references a Kubernetes `Secret` of type `kubernetes.io/basic-auth`. The secret must contain `username` and `password` keys.
-- `tls`: optional TLS configuration. The `ca` field selects a secret key for the CA certificate. The `certificate` field enables mTLS by referencing a `kubernetes.io/tls` secret containing `tls.crt` and `tls.key`.
+- **`endpoint.address`** — the management address of the device in `IP:Port` format.
+- **`endpoint.secretRef`** — a reference to a Kubernetes Secret of type `kubernetes.io/basic-auth` containing `username` and `password` keys.
 
-**`provisioning`** (optional) — used for zero-touch provisioning. It carries an `image` reference (URL, checksum, checksum type) and a `bootScript` that can be sourced inline, from a `Secret`, or from a `ConfigMap`.
+Optionally, TLS can be configured via `endpoint.tls`, which accepts a CA certificate (`tls.ca`) and optionally a client certificate and key (`tls.certificate`) for mutual TLS.
 
 ```yaml
-apiVersion: network.example.io/v1alpha1
+apiVersion: core/v1alpha1
 kind: Device
 metadata:
-  name: leaf-01
+  name: leaf01
 spec:
   endpoint:
     address: "192.0.2.10:443"
     secretRef:
-      name: leaf-01-credentials
-  paused: false
+      name: leaf01-credentials
+      namespace: network
 ```
 
-The `Device` resource is also where the operator writes back hardware inventory: `DeviceStatus` exposes `manufacturer`, `model`, `serialNumber`, `firmwareVersion`, `lastRebootTime`, and a `ports` list detailing each physical port and any associated `Interface` resource.
+The `Device` also supports a `provisioning` field for bootstrap workflows (boot scripts, images), and a `paused` flag to halt all reconciliation activity on the device and all its child resources.
 
-All configuration CRDs reference their device by name:
+### DeviceRef in Configuration Resources
 
-```yaml
-spec:
-  deviceRef:
-    name: leaf-01
-```
+Every configuration CRD's spec includes a required `deviceRef` field. This is always a `LocalObjectReference` — it names a `Device` in the same namespace. The field is immutable after creation, meaning a configuration resource is permanently bound to one device. To move a config to a different device, you delete and recreate the resource.
 
-The `deviceRef` field is immutable — moving a configuration object to a different device requires deleting and recreating it.
+### What the Device Status Reports
 
-### Pausing
-
-`DeviceSpec` includes a `paused` boolean. When set to `true`, the device controller and all controllers managing objects that reference that device halt reconciliation. This is useful during maintenance windows or when you need to apply configuration changes manually without interference.
-
----
+After connecting to a device, the controller populates `DeviceStatus` with discovered information: `manufacturer`, `model`, `serialNumber`, `firmwareVersion`, `lastRebootTime`, a list of physical `ports`, and a human-readable `portSummary`. The `phase` field reflects the device's current lifecycle state.
 
 ## Status Conditions and Finalizers
 
 ### Status Conditions
 
-Every CRD exposes a `status.conditions` field, a list of `metav1.Condition` objects. The operator uses three standard condition types:
+Every CRD — `Device`, `Interface`, `BGP`, `VRF`, etc. — has a `.status.conditions` field that contains a list of `metav1.Condition` objects. Conditions follow the standard Kubernetes convention with `type`, `status` (`True`/`False`/`Unknown`), `reason`, and `message`.
 
-| Type | Meaning |
-|---|---|
-| `Available` | The resource is fully functional and the configuration is applied on the device |
-| `Progressing` | The resource is being created or updated |
-| `Degraded` | The resource failed to reach or maintain its desired state |
+Standard condition types used across resources:
 
-Each condition has a `status` of `True`, `False`, or `Unknown`, along with a `reason` and `message` that give actionable detail.
+- **`Available`** — the resource is fully functional and the configuration is active on the device.
+- **`Progressing`** — the controller is currently applying the configuration.
+- **`Degraded`** — the configuration could not be applied or the device is not in the desired state.
 
-Some resources expose richer status fields beyond conditions. For example:
+Some resources expose richer status beyond conditions. For example:
 
-- `OSPFStatus` provides `neighbors` (a list of `OSPFNeighbor` with adjacency states) and an `adjacencySummary` string.
-- `BGPPeerStatus` provides `sessionState`, `lastEstablishedTime`, and per-address-family `advertisedPrefixes` and `acceptedPrefixes` counts.
-- `VPCDomainStatus` reports `role`, `keepaliveStatus`, `peerStatus`, and `peerLinkIfOperStatus`.
-- `DeviceStatus` provides a `phase` and full hardware inventory.
+- `BGPPeer` status includes `sessionState`, `lastEstablishedTime`, and per-address-family prefix counts (`acceptedPrefixes`, `advertisedPrefixes`).
+- `OSPF` status includes a `neighbors` list with adjacency states and an `adjacencySummary`.
+- `VPCDomain` status includes `role`, `keepaliveStatus`, `peerStatus`, and `peerLinkIfOperStatus`.
+- `VLAN` status tracks which interface is providing Layer 3 routing (`routedBy`) and which EVPN instance provides the L2VNI (`bridgedBy`).
 
-These fields let you build monitoring and alerting on top of standard Kubernetes tooling (e.g., Prometheus with `kube-state-metrics`, or `kubectl get` for quick operational checks).
+To check whether a resource has been successfully applied, inspect the conditions:
+
+```bash
+kubectl get interface eth1-1 -o jsonpath='{.status.conditions}'
+```
 
 ### Finalizers
 
-All configuration CRDs use finalizers to ensure clean removal from the device when you delete the Kubernetes object. The sequence is:
+Finalizers ensure that when you delete a CRD resource, the controller first removes the corresponding configuration from the device before Kubernetes removes the object. Without finalizers, deleting a Kubernetes object would leave orphaned configuration on the device.
 
-1. You run `kubectl delete`.
-2. Kubernetes sets the `deletionTimestamp` but does not remove the object because a finalizer is present.
-3. The controller detects the deletion, removes the corresponding configuration from the device, then removes the finalizer.
-4. Kubernetes completes the deletion.
+The finalizer is added to a resource when the controller first reconciles it. On deletion, Kubernetes sets a deletion timestamp but does not remove the object. The controller sees the deletion timestamp, pushes a removal operation to the device, then removes the finalizer to let Kubernetes complete the deletion.
 
-This prevents orphaned configuration on devices when Kubernetes objects are removed.
+### Pausing Reconciliation
 
-### Ownership
-
-Child resources are owned by their parent `Device`. This means cascading behaviour works as expected: if a `Device` is removed, owned resources are garbage-collected according to Kubernetes owner reference semantics.
-
----
+The `Device` spec includes a `paused` field. Setting it to `true` halts reconciliation for the device and all configuration resources that reference it. This is useful when performing manual maintenance or investigating issues without triggering automated changes.
 
 ## Multi-Device and Multi-Vendor Support
 
 ### Multi-Device
 
-The operator supports arbitrarily many devices in a single namespace. Each `Device` object represents one physical or virtual network device. Configuration CRDs are scoped to individual devices via `deviceRef` — there is no implicit sharing of configuration across devices.
-
-To apply the same logical configuration to multiple devices (for example, identical BGP settings on a spine tier), you create one CRD instance per device:
+Each configuration resource is scoped to exactly one device through its immutable `deviceRef`. To configure the same feature on multiple devices, you create one resource per device:
 
 ```yaml
-# Spine 1
-apiVersion: network.example.io/v1alpha1
+# BGP on leaf01
+apiVersion: core/v1alpha1
 kind: BGP
 metadata:
-  name: spine-01-bgp
+  name: leaf01-bgp
 spec:
   deviceRef:
-    name: spine-01
-  asNumber: 65000
-  routerId: "10.0.0.1"
+    name: leaf01
+  asNumber: 65001
+  routerId: 10.0.0.1
 
 ---
-# Spine 2
-apiVersion: network.example.io/v1alpha1
+# BGP on leaf02
+apiVersion: core/v1alpha1
 kind: BGP
 metadata:
-  name: spine-02-bgp
+  name: leaf02-bgp
 spec:
   deviceRef:
-    name: spine-02
-  asNumber: 65000
-  routerId: "10.0.0.2"
+    name: leaf02
+  asNumber: 65002
+  routerId: 10.0.0.2
 ```
 
-This design keeps each object's lifecycle independent. You can pause, delete, or update configuration on one device without affecting others.
+Controllers reconcile all resources concurrently. There is no ordering dependency between resources on different devices unless you express it through cross-references (for example, a `BGPPeer` referencing a `BGP` instance via `bgpRef`).
+
+### Ownership
+
+Child resources are owned by their parent `Device`. This means that when a `Device` is deleted, all configuration resources referencing it are also subject to cleanup through the finalizer mechanism.
 
 ### Multi-Vendor
 
-Multi-vendor support is structured through the provider layer:
+Vendor support is structured through the provider layer. Each vendor implements a provider that understands how to translate core CRD specs into device-native API calls:
 
-- The **core CRDs** define the intent in vendor-neutral terms. Controllers translate these specs into vendor-specific API calls.
-- The **platform CRD layer** (e.g., `api/cisco/nx/v1alpha1`) carries vendor-specific extensions, referenced optionally via `providerConfigRef`.
-- The **provider layer** implements device communication. Currently, NX-API is used for Cisco NX-OS; gNMI support is planned for additional platforms.
+- **NX-OS** uses NX-API (HTTP/JSON). This provider is currently implemented.
+- **gNMI** is planned as an additional transport.
 
-When a controller reconciles a core CRD, it determines the target platform from the `Device` object (the operator discovers the device platform during initial connection). It then selects the appropriate provider and, if a `providerConfigRef` is present on the spec, merges the platform-specific configuration into the payload before pushing it to the device.
+A different vendor would implement a new provider that consumes the same core CRDs and translates them into its own wire format. Platform-specific CRDs (like `InterfaceConfig` for NX-OS) are vendor-namespaced and linked to core resources via `providerConfigRef`, so adding a new vendor does not require changes to core CRD definitions.
 
-This architecture means you can manage heterogeneous fabrics from a single operator instance. Devices running different operating systems co-exist in the same namespace; each controller simply routes to the correct provider implementation based on the resolved `Device`.
+From an operator's perspective, the YAML you write for core resources (`Interface`, `BGP`, `VRF`, etc.) is identical regardless of vendor. Vendor-specific tuning is expressed separately in platform CRDs and linked in by reference.
