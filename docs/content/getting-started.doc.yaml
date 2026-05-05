@@ -40,9 +40,9 @@ context: |
     - NVEConfig / LLDPConfig / System: NX-OS platform details
     - BorderGateway / VPCDomain: NX-OS multisite and vPC
 
-  Helm chart: deploy/helm/network-operator
+  Helm chart: charts/network-operator
   Controller: manages reconciliation loops for each CRD type
 sources:
   - api/core/v1alpha1
   - api/cisco/nx/v1alpha1
-  - deploy/helm/network-operator
+  - charts/network-operator

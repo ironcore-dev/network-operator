@@ -11,7 +11,6 @@ prompt: |
   3. How Device registration and credentials work
   4. The role of status conditions and finalizers
   5. How multi-device and multi-vendor support is structured
-  6. EVPN/VXLAN fabric provisioning as a concrete example
   Keep the tone practical. Operators should understand how their YAML manifests
   translate into network device configuration.
 context: |
@@ -20,7 +19,11 @@ context: |
   patterns: watch CRDs, compare desired vs actual, push diffs to devices.
 
   Architecture layers:
-    - API layer (api/): CRD type definitions (core + platform-specific)
+    - API layer (api/): CRD type definitions (core + platform-specific) the api itself is split into several layers:
+          - Physical Layer ( devices, interfaces, links)
+          - Bricks Layer (vendor abstract config 1 brick -> 1 device + status)
+          - Transit Layer ( translates network demands into brick configs)
+          - Intent Layer ( network, external connection, routing domain)
     - Controller layer (internal/controller/): reconciliation logic per CRD
     - Provider layer: device communication (NX-API for NX-OS, gNMI planned)
 
