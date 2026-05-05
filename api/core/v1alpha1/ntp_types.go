@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -130,5 +131,8 @@ func RegisterNTPDependency(gvk schema.GroupVersionKind) {
 }
 
 func init() {
-	SchemeBuilder.Register(&NTP{}, &NTPList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &NTP{}, &NTPList{})
+		return nil
+	})
 }

@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -296,5 +297,8 @@ func RegisterBGPPeerDependency(gvk schema.GroupVersionKind) {
 }
 
 func init() {
-	SchemeBuilder.Register(&BGPPeer{}, &BGPPeerList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &BGPPeer{}, &BGPPeerList{})
+		return nil
+	})
 }

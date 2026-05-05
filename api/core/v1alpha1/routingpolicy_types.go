@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -259,5 +260,8 @@ func RegisterRoutingPolicyDependency(gvk schema.GroupVersionKind) {
 }
 
 func init() {
-	SchemeBuilder.Register(&RoutingPolicy{}, &RoutingPolicyList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &RoutingPolicy{}, &RoutingPolicyList{})
+		return nil
+	})
 }

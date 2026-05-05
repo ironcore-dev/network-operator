@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -121,5 +122,8 @@ func RegisterDHCPRelayDependency(gvk schema.GroupVersionKind) {
 }
 
 func init() {
-	SchemeBuilder.Register(&DHCPRelay{}, &DHCPRelayList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &DHCPRelay{}, &DHCPRelayList{})
+		return nil
+	})
 }

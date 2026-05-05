@@ -5,6 +5,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
@@ -316,5 +317,8 @@ type VPCDomainList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&VPCDomain{}, &VPCDomainList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &VPCDomain{}, &VPCDomainList{})
+		return nil
+	})
 }

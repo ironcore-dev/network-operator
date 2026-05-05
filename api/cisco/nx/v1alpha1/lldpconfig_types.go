@@ -5,6 +5,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	v1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
@@ -55,5 +56,8 @@ type LLDPConfigList struct {
 // itself as a dependency for the LLDP core type.
 func init() {
 	v1alpha1.RegisterLLDPDependency(GroupVersion.WithKind("LLDPConfig"))
-	SchemeBuilder.Register(&LLDPConfig{}, &LLDPConfigList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &LLDPConfig{}, &LLDPConfigList{})
+		return nil
+	})
 }
