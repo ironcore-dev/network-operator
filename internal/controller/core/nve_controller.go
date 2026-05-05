@@ -300,7 +300,8 @@ func (r *NetworkVirtualizationEdgeReconciler) reconcile(ctx context.Context, s *
 
 func (r *NetworkVirtualizationEdgeReconciler) validateUniqueNVEPerDevice(ctx context.Context, s *nveScope) error {
 	var list v1alpha1.NetworkVirtualizationEdgeList
-	if err := r.List(ctx, &list,
+	if err := r.List(
+		ctx, &list,
 		client.InNamespace(s.NVE.Namespace),
 		client.MatchingFields{v1alpha1.DeviceRefIndexKey: s.NVE.Spec.DeviceRef.Name},
 	); err != nil {
@@ -520,7 +521,8 @@ func (r *NetworkVirtualizationEdgeReconciler) deviceToNVEs(ctx context.Context, 
 	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
 
 	list := new(v1alpha1.NetworkVirtualizationEdgeList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(device.Namespace),
 		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {

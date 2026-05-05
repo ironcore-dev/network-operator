@@ -97,7 +97,8 @@ func Vty() script.Cmd {
 				stderr = stderrBuf.String()
 				return
 			}, nil
-		})
+		},
+	)
 }
 
 // Apply returns a script command that applies a Kubernetes manifest to the cluster
@@ -150,7 +151,8 @@ func Apply() script.Cmd {
 				return "", "", fmt.Errorf("resource %s is not ready", res.GetName())
 			}
 			return WaitTimeout(wait, timeout, interval), nil
-		})
+		},
+	)
 }
 
 // TODO(felix-kaestner): Load endpoint configuration from a config file.

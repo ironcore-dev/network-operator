@@ -297,7 +297,8 @@ func (r *SystemReconciler) deviceToSystems(ctx context.Context, obj client.Objec
 	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
 
 	list := new(nxv1alpha1.SystemList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(device.Namespace),
 		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {

@@ -333,7 +333,8 @@ func (r *AccessControlListReconciler) deviceToAccessControlLists(ctx context.Con
 	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
 
 	list := new(v1alpha1.AccessControlListList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(device.Namespace),
 		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {

@@ -693,7 +693,8 @@ func (r *BGPPeerReconciler) deviceToBGPPeers(ctx context.Context, obj client.Obj
 	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
 
 	list := new(v1alpha1.BGPPeerList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(device.Namespace),
 		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
@@ -758,7 +759,8 @@ func (r *BGPPeerReconciler) bgpToBGPPeers(ctx context.Context, obj client.Object
 	log := ctrl.LoggerFrom(ctx, "BGP", klog.KObj(bgp))
 
 	list := new(v1alpha1.BGPPeerList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(bgp.Namespace),
 		client.MatchingFields{bgpPeerBGPRefIndexKey: bgp.Name},
 	); err != nil {
@@ -791,7 +793,8 @@ func (r *BGPPeerReconciler) vrfToBGPPeers(ctx context.Context, obj client.Object
 	log := ctrl.LoggerFrom(ctx, "VRF", klog.KObj(vrf))
 
 	bgpList := new(v1alpha1.BGPList)
-	if err := r.List(ctx, bgpList,
+	if err := r.List(
+		ctx, bgpList,
 		client.InNamespace(vrf.Namespace),
 		client.MatchingFields{bgpVrfRefIndexKey: vrf.Name},
 	); err != nil {
@@ -802,7 +805,8 @@ func (r *BGPPeerReconciler) vrfToBGPPeers(ctx context.Context, obj client.Object
 	var requests []ctrl.Request
 	for _, bgp := range bgpList.Items {
 		peerList := new(v1alpha1.BGPPeerList)
-		if err := r.List(ctx, peerList,
+		if err := r.List(
+			ctx, peerList,
 			client.InNamespace(vrf.Namespace),
 			client.MatchingFields{bgpPeerBGPRefIndexKey: bgp.Name},
 		); err != nil {
@@ -835,7 +839,8 @@ func (r *BGPPeerReconciler) routingPolicyToBGPPeers(ctx context.Context, obj cli
 	log := ctrl.LoggerFrom(ctx, "RoutingPolicy", klog.KObj(rp))
 
 	list := new(v1alpha1.BGPPeerList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(rp.Namespace),
 		client.MatchingFields{bgpPeerRoutingPolicyRefIndexKey: rp.Name},
 	); err != nil {

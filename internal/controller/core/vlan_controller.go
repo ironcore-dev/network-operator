@@ -358,7 +358,8 @@ func (r *VLANReconciler) deviceToVLANs(ctx context.Context, obj client.Object) [
 	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
 
 	list := new(v1alpha1.VLANList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(device.Namespace),
 		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {

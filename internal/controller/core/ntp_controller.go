@@ -324,7 +324,8 @@ func (r *NTPReconciler) deviceToNTPs(ctx context.Context, obj client.Object) []c
 	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
 
 	list := new(v1alpha1.NTPList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(device.Namespace),
 		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {

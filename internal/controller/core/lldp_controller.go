@@ -382,7 +382,8 @@ func (r *LLDPReconciler) reconcileInterfaceRef(ctx context.Context, interfaceRef
 
 func (r *LLDPReconciler) validateUniqueLLDPPerDevice(ctx context.Context, s *lldpScope) error {
 	var list v1alpha1.LLDPList
-	if err := r.List(ctx, &list,
+	if err := r.List(
+		ctx, &list,
 		client.InNamespace(s.LLDP.Namespace),
 		client.MatchingFields{v1alpha1.DeviceRefIndexKey: s.Device.Name},
 	); err != nil {
@@ -528,7 +529,8 @@ func (r *LLDPReconciler) deviceToLLDPs(ctx context.Context, obj client.Object) [
 	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
 
 	lldps := new(v1alpha1.LLDPList)
-	if err := r.List(ctx, lldps,
+	if err := r.List(
+		ctx, lldps,
 		client.InNamespace(device.Namespace),
 		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
@@ -561,7 +563,8 @@ func (r *LLDPReconciler) interfaceToLLDPs(ctx context.Context, obj client.Object
 	log := ctrl.LoggerFrom(ctx, "Interface", klog.KObj(intf))
 
 	list := new(v1alpha1.LLDPList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(intf.Namespace),
 		client.MatchingFields{v1alpha1.DeviceRefIndexKey: intf.Spec.DeviceRef.Name},
 	); err != nil {

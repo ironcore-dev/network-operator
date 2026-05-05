@@ -518,7 +518,8 @@ func (r *BGPReconciler) deviceToBGPs(ctx context.Context, obj client.Object) []c
 	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
 
 	list := new(v1alpha1.BGPList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(device.Namespace),
 		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
@@ -583,7 +584,8 @@ func (r *BGPReconciler) vrfToBGPs(ctx context.Context, obj client.Object) []ctrl
 	log := ctrl.LoggerFrom(ctx, "VRF", klog.KObj(vrf))
 
 	list := new(v1alpha1.BGPList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(vrf.Namespace),
 		client.MatchingFields{bgpVrfRefIndexKey: vrf.Name},
 	); err != nil {
@@ -615,7 +617,8 @@ func (r *BGPReconciler) routingPolicyToBGPs(ctx context.Context, obj client.Obje
 	log := ctrl.LoggerFrom(ctx, "RoutingPolicy", klog.KObj(rp))
 
 	list := new(v1alpha1.BGPList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(rp.Namespace),
 		client.MatchingFields{bgpRedistributeDirectRoutePolicyIndexKey: rp.Name},
 	); err != nil {

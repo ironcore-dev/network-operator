@@ -39,7 +39,8 @@ var _ = Describe("Manager", Ordered, func() {
 	// and deploying the controller.
 	BeforeAll(func(ctx SpecContext) {
 		By("deploying the gnmi-test-server")
-		cmd := exec.CommandContext(ctx, "kubectl", "run", "gnmi-test-server",
+		cmd := exec.CommandContext(
+			ctx, "kubectl", "run", "gnmi-test-server",
 			"--image", serverImage,
 			"--image-pull-policy", "Never",
 			"--namespace", "default",
@@ -50,7 +51,8 @@ var _ = Describe("Manager", Ordered, func() {
 		_, err := Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to deploy the gnmi-test-server")
 
-		cmd = exec.CommandContext(ctx, "kubectl", "wait", "pods/gnmi-test-server",
+		cmd = exec.CommandContext(
+			ctx, "kubectl", "wait", "pods/gnmi-test-server",
 			"--for", "condition=Ready",
 			"--namespace", "default",
 			"--timeout", "1m",
@@ -58,7 +60,8 @@ var _ = Describe("Manager", Ordered, func() {
 		_, err = Run(cmd)
 		Expect(err).NotTo(HaveOccurred())
 
-		cmd = exec.CommandContext(ctx, "kubectl", "get", "pod", "gnmi-test-server",
+		cmd = exec.CommandContext(
+			ctx, "kubectl", "get", "pod", "gnmi-test-server",
 			"--output", "jsonpath='{.status.podIP}'",
 			"--namespace", "default",
 		)
@@ -171,7 +174,8 @@ var _ = Describe("Manager", Ordered, func() {
 			By("validating that the controller-manager pod is running as expected")
 			verifyControllerUp := func(g Gomega) {
 				// Get the name of the controller-manager pod
-				cmd := exec.CommandContext(ctx, "kubectl", "get",
+				cmd := exec.CommandContext(
+					ctx, "kubectl", "get",
 					"pods", "-l", "control-plane=controller-manager",
 					"-o", "go-template={{ range .items }}"+
 						"{{ if not .metadata.deletionTimestamp }}"+
@@ -316,7 +320,8 @@ var _ = Describe("Manager", Ordered, func() {
 		//    strings.ToLower(<Kind>),
 		// ))
 
-		DescribeTable("Should reconcile the api objects",
+		DescribeTable(
+			"Should reconcile the api objects",
 			func(ctx SpecContext, file string) {
 				device := `
 apiVersion: networking.metal.ironcore.dev/v1alpha1
@@ -341,7 +346,8 @@ spec:
 				Expect(err).NotTo(HaveOccurred(), "Failed to apply Interface")
 
 				// #nosec G204
-				cmd := exec.CommandContext(ctx, "kubectl", "wait", a.Files[0].Name,
+				cmd := exec.CommandContext(
+					ctx, "kubectl", "wait", a.Files[0].Name,
 					"--for", "condition=Configured",
 					"--namespace", "default",
 					"--timeout", "5m",
@@ -349,7 +355,8 @@ spec:
 				_, err = Run(cmd)
 				Expect(err).NotTo(HaveOccurred())
 
-				cmd = exec.CommandContext(ctx, "kubectl", "exec", "gnmi-test-server",
+				cmd = exec.CommandContext(
+					ctx, "kubectl", "exec", "gnmi-test-server",
 					"--namespace", "default",
 					"--",
 					"wget", "-qO-", "http://localhost:8000/v1/state",
@@ -369,7 +376,8 @@ spec:
 				_, err = Run(cmd)
 				Expect(err).NotTo(HaveOccurred(), "Failed to delete object")
 
-				cmd = exec.CommandContext(ctx, "kubectl", "exec", "gnmi-test-server",
+				cmd = exec.CommandContext(
+					ctx, "kubectl", "exec", "gnmi-test-server",
 					"--namespace", "default",
 					"--",
 					"wget", "-qO-", "--header='X-HTTP-Method-Override: DELETE'", "http://localhost:8000/v1/state",

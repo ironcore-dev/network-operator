@@ -463,7 +463,8 @@ func (r *VPCDomainReconciler) mapInterfaceToVPCDomain(ctx context.Context, obj c
 	log := ctrl.LoggerFrom(ctx, "Interface", klog.KObj(iface))
 
 	list := new(nxv1alpha1.VPCDomainList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(iface.Namespace),
 		client.MatchingFields{vpcDomainPeerLinkRefKey: iface.Name},
 	); err != nil {
@@ -507,7 +508,8 @@ func (r *VPCDomainReconciler) deviceToVPCDomains(ctx context.Context, obj client
 	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
 
 	list := new(nxv1alpha1.VPCDomainList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(device.Namespace),
 		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {

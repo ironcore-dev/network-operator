@@ -1379,7 +1379,8 @@ func (r *InterfaceReconciler) deviceToInterfaces(ctx context.Context, obj client
 	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
 
 	interfaces := new(v1alpha1.InterfaceList)
-	if err := r.List(ctx, interfaces,
+	if err := r.List(
+		ctx, interfaces,
 		client.InNamespace(device.Namespace),
 		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {

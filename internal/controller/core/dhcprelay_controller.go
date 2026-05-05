@@ -550,7 +550,8 @@ func (r *DHCPRelayReconciler) reconcileVRFRef(ctx context.Context, s *dhcprelayS
 
 func (r *DHCPRelayReconciler) validateUniqueResourcePerDevice(ctx context.Context, s *dhcprelayScope) error {
 	var list v1alpha1.DHCPRelayList
-	if err := r.List(ctx, &list,
+	if err := r.List(
+		ctx, &list,
 		client.InNamespace(s.DHCPRelay.Namespace),
 		client.MatchingFields{v1alpha1.DeviceRefIndexKey: s.Device.Name},
 	); err != nil {
@@ -625,7 +626,8 @@ func (r *DHCPRelayReconciler) deviceToDHCPRelays(ctx context.Context, obj client
 	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
 
 	list := new(v1alpha1.DHCPRelayList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(device.Namespace),
 		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
@@ -657,7 +659,8 @@ func (r *DHCPRelayReconciler) interfaceToDHCPRelays(ctx context.Context, obj cli
 	log := ctrl.LoggerFrom(ctx, "Interface", klog.KObj(intf))
 
 	list := new(v1alpha1.DHCPRelayList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(intf.Namespace),
 		client.MatchingFields{v1alpha1.DeviceRefIndexKey: intf.Spec.DeviceRef.Name},
 	); err != nil {
@@ -694,7 +697,8 @@ func (r *DHCPRelayReconciler) vrfToDHCPRelays(ctx context.Context, obj client.Ob
 	log := ctrl.LoggerFrom(ctx, "VRF", klog.KObj(vrf))
 
 	list := new(v1alpha1.DHCPRelayList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(vrf.Namespace),
 		client.MatchingFields{v1alpha1.DeviceRefIndexKey: vrf.Spec.DeviceRef.Name},
 	); err != nil {

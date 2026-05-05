@@ -382,7 +382,8 @@ func (r *PIMReconciler) deviceToPIMs(ctx context.Context, obj client.Object) []c
 	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
 
 	list := new(v1alpha1.PIMList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(device.Namespace),
 		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
@@ -415,7 +416,8 @@ func (r *PIMReconciler) interfaceToPIM(ctx context.Context, obj client.Object) [
 	log := ctrl.LoggerFrom(ctx, "Interface", klog.KObj(iface))
 
 	list := new(v1alpha1.PIMList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(iface.Namespace),
 	); err != nil {
 		log.Error(err, "Failed to list PIMs")
