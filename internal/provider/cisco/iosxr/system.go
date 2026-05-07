@@ -7,6 +7,13 @@ import "time"
 
 const Manufacturer = "Cisco"
 
+// Hostname is the hostname of the device, e.g. "router1".
+type Hostname string
+
+func (*Hostname) XPath() string {
+	return "Cisco-IOS-XR-shellutil-cfg:host-names/host-name"
+}
+
 type BasicDeviceInfo struct {
 	// Model is the chassis model of the device, e.g. "NCS-57C3-MOD-SYS".
 	Model string `json:"model-name"`
@@ -16,9 +23,6 @@ type BasicDeviceInfo struct {
 
 	// FirmwareVersion is the firmware version of the device, e.g. "25.2.2".
 	FirmwareVersion string `json:"firmware-version"`
-
-	// Hostname is the hostname of the device, e.g. "router1".
-	Hostname string `json:"name"`
 }
 
 func (*BasicDeviceInfo) XPath() string {

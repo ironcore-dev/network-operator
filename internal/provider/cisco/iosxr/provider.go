@@ -80,6 +80,11 @@ func (p *Provider) ListPorts(ctx context.Context) ([]provider.DevicePort, error)
 
 func (p *Provider) GetDeviceInfo(ctx context.Context) (*provider.DeviceInfo, error) {
 	i := new(BasicDeviceInfo)
+	hostName := new(Hostname)
+
+	if err := p.client.GetConfig(ctx, hostName); err != nil {
+		return nil, err
+	}
 
 	if err := p.client.GetState(ctx, i); err != nil {
 		return nil, err
@@ -90,7 +95,7 @@ func (p *Provider) GetDeviceInfo(ctx context.Context) (*provider.DeviceInfo, err
 		Model:           i.Model,
 		SerialNumber:    i.SerialNumber,
 		FirmwareVersion: i.FirmwareVersion,
-		Hostname:        i.Hostname,
+		Hostname:        string(*hostName),
 	}, nil
 }
 
