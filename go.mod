@@ -15,7 +15,7 @@ require (
 	github.com/openconfig/ygnmi v0.14.0
 	github.com/openconfig/ygot v0.34.0
 	github.com/pin/tftp/v3 v3.2.0
-	github.com/sapcc/go-api-declarations v1.21.0
+	github.com/sapcc/go-api-declarations v1.22.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.18.0
 	go.uber.org/automaxprocs v1.6.0
