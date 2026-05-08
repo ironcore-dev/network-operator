@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
 # SPDX-License-Identifier: Apache-2.0
 
-FROM node:25-alpine3.22
+FROM node:26-alpine3.22
 
 LABEL source_repository="https://github.com/ironcore-dev/network-operator" \
     org.opencontainers.image.url="https://github.com/ironcore-dev/network-operator/tree/main/docs"
