@@ -87,6 +87,7 @@ func main() { //nolint:gocyclo
 	var tftpPort int
 	var tftpValidateSource bool
 	var maxConcurrentReconciles int
+	var leaderElectionNamespace string
 	var lockerNamespace string
 	var lockerDuration time.Duration
 	var lockerRenewInterval time.Duration
@@ -95,6 +96,7 @@ func main() { //nolint:gocyclo
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&leaderElectionNamespace, "leader-election-namespace", "", "The namespace to use for leader election. If not specified, uses the namespace the manager is deployed in.")
 	flag.BoolVar(&secureMetrics, "metrics-secure", true, "If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
 	flag.StringVar(&webhookCertPath, "webhook-cert-path", "", "The directory that contains the webhook certificate.")
 	flag.StringVar(&webhookCertName, "webhook-cert-name", "tls.crt", "The name of the webhook certificate file.")
@@ -220,14 +222,15 @@ func main() { //nolint:gocyclo
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Cache:                  cache.Options{ReaderFailOnMissingInformer: true, DefaultNamespaces: watchNamespaces},
-		Controller:             config.Controller{MaxConcurrentReconciles: maxConcurrentReconciles},
-		Scheme:                 scheme,
-		Metrics:                metricsServerOptions,
-		WebhookServer:          webhookServer,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "e799737f.ironcore.dev",
+		Cache:                   cache.Options{ReaderFailOnMissingInformer: true, DefaultNamespaces: watchNamespaces},
+		Controller:              config.Controller{MaxConcurrentReconciles: maxConcurrentReconciles},
+		Scheme:                  scheme,
+		Metrics:                 metricsServerOptions,
+		WebhookServer:           webhookServer,
+		HealthProbeBindAddress:  probeAddr,
+		LeaderElection:          enableLeaderElection,
+		LeaderElectionID:        "e799737f.ironcore.dev",
+		LeaderElectionNamespace: leaderElectionNamespace,
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
