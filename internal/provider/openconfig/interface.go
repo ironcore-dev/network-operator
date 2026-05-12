@@ -193,6 +193,10 @@ func (p *Provider) InterfaceNameEqual(_ context.Context, a, b string) (bool, err
 	return a == b, nil
 }
 
+func (p *Provider) LoopbackInterfaceName(id int) (string, error) {
+	return fmt.Sprintf("lo%d", id), nil
+}
+
 func (p *Provider) EnsureSubinterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
 	spec := req.Interface.Spec
 	if spec.Encapsulation == nil || spec.ParentInterfaceRef == nil {

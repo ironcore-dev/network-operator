@@ -171,6 +171,8 @@ type InterfaceProvider interface {
 	GetInterfaceStatus(context.Context, *InterfaceRequest) (InterfaceStatus, error)
 	// InterfaceNameEqual reports whether two interface names refer to the same interface on the provider.
 	InterfaceNameEqual(context.Context, string, string) (bool, error)
+	// LoopbackInterfaceName returns the vendor-specific interface name for a loopback with the given numeric ID.
+	LoopbackInterfaceName(id int) (string, error)
 }
 
 type EnsureInterfaceRequest struct {
