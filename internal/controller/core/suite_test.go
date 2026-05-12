@@ -600,6 +600,10 @@ func (p *Provider) InterfaceNameEqual(_ context.Context, a, b string) (bool, err
 	return a == b, nil
 }
 
+func (p *Provider) LoopbackInterfaceName(id int) (string, error) {
+	return fmt.Sprintf("lo%d", id), nil
+}
+
 func (p *Provider) EnsureBanner(_ context.Context, req *provider.EnsureBannerRequest) error {
 	p.Lock()
 	defer p.Unlock()
