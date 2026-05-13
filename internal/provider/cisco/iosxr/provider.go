@@ -124,10 +124,6 @@ func (p *Provider) Reprovision(_ context.Context, conn *deviceutil.Connection) e
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
 	// TODO(sven-rosenweig): Make use of the VRF information in the request to assign the interface to the correct VRF.
 	// FIXME(sven-rosenweig): Use the ExtractOwnerFromInterfaceName function in the ValidateInterfaceName function
-	if p.client == nil {
-		return errors.New("client is not connected")
-	}
-
 	name := req.Interface.Spec.Name
 
 	if err := ValidateInterfaceName(name); err != nil {
@@ -351,10 +347,6 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 	physif := &Iface{}
 	physif.Name = req.Interface.Spec.Name
 
-	if p.client == nil {
-		return errors.New("client is not connected")
-	}
-
 	err := p.client.Delete(ctx, physif)
 	if err != nil {
 		return fmt.Errorf("failed to delete interface %s: %w", req.Interface.Spec.Name, err)
@@ -365,10 +357,6 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.InterfaceRequest) (provider.InterfaceStatus, error) {
 	state := new(PhysIfState)
 	state.Name = req.Interface.Spec.Name
-
-	if p.client == nil {
-		return provider.InterfaceStatus{}, errors.New("client is not connected")
-	}
 
 	err := p.client.GetState(ctx, state)
 	if err != nil {
