@@ -74,7 +74,7 @@ jobs:
             go-build-cache
           key: cache-mount-${{ hashFiles('go.sum') }}
       - name: Restore Docker Cache Mounts
-        uses: reproducible-containers/buildkit-cache-dance@v3.3.2
+        uses: reproducible-containers/buildkit-cache-dance@v3.4.0
         with:
           cache-map: |
             {
