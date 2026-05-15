@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	github.com/openconfig/gnmi v0.14.1
-	github.com/tidwall/gjson v1.18.0
+	github.com/tidwall/gjson v1.19.0
 	github.com/tidwall/sjson v1.2.5
 	google.golang.org/grpc v1.81.0
 )
