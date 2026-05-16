@@ -27,6 +27,7 @@ import (
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	core "github.com/ironcore-dev/network-operator/internal/controller/core"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos"
@@ -142,6 +143,19 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	// Register a DeviceReconciler so that Devices automatically transition to
+	// Running phase (when no provisioning is configured). Without this, child
+	// resources remain paused indefinitely waiting for their parent Device to
+	// reach Running phase.
+	err = (&core.DeviceReconciler{
+		Client:            k8sManager.GetClient(),
+		Scheme:            k8sManager.GetScheme(),
+		Recorder:          recorder,
+		Provider:          prov,
+		HeartbeatInterval: 10 * time.Minute,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -193,7 +207,10 @@ type MockProvider struct {
 	VPCDomain     *nxv1alpha1.VPCDomain
 }
 
-var _ Provider = (*MockProvider)(nil)
+var (
+	_ Provider                = (*MockProvider)(nil)
+	_ provider.DeviceProvider = (*MockProvider)(nil)
+)
 
 func NewMockProvider() *MockProvider {
 	return &MockProvider{}
@@ -201,6 +218,21 @@ func NewMockProvider() *MockProvider {
 
 func (p *MockProvider) Connect(context.Context, *deviceutil.Connection) error    { return nil }
 func (p *MockProvider) Disconnect(context.Context, *deviceutil.Connection) error { return nil }
+
+func (p *MockProvider) ListPorts(context.Context) ([]provider.DevicePort, error) { return nil, nil }
+func (p *MockProvider) GetDeviceInfo(context.Context) (*provider.DeviceInfo, error) {
+	return &provider.DeviceInfo{}, nil
+}
+
+func (p *MockProvider) GetLastRebootTime(context.Context) (time.Time, error) { return time.Time{}, nil }
+func (p *MockProvider) Reboot(context.Context, *deviceutil.Connection) error { return nil }
+func (p *MockProvider) FactoryReset(context.Context, *deviceutil.Connection) error {
+	return nil
+}
+
+func (p *MockProvider) Reprovision(context.Context, *deviceutil.Connection) error {
+	return nil
+}
 
 func (p *MockProvider) EnsureSystemSettings(ctx context.Context, s *nxv1alpha1.System) error {
 	p.Lock()

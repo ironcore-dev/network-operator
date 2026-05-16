@@ -95,7 +95,7 @@ func computeCondition(device *v1alpha1.Device, obj Object) metav1.Condition {
 		// own phase or reachability — it needs to keep reconciling to
 		// reach Running and to set the Reachable condition.
 		if device != obj {
-			if device.Status.Phase != "" && device.Status.Phase != v1alpha1.DevicePhaseRunning {
+			if device.Status.Phase != v1alpha1.DevicePhaseRunning {
 				condition.Status = metav1.ConditionTrue
 				condition.Reason = v1alpha1.PausedReason
 				condition.Message = "Device is not in phase Running"
@@ -128,14 +128,14 @@ func DevicePausedChanged(oldObj, newObj client.Object) bool {
 	if oldDevice.Spec.Paused != newDevice.Spec.Paused {
 		return true
 	}
-	oldPhasePaused := oldDevice.Status.Phase != "" && oldDevice.Status.Phase != v1alpha1.DevicePhaseRunning
-	newPhasePaused := newDevice.Status.Phase != "" && newDevice.Status.Phase != v1alpha1.DevicePhaseRunning
-	if oldPhasePaused != newPhasePaused {
+	oldPhaseRunning := oldDevice.Status.Phase == v1alpha1.DevicePhaseRunning
+	newPhaseRunning := newDevice.Status.Phase == v1alpha1.DevicePhaseRunning
+	if oldPhaseRunning != newPhaseRunning {
 		return true
 	}
 	oldReachable := conditions.Get(oldDevice, v1alpha1.ReachableCondition)
 	newReachable := conditions.Get(newDevice, v1alpha1.ReachableCondition)
-	oldUnreachable := oldReachable != nil && oldReachable.Status != metav1.ConditionTrue
-	newUnreachable := newReachable != nil && newReachable.Status != metav1.ConditionTrue
-	return oldUnreachable != newUnreachable
+	oldIsReachable := oldReachable == nil || oldReachable.Status == metav1.ConditionTrue
+	newIsReachable := newReachable == nil || newReachable.Status == metav1.ConditionTrue
+	return oldIsReachable != newIsReachable
 }
