@@ -11,8 +11,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 )
 
@@ -72,22 +75,46 @@ func Apply(ctx context.Context, resource string) error {
 	return nil
 }
 
-// CompareJSON compares two JSON strings and returns an error if they are not equal.
-// For comparison, it will compact the JSON strings to remove any whitespace differences.
-// If the JSON strings are equal, it returns nil.
+// CompareJSON compares two JSON strings semantically, ignoring key and array order.
 func CompareJSON(got, want string) error {
-	var gotBuf, wantBuf bytes.Buffer
-	if err := json.Compact(&gotBuf, []byte(got)); err != nil {
-		return fmt.Errorf("failed to compact got JSON: %w", err)
+	var v1, v2 any
+	if err := json.Unmarshal([]byte(got), &v1); err != nil {
+		return fmt.Errorf("failed to unmarshal got JSON: %w", err)
 	}
-	if err := json.Compact(&wantBuf, []byte(want)); err != nil {
-		return fmt.Errorf("failed to compact want JSON: %w", err)
+	if err := json.Unmarshal([]byte(want), &v2); err != nil {
+		return fmt.Errorf("failed to unmarshal want JSON: %w", err)
 	}
-
-	if !bytes.Equal(gotBuf.Bytes(), wantBuf.Bytes()) {
-		return fmt.Errorf("JSON mismatch:\ngot:  %s\nwant: %s", gotBuf.String(), wantBuf.String())
+	if diff := cmp.Diff(v1, v2, jsonNormalizer); diff != "" {
+		return fmt.Errorf("JSON mismatch (-got +want):\n%s", diff)
 	}
 	return nil
+}
+
+var jsonNormalizer = cmpopts.AcyclicTransformer("sortSlices", sortSlices)
+
+func sortSlices(v any) any {
+	switch val := v.(type) {
+	case map[string]any:
+		result := make(map[string]any, len(val))
+		for k, item := range val {
+			result[k] = sortSlices(item)
+		}
+		return result
+	case []any:
+		result := make([]any, len(val))
+		for i, item := range val {
+			result[i] = sortSlices(item)
+		}
+		//nolint:errcheck
+		slices.SortFunc(result, func(i, j any) int {
+			a, _ := json.Marshal(i)
+			b, _ := json.Marshal(j)
+			return bytes.Compare(a, b)
+		})
+		return result
+	default:
+		return v
+	}
 }
 
 // InstallPrometheusOperator installs the prometheus Operator to be used to export the enabled metrics.

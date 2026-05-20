@@ -1,31 +1,51 @@
-# Loopback Interface
--- interfaces/lo0 --
+# Routed VLAN (SVI) Interface
+-- vlans/vlan-10 --
 apiVersion: networking.metal.ironcore.dev/v1alpha1
-kind: Interface
+kind: VLAN
 metadata:
-  name: lo0
+  name: vlan-10
   namespace: default
 spec:
   deviceRef:
     name: device
-  name: lo0
-  description: Router-ID Leaf1
+  id: 10
+  name: VLAN10
+-- interfaces/svi-10 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: svi-10
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: vlan10
+  description: SVI for VLAN 10
   adminState: Up
-  type: Loopback
+  type: RoutedVLAN
+  mtu: 1500
+  vlanRef:
+    name: vlan-10
   ipv4:
     addresses:
-      - 10.0.0.10/32
+      - 192.168.10.254/24
 -- state --
 {
   "openconfig-interfaces:interfaces": {
     "interface": [
       {
-        "name": "lo0",
+        "name": "vlan10",
         "config": {
-          "description": "Router-ID Leaf1",
+          "description": "SVI for VLAN 10",
           "enabled": true,
-          "name": "lo0",
-          "type": "iana-if-type:softwareLoopback"
+          "mtu": 1500,
+          "name": "vlan10",
+          "type": "iana-if-type:l3ipvlan"
+        },
+        "openconfig-vlan:routed-vlan": {
+          "config": {
+            "vlan": 10
+          }
         },
         "subinterfaces": {
           "subinterface": [
@@ -40,11 +60,11 @@ spec:
                   "address": [
                     {
                       "config": {
-                        "ip": "10.0.0.10",
-                        "prefix-length": 32,
+                        "ip": "192.168.10.254",
+                        "prefix-length": 24,
                         "type": "PRIMARY"
                       },
-                      "ip": "10.0.0.10"
+                      "ip": "192.168.10.254"
                     }
                   ]
                 },

@@ -1,4 +1,4 @@
-# Loopback Interface
+# Physical Interface with Unnumbered IPv4
 -- interfaces/lo0 --
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
@@ -9,12 +9,29 @@ spec:
   deviceRef:
     name: device
   name: lo0
-  description: Router-ID Leaf1
   adminState: Up
   type: Loopback
   ipv4:
     addresses:
       - 10.0.0.10/32
+-- interfaces/eth1-1 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: eth1-1
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: eth1/1
+  description: Leaf1 to Spine1
+  adminState: Up
+  type: Physical
+  mtu: 9216
+  ipv4:
+    unnumbered:
+      interfaceRef:
+        name: lo0
 -- state --
 {
   "openconfig-interfaces:interfaces": {
@@ -22,7 +39,6 @@ spec:
       {
         "name": "lo0",
         "config": {
-          "description": "Router-ID Leaf1",
           "enabled": true,
           "name": "lo0",
           "type": "iana-if-type:softwareLoopback"
@@ -50,6 +66,39 @@ spec:
                 },
                 "config": {
                   "enabled": true
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "eth1/1",
+        "config": {
+          "description": "Leaf1 to Spine1",
+          "enabled": true,
+          "mtu": 9216,
+          "name": "eth1/1",
+          "type": "iana-if-type:ethernetCsmacd"
+        },
+        "subinterfaces": {
+          "subinterface": [
+            {
+              "config": {
+                "enabled": true,
+                "index": 0
+              },
+              "index": 0,
+              "openconfig-if-ip:ipv4": {
+                "config": {
+                  "enabled": true
+                },
+                "unnumbered": {
+                  "interface-ref": {
+                    "config": {
+                      "interface": "lo0"
+                    }
+                  }
                 }
               }
             }

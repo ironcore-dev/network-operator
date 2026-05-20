@@ -27,9 +27,6 @@ golang:
 
 golangciLint:
   createConfig: false
-  skipDirs:
-    - internal/provider/openconfig
-  timeout: 10m
 
 shellCheck:
   ignorePaths:

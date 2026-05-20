@@ -1,30 +1,31 @@
-# Loopback Interface
--- interfaces/lo0 --
+# Loopback Interface with Multiple Addresses
+-- interfaces/lo1 --
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
 metadata:
-  name: lo0
+  name: lo1
   namespace: default
 spec:
   deviceRef:
     name: device
-  name: lo0
-  description: Router-ID Leaf1
+  name: lo1
+  description: NVE/VTEP Leaf1
   adminState: Up
   type: Loopback
   ipv4:
     addresses:
-      - 10.0.0.10/32
+      - 10.0.1.10/32
+      - 10.1.0.10/32
 -- state --
 {
   "openconfig-interfaces:interfaces": {
     "interface": [
       {
-        "name": "lo0",
+        "name": "lo1",
         "config": {
-          "description": "Router-ID Leaf1",
+          "description": "NVE/VTEP Leaf1",
           "enabled": true,
-          "name": "lo0",
+          "name": "lo1",
           "type": "iana-if-type:softwareLoopback"
         },
         "subinterfaces": {
@@ -40,11 +41,19 @@ spec:
                   "address": [
                     {
                       "config": {
-                        "ip": "10.0.0.10",
+                        "ip": "10.0.1.10",
                         "prefix-length": 32,
                         "type": "PRIMARY"
                       },
-                      "ip": "10.0.0.10"
+                      "ip": "10.0.1.10"
+                    },
+                    {
+                      "config": {
+                        "ip": "10.1.0.10",
+                        "prefix-length": 32,
+                        "type": "SECONDARY"
+                      },
+                      "ip": "10.1.0.10"
                     }
                   ]
                 },
