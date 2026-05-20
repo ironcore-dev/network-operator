@@ -37,18 +37,25 @@ type DeviceProvider interface {
 	GetDeviceInfo(context.Context) (*DeviceInfo, error)
 	// GetLastRebootTime retrieves the timestamp of the last device reboot.
 	GetLastRebootTime(context.Context) (time.Time, error)
+}
+
+// MaintenanceProvider is the interface for disruptive device lifecycle operations.
+type MaintenanceProvider interface {
+	Provider
+
 	// Reboot initiates a reboot of the device.
 	Reboot(context.Context, *deviceutil.Connection) error
 	// FactoryReset performs a factory reset of the device.
 	FactoryReset(context.Context, *deviceutil.Connection) error
-	// Reprovision prepares the device for reprovisioning by resetting it and reenabling provisioning mechanisms.
-	Reprovision(context.Context, *deviceutil.Connection) error
 }
 
 // ProvisioningProvider is the interface for the realization of the provisioning-related operations over different providers.
 type ProvisioningProvider interface {
-	// HashedPassword takes a plaintext password and returns the hashed password along with the hash type. This is necessary to securely provision user accounts on devices using a potentially insecure channel.
-	HashProvisioningPassword(password string) (string, string, error)
+	// Reprovision prepares the device for reprovisioning by resetting it and reenabling provisioning mechanisms.
+	Reprovision(context.Context, *deviceutil.Connection) error
+	// HashProvisioningPassword takes a plaintext password and returns the hashed password along with the hash type.
+	// This is necessary to securely provision user accounts on devices using a potentially insecure channel.
+	HashProvisioningPassword(password string) (hash string, algorithm string, err error)
 	// VerifyProvisioned checks if the provisioning process has been completed successfully on the device.
 	VerifyProvisioned(context.Context, *deviceutil.Connection, *v1alpha1.Device) bool
 }

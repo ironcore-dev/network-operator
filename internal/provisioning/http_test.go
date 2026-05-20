@@ -87,6 +87,10 @@ func (m *MockProvider) VerifyProvisioned(ctx context.Context, conn *deviceutil.C
 	return true
 }
 
+func (m *MockProvider) Reprovision(ctx context.Context, conn *deviceutil.Connection) error {
+	return nil
+}
+
 func TestGetClientIP(t *testing.T) {
 	tests := []struct {
 		name         string

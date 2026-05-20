@@ -384,6 +384,7 @@ func detectTestBinaryDir() string {
 var (
 	_ provider.Provider                 = (*Provider)(nil)
 	_ provider.DeviceProvider           = (*Provider)(nil)
+	_ provider.MaintenanceProvider      = (*Provider)(nil)
 	_ provider.ProvisioningProvider     = (*Provider)(nil)
 	_ provider.InterfaceProvider        = (*Provider)(nil)
 	_ provider.BannerProvider           = (*Provider)(nil)

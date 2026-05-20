@@ -36,6 +36,7 @@ import (
 var (
 	_ provider.Provider                 = (*Provider)(nil)
 	_ provider.DeviceProvider           = (*Provider)(nil)
+	_ provider.MaintenanceProvider      = (*Provider)(nil)
 	_ provider.ProvisioningProvider     = (*Provider)(nil)
 	_ provider.ACLProvider              = (*Provider)(nil)
 	_ provider.BannerProvider           = (*Provider)(nil)
@@ -136,7 +137,7 @@ func (p *Provider) Reboot(ctx context.Context, conn *deviceutil.Connection) erro
 }
 
 func (p *Provider) FactoryReset(ctx context.Context, conn *deviceutil.Connection) error {
-	return ResetToFactoryDefaults(ctx, p.conn)
+	return FactoryReset(ctx, p.conn)
 }
 
 func (p *Provider) Reprovision(ctx context.Context, conn *deviceutil.Connection) (reterr error) {

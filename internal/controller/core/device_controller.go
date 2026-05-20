@@ -88,13 +88,6 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, err
 	}
 
-	prov, ok := r.Provider().(provider.DeviceProvider)
-	if !ok {
-		err := errors.New("provider does not implement DeviceProvider interface")
-		log.Error(err, "failed to reconcile resource")
-		return ctrl.Result{}, err
-	}
-
 	if isPaused, requeue, err := paused.EnsureCondition(ctx, r.Client, obj, obj); isPaused || requeue || err != nil {
 		return ctrl.Result{Requeue: requeue}, err
 	}
@@ -191,9 +184,15 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, nil
 
 	case v1alpha1.DevicePhaseRunning:
-		if err := r.reconcile(ctx, obj, prov, conn); err != nil {
-			log.Error(err, "Failed to reconcile resource")
-			return ctrl.Result{}, err
+		if prov, ok := r.Provider().(provider.DeviceProvider); ok {
+			if err := r.reconcile(ctx, obj, prov, conn); err != nil {
+				log.Error(err, "Failed to reconcile resource")
+				return ctrl.Result{}, err
+			}
+		} else {
+			if err := r.reconcileMinimal(ctx, obj, conn); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 
 	case v1alpha1.DevicePhaseFailed:
@@ -209,7 +208,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		obj.Status.Phase = v1alpha1.DevicePhaseRunning
 	}
 
-	if err := r.reconcileMaintenance(ctx, obj, prov, conn); err != nil {
+	if err := r.reconcileMaintenance(ctx, obj, conn); err != nil {
 		return ctrl.Result{}, reconcile.TerminalError(err)
 	}
 
@@ -364,7 +363,46 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 	return nil
 }
 
-func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alpha1.Device, prov provider.DeviceProvider, conn *deviceutil.Connection) error {
+func (r *DeviceReconciler) reconcileMinimal(ctx context.Context, device *v1alpha1.Device, conn *deviceutil.Connection) (reterr error) {
+	prov := r.Provider()
+	if err := prov.Connect(ctx, conn); err != nil {
+		conditions.Set(device, metav1.Condition{
+			Type:    v1alpha1.ReachableCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.UnreachableReason,
+			Message: fmt.Sprintf("Failed to connect to device: %v", err),
+		})
+		conditions.Set(device, metav1.Condition{
+			Type:    v1alpha1.ReadyCondition,
+			Status:  metav1.ConditionUnknown,
+			Reason:  v1alpha1.UnreachableReason,
+			Message: "Device is not reachable",
+		})
+		return nil
+	}
+	defer func() {
+		if err := prov.Disconnect(ctx, conn); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+	}()
+
+	conditions.Set(device, metav1.Condition{
+		Type:    v1alpha1.ReachableCondition,
+		Status:  metav1.ConditionTrue,
+		Reason:  v1alpha1.ReachableReason,
+		Message: "Device is reachable",
+	})
+	conditions.Set(device, metav1.Condition{
+		Type:    v1alpha1.ReadyCondition,
+		Status:  metav1.ConditionTrue,
+		Reason:  v1alpha1.ReadyReason,
+		Message: "Device is healthy",
+	})
+
+	return nil
+}
+
+func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alpha1.Device, conn *deviceutil.Connection) error {
 	action, ok := obj.Annotations[v1alpha1.DeviceMaintenanceAnnotation]
 	if !ok {
 		return nil
@@ -373,6 +411,11 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 
 	switch action {
 	case v1alpha1.DeviceMaintenanceReboot:
+		prov, ok := r.Provider().(provider.MaintenanceProvider)
+		if !ok {
+			r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceUnsupported", "Maintenance", "Provider does not support maintenance operation: %s", action)
+			return nil
+		}
 		// Reboot triggers a device restart. The device remains in its current phase
 		// and will resume normal operation after the reboot completes.
 		r.Recorder.Eventf(obj, nil, "Normal", "RebootRequested", "Maintenance", "Device reboot has been requested")
@@ -388,6 +431,11 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 		}
 
 	case v1alpha1.DeviceMaintenanceFactoryReset:
+		prov, ok := r.Provider().(provider.MaintenanceProvider)
+		if !ok {
+			r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceUnsupported", "Maintenance", "Provider does not support maintenance operation: %s", action)
+			return nil
+		}
 		// FactoryReset erases all device configuration and returns it to its original state.
 		// After completion, the device phase is reset to Pending to restart the lifecycle.
 		r.Recorder.Eventf(obj, nil, "Normal", "FactoryResetRequested", "Maintenance", "Device factory reset has been requested")
@@ -404,6 +452,11 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 		obj.Status.Phase = v1alpha1.DevicePhasePending
 
 	case v1alpha1.DeviceMaintenanceReprovision:
+		prov, ok := r.Provider().(provider.ProvisioningProvider)
+		if !ok {
+			r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceUnsupported", "Maintenance", "Provider does not support provisioning operation: %s", action)
+			return nil
+		}
 		// Reprovision prepares the device for re-provisioning without a full factory reset.
 		// The provider initiates the provisioning process, then the phase is reset to Pending.
 		r.Recorder.Eventf(obj, nil, "Normal", "ReprovisionRequested", "Maintenance", "Device reprovisioning has been requested")

@@ -12,8 +12,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/openconfig/gnoi/factory_reset"
-	"github.com/openconfig/gnoi/system"
+	factoryresetpb "github.com/openconfig/gnoi/factory_reset"
+	systempb "github.com/openconfig/gnoi/system"
 
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
@@ -109,32 +109,30 @@ func (t *UnixTime) UnmarshalJSON(b []byte) error {
 }
 
 func Reboot(ctx context.Context, conn *grpc.ClientConn) error {
-	request := system.RebootRequest{
-		Method: system.RebootMethod_COLD,
-		// Message is not supported on NXOS
-		// Delay is not supported on NXOS
-		Force: true, // only Force true is supported
+	req := &systempb.RebootRequest{
+		Method:  systempb.RebootMethod_COLD,
+		Delay:   0,  // Unsupported on NX-OS, must be 0
+		Message: "", // Unsupported on NX-OS, must be empty
+		Force:   true,
 	}
-	c := system.NewSystemClient(conn)
-	_, err := c.Reboot(ctx, &request, grpc.WaitForReady(true))
+	c := systempb.NewSystemClient(conn)
+	_, err := c.Reboot(ctx, req, grpc.WaitForReady(true))
 	return err
 }
 
-func ResetToFactoryDefaults(ctx context.Context, conn *grpc.ClientConn) error {
-	request := factory_reset.StartRequest{
-		// True not supported on NXOS, NXOS makes sure running OS is preserved
-		FactoryOs:   false,
+func FactoryReset(ctx context.Context, conn *grpc.ClientConn) error {
+	req := &factoryresetpb.StartRequest{
+		FactoryOs:   false, // NX-OS does not support factory OS reset, it always ensures the running OS is preserved
 		ZeroFill:    true,
 		RetainCerts: false,
 	}
-	c := factory_reset.NewFactoryResetClient(conn)
-	response, err := c.Start(ctx, &request, grpc.WaitForReady(true))
+	c := factoryresetpb.NewFactoryResetClient(conn)
+	res, err := c.Start(ctx, req, grpc.WaitForReady(true))
 	if err != nil {
 		return err
 	}
-	resetError := response.GetResetError()
-	if resetError != nil {
-		return fmt.Errorf("factory reset failed: %s", resetError.String())
+	if resetErr := res.GetResetError(); resetErr != nil {
+		return fmt.Errorf("factory reset failed: %s", resetErr.String())
 	}
 	return nil
 }
