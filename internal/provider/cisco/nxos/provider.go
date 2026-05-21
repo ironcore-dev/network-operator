@@ -3295,7 +3295,8 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 
 	// Always take full ownership of the auth config. If not specified in the spec,
 	// reset to the device default (local auth).
-	conf = append(conf,
+	conf = append(
+		conf,
 		buildDefaultAuth(req, cfg),
 		buildConsoleAuth(req, cfg),
 		buildAuthorization(req, cfg),
@@ -3336,7 +3337,8 @@ func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest
 func (p *Provider) DeleteAAA(ctx context.Context, req *provider.DeleteAAARequest) error {
 	// Step 1: Reset auth realms to local before deleting groups. NX-OS may leave auth
 	// in a broken state if the referenced provider group is removed while still active.
-	if err := p.Update(ctx,
+	if err := p.Update(
+		ctx,
 		&AAADefaultAcc{Realm: AAARealmLocal, LocalRbac: true},
 		&AAADefaultAuthor{CmdType: "config", LocalRbac: true},
 		&AAADefaultAuth{Realm: AAARealmLocal, Local: AAAValueYes, Fallback: AAAValueYes},
@@ -3348,7 +3350,8 @@ func (p *Provider) DeleteAAA(ctx context.Context, req *provider.DeleteAAARequest
 	// Step 2: Unconditionally delete all TACACS+ and RADIUS server groups and servers.
 	// Groups must precede servers in the delete to avoid reference violations.
 	// ErrNil is returned when a container is already empty, which is safe to ignore.
-	if err := p.client.Delete(ctx,
+	if err := p.client.Delete(
+		ctx,
 		new(TacacsPlusProviderGroupItems),
 		new(TacacsPlusProviderItems),
 		new(RadiusProviderGroupItems),
