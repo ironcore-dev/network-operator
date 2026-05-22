@@ -93,6 +93,7 @@ rules:
   - probes
   - routingpolicies
   - snmp
+  - staticroutes
   - syslogs
   - users
   - vlans
@@ -131,6 +132,7 @@ rules:
   - prefixsets/finalizers
   - routingpolicies/finalizers
   - snmp/finalizers
+  - staticroutes/finalizers
   - syslogs/finalizers
   - users/finalizers
   - vlans/finalizers
@@ -165,6 +167,7 @@ rules:
   - probes/status
   - routingpolicies/status
   - snmp/status
+  - staticroutes/status
   - syslogs/status
   - users/status
   - vlans/status

@@ -232,6 +232,15 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&StaticRouteReconciler{
+		Client:          k8sManager.GetClient(),
+		Scheme:          k8sManager.GetScheme(),
+		Recorder:        recorder,
+		Locker:          testLocker,
+		RequeueInterval: time.Second,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&PIMReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
@@ -432,6 +441,7 @@ var (
 	_ provider.EthernetSegmentProvider  = (*Provider)(nil)
 	_ provider.ConfigBackupProvider     = (*Provider)(nil)
 	_ provider.ProbeProvider            = (*Provider)(nil)
+	_ provider.StaticRouteProvider      = (*Provider)(nil)
 )
 
 // DeviceState holds per-device mutable state for testing. Each device created in
@@ -475,6 +485,7 @@ type DeviceState struct {
 	StartupConfig        *v1alpha1.ConfigBackup
 	ConfigBackups        []*provider.ConfigBackupFile
 	StorageTotal         int64
+	StaticRoutes         sets.Set[string]
 }
 
 func NewDeviceState() *DeviceState {
@@ -496,6 +507,7 @@ func NewDeviceState() *DeviceState {
 		LLDPNeighbors:    make(map[string]*provider.LLDPAdjacency),
 		EthernetSegments: make(map[string]string),
 		StorageTotal:     int64(1024 * 1024 * 100),
+		StaticRoutes:     sets.New[string](),
 	}
 }
 
@@ -1184,6 +1196,22 @@ func (p *Provider) GetRouteTable(context.Context, *provider.RouteTableRequest) (
 
 func (p *Provider) GetVTEPPeers(context.Context, *provider.VTEPPeersRequest) ([]provider.VTEPPeer, error) {
 	return []provider.VTEPPeer{{PeerIP: "192.0.2.10", OperStatus: true}}, nil
+}
+
+func (p *Provider) EnsureStaticRoute(_ context.Context, req *provider.StaticRouteRequest) error {
+	s := p.devices.StateFor(p.deviceName)
+	s.Lock()
+	defer s.Unlock()
+	s.StaticRoutes.Insert(req.StaticRoute.Spec.Prefix.String())
+	return nil
+}
+
+func (p *Provider) DeleteStaticRoute(_ context.Context, req *provider.StaticRouteRequest) error {
+	s := p.devices.StateFor(p.deviceName)
+	s.Lock()
+	defer s.Unlock()
+	s.StaticRoutes.Delete(req.StaticRoute.Spec.Prefix.String())
+	return nil
 }
 
 // SetLLDPNeighbor is a test helper to configure LLDP neighbor information for an interface.

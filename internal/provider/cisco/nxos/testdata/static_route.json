@@ -1,0 +1,36 @@
+{
+  "ipv4-items": {
+    "inst-items": {
+      "dom-items": {
+        "Dom-list": [
+          {
+            "name": "test-vrf",
+            "rt-items": {
+              "Route-list": [
+                {
+                  "prefix": "172.16.0.0/16",
+                  "nh-items": {
+                    "Nexthop-list": [
+                      {
+                        "nhAddr": "12.0.100.1",
+                        "nhIf": "eth1/1",
+                        "nhVrf": "test-vrf",
+                        "pref": 30
+                      },
+                      {
+                        "nhAddr": "11.0.100.1",
+                        "nhIf": "unspecified",
+                        "nhVrf": "test-vrf",
+                        "pref": 15
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}
