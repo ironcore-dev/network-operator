@@ -28,6 +28,7 @@ resources:
 - bases/networking.metal.ironcore.dev_lldps.yaml
 - bases/networking.metal.ironcore.dev_configbackups.yaml
 - bases/networking.metal.ironcore.dev_ethernetsegments.yaml
+- bases/networking.metal.ironcore.dev_staticroutes.yaml
 - bases/networking.metal.ironcore.dev_aaa.yaml
 - bases/pool.networking.metal.ironcore.dev_indexpools.yaml
 - bases/pool.networking.metal.ironcore.dev_ipaddresspools.yaml

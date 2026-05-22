@@ -1,0 +1,17 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: StaticRoute
+metadata:
+  labels:
+  name: staticroute-sample
+spec:
+  name: sample-static-route
+  description: This is a sample static route.
+  deviceRef:
+    name: sample-device
+  IPPrefix: 
+    Prefix: "192.168.1.0/24"
+  nextHops:
+    - address: "10.8.0.1/24"
+      metric: 10
+    - address: "10.8.0.2/24"
+      metric: 20

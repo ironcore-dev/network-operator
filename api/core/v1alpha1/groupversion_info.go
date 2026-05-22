@@ -229,6 +229,15 @@ const (
 	// VRFNotFoundReason indicates that a referenced VRF was not found.
 	VRFNotFoundReason = "VRFNotFound"
 
+	// VRFNotConfiguredReason indicates that a referenced VRF is not configured.
+	VRFNotConfiguredReason = "VRFNotConfigured"
+
+	// VRFAlreadyInUseReason indicates that a referenced VRF is already in use by another interface or static route.
+	VRFAlreadyInUseReason = "VRFAlreadyInUse"
+
+	// InterfaceNotConfiguredReason indicates that a referenced interface is not configured.
+	InterfaceNotConfiguredReason = "InterfaceNotConfigured"
+
 	// ParentInterfaceNotFoundReason indicates that a referenced parent interface for a subinterface was not found.
 	ParentInterfaceNotFoundReason = "ParentInterfaceNotFound"
 
