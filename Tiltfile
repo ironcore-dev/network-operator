@@ -207,6 +207,9 @@ k8s_resource(new_name='mac-entry', objects=['mac-entry:probe'], trigger_mode=TRI
 k8s_resource(new_name='route-prefix', objects=['route-prefix:probe'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='vtep-peers', objects=['vtep-peers:probe'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
+k8s_yaml('./config/samples/v1alpha1_staticroute.yaml')
+k8s_resource(new_name='staticroute', objects=['str-cc-admin:staticroute'], resource_deps=['vrf-admin'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')
 print('👉 Tilt will automatically rebuild and redeploy when changes are detected')
