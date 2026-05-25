@@ -39,10 +39,10 @@ github.com/gkampitakis/go-diff v1.3.2 h1:Qyn0J9XJSDTgnsgHRdz9Zp24RaJeKMUHg2+PDZZ
 github.com/gkampitakis/go-diff v1.3.2/go.mod h1:LLgOrpqleQe26cte8s36HTWcTmMEur6OPYerdAAS9tk=
 github.com/gkampitakis/go-snaps v0.5.15 h1:amyJrvM1D33cPHwVrjo9jQxX8g/7E2wYdZ+01KS3zGE=
 github.com/gkampitakis/go-snaps v0.5.15/go.mod h1:HNpx/9GoKisdhw9AFOBT1N7DBs9DiHo/hGheFGBZ+mc=
-github.com/go-crypt/crypt v0.4.14 h1:fjR5JrjRsjyk8RXcM5+dj8U2aIGb6OAu9YWYxKz503A=
-github.com/go-crypt/crypt v0.4.14/go.mod h1:pqijG44JTcUOV7+NoUnPLL2tDHY99M6s0rH04McULKA=
-github.com/go-crypt/x v0.4.15 h1:jMyqMWWxCwvaQHa6yy0l8wqIyAYU9zwPd+Uavbc0q3Q=
-github.com/go-crypt/x v0.4.15/go.mod h1:yz3AglH/RLk13EZQdPnAPIXTfslX0WJEtQuMHYLTLq4=
+github.com/go-crypt/crypt v0.14.15 h1:q1i5OMpL05r935IxWmXgpDAVF0nvi4SMoHhGXLBQUEQ=
+github.com/go-crypt/crypt v0.14.15/go.mod h1:0n/to1VqIZPENj2yEUa/sLLYYnmupma6cp+QMX4zfF0=
+github.com/go-crypt/x v0.4.16 h1:WXdY28H/0MsXnH+gwerxuCcvBTJPkBG90u6oS4gIPZI=
+github.com/go-crypt/x v0.4.16/go.mod h1:vmVFA/d/oLrEaCbqsLcjBMlTqF8u8pvH/c4+EJ/ped8=
 github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
 github.com/go-logr/logr v1.4.3 h1:CjnDlHq8ikf6E492q6eKboGOC0T8CDaOvkHCIg8idEI=
 github.com/go-logr/logr v1.4.3/go.mod h1:9T104GzyrTigFIr8wt5mBrctHMim0Nb2HLGrmQ40KvY=
