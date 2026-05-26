@@ -63,7 +63,7 @@ func (*Ifaces) XPath() string {
 // Iface represents physical and bundle interfaces as part of the same struct as they share a lot of common configuration
 // and only differ in a few attributes like the interface name and the presence of bundle configuration or not.
 type Iface struct {
-	Name         string        `json:"-"`
+	Name         string        `json:"interface-name"`
 	Description  string        `json:"description,omitzero"`
 	Statistics   Statistics    `json:"Cisco-IOS-XR-infra-statsd-cfg:statistics,omitzero"`
 	MTUs         MTUs          `json:"mtus,omitzero"`
