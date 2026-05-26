@@ -121,9 +121,20 @@ func (p *Provider) Reprovision(_ context.Context, conn *deviceutil.Connection) e
 	return errors.New("IOS XR Provider does not support reprovisioning")
 }
 
+// EnsureInterface configures the interface based on the provided request.
+// MTU configuration rules:
+//   - Physical interface:
+//     Configure L2 MTU and, if an IP address is present, configure L3 MTU.
+//   - Bundle interface:
+//     Configure only the L2 MTU.
+//   - Bundle member interface (Physical):
+//     Do not configure MTU settings directly.
+//     L2 MTU is inherited from the bundle interface, and L3 MTU is configured
+//     on the corresponding subinterface.
+//   - Subinterface (physical or bundle):
+//     Configure only the L3 MTU, using a default value of 1500 bytes.
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
 	// TODO(sven-rosenweig): Make use of the VRF information in the request to assign the interface to the correct VRF.
-	// FIXME(sven-rosenweig): Use the ExtractOwnerFromInterfaceName function in the ValidateInterfaceName function
 	name := req.Interface.Spec.Name
 
 	if err := ValidateInterfaceName(name); err != nil {
@@ -162,13 +173,11 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 			iface.IPv4Network = ipv4
 
-			if req.Interface.Spec.MTU != 0 {
-				mtu, err := NewMTU(name, req.Interface.Spec.MTU)
-				if err != nil {
-					return err
-				}
-				iface.MTUs = mtu
+			mtu, err := NewMTU(name, req.Interface.Spec.MTU)
+			if err != nil {
+				return err
 			}
+			iface.MTUs = mtu
 		}
 
 		// Make interface part of a bundle
@@ -274,14 +283,6 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			iface.SubInterface.VlanIdentifier.VlanType = "vlan-type-dot1ad"
 		}
 
-		if req.Interface.Spec.MTU != 0 {
-			mtu, err := NewMTU(name, req.Interface.Spec.MTU)
-			if err != nil {
-				return err
-			}
-			iface.MTUs = mtu
-		}
-
 		ipv4, err := NewIPv4(req.Interface.Spec.IPv4)
 		if err != nil {
 			return err
@@ -303,8 +304,13 @@ func NewMTU(intName string, mtu int32) (MTUs, error) {
 		message := "failed to extract MTU owner from interface name" + intName
 		return MTUs{}, errors.New(message)
 	}
+
+	mtuValue := mtu
+	if mtu == 0 {
+		mtuValue = DefaultLinkMTU
+	}
 	return MTUs{MTU: []MTU{{
-		MTU:   mtu,
+		MTU:   mtuValue,
 		Owner: string(owner),
 	}}}, nil
 }
@@ -329,6 +335,7 @@ func NewIPv4(ips *v1alpha1.InterfaceIPv4) (IPv4Network, error) {
 				Netmask: netmask,
 			},
 		},
+		MTU: uint16(DefaultL3MTU),
 	}, nil
 }
 

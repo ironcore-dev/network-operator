@@ -12,6 +12,16 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
+// DefaultLinkMTU is calculated based on the default MTU of 1500 bytes for routed interfaces on IOS-XR and the addition of 14 bytes for the L2 header.
+// L2-payload + L2-header (1500 + 14)
+const DefaultLinkMTU int32 = 1514
+
+// DefaultL3MTU configures the maximum packet size of that protocol which includes the L3 header
+// For subinterfaces automatically
+// add 4 bytes for each VLAN tag configured on the sub-interface.
+// add 8 bytes for a IEEE 802.1Q tunneling (QinQ) sub-interface.
+const DefaultL3MTU int32 = 1500
+
 var (
 	bundleEtherRE       = regexp.MustCompile(`^(Bundle-Ether|bundle-ether)(\d+)(\.\d+)?$`)
 	physicalInterfaceRE = regexp.MustCompile(`^(TenGigE|TwentyFiveGigE|FortyGigE|HundredGigE|GigabitEthernet)(\d){1}(\/\d){2}(\/\d+){1}(.\d{1,5})?$`)
@@ -96,7 +106,7 @@ type Statistics struct {
 
 type IPv4Network struct {
 	Addresses AddressesIPv4 `json:"addresses"`
-	Mtu       uint16        `json:"mtu,omitzero"`
+	MTU       uint16        `json:"mtu,omitzero"`
 }
 
 type AddressesIPv4 struct {
@@ -109,7 +119,7 @@ type Primary struct {
 }
 
 type IPv6Network struct {
-	Mtu       uint16        `json:"mtu"`
+	MTU       uint16        `json:"mtu"`
 	Addresses AddressesIPv6 `json:"addresses"`
 }
 
