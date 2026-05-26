@@ -134,7 +134,6 @@ func (p *Provider) Reprovision(_ context.Context, conn *deviceutil.Connection) e
 //   - Subinterface (physical or bundle):
 //     Configure only the L3 MTU, using a default value of 1500 bytes.
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
-	// TODO(sven-rosenweig): Make use of the VRF information in the request to assign the interface to the correct VRF.
 	name := req.Interface.Spec.Name
 
 	if err := ValidateInterfaceName(name); err != nil {
@@ -178,6 +177,10 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				return err
 			}
 			iface.MTUs = mtu
+
+			if req.VRF != nil && req.VRF.Spec.Name != "" {
+				iface.Vrf = req.VRF.Spec.Name
+			}
 		}
 
 		// Make interface part of a bundle
@@ -288,6 +291,10 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			return err
 		}
 		iface.IPv4Network = ipv4
+
+		if req.VRF.Spec.Name != "" {
+			iface.Vrf = req.VRF.Spec.Name
+		}
 
 		conf = append(conf, &iface)
 		return updateInterface(ctx, p.client, conf...)
