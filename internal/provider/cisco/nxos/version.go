@@ -19,6 +19,7 @@ const (
 	VersionNX10_5_3 Version = "10.5(3)"
 	VersionNX10_6_1 Version = "10.6(1)"
 	VersionNX10_6_2 Version = "10.6(2)"
+	VersionNX10_6_3 Version = "10.6(3)"
 )
 
 // nxosVersions maps the revision date of the Cisco-NX-OS-device yang model to the corresponding [Version].
@@ -33,6 +34,7 @@ var nxosVersions = map[string]Version{
 	"2025-04-23": VersionNX10_5_3,
 	"2025-08-12": VersionNX10_6_1,
 	"2025-12-12": VersionNX10_6_2,
+	"2026-04-24": VersionNX10_6_3,
 }
 
 // NXVersion returns the NX-OS operating system version of the target device based on the supported models.
