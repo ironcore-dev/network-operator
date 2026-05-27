@@ -625,6 +625,18 @@ func main() { //nolint:gocyclo
 		os.Exit(1)
 	}
 
+	if err := (&corecontroller.MacSecReconciler{
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		Recorder:        mgr.GetEventRecorder("macsec-controller"),
+		Provider:        prov,
+		Locker:          locker,
+		RequeueInterval: requeueInterval,
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "MacSec")
+		os.Exit(1)
+	}
+
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err := webhookv1alpha1.SetupVRFWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "VRF")

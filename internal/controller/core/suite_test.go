@@ -409,6 +409,7 @@ var (
 	_ provider.NVEProvider              = (*Provider)(nil)
 	_ provider.LLDPProvider             = (*Provider)(nil)
 	_ provider.DHCPRelayProvider        = (*Provider)(nil)
+	_ provider.MacSecProvider           = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -445,6 +446,7 @@ type Provider struct {
 	LLDPOperStatus  bool
 	LLDPNeighbors   map[string]*provider.LLDPAdjacency
 	DHCPRelay       *v1alpha1.DHCPRelay
+	MacSec          sets.Set[string]
 }
 
 func NewProvider() *Provider {
@@ -464,6 +466,7 @@ func NewProvider() *Provider {
 		RoutingPolicies: sets.New[string](),
 		LLDPOperStatus:  true,
 		LLDPNeighbors:   make(map[string]*provider.LLDPAdjacency),
+		MacSec:          sets.New[string](),
 	}
 }
 
@@ -963,4 +966,26 @@ func (p *Provider) SetLLDPNeighbor(interfaceName, sysName, chassisID, portID str
 		PortID:    portID,
 		TTL:       time.Duration(ttl) * time.Second,
 	}
+}
+
+func (p *Provider) EnsureMacSec(_ context.Context, req *provider.EnsureMacSecRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.MacSec.Insert(req.MacSec.Spec.Name)
+	return nil
+}
+
+func (p *Provider) DeleteMacSec(_ context.Context, req *provider.DeleteMacSecRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.MacSec.Delete(req.MacSec.Spec.Name)
+	return nil
+}
+
+func (p *Provider) GetMacSecStatus(_ context.Context, req *provider.EnsureMacSecRequest) (provider.MacSecStatus, error) {
+	p.Lock()
+	defer p.Unlock()
+	return provider.MacSecStatus{
+		OverallStatus: true,
+	}, nil
 }

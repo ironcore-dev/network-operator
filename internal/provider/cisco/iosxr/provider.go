@@ -24,6 +24,7 @@ var (
 	_ provider.DeviceProvider    = &Provider{}
 	_ provider.InterfaceProvider = &Provider{}
 	_ provider.VRFProvider       = &Provider{}
+	_ provider.MacSecProvider    = &Provider{}
 )
 
 type Provider struct {
@@ -408,6 +409,66 @@ func (p *Provider) DeleteVRF(ctx context.Context, req *provider.VRFRequest) erro
 	}
 
 	return p.client.Delete(ctx, vrf)
+}
+
+func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecRequest) error {
+	//Configure MacSec Policy
+
+	cipherSuite, err := ExtractCipherSuite(req.MacSec.Spec.Policy.CipherSuite)
+	if err != nil {
+		return err
+	}
+
+	policy := &MacSecPolicy{
+		Name:              req.MacSec.Spec.Name,
+		CipherSuite:       cipherSuite,
+		ConfOffset:        fmt.Sprintf(ConfOffsetPrefix, req.MacSec.Spec.Policy.ConfidentialityOffset),
+		KeyServerPriority: req.MacSec.Spec.Policy.KeyServerPriority,
+		RelayProtection:   req.MacSec.Spec.Policy.RelayProtection,
+	}
+
+	//Configure KeyChain
+
+	chain := new(KeyChain)
+	chain.Name = req.MacSec.Spec.Name
+
+	for _, psk := range req.Secrets {
+		lifeTime, err := NewLifetime(string(psk.Data["lifetime"]))
+		if err != nil {
+			return err
+		}
+
+		key := Key{
+			ID:                     string(psk.Data["connectivityKeyName"]),
+			CryptographicAlgorithm: string(psk.Data["algorithm"]),
+			StartLifetime:          lifeTime,
+			AcceptLifetime:         lifeTime,
+		}
+		chain.Keys.Key = append(chain.Keys.Key, key)
+	}
+
+	return p.client.Update(ctx, policy, chain)
+}
+
+func (p *Provider) DeleteMacSec(ctx context.Context, req *provider.DeleteMacSecRequest) error {
+	policy := new(MacSecPolicy)
+	policy.Name = req.MacSec.Spec.Name
+
+	keyChain := new(KeyChain)
+	keyChain.Name = req.MacSec.Spec.Name
+
+	return p.client.Delete(ctx, policy, keyChain)
+}
+
+func (p *Provider) GetMacSecStatus(ctx context.Context, req *provider.EnsureMacSecRequest) (provider.MacSecStatus, error) {
+	status := new(KeyChainOperData)
+	status.Name = req.MacSec.Spec.Name
+
+	err := p.client.GetState(ctx, status)
+	if err != nil {
+		return provider.MacSecStatus{}, fmt.Errorf("failed to get MacSec status for %s: %w", req.MacSec.Spec.Name, err)
+	}
+	return provider.MacSecStatus{}, nil
 }
 
 func init() {

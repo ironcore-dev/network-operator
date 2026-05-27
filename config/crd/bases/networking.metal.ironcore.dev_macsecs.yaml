@@ -1,0 +1,257 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: macsecs.networking.metal.ironcore.dev
+spec:
+  group: networking.metal.ironcore.dev
+  names:
+    kind: MacSec
+    listKind: MacSecList
+    plural: macsecs
+    singular: macsec
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The device this MacSec is configured on
+      jsonPath: .spec.deviceRef.name
+      name: Device
+      type: string
+    - description: The interface this MacSec is configured on
+      jsonPath: .spec.interfaceRef.name
+      name: Interface
+      type: string
+    - description: Ready status of the MacSec
+      jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: MacSec is the Schema for the macsecs API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: MacSecSpec defines the desired state of MacSec.
+            properties:
+              description:
+                description: Description provides a human-readable description of
+                  the macsec policy.
+                maxLength: 255
+                type: string
+              deviceRef:
+                description: |-
+                  DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
+                  Immutable.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+                x-kubernetes-validations:
+                - message: DeviceRef is immutable
+                  rule: self == oldSelf
+              interfaceRef:
+                description: |-
+                  InterfaceRef is a reference to the interface on which MACsec is enabled. The interface must exist on the Device specified by deviceRef.
+                  Immutable.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+                x-kubernetes-validations:
+                - message: InterfaceRef is immutable
+                  rule: self == oldSelf
+              name:
+                description: Name is the name of the interface.
+                maxLength: 255
+                minLength: 1
+                type: string
+                x-kubernetes-validations:
+                - message: Name is immutable
+                  rule: self == oldSelf
+              policy:
+                description: Policy defines the MACSec policy configuration.
+                properties:
+                  cipherSuite:
+                    type: string
+                  confidentialityOffset:
+                    description: Number of octets in an Ethernet frame that are sent
+                      in unencrypted plain-text
+                    type: integer
+                  keyServerPriority:
+                    description: |-
+                      Specifies the key server priority used by the MACsec Key Agreement (MKA) protocol to select the key server when
+                      MACsec is enabled using static connectivity association key (CAK) security mode.
+                    type: integer
+                  relayProtection:
+                    description: |-
+                      Number of out-of-order packets that can be received before the secure channel is considered to be inoperable.
+                      A value of 0 means that frames are accepted only in the correct order.
+                    type: integer
+                type: object
+              preSharedkeyRef:
+                description: PreSharedKeyRef is a list of references to pre-shared
+                  keys used for MACSec encryption.
+                items:
+                  description: |-
+                    LocalObjectReference contains enough information to locate a
+                    referenced object inside the same namespace.
+                  properties:
+                    name:
+                      description: |-
+                        Name of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      maxLength: 63
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type: array
+              providerConfigRef:
+                description: |-
+                  ProviderConfigRef is a reference to a resource holding the provider-specific configuration.
+                  This reference is used to link the Interface to its provider-specific configuration.
+                properties:
+                  apiVersion:
+                    description: APIVersion is the api group version of the resource
+                      being referenced.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/)?([a-z0-9]([-a-z0-9]*[a-z0-9])?)$
+                    type: string
+                  kind:
+                    description: |-
+                      Kind of the resource being referenced.
+                      Kind must consist of alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                    type: string
+                  name:
+                    description: |-
+                      Name of the resource being referenced.
+                      Name must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+            required:
+            - deviceRef
+            - interfaceRef
+            - name
+            type: object
+          status:
+            description: MacSecStatus defines the observed state of MacSec.
+            properties:
+              conditions:
+                description: The conditions are a list of status objects that describe
+                  the state of the MacSec.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
