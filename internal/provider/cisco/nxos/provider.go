@@ -76,13 +76,14 @@ type Provider struct {
 	nxapi  *nxapi.Client
 }
 
+// timeout is the default timeout for all HTTP/gRPC requests made by the provider.
+const timeout = 30 * time.Second
+
 func NewProvider() provider.Provider {
 	return &Provider{}
 }
 
 func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (err error) {
-	// timeout is the default timeout for all HTTP/gRPC requests made by the provider.
-	const timeout = 30 * time.Second
 	p.conn, err = grpcext.NewClient(conn, grpcext.WithDefaultTimeout(timeout))
 	if err != nil {
 		return fmt.Errorf("failed to create grpc connection: %w", err)
@@ -147,23 +148,31 @@ func (p *Provider) FactoryReset(ctx context.Context, conn *deviceutil.Connection
 	return FactoryReset(ctx, p.conn)
 }
 
-func (p *Provider) Reprovision(ctx context.Context, conn *deviceutil.Connection) (reterr error) {
-	if err := p.Connect(ctx, conn); err != nil {
-		return err
+func (p *Provider) Reprovision(ctx context.Context, conn *deviceutil.Connection) error {
+	c := *conn
+	c.Address = netip.MustParseAddrPort(conn.Address).Addr().String()
+	client, err := nxapi.NewClient(&c, timeout)
+	if err != nil {
+		return fmt.Errorf("failed to create nxapi client: %w", err)
 	}
-	defer func() {
-		if err := p.Disconnect(ctx, conn); err != nil {
-			reterr = errors.Join(reterr, err)
-		}
-	}()
-	// This is currently defunct on NX-OS, as enabling POAP requires a `copy running-config startup-config` which we
-	// cannot issue via GNMI
-	// TODO add once NXAPI client is available
-	poap := BootPOAP("enable")
-	if err := p.client.Update(ctx, &poap); err != nil {
-		return err
+
+	_, err = client.Do(ctx, nxapi.NewRequest(
+		"boot poap enable",
+		"copy running-config startup-config",
+	).WithRollback(nxapi.Stop))
+	if err != nil {
+		return fmt.Errorf("failed to prepare device for reprovisioning: %w", err)
 	}
-	return Reboot(ctx, p.conn)
+
+	// Reboot is issued as a separate request because it actually restarts
+	// the device. The connection will drop before a response is received,
+	// so transport errors are expected and tolerated.
+	_, err = client.Do(ctx, nxapi.NewRequest("reload"))
+	if err != nil && !nxapi.IsTransportError(err) {
+		return fmt.Errorf("failed to reboot device: %w", err)
+	}
+
+	return nil
 }
 
 func (p *Provider) ListPorts(ctx context.Context) ([]provider.DevicePort, error) {

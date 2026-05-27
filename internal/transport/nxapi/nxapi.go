@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"time"
@@ -262,4 +263,20 @@ type HTTPError struct {
 
 func (e *HTTPError) Error() string {
 	return fmt.Sprintf("nxapi: non-2xx status code: %d - %s", e.Code, string(e.Body))
+}
+
+// IsTransportError reports whether err is a network-level transport error
+// (connection reset, timeout, EOF) as opposed to a logical error returned
+// by the NX-API endpoint (RPCError, HTTPError). This is useful for callers
+// that issue disruptive commands (e.g. reboot) where the device going down
+// mid-request is expected.
+func IsTransportError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return true
+	}
+	var netErr net.Error
+	return errors.As(err, &netErr)
 }

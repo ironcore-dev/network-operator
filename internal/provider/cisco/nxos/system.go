@@ -68,14 +68,6 @@ func (*FirmwareVersion) XPath() string {
 	return "System/showversion-items/nxosVersion"
 }
 
-var _ gnmiext.DataElement = (*BootPOAP)(nil)
-
-type BootPOAP string
-
-func (*BootPOAP) XPath() string {
-	return "/System/boot-items/poap"
-}
-
 type BootTime UnixTime
 
 func (*BootTime) XPath() string {
