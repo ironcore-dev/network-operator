@@ -339,6 +339,15 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&EthernetSegmentReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+		Locker:   testLocker,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -409,6 +418,7 @@ var (
 	_ provider.NVEProvider              = (*Provider)(nil)
 	_ provider.LLDPProvider             = (*Provider)(nil)
 	_ provider.DHCPRelayProvider        = (*Provider)(nil)
+	_ provider.EthernetSegmentProvider  = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -418,52 +428,54 @@ type Provider struct {
 	ConnectError   error // if non-nil, Connect returns this error
 	LastRebootTime time.Time
 
-	Ports           sets.Set[string]
-	User            sets.Set[string]
-	PreLoginBanner  *string
-	PostLoginBanner *string
-	DNS             *v1alpha1.DNS
-	NTP             *v1alpha1.NTP
-	ACLs            sets.Set[string]
-	Certs           sets.Set[string]
-	SNMP            *v1alpha1.SNMP
-	Syslog          *v1alpha1.Syslog
-	Access          *v1alpha1.ManagementAccess
-	ISIS            sets.Set[string]
-	VRF             sets.Set[string]
-	PIM             *v1alpha1.PIM
-	BGP             *v1alpha1.BGP
-	BGPVRF          *v1alpha1.VRF
-	BGPPeers        sets.Set[string]
-	OSPF            sets.Set[string]
-	VLANs           sets.Set[int16]
-	EVIs            sets.Set[int32]
-	PrefixSets      sets.Set[string]
-	RoutingPolicies sets.Set[string]
-	NVE             *v1alpha1.NetworkVirtualizationEdge
-	LLDP            *v1alpha1.LLDP
-	LLDPOperStatus  bool
-	LLDPNeighbors   map[string]*provider.LLDPAdjacency
-	DHCPRelay       *v1alpha1.DHCPRelay
+	Ports            sets.Set[string]
+	User             sets.Set[string]
+	PreLoginBanner   *string
+	PostLoginBanner  *string
+	DNS              *v1alpha1.DNS
+	NTP              *v1alpha1.NTP
+	ACLs             sets.Set[string]
+	Certs            sets.Set[string]
+	SNMP             *v1alpha1.SNMP
+	Syslog           *v1alpha1.Syslog
+	Access           *v1alpha1.ManagementAccess
+	ISIS             sets.Set[string]
+	VRF              sets.Set[string]
+	PIM              *v1alpha1.PIM
+	BGP              *v1alpha1.BGP
+	BGPVRF           *v1alpha1.VRF
+	BGPPeers         sets.Set[string]
+	OSPF             sets.Set[string]
+	VLANs            sets.Set[int16]
+	EVIs             sets.Set[int32]
+	PrefixSets       sets.Set[string]
+	RoutingPolicies  sets.Set[string]
+	NVE              *v1alpha1.NetworkVirtualizationEdge
+	LLDP             *v1alpha1.LLDP
+	LLDPOperStatus   bool
+	LLDPNeighbors    map[string]*provider.LLDPAdjacency
+	DHCPRelay        *v1alpha1.DHCPRelay
+	EthernetSegments map[string]string
 }
 
 func NewProvider() *Provider {
 	return &Provider{
-		LastRebootTime:  lastRebootTime,
-		Ports:           sets.New[string](),
-		User:            sets.New[string](),
-		ACLs:            sets.New[string](),
-		Certs:           sets.New[string](),
-		ISIS:            sets.New[string](),
-		VRF:             sets.New[string](),
-		BGPPeers:        sets.New[string](),
-		OSPF:            sets.New[string](),
-		VLANs:           sets.New[int16](),
-		EVIs:            sets.New[int32](),
-		PrefixSets:      sets.New[string](),
-		RoutingPolicies: sets.New[string](),
-		LLDPOperStatus:  true,
-		LLDPNeighbors:   make(map[string]*provider.LLDPAdjacency),
+		LastRebootTime:   lastRebootTime,
+		Ports:            sets.New[string](),
+		User:             sets.New[string](),
+		ACLs:             sets.New[string](),
+		Certs:            sets.New[string](),
+		ISIS:             sets.New[string](),
+		VRF:              sets.New[string](),
+		BGPPeers:         sets.New[string](),
+		OSPF:             sets.New[string](),
+		VLANs:            sets.New[int16](),
+		EVIs:             sets.New[int32](),
+		PrefixSets:       sets.New[string](),
+		RoutingPolicies:  sets.New[string](),
+		LLDPOperStatus:   true,
+		LLDPNeighbors:    make(map[string]*provider.LLDPAdjacency),
+		EthernetSegments: make(map[string]string),
 	}
 }
 
@@ -951,6 +963,39 @@ func (p *Provider) GetDHCPRelayStatus(_ context.Context, req *provider.DHCPRelay
 		}
 	}
 	return status, nil
+}
+
+func (p *Provider) EnsureEthernetSegment(_ context.Context, req *provider.EnsureEthernetSegmentRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	esi := req.EthernetSegment.Spec.ESI
+	if esi == "" {
+		// Simulate auto-generated ESI (Type 3 MAC-based)
+		esi = "03:aa:bb:cc:dd:ee:ff:00:00:01"
+	}
+	p.EthernetSegments[req.EthernetSegment.Name] = esi
+	return nil
+}
+
+func (p *Provider) DeleteEthernetSegment(_ context.Context, req *provider.DeleteEthernetSegmentRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	delete(p.EthernetSegments, req.EthernetSegment.Name)
+	return nil
+}
+
+func (p *Provider) GetEthernetSegmentStatus(_ context.Context, req *provider.EthernetSegmentStatusRequest) (provider.EthernetSegmentStatus, error) {
+	p.Lock()
+	defer p.Unlock()
+	esi := p.EthernetSegments[req.EthernetSegment.Name]
+	return provider.EthernetSegmentStatus{ESI: esi, OperStatus: esi != ""}, nil
+}
+
+func (p *Provider) GetEthernetSegment(name string) (string, bool) {
+	p.Lock()
+	defer p.Unlock()
+	esi, ok := p.EthernetSegments[name]
+	return esi, ok
 }
 
 // SetLLDPNeighbor is a test helper to configure LLDP neighbor information for an interface.

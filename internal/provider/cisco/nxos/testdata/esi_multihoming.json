@@ -1,0 +1,10 @@
+{
+  "eps-items": {
+    "multihoming-items": {
+      "eadEviRoute": true,
+      "state": "enabled",
+      "dfElectionMode": "modulo",
+      "dfElectionTime": "2.2"
+    }
+  }
+}

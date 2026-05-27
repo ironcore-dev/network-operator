@@ -23,6 +23,7 @@ SPDX-License-Identifier: Apache-2.0
 - [DNS](#dns)
 - [Device](#device)
 - [EVPNInstance](#evpninstance)
+- [EthernetSegment](#ethernetsegment)
 - [ISIS](#isis)
 - [Interface](#interface)
 - [LLDP](#lldp)
@@ -858,6 +859,25 @@ _Appears in:_
 | `mode` _[LACPMode](#lacpmode)_ | Mode defines the LACP mode for the aggregate interface. |  | Enum: [Active Passive] <br />Required: \{\} <br /> |
 
 
+#### DFElectionMode
+
+_Underlying type:_ _string_
+
+DFElectionMode defines the Designated Forwarder election algorithm.
+
+_Validation:_
+- Enum: [Default HighestRandomWeight Preference]
+
+_Appears in:_
+- [DesignatedForwarder](#designatedforwarder)
+
+| Field | Description |
+| --- | --- |
+| `Default` | DFElectionModeDefault uses the modulo-based DF election per RFC 7432 Section 8.5.<br /> |
+| `HighestRandomWeight` | DFElectionModeHighestRandomWeight uses the HRW algorithm per RFC 8584.<br /> |
+| `Preference` | DFElectionModePreference uses preference-based DF election per RFC 8584.<br /> |
+
+
 #### DHCPRelay
 
 
@@ -971,6 +991,23 @@ _Appears in:_
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the DNS. |  | Optional: \{\} <br /> |
 
 
+#### DesignatedForwarder
+
+
+
+DesignatedForwarder configures the DF election parameters for an Ethernet Segment.
+
+
+
+_Appears in:_
+- [EthernetSegmentSpec](#ethernetsegmentspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `electionMode` _[DFElectionMode](#dfelectionmode)_ | ElectionMode selects the DF election algorithm. | Default | Enum: [Default HighestRandomWeight Preference] <br />Optional: \{\} <br /> |
+| `electionWaitTime` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | ElectionWaitTime is the DF election hold timer. The PE waits this<br />duration before selecting the DF based on highest preference.<br />Only applicable when ElectionMode is Preference. |  | Optional: \{\} <br /> |
+
+
 #### Device
 
 
@@ -1073,6 +1110,29 @@ _Appears in:_
 | `ports` _[DevicePort](#deviceport) array_ | Ports is the list of ports on the Device. |  | Optional: \{\} <br /> |
 | `portSummary` _string_ | PortSummary shows a summary of the port configured, grouped by type, e.g. "1/4 (10g), 3/64 (100g)". |  | Optional: \{\} <br /> |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the Device. |  | Optional: \{\} <br /> |
+
+
+#### ESIType
+
+_Underlying type:_ _string_
+
+ESIType defines the ESI derivation method per RFC 7432 Section 5.
+
+_Validation:_
+- Enum: [Arbitrary LACP MST MAC RouterID AS]
+
+_Appears in:_
+- [EthernetSegmentSpec](#ethernetsegmentspec)
+- [EthernetSegmentStatus](#ethernetsegmentstatus)
+
+| Field | Description |
+| --- | --- |
+| `Arbitrary` | ESITypeArbitrary indicates an operator-configured ESI value (Type 0).<br /> |
+| `LACP` | ESITypeLACP indicates a LACP-based ESI derived from CE system MAC and port key (Type 1).<br /> |
+| `MST` | ESITypeMST indicates a bridge-protocol-based ESI derived from root bridge parameters (Type 2).<br /> |
+| `MAC` | ESITypeMAC indicates a MAC-based ESI derived from system MAC and local discriminator (Type 3).<br /> |
+| `RouterID` | ESITypeRouterID indicates a router-ID-based ESI (Type 4).<br /> |
+| `AS` | ESITypeAS indicates an AS-number-based ESI (Type 5).<br /> |
 
 
 #### EVPNInstance
@@ -1240,6 +1300,70 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `fecMode` _[FECMode](#fecmode)_ | FECMode specifies the Forward Error Correction mode for the interface.<br />FEC provides error detection and correction at the physical layer, improving link reliability.<br />When not specified, the FEC mode defaults to "auto" where the device negotiates the appropriate mode. |  | Enum: [FC RS528 Disabled] <br />Optional: \{\} <br /> |
+
+
+#### EthernetSegment
+
+
+
+EthernetSegment is the Schema for the ethernetsegments API.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `EthernetSegment` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[EthernetSegmentSpec](#ethernetsegmentspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[EthernetSegmentStatus](#ethernetsegmentstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### EthernetSegmentSpec
+
+
+
+EthernetSegmentSpec defines the desired state of EthernetSegment.
+
+It models an EVPN Ethernet Segment for multihoming as defined in [RFC 7432] Section 5.
+An Ethernet Segment associates an Aggregate interface with a 10-byte Ethernet Segment
+Identifier (ESI), enabling multi-homed CE connectivity.
+[RFC 7432]: https://datatracker.ietf.org/doc/html/rfc7432
+
+
+
+_Appears in:_
+- [EthernetSegment](#ethernetsegment)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceRef is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this Ethernet Segment. |  | Optional: \{\} <br /> |
+| `interfaceRef` _[LocalObjectReference](#localobjectreference)_ | InterfaceRef is the name of the Interface this Ethernet Segment is associated with.<br />The Interface must be of type Aggregate and belong to the same Device.<br />Immutable. |  | Required: \{\} <br /> |
+| `esiType` _[ESIType](#esitype)_ | ESIType selects the ESI derivation method (RFC 7432 Section 5).<br />When Arbitrary (Type 0), ESI must be provided explicitly.<br />When LACP or MST (Types 1, 2), ESI is always auto-derived (ESI field must be omitted).<br />When MAC, RouterID, or AS (Types 3-5), ESI may be explicit or auto-derived.<br />Immutable. | Arbitrary | Enum: [Arbitrary LACP MST MAC RouterID AS] <br />Required: \{\} <br /> |
+| `esi` _string_ | ESI is the 10-byte Ethernet Segment Identifier in colon-separated hex notation<br />(e.g., "00:11:22:33:44:55:66:77:88:01"). Must not be all-zeros or all-ones (reserved per RFC 7432).<br />Required when ESIType is Arbitrary. Must be omitted when ESIType is LACP or MST.<br />Optional for MAC, RouterID, and AS types (omit to auto-derive on the device).<br />Immutable once set. |  | Pattern: `^([0-9a-fA-F]\{2\}:)\{9\}[0-9a-fA-F]\{2\}$` <br />Optional: \{\} <br /> |
+| `redundancyMode` _[RedundancyMode](#redundancymode)_ | RedundancyMode defines the multi-homing forwarding model for this Ethernet Segment<br />as defined in RFC 7432 Section 14.1. | AllActive | Enum: [AllActive SingleActive] <br />Optional: \{\} <br /> |
+| `designatedForwarder` _[DesignatedForwarder](#designatedforwarder)_ | DesignatedForwarder configures the Designated Forwarder election for this<br />Ethernet Segment (RFC 7432 Section 8.5, RFC 8584). |  | Optional: \{\} <br /> |
+
+
+#### EthernetSegmentStatus
+
+
+
+EthernetSegmentStatus defines the observed state of EthernetSegment.
+
+
+
+_Appears in:_
+- [EthernetSegment](#ethernetsegment)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ |  |  | Optional: \{\} <br /> |
+| `esi` _string_ | ESI is the realized 10-byte Ethernet Segment Identifier on the device,<br />in colon-separated hex notation. Populated from spec or read back from<br />device when auto-generated. |  | Optional: \{\} <br /> |
+| `esiType` _[ESIType](#esitype)_ | ESIType is the ESI derivation type parsed from the first byte of ESI. |  | Enum: [Arbitrary LACP MST MAC RouterID AS] <br />Optional: \{\} <br /> |
 
 
 #### FECMode
@@ -1689,6 +1813,7 @@ _Appears in:_
 - [DNSSpec](#dnsspec)
 - [DevicePort](#deviceport)
 - [EVPNInstanceSpec](#evpninstancespec)
+- [EthernetSegmentSpec](#ethernetsegmentspec)
 - [ISISSpec](#isisspec)
 - [InterconnectInterfaceReference](#interconnectinterfacereference)
 - [InterfaceIPv4Unnumbered](#interfaceipv4unnumbered)
@@ -2537,6 +2662,24 @@ _Appears in:_
 
 
 
+#### RedundancyMode
+
+_Underlying type:_ _string_
+
+RedundancyMode defines the forwarding model for a multi-homed Ethernet Segment.
+
+_Validation:_
+- Enum: [AllActive SingleActive]
+
+_Appears in:_
+- [EthernetSegmentSpec](#ethernetsegmentspec)
+
+| Field | Description |
+| --- | --- |
+| `AllActive` | RedundancyModeAllActive enables all PE nodes in the segment to forward unicast<br />traffic simultaneously (RFC 7432 Section 14.1.2).<br /> |
+| `SingleActive` | RedundancyModeSingleActive restricts forwarding to the elected Designated Forwarder<br />only (RFC 7432 Section 14.1.1).<br /> |
+
+
 #### RendezvousPoint
 
 
@@ -3117,6 +3260,7 @@ _Appears in:_
 - [DHCPRelaySpec](#dhcprelayspec)
 - [DNSSpec](#dnsspec)
 - [EVPNInstanceSpec](#evpninstancespec)
+- [EthernetSegmentSpec](#ethernetsegmentspec)
 - [ISISSpec](#isisspec)
 - [InterfaceSpec](#interfacespec)
 - [LLDPSpec](#lldpspec)

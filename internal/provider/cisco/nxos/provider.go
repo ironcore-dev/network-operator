@@ -9,6 +9,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -62,6 +63,7 @@ var (
 	_ provider.NVEProvider              = (*Provider)(nil)
 	_ provider.LLDPProvider             = (*Provider)(nil)
 	_ provider.DHCPRelayProvider        = (*Provider)(nil)
+	_ provider.EthernetSegmentProvider  = (*Provider)(nil)
 )
 
 type Provider struct {
@@ -91,7 +93,7 @@ func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (er
 	}
 	// NXAPI only uses the address for URI construction.
 	c := *conn
-	c.Address = netip.MustParseAddrPort(conn.Address).String()
+	c.Address = netip.MustParseAddrPort(conn.Address).Addr().String()
 	p.nxapi, err = nxapi.NewClient(&c, timeout)
 	if err != nil {
 		return fmt.Errorf("failed to create nxapi client: %w", err)
@@ -3326,6 +3328,151 @@ func (p *Provider) GetDHCPRelayStatus(ctx context.Context, req *provider.DHCPRel
 	}
 
 	return s, nil
+}
+
+func (p *Provider) EnsureEthernetSegment(ctx context.Context, req *provider.EnsureEthernetSegmentRequest) error {
+	if req.EthernetSegment.Spec.RedundancyMode == v1alpha1.RedundancyModeSingleActive {
+		return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+			Field:       "spec.redundancyMode",
+			Description: "NX-OS only supports AllActive redundancy mode for Ethernet Segments",
+		})
+	}
+
+	switch req.EthernetSegment.Spec.ESIType {
+	case v1alpha1.ESITypeArbitrary, v1alpha1.ESITypeMAC:
+		// supported
+	default:
+		return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+			Field:       "spec.esiType",
+			Description: fmt.Sprintf("NX-OS only supports Arbitrary (Type 0) and MAC (Type 3) ESI types, got %q", req.EthernetSegment.Spec.ESIType),
+		})
+	}
+
+	if df := req.EthernetSegment.Spec.DesignatedForwarder; df != nil {
+		switch df.ElectionMode {
+		case v1alpha1.DFElectionModeDefault:
+			// supported
+		default:
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "spec.designatedForwarder.electionMode",
+				Description: fmt.Sprintf("NX-OS only supports Default (modulo) DF election mode, got %q", df.ElectionMode),
+			})
+		}
+	}
+
+	vpc := &Feature{Name: "vpc"}
+	if err := p.client.GetConfig(ctx, vpc); err == nil && vpc.AdminSt == AdminStEnabled {
+		return apistatus.NewFailedPreconditionError("ethernet segment: EVPN multihoming cannot be used together with vPC on the same device")
+	}
+
+	name, err := ShortName(req.Interface.Spec.Name)
+	if err != nil {
+		return err
+	}
+
+	f := new(Feature)
+	f.Name = "evpn"
+	f.AdminSt = AdminStEnabled
+
+	mh := new(MultihomingItems)
+	mh.AdminSt = AdminStEnabled
+	mh.EadEviRoute = true
+	mh.DfElectionMode = DfElectModeModulo
+	mh.DfElectionTime = "3.0"
+	if df := req.EthernetSegment.Spec.DesignatedForwarder; df != nil && df.ElectionWaitTime != nil {
+		mh.DfElectionTime = fmt.Sprintf("%g", df.ElectionWaitTime.Seconds())
+	}
+
+	mm := new(EvpnMulticastItems)
+	mm.State = AdminStEnabled
+
+	es := new(EthernetSegmentItems)
+	es.ID = name
+	es.Type = EthernetSegmentTypeNative
+
+	hex := strings.ReplaceAll(req.EthernetSegment.Spec.ESI, ":", "")
+	switch req.EthernetSegment.Spec.ESIType {
+	case v1alpha1.ESITypeArbitrary:
+		es.ESI = NewOption(hex[0:4] + "." + hex[4:8] + "." + hex[8:12] + "." + hex[12:16] + "." + hex[16:20])
+	case v1alpha1.ESITypeMAC:
+		if req.EthernetSegment.Spec.ESI != "" {
+			mac := hex[2:14]
+			es.SysMac = NewOption(mac[0:2] + ":" + mac[2:4] + ":" + mac[4:6] + ":" + mac[6:8] + ":" + mac[8:10] + ":" + mac[10:12])
+			d, err := strconv.ParseUint(hex[14:20], 16, 24)
+			if err != nil {
+				return fmt.Errorf("failed to parse ESI local discriminator: %w", err)
+			}
+			es.LocalIdentifier = uint32(d)
+		} else {
+			es.SysMacInherit = true
+			es.LocalIdentifierInherit = true
+		}
+	case v1alpha1.ESITypeLACP, v1alpha1.ESITypeMST, v1alpha1.ESITypeRouterID, v1alpha1.ESITypeAS:
+		return fmt.Errorf("ESI type %s is not supported by this provider", req.EthernetSegment.Spec.ESIType)
+	}
+
+	return p.Patch(ctx, f, mh, mm, es)
+}
+
+func (p *Provider) DeleteEthernetSegment(ctx context.Context, req *provider.DeleteEthernetSegmentRequest) error {
+	name, err := ShortName(req.Interface.Spec.Name)
+	if err != nil {
+		return err
+	}
+
+	es := &EthernetSegmentItems{ID: name}
+	return p.client.Delete(ctx, es)
+}
+
+func (p *Provider) GetEthernetSegmentStatus(ctx context.Context, req *provider.EthernetSegmentStatusRequest) (provider.EthernetSegmentStatus, error) {
+	name, err := ShortName(req.Interface.Spec.Name)
+	if err != nil {
+		return provider.EthernetSegmentStatus{}, err
+	}
+
+	res, err := p.nxapi.Do(ctx, nxapi.NewRequest("show nve ethernet-segment summary"))
+	if err != nil {
+		return provider.EthernetSegmentStatus{}, err
+	}
+	if len(res) == 0 {
+		return provider.EthernetSegmentStatus{}, nil
+	}
+
+	var resp EthernetSegmentResponse
+	if err := json.Unmarshal(res[0], &resp); err != nil {
+		return provider.EthernetSegmentStatus{}, err
+	}
+
+	var row *EthernetSegmentRow
+	for i := range resp.Table.Row {
+		short, err := ShortName(resp.Table.Row[i].Interface)
+		if err != nil {
+			continue
+		}
+		if short == name {
+			row = &resp.Table.Row[i]
+			break
+		}
+	}
+	if row == nil || row.ESI == "" {
+		return provider.EthernetSegmentStatus{}, nil
+	}
+
+	// Convert dotted-quad ESI (e.g. "0300.0034.5634.5600.0001") to colon-hex.
+	hex := strings.ReplaceAll(row.ESI, ".", "")
+	if len(hex) != 20 {
+		return provider.EthernetSegmentStatus{}, fmt.Errorf("invalid ESI format: %q", row.ESI)
+	}
+
+	parts := make([]string, 10)
+	for i := range 10 {
+		parts[i] = hex[i*2 : i*2+2]
+	}
+
+	return provider.EthernetSegmentStatus{
+		ESI:        strings.Join(parts, ":"),
+		OperStatus: strings.EqualFold(row.ESState, string(OperStUp)),
+	}, nil
 }
 
 func init() {

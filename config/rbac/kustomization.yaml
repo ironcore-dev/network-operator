@@ -43,6 +43,9 @@ resources:
 - dns_admin_role.yaml
 - dns_editor_role.yaml
 - dns_viewer_role.yaml
+- ethernetsegment_admin_role.yaml
+- ethernetsegment_editor_role.yaml
+- ethernetsegment_viewer_role.yaml
 - evpninstance_admin_role.yaml
 - evpninstance_editor_role.yaml
 - evpninstance_viewer_role.yaml

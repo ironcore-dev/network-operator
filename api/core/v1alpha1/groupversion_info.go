@@ -202,6 +202,9 @@ const (
 	// CrossDeviceReferenceReason indicates that a referenced interface belongs to a different device.
 	CrossDeviceReferenceReason = "CrossDeviceReference"
 
+	// InterfaceNotSwitchportReason indicates that a referenced interface does not have switchport configuration.
+	InterfaceNotSwitchportReason = "InterfaceNotSwitchport"
+
 	// MemberInterfaceAlreadyInUseReason indicates that a member interface is already part of another aggregate.
 	MemberInterfaceAlreadyInUseReason = "MemberInterfaceAlreadyInUse"
 

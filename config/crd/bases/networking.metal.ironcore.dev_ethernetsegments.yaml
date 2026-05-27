@@ -1,0 +1,326 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: ethernetsegments.networking.metal.ironcore.dev
+spec:
+  group: networking.metal.ironcore.dev
+  names:
+    kind: EthernetSegment
+    listKind: EthernetSegmentList
+    plural: ethernetsegments
+    shortNames:
+    - es
+    singular: ethernetsegment
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.esi
+      name: ESI
+      type: string
+    - jsonPath: .status.esiType
+      name: ESI Type
+      priority: 1
+      type: string
+    - jsonPath: .spec.deviceRef.name
+      name: Device
+      type: string
+    - jsonPath: .spec.interfaceRef.name
+      name: Interface
+      type: string
+    - jsonPath: .spec.redundancyMode
+      name: Redundancy Mode
+      priority: 1
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Configured")].status
+      name: Configured
+      priority: 1
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Operational")].status
+      name: Operational
+      priority: 1
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Paused")].status
+      name: Paused
+      priority: 1
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: EthernetSegment is the Schema for the ethernetsegments API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              Specification of the desired state of the resource.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              designatedForwarder:
+                description: |-
+                  DesignatedForwarder configures the Designated Forwarder election for this
+                  Ethernet Segment (RFC 7432 Section 8.5, RFC 8584).
+                properties:
+                  electionMode:
+                    default: Default
+                    description: ElectionMode selects the DF election algorithm.
+                    enum:
+                    - Default
+                    - HighestRandomWeight
+                    - Preference
+                    type: string
+                  electionWaitTime:
+                    description: |-
+                      ElectionWaitTime is the DF election hold timer. The PE waits this
+                      duration before selecting the DF based on highest preference.
+                      Only applicable when ElectionMode is Preference.
+                    type: string
+                type: object
+                x-kubernetes-validations:
+                - message: electionWaitTime is only valid when electionMode is Preference
+                  rule: self.electionMode == 'Preference' || !has(self.electionWaitTime)
+              deviceRef:
+                description: |-
+                  DeviceRef is the name of the Device this object belongs to. The Device object must exist in the same namespace.
+                  Immutable.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+                x-kubernetes-validations:
+                - message: DeviceRef is immutable
+                  rule: self == oldSelf
+              esi:
+                description: |-
+                  ESI is the 10-byte Ethernet Segment Identifier in colon-separated hex notation
+                  (e.g., "00:11:22:33:44:55:66:77:88:01"). Must not be all-zeros or all-ones (reserved per RFC 7432).
+                  Required when ESIType is Arbitrary. Must be omitted when ESIType is LACP or MST.
+                  Optional for MAC, RouterID, and AS types (omit to auto-derive on the device).
+                  Immutable once set.
+                pattern: ^([0-9a-fA-F]{2}:){9}[0-9a-fA-F]{2}$
+                type: string
+                x-kubernetes-validations:
+                - message: ESI is immutable once set
+                  rule: size(oldSelf) == 0 || self == oldSelf
+                - message: ESI must not be all-zeros (reserved for single-homed per
+                    RFC 7432)
+                  rule: self.lowerAscii() != '00:00:00:00:00:00:00:00:00:00'
+                - message: ESI must not be MAX-ESI (reserved per RFC 7432)
+                  rule: self.lowerAscii() != 'ff:ff:ff:ff:ff:ff:ff:ff:ff:ff'
+              esiType:
+                default: Arbitrary
+                description: |-
+                  ESIType selects the ESI derivation method (RFC 7432 Section 5).
+                  When Arbitrary (Type 0), ESI must be provided explicitly.
+                  When LACP or MST (Types 1, 2), ESI is always auto-derived (ESI field must be omitted).
+                  When MAC, RouterID, or AS (Types 3-5), ESI may be explicit or auto-derived.
+                  Immutable.
+                enum:
+                - Arbitrary
+                - LACP
+                - MST
+                - MAC
+                - RouterID
+                - AS
+                type: string
+                x-kubernetes-validations:
+                - message: ESIType is immutable
+                  rule: self == oldSelf
+              interfaceRef:
+                description: |-
+                  InterfaceRef is the name of the Interface this Ethernet Segment is associated with.
+                  The Interface must be of type Aggregate and belong to the same Device.
+                  Immutable.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+                x-kubernetes-validations:
+                - message: InterfaceRef is immutable
+                  rule: self == oldSelf
+              providerConfigRef:
+                description: ProviderConfigRef is a reference to a resource holding
+                  the provider-specific configuration of this Ethernet Segment.
+                properties:
+                  apiVersion:
+                    description: APIVersion is the api group version of the resource
+                      being referenced.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/)?([a-z0-9]([-a-z0-9]*[a-z0-9])?)$
+                    type: string
+                  kind:
+                    description: |-
+                      Kind of the resource being referenced.
+                      Kind must consist of alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                    type: string
+                  name:
+                    description: |-
+                      Name of the resource being referenced.
+                      Name must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+              redundancyMode:
+                default: AllActive
+                description: |-
+                  RedundancyMode defines the multi-homing forwarding model for this Ethernet Segment
+                  as defined in RFC 7432 Section 14.1.
+                enum:
+                - AllActive
+                - SingleActive
+                type: string
+            required:
+            - deviceRef
+            - esiType
+            - interfaceRef
+            type: object
+            x-kubernetes-validations:
+            - message: ESI is required when ESIType is Arbitrary
+              rule: self.esiType != 'Arbitrary' || has(self.esi)
+            - message: ESI must be omitted when ESIType is LACP or MST
+              rule: '!(self.esiType == ''LACP'' || self.esiType == ''MST'') || !has(self.esi)'
+            - message: ESI first byte must match ESIType
+              rule: '!has(self.esi) || (self.esiType == ''Arbitrary'' && self.esi.startsWith(''00''))
+                || (self.esiType == ''MAC'' && self.esi.startsWith(''03'')) || (self.esiType
+                == ''RouterID'' && self.esi.startsWith(''04'')) || (self.esiType ==
+                ''AS'' && self.esi.startsWith(''05''))'
+          status:
+            description: |-
+              Status of the resource. This is set and updated automatically.
+              Read-only.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              esi:
+                description: |-
+                  ESI is the realized 10-byte Ethernet Segment Identifier on the device,
+                  in colon-separated hex notation. Populated from spec or read back from
+                  device when auto-generated.
+                type: string
+              esiType:
+                description: ESIType is the ESI derivation type parsed from the first
+                  byte of ESI.
+                enum:
+                - Arbitrary
+                - LACP
+                - MST
+                - MAC
+                - RouterID
+                - AS
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
