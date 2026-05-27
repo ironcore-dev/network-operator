@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"slices"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -54,6 +55,8 @@ type FabricReconciler struct {
 // +kubebuilder:rbac:groups=evpn.networking.metal.ironcore.dev,resources=fabrics/finalizers,verbs=update
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=devices,verbs=get;list;watch
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=interfaces,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=ospf,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=isis,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=claims,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=ipaddresspools,verbs=get;list;watch
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=ipprefixpools,verbs=get;list;watch
@@ -164,6 +167,8 @@ func (r *FabricReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&evpnv1alpha1.Fabric{}).
 		Owns(&poolv1alpha1.Claim{}).
 		Owns(&v1alpha1.Interface{}).
+		Owns(&v1alpha1.OSPF{}).
+		Owns(&v1alpha1.ISIS{}).
 		// Re-reconcile when a Device's labels change so that devices newly
 		// matching a deviceSelector are enrolled into the fabric.
 		Watches(
@@ -185,17 +190,29 @@ func (r *FabricReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // ReconcileFunc defines a function type for reconciliation phases.
 // Each phase should return a non-zero Result or an error if it wants to stop the reconciliation loop.
-type ReconcileFunc func(context.Context, *evpnv1alpha1.Fabric) (ctrl.Result, error)
+type ReconcileFunc func(context.Context, *evpnv1alpha1.Fabric, *ReconcileState) (ctrl.Result, error)
+
+// ReconcileState accumulates per-device interface references across reconciliation phases
+// so that later phases (e.g. IGP provisioning) can consume them without redundant API calls.
+type ReconcileState struct {
+	loopbacks map[string][]*v1alpha1.Interface // device name → loopback Interfaces
+	uplinks   map[string][]*v1alpha1.Interface // device name → underlay uplink Interfaces
+}
 
 func (r *FabricReconciler) reconcile(ctx context.Context, fabric *evpnv1alpha1.Fabric) (ctrl.Result, error) {
+	state := &ReconcileState{
+		loopbacks: make(map[string][]*v1alpha1.Interface),
+		uplinks:   make(map[string][]*v1alpha1.Interface),
+	}
 	phases := []ReconcileFunc{
 		r.reconcileSystemLoopbacks,
 		r.reconcileVTEPLoopbacks,
 		r.reconcileAnycastRPLoopbacks,
 		r.reconcileUnderlayLinks,
+		r.reconcileUnderlayIGP,
 	}
 	for _, phase := range phases {
-		res, err := phase(ctx, fabric)
+		res, err := phase(ctx, fabric, state)
 		if err != nil || !res.IsZero() {
 			return res, err
 		}
@@ -223,7 +240,7 @@ const (
 )
 
 // reconcileSystemLoopbacks ensures lo0 (Router-ID / BGP source) exists on every fabric device.
-func (r *FabricReconciler) reconcileSystemLoopbacks(ctx context.Context, fabric *evpnv1alpha1.Fabric) (ctrl.Result, error) {
+func (r *FabricReconciler) reconcileSystemLoopbacks(ctx context.Context, fabric *evpnv1alpha1.Fabric, state *ReconcileState) (ctrl.Result, error) {
 	selector, err := metav1.LabelSelectorAsSelector(&fabric.Spec.DeviceSelector)
 	if err != nil {
 		return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("invalid deviceSelector: %w", err))
@@ -238,15 +255,19 @@ func (r *FabricReconciler) reconcileSystemLoopbacks(ctx context.Context, fabric 
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		if err := r.reconcileLoopbackInterface(ctx, fabric, &devices.Items[i], LoopbackRouterID, claim); err != nil {
+		intf, err := r.reconcileLoopbackInterface(ctx, fabric, &devices.Items[i], LoopbackRouterID, claim)
+		if err != nil {
 			return ctrl.Result{}, err
+		}
+		if intf != nil {
+			state.loopbacks[devices.Items[i].Name] = append(state.loopbacks[devices.Items[i].Name], intf)
 		}
 	}
 	return ctrl.Result{}, nil
 }
 
 // reconcileVTEPLoopbacks ensures lo1 (primary VTEP) and lo2 (anycast VTEP) exist on VTEP devices.
-func (r *FabricReconciler) reconcileVTEPLoopbacks(ctx context.Context, fabric *evpnv1alpha1.Fabric) (ctrl.Result, error) {
+func (r *FabricReconciler) reconcileVTEPLoopbacks(ctx context.Context, fabric *evpnv1alpha1.Fabric, state *ReconcileState) (ctrl.Result, error) {
 	selector, err := metav1.LabelSelectorAsSelector(&fabric.Spec.VTEP.DeviceSelector)
 	if err != nil {
 		return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("invalid vtep deviceSelector: %w", err))
@@ -262,8 +283,12 @@ func (r *FabricReconciler) reconcileVTEPLoopbacks(ctx context.Context, fabric *e
 			if err != nil {
 				return ctrl.Result{}, err
 			}
-			if err := r.reconcileLoopbackInterface(ctx, fabric, &devices.Items[i], id, claim); err != nil {
+			intf, err := r.reconcileLoopbackInterface(ctx, fabric, &devices.Items[i], id, claim)
+			if err != nil {
 				return ctrl.Result{}, err
+			}
+			if intf != nil {
+				state.loopbacks[devices.Items[i].Name] = append(state.loopbacks[devices.Items[i].Name], intf)
 			}
 		}
 	}
@@ -273,7 +298,7 @@ func (r *FabricReconciler) reconcileVTEPLoopbacks(ctx context.Context, fabric *e
 // reconcileAnycastRPLoopbacks ensures lo100 (PIM anycast RP) exists on RP devices.
 // One claim is allocated per AnycastRendezvousPoint group; all RP devices in the group
 // share that single address.
-func (r *FabricReconciler) reconcileAnycastRPLoopbacks(ctx context.Context, fabric *evpnv1alpha1.Fabric) (ctrl.Result, error) {
+func (r *FabricReconciler) reconcileAnycastRPLoopbacks(ctx context.Context, fabric *evpnv1alpha1.Fabric, state *ReconcileState) (ctrl.Result, error) {
 	if fabric.Spec.BUM.PIM == nil {
 		return ctrl.Result{}, nil
 	}
@@ -292,8 +317,12 @@ func (r *FabricReconciler) reconcileAnycastRPLoopbacks(ctx context.Context, fabr
 			return ctrl.Result{}, fmt.Errorf("listing RP devices for %q: %w", rp.Name, err)
 		}
 		for i := range devices.Items {
-			if err := r.reconcileLoopbackInterface(ctx, fabric, &devices.Items[i], LoopbackAnycastRP, claim); err != nil {
+			intf, err := r.reconcileLoopbackInterface(ctx, fabric, &devices.Items[i], LoopbackAnycastRP, claim)
+			if err != nil {
 				return ctrl.Result{}, err
+			}
+			if intf != nil {
+				state.loopbacks[devices.Items[i].Name] = append(state.loopbacks[devices.Items[i].Name], intf)
 			}
 		}
 	}
@@ -333,22 +362,22 @@ func (r *FabricReconciler) reconcileLoopbackClaim(ctx context.Context, fabric *e
 }
 
 // reconcileLoopbackInterface creates or updates the Interface for a given device loopback
-// once its Claim is allocated. A no-op if the claim is not yet allocated; the Owns() watch
+// once its Claim is allocated. Returns nil if the claim is not yet allocated; the Owns() watch
 // on Claim will re-enqueue this Fabric when the pool controller updates the claim status.
-func (r *FabricReconciler) reconcileLoopbackInterface(ctx context.Context, fabric *evpnv1alpha1.Fabric, device *v1alpha1.Device, loopbackID int, claim *poolv1alpha1.Claim) error {
+func (r *FabricReconciler) reconcileLoopbackInterface(ctx context.Context, fabric *evpnv1alpha1.Fabric, device *v1alpha1.Device, loopbackID int, claim *poolv1alpha1.Claim) (*v1alpha1.Interface, error) {
 	cond := conditions.Get(claim, poolv1alpha1.AllocatedCondition)
 	if cond == nil || cond.Status != metav1.ConditionTrue || claim.Status.Value == "" {
-		return nil
+		return nil, nil //nolint:nilnil
 	}
 
 	prefix, err := v1alpha1.ParsePrefix(claim.Status.Value + "/32")
 	if err != nil {
-		return reconcile.TerminalError(fmt.Errorf("parsing allocated address %q: %w", claim.Status.Value, err))
+		return nil, reconcile.TerminalError(fmt.Errorf("parsing allocated address %q: %w", claim.Status.Value, err))
 	}
 
 	handle, err := r.Provider().(provider.InterfaceProvider).LoopbackInterfaceName(loopbackID)
 	if err != nil {
-		return reconcile.TerminalError(fmt.Errorf("resolving loopback interface name for id %d: %w", loopbackID, err))
+		return nil, reconcile.TerminalError(fmt.Errorf("resolving loopback interface name for id %d: %w", loopbackID, err))
 	}
 
 	name := fmt.Sprintf("%s-%s-%s", fabric.Name, device.Name, handle)
@@ -386,12 +415,12 @@ func (r *FabricReconciler) reconcileLoopbackInterface(ctx context.Context, fabri
 		return controllerutil.SetOwnerReference(fabric, intf, r.Scheme)
 	})
 	if err != nil {
-		return fmt.Errorf("reconciling interface %s: %w", name, err)
+		return nil, fmt.Errorf("reconciling interface %s: %w", name, err)
 	}
 	if res == controllerutil.OperationResultCreated {
 		r.Recorder.Eventf(fabric, nil, "Normal", "InterfaceCreated", "Reconcile", "Created loopback interface %s", name)
 	}
-	return nil
+	return intf, nil
 }
 
 // reconcileUnderlayLinks patches pre-existing Interface resources matched by
@@ -399,7 +428,7 @@ func (r *FabricReconciler) reconcileLoopbackInterface(ctx context.Context, fabri
 // For unnumbered addressing, interfaces borrow the IPv4 address from their device's lo0.
 // For numbered addressing, one /31 prefix Claim is allocated per link pair (identified by
 // PhysicalInterfaceNeighborLabel); both ends derive their host address from that prefix.
-func (r *FabricReconciler) reconcileUnderlayLinks(ctx context.Context, fabric *evpnv1alpha1.Fabric) (ctrl.Result, error) {
+func (r *FabricReconciler) reconcileUnderlayLinks(ctx context.Context, fabric *evpnv1alpha1.Fabric, state *ReconcileState) (ctrl.Result, error) {
 	intfSelector, err := metav1.LabelSelectorAsSelector(&fabric.Spec.Underlay.InterfaceSelector)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("invalid underlay interfaceSelector: %w", err)
@@ -428,6 +457,7 @@ func (r *FabricReconciler) reconcileUnderlayLinks(ctx context.Context, fabric *e
 		if !deviceSet.Has(intf.Spec.DeviceRef.Name) {
 			return ctrl.Result{}, fmt.Errorf("interface %s references device %s which is not part of the fabric", intf.Name, intf.Spec.DeviceRef.Name)
 		}
+		state.uplinks[intf.Spec.DeviceRef.Name] = append(state.uplinks[intf.Spec.DeviceRef.Name], intf)
 		var err error
 		switch {
 		case fabric.Spec.Underlay.Addressing.Unnumbered:
@@ -545,6 +575,168 @@ func (r *FabricReconciler) reconcileUnderlayPrefixClaim(ctx context.Context, fab
 		r.Recorder.Eventf(fabric, nil, "Normal", "ClaimCreated", "Reconcile", "Created underlay prefix claim %s", claimName)
 	}
 	return claim, nil
+}
+
+// reconcileUnderlayIGP materialises the underlay IGP (OSPF or ISIS) as one resource per
+// fabric device. Loopbacks and uplinks are read from the reconcileState accumulated by
+// earlier phases. Devices whose lo0 is not yet allocated are skipped; the Owns() watch on
+// Interface re-enqueues the Fabric once lo0 appears.
+func (r *FabricReconciler) reconcileUnderlayIGP(ctx context.Context, fabric *evpnv1alpha1.Fabric, state *ReconcileState) (ctrl.Result, error) {
+	selector, err := metav1.LabelSelectorAsSelector(&fabric.Spec.DeviceSelector)
+	if err != nil {
+		return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("invalid deviceSelector: %w", err))
+	}
+
+	devices := &v1alpha1.DeviceList{}
+	if err := r.List(ctx, devices, client.InNamespace(fabric.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
+		return ctrl.Result{}, fmt.Errorf("listing devices: %w", err)
+	}
+
+	for i := range devices.Items {
+		device := &devices.Items[i]
+
+		loopbacks := slices.Clone(state.loopbacks[device.Name])
+		uplinks := slices.Clone(state.uplinks[device.Name])
+		slices.SortFunc(loopbacks, func(a, b *v1alpha1.Interface) int { return cmp.Compare(a.Name, b.Name) })
+		slices.SortFunc(uplinks, func(a, b *v1alpha1.Interface) int { return cmp.Compare(a.Name, b.Name) })
+
+		lo0Name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, device.Name, LoopbackRouterID)
+
+		idx := slices.IndexFunc(loopbacks, func(intf *v1alpha1.Interface) bool { return intf.Name == lo0Name })
+		if idx < 0 {
+			ctrl.LoggerFrom(ctx).V(1).Info("Skipping IGP reconciliation: lo0 not yet allocated", "device", device.Name)
+			continue
+		}
+
+		lo0 := loopbacks[idx]
+		if lo0.Spec.IPv4 == nil || len(lo0.Spec.IPv4.Addresses) == 0 {
+			return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("lo0 interface %s has no IPv4 address", lo0Name))
+		}
+
+		routerID := lo0.Spec.IPv4.Addresses[0].Addr().String()
+		name := fmt.Sprintf("%s-%s-underlay", fabric.Name, device.Name)
+
+		switch fabric.Spec.Underlay.Protocol {
+		case evpnv1alpha1.UnderlayProtocolOSPF:
+			if err := r.reconcileOSPF(ctx, device, fabric, name, routerID, loopbacks, uplinks); err != nil {
+				return ctrl.Result{}, err
+			}
+		case evpnv1alpha1.UnderlayProtocolISIS:
+			if err := r.reconcileISIS(ctx, device, fabric, name, routerID, loopbacks, uplinks); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	}
+	return ctrl.Result{}, nil
+}
+
+// reconcileOSPF creates or updates the underlay OSPF resource for a fabric device.
+// All loopbacks are placed in area 0.0.0.0 as passive (advertised but no adjacencies);
+// uplinks are placed in area 0.0.0.0 as active.
+func (r *FabricReconciler) reconcileOSPF(ctx context.Context, device *v1alpha1.Device, fabric *evpnv1alpha1.Fabric, name, routerID string, loopbacks, uplinks []*v1alpha1.Interface) error {
+	ospf := &v1alpha1.OSPF{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: fabric.Namespace,
+		},
+	}
+	res, err := controllerutil.CreateOrPatch(ctx, r.Client, ospf, func() error {
+		if ospf.Labels == nil {
+			ospf.Labels = make(map[string]string)
+		}
+		ospf.Labels[evpnv1alpha1.FabricLabel] = fabric.Name
+		ospf.Spec.DeviceRef = v1alpha1.LocalObjectReference{Name: device.Name}
+		ospf.Spec.AdminState = v1alpha1.AdminStateUp
+		ospf.Spec.Instance = "UNDERLAY"
+		ospf.Spec.RouterID = routerID
+		ospf.Spec.LogAdjacencyChanges = new(true)
+		ospf.Spec.InterfaceRefs = make([]v1alpha1.OSPFInterface, 0, len(loopbacks)+len(uplinks))
+		for _, lo := range loopbacks {
+			ospf.Spec.InterfaceRefs = append(ospf.Spec.InterfaceRefs, v1alpha1.OSPFInterface{
+				LocalObjectReference: v1alpha1.LocalObjectReference{Name: lo.Name},
+				Area:                 "0.0.0.0",
+				Passive:              new(true),
+			})
+		}
+		for _, eth := range uplinks {
+			ospf.Spec.InterfaceRefs = append(ospf.Spec.InterfaceRefs, v1alpha1.OSPFInterface{
+				LocalObjectReference: v1alpha1.LocalObjectReference{Name: eth.Name},
+				Area:                 "0.0.0.0",
+			})
+		}
+		return controllerutil.SetControllerReference(fabric, ospf, r.Scheme)
+	})
+	if err != nil {
+		return fmt.Errorf("reconciling OSPF %s: %w", name, err)
+	}
+	if res == controllerutil.OperationResultCreated {
+		r.Recorder.Eventf(fabric, nil, "Normal", "OSPFCreated", "Reconcile", "Created underlay OSPF %s", name)
+	}
+	return nil
+}
+
+// reconcileISIS creates or updates the underlay ISIS resource for a fabric device.
+// Cisco EVPN-VXLAN guidance: Level2, OverloadBit=OnStartup, AddressFamilies=[IPv4Unicast].
+// The NET is derived from the device's lo0 IPv4 (see isisNETFromIPv4).
+// ISIS has no per-interface passive flag in the API; loopbacks are simply added to
+// InterfaceRefs and rely on the protocol's intrinsic behaviour (no neighbors form on
+// loopbacks).
+func (r *FabricReconciler) reconcileISIS(ctx context.Context, device *v1alpha1.Device, fabric *evpnv1alpha1.Fabric, name, routerID string, loopbacks, uplinks []*v1alpha1.Interface) error {
+	net, err := isisNETFromIPv4(routerID)
+	if err != nil {
+		return err
+	}
+
+	isis := &v1alpha1.ISIS{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: fabric.Namespace,
+		},
+	}
+	res, err := controllerutil.CreateOrPatch(ctx, r.Client, isis, func() error {
+		if isis.Labels == nil {
+			isis.Labels = make(map[string]string)
+		}
+		isis.Labels[evpnv1alpha1.FabricLabel] = fabric.Name
+		isis.Spec.DeviceRef = v1alpha1.LocalObjectReference{Name: device.Name}
+		isis.Spec.AdminState = v1alpha1.AdminStateUp
+		isis.Spec.Instance = "UNDERLAY"
+		isis.Spec.NetworkEntityTitle = net
+		isis.Spec.Type = v1alpha1.ISISLevel2
+		isis.Spec.OverloadBit = v1alpha1.OverloadBitOnStartup
+		isis.Spec.AddressFamilies = []v1alpha1.AddressFamily{v1alpha1.AddressFamilyIPv4Unicast}
+		refs := make([]v1alpha1.LocalObjectReference, 0, len(loopbacks)+len(uplinks))
+		for _, lo := range loopbacks {
+			refs = append(refs, v1alpha1.LocalObjectReference{Name: lo.Name})
+		}
+		for _, up := range uplinks {
+			refs = append(refs, v1alpha1.LocalObjectReference{Name: up.Name})
+		}
+		isis.Spec.InterfaceRefs = refs
+		return controllerutil.SetControllerReference(fabric, isis, r.Scheme)
+	})
+	if err != nil {
+		return fmt.Errorf("reconciling ISIS %s: %w", name, err)
+	}
+	if res == controllerutil.OperationResultCreated {
+		r.Recorder.Eventf(fabric, nil, "Normal", "ISISCreated", "Reconcile", "Created underlay ISIS %s", name)
+	}
+	return nil
+}
+
+// isisNETFromIPv4 derives a Network Entity Title from an IPv4 address by zero-padding
+// each octet to three digits and regrouping into 4-hex-digit system-ID chunks. For
+// example "10.0.0.10" → "010.000.000.010" → "0100.0000.0010" → "49.0001.0100.0000.0010.00".
+// Area 49.0001 (private) is conventional for EVPN fabrics.
+func isisNETFromIPv4(addr string) (string, error) {
+	ip, err := netip.ParseAddr(addr)
+	if err != nil || !ip.Is4() {
+		return "", fmt.Errorf("invalid IPv4 address %q", addr)
+	}
+	octets := ip.As4()
+	padded := fmt.Sprintf("%03d%03d%03d%03d", octets[0], octets[1], octets[2], octets[3])
+	systemID := fmt.Sprintf("%s.%s.%s", padded[0:4], padded[4:8], padded[8:12])
+	return fmt.Sprintf("49.0001.%s.00", systemID), nil
 }
 
 // devicesToFabrics is a [handler.MapFunc] that enqueues all Fabrics whose

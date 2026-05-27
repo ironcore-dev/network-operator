@@ -318,6 +318,51 @@ var _ = Describe("Fabric Controller", func() {
 				}).Should(Succeed())
 			}
 
+			By("Verifying an OSPF resource is created per fabric device with the expected interface roles")
+			deviceUplinks := map[string]*corev1alpha1.Interface{
+				spine1.Name: spineIntf,
+				leaf1.Name:  leafIntf,
+			}
+			for _, d := range []*corev1alpha1.Device{spine1, spine2, leaf1, leaf2} {
+				Eventually(func(g Gomega) {
+					ospf := &corev1alpha1.OSPF{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-underlay", Namespace: metav1.NamespaceDefault}, ospf)).To(Succeed())
+					g.Expect(ospf.Spec.DeviceRef.Name).To(Equal(d.Name))
+					g.Expect(ospf.Spec.Instance).To(Equal("UNDERLAY"))
+					g.Expect(ospf.Spec.AdminState).To(Equal(corev1alpha1.AdminStateUp))
+					g.Expect(ospf.Spec.LogAdjacencyChanges).To(HaveValue(BeTrue()))
+
+					// RouterID should match the lo0 address of this device.
+					lo0 := &corev1alpha1.Interface{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-lo0", Namespace: metav1.NamespaceDefault}, lo0)).To(Succeed())
+					g.Expect(lo0.Spec.IPv4).NotTo(BeNil())
+					g.Expect(lo0.Spec.IPv4.Addresses).To(HaveLen(1))
+					g.Expect(ospf.Spec.RouterID).To(Equal(lo0.Spec.IPv4.Addresses[0].Addr().String()))
+
+					// lo0 must be present, area 0.0.0.0, passive=true.
+					g.Expect(ospf.Spec.InterfaceRefs).To(ContainElement(SatisfyAll(
+						HaveField("LocalObjectReference.Name", fabric.Name+"-"+d.Name+"-lo0"),
+						HaveField("Area", "0.0.0.0"),
+						HaveField("Passive", HaveValue(BeTrue())),
+					)))
+
+					// Each device in deviceUplinks has its uplink as an active member.
+					if up, ok := deviceUplinks[d.Name]; ok {
+						g.Expect(ospf.Spec.InterfaceRefs).To(ContainElement(SatisfyAll(
+							HaveField("LocalObjectReference.Name", up.Name),
+							HaveField("Area", "0.0.0.0"),
+							HaveField("Passive", BeNil()),
+						)))
+					}
+
+					g.Expect(ospf.OwnerReferences).To(ContainElement(SatisfyAll(
+						HaveField("Kind", "Fabric"),
+						HaveField("Name", fabric.Name),
+						HaveField("Controller", HaveValue(BeTrue())),
+					)))
+				}).Should(Succeed())
+			}
+
 			By("Verifying the Fabric Ready condition is True once all phases are complete")
 			Eventually(func(g Gomega) {
 				f := &evpnv1alpha1.Fabric{}
@@ -558,6 +603,199 @@ var _ = Describe("Fabric Controller", func() {
 				g.Expect(spineAddr).NotTo(Equal(leafAddr))
 				g.Expect(si.Spec.IPv4.Addresses[0].Masked()).To(Equal(li.Spec.IPv4.Addresses[0].Masked()))
 			}).Should(Succeed())
+		})
+	})
+
+	Context("When reconciling with the ISIS underlay protocol", func() {
+		var (
+			loopbackPool *poolv1alpha1.IPAddressPool
+			spine1       *corev1alpha1.Device
+			leaf1        *corev1alpha1.Device
+			spineIntf    *corev1alpha1.Interface
+			leafIntf     *corev1alpha1.Interface
+		)
+
+		BeforeEach(func() {
+			By("Creating an IPAddressPool for loopback allocation")
+			loopbackPool = &poolv1alpha1.IPAddressPool{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "loopback-pool-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: poolv1alpha1.IPAddressPoolSpec{
+					Prefixes: []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.0.0.0/24")},
+				},
+			}
+			Expect(k8sClient.Create(ctx, loopbackPool)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, loopbackPool))).To(Succeed())
+			})
+
+			By("Creating spine-1")
+			spine1 = &corev1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "spine1-",
+					Namespace:    metav1.NamespaceDefault,
+					Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "spine"},
+				},
+				Spec: corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.0.1:9339"}},
+			}
+			Expect(k8sClient.Create(ctx, spine1)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, spine1))).To(Succeed())
+			})
+
+			By("Creating leaf-1")
+			leaf1 = &corev1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "leaf1-",
+					Namespace:    metav1.NamespaceDefault,
+					Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "leaf"},
+				},
+				Spec: corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.1.1:9339"}},
+			}
+			Expect(k8sClient.Create(ctx, leaf1)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, leaf1))).To(Succeed())
+			})
+
+			By("Creating a fabric-facing Interface on spine-1")
+			spineIntf = &corev1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: spine1.Name + "-eth0-",
+					Namespace:    metav1.NamespaceDefault,
+					Labels:       map[string]string{"role": "fabric"},
+				},
+				Spec: corev1alpha1.InterfaceSpec{
+					DeviceRef:  corev1alpha1.LocalObjectReference{Name: spine1.Name},
+					Name:       "eth0",
+					Type:       corev1alpha1.InterfaceTypePhysical,
+					AdminState: corev1alpha1.AdminStateUp,
+				},
+			}
+			Expect(k8sClient.Create(ctx, spineIntf)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, spineIntf))).To(Succeed())
+			})
+
+			By("Creating a fabric-facing Interface on leaf-1")
+			leafIntf = &corev1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: leaf1.Name + "-eth0-",
+					Namespace:    metav1.NamespaceDefault,
+					Labels:       map[string]string{"role": "fabric"},
+				},
+				Spec: corev1alpha1.InterfaceSpec{
+					DeviceRef:  corev1alpha1.LocalObjectReference{Name: leaf1.Name},
+					Name:       "eth0",
+					Type:       corev1alpha1.InterfaceTypePhysical,
+					AdminState: corev1alpha1.AdminStateUp,
+				},
+			}
+			Expect(k8sClient.Create(ctx, leafIntf)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, leafIntf))).To(Succeed())
+			})
+		})
+
+		It("Should create an ISIS resource per device with Cisco EVPN-VXLAN defaults", func() {
+			By("Creating the Fabric resource with ISIS underlay")
+			fabric := &evpnv1alpha1.Fabric{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "fabric-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: evpnv1alpha1.FabricSpec{
+					DeviceSelector: metav1.LabelSelector{
+						MatchLabels: map[string]string{"topology.kubernetes.io/zone": "test-zone"},
+					},
+					Loopbacks: evpnv1alpha1.FabricLoopbacksSpec{
+						IPAddressPoolRef: corev1alpha1.LocalObjectReference{Name: loopbackPool.Name},
+					},
+					Underlay: evpnv1alpha1.FabricUnderlaySpec{
+						Protocol:          evpnv1alpha1.UnderlayProtocolISIS,
+						InterfaceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "fabric"}},
+						Addressing:        evpnv1alpha1.FabricUnderlayAddressingSpec{Unnumbered: true},
+					},
+					Overlay: evpnv1alpha1.FabricOverlaySpec{
+						Protocol: evpnv1alpha1.OverlayProtocolIBGP,
+						IBGP: &evpnv1alpha1.FabricIBGPSpec{
+							ASNumber: intstr.FromInt(65000),
+							RouteReflectors: []evpnv1alpha1.RouteReflectorGroup{
+								{
+									Name:                 "spines",
+									DeviceSelector:       metav1.LabelSelector{MatchLabels: map[string]string{"role": "spine"}},
+									ClientDeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "leaf"}},
+								},
+							},
+						},
+					},
+					BUM: evpnv1alpha1.FabricBUMSpec{
+						Type: evpnv1alpha1.BUMTypeMulticast,
+						PIM: &evpnv1alpha1.FabricPIMSpec{
+							AnycastRendezvousPoints: []evpnv1alpha1.AnycastRendezvousPoint{
+								{
+									Name:                 "spine-rp",
+									MulticastGroups:      []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("224.0.0.0/4")},
+									DeviceSelector:       metav1.LabelSelector{MatchLabels: map[string]string{"role": "spine"}},
+									ClientDeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "leaf"}},
+								},
+							},
+						},
+					},
+					VTEP: evpnv1alpha1.FabricVTEPSpec{
+						DeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "leaf"}},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, fabric)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, fabric))).To(Succeed())
+				Expect(k8sClient.DeleteAllOf(ctx, &poolv1alpha1.Claim{}, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+				Eventually(func(g Gomega) {
+					list := &poolv1alpha1.ClaimList{}
+					g.Expect(k8sClient.List(ctx, list, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+					g.Expect(list.Items).To(BeEmpty())
+				}).Should(Succeed())
+			})
+
+			deviceUplinks := map[string]*corev1alpha1.Interface{
+				spine1.Name: spineIntf,
+				leaf1.Name:  leafIntf,
+			}
+
+			By("Verifying an ISIS resource is created per fabric device with Cisco EVPN-VXLAN defaults")
+			for _, d := range []*corev1alpha1.Device{spine1, leaf1} {
+				Eventually(func(g Gomega) {
+					isis := &corev1alpha1.ISIS{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-underlay", Namespace: metav1.NamespaceDefault}, isis)).To(Succeed())
+					g.Expect(isis.Spec.DeviceRef.Name).To(Equal(d.Name))
+					g.Expect(isis.Spec.Instance).To(Equal("UNDERLAY"))
+					g.Expect(isis.Spec.AdminState).To(Equal(corev1alpha1.AdminStateUp))
+					g.Expect(isis.Spec.Type).To(Equal(corev1alpha1.ISISLevel2))
+					g.Expect(isis.Spec.OverloadBit).To(Equal(corev1alpha1.OverloadBitOnStartup))
+					g.Expect(isis.Spec.AddressFamilies).To(ConsistOf(corev1alpha1.AddressFamilyIPv4Unicast))
+
+					// NET must be derivable from the lo0 address using the documented padding scheme.
+					lo0 := &corev1alpha1.Interface{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-lo0", Namespace: metav1.NamespaceDefault}, lo0)).To(Succeed())
+					g.Expect(lo0.Spec.IPv4).NotTo(BeNil())
+					g.Expect(lo0.Spec.IPv4.Addresses).To(HaveLen(1))
+					expectedNET, err := isisNETFromIPv4(lo0.Spec.IPv4.Addresses[0].Addr().String())
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(isis.Spec.NetworkEntityTitle).To(Equal(expectedNET))
+
+					// lo0 and the device's uplink must be present in InterfaceRefs.
+					g.Expect(isis.Spec.InterfaceRefs).To(ContainElement(corev1alpha1.LocalObjectReference{Name: fabric.Name + "-" + d.Name + "-lo0"}))
+					g.Expect(isis.Spec.InterfaceRefs).To(ContainElement(corev1alpha1.LocalObjectReference{Name: deviceUplinks[d.Name].Name}))
+
+					g.Expect(isis.OwnerReferences).To(ContainElement(SatisfyAll(
+						HaveField("Kind", "Fabric"),
+						HaveField("Name", fabric.Name),
+						HaveField("Controller", HaveValue(BeTrue())),
+					)))
+				}).Should(Succeed())
+			}
 		})
 	})
 })
