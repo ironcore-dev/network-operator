@@ -552,6 +552,17 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		pe.SrcIf = srcIf
 	}
 
+	if req.BGPPeer.Spec.LocalASNumber != nil {
+		if req.BGPPeer.Spec.ASNumber.String() == req.BGP.Spec.ASNumber.String() {
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "spec.localAS",
+				Description: "local-as cannot be configured on iBGP peers",
+			})
+		}
+		pe.LocalAsnItems.LocalAsn = req.BGPPeer.Spec.LocalASNumber.String()
+		pe.LocalAsnItems.AsnPropagate = AsnPropagateNone
+	}
+
 	if req.BGPPeer.Spec.AddressFamilies != nil {
 		for t, af := range map[AddressFamily]*v1alpha1.BGPPeerAddressFamily{
 			AddressFamilyIPv4Unicast: req.BGPPeer.Spec.AddressFamilies.Ipv4Unicast,

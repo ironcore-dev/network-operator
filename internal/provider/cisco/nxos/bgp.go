@@ -187,18 +187,37 @@ func (af *BGPDomAfItem) SetMultipath(m *v1alpha1.BGPMultipath) error {
 }
 
 type BGPPeer struct {
-	VRFName             string      `json:"-"`
-	Addr                string      `json:"addr"`
-	AdminSt             AdminSt     `json:"adminSt"`
-	Asn                 string      `json:"asn"`
-	AsnType             PeerAsnType `json:"asnType"`
-	Name                string      `json:"name,omitempty"`
-	SrcIf               string      `json:"srcIf,omitempty"`
-	InheritContPeerCtrl string      `json:"inheritContPeerCtrl"`
-	AfItems             struct {
+	VRFName       string      `json:"-"`
+	Addr          string      `json:"addr"`
+	AdminSt       AdminSt     `json:"adminSt"`
+	Asn           string      `json:"asn"`
+	AsnType       PeerAsnType `json:"asnType"`
+	Name          string      `json:"name,omitempty"`
+	SrcIf         string      `json:"srcIf,omitempty"`
+	LocalAsnItems struct {
+		AsnPropagate AsnPropagate `json:"asnPropagate"`
+		LocalAsn     string       `json:"localAsn"`
+	} `json:"localasn-items,omitzero"`
+	AfItems struct {
 		PeerAfList gnmiext.List[AddressFamily, *BGPPeerAfItem] `json:"PeerAf-list,omitzero"`
 	} `json:"af-items,omitzero"`
 }
+
+type AsnPropagate string
+
+const (
+	// AsnPropagateNone sends the local-as with no additional options.
+	AsnPropagateNone AsnPropagate = "none"
+	// AsnPropagateNoPrep does not prepend the local-as number to updates
+	// received from the eBGP neighbor.
+	AsnPropagateNoPrep AsnPropagate = "no-prepend"
+	// AsnPropagateReplaceAs prepends only the local-as number to updates
+	// sent to the eBGP neighbor.
+	AsnPropagateReplaceAs AsnPropagate = "replace-as"
+	// AsnPropagateDualAs allows the peer to connect using either the
+	// local-as number or the real AS.
+	AsnPropagateDualAs AsnPropagate = "dual-as"
+)
 
 func (*BGPPeer) IsListItem() {}
 

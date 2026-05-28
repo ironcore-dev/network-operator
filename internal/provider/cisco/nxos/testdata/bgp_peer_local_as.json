@@ -1,0 +1,28 @@
+{
+  "bgp-items": {
+    "inst-items": {
+      "asn": "65000",
+      "dom-items": {
+        "Dom-list": [
+          {
+            "name": "default",
+            "peer-items": {
+              "Peer-list": [
+                {
+                  "addr": "1.1.1.1",
+                  "adminSt": "enabled",
+                  "asn": "65001",
+                  "asnType": "none",
+                  "localasn-items": {
+                    "asnPropagate": "none",
+                    "localAsn": "65002"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}
