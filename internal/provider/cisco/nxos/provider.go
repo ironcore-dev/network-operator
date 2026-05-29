@@ -343,7 +343,7 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 	if err != nil && !errors.Is(err, gnmiext.ErrNil) {
 		return err
 	}
-	if err == nil && dom.RtrID != req.BGP.Spec.RouterID {
+	if err == nil && dom.RtrID != "" && dom.RtrID != req.BGP.Spec.RouterID {
 		return fmt.Errorf("BGP domain %q on device already uses router ID %s, cannot configure with router ID %s", dom.Name, dom.RtrID, req.BGP.Spec.RouterID)
 	}
 
@@ -362,12 +362,13 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 	switch {
 	case asf == "" && strings.Contains(b.Asn, "."):
 		asf = AsFormatAsDot
-		err = p.Update(ctx, &asf)
+		if err := p.Update(ctx, &asf); err != nil {
+			return err
+		}
 	case asf != "" && !strings.Contains(b.Asn, "."):
-		err = p.client.Delete(ctx, &asf)
-	}
-	if err != nil {
-		return err
+		if err := p.client.Delete(ctx, &asf); err != nil {
+			return err
+		}
 	}
 
 	var cfg nxv1alpha1.BGPConfig
