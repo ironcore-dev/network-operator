@@ -700,9 +700,9 @@ func (r *InterfaceReconciler) validateLLDPAdjacencyThroughLabel(ctx context.Cont
 
 	log := ctrl.LoggerFrom(ctx, "LLDP validation", klog.KObj(intf))
 
-	remoteDevice, err := deviceutil.GetOwnerDevice(ctx, r, remoteIntf)
+	remoteDevice, err := deviceutil.GetDeviceByName(ctx, r, remoteIntf.Namespace, remoteIntf.Spec.DeviceRef.Name)
 	if err != nil {
-		return "", fmt.Errorf("could not find the device owning interface %q: %w", remoteIntf.Name, err)
+		return "", fmt.Errorf("could not find the device for interface %q: %w", remoteIntf.Name, err)
 	}
 
 	if remoteDevice.Status.Hostname == "" {
