@@ -71,7 +71,7 @@ type DeviceReconciler struct {
 //
 // For more details about the method shape, read up here:
 // - https://ahmet.im/blog/controller-pitfalls/#reconcile-method-shape
-func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
+func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) { //nolint:gocyclo
 	log := ctrl.LoggerFrom(ctx)
 	log.V(3).Info("Reconciling resource")
 
@@ -148,6 +148,15 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, nil
 
 	case v1alpha1.DevicePhaseProvisioning:
+		if obj.Spec.Provisioning == nil {
+			log.Info("Provisioning configuration was removed, resetting device into pending phase")
+			if activeProv := obj.GetActiveProvisioning(); activeProv != nil {
+				activeProv.EndTime = metav1.Now()
+			}
+			obj.Status.Phase = v1alpha1.DevicePhasePending
+			r.Recorder.Eventf(obj, nil, "Warning", "ProvisioningAborted", "Reconcile", "Provisioning configuration was removed, resetting device into pending phase")
+			return ctrl.Result{}, nil
+		}
 		activeProv := obj.GetActiveProvisioning()
 		if activeProv == nil {
 			log.Info("Device has not made a provisioning request yet")
