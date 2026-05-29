@@ -156,6 +156,11 @@ charts: FORCE install-kubebuilder generate
 	@$(SED) -i \
 	  -e '/certManager.enable/,/end/{s/^        - mountPath:/          - mountPath:/;s/^          name: webhook-certs/            name: webhook-certs/;s/^          readOnly: true/            readOnly: true/;s/^      - name: webhook-certs/        - name: webhook-certs/;s/^        secret:/          secret:/;s/^          secretName:/            secretName:/}' \
 	  charts/network-operator/templates/manager/manager.yaml
+	@# Add support for custom labels on ServiceMonitor (with omit filter to prevent overwriting managed labels)
+	@$(SED) -i \
+	  -e '/^metadata:/,/^spec:/{/control-plane: controller-manager$$/a\    {{- with .Values.prometheus.labels }}\n    {{- with omit . "app.kubernetes.io/managed-by" "app.kubernetes.io/name" "helm.sh/chart" "app.kubernetes.io/instance" "control-plane" }}\n    {{- toYaml . | nindent 4 }}\n    {{- end }}\n    {{- end }}' \
+	  -e '}' \
+	  charts/network-operator/templates/prometheus/controller-manager-metrics-monitor.yaml
 
 netop-provider:
 	@printf "\e[1;36m>> go build -o build/netop-provider ./hack/provider\e[0m\n"
