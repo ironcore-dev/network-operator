@@ -182,6 +182,11 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 			log.Info("Device is rebooting, requeuing")
 			return ctrl.Result{RequeueAfter: time.Minute}, nil
 		}
+		if activeProv.StartTime.Add(time.Hour).Before(time.Now()) {
+			obj.Status.Phase = v1alpha1.DevicePhaseFailed
+			r.Recorder.Eventf(obj, nil, "Warning", "ProvisioningFailed", "Reconcile", "Device post-provisioning checks have timed out")
+			return ctrl.Result{}, nil
+		}
 		log.Info("Device provisioning completed, running post provisioning checks")
 		prov, _ := r.Provider().(provider.ProvisioningProvider)
 		if ok := prov.VerifyProvisioned(ctx, conn, obj); !ok {
