@@ -163,6 +163,8 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 			return ctrl.Result{RequeueAfter: 5 * time.Minute}, nil
 		}
 		if activeProv.StartTime.Add(time.Hour).Before(time.Now()) {
+			activeProv.EndTime = metav1.Now()
+			activeProv.Error = "provisioning timed out"
 			obj.Status.Phase = v1alpha1.DevicePhaseFailed
 			r.Recorder.Eventf(obj, nil, "Warning", "ProvisioningFailed", "Reconcile", "Device provisioning has timed out")
 			return ctrl.Result{}, nil
@@ -183,6 +185,8 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 			return ctrl.Result{RequeueAfter: time.Minute}, nil
 		}
 		if activeProv.StartTime.Add(time.Hour).Before(time.Now()) {
+			activeProv.EndTime = metav1.Now()
+			activeProv.Error = "post-provisioning checks timed out"
 			obj.Status.Phase = v1alpha1.DevicePhaseFailed
 			r.Recorder.Eventf(obj, nil, "Warning", "ProvisioningFailed", "Reconcile", "Device post-provisioning checks have timed out")
 			return ctrl.Result{}, nil
