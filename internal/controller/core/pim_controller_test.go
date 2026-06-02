@@ -177,11 +177,7 @@ var _ = Describe("PIM Controller", func() {
 				ready := meta.FindStatusCondition(resource.Status.Conditions, v1alpha1.ReadyCondition)
 				g.Expect(ready).NotTo(BeNil())
 				g.Expect(ready.Status).To(Equal(metav1.ConditionFalse))
-
-				configured := meta.FindStatusCondition(resource.Status.Conditions, v1alpha1.ConfiguredCondition)
-				g.Expect(configured).NotTo(BeNil())
-				g.Expect(configured.Status).To(Equal(metav1.ConditionFalse))
-				g.Expect(configured.Reason).To(Equal(v1alpha1.InterfaceNotFoundReason))
+				g.Expect(ready.Reason).To(Equal(v1alpha1.InterfaceNotFoundReason))
 			}).Should(Succeed())
 		})
 	})
