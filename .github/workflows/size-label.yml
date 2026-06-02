@@ -4,22 +4,17 @@
 name: Size Label
 
 on:
-  pull_request_target:
+  pull_request:
     types:
       - opened
       - synchronize
 
 permissions:
-  contents: read
   pull-requests: write
 
 jobs:
   size-label:
     name: Label PR with size
-    if: >-
-      github.event.pull_request.author_association == 'OWNER' ||
-      github.event.pull_request.author_association == 'MEMBER' ||
-      github.event.pull_request.author_association == 'COLLABORATOR'
     runs-on: ubuntu-latest
     steps:
       - name: size-label
