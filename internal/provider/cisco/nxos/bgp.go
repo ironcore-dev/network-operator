@@ -322,7 +322,7 @@ func (AsFormat) XPath() string {
 }
 
 const (
-	AsFormatAsDot AsFormat = "as-dot"
+	AsFormatAsDot AsFormat = "asdot"
 )
 
 type PeerAsnType string
