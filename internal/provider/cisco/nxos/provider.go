@@ -386,8 +386,10 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 	dom.RtrID = req.BGP.Spec.RouterID
 	dom.RtrIDAuto = AdminStDisabled
 
-	// Mark the dom as operator-managed so deleteBGPDom can identify it.
-	dom.PeerContItems.PeerContList.Set(&BGPPeerGroup{Name: ownershipMarkerPeerGroup})
+	// Write an ownership marker peer template into the default VRF domain.
+	// Each managed BGP domain gets its own marker keyed by VRF name, allowing
+	// the operator to track all managed domains and decide on cleanup during deletion.
+	marker := &BGPPeerGroup{VRFName: DefaultVRFName, Name: ownershipMarkerName(dom.Name)}
 
 	if req.BGP.Spec.AddressFamilies != nil {
 		if af := req.BGP.Spec.AddressFamilies.Ipv4Unicast; af != nil && af.Enabled {
@@ -445,7 +447,7 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 		}
 	}
 
-	return p.Patch(ctx, b, dom)
+	return p.Patch(ctx, b, dom, marker)
 }
 
 func (p *Provider) DeleteBGP(ctx context.Context, req *provider.DeleteBGPRequest) error {
@@ -458,10 +460,9 @@ func (p *Provider) DeleteBGP(ctx context.Context, req *provider.DeleteBGPRequest
 	return p.deleteBGP(ctx, vrfName)
 }
 
-// deleteBGP deletes the BGP domain for a VRF. If no remaining domain carries the
-// ownership marker or has any SAFIs/peer groups configured, the global BGP instance
-// (System/bgp-items/inst-items) is deleted as well. This preserves any
-// manually configured BGP domains outside the operator's control.
+// deleteBGP removes the ownership marker for a BGP domain and cleans up the
+// domain for a VRF. If no remaining ownership markers or non-empty domains
+// exist, the global BGP instance (System/bgp-items/inst-items) is deleted.
 // The function is a no-op when the BGP feature is disabled.
 func (p *Provider) deleteBGP(ctx context.Context, vrfName string) error {
 	f := &Feature{Name: "bgp"}
@@ -469,26 +470,55 @@ func (p *Provider) deleteBGP(ctx context.Context, vrfName string) error {
 		return err
 	}
 
-	if err := p.client.Delete(ctx, &BGPDom{Name: vrfName}); err != nil {
+	// Remove this domain's ownership marker from the default VRF.
+	marker := &BGPPeerGroup{VRFName: DefaultVRFName, Name: ownershipMarkerName(vrfName)}
+	if err := p.client.Delete(ctx, marker); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 		return err
 	}
 
-	// Retain the global BGP instance if any remaining dom is operator-managed
-	// or has non-empty configuration (address families or peer groups).
+	if vrfName != DefaultVRFName {
+		if err := p.client.Delete(ctx, &BGPDom{Name: vrfName}); err != nil {
+			return err
+		}
+	} else {
+		// The default VRF domain is always implicitly present when BGP is enabled,
+		// so replace it with only the remaining ownership markers, stripping all
+		// other config atomically.
+		dom := &BGPDom{Name: DefaultVRFName}
+		if err := p.client.GetConfig(ctx, dom); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+		empty := &BGPDom{Name: DefaultVRFName}
+		for _, pg := range dom.PeerContItems.PeerContList {
+			if isOwnershipMarker(pg.Name) {
+				empty.PeerContItems.PeerContList.Set(&BGPPeerGroup{VRFName: DefaultVRFName, Name: pg.Name})
+			}
+		}
+		if len(empty.PeerContItems.PeerContList) > 0 {
+			if err := p.Update(ctx, empty); err != nil {
+				return err
+			}
+		} else {
+			if err := p.client.Delete(ctx, &BGPDom{Name: DefaultVRFName}); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Retain the global BGP instance only if other ownership markers remain.
 	items := new(BGPDomItems)
 	if err := p.client.GetConfig(ctx, items); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 		return err
 	}
 	for _, d := range items.DomList {
-		if _, ok := d.PeerContItems.PeerContList.Get(ownershipMarkerPeerGroup); ok {
-			return nil
-		}
-		if len(d.AfItems.DomAfList) > 0 || len(d.PeerContItems.PeerContList) > 0 {
-			return nil
+		for _, pg := range d.PeerContItems.PeerContList {
+			if isOwnershipMarker(pg.Name) {
+				return nil
+			}
 		}
 	}
 
-	// No operator-managed or non-empty doms remain — delete the BGP instance.
+	// No operator-managed domains remain — delete the BGP instance.
 	return p.client.Delete(ctx, new(BGP))
 }
 
@@ -2599,8 +2629,7 @@ func (p *Provider) DeleteVRF(ctx context.Context, req *provider.VRFRequest) erro
 		return err
 	}
 	// NX-OS does not automatically remove the BGP domain when a VRF is deleted.
-	// deleteBGPDom handles the feature check, dom deletion, and potential
-	// inst-items cleanup if this was the last operator-managed domain.
+	// Delete the domain and clean up the global BGP instance if nothing remains.
 	return p.deleteBGP(ctx, req.VRF.Spec.Name)
 }
 

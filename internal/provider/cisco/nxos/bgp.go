@@ -6,6 +6,7 @@ package nxos
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
@@ -20,12 +21,19 @@ var (
 	_ gnmiext.DataElement = (*BGPPeerGroup)(nil)
 )
 
-// ownershipMarkerPeerGroup is written into every BGP domain managed by this
-// operator. It distinguishes operator-owned domains from those NX-OS creates
-// automatically (e.g. the default VRF dom created as a side effect of
-// configuring a non-default VRF BGP), and is used during deletion to decide
-// whether the BGP instance itself can be cleaned up.
-const ownershipMarkerPeerGroup = "__operator-managed__"
+// ownershipMarkerPrefix is used to build per-VRF peer template names written
+// into the default VRF domain. Each marker identifies an operator-managed BGP
+// domain by its VRF name, and is used during deletion to decide whether the
+// global BGP instance can be cleaned up.
+const ownershipMarkerPrefix = "__operator-managed--"
+
+func ownershipMarkerName(vrfName string) string {
+	return ownershipMarkerPrefix + vrfName + "__"
+}
+
+func isOwnershipMarker(name string) bool {
+	return strings.HasPrefix(name, ownershipMarkerPrefix)
+}
 
 type BGP struct {
 	AdminSt AdminSt `json:"adminSt"`
