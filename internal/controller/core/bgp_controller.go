@@ -300,13 +300,15 @@ func (r *BGPReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 			}),
 		).
 		// Watches enqueues BGPs for updates in referenced VRF resources.
-		// Only triggers on create and delete events since VRF names are immutable.
+		// Triggers on create, delete, and update events when the VRF's ready state changes.
 		Watches(
 			&v1alpha1.VRF{},
 			handler.EnqueueRequestsFromMapFunc(r.vrfToBGPs),
 			builder.WithPredicates(predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					return false
+					oldVRF := e.ObjectOld.(*v1alpha1.VRF)
+					newVRF := e.ObjectNew.(*v1alpha1.VRF)
+					return conditions.IsReady(oldVRF) != conditions.IsReady(newVRF)
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false
@@ -459,6 +461,18 @@ func (r *BGPReconciler) reconcileVRF(ctx context.Context, bgp *v1alpha1.BGP, dev
 		})
 		return nil, reconcile.TerminalError(fmt.Errorf("vrf %s belongs to different device", bgp.Spec.VrfRef.Name))
 	}
+
+	if !conditions.IsReady(vrf) {
+		// VRF uses ReadyCondition as its top-level configured state (no separate ConfiguredCondition).
+		conditions.Set(bgp, metav1.Condition{
+			Type:    v1alpha1.ReadyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.WaitingForDependenciesReason,
+			Message: fmt.Sprintf("Waiting for VRF %s to become ready", bgp.Spec.VrfRef.Name),
+		})
+		return nil, reconcile.TerminalError(fmt.Errorf("vrf %s is not yet ready", bgp.Spec.VrfRef.Name))
+	}
+
 	return vrf, nil
 }
 
