@@ -17,7 +17,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/events"
@@ -421,6 +423,23 @@ func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 				},
 			}),
 		).
+		// Watches enqueues Interfaces that have neighbor labels pointing to interfaces
+		// on a device when the DNS resource associated with that device changes. This ensures LLDP
+		// validation is re-evaluated when DNS domain changes affect FQDN matching.
+		Watches(
+			&v1alpha1.DNS{},
+			handler.EnqueueRequestsFromMapFunc(r.dnsToNeighborInterfaces),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					oldDNS := e.ObjectOld.(*v1alpha1.DNS)
+					newDNS := e.ObjectNew.(*v1alpha1.DNS)
+					return oldDNS.Spec.Domain != newDNS.Spec.Domain
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
 		Complete(r)
 }
 
@@ -444,12 +463,13 @@ func (interfaceUpdatePredicate) Update(e event.UpdateEvent) bool {
 	if !ok {
 		return true
 	}
-	// Always reconcile if conditions haven't been fully initialized.
-	// InitializeConditions adds Ready/Configured/Operational, and paused.EnsureCondition
-	// adds Paused. Until all 4 are present, we must allow reconciles to complete setup.
-	if len(newIntf.Status.Conditions) < 4 {
+
+	// Allow lifecycle metadata transitions to pass through so the controller can
+	// continue after adding/removing finalizers and when deletion starts.
+	if !equality.Semantic.DeepEqual(oldIntf.GetFinalizers(), newIntf.GetFinalizers()) || !equality.Semantic.DeepEqual(oldIntf.GetDeletionTimestamp(), newIntf.GetDeletionTimestamp()) {
 		return true
 	}
+
 	oldStatus := oldIntf.Status.DeepCopy()
 	newStatus := newIntf.Status.DeepCopy()
 	for i := range oldStatus.Neighbors {
@@ -623,13 +643,6 @@ func (r *InterfaceReconciler) reconcileInterfaceStatus(ctx context.Context, s *s
 // If that fails, it attempts to validate through annotation (neighbor is not managed by the operator).
 // Only returns an error if there is an issue during the validation process, but does not return an error if the validation fails (i.e. the adjacency is marked as invalid).
 func (r *InterfaceReconciler) updateNeighborAdjacenciesStatus(ctx context.Context, s *scope, status *provider.InterfaceStatus) error {
-	type neighborKey struct{ ChassisID, PortID string }
-
-	existingNeighbors := make(map[neighborKey]v1alpha1.Neighbor)
-	for _, n := range s.Interface.Status.Neighbors {
-		existingNeighbors[neighborKey{n.ChassisID, n.PortID}] = n
-	}
-
 	log := ctrl.LoggerFrom(ctx)
 	if len(status.LLDPAdjacencies) > 1 {
 		log.V(1).Info("Multiple LLDP adjacencies found for a single interface, will validate each adjacency against one single label/annotation", "interface", klog.KObj(s.Interface), "adjacencyCount", len(status.LLDPAdjacencies))
@@ -709,8 +722,26 @@ func (r *InterfaceReconciler) validateLLDPAdjacencyThroughLabel(ctx context.Cont
 		return "", fmt.Errorf("the neighbor device does not have a hostname yet, cannot validate adjacency: neighborInterface=%q", remoteIntf.Name)
 	}
 
-	if remoteDevice.Status.Hostname != n.SystemName {
-		log.V(1).Info("the neighbor device hostname does not match", "expected", n.SystemName, "actual", remoteDevice.Status.Hostname)
+	dns := new(v1alpha1.DNSList)
+	if err := r.List(
+		ctx, dns,
+		client.InNamespace(remoteDevice.Namespace),
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: remoteDevice.Name},
+	); err != nil {
+		return "", fmt.Errorf("failed to list DNSes for device %q: %w", remoteDevice.Name, err)
+	}
+
+	if len(dns.Items) > 1 {
+		return "", fmt.Errorf("multiple DNS resources found for device %q, expected at most one", remoteDevice.Name)
+	}
+
+	var domain string
+	if len(dns.Items) == 1 {
+		domain = "." + dns.Items[0].Spec.Domain
+	}
+
+	if !strings.EqualFold(remoteDevice.Status.Hostname+domain, n.SystemName) {
+		log.V(1).Info("neighbor device name does not match label reference", "actual", n.SystemName, "expected", remoteDevice.Status.Hostname+domain)
 		return v1alpha1.NeighborDeviceMismatch, nil
 	}
 
@@ -1344,7 +1375,7 @@ func (r *InterfaceReconciler) interfacesForProviderConfig(ctx context.Context, o
 
 	list := &v1alpha1.InterfaceList{}
 	if err := r.List(ctx, list, client.InNamespace(obj.GetNamespace())); err != nil {
-		log.Error(err, "Failed to list Interfacees")
+		log.Error(err, "Failed to list Interfaces")
 		return nil
 	}
 
@@ -1396,6 +1427,68 @@ func (r *InterfaceReconciler) deviceToInterfaces(ctx context.Context, obj client
 			NamespacedName: client.ObjectKey{
 				Name:      i.Name,
 				Namespace: i.Namespace,
+			},
+		})
+	}
+
+	return requests
+}
+
+// dnsToNeighborInterfaces is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for Interfaces when the DNS resources associated with any neighboring device gets updated, created or deleted.
+// This is relevant for LLDP adjacency validation through neighbor labels, where the neighbor's system name as
+// seen in LLDP is a fully qualified domain name (FQDN).
+func (r *InterfaceReconciler) dnsToNeighborInterfaces(ctx context.Context, obj client.Object) []ctrl.Request {
+	dns, ok := obj.(*v1alpha1.DNS)
+	if !ok {
+		panic(fmt.Sprintf("Expected a DNS but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "DNS", klog.KObj(dns))
+
+	// remoteInterfaces is a list of all interfaces that are on a neighboring device with change in the DNS resource.
+	remoteInterfaces := new(v1alpha1.InterfaceList)
+	if err := r.List(
+		ctx, remoteInterfaces,
+		client.InNamespace(dns.Namespace),
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: dns.Spec.DeviceRef.Name},
+	); err != nil {
+		log.Error(err, "Failed to list Interfaces for device", "device", dns.Spec.DeviceRef.Name)
+		return nil
+	}
+
+	names := make([]string, len(remoteInterfaces.Items))
+	for i, intf := range remoteInterfaces.Items {
+		names[i] = intf.Name
+	}
+
+	req, err := labels.NewRequirement(
+		v1alpha1.PhysicalInterfaceNeighborLabel,
+		selection.In,
+		names,
+	)
+	if err != nil {
+		return nil
+	}
+
+	// localInterfaces is a list of interfaces that reference the remote interfaces as neighbors through their labels.
+	localInterfaces := new(v1alpha1.InterfaceList)
+	if err := r.List(
+		ctx, localInterfaces,
+		client.InNamespace(dns.Namespace),
+		client.MatchingLabelsSelector{Selector: labels.NewSelector().Add(*req)},
+	); err != nil {
+		log.Error(err, "Failed to list local Interfaces with neighbor labels referencing remote interfaces", "remoteInterfaces", names)
+		return nil
+	}
+
+	requests := make([]ctrl.Request, 0, len(localInterfaces.Items))
+	for _, intf := range localInterfaces.Items {
+		log.V(2).Info("Enqueuing local Interface for reconciliation due to DNS change in neighbor device", "Interface", klog.KObj(&intf), "DNS", klog.KObj(dns))
+		requests = append(requests, ctrl.Request{
+			NamespacedName: client.ObjectKey{
+				Name:      intf.Name,
+				Namespace: intf.Namespace,
 			},
 		})
 	}

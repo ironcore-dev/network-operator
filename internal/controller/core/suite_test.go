@@ -958,9 +958,11 @@ func (p *Provider) SetLLDPNeighbor(interfaceName, sysName, chassisID, portID str
 	p.Lock()
 	defer p.Unlock()
 	p.LLDPNeighbors[interfaceName] = &provider.LLDPAdjacency{
-		SysName:   sysName,
-		ChassisID: chassisID,
-		PortID:    portID,
-		TTL:       time.Duration(ttl) * time.Second,
+		SysName:       sysName,
+		ChassisID:     chassisID,
+		ChassisIDType: 4, // MACAddress
+		PortID:        portID,
+		PortIDType:    7, // Local
+		TTL:           time.Duration(ttl) * time.Second,
 	}
 }
