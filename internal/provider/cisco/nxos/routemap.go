@@ -85,9 +85,9 @@ func (e *RouteMapEntry) SetExtCommunities(communities []string) error {
 }
 
 func (e *RouteMapEntry) SetPrefixSet(ps *v1alpha1.PrefixSet) {
-	tdn := "/System/rpm-items/pfxlistv4-items/RuleV4-list[name='" + ps.Name + "']"
+	tdn := "/System/rpm-items/pfxlistv4-items/RuleV4-list[name='" + ps.Spec.Name + "']"
 	if ps.Is6() {
-		tdn = "/System/rpm-items/pfxlistv6-items/RuleV6-list[name='" + ps.Name + "']"
+		tdn = "/System/rpm-items/pfxlistv6-items/RuleV6-list[name='" + ps.Spec.Name + "']"
 	}
 	e.MrtdstItems.RsrtDstAttItems.RsRtDstAttList.Set(&RsRtDstAtt{TDn: tdn})
 }
