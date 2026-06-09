@@ -67,4 +67,24 @@ func init() {
 	setRM.Name = "RM-ASPATH-SET"
 	setRM.EntItems.EntryList.Set(setEntry)
 	Register("route_map_aspath_set", setRM)
+
+	pfxV4Entry := &RouteMapEntry{}
+	pfxV4Entry.Order = 10
+	pfxV4Entry.Action = ActionPermit
+	pfxV4Entry.SetPrefixSet("PL-DEVICE-V4", false)
+
+	pfxV4RM := &RouteMap{}
+	pfxV4RM.Name = "RM-PREFIXSET-V4"
+	pfxV4RM.EntItems.EntryList.Set(pfxV4Entry)
+	Register("route_map_prefixset_v4", pfxV4RM)
+
+	pfxV6Entry := &RouteMapEntry{}
+	pfxV6Entry.Order = 10
+	pfxV6Entry.Action = ActionPermit
+	pfxV6Entry.SetPrefixSet("PL-DEVICE-V6", true)
+
+	pfxV6RM := &RouteMap{}
+	pfxV6RM.Name = "RM-PREFIXSET-V6"
+	pfxV6RM.EntItems.EntryList.Set(pfxV6Entry)
+	Register("route_map_prefixset_v6", pfxV6RM)
 }

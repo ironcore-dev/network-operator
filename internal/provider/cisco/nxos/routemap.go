@@ -4,7 +4,6 @@
 package nxos
 
 import (
-	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
@@ -84,10 +83,10 @@ func (e *RouteMapEntry) SetExtCommunities(communities []string) error {
 	return nil
 }
 
-func (e *RouteMapEntry) SetPrefixSet(ps *v1alpha1.PrefixSet) {
-	tdn := "/System/rpm-items/pfxlistv4-items/RuleV4-list[name='" + ps.Spec.Name + "']"
-	if ps.Is6() {
-		tdn = "/System/rpm-items/pfxlistv6-items/RuleV6-list[name='" + ps.Spec.Name + "']"
+func (e *RouteMapEntry) SetPrefixSet(name string, isV6 bool) {
+	tdn := "/System/rpm-items/pfxlistv4-items/RuleV4-list[name='" + name + "']"
+	if isV6 {
+		tdn = "/System/rpm-items/pfxlistv6-items/RuleV6-list[name='" + name + "']"
 	}
 	e.MrtdstItems.RsrtDstAttItems.RsRtDstAttList.Set(&RsRtDstAtt{TDn: tdn})
 }
