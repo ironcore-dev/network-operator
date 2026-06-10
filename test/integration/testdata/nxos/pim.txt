@@ -1,0 +1,130 @@
+# NX-OS PIM Integration Test
+#
+# PIM requires at least one interface. We create a loopback first.
+
+-- interface/lo-pim --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: lo-pim
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  name: lo20
+  type: Loopback
+  adminState: Up
+  ipv4:
+    addresses:
+      - 10.255.255.20/32
+
+-- pim/multicast --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: PIM
+metadata:
+  name: multicast
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  adminState: Up
+  interfaceRefs:
+    - name: lo-pim
+      sparse: true
+
+-- state --
+{
+  "System": {
+    "fm-items": {
+      "pim-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo20",
+                    "ctrl": "port-unreachable,redirect"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "intf-items": {
+      "lb-items": {
+        "LbRtdIf-list": [
+          {
+            "adminSt": "up",
+            "id": "lo20",
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            }
+          }
+        ]
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo20",
+                    "addr-items": {
+                      "Addr-list": [
+                        {
+                          "addr": "10.255.255.20/32",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "primary"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "pim-items": {
+      "adminSt": "enabled",
+      "inst-items": {
+        "adminSt": "enabled",
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "adminSt": "enabled",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo20",
+                    "pimSparseMode": true
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
