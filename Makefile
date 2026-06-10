@@ -188,6 +188,11 @@ docker-push-test-lab: FORCE docker-push-test-lab
 	@printf "\e[1;36m>> $(CONTAINER_TOOL) push $(TEST_LAB_IMG)\e[0m\n"
 	@$(CONTAINER_TOOL) push $(TEST_LAB_IMG)
 
+
+test-integration: FORCE install-setup-envtest
+	@printf "\e[1;36m>> go test ./test/integration/ -v\e[0m\n"
+	@KUBEBUILDER_ASSETS=$$(setup-envtest use 1.35 -p path) go test ./test/integration/ -v
+
 ROOT_DIR := $(shell pwd)
 DOCS_IMG ?= ironcore-dev/network-operator-docs:latest
 

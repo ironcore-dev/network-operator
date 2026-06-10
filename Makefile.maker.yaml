@@ -33,7 +33,7 @@ golangciLint:
 
 shellCheck:
   ignorePaths:
-    - 'docs/node_modules/*'
+    - "docs/node_modules/*"
 
 goReleaser:
   createConfig: true
@@ -41,7 +41,7 @@ goReleaser:
 license:
   addHeaders: true
   checkDependencies: true
-  copyright: 'SAP SE or an SAP affiliate company and IronCore contributors'
+  copyright: "SAP SE or an SAP affiliate company and IronCore contributors"
   spdx: Apache-2.0
 
 nix:
@@ -57,7 +57,7 @@ renovate:
     - felix-kaestner
 
 testPackages:
-  except: '/test'
+  except: "/test"
 
 githubWorkflow:
   ci:
@@ -72,7 +72,7 @@ githubWorkflow:
     enabled: false
 
 variables:
-  GO_BUILDENV: 'CGO_ENABLED=0'
+  GO_BUILDENV: "CGO_ENABLED=0"
 
 verbatim: |
   # Image to use all building/pushing image targets
@@ -229,6 +229,11 @@ verbatim: |
   docker-push-test-lab: FORCE docker-push-test-lab
     @printf "\e[1;36m>> $(CONTAINER_TOOL) push $(TEST_LAB_IMG)\e[0m\n"
     @$(CONTAINER_TOOL) push $(TEST_LAB_IMG)
+
+
+  test-integration: FORCE install-setup-envtest
+    @printf "\e[1;36m>> go test ./test/integration/ -v\e[0m\n"
+    @KUBEBUILDER_ASSETS=$$(setup-envtest use 1.35 -p path) go test ./test/integration/ -v
 
   ROOT_DIR := $(shell pwd)
   DOCS_IMG ?= ironcore-dev/network-operator-docs:latest

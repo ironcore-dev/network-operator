@@ -8,6 +8,7 @@ require (
 	github.com/go-logr/logr v1.4.3
 	github.com/google/go-cmp v0.7.0
 	github.com/onsi/ginkgo/v2 v2.30.0
+	github.com/ironcore-dev/gnmi-test-server v0.0.0-00010101000000-000000000000
 	github.com/onsi/gomega v1.41.0
 	github.com/openconfig/gnmi v0.14.1
 	github.com/openconfig/gnoi v0.8.0
@@ -91,6 +92,7 @@ require (
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
+	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.64.0 // indirect
@@ -129,3 +131,5 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.2-0.20260122202528-d9cc6641c482 // indirect
 )
+
+replace github.com/ironcore-dev/gnmi-test-server => ./test/gnmi
