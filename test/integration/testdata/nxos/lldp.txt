@@ -1,0 +1,52 @@
+# NX-OS LLDP Integration Test
+#
+# Tests LLDP (Link Layer Discovery Protocol) configuration with provider-specific
+# LLDPConfig for NX-OS specific settings (holdTime, initDelay).
+#
+# Expected gNMI paths:
+#   fm-items/lldp-items - LLDP feature manager
+#   lldp-items/inst-items - LLDP instance configuration
+
+-- lldpconfig/lldp-settings --
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: LLDPConfig
+metadata:
+  name: lldp-settings
+  namespace: default
+spec:
+  holdTime: 180
+  initDelay: 5
+
+-- lldp/config --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: LLDP
+metadata:
+  name: config
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  adminState: Up
+  providerConfigRef:
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+    kind: LLDPConfig
+    name: lldp-settings
+
+-- state --
+{
+  "System": {
+    "fm-items": {
+      "lldp-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "lldp-items": {
+      "inst-items": {
+        "holdTime": 180,
+        "initDelayTime": 5
+      }
+    }
+  }
+}
