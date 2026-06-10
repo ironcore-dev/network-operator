@@ -1,0 +1,132 @@
+# NX-OS NVE (Network Virtualization Edge) Integration Test
+#
+# NVE requires a loopback interface as source. We create the loopback first.
+
+-- interface/lo-nve --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: lo-nve
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  name: lo1
+  type: Loopback
+  adminState: Up
+  ipv4:
+    addresses:
+      - 10.0.0.1/32
+
+-- nve/nve1 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: NetworkVirtualizationEdge
+metadata:
+  name: nve1
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  adminState: Up
+  sourceInterfaceRef:
+    name: lo-nve
+  hostReachability: BGP
+
+-- state --
+{
+  "System": {
+    "eps-items": {
+      "epId-items": {
+        "Ep-list": [
+          {
+            "epId": 1,
+            "adminSt": "enabled",
+            "advertiseVmac": false,
+            "holdDownTime": 180,
+            "hostReach": "bgp",
+            "sourceInterface": "lo1",
+            "suppressARP": false
+          }
+        ]
+      }
+    },
+    "fm-items": {
+      "evpn-items": {
+        "adminSt": "enabled"
+      },
+      "nvo-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "hmm-items": {
+      "fwdinst-items": {
+        "adminSt": "disabled",
+        "amac": ""
+      }
+    },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo1",
+                    "ctrl": "port-unreachable,redirect"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "intf-items": {
+      "lb-items": {
+        "LbRtdIf-list": [
+          {
+            "adminSt": "up",
+            "id": "lo1",
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            }
+          }
+        ]
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo1",
+                    "addr-items": {
+                      "Addr-list": [
+                        {
+                          "addr": "10.0.0.1/32",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "primary"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

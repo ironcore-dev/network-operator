@@ -40,6 +40,7 @@ var resourceRegistry = []schema.GroupVersionKind{
 	v1alpha1.GroupVersion.WithKind("Banner"),
 	v1alpha1.GroupVersion.WithKind("OSPF"),
 	v1alpha1.GroupVersion.WithKind("PIM"),
+	v1alpha1.GroupVersion.WithKind("NetworkVirtualizationEdge"),
 	nxv1alpha1.GroupVersion.WithKind("InterfaceConfig"),
 	nxv1alpha1.GroupVersion.WithKind("LLDPConfig"),
 	v1alpha1.GroupVersion.WithKind("RoutingPolicy"),
