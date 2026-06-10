@@ -55,6 +55,7 @@ var resourceRegistry = []schema.GroupVersionKind{
 	v1alpha1.GroupVersion.WithKind("ManagementAccess"),
 	v1alpha1.GroupVersion.WithKind("AccessControlList"),
 	v1alpha1.GroupVersion.WithKind("DHCPRelay"),
+	v1alpha1.GroupVersion.WithKind("ISIS"),
 	// Add new resource types here as needed
 }
 
