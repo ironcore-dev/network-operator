@@ -44,6 +44,7 @@ var resourceRegistry = []schema.GroupVersionKind{
 	v1alpha1.GroupVersion.WithKind("EVPNInstance"),
 	nxv1alpha1.GroupVersion.WithKind("InterfaceConfig"),
 	nxv1alpha1.GroupVersion.WithKind("LLDPConfig"),
+	nxv1alpha1.GroupVersion.WithKind("VPCDomain"),
 	v1alpha1.GroupVersion.WithKind("RoutingPolicy"),
 	v1alpha1.GroupVersion.WithKind("PrefixSet"),
 	// Add new resource types here as needed

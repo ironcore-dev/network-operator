@@ -1,0 +1,179 @@
+# NX-OS VPCDomain Integration Test
+#
+# Tests vPC (Virtual Port Channel) domain configuration.
+# VPCDomain is NX-OS specific (nx.cisco.networking.metal.ironcore.dev/v1alpha1).
+# Requires a port-channel interface for the peer-link with member interfaces.
+#
+# Using this payload on a clean device will fail as features must be already enabled.
+
+
+-- interface/eth1 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: eth1
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  name: eth1/1
+  type: Physical
+  adminState: Up
+
+-- interface/vpc-peerlink --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: vpc-peerlink
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  name: po1
+  type: Aggregate
+  adminState: Up
+  aggregation:
+    memberInterfaceRefs:
+      - name: eth1
+    controlProtocol:
+      mode: Active
+
+-- vpcdomain/vpc1 --
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: VPCDomain
+metadata:
+  name: vpc1
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  domainId: 100
+  adminState: Up
+  rolePriority: 32667
+  systemPriority: 32667
+  peer:
+    adminState: Up
+    interfaceRef:
+      name: vpc-peerlink
+    keepalive:
+      destination: 10.0.0.2
+      source: 10.0.0.1
+      vrfName: management
+
+-- state --
+{
+  "System": {
+    "fm-items": {
+      "lacp-items": {
+        "adminSt": "enabled"
+      },
+      "vpc-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "intf-items": {
+      "aggr-items": {
+        "AggrIf-list": [
+          {
+            "id": "po1",
+            "adminSt": "up",
+            "accessVlan": "vlan-1",
+            "aggrExtd-items": {
+              "bufferBoost": "enable"
+            },
+            "lacpVpcConvergence": "disable",
+            "layer": "Layer2",
+            "medium": "broadcast",
+            "mode": "access",
+            "mtu": 1500,
+            "nativeVlan": "vlan-1",
+            "pcMode": "active",
+            "rsmbrIfs-items": {
+              "RsMbrIfs-list": [
+                {
+                  "tDn": "/System/intf-items/phys-items/PhysIf-list[id='eth1/1']"
+                }
+              ]
+            },
+            "suspIndividual": "enable",
+            "trunkVlans": "1-4094",
+            "userCfgdFlags": "admin_layer,admin_state"
+          }
+        ]
+      },
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "id": "eth1/1",
+            "FECMode": "auto",
+            "accessVlan": "vlan-1",
+            "adminSt": "up",
+            "layer": "Layer2",
+            "medium": "broadcast",
+            "mode": "access",
+            "mtu": 1500,
+            "nativeVlan": "vlan-1",
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            },
+            "trunkVlans": "1-4094",
+            "userCfgdFlags": "admin_layer,admin_state"
+          }
+        ]
+      }
+    },
+    "stp-items": {
+      "inst-items": {
+        "if-items": {
+          "If-list": [
+            {
+              "id": "eth1/1",
+              "bpdufilter": "default",
+              "bpduguard": "default",
+              "mode": "default"
+            },
+            {
+              "id": "po1",
+              "bpdufilter": "default",
+              "bpduguard": "default",
+              "mode": "default"
+            }
+          ]
+        }
+      }
+    },
+    "vpc-items": {
+      "inst-items": {
+        "dom-items": {
+          "id": 100,
+          "adminSt": "enabled",
+          "autoRecovery": "disabled",
+          "autoRecoveryIntvl": 240,
+          "delayRestoreSVI": 10,
+          "delayRestoreVPC": 30,
+          "fastConvergence": "disabled",
+          "keepalive-items": {
+            "destIp": "10.0.0.2",
+            "srcIp": "10.0.0.1",
+            "vrf": "management",
+            "peerlink-items": {
+              "adminSt": "enabled",
+              "id": "po1"
+            }
+          },
+          "l3PeerRouter": "disabled",
+          "peerGw": "disabled",
+          "peerSwitch": "disabled",
+          "rolePrio": 32667,
+          "sysPrio": 32667
+        }
+      }
+    }
+  }
+}

@@ -31,6 +31,7 @@ import (
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	nx "github.com/ironcore-dev/network-operator/internal/controller/cisco/nx"
 	"github.com/ironcore-dev/network-operator/internal/controller/core"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/iosxr"
@@ -304,6 +305,17 @@ func SetupProviderTest(providerCfg ProviderConfig) *ProviderTestContext {
 		Recorder: recorder,
 		Provider: providerFunc,
 		Locker:   locker,
+	}).SetupWithManager(providerCtx, mgr)
+	Expect(err).NotTo(HaveOccurred())
+
+	// NX-OS specific controllers
+	err = (&nx.VPCDomainReconciler{
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		Recorder:        recorder,
+		Provider:        providerFunc,
+		Locker:          locker,
+		RequeueInterval: time.Minute,
 	}).SetupWithManager(providerCtx, mgr)
 	Expect(err).NotTo(HaveOccurred())
 
