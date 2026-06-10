@@ -53,6 +53,7 @@ var resourceRegistry = []schema.GroupVersionKind{
 	v1alpha1.GroupVersion.WithKind("Syslog"),
 	v1alpha1.GroupVersion.WithKind("SNMP"),
 	v1alpha1.GroupVersion.WithKind("ManagementAccess"),
+	v1alpha1.GroupVersion.WithKind("AccessControlList"),
 	// Add new resource types here as needed
 }
 
