@@ -1,0 +1,52 @@
+# NX-OS EVPNInstance Integration Test
+#
+# Tests EVPN Instance (L3VNI) for IP-VRF in VXLAN fabric.
+# Using Routed type which doesn't require a VLAN dependency.
+
+-- evpninstance/l3vni --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: EVPNInstance
+metadata:
+  name: l3vni
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  vni: 50000
+  type: Routed
+  routeDistinguisher: "auto"
+
+-- state --
+{
+  "System": {
+    "eps-items": {
+      "epId-items": {
+        "Ep-list": [
+          {
+            "epId": "1",
+            "nws-items": {
+              "vni-items": {
+                "Nw-list": [
+                  {
+                    "vni": 50000,
+                    "associateVrfFlag": true
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    "fm-items": {
+      "nvo-items": {
+        "adminSt": "enabled"
+      },
+      "vnsegment-items": {
+        "adminSt": "enabled"
+      }
+    }
+  }
+}
