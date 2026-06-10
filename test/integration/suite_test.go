@@ -375,6 +375,16 @@ func SetupProviderTest(providerCfg ProviderConfig) *ProviderTestContext {
 	}).SetupWithManager(providerCtx, mgr)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&core.DHCPRelayReconciler{
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		Recorder:        recorder,
+		Provider:        providerFunc,
+		Locker:          locker,
+		RequeueInterval: time.Minute,
+	}).SetupWithManager(providerCtx, mgr)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = mgr.Start(providerCtx)
