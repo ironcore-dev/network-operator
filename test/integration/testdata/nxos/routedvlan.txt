@@ -1,0 +1,135 @@
+# NX-OS RoutedVLAN (SVI) Integration Test
+#
+# Tests L3 VLAN interface (SVI - Switched Virtual Interface).
+# RoutedVLAN interfaces provide L3 routing for a VLAN.
+#
+# Test topology:
+#   VLAN 10 (L2 VLAN)
+#   vlan10 (RoutedVLAN/SVI with IPv4 address)
+#
+# Expected gNMI paths:
+#   intf-items/svi-items/If-list[id=vlan10] - SVI interface
+#   ipv4-items/.../If-list[id=vlan10] - IPv4 address on SVI
+
+-- vlan/vlan10 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: VLAN
+metadata:
+  name: vlan10
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  id: 10
+  name: SERVERS
+
+-- interface/svi-vlan10 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: svi-vlan10
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  name: vlan10
+  type: RoutedVLAN
+  adminState: Up
+  mtu: 9000
+  description: "SVI for VLAN 10 - Servers"
+  vlanRef:
+    name: vlan10
+  ipv4:
+    addresses:
+      - 10.10.0.1/24
+
+-- state --
+{
+  "System": {
+    "bd-items": {
+      "bd-items": {
+        "BD-list": [
+          {
+            "BdState": "active",
+            "adminSt": "active",
+            "fabEncap": "vlan-10",
+            "name": "SERVERS"
+          }
+        ]
+      }
+    },
+    "fm-items": {
+      "ifvlan-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "vlan10",
+                    "ctrl": "port-unreachable"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "intf-items": {
+      "svi-items": {
+        "If-list": [
+          {
+            "adminSt": "up",
+            "descr": "SVI for VLAN 10 - Servers",
+            "id": "vlan10",
+            "medium": "bcast",
+            "mtu": 9000,
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            },
+            "vlanId": 10
+          }
+        ]
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "vlan10",
+                    "addr-items": {
+                      "Addr-list": [
+                        {
+                          "addr": "10.10.0.1/24",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "primary"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
