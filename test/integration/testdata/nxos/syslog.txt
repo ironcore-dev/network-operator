@@ -1,0 +1,91 @@
+# NX-OS Syslog Integration Test
+#
+# Tests syslog configuration with remote log servers and facilities.
+#
+# Expected gNMI state mapping:
+#
+# logging-items/loglevel-items:     Log level/facility configuration
+#   facility-items/Facility-list:   spec.facilities -> facility severity levels
+#     - facilityName: Local7        facility.name -> facility name
+#     - severityLevel: information  facility.severity=Info -> information
+#
+# syslog-items:                     Syslog service configuration
+#   logginghistory-items:           Logging history buffer
+#     - level: information          follows facility severity
+#     - size: 500                   default buffer size
+#   originid-items:                 Syslog origin ID
+#     - idtype: string              origin type
+#     - idvalue: logging            K8s metadata.name used as origin ID
+#   rdst-items/RemoteDest-list:     spec.servers -> remote syslog servers
+#     - host: 10.0.0.100            server.address -> destination host
+#     - severity: warnings          server.severity=Warning -> warnings
+#     - vrfName: management         server.vrfName -> VRF for reaching server
+#     - port: 514                   default syslog port
+#     - transport: udp              default transport
+#     - forwardingFacility: local7  default forwarding facility
+#   source-items:                   Syslog source interface
+#     - adminState: enabled         syslog enabled
+#     - ifName: mgmt0               default source interface
+
+-- syslog/logging --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Syslog
+metadata:
+  name: logging
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  servers:
+    - address: "10.0.0.100"
+      severity: Warning
+      vrfName: management
+  facilities:
+    - name: Local7
+      severity: Info
+
+-- state --
+{
+  "System": {
+    "logging-items": {
+      "loglevel-items": {
+        "facility-items": {
+          "Facility-list": [
+            {
+              "facilityName": "Local7",
+              "severityLevel": "information"
+            }
+          ]
+        }
+      }
+    },
+    "syslog-items": {
+      "logginghistory-items": {
+        "level": "information",
+        "size": 500
+      },
+      "originid-items": {
+        "idtype": "string",
+        "idvalue": "logging"
+      },
+      "rdst-items": {
+        "RemoteDest-list": [
+          {
+            "forwardingFacility": "local7",
+            "host": "10.0.0.100",
+            "port": 514,
+            "severity": "warnings",
+            "transport": "udp",
+            "vrfName": "management"
+          }
+        ]
+      },
+      "source-items": {
+        "adminState": "enabled",
+        "ifName": "mgmt0"
+      }
+    }
+  }
+}
