@@ -51,6 +51,7 @@ var resourceRegistry = []schema.GroupVersionKind{
 	v1alpha1.GroupVersion.WithKind("BGP"),
 	v1alpha1.GroupVersion.WithKind("BGPPeer"),
 	v1alpha1.GroupVersion.WithKind("Syslog"),
+	v1alpha1.GroupVersion.WithKind("SNMP"),
 	// Add new resource types here as needed
 }
 
