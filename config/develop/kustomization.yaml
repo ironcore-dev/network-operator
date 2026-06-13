@@ -1,6 +1,5 @@
 resources:
 - ../default
-- gnmi-test-server.yaml
 
 patches:
  - path: manager_patch.yaml

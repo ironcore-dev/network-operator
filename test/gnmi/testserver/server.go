@@ -146,6 +146,7 @@ func NewTestServer(ctx context.Context, opts ...ServerOption) (*Server, string, 
 	// Setup HTTP server
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/state", server.handleState)
+	mux.HandleFunc("/v1/clear", server.handleClear)
 	server.httpServer = &http.Server{Handler: mux}
 
 	// Start HTTP server in a goroutine
@@ -347,8 +348,16 @@ func (s *Server) Subscribe(stream grpc.BidiStreamingServer[gpb.SubscribeRequest,
 }
 
 // handleState handles HTTP requests to the /v1/state endpoint
+// GET: returns current state as JSON
+// POST: preloads nested JSON into state
+// DELETE: clears all state
+// Supports X-HTTP-Method-Override header for clients that can't send DELETE.
 func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
+	method := r.Method
+	if override := r.Header.Get("X-HTTP-Method-Override"); override != "" {
+		method = override
+	}
+	switch method {
 	case http.MethodGet:
 		state, err := s.GetState()
 		if err != nil {
@@ -360,12 +369,56 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write(state)
+	case http.MethodPost:
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			log.Printf("Failed to read body: %v", err)
+			http.Error(w, "Failed to read body", http.StatusBadRequest)
+			return
+		}
+		if len(body) == 0 {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		if !gjson.ValidBytes(body) {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		// Use Set with empty path to merge JSON into root of state
+		s.State.Set(&gpb.Path{}, body)
+		log.Printf("Merged state from JSON")
+		w.WriteHeader(http.StatusNoContent)
 	case http.MethodDelete:
 		s.ClearState()
 		w.WriteHeader(http.StatusNoContent)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
+}
+
+// handleClear handles POST /v1/clear to clear all state.
+func (s *Server) handleClear(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	s.ClearState()
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// mergeJSON merges src JSON into dst JSON at the root level.
+// Keys in src overwrite keys in dst.
+func mergeJSON(dst, src []byte) []byte {
+	srcParsed := gjson.ParseBytes(src)
+	if !srcParsed.IsObject() {
+		return src
+	}
+	result := dst
+	srcParsed.ForEach(func(key, value gjson.Result) bool {
+		result, _ = sjson.SetRawBytes(result, key.String(), []byte(value.Raw))
+		return true
+	})
+	return result
 }
 
 // State represents a JSON body that can be manipulated using [sjson] syntax.
@@ -468,6 +521,17 @@ func (s *State) Set(path *gpb.Path, raw []byte) {
 	raw = s.stripMarkerFields(raw)
 
 	elems := path.GetElem()
+
+	// Handle empty path - merge raw into state at root level
+	if len(elems) == 0 {
+		if len(s.Buf) == 0 {
+			s.Buf = raw
+		} else {
+			s.Buf = mergeJSON(s.Buf, raw)
+		}
+		return
+	}
+
 	var sb strings.Builder
 
 	for i, elem := range elems {

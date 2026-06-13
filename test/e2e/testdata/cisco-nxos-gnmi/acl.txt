@@ -1,0 +1,79 @@
+# NX-OS Access Control List Integration Test
+#
+# Tests ACL configuration with permit/deny entries.
+
+
+
+-- accesscontrollist/test-acl --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: AccessControlList
+metadata:
+  name: test-acl
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  name: BLOCK-EXTERNAL
+  entries:
+    - sequence: 10
+      action: Permit
+      protocol: IP
+      sourceAddress: 10.0.0.0/8
+      destinationAddress: 0.0.0.0/0
+      description: "Allow internal"
+    - sequence: 20
+      action: Deny
+      protocol: IP
+      sourceAddress: 0.0.0.0/0
+      destinationAddress: 0.0.0.0/0
+      description: "Deny all"
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "System": {
+    "acl-items": {
+      "ipv4-items": {
+        "name-items": {
+          "ACL-list": [
+            {
+              "name": "BLOCK-EXTERNAL",
+              "seq-items": {
+                "ACE-list": [
+                  {
+                    "action": "deny",
+                    "dstPrefix": "0.0.0.0",
+                    "protocol": 0,
+                    "seqNum": 20,
+                    "srcPrefix": "0.0.0.0"
+                  },
+                  {
+                    "action": "permit",
+                    "dstPrefix": "0.0.0.0",
+                    "protocol": 0,
+                    "seqNum": 10,
+                    "srcPrefix": "10.0.0.0",
+                    "srcPrefixLength": 8
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

@@ -33,7 +33,7 @@ spec:
       containers:
       - name: gnmi-test-server
         image: ghcr.io/ironcore-dev/gnmi-test-server:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Never
         ports:
         - containerPort: 9339
           name: grpc

@@ -85,6 +85,10 @@ verbatim: |
   # KIND_CLUSTER defines the name of the Kind cluster to be used for the tilt setup.
   KIND_CLUSTER ?= network
 
+  # PROVIDER defines which provider to test (openconfig, nxos, iosxr).
+  # Used by test-e2e to filter which testdata directory to use.
+  PROVIDER ?= openconfig
+
   LOCALBIN ?= $(shell pwd)/bin
   $(LOCALBIN):
     mkdir -p $(LOCALBIN)
@@ -115,7 +119,8 @@ verbatim: |
     @gofumpt -l -w $(shell git ls-files '*.go' | grep -v '^internal/provider/openconfig')
 
   # Run the e2e tests against a k8s cluster.
-  test-e2e: FORCE
+  # Use PROVIDER=nxos or PROVIDER=openconfig to filter tests.
+  test-e2e-kind: FORCE
     @command -v kind >/dev/null 2>&1 || { \
       echo "Kind is not installed. Please install Kind manually."; \
       exit 1; \
@@ -124,8 +129,14 @@ verbatim: |
       echo "No Kind cluster is running. Please start a Kind cluster before running the e2e tests."; \
       exit 1; \
     }
-    @printf "\e[1;36m>> go test ./test/e2e/ -v -ginkgo.v\e[0m\n"
-    @KIND_CLUSTER=$(KIND_CLUSTER) go test ./test/e2e/ -v -ginkgo.v
+    @printf "\e[1;36m>> go test ./test/e2e/ -timeout 15m -v -ginkgo.v (PROVIDER=$(PROVIDER))\e[0m\n"
+    @KIND_CLUSTER=$(KIND_CLUSTER) E2E_PROVIDER=$(PROVIDER) go test ./test/e2e/ -timeout 15m -v -ginkgo.v
+
+  # Run the e2e tests in envtest mode (no cluster required).
+  # Use PROVIDER=nxos or PROVIDER=openconfig to filter tests.
+  test-e2e-envtest: FORCE install-setup-envtest
+    @printf "\e[1;36m>> go test ./test/e2e/ -tags=envtest -v -ginkgo.v (PROVIDER=$(PROVIDER))\e[0m\n"
+    @KUBEBUILDER_ASSETS=$$(setup-envtest use 1.32 -p path) E2E_PROVIDER=$(PROVIDER) go test ./test/e2e/ -tags=envtest -v -ginkgo.v
 
   docker-build: FORCE
     @printf "\e[1;36m>> $(CONTAINER_TOOL) build --tag=$(IMG) .\e[0m\n"
@@ -140,15 +151,16 @@ verbatim: |
     @printf "\e[1;36m>> kustomize build config/default > dist/install.yaml\e[0m\n"
     @mkdir -p dist; kustomize build config/default > dist/install.yaml
 
-  # Deploy controller to the k8s cluster
+  # Deploy controller to the k8s cluster.
+  # Use PROVIDER to set the provider (default: openconfig).
   deploy: FORCE generate install-kustomize
-    @printf "\e[1;36m>> kustomize build config/default | kubectl apply -f -\e[0m\n"
-    @kustomize build config/default | kubectl apply -f -
+    @printf "\e[1;36m>> deploying controller-manager (PROVIDER=$(PROVIDER))\e[0m\n"
+    @kustomize build config/develop | sed 's/--provider=openconfig/--provider=$(PROVIDER)/' | kubectl apply -f -
 
   # Undeploy controller from the k8s cluster
   undeploy: FORCE install-kustomize
-    @printf "\e[1;36m>> kustomize build config/default | kubectl delete -f -\e[0m\n"
-    @kustomize build config/default | kubectl delete --ignore-not-found=true -f -
+    @printf "\e[1;36m>> undeploying controller-manager\e[0m\n"
+    @kustomize build config/develop | kubectl delete --ignore-not-found=true -f -
 
   # Install CRDs into the k8s cluster
   deploy-crds: FORCE generate install-kustomize
@@ -230,10 +242,6 @@ verbatim: |
     @printf "\e[1;36m>> $(CONTAINER_TOOL) push $(TEST_LAB_IMG)\e[0m\n"
     @$(CONTAINER_TOOL) push $(TEST_LAB_IMG)
 
-
-  test-integration: FORCE install-setup-envtest
-    @printf "\e[1;36m>> go test ./test/integration/ -v\e[0m\n"
-    @KUBEBUILDER_ASSETS=$$(setup-envtest use 1.35 -p path) go test ./test/integration/ -v
 
   ROOT_DIR := $(shell pwd)
   DOCS_IMG ?= ironcore-dev/network-operator-docs:latest

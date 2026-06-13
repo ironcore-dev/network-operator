@@ -43,12 +43,19 @@ CONTAINER_TOOL ?= docker
 # KIND_CLUSTER defines the name of the Kind cluster to be used for the tilt setup.
 KIND_CLUSTER ?= network
 
+# PROVIDER defines which provider to test (openconfig, nxos, iosxr).
+# Used by test-e2e to filter which testdata directory to use.
+PROVIDER ?= openconfig
+
 LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
 install-gofumpt: FORCE
 	@if ! hash gofumpt 2>/dev/null; then printf "\e[1;36m>> Installing gofumpt...\e[0m\n"; go install mvdan.cc/gofumpt@latest; fi
+
+install-ginkgo: FORCE
+	@if ! hash ginkgo 2>/dev/null; then printf "\e[1;36m>> Installing ginkgo...\e[0m\n"; go install github.com/onsi/ginkgo/v2/ginkgo@latest; fi
 
 install-kubebuilder: FORCE
 	@set -eou pipefail;  if ! hash kubebuilder 2>/dev/null; then printf "\e[1;36m>> Installing kubebuilder...\e[0m\n"; if command -v curl >/dev/null 2>&1; then GET="curl -sLo"; elif command -v wget >/dev/null 2>&1; then GET="wget -O"; else echo "Didn't find curl or wget to download kubebuilder"; exit 2; fi; BIN=$$(go env GOBIN); if [[ -z $$BIN ]]; then BIN=$$(go env GOPATH)/bin; fi; $$GET "$$BIN/kubebuilder" "https://go.kubebuilder.io/dl/latest/$$(go env GOOS)/$$(go env GOARCH)"; chmod +x "$$BIN/kubebuilder"; fi
@@ -73,7 +80,9 @@ fmt: FORCE install-gofumpt
 	@gofumpt -l -w $(shell git ls-files '*.go' | grep -v '^internal/provider/openconfig')
 
 # Run the e2e tests against a k8s cluster.
-test-e2e: FORCE
+# Use PROVIDER=nxos or PROVIDER=openconfig to filter tests.
+# Uses ginkgo CLI with -procs=4 for parallel test execution.
+test-e2e-kind: FORCE install-ginkgo
 	@command -v kind >/dev/null 2>&1 || { \
 	  echo "Kind is not installed. Please install Kind manually."; \
 	  exit 1; \
@@ -82,8 +91,14 @@ test-e2e: FORCE
 	  echo "No Kind cluster is running. Please start a Kind cluster before running the e2e tests."; \
 	  exit 1; \
 	}
-	@printf "\e[1;36m>> go test ./test/e2e/ -v -ginkgo.v\e[0m\n"
-	@KIND_CLUSTER=$(KIND_CLUSTER) go test ./test/e2e/ -v -ginkgo.v
+	@printf "\e[1;36m>> ginkgo -procs=4 -timeout=15m -v ./test/e2e/ (PROVIDER=$(PROVIDER))\e[0m\n"
+	@KIND_CLUSTER=$(KIND_CLUSTER) E2E_PROVIDER=$(PROVIDER) ginkgo -procs=4 -timeout=15m -v ./test/e2e/
+
+# Run the e2e tests in envtest mode (no cluster required).
+# Use PROVIDER=nxos or PROVIDER=openconfig to filter tests.
+test-e2e-envtest: FORCE install-setup-envtest
+	@printf "\e[1;36m>> go test ./test/e2e/ -tags=envtest -v -ginkgo.v (PROVIDER=$(PROVIDER))\e[0m\n"
+	@KUBEBUILDER_ASSETS=$$(setup-envtest use 1.32 -p path) E2E_PROVIDER=$(PROVIDER) go test ./test/e2e/ -tags=envtest -v -ginkgo.v
 
 docker-build: FORCE
 	@printf "\e[1;36m>> $(CONTAINER_TOOL) build --tag=$(IMG) .\e[0m\n"
@@ -98,15 +113,26 @@ build-installer: FORCE generate install-kustomize
 	@printf "\e[1;36m>> kustomize build config/default > dist/install.yaml\e[0m\n"
 	@mkdir -p dist; kustomize build config/default > dist/install.yaml
 
-# Deploy controller to the k8s cluster
+# Deploy controller to the k8s cluster.
+# Use PROVIDER to set the provider (default: openconfig).
 deploy: FORCE generate install-kustomize
-	@printf "\e[1;36m>> kustomize build config/default | kubectl apply -f -\e[0m\n"
-	@kustomize build config/default | kubectl apply -f -
+	@printf "\e[1;36m>> deploying controller-manager (PROVIDER=$(PROVIDER))\e[0m\n"
+	@kustomize build config/develop | sed 's/--provider=openconfig/--provider=$(PROVIDER)/' | kubectl apply -f -
 
 # Undeploy controller from the k8s cluster
 undeploy: FORCE install-kustomize
-	@printf "\e[1;36m>> kustomize build config/default | kubectl delete -f -\e[0m\n"
-	@kustomize build config/default | kubectl delete --ignore-not-found=true -f -
+	@printf "\e[1;36m>> undeploying controller-manager\e[0m\n"
+	@kustomize build config/develop | kubectl delete --ignore-not-found=true -f -
+
+# Deploy gnmi-test-server for local development (not needed for tests - they create their own)
+deploy-gnmi-server: FORCE
+	@printf "\e[1;36m>> deploying gnmi-test-server\e[0m\n"
+	@kubectl apply -f config/develop/gnmi-test-server.yaml
+
+# Undeploy gnmi-test-server
+undeploy-gnmi-server: FORCE
+	@printf "\e[1;36m>> undeploying gnmi-test-server\e[0m\n"
+	@kubectl delete --ignore-not-found=true -f config/develop/gnmi-test-server.yaml
 
 # Install CRDs into the k8s cluster
 deploy-crds: FORCE generate install-kustomize
@@ -219,7 +245,7 @@ install-shellcheck: FORCE
 	@set -eou pipefail;  if ! hash shellcheck 2>/dev/null; then printf "\e[1;36m>> Installing shellcheck...\e[0m\n"; SHELLCHECK_ARCH=$$(uname -m); if [[ "$$SHELLCHECK_ARCH" == "arm64" ]]; then SHELLCHECK_ARCH=aarch64; fi; SHELLCHECK_OS=$$(uname -s | tr '[:upper:]' '[:lower:]'); SHELLCHECK_VERSION="stable"; if command -v curl >/dev/null 2>&1; then GET="curl -sLo-"; elif command -v wget >/dev/null 2>&1; then GET="wget -O-"; else echo "Didn't find curl or wget to download shellcheck"; exit 2; fi; $$GET "https://github.com/koalaman/shellcheck/releases/download/$$SHELLCHECK_VERSION/shellcheck-$$SHELLCHECK_VERSION.$$SHELLCHECK_OS.$$SHELLCHECK_ARCH.tar.xz" | tar -Jxf -; BIN=$$(go env GOBIN); if [[ -z $$BIN ]]; then BIN=$$(go env GOPATH)/bin; fi; install -Dm755 shellcheck-$$SHELLCHECK_VERSION/shellcheck -t "$$BIN"; rm -rf shellcheck-$$SHELLCHECK_VERSION; fi
 
 install-typos: FORCE
-	@set -eou pipefail;  if ! hash typos 2>/dev/null; then printf "\e[1;36m>> Installing typos...\e[0m\n"; TYPOS_ARCH=$$(uname -m); if [[ "$$TYPOS_ARCH" == "arm64" ]]; then TYPOS_ARCH=aarch64; fi; if command -v curl >/dev/null 2>&1; then GET="curl $${GITHUB_TOKEN:+" -u \":$$GITHUB_TOKEN\""} -sLo-"; elif command -v wget >/dev/null 2>&1; then GET="wget $${GITHUB_TOKEN:+" --password \"$$GITHUB_TOKEN\""} -O-"; else echo "Didn't find curl or wget to download typos"; exit 2; fi; if command -v gh >/dev/null; then TYPOS_GET_RELEASE_JSON="gh api /repos/crate-ci/typos/releases"; else TYPOS_GET_RELEASE_JSON="$$GET https://api.github.com/repos/crate-ci/typos/releases"; fi; TYPOS_VERSION=$$($$TYPOS_GET_RELEASE_JSON | jq -r '.[0].name' ); if [[ $(UNAME_S) == Darwin ]]; then TYPOS_FILE="typos-$$TYPOS_VERSION-$$TYPOS_ARCH-apple-darwin.tar.gz"; elif [[ $(UNAME_S) == Linux ]]; then TYPOS_FILE="typos-$$TYPOS_VERSION-$$TYPOS_ARCH-unknown-linux-musl.tar.gz"; fi; mkdir -p typos; $$GET ""https://github.com/crate-ci/typos/releases/download/$$TYPOS_VERSION/$$TYPOS_FILE"" | tar -C typos -zxf -; BIN=$$(go env GOBIN); if [[ -z $$BIN ]]; then BIN=$$(go env GOPATH)/bin; fi; install -Dm755 typos/typos -t "$$BIN"; rm -rf typos/; fi
+	@set -xeou pipefail;  if ! hash typos 2>/dev/null; then printf "\e[1;36m>> Installing typos...\e[0m\n"; TYPOS_ARCH=$$(uname -m); if [[ "$$TYPOS_ARCH" == "arm64" ]]; then TYPOS_ARCH=aarch64; fi; if command -v curl >/dev/null 2>&1; then GET="curl $${GITHUB_TOKEN:+" -u \":$$GITHUB_TOKEN\""} -sLo-"; elif command -v wget >/dev/null 2>&1; then GET="wget $${GITHUB_TOKEN:+" --password \"$$GITHUB_TOKEN\""} -O-"; else echo "Didn't find curl or wget to download typos"; exit 2; fi; if command -v gh >/dev/null; then TYPOS_GET_RELEASE_JSON="gh api /repos/crate-ci/typos/releases"; else TYPOS_GET_RELEASE_JSON="$$GET https://api.github.com/repos/crate-ci/typos/releases"; fi; TYPOS_VERSION=$$($$TYPOS_GET_RELEASE_JSON | jq -r '.[0].name' ); if [[ $(UNAME_S) == Darwin ]]; then TYPOS_FILE="typos-$$TYPOS_VERSION-$$TYPOS_ARCH-apple-darwin.tar.gz"; elif [[ $(UNAME_S) == Linux ]]; then TYPOS_FILE="typos-$$TYPOS_VERSION-$$TYPOS_ARCH-unknown-linux-musl.tar.gz"; fi; mkdir -p typos; $$GET ""https://github.com/crate-ci/typos/releases/download/$$TYPOS_VERSION/$$TYPOS_FILE"" | tar -C typos -zxf -; BIN=$$(go env GOBIN); if [[ -z $$BIN ]]; then BIN=$$(go env GOPATH)/bin; fi; install -Dm755 typos/typos -t "$$BIN"; rm -rf typos/; fi
 
 install-go-licence-detector: FORCE
 	@if ! hash go-licence-detector 2>/dev/null; then printf "\e[1;36m>> Installing go-licence-detector (this may take a while)...\e[0m\n"; go install go.elastic.co/go-licence-detector@latest; fi

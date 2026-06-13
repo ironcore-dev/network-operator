@@ -1,0 +1,76 @@
+# NX-OS SNMP Integration Test
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- snmp/config --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: SNMP
+metadata:
+  name: config
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  contact: "admin@example.com"
+  location: "DC1-Rack42"
+  sourceInterfaceName: "mgmt0"
+  hosts:
+    - address: "10.0.0.100"
+  communities:
+    - name: "public"
+      group: "network-operator"
+
+-- state/expect --
+{
+  "System": {
+    "snmp-items": {
+      "inst-items": {
+        "community-items": {
+          "CommSecP-list": [
+            {
+              "commAcess": "unspecified",
+              "grpName": "network-operator",
+              "name": "public"
+            }
+          ]
+        },
+        "globals-items": {
+          "srcInterfaceInforms-items": {
+            "ifname": "mgmt0"
+          },
+          "srcInterfaceTraps-items": {
+            "ifname": "mgmt0"
+          }
+        },
+        "host-items": {
+          "Host-list": [
+            {
+              "hostName": "10.0.0.100",
+              "notifType": "traps",
+              "secLevel": "noauth",
+              "udpPortID": 162,
+              "version": "v2c"
+            }
+          ]
+        },
+        "sysinfo-items": {
+          "sysContact": "admin@example.com",
+          "sysLocation": "DC1-Rack42"
+        },
+        "traps-items": {}
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

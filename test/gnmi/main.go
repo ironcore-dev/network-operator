@@ -18,19 +18,25 @@ func main() {
 	// Parse command line flags
 	port := flag.Int("port", 9339, "The gRPC server port")
 	httpPort := flag.Int("http-port", 8000, "The HTTP server port")
+	nxos := flag.Bool("nxos", false, "Enable NX-OS behavior (strip DME markers)")
 	flag.Parse()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Start the server using the reusable NewTestServer function
-	// Bind to 0.0.0.0 to accept connections from other pods in the cluster
-	server, grpcAddr, httpAddr, err := testserver.NewTestServer(
-		ctx,
+	// Build server options
+	opts := []testserver.ServerOption{
 		testserver.WithGRPCPort(*port),
 		testserver.WithHTTPPort(*httpPort),
 		testserver.WithBindAddress("0.0.0.0"),
-	)
+	}
+	if *nxos {
+		opts = append(opts, testserver.WithNXOSBehavior())
+	}
+
+	// Start the server using the reusable NewTestServer function
+	// Bind to 0.0.0.0 to accept connections from other pods in the cluster
+	server, grpcAddr, httpAddr, err := testserver.NewTestServer(ctx, opts...)
 	if err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}

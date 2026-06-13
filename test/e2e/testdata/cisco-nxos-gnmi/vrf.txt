@@ -1,0 +1,129 @@
+# NX-OS VRF Integration Test
+#
+# Tests VRF creation with L3 interface membership:
+#   tenant1     -> VRF with description
+#   vrf-uplink  -> Physical L3 interface assigned to the VRF
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- vrf/tenant1 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: VRF
+metadata:
+  name: k8s-vrf-tenant1
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  name: TENANT-1
+  description: "Tenant 1 VRF"
+
+-- interface/vrf-uplink --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: vrf-uplink
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  name: eth1/10
+  type: Physical
+  adminState: Up
+  mtu: 9000
+  description: "Uplink in TENANT-1 VRF"
+  vrfRef:
+    name: k8s-vrf-tenant1
+  ipv4:
+    addresses:
+      - 10.1.1.1/30
+
+-- state/expect --
+{
+  "System": {
+    "inst-items": {
+      "Inst-list": [
+        {
+          "name": "TENANT-1",
+          "descr": "Tenant 1 VRF",
+          "l3vni": false,
+          "dom-items": {
+            "Dom-list": [
+              {
+                "name": "TENANT-1"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "FECMode": "auto",
+            "accessVlan": "unknown",
+            "adminSt": "up",
+            "descr": "Uplink in TENANT-1 VRF",
+            "id": "eth1/10",
+            "layer": "Layer3",
+            "medium": "broadcast",
+            "mode": "access",
+            "mtu": 9000,
+            "nativeVlan": "unknown",
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            },
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='TENANT-1']"
+            },
+            "trunkVlans": "1-4094",
+            "userCfgdFlags": "admin_layer,admin_mtu,admin_state"
+          }
+        ]
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "TENANT-1",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "eth1/10",
+                    "addr-items": {
+                      "Addr-list": [
+                        {
+                          "addr": "10.1.1.1/30",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "primary"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

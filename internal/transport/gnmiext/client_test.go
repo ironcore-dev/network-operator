@@ -1332,7 +1332,7 @@ var _ DataElement = (*Hostname)(nil)
 
 func (*Hostname) XPath() string { return "openconfig:system/config/hostname" }
 
-// -- State --
+// -- state/expect --
 
 type HostnameState string
 
