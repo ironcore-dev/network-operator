@@ -1,16 +1,11 @@
-{{- if .Values.networkPolicy.enable }}
-# This NetworkPolicy allows ingress traffic to your webhook server running
-# as part of the controller-manager from specific namespaces and pods. CR(s) which uses webhooks
-# will only work when applied in namespaces labeled with 'webhook: enabled'
+{{- if and .Values.networkPolicy.enabled .Values.webhook.enabled }}
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   labels:
-    app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
     app.kubernetes.io/name: {{ include "network-operator.name" . }}
-    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    control-plane: controller-manager
   name: {{ include "network-operator.resourceName" (dict "suffix" "allow-webhook-traffic" "context" $) }}
   namespace: {{ .Release.Namespace }}
 spec:
@@ -21,12 +16,11 @@ spec:
   policyTypes:
     - Ingress
   ingress:
-    # This allows ingress traffic from any namespace with the label webhook: enabled
     - from:
       - namespaceSelector:
           matchLabels:
-            webhook: enabled # Only from namespaces with this label
+            webhook: enabled
       ports:
-        - port: 443
+        - port: {{ .Values.webhook.port }}
           protocol: TCP
-{{- end -}}
+{{- end }}

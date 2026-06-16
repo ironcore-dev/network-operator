@@ -63,7 +63,7 @@ jobs:
           kubectl wait --namespace monitoring --for=condition=available --timeout=300s deployment/prometheus-server
       - name: Install Helm Chart
         run: |
-          helm install network-operator ./charts/network-operator --create-namespace --namespace network-operator-system --set manager.image.repository=network-operator --set manager.image.tag=v0.1.0 --set prometheus.enable=true
+          helm install network-operator ./charts/network-operator --create-namespace --namespace network-operator-system --set manager.image.repository=network-operator --set manager.image.tag=v0.1.0 --set prometheus.enabled=true
       - name: Check Helm release status
         run: |
           helm status network-operator --namespace network-operator-system

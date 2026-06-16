@@ -152,10 +152,6 @@ charts: FORCE install-kubebuilder generate
 	@mv charts/network-operator charts/chart
 	@kubebuilder edit --plugins=helm/v2-alpha --output-dir=charts
 	@mv charts/chart charts/network-operator && rm -rf dist
-	@# Fix cert-manager volumeMounts/volumes indentation (https://github.com/kubernetes-sigs/kubebuilder/issues/5677)
-	@$(SED) -i \
-	  -e '/certManager.enable/,/end/{s/^        - mountPath:/          - mountPath:/;s/^          name: webhook-certs/            name: webhook-certs/;s/^          readOnly: true/            readOnly: true/;s/^      - name: webhook-certs/        - name: webhook-certs/;s/^        secret:/          secret:/;s/^          secretName:/            secretName:/}' \
-	  charts/network-operator/templates/manager/manager.yaml
 
 netop-provider:
 	@printf "\e[1;36m>> go build -o build/netop-provider ./hack/provider\e[0m\n"
