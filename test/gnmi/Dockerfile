@@ -12,17 +12,14 @@ ARG TARGETARCH
 
 WORKDIR /workspace
 
-# Install dependencies
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=bind,source=go.mod,target=go.mod \
-    --mount=type=bind,source=go.sum,target=go.sum \
-    go mod download -x
+# Copy source files
+COPY go.mod go.sum ./
+RUN go mod download -x
+
+COPY . .
 
 # Build the application into a static executable while removing the symbol table and debugging information
-RUN --mount=type=bind,target=. \
-    --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-s -w" -o /usr/bin/server ./main.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-s -w" -o /usr/bin/server ./main.go
 
 FROM alpine:${ALPINE_VERSION}
 
@@ -39,5 +36,5 @@ USER 65532:65532
 # Switch into workspace
 WORKDIR /
 
-# Start the server application
-CMD ["/server", "--port=9339", "--http-port=8000"]
+# Start the server application with NX-OS behavior enabled
+CMD ["/server", "--port=9339", "--http-port=8000", "--nxos"]
