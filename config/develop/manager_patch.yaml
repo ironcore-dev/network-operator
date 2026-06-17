@@ -1,6 +1,7 @@
 - op: replace
   path: /spec/template/spec/containers/0/args
   value:
+    - --metrics-bind-address=:8443
     - --leader-elect=false
     - --health-probe-bind-address=:8081
     - --provider=openconfig
