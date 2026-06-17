@@ -1,0 +1,63 @@
+# NX-OS DNS Integration Test
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- dns/config --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: DNS
+metadata:
+  name: config
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  adminState: Up
+  domain: example.com
+  servers:
+    - address: 10.10.10.10
+      vrfName: management
+
+-- state/expect --
+{
+  "System": {
+    "dns-items": {
+      "adminSt": "enabled",
+      "prof-items": {
+        "Prof-list": [
+          {
+            "name": "default",
+            "dom-items": {
+              "name": "example.com"
+            },
+            "vrf-items": {
+              "Vrf-list": [
+                {
+                  "name": "management",
+                  "prov-items": {
+                    "Provider-list": [
+                      {
+                        "addr": "10.10.10.10"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

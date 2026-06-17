@@ -1,0 +1,41 @@
+# NX-OS Banner Integration Test
+
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- banner/prelogin --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Banner
+metadata:
+  name: prelogin
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  type: PreLogin
+  message:
+    inline: "Authorized users only. All activity is monitored."
+
+-- state/expect --
+{
+  "System": {
+    "userext-items": {
+      "preloginbanner-items": {
+        "delimiter": "^",
+        "message": "Authorized users only. All activity is monitored."
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

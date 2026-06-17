@@ -1,0 +1,62 @@
+# NX-OS NTP Integration Test
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- ntp/config --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: NTP
+metadata:
+  name: config
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  adminState: Up
+  sourceInterfaceName: mgmt0
+  servers:
+    - address: ntp.example.com
+      prefer: true
+      vrfName: management
+
+-- state/expect --
+{
+  "System": {
+    "fm-items": {
+      "ntpd-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "time-items": {
+      "adminSt": "enabled",
+      "logging": "disabled",
+      "prov-items": {
+        "NtpProvider-list": [
+          {
+            "keyId": 0,
+            "maxPoll": 6,
+            "minPoll": 4,
+            "name": "ntp.example.com",
+            "preferred": true,
+            "provT": "server",
+            "vrf": "management"
+          }
+        ]
+      },
+      "srcIf-items": {
+        "srcIf": "mgmt0"
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
