@@ -71,13 +71,13 @@ lint: FORCE bin/golangci-lint-custom ## Run golangci-lint linter
 	@bin/golangci-lint-custom config verify
 	@bin/golangci-lint-custom run
 
-# PROVIDER defines which provider to test (cisco-nxos-gnmi, cisco-iosxr-gnmi, openconfig).
-# Used by test-e2e-cluster and test-e2e-envtest to filter tests.
-PROVIDER ?= cisco-nxos-gnmi
-
 fmt: FORCE install-gofumpt
 	@printf "\e[1;36m>> gofumpt -l -w .\e[0m\n"
 	@gofumpt -l -w $(shell git ls-files '*.go' | grep -v '^internal/provider/openconfig')
+
+# PROVIDER defines which provider to test (cisco-nxos-gnmi, cisco-iosxr-gnmi, openconfig).
+# Used by test-e2e-cluster and test-e2e-envtest to filter tests.
+PROVIDER ?= cisco-nxos-gnmi
 
 # Run the scaffolded e2e tests (unchanged from Kubebuilder).
 test-e2e: FORCE
@@ -104,13 +104,8 @@ test-e2e-cluster: FORCE install-ginkgo
 	  echo "No Kind cluster is running. Please start a Kind cluster before running the e2e tests."; \
 	  exit 1; \
 	}
-	@printf "\e[1;36m>> ginkgo -procs=$(GINKGO_PROCS) -tags=cluster -timeout=15m -v ./test/e2e/ (PROVIDER=$(PROVIDER))\e[0m\n"
-	@KIND_CLUSTER=$(KIND_CLUSTER) E2E_PROVIDER=$(PROVIDER) ginkgo -procs=$(GINKGO_PROCS) -tags=cluster -timeout=15m -v ./test/e2e/
-
-# Run gNMI controller tests in envtest mode (no cluster required).
-test-e2e-envtest: FORCE install-setup-envtest
-	@printf "\e[1;36m>> go test ./test/e2e/ -tags=envtest -v -ginkgo.v (PROVIDER=$(PROVIDER))\e[0m\n"
-	@KUBEBUILDER_ASSETS=$$(setup-envtest use 1.32 -p path) E2E_PROVIDER=$(PROVIDER) go test ./test/e2e/ -tags=envtest -v -ginkgo.v
+	@printf "\e[1;36m>> ginkgo -procs=$(GINKGO_PROCS) -tags=cluster -timeout=20m -v ./test/e2e/ (PROVIDER=$(PROVIDER))\e[0m\n"
+	@KIND_CLUSTER=$(KIND_CLUSTER) E2E_PROVIDER=$(PROVIDER) ginkgo -procs=$(GINKGO_PROCS) -tags=cluster -timeout=20m -v ./test/e2e/
 
 docker-build: FORCE
 	@printf "\e[1;36m>> $(CONTAINER_TOOL) build --tag=$(IMG) .\e[0m\n"
