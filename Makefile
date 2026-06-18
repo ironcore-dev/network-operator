@@ -107,6 +107,11 @@ test-e2e-cluster: FORCE install-ginkgo
 	@printf "\e[1;36m>> ginkgo -procs=$(GINKGO_PROCS) -tags=cluster -timeout=20m -v ./test/e2e/ (PROVIDER=$(PROVIDER))\e[0m\n"
 	@KIND_CLUSTER=$(KIND_CLUSTER) E2E_PROVIDER=$(PROVIDER) ginkgo -procs=$(GINKGO_PROCS) -tags=cluster -timeout=20m -v ./test/e2e/
 
+# Run gNMI controller tests in envtest mode (no cluster required).
+test-e2e-envtest: FORCE install-setup-envtest
+	@printf "\e[1;36m>> go test ./test/e2e/ -tags=envtest -v -ginkgo.v (PROVIDER=$(PROVIDER))\e[0m\n"
+	@KUBEBUILDER_ASSETS=$$(setup-envtest use 1.32 -p path) E2E_PROVIDER=$(PROVIDER) go test ./test/e2e/ -tags=envtest -v -ginkgo.v
+
 docker-build: FORCE
 	@printf "\e[1;36m>> $(CONTAINER_TOOL) build --tag=$(IMG) .\e[0m\n"
 	@$(CONTAINER_TOOL) build --build-arg=BININFO_BUILD_DATE=$(BININFO_BUILD_DATE) --build-arg=BININFO_COMMIT_HASH=$(BININFO_COMMIT_HASH) --build-arg=BININFO_VERSION=$(BININFO_VERSION) --tag=$(IMG) .
