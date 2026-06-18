@@ -92,6 +92,7 @@ func (c *ClusterEnvironment) DeployManager(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, "make", "deploy-crds")
 	cmd.Dir = dir
 	cmd.Env = env
+	cmd.Stdin = nil // Prevent stdin inheritance that can cause hangs
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to deploy CRDs: %s: %w", string(output), err)
 	}
@@ -100,6 +101,7 @@ func (c *ClusterEnvironment) DeployManager(ctx context.Context) error {
 	cmd = exec.CommandContext(ctx, "make", "deploy")
 	cmd.Dir = dir
 	cmd.Env = env
+	cmd.Stdin = nil // Prevent stdin inheritance that can cause hangs
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to deploy manager: %s: %w", string(output), err)
 	}
@@ -114,12 +116,10 @@ func (c *ClusterEnvironment) DeployManager(ctx context.Context) error {
 }
 
 // UndeployManager undeploys the controller-manager.
+// Uses kubectl delete -k directly instead of make undeploy to avoid shell pipeline stdin issues.
 func (c *ClusterEnvironment) UndeployManager(ctx context.Context) error {
-	cmd := exec.CommandContext(ctx, "make", "undeploy")
-	dir, _ := GetProjectDir() //nolint:errcheck // uses current dir as fallback
-	cmd.Dir = dir
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to undeploy manager: %s: %w", string(output), err)
+	if err := c.runKubectl(ctx, "delete", "-k", "config/develop", "--ignore-not-found"); err != nil {
+		return fmt.Errorf("failed to undeploy manager: %w", err)
 	}
 	return nil
 }
@@ -228,6 +228,7 @@ func (c *ClusterEnvironment) runKubectl(ctx context.Context, args ...string) err
 	cmd := exec.CommandContext(ctx, "kubectl", args...)
 	dir, _ := GetProjectDir() //nolint:errcheck // uses current dir as fallback
 	cmd.Dir = dir
+	cmd.Stdin = nil // Prevent stdin inheritance that can cause hangs
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s: %w", string(output), err)
@@ -240,6 +241,7 @@ func (c *ClusterEnvironment) runKubectlOutput(ctx context.Context, args ...strin
 	cmd := exec.CommandContext(ctx, "kubectl", args...)
 	dir, _ := GetProjectDir() //nolint:errcheck // uses current dir as fallback
 	cmd.Dir = dir
+	cmd.Stdin = nil // Prevent stdin inheritance that can cause hangs
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

@@ -42,6 +42,7 @@ func Run(cmd *exec.Cmd, w io.Writer) (string, error) {
 	}
 
 	cmd.Dir = dir
+	cmd.Stdin = nil // Prevent stdin inheritance that can cause hangs
 	if err = os.Chdir(cmd.Dir); err != nil {
 		_, _ = fmt.Fprintf(w, "chdir dir: %s\n", err)
 	}
