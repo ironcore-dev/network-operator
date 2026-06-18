@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# Gnosis documentation generation config for network-operator
+
+guides:
+  - docs/content/getting-started.doc.yaml
+  - docs/content/architecture.doc.yaml
+
+output:
+  dir: docs/generated
+  site:
+    title: "Network Operator"
+    description: "Cloud Native Network Device Provisioning"
+  categories:
+    guide:
+      label: "Guides"
+      description: "Architecture and usage guides"
+
+provider:
+  default: anthropic
+  model: claude-sonnet-4-6
