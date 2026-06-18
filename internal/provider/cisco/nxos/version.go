@@ -22,8 +22,7 @@ const (
 	VersionNX10_6_1         // 10.6(1)
 	VersionNX10_6_2         // 10.6(2)
 	VersionNX10_6_3         // 10.6(3)
-
-	VersionNX10_7_1 // 10.7(1)
+	VersionNX10_7_1         // 10.7(1)
 )
 
 func (v Version) String() string {

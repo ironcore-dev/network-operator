@@ -9,6 +9,9 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -667,27 +670,126 @@ func (p *Provider) GetPeerStatus(ctx context.Context, req *provider.BGPPeerStatu
 }
 
 func (p *Provider) EnsureCertificate(ctx context.Context, req *provider.EnsureCertificateRequest) error {
-	tp := new(Trustpoint)
-	tp.Name = req.ID
+	version := NXVersion(p.client.Capabilities())
 
-	if err := p.Patch(ctx, tp); err != nil {
+	logger := logr.FromContextOrDiscard(ctx).WithValues("nx-version", version)
+
+	if serial, err := p.installedCertSerial(ctx, req.ID); err == nil {
+		want := strings.ToUpper(req.Certificate.Leaf.SerialNumber.Text(16))
+		if strings.TrimLeft(serial, "0") == strings.TrimLeft(want, "0") {
+			logger.V(1).Info("Certificate already installed with matching serial", "serial", serial)
+			return nil
+		}
+	}
+
+	if version >= VersionNX10_7_1 {
+		tp := new(Trustpoint)
+		tp.Name = req.ID
+
+		if err := p.Patch(ctx, tp); err != nil {
+			return err
+		}
+
+		key, ok := req.Certificate.PrivateKey.(*rsa.PrivateKey)
+		if !ok {
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "spec.certificate.privateKey",
+				Description: fmt.Sprintf("unsupported private key type: expected *rsa.PrivateKey, got %T", req.Certificate.PrivateKey),
+			})
+		}
+
+		cert := &Certificate{Key: key, Cert: req.Certificate.Leaf}
+		for _, der := range req.Certificate.Certificate[1:] {
+			ca, err := x509.ParseCertificate(der)
+			if err != nil {
+				return fmt.Errorf("failed to parse CA certificate: %w", err)
+			}
+			cert.CACerts = append(cert.CACerts, ca)
+		}
+
+		err := cert.Load(ctx, p.conn, req.ID)
+		if err != nil {
+			return fmt.Errorf("failed to upload certificate via gNOI: %w", err)
+		}
+
+		logger.V(2).Info("Certificate upload completed")
+		return nil
+	}
+
+	var pass [16]byte
+	_, _ = rand.Read(pass[:])
+	passphrase := hex.EncodeToString(pass[:])
+
+	pfx, err := EncodeCertificatePKCS12(req.Certificate, passphrase)
+	if err != nil {
 		return err
 	}
 
-	key, ok := req.Certificate.PrivateKey.(*rsa.PrivateKey)
-	if !ok {
-		return fmt.Errorf("unsupported private key type: expected *rsa.PrivateKey, got %T", req.Certificate.PrivateKey)
-	}
-
-	kp := new(KeyPair)
-	kp.Name = req.ID
-	if err := p.client.GetConfig(ctx, kp); !errors.Is(err, gnmiext.ErrNil) {
-		// If the key pair already exists, we cannot update it, so we skip the rest of the process.
+	// Delete any existing trustpoint and RSA key before importing.
+	// gNMI delete is idempotent, so this is safe even on a fresh device.
+	if err := p.DeleteCertificate(ctx, &provider.DeleteCertificateRequest{ID: req.ID}); err != nil {
 		return err
 	}
 
-	cert := &Certificate{Key: key, Cert: req.Certificate.Leaf}
-	return cert.Load(ctx, p.conn, req.ID)
+	b64 := base64.StdEncoding.EncodeToString(pfx)
+	file := "/bootflash/" + req.ID + ".pfx"
+	b64File := file + ".b64"
+
+	cmds := []string{
+		"feature bash-shell",
+		"crypto ca trustpoint " + req.ID,
+	}
+	const chunkSize = 512
+	for i := 0; i < len(b64); i += chunkSize {
+		end := min(i+chunkSize, len(b64))
+		op := " >> "
+		if i == 0 {
+			op = " > "
+		}
+		cmds = append(cmds, "run bash echo -n '"+b64[i:end]+"'"+op+b64File)
+	}
+	cmds = append(
+		cmds,
+		"run bash base64 -d "+b64File+" > "+file,
+		"run bash rm "+b64File,
+		"crypto ca import "+req.ID+" pkcs12 bootflash:///"+req.ID+".pfx "+passphrase,
+		"run bash rm "+file,
+	)
+
+	_, err = p.nxapi.Do(ctx, nxapi.NewRequest(cmds...).WithRollback(nxapi.Stop))
+	if err != nil {
+		return fmt.Errorf("failed to upload certificate via NX-API: %w", err)
+	}
+
+	logger.V(2).Info("Certificate upload completed")
+	return nil
+}
+
+// installedCertSerial queries the device for the certificate installed under the
+// given trustpoint and returns its serial number as an uppercase hex string.
+// If the trustpoint does not exist or has no certificate, an error is returned.
+func (p *Provider) installedCertSerial(ctx context.Context, trustpoint string) (string, error) {
+	res, err := p.nxapi.Do(ctx, nxapi.NewRequest("show crypto ca certificates "+trustpoint))
+	if err != nil {
+		return "", err
+	}
+	if len(res) == 0 {
+		return "", errors.New("empty response")
+	}
+	var body struct {
+		Certificate struct {
+			Cert string `json:"certificate"`
+		} `json:"Certificate"`
+	}
+	if err := json.Unmarshal(res[0], &body); err != nil {
+		return "", err
+	}
+	for line := range strings.SplitSeq(body.Certificate.Cert, "\n") {
+		if after, ok := strings.CutPrefix(line, "serial="); ok {
+			return strings.ToUpper(strings.TrimSpace(after)), nil
+		}
+	}
+	return "", errors.New("serial not found in certificate output")
 }
 
 func (p *Provider) DeleteCertificate(ctx context.Context, req *provider.DeleteCertificateRequest) error {

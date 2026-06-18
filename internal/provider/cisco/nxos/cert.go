@@ -6,14 +6,15 @@ package nxos
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 
-	"github.com/openconfig/gnoi/cert"
+	certpb "github.com/openconfig/gnoi/cert"
 	"google.golang.org/grpc"
+	pkcs12 "software.sslmate.com/src/go-pkcs12"
 
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
@@ -21,8 +22,9 @@ import (
 // Certificate represents a X.509 certificate and its associated private key.
 // It can be used to load the certificate into a NX-OS device truspoint via gNOI.
 type Certificate struct {
-	Key  *rsa.PrivateKey
-	Cert *x509.Certificate
+	Key     *rsa.PrivateKey
+	Cert    *x509.Certificate
+	CACerts []*x509.Certificate
 }
 
 // Load loads the certificate into the specified trustpoint via the gNOI [cert service].
@@ -39,26 +41,31 @@ func (c *Certificate) Load(ctx context.Context, conn *grpc.ClientConn, trustpoin
 		return err
 	}
 
-	// Only the `LoadCertificate` method is currently supported on the Nexus 9000 series, despite the fact that the gNOI certificate service is deprecated in favor of the gNSI certz service.
-	// See: https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/104x/programmability/cisco-nexus-9000-series-nx-os-programmability-guide-104x/gnoi---operation-interface.html
-	_, err = cert.NewCertificateManagementClient(conn).LoadCertificate(ctx, &cert.LoadCertificateRequest{ //nolint:staticcheck
-		Certificate:   &cert.Certificate{Type: cert.CertificateType_CT_X509, Certificate: b},
-		KeyPair:       &cert.KeyPair{PrivateKey: priv, PublicKey: pub},
-		CertificateId: trustpoint,
+	var chain []*certpb.Certificate
+	for _, ca := range c.CACerts {
+		var buf bytes.Buffer
+		if err := pem.Encode(&buf, &pem.Block{Type: "CERTIFICATE", Bytes: ca.Raw}); err != nil {
+			return fmt.Errorf("failed to encode CA certificate: %w", err)
+		}
+		chain = append(chain, &certpb.Certificate{Type: certpb.CertificateType_CT_X509, Certificate: buf.Bytes()})
+	}
+
+	// Nexus 9000 series only supports the gNOI certificate management service, despite the fact it is deprecated in favor of the gNSI certz service.
+	// See: https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/106x/programmability/cisco-nexus-9000-series-nx-os-programmability-guide-106x/gnoi---operation-interface.html
+	_, err = certpb.NewCertificateManagementClient(conn).LoadCertificate(ctx, &certpb.LoadCertificateRequest{ //nolint:staticcheck
+		Certificate:    &certpb.Certificate{Type: certpb.CertificateType_CT_X509, Certificate: b},
+		KeyPair:        &certpb.KeyPair{PrivateKey: priv, PublicKey: pub},
+		CertificateId:  trustpoint,
+		CaCertificates: chain,
 	}, grpc.WaitForReady(true))
 	return err
 }
 
 func (c *Certificate) Encode() ([]byte, error) {
-	// Self-sign the certificate as Cisco NX-OS does not support uploading a certificate chain via gNOI.
-	der, err := x509.CreateCertificate(rand.Reader, c.Cert, c.Cert, &c.Key.PublicKey, c.Key)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create certificate: %w", err)
-	}
 	var buf bytes.Buffer
-	err = pem.Encode(&buf, &pem.Block{
+	err := pem.Encode(&buf, &pem.Block{
 		Type:  "CERTIFICATE",
-		Bytes: der,
+		Bytes: c.Cert.Raw,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode certificate: %w", err)
@@ -114,4 +121,30 @@ func (*KeyPair) IsListItem() {}
 
 func (k *KeyPair) XPath() string {
 	return "System/userext-items/pkiext-items/keyring-items/KeyRing-list[name=" + k.Name + "]"
+}
+
+// EncodeCertificatePKCS12 encodes a tls.Certificate (leaf + chain + private key) into
+// PKCS#12 format protected by the given passphrase. LegacyRC2 encoding is used
+// for compatibility with NX-OS.
+func EncodeCertificatePKCS12(cert *tls.Certificate, passphrase string) ([]byte, error) {
+	key, ok := cert.PrivateKey.(*rsa.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("unsupported private key type: expected *rsa.PrivateKey, got %T", cert.PrivateKey)
+	}
+
+	var chain []*x509.Certificate
+	for _, der := range cert.Certificate[1:] {
+		ca, err := x509.ParseCertificate(der)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse CA certificate: %w", err)
+		}
+		chain = append(chain, ca)
+	}
+
+	pfx, err := pkcs12.LegacyRC2.Encode(key, cert.Leaf, chain, passphrase)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode PKCS#12: %w", err)
+	}
+
+	return pfx, nil
 }

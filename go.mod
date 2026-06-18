@@ -29,6 +29,7 @@ require (
 	rsc.io/script v0.0.2
 	sigs.k8s.io/controller-runtime v0.24.1
 	sigs.k8s.io/yaml v1.6.0
+	software.sslmate.com/src/go-pkcs12 v0.7.1
 )
 
 require (
