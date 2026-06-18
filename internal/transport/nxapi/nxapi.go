@@ -220,6 +220,12 @@ type RPCError struct {
 }
 
 func (e *RPCError) Error() string {
+	var detail struct {
+		Msg string `json:"msg"`
+	}
+	if json.Unmarshal(e.Data, &detail) == nil && detail.Msg != "" {
+		return fmt.Sprintf("nxapi: RPC error %d: %s: %s", e.Code, e.Message, detail.Msg)
+	}
 	return fmt.Sprintf("nxapi: RPC error %d: %s", e.Code, e.Message)
 }
 
