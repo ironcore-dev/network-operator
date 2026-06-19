@@ -427,8 +427,6 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 	if !ok {
 		return nil
 	}
-	delete(obj.Annotations, v1alpha1.DeviceMaintenanceAnnotation)
-
 	switch action {
 	case v1alpha1.DeviceMaintenanceReboot:
 		prov, ok := r.Provider().(provider.MaintenanceProvider)
@@ -501,9 +499,12 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 
 	default:
 		r.Recorder.Eventf(obj, nil, "Warning", "UnknownMaintenanceAction", "Maintenance", "Unknown maintenance action: %s", action)
-		return fmt.Errorf("unknown maintenance action: %s", action)
+		return reconcile.TerminalError(fmt.Errorf("unknown maintenance action: %s", action))
 	}
 
+	// Only remove the annotation after the operation succeeds so that
+	// failed actions are retried on the next reconciliation.
+	delete(obj.Annotations, v1alpha1.DeviceMaintenanceAnnotation)
 	return nil
 }
 
