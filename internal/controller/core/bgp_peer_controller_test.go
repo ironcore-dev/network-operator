@@ -496,11 +496,13 @@ var _ = Describe("BGPPeer Controller", func() {
 					Namespace:    metav1.NamespaceDefault,
 				},
 				Spec: v1alpha1.BGPPeerSpec{
-					DeviceRef:     v1alpha1.LocalObjectReference{Name: device.Name},
-					BgpRef:        v1alpha1.LocalObjectReference{Name: bgp.Name},
-					Address:       host,
-					ASNumber:      intstr.FromInt(65000),
-					LocalASNumber: &intstr.IntOrString{IntVal: 65000},
+					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
+					BgpRef:    v1alpha1.LocalObjectReference{Name: bgp.Name},
+					Address:   host,
+					ASNumber:  intstr.FromInt(65000),
+					LocalAS: &v1alpha1.LocalAS{
+						ASNumber: intstr.IntOrString{IntVal: 65000},
+					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, bgppeer)).To(Succeed())

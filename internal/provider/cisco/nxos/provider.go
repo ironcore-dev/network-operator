@@ -552,15 +552,32 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		pe.SrcIf = srcIf
 	}
 
-	if req.BGPPeer.Spec.LocalASNumber != nil {
-		if req.BGPPeer.Spec.ASNumber.String() == req.BGP.Spec.ASNumber.String() {
+	if req.BGPPeer.Spec.LocalAS != nil {
+		if req.BGPPeer.Spec.LocalAS.ASNumber.String() == req.BGP.Spec.ASNumber.String() {
 			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
 				Field:       "spec.localAS",
 				Description: "local-as cannot be configured on iBGP peers",
 			})
 		}
-		pe.LocalAsnItems.LocalAsn = req.BGPPeer.Spec.LocalASNumber.String()
-		pe.LocalAsnItems.AsnPropagate = AsnPropagateNone
+
+		pe.LocalAsnItems.LocalAsn = req.BGPPeer.Spec.LocalAS.ASNumber.String()
+
+		prependLocalAS := req.BGPPeer.Spec.LocalAS.PrependLocalAS == nil || *req.BGPPeer.Spec.LocalAS.PrependLocalAS
+		prependGlobalAS := req.BGPPeer.Spec.LocalAS.PrependGlobalAS == nil || *req.BGPPeer.Spec.LocalAS.PrependGlobalAS
+
+		switch {
+		case !prependLocalAS && prependGlobalAS:
+			pe.LocalAsnItems.AsnPropagate = AsnPropagateNoPrep
+		case !prependLocalAS && !prependGlobalAS:
+			pe.LocalAsnItems.AsnPropagate = AsnPropagateReplaceAs
+		case prependLocalAS && !prependGlobalAS:
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "spec.localAS.prependGlobalAS",
+				Description: "prependGlobalAS=false (replace-as mode) requires prependLocalAS=false (no-prepend on inbound)",
+			})
+		default:
+			pe.LocalAsnItems.AsnPropagate = AsnPropagateNone
+		}
 	}
 
 	if req.BGPPeer.Spec.AddressFamilies != nil {

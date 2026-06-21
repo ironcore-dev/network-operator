@@ -502,7 +502,7 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 				},
 				LocalAS: LocalAS{
 					AS: AS{
-						ASNumber: req.BGPPeer.Spec.LocalASNumber.IntVal,
+						ASNumber: req.BGPPeer.Spec.LocalAS.ASNumber.IntVal,
 						NoPrepend: PrependAS{
 							ReplaceAS{},
 						},

@@ -443,7 +443,7 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (ret
 		sourceInterface = intf.Spec.Name
 	}
 
-	if s.BGPPeer.Spec.LocalASNumber != nil && s.BGPPeer.Spec.ASNumber.String() == bgp.Spec.ASNumber.String() {
+	if s.BGPPeer.Spec.LocalAS != nil && s.BGPPeer.Spec.ASNumber.String() == bgp.Spec.ASNumber.String() {
 		conditions.Set(s.BGPPeer, metav1.Condition{
 			Type:    v1alpha1.ConfiguredCondition,
 			Status:  metav1.ConditionFalse,
@@ -477,7 +477,7 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (ret
 	conditions.Set(s.BGPPeer, cond)
 
 	if err != nil {
-		return err
+		return apistatus.WrapTerminalError(err)
 	}
 
 	status, err := s.Provider.GetPeerStatus(ctx, &provider.BGPPeerStatusRequest{

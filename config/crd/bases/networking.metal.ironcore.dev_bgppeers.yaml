@@ -328,13 +328,30 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
-              localASNumber:
-                anyOf:
-                - type: integer
-                - type: string
-                description: LocalASNumber specifies a local AS number to present
-                  to the BGP peer, masking the global BGP process ASN.
-                x-kubernetes-int-or-string: true
+              localAS:
+                description: LocalAS configures the local AS number and how it factors
+                  into BGP announcements for this peer.
+                properties:
+                  asNumber:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: ASNumber specifies a local AS number to present in
+                      BGP sessions with this peer.
+                    x-kubernetes-int-or-string: true
+                  prependGlobalAS:
+                    default: true
+                    description: PrependGlobalAS specifies whether to prepend the
+                      global AS number to updates sent to this neighbor.
+                    type: boolean
+                  prependLocalAS:
+                    default: true
+                    description: PrependLocalAS specifies whether to prepend the local
+                      AS number to updates received from this peer.
+                    type: boolean
+                required:
+                - asNumber
+                type: object
               localAddress:
                 description: |-
                   LocalAddress specifies the local address configuration for the BGP session with this peer.

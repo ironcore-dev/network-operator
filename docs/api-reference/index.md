@@ -491,7 +491,7 @@ _Appears in:_
 | `description` _string_ | Description is an optional human-readable description for this BGP peer.<br />This field is used for documentation purposes and may be displayed in management interfaces. |  | Optional: \{\} <br /> |
 | `localAddress` _[BGPPeerLocalAddress](#bgppeerlocaladdress)_ | LocalAddress specifies the local address configuration for the BGP session with this peer.<br />This determines the source address/interface for BGP packets sent to this peer. |  | Optional: \{\} <br /> |
 | `addressFamilies` _[BGPPeerAddressFamilies](#bgppeeraddressfamilies)_ | AddressFamilies configures address family specific settings for this BGP peer.<br />Controls which address families are enabled and their specific configuration. |  | Optional: \{\} <br /> |
-| `localASNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | LocalASNumber specifies a local AS number to present to the BGP peer, masking the global BGP process ASN. |  | Optional: \{\} <br /> |
+| `localAS` _[LocalAS](#localas)_ | LocalAS configures the local AS number and how it factors into BGP announcements for this peer. |  | Optional: \{\} <br /> |
 
 
 #### BGPPeerStatus
@@ -1643,6 +1643,24 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the LLDP resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />Standard condition types include:<br />- "Available": the resource is fully functional<br />- "Progressing": the resource is being created or updated<br />- "Degraded": the resource failed to reach or maintain its desired state<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+
+
+#### LocalAS
+
+
+
+LocalAS defines the local AS configuration and how it factors in BGP announcements.
+
+
+
+_Appears in:_
+- [BGPPeerSpec](#bgppeerspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber specifies a local AS number to present in BGP sessions with this peer. |  | Required: \{\} <br /> |
+| `prependLocalAS` _boolean_ | PrependLocalAS specifies whether to prepend the local AS number to updates received from this peer. | true | Optional: \{\} <br /> |
+| `prependGlobalAS` _boolean_ | PrependGlobalAS specifies whether to prepend the global AS number to updates sent to this neighbor. | true | Optional: \{\} <br /> |
 
 
 #### LocalObjectReference

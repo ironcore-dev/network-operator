@@ -55,9 +55,8 @@ func validateBGPPeer(bgppeer v1alpha1.BGPPeerSpec) error {
 		return err
 	}
 
-	localASN := bgppeer.LocalASNumber
-	if localASN != nil {
-		if err := validateASNumber(*localASN); err != nil {
+	if bgppeer.LocalAS != nil {
+		if err := validateASNumber(bgppeer.LocalAS.ASNumber); err != nil {
 			return err
 		}
 	}
