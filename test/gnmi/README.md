@@ -27,7 +27,7 @@ docker run -d -p 9339:9339 ghcr.io/ironcore-dev/gnmi-test-server
 Now, it's possible to connect to the server using a GNMI client such as [gnmic](https://gnmic.openconfig.net) on `127.0.0.1:9339`.
 
 ```sh
-λ gnmic -a 127.0.0.1 --port 9339  --insecure get --path /System/name
+λ gnmic -a 127.0.0.1 --port 9339 --skip-verify get --path /System/name
 [
   {
     "source": "127.0.0.1",
@@ -44,7 +44,7 @@ Now, it's possible to connect to the server using a GNMI client such as [gnmic](
   }
 ]
 
-λ gnmic -a 127.0.0.1 --port 9339  --insecure set --update-path /System/name --update-value "leaf1"
+λ gnmic -a 127.0.0.1 --port 9339 --skip-verify set --update-path /System/name --update-value "leaf1"
 {
   "source": "127.0.0.1",
   "timestamp": 1753364001109266411,
@@ -57,7 +57,7 @@ Now, it's possible to connect to the server using a GNMI client such as [gnmic](
   ]
 }
 
-λ gnmic -a 127.0.0.1 --port 9339  --insecure get --path /System/name
+λ gnmic -a 127.0.0.1 --port 9339 --skip-verify get --path /System/name
 [
   {
     "source": "127.0.0.1",
@@ -122,7 +122,7 @@ curl -X DELETE http://127.0.0.1:8000/v1/state
 1. **Inspect state after GNMI operations:**
    ```sh
    # Set a value via GNMI
-   gnmic -a 127.0.0.1 --port 9339 --insecure set --update-path /System/name --update-value "leaf1"
+   gnmic -a 127.0.0.1 --port 9339 --skip-verify set --update-path /System/name --update-value "leaf1"
    
    # Check the state via HTTP
    curl http://127.0.0.1:8000/v1/state
