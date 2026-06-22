@@ -170,7 +170,11 @@ func (s *Server) Subscribe(stream grpc.BidiStreamingServer[gpb.SubscribeRequest,
 
 // handleState handles HTTP requests to the /v1/state endpoint
 func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
+	method := r.Method
+	if override := r.Header.Get("X-HTTP-Method-Override"); override != "" {
+		method = override
+	}
+	switch method {
 	case http.MethodGet:
 		s.State.RLock()
 		defer s.State.RUnlock()
