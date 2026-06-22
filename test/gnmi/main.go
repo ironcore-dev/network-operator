@@ -263,8 +263,14 @@ func (s *State) Set(path *gpb.Path, raw []byte) {
 		})
 		sb.WriteByte('.')
 		sb.WriteString(strconv.Itoa(idx))
+		for k, v := range elem.GetKey() {
+			s.Buf, _ = sjson.SetBytes(s.Buf, sb.String()+"."+k, v) //nolint:errcheck
+		}
 	}
 	s.Buf, _ = sjson.SetRawBytes(s.Buf, sb.String(), raw) //nolint:errcheck
+	for k, v := range path.GetElem()[len(path.GetElem())-1].GetKey() {
+		s.Buf, _ = sjson.SetBytes(s.Buf, sb.String()+"."+k, v) //nolint:errcheck
+	}
 }
 
 func (s *State) Del(path *gpb.Path) {
