@@ -51,6 +51,13 @@ func (s *Server) Get(_ context.Context, req *gpb.GetRequest) (*gpb.GetResponse, 
 			return nil, status.Error(codes.InvalidArgument, "root path is not allowed")
 		}
 		log.Printf("Getting path: %v", path)
+		val := s.State.Get(path)
+		if val == nil {
+			notifications = append(notifications, &gpb.Notification{
+				Timestamp: time.Now().UnixNano(),
+			})
+			continue
+		}
 		notifications = append(notifications, &gpb.Notification{
 			Timestamp: time.Now().UnixNano(),
 			Update: []*gpb.Update{
@@ -58,7 +65,7 @@ func (s *Server) Get(_ context.Context, req *gpb.GetRequest) (*gpb.GetResponse, 
 					Path: path,
 					Val: &gpb.TypedValue{
 						Value: &gpb.TypedValue_JsonVal{
-							JsonVal: s.State.Get(path),
+							JsonVal: val,
 						},
 					},
 				},
@@ -235,7 +242,7 @@ func (s State) Get(path *gpb.Path) []byte {
 	}
 	res := gjson.GetBytes(s.Buf, sb.String())
 	if !res.Exists() || (res.IsArray() && len(res.Array()) == 0) {
-		return []byte("null")
+		return nil
 	}
 	return []byte(res.Raw)
 }
