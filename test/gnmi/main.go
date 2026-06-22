@@ -226,7 +226,7 @@ func (s State) Get(path *gpb.Path) []byte {
 			sb.WriteString(k)
 			sb.WriteString(`=="`)
 			sb.WriteString(v)
-			sb.WriteString(`")#`)
+			sb.WriteString(`")`)
 		}
 	}
 	res := gjson.GetBytes(s.Buf, sb.String())
