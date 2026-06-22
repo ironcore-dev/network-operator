@@ -248,8 +248,13 @@ func (c *client) get(ctx context.Context, dt gpb.GetRequest_DataType, el ...Data
 			// instead of a NotFound status error when the requested path is
 			// syntactically correct but does not exist on the device.
 			//
+			// Similarly, some devices (e.g., Cisco NX-OS) return a JSON null
+			// value rather than omitting the update entirely (as Nokia SR Linux
+			// does). Treat null the same as empty to avoid leaving the target
+			// struct unchanged during unmarshal.
+			//
 			// [gNMI spec]: https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#334-getresponse-behavior-table
-			if len(b) == 0 {
+			if len(b) == 0 || string(b) == "null" {
 				return ErrNil
 			}
 			if err := c.Unmarshal(b, e); err != nil {
