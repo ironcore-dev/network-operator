@@ -174,7 +174,7 @@ func (r *EVPNInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	orig := obj.DeepCopy()
-	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
@@ -326,6 +326,10 @@ func (r *EVPNInstanceReconciler) reconcile(ctx context.Context, s *eviScope) (re
 
 	s.EVPNInstance.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
+	defer func() {
+		conditions.RecomputeReady(s.EVPNInstance)
+	}()
+
 	// Ensure the EVPNInstance is owned by the Device.
 	if !controllerutil.HasControllerReference(s.EVPNInstance) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.EVPNInstance, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
@@ -369,8 +373,6 @@ func (r *EVPNInstanceReconciler) reconcile(ctx context.Context, s *eviScope) (re
 	})
 
 	cond := conditions.FromError(err)
-	// As this resource is configuration only, we use the Configured condition as top-level Ready condition.
-	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.EVPNInstance, cond)
 
 	return err
@@ -388,7 +390,7 @@ func (r *EVPNInstanceReconciler) reconcileVLAN(ctx context.Context, s *eviScope)
 	if err := r.Get(ctx, key, vlan); err != nil {
 		if apierrors.IsNotFound(err) {
 			conditions.Set(s.EVPNInstance, metav1.Condition{
-				Type:    v1alpha1.ReadyCondition,
+				Type:    v1alpha1.ConfiguredCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  v1alpha1.VLANNotFoundReason,
 				Message: fmt.Sprintf("referenced VLAN %q not found", key),
@@ -400,7 +402,7 @@ func (r *EVPNInstanceReconciler) reconcileVLAN(ctx context.Context, s *eviScope)
 
 	if vlan.Spec.DeviceRef.Name != s.Device.Name {
 		conditions.Set(s.EVPNInstance, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
+			Type:    v1alpha1.ConfiguredCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  v1alpha1.CrossDeviceReferenceReason,
 			Message: fmt.Sprintf("referenced VLAN %q does not belong to device %q", vlan.Name, s.Device.Name),
@@ -410,7 +412,7 @@ func (r *EVPNInstanceReconciler) reconcileVLAN(ctx context.Context, s *eviScope)
 
 	if vlan.Status.BridgedBy != nil && vlan.Status.BridgedBy.Name != s.EVPNInstance.Name {
 		conditions.Set(s.EVPNInstance, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
+			Type:    v1alpha1.ConfiguredCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  v1alpha1.VLANAlreadyInUseReason,
 			Message: fmt.Sprintf("VLAN %q is already in use by EVPNInstance %q", vlan.Name, vlan.Status.BridgedBy.Name),

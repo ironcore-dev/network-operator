@@ -172,7 +172,7 @@ func (r *RoutingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	orig := obj.DeepCopy()
-	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
@@ -300,6 +300,10 @@ func (r *RoutingPolicyReconciler) reconcile(ctx context.Context, s *routingPolic
 
 	s.RoutingPolicy.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
+	defer func() {
+		conditions.RecomputeReady(s.RoutingPolicy)
+	}()
+
 	// Ensure the RoutingPolicy is owned by the Device.
 	if !controllerutil.HasControllerReference(s.RoutingPolicy) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.RoutingPolicy, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
@@ -335,8 +339,6 @@ func (r *RoutingPolicyReconciler) reconcile(ctx context.Context, s *routingPolic
 	})
 
 	cond := conditions.FromError(err)
-	// As this resource is configuration only, we use the Configured condition as top-level Ready condition.
-	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.RoutingPolicy, cond)
 
 	return err
@@ -378,7 +380,7 @@ func (r *RoutingPolicyReconciler) reconcilePrefixSet(ctx context.Context, s *rou
 	if err := r.Get(ctx, key, prefixSet); err != nil {
 		if apierrors.IsNotFound(err) {
 			conditions.Set(s.RoutingPolicy, metav1.Condition{
-				Type:    v1alpha1.ReadyCondition,
+				Type:    v1alpha1.ConfiguredCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  v1alpha1.PrefixSetNotFoundReason,
 				Message: fmt.Sprintf("referenced PrefixSet %q not found", key),
@@ -390,7 +392,7 @@ func (r *RoutingPolicyReconciler) reconcilePrefixSet(ctx context.Context, s *rou
 
 	if prefixSet.Spec.DeviceRef.Name != s.Device.Name {
 		conditions.Set(s.RoutingPolicy, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
+			Type:    v1alpha1.ConfiguredCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  v1alpha1.CrossDeviceReferenceReason,
 			Message: fmt.Sprintf("referenced PrefixSet %q does not belong to device %q", prefixSet.Name, s.Device.Name),

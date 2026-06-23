@@ -191,9 +191,13 @@ var _ = Describe("DHCPRelay Controller", func() {
 				dhcprelay = &v1alpha1.DHCPRelay{}
 				g.Expect(k8sClient.Get(ctx, resourceKey, dhcprelay)).To(Succeed())
 
-				cond := meta.FindStatusCondition(dhcprelay.Status.Conditions, v1alpha1.ReadyCondition)
-				g.Expect(cond).ToNot(BeNil())
-				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(dhcprelay.Status.Conditions).To(HaveLen(3))
+				g.Expect(dhcprelay.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(dhcprelay.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(dhcprelay.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(dhcprelay.Status.Conditions[1].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(dhcprelay.Status.Conditions[2].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(dhcprelay.Status.Conditions[2].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 
 			By("Verifying the status contains configured interface refs")
