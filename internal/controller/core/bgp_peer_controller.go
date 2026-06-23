@@ -477,7 +477,7 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (ret
 	conditions.Set(s.BGPPeer, cond)
 
 	if err != nil {
-		return apistatus.WrapTerminalError(err)
+		return err
 	}
 
 	status, err := s.Provider.GetPeerStatus(ctx, &provider.BGPPeerStatusRequest{
