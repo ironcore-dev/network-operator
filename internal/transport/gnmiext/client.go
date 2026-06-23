@@ -443,18 +443,15 @@ func (c *client) Decode(val *gpb.TypedValue) ([]byte, error) {
 
 // StringToStructuredPath converts a string xpath to a structured path.
 //
-// It is a wrapper around [ygot.StringToStructuredPath] that additionally supports
-// origin prefixes, such as "openconfig-interfaces:interfaces/interface[name=eth1/1]".
+// Module prefixes (e.g. "openconfig-system:system/state") are kept in the
+// first path element name per RFC 7951 Section 4 [1], which defines that
+// the module name qualifies the first identifier in a JSON-encoded YANG path.
+//
+// [1]: https://datatracker.ietf.org/doc/html/rfc7951#section-4
 func StringToStructuredPath(xpath string) (*gpb.Path, error) {
-	var model string
-	if idx := strings.Index(xpath, ":"); idx > 0 {
-		model = xpath[:idx]
-		xpath = xpath[idx+1:]
-	}
 	path, err := ygot.StringToStructuredPath(xpath)
 	if err != nil {
 		return nil, fmt.Errorf("gnmiext: failed to convert xpath '%s' to path: %w", xpath, err)
 	}
-	path.Origin = model
 	return path, nil
 }
