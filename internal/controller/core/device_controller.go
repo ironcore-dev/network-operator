@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -341,9 +342,10 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 			device.Labels = map[string]string{}
 		}
 		if serial := strings.ToLower(device.Status.SerialNumber); serial != "" {
+			serial = sanitizeLabelValue(serial)
 			if device.Labels[v1alpha1.DeviceSerialLabel] == "" {
 				device.Labels[v1alpha1.DeviceSerialLabel] = serial
-			} else if device.Labels[v1alpha1.DeviceSerialLabel] != serial {
+			} else if !strings.EqualFold(device.Labels[v1alpha1.DeviceSerialLabel], serial) {
 				log.Info("Device serial label does not match observed device serial number", "labelSerial", device.Labels[v1alpha1.DeviceSerialLabel], "observedSerial", serial)
 			}
 		}
@@ -610,4 +612,18 @@ func PortSummary(ports []v1alpha1.DevicePort) string {
 func Jitter(d time.Duration) time.Duration {
 	r := rand.Float64() // #nosec G404
 	return time.Duration(float64(d) * (0.9 + 0.2*r))
+}
+
+var invalidLabelChars = regexp.MustCompile(`[^A-Za-z0-9_.\-]`)
+
+// sanitizeLabelValue ensures the serial number is a valid Kubernetes label [1]
+// value (max 63 chars, alphanumeric/hyphen/underscore/dot, no leading or
+// trailing separators). The provider returns the raw device serial which may
+// contain characters not allowed in labels.
+//
+// [1]: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
+func sanitizeLabelValue(s string) string {
+	s = invalidLabelChars.ReplaceAllString(s, "-")
+	s = strings.Trim(s, "-_.")
+	return s[:min(len(s), 63)]
 }
