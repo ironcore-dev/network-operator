@@ -169,7 +169,8 @@ func (r *DNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 		return ctrl.Result{}, nil
 	}
 
-	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
+	orig := obj.DeepCopy()
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
@@ -268,6 +269,10 @@ func (r *DNSReconciler) reconcile(ctx context.Context, s *dnsScope) (reterr erro
 
 	s.DNS.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
+	defer func() {
+		conditions.RecomputeReady(s.DNS)
+	}()
+
 	// Ensure the DNS is owned by the Device.
 	if !controllerutil.HasControllerReference(s.DNS) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.DNS, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
@@ -291,8 +296,6 @@ func (r *DNSReconciler) reconcile(ctx context.Context, s *dnsScope) (reterr erro
 	})
 
 	cond := conditions.FromError(err)
-	// As this resource is configuration only, we use the Configured condition as top-level Ready condition.
-	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.DNS, cond)
 
 	return err

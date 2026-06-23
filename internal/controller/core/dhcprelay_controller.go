@@ -176,7 +176,8 @@ func (r *DHCPRelayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
+	orig := obj.DeepCopy()
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
@@ -220,6 +221,10 @@ func (r *DHCPRelayReconciler) reconcile(ctx context.Context, s *dhcprelayScope) 
 		s.DHCPRelay.Labels = make(map[string]string)
 	}
 	s.DHCPRelay.Labels[v1alpha1.DeviceLabel] = s.Device.Name
+
+	defer func() {
+		conditions.RecomputeReady(s.DHCPRelay)
+	}()
 
 	// Ensure the DHCPRelay is owned by the Device.
 	if !controllerutil.HasControllerReference(s.DHCPRelay) {
@@ -568,8 +573,8 @@ func (r *DHCPRelayReconciler) reconcileVRFRef(ctx context.Context, vrfRef v1alph
 		return nil, reconcile.TerminalError(fmt.Errorf("vrf %s belongs to different device", vrfRef.Name))
 	}
 
-	// Verify the VRF is configured on the device
-	if !conditions.IsReady(vrf) {
+	// Verify the VRF is ready (configured) on the device
+	if !conditions.IsConfigured(vrf) {
 		conditions.Set(s.DHCPRelay, metav1.Condition{
 			Type:    v1alpha1.ConfiguredCondition,
 			Status:  metav1.ConditionFalse,

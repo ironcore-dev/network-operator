@@ -166,7 +166,8 @@ func (r *BorderGatewayReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
-	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
+	orig := obj.DeepCopy()
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
@@ -328,6 +329,10 @@ func (r *BorderGatewayReconciler) reconcile(ctx context.Context, s *borderGatewa
 
 	s.BorderGateway.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
+	defer func() {
+		conditions.RecomputeReady(s.BorderGateway)
+	}()
+
 	// Ensure the BorderGateway is owned by the Device.
 	if !controllerutil.HasControllerReference(s.BorderGateway) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.BorderGateway, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
@@ -368,8 +373,6 @@ func (r *BorderGatewayReconciler) reconcile(ctx context.Context, s *borderGatewa
 	})
 
 	cond := conditions.FromError(err)
-	// As this resource is configuration only, we use the Configured condition as top-level Ready condition.
-	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.BorderGateway, cond)
 
 	return err
@@ -387,7 +390,7 @@ func (r *BorderGatewayReconciler) reconcileSourceInterface(ctx context.Context, 
 	if err := r.Get(ctx, key, intf); err != nil {
 		if apierrors.IsNotFound(err) {
 			conditions.Set(s.BorderGateway, metav1.Condition{
-				Type:    v1alpha1.ReadyCondition,
+				Type:    v1alpha1.ConfiguredCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  v1alpha1.InterfaceNotFoundReason,
 				Message: fmt.Sprintf("source interface %q not found", key),
@@ -399,7 +402,7 @@ func (r *BorderGatewayReconciler) reconcileSourceInterface(ctx context.Context, 
 
 	if intf.Spec.DeviceRef.Name != s.Device.Name {
 		conditions.Set(s.BorderGateway, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
+			Type:    v1alpha1.ConfiguredCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  v1alpha1.CrossDeviceReferenceReason,
 			Message: fmt.Sprintf("source interface %q does not belong to device %q", intf.Name, s.Device.Name),
@@ -409,7 +412,7 @@ func (r *BorderGatewayReconciler) reconcileSourceInterface(ctx context.Context, 
 
 	if intf.Spec.Type != v1alpha1.InterfaceTypeLoopback {
 		conditions.Set(s.BorderGateway, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
+			Type:    v1alpha1.ConfiguredCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  v1alpha1.InvalidInterfaceTypeReason,
 			Message: fmt.Sprintf("source interface %q is not of type Loopback, got %q", intf.Name, intf.Spec.Type),
@@ -428,7 +431,7 @@ func (r *BorderGatewayReconciler) reconcileInterconnectInterfaces(ctx context.Co
 		if err := r.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: s.BorderGateway.Namespace}, intf); err != nil {
 			if apierrors.IsNotFound(err) {
 				conditions.Set(s.BorderGateway, metav1.Condition{
-					Type:    v1alpha1.ReadyCondition,
+					Type:    v1alpha1.ConfiguredCondition,
 					Status:  metav1.ConditionFalse,
 					Reason:  v1alpha1.InterfaceNotFoundReason,
 					Message: fmt.Sprintf("interconnect interface %q not found", ref.Name),
@@ -440,7 +443,7 @@ func (r *BorderGatewayReconciler) reconcileInterconnectInterfaces(ctx context.Co
 
 		if intf.Spec.DeviceRef.Name != s.Device.Name {
 			conditions.Set(s.BorderGateway, metav1.Condition{
-				Type:    v1alpha1.ReadyCondition,
+				Type:    v1alpha1.ConfiguredCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  v1alpha1.CrossDeviceReferenceReason,
 				Message: fmt.Sprintf("interconnect interface %q does not belong to device %q", intf.Name, s.Device.Name),
@@ -450,7 +453,7 @@ func (r *BorderGatewayReconciler) reconcileInterconnectInterfaces(ctx context.Co
 
 		if intf.Spec.Type != v1alpha1.InterfaceTypePhysical {
 			conditions.Set(s.BorderGateway, metav1.Condition{
-				Type:    v1alpha1.ReadyCondition,
+				Type:    v1alpha1.ConfiguredCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  v1alpha1.InvalidInterfaceTypeReason,
 				Message: fmt.Sprintf("interconnect interface %q is not of type Physical, got %q", intf.Name, intf.Spec.Type),
@@ -475,7 +478,7 @@ func (r *BorderGatewayReconciler) reconcileBGPPeers(ctx context.Context, s *bord
 		if err := r.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: s.BorderGateway.Namespace}, peer); err != nil {
 			if apierrors.IsNotFound(err) {
 				conditions.Set(s.BorderGateway, metav1.Condition{
-					Type:    v1alpha1.ReadyCondition,
+					Type:    v1alpha1.ConfiguredCondition,
 					Status:  metav1.ConditionFalse,
 					Reason:  v1alpha1.BGPPeerNotFoundReason,
 					Message: fmt.Sprintf("BGP peer %q not found", ref.Name),
@@ -487,7 +490,7 @@ func (r *BorderGatewayReconciler) reconcileBGPPeers(ctx context.Context, s *bord
 
 		if peer.Spec.DeviceRef.Name != s.Device.Name {
 			conditions.Set(s.BorderGateway, metav1.Condition{
-				Type:    v1alpha1.ReadyCondition,
+				Type:    v1alpha1.ConfiguredCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  v1alpha1.CrossDeviceReferenceReason,
 				Message: fmt.Sprintf("BGP peer %q does not belong to device %q", peer.Name, s.Device.Name),
