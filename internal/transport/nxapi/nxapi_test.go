@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
@@ -42,12 +41,14 @@ func TestUri(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			wantPrefix := test.wantProto + "://"
-			if !strings.HasPrefix(c.uri, wantPrefix) {
-				t.Errorf("uri = %q, want prefix %q", c.uri, wantPrefix)
+			if c.url.Scheme != test.wantProto {
+				t.Errorf("scheme = %q, want %q", c.url.Scheme, test.wantProto)
 			}
-			if !strings.HasSuffix(c.uri, "/ins") {
-				t.Errorf("uri = %q, want suffix %q", c.uri, "/ins")
+			if c.url.Host != test.conn.Address {
+				t.Errorf("host = %q, want %q", c.url.Host, test.conn.Address)
+			}
+			if c.url.Path != "/ins" {
+				t.Errorf("path = %q, want %q", c.url.Path, "/ins")
 			}
 		})
 	}

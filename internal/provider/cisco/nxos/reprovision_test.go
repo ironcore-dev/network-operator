@@ -6,12 +6,14 @@ package nxos
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"slices"
 	"testing"
 
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
+	"github.com/ironcore-dev/network-operator/internal/transport/nxapi"
 )
 
 func TestReprovision(t *testing.T) {
@@ -58,11 +60,15 @@ func TestReprovision(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		p := &Provider{}
+		_, port, _ := net.SplitHostPort(srv.Listener.Addr().String()) //nolint:errcheck // httptest address is always host:port
 		conn := &deviceutil.Connection{Address: srv.Listener.Addr().String(), Username: "admin", Password: "secret"}
-
-		err := p.Reprovision(t.Context(), conn)
+		client, err := nxapi.NewClient(conn, 0, nxapi.WithPort(port))
 		if err != nil {
+			t.Fatalf("failed to create nxapi client: %v", err)
+		}
+
+		p := &Provider{nxapi: client}
+		if err := p.Reprovision(t.Context(), conn); err != nil {
 			t.Fatalf("Reprovision returned unexpected error: %v", err)
 		}
 
@@ -85,11 +91,15 @@ func TestReprovision(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		p := &Provider{}
+		_, port, _ := net.SplitHostPort(srv.Listener.Addr().String()) //nolint:errcheck // httptest address is always host:port
 		conn := &deviceutil.Connection{Address: srv.Listener.Addr().String(), Username: "admin", Password: "secret"}
+		client, err := nxapi.NewClient(conn, 0, nxapi.WithPort(port))
+		if err != nil {
+			t.Fatalf("failed to create nxapi client: %v", err)
+		}
 
-		err := p.Reprovision(t.Context(), conn)
-		if err == nil {
+		p := &Provider{nxapi: client}
+		if err := p.Reprovision(t.Context(), conn); err == nil {
 			t.Fatal("expected error from prep batch, got nil")
 		}
 	})
@@ -111,11 +121,15 @@ func TestReprovision(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		p := &Provider{}
+		_, port, _ := net.SplitHostPort(srv.Listener.Addr().String()) //nolint:errcheck // httptest address is always host:port
 		conn := &deviceutil.Connection{Address: srv.Listener.Addr().String(), Username: "admin", Password: "secret"}
+		client, err := nxapi.NewClient(conn, 0, nxapi.WithPort(port))
+		if err != nil {
+			t.Fatalf("failed to create nxapi client: %v", err)
+		}
 
-		err := p.Reprovision(t.Context(), conn)
-		if err == nil {
+		p := &Provider{nxapi: client}
+		if err := p.Reprovision(t.Context(), conn); err == nil {
 			t.Fatal("expected error from reload RPC failure, got nil")
 		}
 	})

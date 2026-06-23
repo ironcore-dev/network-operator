@@ -149,14 +149,18 @@ func (p *Provider) FactoryReset(ctx context.Context, conn *deviceutil.Connection
 }
 
 func (p *Provider) Reprovision(ctx context.Context, conn *deviceutil.Connection) error {
-	c := *conn
-	c.Address = netip.MustParseAddrPort(conn.Address).Addr().String()
-	client, err := nxapi.NewClient(&c, timeout)
-	if err != nil {
-		return fmt.Errorf("failed to create nxapi client: %w", err)
+	client := p.nxapi
+	if client == nil {
+		c := *conn
+		c.Address = netip.MustParseAddrPort(conn.Address).Addr().String()
+		var err error
+		client, err = nxapi.NewClient(&c, timeout)
+		if err != nil {
+			return fmt.Errorf("failed to create nxapi client: %w", err)
+		}
 	}
 
-	_, err = client.Do(ctx, nxapi.NewRequest(
+	_, err := client.Do(ctx, nxapi.NewRequest(
 		"boot poap enable",
 		"copy running-config startup-config",
 	).WithRollback(nxapi.Stop))
