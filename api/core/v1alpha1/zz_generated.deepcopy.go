@@ -561,6 +561,11 @@ func (in *BGPPeerSpec) DeepCopyInto(out *BGPPeerSpec) {
 		*out = new(BGPPeerAddressFamilies)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.LocalASNumber != nil {
+		in, out := &in.LocalASNumber, &out.LocalASNumber
+		*out = new(intstr.IntOrString)
+		**out = **in
+	}
 	if in.LocalAS != nil {
 		in, out := &in.LocalAS, &out.LocalAS
 		*out = new(LocalAS)

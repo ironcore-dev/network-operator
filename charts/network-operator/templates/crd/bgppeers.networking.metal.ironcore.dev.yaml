@@ -355,6 +355,16 @@ spec:
                 required:
                 - asNumber
                 type: object
+              localASNumber:
+                anyOf:
+                - type: integer
+                - type: string
+                description: |-
+                  LocalASNumber specifies a local AS number to present to the BGP peer.
+                  When set, it is equivalent to LocalAS with ASNumber set and PrependLocalAS/PrependGlobalAS defaults.
+
+                  Deprecated: Use LocalAS.ASNumber instead. This field will be removed in a future release.
+                x-kubernetes-int-or-string: true
               localAddress:
                 description: |-
                   LocalAddress specifies the local address configuration for the BGP session with this peer.
@@ -420,6 +430,9 @@ spec:
             - bgpRef
             - deviceRef
             type: object
+            x-kubernetes-validations:
+            - message: localAS and localASNumber are mutually exclusive
+              rule: '!(has(self.localAS) && has(self.localASNumber))'
           status:
             description: |-
               Status of the resource. This is set and updated automatically.
