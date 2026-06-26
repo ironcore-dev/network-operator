@@ -7,7 +7,7 @@ require (
 	github.com/go-crypt/crypt v0.14.15
 	github.com/go-logr/logr v1.4.3
 	github.com/google/go-cmp v0.7.0
-	github.com/onsi/ginkgo/v2 v2.31.0
+	github.com/onsi/ginkgo/v2 v2.32.0
 	github.com/onsi/gomega v1.42.1
 	github.com/openconfig/gnmi v0.14.1
 	github.com/openconfig/gnoi v0.8.0
