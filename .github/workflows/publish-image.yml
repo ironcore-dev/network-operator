@@ -66,7 +66,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Go Cache for Docker
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         id: cache
         with:
           path: |
