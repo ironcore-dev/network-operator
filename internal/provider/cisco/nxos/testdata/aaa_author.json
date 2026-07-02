@@ -5,7 +5,8 @@
         "DefaultAuthor-list": [
           {
             "cmdType": "config",
-            "providerGroup": "TACACS-SERVERS"
+            "providerGroup": "TACACS-SERVERS",
+            "localRbac": false
           }
         ]
       }

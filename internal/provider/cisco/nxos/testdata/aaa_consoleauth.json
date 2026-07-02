@@ -5,7 +5,8 @@
         "realm": "tacacs",
         "providerGroup": "TACACS-SERVERS",
         "fallback": "yes",
-        "local": "yes"
+        "local": "yes",
+        "errEn": false
       }
     }
   }
