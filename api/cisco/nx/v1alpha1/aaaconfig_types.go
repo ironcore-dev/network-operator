@@ -5,6 +5,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
@@ -93,5 +94,8 @@ type AAAConfigList struct {
 
 func init() {
 	v1alpha1.RegisterAAADependency(GroupVersion.WithKind("AAAConfig"))
-	SchemeBuilder.Register(&AAAConfig{}, &AAAConfigList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &AAAConfig{}, &AAAConfigList{})
+		return nil
+	})
 }
