@@ -43,40 +43,6 @@ spec:
               Specification of the desired state of the resource.
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
             properties:
-              configCommandsAuthorization:
-                description: ConfigCommandsAuthorization defines config-commands authorization
-                  methods.
-                properties:
-                  methods:
-                    description: Methods is the ordered list of methods.
-                    items:
-                      description: AAAMethod represents an AAA method.
-                      properties:
-                        groupName:
-                          description: GroupName is the name of the server group when
-                            Type is Group.
-                          maxLength: 63
-                          type: string
-                        type:
-                          description: Type is the type of AAA method.
-                          enum:
-                          - Group
-                          - Local
-                          - None
-                          type: string
-                      required:
-                      - type
-                      type: object
-                      x-kubernetes-validations:
-                      - message: groupName is required when type is Group
-                        rule: self.type != 'Group' || self.groupName != ""
-                    maxItems: 4
-                    minItems: 1
-                    type: array
-                    x-kubernetes-list-type: atomic
-                required:
-                - methods
-                type: object
               consoleAuthentication:
                 description: ConsoleAuthentication defines console-specific authentication
                   methods.

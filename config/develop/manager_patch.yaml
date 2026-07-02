@@ -6,3 +6,4 @@
     - --provider=openconfig
     - --requeue-interval=30s
     - --max-concurrent-reconciles=5
+    - --zap-log-level=3

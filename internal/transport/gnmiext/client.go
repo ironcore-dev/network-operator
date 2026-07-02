@@ -14,6 +14,7 @@ import (
 
 	cp "github.com/felix-kaestner/copy"
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ygot/ygot"
 	"github.com/tidwall/gjson"
@@ -292,7 +293,7 @@ func (c *client) set(ctx context.Context, patch bool, el ...DataElement) error {
 		if err != nil {
 			return err
 		}
-		c.logger.V(1).Info("Updating", "path", e.XPath(), "payload", string(b), "patch", patch)
+		c.logger.V(1).Info("Updating", "path", e.XPath(), "payload", string(b), "patch", patch, "diff", cmp.Diff(got, e))
 		u := &gpb.Update{
 			Path: path,
 			Val:  c.Encode(b),

@@ -6,7 +6,6 @@ package nxos
 import (
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
-	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
@@ -33,11 +32,11 @@ const (
 
 // TacacsPlusProvider represents a TACACS+ server host configuration.
 type TacacsPlusProvider struct {
-	Name    string `json:"name"`
-	Port    int32  `json:"port"`
-	Key     string `json:"key,omitempty"`
-	KeyEnc  string `json:"keyEnc"`
-	Timeout int32  `json:"timeout"`
+	Name    string         `json:"name"`
+	Port    int32          `json:"port"`
+	Key     Option[string] `json:"key"`
+	KeyEnc  string         `json:"keyEnc"`
+	Timeout int32          `json:"timeout"`
 }
 
 func (*TacacsPlusProvider) IsListItem() {}
@@ -49,9 +48,8 @@ func (p *TacacsPlusProvider) XPath() string {
 // TacacsPlusProviderGroup represents a TACACS+ server group configuration.
 type TacacsPlusProviderGroup struct {
 	Name             string                          `json:"name"`
-	Vrf              string                          `json:"vrf,omitempty"`
-	SrcIf            string                          `json:"srcIf,omitempty"`
-	Deadtime         int32                           `json:"deadtime,omitempty"`
+	Vrf              string                          `json:"vrf"`
+	SrcIf            Option[string]                  `json:"srcIf"`
 	ProviderRefItems TacacsPlusProviderGroupRefItems `json:"providerref-items,omitzero"`
 }
 
@@ -76,7 +74,6 @@ func (*TacacsPlusProviderItems) XPath() string {
 }
 
 // TacacsPlusProviderGroupItems is the container for all TACACS+ server group configurations on the device.
-// Used for reading the current state — not for writing.
 type TacacsPlusProviderGroupItems struct {
 	GroupList []TacacsPlusProviderGroup `json:"TacacsPlusProviderGroup-list,omitzero"`
 }
@@ -93,12 +90,12 @@ func (r *TacacsPlusProviderRef) Key() string { return r.Name }
 
 // RadiusProvider represents a RADIUS server host configuration.
 type RadiusProvider struct {
-	Name     string `json:"name"`
-	AuthPort int32  `json:"authPort"`
-	AcctPort int32  `json:"acctPort"`
-	Key      string `json:"key,omitempty"`
-	KeyEnc   string `json:"keyEnc"`
-	Timeout  int32  `json:"timeout"`
+	Name     string         `json:"name"`
+	AuthPort int32          `json:"authPort"`
+	AcctPort int32          `json:"acctPort"`
+	Key      Option[string] `json:"key"`
+	KeyEnc   string         `json:"keyEnc"`
+	Timeout  int32          `json:"timeout"`
 }
 
 func (*RadiusProvider) IsListItem() {}
@@ -110,9 +107,8 @@ func (p *RadiusProvider) XPath() string {
 // RadiusProviderGroup represents a RADIUS server group configuration.
 type RadiusProviderGroup struct {
 	Name             string                      `json:"name"`
-	Vrf              string                      `json:"vrf,omitempty"`
-	SrcIf            string                      `json:"srcIf,omitempty"`
-	Deadtime         int32                       `json:"deadtime,omitempty"`
+	Vrf              string                      `json:"vrf"`
+	SrcIf            Option[string]              `json:"srcIf"`
 	ProviderRefItems RadiusProviderGroupRefItems `json:"providerref-items,omitzero"`
 }
 
@@ -154,12 +150,11 @@ func (r *RadiusProviderRef) Key() string { return r.Name }
 
 // AAADefaultAuth represents AAA default authentication configuration.
 type AAADefaultAuth struct {
-	Realm         string `json:"realm,omitempty"`
+	Realm         string `json:"realm"`
 	ProviderGroup string `json:"providerGroup"`
-	Fallback      string `json:"fallback,omitempty"`
-	Local         string `json:"local,omitempty"`
-	None          string `json:"none,omitempty"`
-	ErrEn         bool   `json:"errEn,omitempty"`
+	Fallback      string `json:"fallback"`
+	Local         string `json:"local"`
+	ErrEn         bool   `json:"errEn"`
 }
 
 func (*AAADefaultAuth) XPath() string {
@@ -168,12 +163,11 @@ func (*AAADefaultAuth) XPath() string {
 
 // AAAConsoleAuth represents AAA console authentication configuration.
 type AAAConsoleAuth struct {
-	Realm         string `json:"realm,omitempty"`
+	Realm         string `json:"realm"`
 	ProviderGroup string `json:"providerGroup"`
-	Fallback      string `json:"fallback,omitempty"`
-	Local         string `json:"local,omitempty"`
-	None          string `json:"none,omitempty"`
-	ErrEn         bool   `json:"errEn,omitempty"`
+	Fallback      string `json:"fallback"`
+	Local         string `json:"local"`
+	ErrEn         bool   `json:"errEn"`
 }
 
 func (*AAAConsoleAuth) XPath() string {
@@ -183,10 +177,9 @@ func (*AAAConsoleAuth) XPath() string {
 // AAADefaultAuthor represents AAA default authorization configuration for config commands.
 // Note: "name" and "realm" are read-only operational fields on NX-OS and must not be sent.
 type AAADefaultAuthor struct {
-	CmdType          string `json:"cmdType"`
-	ProviderGroup    string `json:"providerGroup"`
-	LocalRbac        bool   `json:"localRbac,omitempty"`
-	AuthorMethodNone bool   `json:"authorMethodNone,omitempty"`
+	CmdType       string `json:"cmdType"`
+	ProviderGroup string `json:"providerGroup"`
+	LocalRbac     bool   `json:"localRbac"`
 }
 
 func (*AAADefaultAuthor) IsListItem() {}
@@ -198,17 +191,16 @@ func (a *AAADefaultAuthor) XPath() string {
 // AAADefaultAcc represents AAA default accounting configuration.
 // Note: "name" is a read-only operational field on NX-OS and must not be sent.
 type AAADefaultAcc struct {
-	Realm         string `json:"realm,omitempty"`
+	Realm         string `json:"realm"`
 	ProviderGroup string `json:"providerGroup"`
-	LocalRbac     bool   `json:"localRbac,omitempty"`
-	AccMethodNone bool   `json:"accMethodNone,omitempty"`
+	LocalRbac     bool   `json:"localRbac"`
 }
 
 func (*AAADefaultAcc) XPath() string {
 	return "System/userext-items/authrealm-items/defaultacc-items"
 }
 
-// MapKeyEncryption maps the Cisco-specific key encryption type to NX-OS type.
+// MapKeyEncryption maps the TACACS+ key encryption type.
 func MapKeyEncryption(enc nxv1alpha1.TACACSKeyEncryption) string {
 	switch enc {
 	case nxv1alpha1.TACACSKeyEncryptionType6:
@@ -222,7 +214,7 @@ func MapKeyEncryption(enc nxv1alpha1.TACACSKeyEncryption) string {
 	}
 }
 
-// MapRADIUSKeyEncryption maps the Cisco-specific RADIUS key encryption type to NX-OS type.
+// MapRADIUSKeyEncryption maps the RADIUS key encryption type.
 func MapRADIUSKeyEncryption(enc nxv1alpha1.RADIUSKeyEncryption) string {
 	switch enc {
 	case nxv1alpha1.RADIUSKeyEncryptionType6:
@@ -236,29 +228,23 @@ func MapRADIUSKeyEncryption(enc nxv1alpha1.RADIUSKeyEncryption) string {
 	}
 }
 
-// groupTypeByName returns the AAAServerGroupType for the given group name,
-// defaulting to TACACS if not found.
-func groupTypeByName(name string, groups []v1alpha1.AAAServerGroup) v1alpha1.AAAServerGroupType {
+// MapRealmFromGroup returns the realm string for the given group name,
+// resolving TACACS+ vs RADIUS from the server group list.
+func MapRealmFromGroup(name string, groups []v1alpha1.AAAServerGroup) string {
 	for _, g := range groups {
 		if g.Name == name {
-			return g.Type
+			switch g.Type {
+			case v1alpha1.AAAServerGroupTypeRADIUS:
+				return AAARealmRadius
+			default:
+				return AAARealmTacacs
+			}
 		}
 	}
-	return v1alpha1.AAAServerGroupTypeTACACS
+	return AAARealmTacacs
 }
 
-// MapRealmFromGroup returns the NX-OS realm string for the given group name,
-// resolving TACACS vs RADIUS from the server group list.
-func MapRealmFromGroup(groupName string, groups []v1alpha1.AAAServerGroup) string {
-	switch groupTypeByName(groupName, groups) {
-	case v1alpha1.AAAServerGroupTypeRADIUS:
-		return AAARealmRadius
-	default:
-		return AAARealmTacacs
-	}
-}
-
-// MapRealmFromMethodType maps the API method type to NX-OS realm.
+// MapRealmFromMethodType maps the API method type to realm.
 func MapRealmFromMethodType(method v1alpha1.AAAMethodType) string {
 	switch method {
 	case v1alpha1.AAAMethodTypeGroup:
@@ -289,176 +275,4 @@ func MapFallbackFromMethodList(methods []v1alpha1.AAAMethod) string {
 		return AAAValueYes
 	}
 	return AAAValueNo
-}
-
-// MapRealm maps a method type string to an NX-OS realm.
-func MapRealm(methodType string) string {
-	switch methodType {
-	case "Group":
-		return AAARealmTacacs
-	case "Local":
-		return AAARealmLocal
-	case "None":
-		return AAARealmNone
-	default:
-		return AAARealmLocal
-	}
-}
-
-// MapLocal checks if local is in a method list.
-func MapLocal(methods []v1alpha1.AAAMethod) string {
-	for _, m := range methods {
-		if m.Type == v1alpha1.AAAMethodTypeLocal {
-			return AAAValueYes
-		}
-	}
-	return AAAValueNo
-}
-
-// MapFallback determines fallback setting from a method list.
-func MapFallback(methods []v1alpha1.AAAMethod) string {
-	if len(methods) > 1 {
-		return AAAValueYes
-	}
-	return AAAValueNo
-}
-
-func buildTACACSSGroupConf(group v1alpha1.AAAServerGroup, req *provider.EnsureAAARequest, cfg nxv1alpha1.AAAConfig, desired map[string]struct{}) []gnmiext.DataElement {
-	var conf []gnmiext.DataElement
-	conf = append(conf, &Feature{Name: "tacacsplus", AdminSt: AdminStEnabled})
-	for _, server := range group.Servers {
-		desired[server.Address] = struct{}{}
-		srv := &TacacsPlusProvider{
-			Name:    server.Address,
-			Port:    server.TACACS.Port,
-			KeyEnc:  MapKeyEncryption(cfg.Spec.KeyEncryption),
-			Timeout: 5,
-		}
-		if key, ok := req.TACACSServerKeys[server.Address]; ok {
-			srv.Key = key
-		}
-		if server.Timeout != nil {
-			srv.Timeout = int32(server.Timeout.Seconds())
-		}
-		conf = append(conf, srv)
-	}
-	grp := &TacacsPlusProviderGroup{
-		Name:  group.Name,
-		Vrf:   group.VrfName,
-		SrcIf: group.SourceInterfaceName,
-	}
-	for _, server := range group.Servers {
-		grp.ProviderRefItems.ProviderRefList.Set(&TacacsPlusProviderRef{Name: server.Address})
-	}
-	return append(conf, grp)
-}
-
-func buildRADIUSGroupConf(group v1alpha1.AAAServerGroup, req *provider.EnsureAAARequest, cfg nxv1alpha1.AAAConfig, desired map[string]struct{}) []gnmiext.DataElement {
-	var conf []gnmiext.DataElement
-	for _, server := range group.Servers {
-		desired[server.Address] = struct{}{}
-		srv := &RadiusProvider{
-			Name:     server.Address,
-			AuthPort: server.RADIUS.AuthenticationPort,
-			AcctPort: server.RADIUS.AccountingPort,
-			KeyEnc:   MapRADIUSKeyEncryption(cfg.Spec.RADIUSKeyEncryption),
-			Timeout:  5,
-		}
-		if key, ok := req.RADIUSServerKeys[server.Address]; ok {
-			srv.Key = key
-		}
-		if server.Timeout != nil {
-			srv.Timeout = int32(server.Timeout.Seconds())
-		}
-		conf = append(conf, srv)
-	}
-	grp := &RadiusProviderGroup{
-		Name:  group.Name,
-		Vrf:   group.VrfName,
-		SrcIf: group.SourceInterfaceName,
-	}
-	for _, server := range group.Servers {
-		grp.ProviderRefItems.ProviderRefList.Set(&RadiusProviderRef{Name: server.Address})
-	}
-	return append(conf, grp)
-}
-
-func buildDefaultAuth(req *provider.EnsureAAARequest, cfg nxv1alpha1.AAAConfig) *AAADefaultAuth {
-	if req.AAA.Spec.Authentication == nil || len(req.AAA.Spec.Authentication.Methods) == 0 {
-		return &AAADefaultAuth{Realm: AAARealmLocal, Local: AAAValueYes, Fallback: AAAValueYes}
-	}
-	methods := req.AAA.Spec.Authentication.Methods
-	authen := &AAADefaultAuth{
-		ErrEn:    cfg.Spec.LoginErrorEnable,
-		Fallback: MapFallbackFromMethodList(methods),
-		Local:    MapLocalFromMethodList(methods),
-	}
-	if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
-		authen.Realm = MapRealmFromGroup(methods[0].GroupName, req.AAA.Spec.ServerGroups)
-		authen.ProviderGroup = methods[0].GroupName
-	} else {
-		authen.Realm = MapRealmFromMethodType(methods[0].Type)
-	}
-	return authen
-}
-
-func buildConsoleAuth(req *provider.EnsureAAARequest, cfg nxv1alpha1.AAAConfig) *AAAConsoleAuth {
-	if cfg.Spec.ConsoleAuthentication == nil || len(cfg.Spec.ConsoleAuthentication.Methods) == 0 {
-		return &AAAConsoleAuth{Realm: AAARealmLocal, Local: AAAValueYes, Fallback: AAAValueYes}
-	}
-	methods := cfg.Spec.ConsoleAuthentication.Methods
-	auth := &AAAConsoleAuth{
-		ErrEn:    cfg.Spec.LoginErrorEnable,
-		Fallback: MapFallback(methods),
-		Local:    MapLocal(methods),
-	}
-	if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
-		auth.Realm = MapRealmFromGroup(methods[0].GroupName, req.AAA.Spec.ServerGroups)
-		auth.ProviderGroup = methods[0].GroupName
-	} else {
-		auth.Realm = MapRealmFromMethodType(methods[0].Type)
-	}
-	return auth
-}
-
-func buildAuthorization(req *provider.EnsureAAARequest, cfg nxv1alpha1.AAAConfig) *AAADefaultAuthor {
-	author := &AAADefaultAuthor{CmdType: "config", LocalRbac: true}
-	if req.AAA.Spec.Authorization != nil && len(req.AAA.Spec.Authorization.Methods) > 0 {
-		methods := req.AAA.Spec.Authorization.Methods
-		author = &AAADefaultAuthor{
-			CmdType:   "config",
-			LocalRbac: MapLocalFromMethodList(methods) == AAAValueYes,
-		}
-		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
-			author.ProviderGroup = methods[0].GroupName
-		}
-	}
-	if cfg.Spec.ConfigCommandsAuthorization != nil && len(cfg.Spec.ConfigCommandsAuthorization.Methods) > 0 {
-		methods := cfg.Spec.ConfigCommandsAuthorization.Methods
-		author = &AAADefaultAuthor{
-			CmdType:   "config",
-			LocalRbac: MapLocal(methods) == AAAValueYes,
-		}
-		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
-			author.ProviderGroup = methods[0].GroupName
-		}
-	}
-	return author
-}
-
-func buildAccounting(req *provider.EnsureAAARequest) *AAADefaultAcc {
-	if req.AAA.Spec.Accounting == nil || len(req.AAA.Spec.Accounting.Methods) == 0 {
-		return &AAADefaultAcc{Realm: AAARealmLocal, LocalRbac: true}
-	}
-	methods := req.AAA.Spec.Accounting.Methods
-	acct := &AAADefaultAcc{
-		LocalRbac: MapLocalFromMethodList(methods) == AAAValueYes,
-	}
-	if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
-		acct.Realm = MapRealmFromGroup(methods[0].GroupName, req.AAA.Spec.ServerGroups)
-		acct.ProviderGroup = methods[0].GroupName
-	} else {
-		acct.Realm = MapRealmFromMethodType(methods[0].Type)
-	}
-	return acct
 }

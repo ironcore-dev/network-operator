@@ -121,7 +121,7 @@ type AAAServerTACACS struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	// +kubebuilder:default=49
-	Port int32 `json:"port,omitempty"`
+	Port int32 `json:"port"`
 
 	// KeySecretRef is a reference to a secret containing the plain text shared key for this TACACS+ server.
 	// The secret must contain a key specified in the SecretKeySelector.
@@ -137,7 +137,7 @@ type AAAServerRADIUS struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	// +kubebuilder:default=1812
-	AuthenticationPort int32 `json:"authenticationPort,omitempty"`
+	AuthenticationPort int32 `json:"authenticationPort"`
 
 	// AccountingPort is the UDP port for RADIUS accounting requests.
 	// Defaults to 1813 if not specified.
@@ -145,7 +145,7 @@ type AAAServerRADIUS struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	// +kubebuilder:default=1813
-	AccountingPort int32 `json:"accountingPort,omitempty"`
+	AccountingPort int32 `json:"accountingPort"`
 
 	// KeySecretRef is a reference to a secret containing the plain text shared key for this RADIUS server.
 	// The secret must contain a key specified in the SecretKeySelector.

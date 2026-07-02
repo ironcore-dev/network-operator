@@ -14,7 +14,7 @@ func init() {
 	tacacsGroup := &TacacsPlusProviderGroup{
 		Name:  "TACACS-SERVERS",
 		Vrf:   "management",
-		SrcIf: "mgmt0",
+		SrcIf: NewOption("mgmt0"),
 	}
 	tacacsGroup.ProviderRefItems.ProviderRefList.Set(&TacacsPlusProviderRef{Name: "10.1.1.1"})
 	Register("aaa_tacacs_group", tacacsGroup)

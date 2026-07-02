@@ -14,13 +14,11 @@ metadata:
   namespace: default
 spec:
   deviceRef:
-    name: my-switch
-
-  providerConfigRef:
-    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
-    kind: AAAConfig
-    name: aaa-tacacs-nxos
-
+    name: leaf1
+  # providerConfigRef:
+  #   apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+  #   kind: AAAConfig
+  #   name: aaa-tacacs-nxos
   serverGroups:
     - name: GR_TACACS
       type: TACACS
@@ -42,19 +40,18 @@ spec:
             keySecretRef:
               name: tacacs-server-keys
               key: server-key
-
   authentication:
     methods:
       - type: Group
         groupName: GR_TACACS
-
+      - type: Local
   authorization:
     methods:
       - type: Group
         groupName: GR_TACACS
       - type: Local
-
   accounting:
     methods:
       - type: Group
         groupName: GR_TACACS
+      - type: Local

@@ -28,10 +28,6 @@ type AAAConfigSpec struct {
 	// ConsoleAuthentication defines console-specific authentication methods.
 	// +optional
 	ConsoleAuthentication *AAAMethodList `json:"consoleAuthentication,omitempty"`
-
-	// ConfigCommandsAuthorization defines config-commands authorization methods.
-	// +optional
-	ConfigCommandsAuthorization *AAAMethodList `json:"configCommandsAuthorization,omitempty"`
 }
 
 // TACACSKeyEncryption defines the encryption type for TACACS+ server keys.
