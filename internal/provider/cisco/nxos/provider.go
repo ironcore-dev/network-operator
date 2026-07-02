@@ -63,7 +63,6 @@ var (
 	_ provider.NVEProvider              = (*Provider)(nil)
 	_ provider.LLDPProvider             = (*Provider)(nil)
 	_ provider.DHCPRelayProvider        = (*Provider)(nil)
-	_ provider.DHCPRelayProvider        = (*Provider)(nil)
 	_ provider.EthernetSegmentProvider  = (*Provider)(nil)
 	_ provider.AAAProvider              = (*Provider)(nil)
 )
