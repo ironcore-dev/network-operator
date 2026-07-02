@@ -43,20 +43,16 @@ type EthernetSegmentSpec struct {
 	// When Arbitrary (Type 0), ESI must be provided explicitly.
 	// When LACP or MST (Types 1, 2), ESI is always auto-derived (ESI field must be omitted).
 	// When MAC, RouterID, or AS (Types 3-5), ESI may be explicit or auto-derived.
-	// Immutable.
 	// +required
 	// +kubebuilder:default=Arbitrary
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="ESIType is immutable"
 	ESIType ESIType `json:"esiType"`
 
 	// ESI is the 10-byte Ethernet Segment Identifier in colon-separated hex notation
 	// (e.g., "00:11:22:33:44:55:66:77:88:01"). Must not be all-zeros or all-ones (reserved per RFC 7432).
 	// Required when ESIType is Arbitrary. Must be omitted when ESIType is LACP or MST.
 	// Optional for MAC, RouterID, and AS types (omit to auto-derive on the device).
-	// Immutable once set.
 	// +optional
 	// +kubebuilder:validation:Pattern=`^([0-9a-fA-F]{2}:){9}[0-9a-fA-F]{2}$`
-	// +kubebuilder:validation:XValidation:rule="size(oldSelf) == 0 || self == oldSelf",message="ESI is immutable once set"
 	// +kubebuilder:validation:XValidation:rule="self.lowerAscii() != '00:00:00:00:00:00:00:00:00:00'",message="ESI must not be all-zeros (reserved for single-homed per RFC 7432)"
 	// +kubebuilder:validation:XValidation:rule="self.lowerAscii() != 'ff:ff:ff:ff:ff:ff:ff:ff:ff:ff'",message="ESI must not be MAX-ESI (reserved per RFC 7432)"
 	ESI string `json:"esi,omitempty"`
