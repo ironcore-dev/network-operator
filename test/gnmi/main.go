@@ -51,6 +51,13 @@ func (s *Server) Get(_ context.Context, req *gpb.GetRequest) (*gpb.GetResponse, 
 			return nil, status.Error(codes.InvalidArgument, "root path is not allowed")
 		}
 		log.Printf("Getting path: %v", path)
+		val := s.State.Get(path)
+		if val == nil {
+			notifications = append(notifications, &gpb.Notification{
+				Timestamp: time.Now().UnixNano(),
+			})
+			continue
+		}
 		notifications = append(notifications, &gpb.Notification{
 			Timestamp: time.Now().UnixNano(),
 			Update: []*gpb.Update{
@@ -58,7 +65,7 @@ func (s *Server) Get(_ context.Context, req *gpb.GetRequest) (*gpb.GetResponse, 
 					Path: path,
 					Val: &gpb.TypedValue{
 						Value: &gpb.TypedValue_JsonVal{
-							JsonVal: s.State.Get(path),
+							JsonVal: val,
 						},
 					},
 				},
@@ -170,7 +177,11 @@ func (s *Server) Subscribe(stream grpc.BidiStreamingServer[gpb.SubscribeRequest,
 
 // handleState handles HTTP requests to the /v1/state endpoint
 func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
+	method := r.Method
+	if override := r.Header.Get("X-HTTP-Method-Override"); override != "" {
+		method = override
+	}
+	switch method {
 	case http.MethodGet:
 		s.State.RLock()
 		defer s.State.RUnlock()
@@ -226,12 +237,12 @@ func (s State) Get(path *gpb.Path) []byte {
 			sb.WriteString(k)
 			sb.WriteString(`=="`)
 			sb.WriteString(v)
-			sb.WriteString(`")#`)
+			sb.WriteString(`")`)
 		}
 	}
 	res := gjson.GetBytes(s.Buf, sb.String())
 	if !res.Exists() || (res.IsArray() && len(res.Array()) == 0) {
-		return []byte("null")
+		return nil
 	}
 	return []byte(res.Raw)
 }
@@ -263,8 +274,14 @@ func (s *State) Set(path *gpb.Path, raw []byte) {
 		})
 		sb.WriteByte('.')
 		sb.WriteString(strconv.Itoa(idx))
+		for k, v := range elem.GetKey() {
+			s.Buf, _ = sjson.SetBytes(s.Buf, sb.String()+"."+k, v) //nolint:errcheck
+		}
 	}
 	s.Buf, _ = sjson.SetRawBytes(s.Buf, sb.String(), raw) //nolint:errcheck
+	for k, v := range path.GetElem()[len(path.GetElem())-1].GetKey() {
+		s.Buf, _ = sjson.SetBytes(s.Buf, sb.String()+"."+k, v) //nolint:errcheck
+	}
 }
 
 func (s *State) Del(path *gpb.Path) {

@@ -249,8 +249,13 @@ func (c *client) get(ctx context.Context, dt gpb.GetRequest_DataType, el ...Data
 			// instead of a NotFound status error when the requested path is
 			// syntactically correct but does not exist on the device.
 			//
+			// Similarly, some devices (e.g., Cisco NX-OS) return a JSON null
+			// value rather than omitting the update entirely (as Nokia SR Linux
+			// does). Treat null the same as empty to avoid leaving the target
+			// struct unchanged during unmarshal.
+			//
 			// [gNMI spec]: https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#334-getresponse-behavior-table
-			if len(b) == 0 {
+			if len(b) == 0 || string(b) == "null" {
 				return ErrNil
 			}
 			if err := c.Unmarshal(b, e); err != nil {
@@ -439,18 +444,15 @@ func (c *client) Decode(val *gpb.TypedValue) ([]byte, error) {
 
 // StringToStructuredPath converts a string xpath to a structured path.
 //
-// It is a wrapper around [ygot.StringToStructuredPath] that additionally supports
-// origin prefixes, such as "openconfig-interfaces:interfaces/interface[name=eth1/1]".
+// Module prefixes (e.g. "openconfig-system:system/state") are kept in the
+// first path element name per RFC 7951 Section 4 [1], which defines that
+// the module name qualifies the first identifier in a JSON-encoded YANG path.
+//
+// [1]: https://datatracker.ietf.org/doc/html/rfc7951#section-4
 func StringToStructuredPath(xpath string) (*gpb.Path, error) {
-	var model string
-	if idx := strings.Index(xpath, ":"); idx > 0 {
-		model = xpath[:idx]
-		xpath = xpath[idx+1:]
-	}
 	path, err := ygot.StringToStructuredPath(xpath)
 	if err != nil {
 		return nil, fmt.Errorf("gnmiext: failed to convert xpath '%s' to path: %w", xpath, err)
 	}
-	path.Origin = model
 	return path, nil
 }

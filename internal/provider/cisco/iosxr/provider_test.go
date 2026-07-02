@@ -218,3 +218,50 @@ func Test_GetState(t *testing.T) {
 		t.Fatalf("GetInterfaceStatus() expected OperStatus=true, got false")
 	}
 }
+
+func Test_NewMTU(t *testing.T) {
+	tests := []struct {
+		name          string
+		interfaceName string
+		mtu           int32
+		wantMTU       int32
+		wantErr       bool
+	}{
+		{
+			name:          "empty MTU should return default link MTU",
+			interfaceName: "TwentyFiveGigE0/0/0/14",
+			mtu:           0,
+			wantMTU:       DefaultLinkMTU,
+			wantErr:       false,
+		},
+		{
+			name:          "jumbo MTU value of 9000",
+			interfaceName: "TwentyFiveGigE0/0/0/14",
+			mtu:           9000,
+			wantMTU:       9000,
+			wantErr:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewMTU(tt.interfaceName, tt.mtu)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewMTU() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr {
+				if len(got.MTU) == 0 {
+					t.Errorf("NewMTU() returned empty MTU slice")
+					return
+				}
+				if got.MTU[0].MTU != tt.wantMTU {
+					t.Errorf("NewMTU() MTU = %v, want %v", got.MTU[0].MTU, tt.wantMTU)
+				}
+				if got.MTU[0].Owner != "TwentyFiveGigE" {
+					t.Errorf("NewMTU() Owner = %v, want TwentyFiveGigE", got.MTU[0].Owner)
+				}
+			}
+		})
+	}
+}

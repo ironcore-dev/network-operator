@@ -270,7 +270,6 @@ linters:
       - builtin$
       - examples$
       - third_party$
-      - internal/provider/openconfig
 formatters:
   enable:
     - gofmt
@@ -285,4 +284,3 @@ formatters:
       - builtin$
       - examples$
       - third_party$
-      - internal/provider/openconfig

@@ -139,6 +139,9 @@ k8s_resource(new_name='lldp', objects=['leaf1-lldp:lldp'], trigger_mode=TRIGGER_
 k8s_yaml('./config/samples/v1alpha1_dhcprelay.yaml')
 k8s_resource(new_name='dhcprelay', objects=['dhcprelay:dhcprelay'], resource_deps=['eth1-1'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
+k8s_yaml('./config/samples/v1alpha1_ethernetsegment.yaml')
+k8s_resource(new_name='ethernetsegment-sample', objects=['ethernetsegment-sample:ethernetsegment'], resource_deps=['po10'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+
 k8s_yaml('./config/samples/v1alpha1_aaa.yaml')
 k8s_resource(new_name='aaa', objects=['aaa-tacacs:aaa', 'tacacs-server-keys:secret'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 # Uncomment the following lines for NX-OS specific AAA config

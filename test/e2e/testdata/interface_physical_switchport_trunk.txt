@@ -1,0 +1,46 @@
+# Physical Interface with Switchport Trunk
+-- interfaces/eth1-10 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: eth1-10
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: eth1/10
+  description: vPC to Host1
+  adminState: Up
+  type: Physical
+  mtu: 1500
+  switchport:
+    mode: Trunk
+    nativeVlan: 1
+    allowedVlans: [10]
+-- state --
+{
+  "openconfig-interfaces:interfaces": {
+    "interface": [
+      {
+        "name": "eth1/10",
+        "config": {
+          "description": "vPC to Host1",
+          "enabled": true,
+          "mtu": 1500,
+          "name": "eth1/10",
+          "tpid": "TPID_0X8100",
+          "type": "iana-if-type:ethernetCsmacd"
+        },
+        "openconfig-if-ethernet:ethernet": {
+          "openconfig-vlan:switched-vlan": {
+            "config": {
+              "interface-mode": "TRUNK",
+              "native-vlan": 1,
+              "trunk-vlans": [10]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

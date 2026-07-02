@@ -1,0 +1,4 @@
+router bgp 65000
+  neighbor 1.1.1.1
+    remote-as 65001
+      local-as 65002

@@ -74,4 +74,15 @@ func init() {
 		ExportGwIP: AdminStEnabled,
 	})
 	Register("bgp_dom_exp", bgpDomExp)
+
+	bgpPeerLocalAs := &BGPPeer{
+		VRFName: DefaultVRFName,
+		Addr:    "1.1.1.1",
+		AdminSt: AdminStEnabled,
+		Asn:     "65001",
+		AsnType: PeerAsnTypeNone,
+	}
+	bgpPeerLocalAs.LocalAsnItems.AsnPropagate = AsnPropagateNone
+	bgpPeerLocalAs.LocalAsnItems.LocalAsn = "65002"
+	Register("bgp_peer_local_as", bgpPeerLocalAs)
 }

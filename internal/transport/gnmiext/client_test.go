@@ -123,9 +123,8 @@ func TestClient_GetConfig(t *testing.T) {
 						t.Errorf("Expected single path in GetRequest, got %d", len(req.Path))
 					}
 					if !proto.Equal(req.Path[0], &gpb.Path{
-						Origin: "openconfig",
 						Elem: []*gpb.PathElem{
-							{Name: "system"},
+							{Name: "openconfig-system:system"},
 							{Name: "config"},
 							{Name: "hostname"},
 						},
@@ -138,9 +137,8 @@ func TestClient_GetConfig(t *testing.T) {
 								Update: []*gpb.Update{
 									{
 										Path: &gpb.Path{
-											Origin: "openconfig",
 											Elem: []*gpb.PathElem{
-												{Name: "system"},
+												{Name: "openconfig-system:system"},
 												{Name: "config"},
 												{Name: "hostname"},
 											},
@@ -174,9 +172,8 @@ func TestClient_GetConfig(t *testing.T) {
 						t.Errorf("Expected two paths in GetRequest, got %d", len(req.Path))
 					}
 					if !proto.Equal(req.Path[0], &gpb.Path{
-						Origin: "openconfig",
 						Elem: []*gpb.PathElem{
-							{Name: "system"},
+							{Name: "openconfig-system:system"},
 							{Name: "config"},
 							{Name: "hostname"},
 						},
@@ -189,9 +186,8 @@ func TestClient_GetConfig(t *testing.T) {
 								Update: []*gpb.Update{
 									{
 										Path: &gpb.Path{
-											Origin: "openconfig",
 											Elem: []*gpb.PathElem{
-												{Name: "system"},
+												{Name: "openconfig-system:system"},
 												{Name: "config"},
 												{Name: "hostname"},
 											},
@@ -208,9 +204,8 @@ func TestClient_GetConfig(t *testing.T) {
 								Update: []*gpb.Update{
 									{
 										Path: &gpb.Path{
-											Origin: "openconfig",
 											Elem: []*gpb.PathElem{
-												{Name: "system"},
+												{Name: "openconfig-system:system"},
 												{Name: "config"},
 												{Name: "hostname"},
 											},
@@ -249,9 +244,8 @@ func TestClient_GetConfig(t *testing.T) {
 						t.Errorf("Expected single path in GetRequest, got %d", len(req.Path))
 					}
 					if !proto.Equal(req.Path[0], &gpb.Path{
-						Origin: "openconfig",
 						Elem: []*gpb.PathElem{
-							{Name: "system"},
+							{Name: "openconfig-system:system"},
 							{Name: "config"},
 							{Name: "hostname"},
 						},
@@ -278,9 +272,8 @@ func TestClient_GetConfig(t *testing.T) {
 						t.Errorf("Expected single path in GetRequest, got %d", len(req.Path))
 					}
 					if !proto.Equal(req.Path[0], &gpb.Path{
-						Origin: "openconfig",
 						Elem: []*gpb.PathElem{
-							{Name: "system"},
+							{Name: "openconfig-system:system"},
 							{Name: "config"},
 							{Name: "hostname"},
 						},
@@ -309,9 +302,8 @@ func TestClient_GetConfig(t *testing.T) {
 						t.Errorf("Expected single path in GetRequest, got %d", len(req.Path))
 					}
 					if !proto.Equal(req.Path[0], &gpb.Path{
-						Origin: "openconfig",
 						Elem: []*gpb.PathElem{
-							{Name: "system"},
+							{Name: "openconfig-system:system"},
 							{Name: "config"},
 							{Name: "hostname"},
 						},
@@ -344,9 +336,8 @@ func TestClient_GetConfig(t *testing.T) {
 						t.Errorf("Expected single path in GetRequest, got %d", len(req.Path))
 					}
 					if !proto.Equal(req.Path[0], &gpb.Path{
-						Origin: "openconfig",
 						Elem: []*gpb.PathElem{
-							{Name: "system"},
+							{Name: "openconfig-system:system"},
 							{Name: "config"},
 							{Name: "hostname"},
 						},
@@ -359,9 +350,8 @@ func TestClient_GetConfig(t *testing.T) {
 								Update: []*gpb.Update{
 									{
 										Path: &gpb.Path{
-											Origin: "openconfig",
 											Elem: []*gpb.PathElem{
-												{Name: "system"},
+												{Name: "openconfig-system:system"},
 												{Name: "config"},
 												{Name: "hostname"},
 											},
@@ -395,9 +385,8 @@ func TestClient_GetConfig(t *testing.T) {
 						t.Errorf("Expected single path in GetRequest, got %d", len(req.Path))
 					}
 					if !proto.Equal(req.Path[0], &gpb.Path{
-						Origin: "openconfig",
 						Elem: []*gpb.PathElem{
-							{Name: "system"},
+							{Name: "openconfig-system:system"},
 							{Name: "config"},
 							{Name: "hostname"},
 						},
@@ -410,9 +399,8 @@ func TestClient_GetConfig(t *testing.T) {
 								Update: []*gpb.Update{
 									{
 										Path: &gpb.Path{
-											Origin: "openconfig",
 											Elem: []*gpb.PathElem{
-												{Name: "system"},
+												{Name: "openconfig-system:system"},
 												{Name: "config"},
 												{Name: "hostname"},
 											},
@@ -425,9 +413,8 @@ func TestClient_GetConfig(t *testing.T) {
 									},
 									{
 										Path: &gpb.Path{
-											Origin: "openconfig",
 											Elem: []*gpb.PathElem{
-												{Name: "system"},
+												{Name: "openconfig-system:system"},
 												{Name: "config"},
 												{Name: "hostname"},
 											},
@@ -461,9 +448,8 @@ func TestClient_GetConfig(t *testing.T) {
 						t.Errorf("Expected single path in GetRequest, got %d", len(req.Path))
 					}
 					if !proto.Equal(req.Path[0], &gpb.Path{
-						Origin: "openconfig",
 						Elem: []*gpb.PathElem{
-							{Name: "system"},
+							{Name: "openconfig-system:system"},
 							{Name: "config"},
 							{Name: "hostname"},
 						},
@@ -476,9 +462,8 @@ func TestClient_GetConfig(t *testing.T) {
 								Update: []*gpb.Update{
 									{
 										Path: &gpb.Path{
-											Origin: "openconfig",
 											Elem: []*gpb.PathElem{
-												{Name: "system"},
+												{Name: "openconfig-system:system"},
 												{Name: "config"},
 												{Name: "hostname"},
 											},
@@ -536,9 +521,8 @@ func TestClient_GetState(t *testing.T) {
 						t.Errorf("Expected single path in GetRequest, got %d", len(req.Path))
 					}
 					if !proto.Equal(req.Path[0], &gpb.Path{
-						Origin: "openconfig",
 						Elem: []*gpb.PathElem{
-							{Name: "system"},
+							{Name: "openconfig-system:system"},
 							{Name: "state"},
 							{Name: "hostname"},
 						},
@@ -551,9 +535,8 @@ func TestClient_GetState(t *testing.T) {
 								Update: []*gpb.Update{
 									{
 										Path: &gpb.Path{
-											Origin: "openconfig",
 											Elem: []*gpb.PathElem{
-												{Name: "system"},
+												{Name: "openconfig-system:system"},
 												{Name: "state"},
 												{Name: "hostname"},
 											},
@@ -616,9 +599,8 @@ func TestClient_Update(t *testing.T) {
 						t.Errorf("Expected single path in GetRequest, got %d", len(req.Path))
 					}
 					if !proto.Equal(req.Path[0], &gpb.Path{
-						Origin: "openconfig",
 						Elem: []*gpb.PathElem{
-							{Name: "system"},
+							{Name: "openconfig-system:system"},
 							{Name: "config"},
 							{Name: "hostname"},
 						},
@@ -631,9 +613,8 @@ func TestClient_Update(t *testing.T) {
 								Update: []*gpb.Update{
 									{
 										Path: &gpb.Path{
-											Origin: "openconfig",
 											Elem: []*gpb.PathElem{
-												{Name: "system"},
+												{Name: "openconfig-system:system"},
 												{Name: "config"},
 												{Name: "hostname"},
 											},
@@ -661,9 +642,8 @@ func TestClient_Update(t *testing.T) {
 					}
 					if !proto.Equal(req.Replace[0], &gpb.Update{
 						Path: &gpb.Path{
-							Origin: "openconfig",
 							Elem: []*gpb.PathElem{
-								{Name: "system"},
+								{Name: "openconfig-system:system"},
 								{Name: "config"},
 								{Name: "hostname"},
 							},
@@ -698,9 +678,8 @@ func TestClient_Update(t *testing.T) {
 						t.Errorf("Expected single path in GetRequest, got %d", len(req.Path))
 					}
 					if !proto.Equal(req.Path[0], &gpb.Path{
-						Origin: "openconfig",
 						Elem: []*gpb.PathElem{
-							{Name: "system"},
+							{Name: "openconfig-system:system"},
 							{Name: "config"},
 							{Name: "hostname"},
 						},
@@ -713,9 +692,8 @@ func TestClient_Update(t *testing.T) {
 								Update: []*gpb.Update{
 									{
 										Path: &gpb.Path{
-											Origin: "openconfig",
 											Elem: []*gpb.PathElem{
-												{Name: "system"},
+												{Name: "openconfig-system:system"},
 												{Name: "config"},
 												{Name: "hostname"},
 											},
@@ -749,9 +727,8 @@ func TestClient_Update(t *testing.T) {
 						t.Errorf("Expected single path in GetRequest, got %d", len(req.Path))
 					}
 					if !proto.Equal(req.Path[0], &gpb.Path{
-						Origin: "openconfig",
 						Elem: []*gpb.PathElem{
-							{Name: "system"},
+							{Name: "openconfig-system:system"},
 							{Name: "config"},
 							{Name: "hostname"},
 						},
@@ -778,9 +755,8 @@ func TestClient_Update(t *testing.T) {
 						t.Errorf("Expected single path in GetRequest, got %d", len(req.Path))
 					}
 					if !proto.Equal(req.Path[0], &gpb.Path{
-						Origin: "openconfig",
 						Elem: []*gpb.PathElem{
-							{Name: "system"},
+							{Name: "openconfig-system:system"},
 							{Name: "config"},
 							{Name: "hostname"},
 						},
@@ -793,9 +769,8 @@ func TestClient_Update(t *testing.T) {
 								Update: []*gpb.Update{
 									{
 										Path: &gpb.Path{
-											Origin: "openconfig",
 											Elem: []*gpb.PathElem{
-												{Name: "system"},
+												{Name: "openconfig-system:system"},
 												{Name: "config"},
 												{Name: "hostname"},
 											},
@@ -823,9 +798,8 @@ func TestClient_Update(t *testing.T) {
 					}
 					if !proto.Equal(req.Replace[0], &gpb.Update{
 						Path: &gpb.Path{
-							Origin: "openconfig",
 							Elem: []*gpb.PathElem{
-								{Name: "system"},
+								{Name: "openconfig-system:system"},
 								{Name: "config"},
 								{Name: "hostname"},
 							},
@@ -887,9 +861,8 @@ func TestClient_Patch(t *testing.T) {
 						t.Errorf("Expected single path in GetRequest, got %d", len(req.Path))
 					}
 					if !proto.Equal(req.Path[0], &gpb.Path{
-						Origin: "openconfig",
 						Elem: []*gpb.PathElem{
-							{Name: "system"},
+							{Name: "openconfig-system:system"},
 							{Name: "config"},
 							{Name: "hostname"},
 						},
@@ -902,9 +875,8 @@ func TestClient_Patch(t *testing.T) {
 								Update: []*gpb.Update{
 									{
 										Path: &gpb.Path{
-											Origin: "openconfig",
 											Elem: []*gpb.PathElem{
-												{Name: "system"},
+												{Name: "openconfig-system:system"},
 												{Name: "config"},
 												{Name: "hostname"},
 											},
@@ -932,9 +904,8 @@ func TestClient_Patch(t *testing.T) {
 					}
 					if !proto.Equal(req.Update[0], &gpb.Update{
 						Path: &gpb.Path{
-							Origin: "openconfig",
 							Elem: []*gpb.PathElem{
-								{Name: "system"},
+								{Name: "openconfig-system:system"},
 								{Name: "config"},
 								{Name: "hostname"},
 							},
@@ -969,9 +940,8 @@ func TestClient_Patch(t *testing.T) {
 						t.Errorf("Expected single path in GetRequest, got %d", len(req.Path))
 					}
 					if !proto.Equal(req.Path[0], &gpb.Path{
-						Origin: "openconfig",
 						Elem: []*gpb.PathElem{
-							{Name: "system"},
+							{Name: "openconfig-system:system"},
 							{Name: "config"},
 							{Name: "hostname"},
 						},
@@ -984,9 +954,8 @@ func TestClient_Patch(t *testing.T) {
 								Update: []*gpb.Update{
 									{
 										Path: &gpb.Path{
-											Origin: "openconfig",
 											Elem: []*gpb.PathElem{
-												{Name: "system"},
+												{Name: "openconfig-system:system"},
 												{Name: "config"},
 												{Name: "hostname"},
 											},
@@ -1046,9 +1015,8 @@ func TestClient_Delete(t *testing.T) {
 						t.Error("Expected no Replace operations for regular Configurable")
 					}
 					if !proto.Equal(req.Delete[0], &gpb.Path{
-						Origin: "openconfig",
 						Elem: []*gpb.PathElem{
-							{Name: "system"},
+							{Name: "openconfig-system:system"},
 							{Name: "config"},
 							{Name: "hostname"},
 						},
@@ -1075,9 +1043,8 @@ func TestClient_Delete(t *testing.T) {
 					}
 					if !proto.Equal(req.Replace[0], &gpb.Update{
 						Path: &gpb.Path{
-							Origin: "openconfig",
 							Elem: []*gpb.PathElem{
-								{Name: "system"},
+								{Name: "openconfig-system:system"},
 								{Name: "config"},
 								{Name: "hostname"},
 							},
@@ -1109,9 +1076,8 @@ func TestClient_Delete(t *testing.T) {
 						t.Error("Expected no Replace operations for regular Configurable")
 					}
 					if !proto.Equal(req.Delete[0], &gpb.Path{
-						Origin: "openconfig",
 						Elem: []*gpb.PathElem{
-							{Name: "system"},
+							{Name: "openconfig-system:system"},
 							{Name: "config"},
 							{Name: "hostname"},
 						},
@@ -1165,11 +1131,10 @@ func TestStringToStructuredPath(t *testing.T) {
 		},
 		{
 			name:  "Model",
-			xpath: "openconfig:system/config/hostname",
+			xpath: "openconfig-system:system/config/hostname",
 			want: &gpb.Path{
-				Origin: "openconfig",
 				Elem: []*gpb.PathElem{
-					{Name: "system"},
+					{Name: "openconfig-system:system"},
 					{Name: "config"},
 					{Name: "hostname"},
 				},
@@ -1330,7 +1295,7 @@ type Hostname string
 
 var _ DataElement = (*Hostname)(nil)
 
-func (*Hostname) XPath() string { return "openconfig:system/config/hostname" }
+func (*Hostname) XPath() string { return "openconfig-system:system/config/hostname" }
 
 // -- State --
 
@@ -1338,7 +1303,7 @@ type HostnameState string
 
 var _ DataElement = (*HostnameState)(nil)
 
-func (*HostnameState) XPath() string { return "openconfig:system/state/hostname" }
+func (*HostnameState) XPath() string { return "openconfig-system:system/state/hostname" }
 
 // -- Defaultable --
 
@@ -1349,7 +1314,7 @@ var (
 	_ Defaultable = (*DefaultableHostname)(nil)
 )
 
-func (*DefaultableHostname) XPath() string { return "openconfig:system/config/hostname" }
+func (*DefaultableHostname) XPath() string { return "openconfig-system:system/config/hostname" }
 func (h *DefaultableHostname) Default()    { *h = "default-hostname" }
 
 var _ grpc.ClientConnInterface = (*MockClientConn)(nil)

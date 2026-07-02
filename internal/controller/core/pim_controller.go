@@ -296,9 +296,6 @@ func (r *PIMReconciler) reconcile(ctx context.Context, s *pimScope) (reterr erro
 			return err
 		}
 	}
-	defer func() {
-		conditions.RecomputeReady(s.PIM)
-	}()
 
 	var interfaces []provider.PIMInterface
 	for _, intf := range s.PIM.Spec.InterfaceRefs {
@@ -306,7 +303,7 @@ func (r *PIMReconciler) reconcile(ctx context.Context, s *pimScope) (reterr erro
 		if err := r.Get(ctx, client.ObjectKey{Name: intf.Name, Namespace: s.PIM.Namespace}, res); err != nil {
 			if apierrors.IsNotFound(err) {
 				conditions.Set(s.PIM, metav1.Condition{
-					Type:    v1alpha1.ConfiguredCondition,
+					Type:    v1alpha1.ReadyCondition,
 					Status:  metav1.ConditionFalse,
 					Reason:  v1alpha1.InterfaceNotFoundReason,
 					Message: fmt.Sprintf("interface %q not found", intf.Name),

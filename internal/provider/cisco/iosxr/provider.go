@@ -24,6 +24,8 @@ var (
 	_ provider.DeviceProvider    = &Provider{}
 	_ provider.InterfaceProvider = &Provider{}
 	_ provider.VRFProvider       = &Provider{}
+	_ provider.BGPProvider       = &Provider{}
+	_ provider.BGPPeerProvider   = &Provider{}
 )
 
 type Provider struct {
@@ -121,9 +123,19 @@ func (p *Provider) Reprovision(_ context.Context, conn *deviceutil.Connection) e
 	return errors.New("IOS XR Provider does not support reprovisioning")
 }
 
+// EnsureInterface configures the interface based on the provided request.
+// MTU configuration rules:
+//   - Physical interface:
+//     Configure L2 MTU and, if an IP address is present, configure L3 MTU.
+//   - Bundle interface:
+//     Configure only the L2 MTU.
+//   - Bundle member interface (Physical):
+//     Do not configure MTU settings directly.
+//     L2 MTU is inherited from the bundle interface, and L3 MTU is configured
+//     on the corresponding subinterface.
+//   - Subinterface (physical or bundle):
+//     Configure only the L3 MTU, using a default value of 1500 bytes.
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
-	// TODO(sven-rosenweig): Make use of the VRF information in the request to assign the interface to the correct VRF.
-	// FIXME(sven-rosenweig): Use the ExtractOwnerFromInterfaceName function in the ValidateInterfaceName function
 	name := req.Interface.Spec.Name
 
 	if err := ValidateInterfaceName(name); err != nil {
@@ -162,12 +174,14 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 			iface.IPv4Network = ipv4
 
-			if req.Interface.Spec.MTU != 0 {
-				mtu, err := NewMTU(name, req.Interface.Spec.MTU)
-				if err != nil {
-					return err
-				}
-				iface.MTUs = mtu
+			mtu, err := NewMTU(name, req.Interface.Spec.MTU)
+			if err != nil {
+				return err
+			}
+			iface.MTUs = mtu
+
+			if req.VRF != nil && req.VRF.Spec.Name != "" {
+				iface.Vrf = req.VRF.Spec.Name
 			}
 		}
 
@@ -274,19 +288,15 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			iface.SubInterface.VlanIdentifier.VlanType = "vlan-type-dot1ad"
 		}
 
-		if req.Interface.Spec.MTU != 0 {
-			mtu, err := NewMTU(name, req.Interface.Spec.MTU)
-			if err != nil {
-				return err
-			}
-			iface.MTUs = mtu
-		}
-
 		ipv4, err := NewIPv4(req.Interface.Spec.IPv4)
 		if err != nil {
 			return err
 		}
 		iface.IPv4Network = ipv4
+
+		if req.VRF.Spec.Name != "" {
+			iface.Vrf = req.VRF.Spec.Name
+		}
 
 		conf = append(conf, &iface)
 		return updateInterface(ctx, p.client, conf...)
@@ -303,8 +313,13 @@ func NewMTU(intName string, mtu int32) (MTUs, error) {
 		message := "failed to extract MTU owner from interface name" + intName
 		return MTUs{}, errors.New(message)
 	}
+
+	mtuValue := mtu
+	if mtu == 0 {
+		mtuValue = DefaultLinkMTU
+	}
 	return MTUs{MTU: []MTU{{
-		MTU:   mtu,
+		MTU:   mtuValue,
 		Owner: string(owner),
 	}}}, nil
 }
@@ -329,6 +344,7 @@ func NewIPv4(ips *v1alpha1.InterfaceIPv4) (IPv4Network, error) {
 				Netmask: netmask,
 			},
 		},
+		MTU: uint16(DefaultL3MTU),
 	}, nil
 }
 
@@ -408,6 +424,146 @@ func (p *Provider) DeleteVRF(ctx context.Context, req *provider.VRFRequest) erro
 	}
 
 	return p.client.Delete(ctx, vrf)
+}
+
+func (p *Provider) EnsureBGP(context.Context, *provider.EnsureBGPRequest) error {
+	return nil
+}
+
+func (p *Provider) DeleteBGP(context.Context, *provider.DeleteBGPRequest) error {
+	return nil
+}
+
+func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPeerRequest) error {
+	// Ensure that the BGP instance exists and is configured on the "default" domain
+	bgp := new(BGP)
+	bgp.InstanceName = BGPDefaultInstance
+	if err := p.client.GetConfig(ctx, bgp); err != nil {
+		return fmt.Errorf("bgp peer: failed to get bgp instance 'default': %w", err)
+	}
+
+	if bgp.AS[0].ASNumber != req.BGP.Spec.ASNumber.StrVal {
+		return fmt.Errorf("bgp peer: bgp instance 'default' has a different AS number configured (%s) than the one specified in the request (%s)", bgp.AS[0].ASNumber, req.BGP.Spec.ASNumber.StrVal)
+	}
+
+	routerID := bgp.AS[0].ASNumber
+
+	// Create Default Route Policies for the peer
+	defaultRpl := NewRoutePolicy(req.VRF.Spec.Name)
+
+	err := p.client.Update(ctx, &defaultRpl)
+	if err != nil {
+		return fmt.Errorf("bgp peer: failed to create route policies: %w", err)
+	}
+
+	// Configure BGP Peer
+
+	rd, err := NewRouteDistinguisher(req.VRF.Spec.RouteDistinguisher)
+	if err != nil {
+		return fmt.Errorf("bgp peer: failed to create route distinguisher: %w", err)
+	}
+
+	peer := BGPPeer{
+		Name:     req.BGP.Spec.VrfRef.Name,
+		RouterID: routerID,
+		RD:       rd,
+	}
+
+	if req.BGPPeer.Spec.AddressFamilies.Ipv6Unicast != nil || req.BGPPeer.Spec.AddressFamilies.L2vpnEvpn != nil {
+		return errors.New("bgp peer: ipv6 unicast or l2vpnEvpn address family is currently not supported")
+	}
+
+	// Configure Router Address Family
+
+	routerAF := ActivatedAddressFamilies{
+		AF: []ActivatedAddressFamily{
+			{
+				AFName: string(AfNameIpv4Unicast),
+				Redistribute: Redistribute{
+					Static: Static{},
+				},
+			},
+		},
+	}
+	peer.AF = routerAF
+
+	// Configure BGP Neighbor
+	neigh := NeighborList{
+		[]Neighbor{
+			{
+				AF: NeighborAddressFamilies{
+					AF: []NeighborAddressFamily{
+						{
+							AfName: "ipv4-unicast",
+							RoutePolicy: PeeringRPL{
+								In:  defaultRpl.Name,
+								Out: defaultRpl.Name,
+							},
+							// TODO(sven-rosenzweig): make maximum prefix configuration configurable
+							MaximumPrefix: MaximumPrefix{
+								PrefixLimit: 100,
+								Restart:     15,
+								Threshold:   80,
+							},
+						},
+					},
+				},
+				NeighborAddress: req.BGPPeer.Spec.Address,
+				RemoteAS:        req.BGPPeer.Spec.ASNumber.IntVal,
+				// TODO(sven-rosenzweig): make this configurable
+				SessionConfig: SessionConfig{
+					SessionGroup: "EBGP-CUSTOMER-DEFAULTS",
+				},
+				LocalAS: LocalAS{
+					AS: AS{
+						ASNumber: req.BGPPeer.Spec.LocalAS.ASNumber.IntVal,
+						NoPrepend: PrependAS{
+							ReplaceAS{},
+						},
+					},
+				},
+			},
+		},
+	}
+	peer.Neighbors = neigh
+
+	return p.client.Update(ctx, &peer)
+}
+
+func (p *Provider) DeleteBGPPeer(ctx context.Context, req *provider.DeleteBGPPeerRequest) error {
+	// Fetch the default BGP instance id
+	bgp := new(BGP)
+	bgp.InstanceName = BGPDefaultInstance
+	if err := p.client.GetConfig(ctx, bgp); err != nil {
+		return fmt.Errorf("bgp peer: failed to get bgp instance 'default': %w", err)
+	}
+
+	defaultRpl := NewRoutePolicy(req.VRF.Spec.Name)
+
+	peer := BGPPeer{
+		RouterID: bgp.AS[0].ASNumber,
+		Name:     req.VRF.Spec.Name,
+	}
+
+	return p.client.Delete(ctx, &defaultRpl, &peer)
+}
+
+func (p *Provider) GetPeerStatus(ctx context.Context, req *provider.BGPPeerStatusRequest) (provider.BGPPeerStatus, error) {
+	operState := new(BGPPeerOperStatus)
+	operState.Name = req.VRF.Name
+
+	err := p.client.GetState(ctx, operState)
+	if err != nil {
+		return provider.BGPPeerStatus{}, fmt.Errorf("failed to get BGP peer status %s: %w", operState.Name, err)
+	}
+	sessionUpTime := time.Now().Unix() - int64(operState.ConnectionUpTime)
+
+	state := provider.BGPPeerStatus{
+		SessionState:        operState.State.ToSessionState(),
+		LastEstablishedTime: time.Unix(sessionUpTime, 0),
+	}
+
+	return state, nil
 }
 
 func init() {

@@ -9,6 +9,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -62,8 +63,9 @@ var (
 	_ provider.NVEProvider              = (*Provider)(nil)
 	_ provider.LLDPProvider             = (*Provider)(nil)
 	_ provider.DHCPRelayProvider        = (*Provider)(nil)
-	_ provider.AAAProvider              = (*Provider)(nil)
 	_ provider.DHCPRelayProvider        = (*Provider)(nil)
+	_ provider.EthernetSegmentProvider  = (*Provider)(nil)
+	_ provider.AAAProvider              = (*Provider)(nil)
 )
 
 type Provider struct {
@@ -93,7 +95,7 @@ func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (er
 	}
 	// NXAPI only uses the address for URI construction.
 	c := *conn
-	c.Address = netip.MustParseAddrPort(conn.Address).String()
+	c.Address = netip.MustParseAddrPort(conn.Address).Addr().String()
 	p.nxapi, err = nxapi.NewClient(&c, timeout)
 	if err != nil {
 		return fmt.Errorf("failed to create nxapi client: %w", err)
@@ -345,7 +347,7 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 	if err != nil && !errors.Is(err, gnmiext.ErrNil) {
 		return err
 	}
-	if err == nil && dom.RtrID != req.BGP.Spec.RouterID {
+	if err == nil && dom.RtrID != "" && dom.RtrID != req.BGP.Spec.RouterID {
 		return fmt.Errorf("BGP domain %q on device already uses router ID %s, cannot configure with router ID %s", dom.Name, dom.RtrID, req.BGP.Spec.RouterID)
 	}
 
@@ -364,12 +366,13 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 	switch {
 	case asf == "" && strings.Contains(b.Asn, "."):
 		asf = AsFormatAsDot
-		err = p.Update(ctx, &asf)
+		if err := p.Update(ctx, &asf); err != nil {
+			return err
+		}
 	case asf != "" && !strings.Contains(b.Asn, "."):
-		err = p.client.Delete(ctx, &asf)
-	}
-	if err != nil {
-		return err
+		if err := p.client.Delete(ctx, &asf); err != nil {
+			return err
+		}
 	}
 
 	var cfg nxv1alpha1.BGPConfig
@@ -387,8 +390,10 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 	dom.RtrID = req.BGP.Spec.RouterID
 	dom.RtrIDAuto = AdminStDisabled
 
-	// Mark the dom as operator-managed so deleteBGPDom can identify it.
-	dom.PeerContItems.PeerContList.Set(&BGPPeerGroup{Name: ownershipMarkerPeerGroup})
+	// Write an ownership marker peer template into the default VRF domain.
+	// Each managed BGP domain gets its own marker keyed by VRF name, allowing
+	// the operator to track all managed domains and decide on cleanup during deletion.
+	marker := &BGPPeerGroup{VRFName: DefaultVRFName, Name: ownershipMarkerName(dom.Name)}
 
 	if req.BGP.Spec.AddressFamilies != nil {
 		if af := req.BGP.Spec.AddressFamilies.Ipv4Unicast; af != nil && af.Enabled {
@@ -446,7 +451,7 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 		}
 	}
 
-	return p.Patch(ctx, b, dom)
+	return p.Patch(ctx, b, dom, marker)
 }
 
 func (p *Provider) DeleteBGP(ctx context.Context, req *provider.DeleteBGPRequest) error {
@@ -459,10 +464,9 @@ func (p *Provider) DeleteBGP(ctx context.Context, req *provider.DeleteBGPRequest
 	return p.deleteBGP(ctx, vrfName)
 }
 
-// deleteBGP deletes the BGP domain for a VRF. If no remaining domain carries the
-// ownership marker or has any SAFIs/peer groups configured, the global BGP instance
-// (System/bgp-items/inst-items) is deleted as well. This preserves any
-// manually configured BGP domains outside the operator's control.
+// deleteBGP removes the ownership marker for a BGP domain and cleans up the
+// domain for a VRF. If no remaining ownership markers or non-empty domains
+// exist, the global BGP instance (System/bgp-items/inst-items) is deleted.
 // The function is a no-op when the BGP feature is disabled.
 func (p *Provider) deleteBGP(ctx context.Context, vrfName string) error {
 	f := &Feature{Name: "bgp"}
@@ -470,26 +474,55 @@ func (p *Provider) deleteBGP(ctx context.Context, vrfName string) error {
 		return err
 	}
 
-	if err := p.client.Delete(ctx, &BGPDom{Name: vrfName}); err != nil {
+	// Remove this domain's ownership marker from the default VRF.
+	marker := &BGPPeerGroup{VRFName: DefaultVRFName, Name: ownershipMarkerName(vrfName)}
+	if err := p.client.Delete(ctx, marker); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 		return err
 	}
 
-	// Retain the global BGP instance if any remaining dom is operator-managed
-	// or has non-empty configuration (address families or peer groups).
+	if vrfName != DefaultVRFName {
+		if err := p.client.Delete(ctx, &BGPDom{Name: vrfName}); err != nil {
+			return err
+		}
+	} else {
+		// The default VRF domain is always implicitly present when BGP is enabled,
+		// so replace it with only the remaining ownership markers, stripping all
+		// other config atomically.
+		dom := &BGPDom{Name: DefaultVRFName}
+		if err := p.client.GetConfig(ctx, dom); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+		empty := &BGPDom{Name: DefaultVRFName}
+		for _, pg := range dom.PeerContItems.PeerContList {
+			if isOwnershipMarker(pg.Name) {
+				empty.PeerContItems.PeerContList.Set(&BGPPeerGroup{VRFName: DefaultVRFName, Name: pg.Name})
+			}
+		}
+		if len(empty.PeerContItems.PeerContList) > 0 {
+			if err := p.Update(ctx, empty); err != nil {
+				return err
+			}
+		} else {
+			if err := p.client.Delete(ctx, &BGPDom{Name: DefaultVRFName}); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Retain the global BGP instance only if other ownership markers remain.
 	items := new(BGPDomItems)
 	if err := p.client.GetConfig(ctx, items); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 		return err
 	}
 	for _, d := range items.DomList {
-		if _, ok := d.PeerContItems.PeerContList.Get(ownershipMarkerPeerGroup); ok {
-			return nil
-		}
-		if len(d.AfItems.DomAfList) > 0 || len(d.PeerContItems.PeerContList) > 0 {
-			return nil
+		for _, pg := range d.PeerContItems.PeerContList {
+			if isOwnershipMarker(pg.Name) {
+				return nil
+			}
 		}
 	}
 
-	// No operator-managed or non-empty doms remain — delete the BGP instance.
+	// No operator-managed domains remain — delete the BGP instance.
 	return p.client.Delete(ctx, new(BGP))
 }
 
@@ -521,6 +554,34 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 			return fmt.Errorf("bgp peer: invalid source interface name %q: %w", req.SourceInterface, err)
 		}
 		pe.SrcIf = srcIf
+	}
+
+	if req.BGPPeer.Spec.LocalAS != nil {
+		if req.BGPPeer.Spec.LocalAS.ASNumber.String() == req.BGP.Spec.ASNumber.String() {
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "spec.localAS",
+				Description: "local-as cannot be configured on iBGP peers",
+			})
+		}
+
+		pe.LocalAsnItems.LocalAsn = req.BGPPeer.Spec.LocalAS.ASNumber.String()
+
+		prependLocalAS := req.BGPPeer.Spec.LocalAS.PrependLocalAS == nil || *req.BGPPeer.Spec.LocalAS.PrependLocalAS
+		prependGlobalAS := req.BGPPeer.Spec.LocalAS.PrependGlobalAS == nil || *req.BGPPeer.Spec.LocalAS.PrependGlobalAS
+
+		switch {
+		case !prependLocalAS && prependGlobalAS:
+			pe.LocalAsnItems.AsnPropagate = AsnPropagateNoPrep
+		case !prependLocalAS && !prependGlobalAS:
+			pe.LocalAsnItems.AsnPropagate = AsnPropagateReplaceAs
+		case prependLocalAS && !prependGlobalAS:
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "spec.localAS.prependGlobalAS",
+				Description: "prependGlobalAS=false (replace-as mode) requires prependLocalAS=false (no-prepend on inbound)",
+			})
+		default:
+			pe.LocalAsnItems.AsnPropagate = AsnPropagateNone
+		}
 	}
 
 	if req.BGPPeer.Spec.AddressFamilies != nil {
@@ -2101,7 +2162,7 @@ func (p *Provider) EnsureRoutingPolicy(ctx context.Context, req *provider.Ensure
 		for _, cond := range stmt.Conditions {
 			switch v := cond.(type) {
 			case provider.MatchPrefixSetCondition:
-				e.SetPrefixSet(v.PrefixSet)
+				e.SetPrefixSet(v.PrefixSet.Spec.Name, v.PrefixSet.Is6())
 			default:
 				return fmt.Errorf("routing policy: unsupported condition type %T", cond)
 			}
@@ -2600,8 +2661,7 @@ func (p *Provider) DeleteVRF(ctx context.Context, req *provider.VRFRequest) erro
 		return err
 	}
 	// NX-OS does not automatically remove the BGP domain when a VRF is deleted.
-	// deleteBGPDom handles the feature check, dom deletion, and potential
-	// inst-items cleanup if this was the last operator-managed domain.
+	// Delete the domain and clean up the global BGP instance if nothing remains.
 	return p.deleteBGP(ctx, req.VRF.Spec.Name)
 }
 
@@ -3270,6 +3330,151 @@ func (p *Provider) GetDHCPRelayStatus(ctx context.Context, req *provider.DHCPRel
 	}
 
 	return s, nil
+}
+
+func (p *Provider) EnsureEthernetSegment(ctx context.Context, req *provider.EnsureEthernetSegmentRequest) error {
+	if req.EthernetSegment.Spec.RedundancyMode == v1alpha1.RedundancyModeSingleActive {
+		return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+			Field:       "spec.redundancyMode",
+			Description: "NX-OS only supports AllActive redundancy mode for Ethernet Segments",
+		})
+	}
+
+	switch req.EthernetSegment.Spec.ESIType {
+	case v1alpha1.ESITypeArbitrary, v1alpha1.ESITypeMAC:
+		// supported
+	default:
+		return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+			Field:       "spec.esiType",
+			Description: fmt.Sprintf("NX-OS only supports Arbitrary (Type 0) and MAC (Type 3) ESI types, got %q", req.EthernetSegment.Spec.ESIType),
+		})
+	}
+
+	if df := req.EthernetSegment.Spec.DesignatedForwarder; df != nil {
+		switch df.ElectionMode {
+		case v1alpha1.DFElectionModeDefault:
+			// supported
+		default:
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "spec.designatedForwarder.electionMode",
+				Description: fmt.Sprintf("NX-OS only supports Default (modulo) DF election mode, got %q", df.ElectionMode),
+			})
+		}
+	}
+
+	vpc := &Feature{Name: "vpc"}
+	if err := p.client.GetConfig(ctx, vpc); err == nil && vpc.AdminSt == AdminStEnabled {
+		return apistatus.NewFailedPreconditionError("ethernet segment: EVPN multihoming cannot be used together with vPC on the same device")
+	}
+
+	name, err := ShortName(req.Interface.Spec.Name)
+	if err != nil {
+		return err
+	}
+
+	f := new(Feature)
+	f.Name = "evpn"
+	f.AdminSt = AdminStEnabled
+
+	mh := new(MultihomingItems)
+	mh.AdminSt = AdminStEnabled
+	mh.EadEviRoute = true
+	mh.DfElectionMode = DfElectModeModulo
+	mh.DfElectionTime = "3.0"
+	if df := req.EthernetSegment.Spec.DesignatedForwarder; df != nil && df.ElectionWaitTime != nil {
+		mh.DfElectionTime = fmt.Sprintf("%g", df.ElectionWaitTime.Seconds())
+	}
+
+	mm := new(EvpnMulticastItems)
+	mm.State = AdminStEnabled
+
+	es := new(EthernetSegmentItems)
+	es.ID = name
+	es.Type = EthernetSegmentTypeNative
+
+	hex := strings.ReplaceAll(req.EthernetSegment.Spec.ESI, ":", "")
+	switch req.EthernetSegment.Spec.ESIType {
+	case v1alpha1.ESITypeArbitrary:
+		es.ESI = NewOption(hex[0:4] + "." + hex[4:8] + "." + hex[8:12] + "." + hex[12:16] + "." + hex[16:20])
+	case v1alpha1.ESITypeMAC:
+		if req.EthernetSegment.Spec.ESI != "" {
+			mac := hex[2:14]
+			es.SysMac = NewOption(mac[0:2] + ":" + mac[2:4] + ":" + mac[4:6] + ":" + mac[6:8] + ":" + mac[8:10] + ":" + mac[10:12])
+			d, err := strconv.ParseUint(hex[14:20], 16, 24)
+			if err != nil {
+				return fmt.Errorf("failed to parse ESI local discriminator: %w", err)
+			}
+			es.LocalIdentifier = uint32(d)
+		} else {
+			es.SysMacInherit = true
+			es.LocalIdentifierInherit = true
+		}
+	case v1alpha1.ESITypeLACP, v1alpha1.ESITypeMST, v1alpha1.ESITypeRouterID, v1alpha1.ESITypeAS:
+		return fmt.Errorf("ESI type %s is not supported by this provider", req.EthernetSegment.Spec.ESIType)
+	}
+
+	return p.Patch(ctx, f, mh, mm, es)
+}
+
+func (p *Provider) DeleteEthernetSegment(ctx context.Context, req *provider.DeleteEthernetSegmentRequest) error {
+	name, err := ShortName(req.Interface.Spec.Name)
+	if err != nil {
+		return err
+	}
+
+	es := &EthernetSegmentItems{ID: name}
+	return p.client.Delete(ctx, es)
+}
+
+func (p *Provider) GetEthernetSegmentStatus(ctx context.Context, req *provider.EthernetSegmentStatusRequest) (provider.EthernetSegmentStatus, error) {
+	name, err := ShortName(req.Interface.Spec.Name)
+	if err != nil {
+		return provider.EthernetSegmentStatus{}, err
+	}
+
+	res, err := p.nxapi.Do(ctx, nxapi.NewRequest("show nve ethernet-segment summary"))
+	if err != nil {
+		return provider.EthernetSegmentStatus{}, err
+	}
+	if len(res) == 0 {
+		return provider.EthernetSegmentStatus{}, nil
+	}
+
+	var resp EthernetSegmentResponse
+	if err := json.Unmarshal(res[0], &resp); err != nil {
+		return provider.EthernetSegmentStatus{}, err
+	}
+
+	var row *EthernetSegmentRow
+	for i := range resp.Table.Row {
+		short, err := ShortName(resp.Table.Row[i].Interface)
+		if err != nil {
+			continue
+		}
+		if short == name {
+			row = &resp.Table.Row[i]
+			break
+		}
+	}
+	if row == nil || row.ESI == "" {
+		return provider.EthernetSegmentStatus{}, nil
+	}
+
+	// Convert dotted-quad ESI (e.g. "0300.0034.5634.5600.0001") to colon-hex.
+	hex := strings.ReplaceAll(row.ESI, ".", "")
+	if len(hex) != 20 {
+		return provider.EthernetSegmentStatus{}, fmt.Errorf("invalid ESI format: %q", row.ESI)
+	}
+
+	parts := make([]string, 10)
+	for i := range 10 {
+		parts[i] = hex[i*2 : i*2+2]
+	}
+
+	return provider.EthernetSegmentStatus{
+		ESI:        strings.Join(parts, ":"),
+		OperStatus: strings.EqualFold(row.ESState, string(OperStUp)),
+	}, nil
 }
 
 func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest) error { //nolint:gocyclo

@@ -4,8 +4,9 @@
 package v1alpha1
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
 var (
@@ -13,7 +14,10 @@ var (
 	GroupVersion = schema.GroupVersion{Group: "networking.metal.ironcore.dev", Version: "v1alpha1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme.
-	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
+	SchemeBuilder = runtime.NewSchemeBuilder(func(s *runtime.Scheme) error {
+		metav1.AddToGroupVersion(s, GroupVersion)
+		return nil
+	})
 
 	// AddToScheme adds the types in this group-version to the given scheme.
 	AddToScheme = SchemeBuilder.AddToScheme
@@ -197,6 +201,9 @@ const (
 
 	// CrossDeviceReferenceReason indicates that a referenced interface belongs to a different device.
 	CrossDeviceReferenceReason = "CrossDeviceReference"
+
+	// InterfaceNotSwitchportReason indicates that a referenced interface does not have switchport configuration.
+	InterfaceNotSwitchportReason = "InterfaceNotSwitchport"
 
 	// MemberInterfaceAlreadyInUseReason indicates that a member interface is already part of another aggregate.
 	MemberInterfaceAlreadyInUseReason = "MemberInterfaceAlreadyInUse"

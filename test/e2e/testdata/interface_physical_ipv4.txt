@@ -1,0 +1,63 @@
+# Physical Interface with IPv4 Address
+-- interfaces/eth1-1 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: eth1-1
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: eth1/1
+  description: Uplink to Spine
+  adminState: Up
+  type: Physical
+  mtu: 9216
+  ipv4:
+    addresses:
+      - 10.0.100.1/31
+-- state --
+{
+  "openconfig-interfaces:interfaces": {
+    "interface": [
+      {
+        "name": "eth1/1",
+        "config": {
+          "description": "Uplink to Spine",
+          "enabled": true,
+          "mtu": 9216,
+          "name": "eth1/1",
+          "type": "iana-if-type:ethernetCsmacd"
+        },
+        "subinterfaces": {
+          "subinterface": [
+            {
+              "config": {
+                "enabled": true,
+                "index": 0
+              },
+              "index": 0,
+              "openconfig-if-ip:ipv4": {
+                "addresses": {
+                  "address": [
+                    {
+                      "config": {
+                        "ip": "10.0.100.1",
+                        "prefix-length": 31,
+                        "type": "PRIMARY"
+                      },
+                      "ip": "10.0.100.1"
+                    }
+                  ]
+                },
+                "config": {
+                  "enabled": true
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

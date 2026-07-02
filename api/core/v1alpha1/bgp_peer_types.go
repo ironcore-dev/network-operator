@@ -7,11 +7,13 @@ import (
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // BGPPeerSpec defines the desired state of BGPPeer
+// +kubebuilder:validation:XValidation:rule="!(has(self.localAS) && has(self.localASNumber))",message="localAS and localASNumber are mutually exclusive"
 type BGPPeerSpec struct {
 	// DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
 	// Immutable.
@@ -59,6 +61,34 @@ type BGPPeerSpec struct {
 	// Controls which address families are enabled and their specific configuration.
 	// +optional
 	AddressFamilies *BGPPeerAddressFamilies `json:"addressFamilies,omitempty"`
+
+	// LocalASNumber specifies a local AS number to present to the BGP peer.
+	// When set, it is equivalent to LocalAS with ASNumber set and PrependLocalAS/PrependGlobalAS defaults.
+	//
+	// Deprecated: Use LocalAS.ASNumber instead. This field will be removed in a future release.
+	// +optional
+	LocalASNumber *intstr.IntOrString `json:"localASNumber,omitempty"`
+
+	// LocalAS configures the local AS number and how it factors into BGP announcements for this peer.
+	// +optional
+	LocalAS *LocalAS `json:"localAS,omitempty"`
+}
+
+// LocalAS defines the local AS configuration and how it factors in BGP announcements.
+type LocalAS struct {
+	// ASNumber specifies a local AS number to present in BGP sessions with this peer.
+	// +required
+	ASNumber intstr.IntOrString `json:"asNumber"`
+
+	// PrependLocalAS specifies whether to prepend the local AS number to updates received from this peer.
+	// +optional
+	// +kubebuilder:default=true
+	PrependLocalAS *bool `json:"prependLocalAS,omitempty"`
+
+	// PrependGlobalAS specifies whether to prepend the global AS number to updates sent to this neighbor.
+	// +optional
+	// +kubebuilder:default=true
+	PrependGlobalAS *bool `json:"prependGlobalAS,omitempty"`
 }
 
 // BGPCommunityType represents the type of BGP community attributes that can be sent to peers.
@@ -292,5 +322,8 @@ func RegisterBGPPeerDependency(gvk schema.GroupVersionKind) {
 }
 
 func init() {
-	SchemeBuilder.Register(&BGPPeer{}, &BGPPeerList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &BGPPeer{}, &BGPPeerList{})
+		return nil
+	})
 }

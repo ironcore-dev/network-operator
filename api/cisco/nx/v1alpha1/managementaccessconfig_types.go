@@ -5,6 +5,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
@@ -71,5 +72,8 @@ type ManagementAccessConfigList struct {
 
 func init() {
 	v1alpha1.RegisterManagementAccessDependency(GroupVersion.WithKind("ManagementAccessConfig"))
-	SchemeBuilder.Register(&ManagementAccessConfig{}, &ManagementAccessConfigList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &ManagementAccessConfig{}, &ManagementAccessConfigList{})
+		return nil
+	})
 }

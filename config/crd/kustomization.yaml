@@ -26,6 +26,7 @@ resources:
 - bases/networking.metal.ironcore.dev_vlans.yaml
 - bases/networking.metal.ironcore.dev_vrfs.yaml
 - bases/networking.metal.ironcore.dev_lldps.yaml
+- bases/networking.metal.ironcore.dev_ethernetsegments.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_bordergateways.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_managementaccessconfigs.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_networkvirtualizationedgeconfigs.yaml

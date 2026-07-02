@@ -1256,6 +1256,161 @@ var _ = Describe("Interface Controller", func() {
 		})
 	})
 
+	Context("When DNS domain changes on a neighboring device", func() {
+		var (
+			localDevice  *v1alpha1.Device
+			remoteDevice *v1alpha1.Device
+			localIntf    *v1alpha1.Interface
+			remoteIntf   *v1alpha1.Interface
+			dns          *v1alpha1.DNS
+		)
+
+		BeforeEach(func() {
+			By("Creating local and remote Device resources")
+			localDevice = &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "local-device-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.10:9339",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, localDevice)).To(Succeed())
+
+			remoteDevice = &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "remote-device-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.11:9339",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, remoteDevice)).To(Succeed())
+
+			By("Waiting for the device controller to set hostname on remote device and patching it")
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(remoteDevice), remoteDevice)).To(Succeed())
+				g.Expect(remoteDevice.Status.LastRebootTime.IsZero()).To(BeFalse())
+			}).Should(Succeed())
+			remoteDevice.Status.Hostname = "remote-switch"
+			Expect(k8sClient.Status().Update(ctx, remoteDevice)).To(Succeed())
+
+			By("Creating a remote Interface on the remote device")
+			remoteIntf = &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "remote-intf-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: remoteDevice.Name},
+					Name:       "Ethernet1/1",
+					AdminState: v1alpha1.AdminStateUp,
+					Type:       v1alpha1.InterfaceTypePhysical,
+				},
+			}
+			Expect(k8sClient.Create(ctx, remoteIntf)).To(Succeed())
+
+			By("Creating a DNS resource for the remote device")
+			dns = &v1alpha1.DNS{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "remote-dns-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DNSSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: remoteDevice.Name},
+					Domain:    "example.com",
+				},
+			}
+			Expect(k8sClient.Create(ctx, dns)).To(Succeed())
+
+			By("Waiting for the local device controller to initialize")
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(localDevice), localDevice)).To(Succeed())
+				g.Expect(localDevice.Status.LastRebootTime.IsZero()).To(BeFalse())
+			}).Should(Succeed())
+
+			By("Configuring LLDP neighbor on the provider for the local interface")
+			testProvider.SetLLDPNeighbor("Ethernet1/2", "remote-switch.example.com", "aa:bb:cc:dd:ee:ff", "Ethernet1/1", 120)
+
+			By("Creating a local Physical Interface with neighbor label pointing to the remote interface")
+			localIntf = &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "local-intf-",
+					Namespace:    metav1.NamespaceDefault,
+					Labels: map[string]string{
+						v1alpha1.PhysicalInterfaceNeighborLabel: remoteIntf.Name,
+					},
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: localDevice.Name},
+					Name:       "Ethernet1/2",
+					AdminState: v1alpha1.AdminStateUp,
+					Type:       v1alpha1.InterfaceTypePhysical,
+				},
+			}
+			Expect(k8sClient.Create(ctx, localIntf)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			By("Cleaning up LLDP neighbor configuration")
+			testProvider.Lock()
+			delete(testProvider.LLDPNeighbors, "Ethernet1/2")
+			testProvider.Unlock()
+
+			By("Cleaning up all Interface resources")
+			Expect(k8sClient.DeleteAllOf(ctx, &v1alpha1.Interface{}, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+			Eventually(func(g Gomega) {
+				intfList := &v1alpha1.InterfaceList{}
+				g.Expect(k8sClient.List(ctx, intfList, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+				g.Expect(intfList.Items).To(BeEmpty())
+			}).Should(Succeed())
+
+			By("Cleaning up DNS resource")
+			if dns != nil {
+				Expect(k8sClient.Delete(ctx, dns)).To(Succeed())
+			}
+
+			By("Cleaning up Device resources")
+			if localDevice != nil {
+				Expect(k8sClient.Delete(ctx, localDevice, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
+			}
+			if remoteDevice != nil {
+				Expect(k8sClient.Delete(ctx, remoteDevice, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
+			}
+		})
+
+		It("Should verify LLDP neighbor and re-validate when DNS domain changes", func() {
+			By("Verifying the neighbor validation is Verified")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(localIntf), resource)).To(Succeed())
+				g.Expect(resource.Status.Neighbors).To(HaveLen(1))
+				g.Expect(resource.Status.Neighbors[0].Validation).To(Equal(v1alpha1.NeighborVerified))
+			}).Should(Succeed())
+
+			By("Updating the DNS domain on the remote device")
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(dns), dns)).To(Succeed())
+				dns.Spec.Domain = "new.example.com"
+				g.Expect(k8sClient.Update(ctx, dns)).To(Succeed())
+			}).Should(Succeed())
+
+			By("Verifying the neighbor validation changes to DeviceMismatch")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(localIntf), resource)).To(Succeed())
+				g.Expect(resource.Status.Neighbors).To(HaveLen(1))
+				g.Expect(resource.Status.Neighbors[0].Validation).To(Equal(v1alpha1.NeighborDeviceMismatch))
+			}).Should(Succeed())
+		})
+	})
+
 	Context("Interface Update Predicate", func() {
 		var p interfaceUpdatePredicate
 
@@ -1341,7 +1496,7 @@ var _ = Describe("Interface Controller", func() {
 			Expect(p.Update(e)).To(BeTrue())
 		})
 
-		It("Should allow update when generation changes", func() {
+		It("Should not rely on this predicate for generation changes", func() {
 			oldIntf := &v1alpha1.Interface{
 				ObjectMeta: metav1.ObjectMeta{Generation: 1},
 				Status: v1alpha1.InterfaceStatus{
@@ -1355,10 +1510,10 @@ var _ = Describe("Interface Controller", func() {
 			newIntf.Status.Neighbors[0].ExpirationTime = metav1.NewTime(time.Now().Add(120 * time.Second))
 
 			e := event.UpdateEvent{ObjectOld: oldIntf, ObjectNew: newIntf}
-			Expect(p.Update(e)).To(BeTrue())
+			Expect(p.Update(e)).To(BeFalse())
 		})
 
-		It("Should allow update when conditions are not fully initialized", func() {
+		It("Should block no-op update when conditions are not fully initialized", func() {
 			oldIntf := &v1alpha1.Interface{
 				Status: v1alpha1.InterfaceStatus{
 					Conditions: []metav1.Condition{
@@ -1368,6 +1523,25 @@ var _ = Describe("Interface Controller", func() {
 				},
 			}
 			newIntf := oldIntf.DeepCopy()
+
+			e := event.UpdateEvent{ObjectOld: oldIntf, ObjectNew: newIntf}
+			Expect(p.Update(e)).To(BeFalse())
+		})
+
+		It("Should allow update when finalizers change", func() {
+			oldIntf := &v1alpha1.Interface{}
+			newIntf := oldIntf.DeepCopy()
+			newIntf.Finalizers = []string{v1alpha1.FinalizerName}
+
+			e := event.UpdateEvent{ObjectOld: oldIntf, ObjectNew: newIntf}
+			Expect(p.Update(e)).To(BeTrue())
+		})
+
+		It("Should allow update when deletion timestamp changes", func() {
+			oldIntf := &v1alpha1.Interface{}
+			newIntf := oldIntf.DeepCopy()
+			now := metav1.NewTime(time.Now())
+			newIntf.DeletionTimestamp = &now
 
 			e := event.UpdateEvent{ObjectOld: oldIntf, ObjectNew: newIntf}
 			Expect(p.Update(e)).To(BeTrue())

@@ -13,7 +13,6 @@
                   "adminSt": "enabled",
                   "asn": "65000",
                   "asnType": "none",
-                  "inheritContPeerCtrl": "",
                   "af-items": {
                     "PeerAf-list": [
                       {

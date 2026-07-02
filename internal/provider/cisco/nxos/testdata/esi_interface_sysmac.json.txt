@@ -1,0 +1,3 @@
+interface port-channel10
+  ethernet-segment
+    esi system-mac 0011.2233.4455 1

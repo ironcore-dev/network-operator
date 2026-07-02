@@ -1,5 +1,6 @@
 {
   "interface-configuration": {
+    "interface-name": "TwentyFiveGigE0/0/0/14",
     "description": "random interface test",
     "Cisco-IOS-XR-infra-statsd-cfg:statistics": {
       "load-interval": 30

@@ -51,6 +51,7 @@ rules:
   - devices
   - dhcprelays
   - dns
+  - ethernetsegments
   - evpninstances
   - interfaces
   - isis
@@ -87,6 +88,7 @@ rules:
   - devices/finalizers
   - dhcprelays/finalizers
   - dns/finalizers
+  - ethernetsegments/finalizers
   - evpninstances/finalizers
   - interfaces/finalizers
   - isis/finalizers
@@ -117,6 +119,7 @@ rules:
   - devices/status
   - dhcprelays/status
   - dns/status
+  - ethernetsegments/status
   - evpninstances/status
   - interfaces/status
   - isis/status

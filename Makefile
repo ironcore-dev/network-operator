@@ -152,10 +152,6 @@ charts: FORCE install-kubebuilder generate
 	@mv charts/network-operator charts/chart
 	@kubebuilder edit --plugins=helm/v2-alpha --output-dir=charts
 	@mv charts/chart charts/network-operator && rm -rf dist
-	@# Fix cert-manager volumeMounts/volumes indentation (https://github.com/kubernetes-sigs/kubebuilder/issues/5677)
-	@$(SED) -i \
-	  -e '/certManager.enable/,/end/{s/^        - mountPath:/          - mountPath:/;s/^          name: webhook-certs/            name: webhook-certs/;s/^          readOnly: true/            readOnly: true/;s/^      - name: webhook-certs/        - name: webhook-certs/;s/^        secret:/          secret:/;s/^          secretName:/            secretName:/}' \
-	  charts/network-operator/templates/manager/manager.yaml
 
 netop-provider:
 	@printf "\e[1;36m>> go build -o build/netop-provider ./hack/provider\e[0m\n"
@@ -271,14 +267,15 @@ GO_COVERPKGS := $(shell go list ./... | grep -E '/internal')
 null :=
 space := $(null) $(null)
 comma := ,
+YEAR ?= $(shell date +%Y)
 
 check: FORCE static-check build/cover.html build-all
 	@printf "\e[1;32m>> All checks successful.\e[0m\n"
 
 generate: install-controller-gen
 	@printf "\e[1;36m>> controller-gen\e[0m\n"
-	@controller-gen crd rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-	@controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
+	@controller-gen crd rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases output:rbac:artifacts:config=config/rbac
+	@controller-gen object:headerFile="hack/boilerplate.go.txt",year=$(YEAR) paths="./..."
 	@controller-gen applyconfiguration:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 run-golangci-lint: FORCE install-golangci-lint
@@ -296,7 +293,7 @@ run-typos: FORCE install-typos
 
 build/cover.out: FORCE generate install-setup-envtest | build
 	@printf "\e[1;36m>> Running tests\e[0m\n"
-	KUBEBUILDER_ASSETS=$$(setup-envtest use 1.35 -p path) go run github.com/onsi/ginkgo/v2/ginkgo run --randomize-all -output-dir=build $(GO_BUILDFLAGS) -ldflags '-s -w -X github.com/sapcc/go-api-declarations/bininfo.binName=network-operator -X github.com/sapcc/go-api-declarations/bininfo.version=$(BININFO_VERSION) -X github.com/sapcc/go-api-declarations/bininfo.commit=$(BININFO_COMMIT_HASH) -X github.com/sapcc/go-api-declarations/bininfo.buildDate=$(BININFO_BUILD_DATE) $(GO_LDFLAGS)' -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTFLAGS) $(GO_TESTPKGS)
+	KUBEBUILDER_ASSETS=$$(setup-envtest use 1.36 -p path) go run github.com/onsi/ginkgo/v2/ginkgo run --randomize-all -output-dir=build $(GO_BUILDFLAGS) -ldflags '-s -w -X github.com/sapcc/go-api-declarations/bininfo.binName=network-operator -X github.com/sapcc/go-api-declarations/bininfo.version=$(BININFO_VERSION) -X github.com/sapcc/go-api-declarations/bininfo.commit=$(BININFO_COMMIT_HASH) -X github.com/sapcc/go-api-declarations/bininfo.buildDate=$(BININFO_BUILD_DATE) $(GO_LDFLAGS)' -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTFLAGS) $(GO_TESTPKGS)
 	@awk < build/coverprofile.out '$$1 != "mode:" { is_filename[$$1] = true; counts1[$$1]+=$$2; counts2[$$1]+=$$3 } END { for (filename in is_filename) { printf "%s %d %d\n", filename, counts1[filename], counts2[filename]; } }' | sort | $(SED) '1s/^/mode: count\n/' > $@
 
 build/cover.html: build/cover.out
@@ -358,6 +355,7 @@ vars: FORCE
 	@printf "SED=$(SED)\n"
 	@printf "UNAME_S=$(UNAME_S)\n"
 	@printf "XARGS=$(XARGS)\n"
+	@printf "YEAR=$(YEAR)\n"
 help: FORCE
 	@printf "\n"
 	@printf "\e[1mUsage:\e[0m\n"

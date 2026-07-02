@@ -1,4 +1,4 @@
-{{- if .Values.crd.enable }}
+{{- if .Values.crd.enabled }}
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -331,6 +331,40 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
+              localAS:
+                description: LocalAS configures the local AS number and how it factors
+                  into BGP announcements for this peer.
+                properties:
+                  asNumber:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: ASNumber specifies a local AS number to present in
+                      BGP sessions with this peer.
+                    x-kubernetes-int-or-string: true
+                  prependGlobalAS:
+                    default: true
+                    description: PrependGlobalAS specifies whether to prepend the
+                      global AS number to updates sent to this neighbor.
+                    type: boolean
+                  prependLocalAS:
+                    default: true
+                    description: PrependLocalAS specifies whether to prepend the local
+                      AS number to updates received from this peer.
+                    type: boolean
+                required:
+                - asNumber
+                type: object
+              localASNumber:
+                anyOf:
+                - type: integer
+                - type: string
+                description: |-
+                  LocalASNumber specifies a local AS number to present to the BGP peer.
+                  When set, it is equivalent to LocalAS with ASNumber set and PrependLocalAS/PrependGlobalAS defaults.
+
+                  Deprecated: Use LocalAS.ASNumber instead. This field will be removed in a future release.
+                x-kubernetes-int-or-string: true
               localAddress:
                 description: |-
                   LocalAddress specifies the local address configuration for the BGP session with this peer.
@@ -396,6 +430,9 @@ spec:
             - bgpRef
             - deviceRef
             type: object
+            x-kubernetes-validations:
+            - message: localAS and localASNumber are mutually exclusive
+              rule: '!(has(self.localAS) && has(self.localASNumber))'
           status:
             description: |-
               Status of the resource. This is set and updated automatically.

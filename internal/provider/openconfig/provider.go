@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package openconfig
@@ -6,203 +6,52 @@ package openconfig
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
-	gpb "github.com/openconfig/gnmi/proto/gnmi"
-	"github.com/openconfig/ygnmi/ygnmi"
-	"github.com/openconfig/ygot/ygot"
 	"google.golang.org/grpc"
 
-	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 	"github.com/ironcore-dev/network-operator/internal/transport/grpcext"
 )
 
-var (
-	_ provider.Provider          = &Provider{}
-	_ provider.InterfaceProvider = &Provider{}
-)
+var _ provider.Provider = (*Provider)(nil)
 
+// Provider implements the OpenConfig provider using gnmiext.Client.
 type Provider struct {
 	conn   *grpc.ClientConn
-	client *ygnmi.Client
+	client gnmiext.Client
 }
 
+// NewProvider creates a new OpenConfig provider.
 func NewProvider() provider.Provider {
 	return &Provider{}
 }
 
+// Connect establishes a gRPC connection and negotiates gNMI capabilities.
 func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (err error) {
-	p.conn, err = grpcext.NewClient(conn)
+	// timeout is the default timeout for all gRPC requests made by the provider.
+	const timeout = 30 * time.Second
+	p.conn, err = grpcext.NewClient(conn, grpcext.WithDefaultTimeout(timeout))
 	if err != nil {
 		return fmt.Errorf("failed to create grpc connection: %w", err)
 	}
-	p.client, err = ygnmi.NewClient(gpb.NewGNMIClient(p.conn), ygnmi.WithRequestLogLevel(6))
+	var opts []gnmiext.Option
+	if logger, err := logr.FromContext(ctx); err == nil && !logger.IsZero() {
+		opts = append(opts, gnmiext.WithLogger(logger))
+	}
+	p.client, err = gnmiext.New(ctx, p.conn, opts...)
 	if err != nil {
-		return fmt.Errorf("failed to create ygnmi client: %w", err)
+		return fmt.Errorf("failed to create gnmi client: %w", err)
 	}
 	return nil
 }
 
-func (p *Provider) Disconnect(context.Context, *deviceutil.Connection) error {
+// Disconnect closes the underlying gRPC connection.
+func (p *Provider) Disconnect(_ context.Context, _ *deviceutil.Connection) error {
 	return p.conn.Close()
-}
-
-func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
-	log := logr.FromContextOrDiscard(ctx)
-
-	i := &Interface{Name: ygot.String(req.Interface.Spec.Name)}
-	switch req.Interface.Spec.AdminState {
-	case v1alpha1.AdminStateUp:
-		i.Enabled = ygot.Bool(true)
-	case v1alpha1.AdminStateDown:
-		i.Enabled = ygot.Bool(false)
-	default:
-		return fmt.Errorf("invalid admin state: %s", req.Interface.Spec.AdminState)
-	}
-	i.Description = ygot.String(req.Interface.Spec.Description)
-	switch req.Interface.Spec.Type {
-	case v1alpha1.InterfaceTypePhysical:
-		i.Type = IETFInterfaces_InterfaceType_ethernetCsmacd
-
-		if req.Interface.Spec.Ethernet != nil && req.Interface.Spec.Ethernet.FECMode != "" {
-			eth := i.GetOrCreateEthernet()
-			switch req.Interface.Spec.Ethernet.FECMode {
-			case v1alpha1.FECModeFC:
-				eth.FecMode = IfEthernet_INTERFACE_FEC_FEC_FC
-			case v1alpha1.FECModeRS528:
-				eth.FecMode = IfEthernet_INTERFACE_FEC_FEC_RS528
-			case v1alpha1.FECModeDisabled:
-				eth.FecMode = IfEthernet_INTERFACE_FEC_FEC_DISABLED
-			default:
-				return fmt.Errorf("unsupported FEC mode: %s", req.Interface.Spec.Ethernet.FECMode)
-			}
-		}
-	case v1alpha1.InterfaceTypeLoopback:
-		i.Type = IETFInterfaces_InterfaceType_softwareLoopback
-	case v1alpha1.InterfaceTypeAggregate:
-		i.Type = IETFInterfaces_InterfaceType_ieee8023adLag
-		i.GetOrCreateAggregation().SetLagType(IfAggregate_AggregationType_LACP)
-	case v1alpha1.InterfaceTypeRoutedVLAN:
-		i.Type = IETFInterfaces_InterfaceType_l3ipvlan
-		if req.VLAN != nil {
-			i.GetOrCreateRoutedVlan().SetVlan(UnionUint16(req.VLAN.Spec.ID))
-		}
-	default:
-		return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
-	}
-	i.Mtu = ygot.Uint16(uint16(req.Interface.Spec.MTU))
-	switch v := req.IPv4.(type) {
-	case provider.IPv4AddressList:
-		for j, ip := range v {
-			t := IfIp_Ipv4AddressType_PRIMARY
-			if j > 0 {
-				t = IfIp_Ipv4AddressType_SECONDARY
-			}
-			addr := i.GetOrCreateSubinterface(uint32(0)).GetOrCreateIpv4().GetOrCreateAddress(ip.Addr().String())
-			addr.SetPrefixLength(uint8(ip.Bits()))
-			addr.SetType(t)
-		}
-	case provider.IPv4Unnumbered:
-		i.GetOrCreateSubinterface(uint32(0)).GetOrCreateIpv4().GetOrCreateUnnumbered().GetOrCreateInterfaceRef().SetInterface(v.SourceInterface)
-	}
-	if req.Interface.Spec.Switchport != nil {
-		i.Tpid = VlanTypes_TPID_TYPES_TPID_0X8100
-
-		switch req.Interface.Spec.Type {
-		case v1alpha1.InterfaceTypePhysical:
-			port := i.GetOrCreateEthernet().GetOrCreateSwitchedVlan()
-			switch req.Interface.Spec.Switchport.Mode {
-			case v1alpha1.SwitchportModeAccess:
-				port.InterfaceMode = VlanTypes_VlanModeType_ACCESS
-				port.AccessVlan = ygot.Uint16(uint16(req.Interface.Spec.Switchport.AccessVlan))
-			case v1alpha1.SwitchportModeTrunk:
-				port.InterfaceMode = VlanTypes_VlanModeType_TRUNK
-				port.NativeVlan = ygot.Uint16(uint16(req.Interface.Spec.Switchport.NativeVlan))
-				for _, vlan := range req.Interface.Spec.Switchport.AllowedVlans {
-					union, err := port.To_Interface_Ethernet_SwitchedVlan_TrunkVlans_Union(vlan)
-					if err != nil {
-						return fmt.Errorf("failed to convert vlan %d to union type: %w", vlan, err)
-					}
-					port.TrunkVlans = append(port.TrunkVlans, union)
-				}
-			default:
-				return fmt.Errorf("invalid switchport mode: %s", req.Interface.Spec.Switchport.Mode)
-			}
-
-		case v1alpha1.InterfaceTypeAggregate:
-			port := i.GetOrCreateAggregation().GetOrCreateSwitchedVlan()
-			switch req.Interface.Spec.Switchport.Mode {
-			case v1alpha1.SwitchportModeAccess:
-				port.InterfaceMode = VlanTypes_VlanModeType_ACCESS
-				port.AccessVlan = ygot.Uint16(uint16(req.Interface.Spec.Switchport.AccessVlan))
-			case v1alpha1.SwitchportModeTrunk:
-				port.InterfaceMode = VlanTypes_VlanModeType_TRUNK
-				port.NativeVlan = ygot.Uint16(uint16(req.Interface.Spec.Switchport.NativeVlan))
-				for _, vlan := range req.Interface.Spec.Switchport.AllowedVlans {
-					port.TrunkVlans = append(port.TrunkVlans, UnionUint16(vlan))
-				}
-			default:
-				return fmt.Errorf("invalid switchport mode: %s", req.Interface.Spec.Switchport.Mode)
-			}
-
-		default:
-			return fmt.Errorf("switchport configuration is only supported on physical and aggregate interfaces")
-		}
-	}
-
-	b, err := ygot.Marshal7951(i)
-	if err != nil {
-		return fmt.Errorf("failed to marshal interface: %w", err)
-	}
-	log.V(1).Info("Marshalled interface", "interface", string(b))
-
-	sb := new(ygnmi.SetBatch)
-	ygnmi.BatchUpdate(sb, Root().Interface(req.Interface.Spec.Name).Config(), i)
-
-	for _, member := range req.Members {
-		ygnmi.BatchUpdate(sb, Root().Interface(member.Spec.Name).Ethernet().AggregateId().Config(), req.Interface.Spec.Name)
-	}
-
-	_, err = sb.Set(ctx, p.client, ygnmi.WithEncoding(gpb.Encoding_JSON), ygnmi.WithSkipModuleNames())
-	return err
-}
-
-func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceRequest) error {
-	switch req.Interface.Spec.Type {
-	case v1alpha1.InterfaceTypePhysical:
-		// For physical interfaces, we can't delete the interface directly.
-		// Instead, we reset the configuration and set the admin state down.
-		sb := new(ygnmi.SetBatch)
-		ygnmi.BatchUpdate(sb, Root().Interface(req.Interface.Spec.Name).Enabled().Config(), false)
-		ygnmi.BatchDelete(sb, Root().Interface(req.Interface.Spec.Name).Description().Config())
-		ygnmi.BatchDelete(sb, Root().Interface(req.Interface.Spec.Name).SubinterfaceMap().Config())
-		ygnmi.BatchDelete(sb, Root().Interface(req.Interface.Spec.Name).Ethernet().Config())
-		ygnmi.BatchDelete(sb, Root().Interface(req.Interface.Spec.Name).Ethernet().SwitchedVlan().Config())
-		_, err := sb.Set(ctx, p.client, ygnmi.WithEncoding(gpb.Encoding_JSON), ygnmi.WithSkipModuleNames())
-		return err
-	case v1alpha1.InterfaceTypeLoopback:
-		_, err := ygnmi.Delete(ctx, p.client, Root().Interface(req.Interface.Spec.Name).Config())
-		return err
-	case v1alpha1.InterfaceTypeAggregate:
-		_, err := ygnmi.Delete(ctx, p.client, Root().Interface(req.Interface.Spec.Name).Config())
-		return err
-	case v1alpha1.InterfaceTypeRoutedVLAN:
-		_, err := ygnmi.Delete(ctx, p.client, Root().Interface(req.Interface.Spec.Name).Config())
-		return err
-	}
-
-	return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
-}
-
-func (p *Provider) GetInterfaceStatus(context.Context, *provider.InterfaceRequest) (provider.InterfaceStatus, error) {
-	return provider.InterfaceStatus{}, nil
-}
-
-func (p *Provider) InterfaceNameEqual(_ context.Context, a, b string) (bool, error) {
-	// TODO: implement provider specific logic to compare interface names
-	return a == b, nil
 }
 
 func init() {

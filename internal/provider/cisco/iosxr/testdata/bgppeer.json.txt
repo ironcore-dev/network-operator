@@ -1,0 +1,10 @@
+router bgp 11111.1111
+ vrf sven
+  neighbor 127.0.0.1
+   remote-as 65001
+   local-as 65000 no-prepend replace-as
+   use session-group EBGP-CUSTOMER-DEFAULTS
+   address-family ipv4 unicast
+    maximum-prefix 100 80 restart 15
+    route-policy RPL_testvrf in
+    route-policy RPL_testvrf out

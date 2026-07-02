@@ -6,6 +6,7 @@ package nxos
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
@@ -20,12 +21,19 @@ var (
 	_ gnmiext.DataElement = (*BGPPeerGroup)(nil)
 )
 
-// ownershipMarkerPeerGroup is written into every BGP domain managed by this
-// operator. It distinguishes operator-owned domains from those NX-OS creates
-// automatically (e.g. the default VRF dom created as a side effect of
-// configuring a non-default VRF BGP), and is used during deletion to decide
-// whether the BGP instance itself can be cleaned up.
-const ownershipMarkerPeerGroup = "__operator-managed__"
+// ownershipMarkerPrefix is used to build per-VRF peer template names written
+// into the default VRF domain. Each marker identifies an operator-managed BGP
+// domain by its VRF name, and is used during deletion to decide whether the
+// global BGP instance can be cleaned up.
+const ownershipMarkerPrefix = "__operator-managed--"
+
+func ownershipMarkerName(vrfName string) string {
+	return ownershipMarkerPrefix + vrfName + "__"
+}
+
+func isOwnershipMarker(name string) bool {
+	return strings.HasPrefix(name, ownershipMarkerPrefix)
+}
 
 type BGP struct {
 	AdminSt AdminSt `json:"adminSt"`
@@ -179,18 +187,37 @@ func (af *BGPDomAfItem) SetMultipath(m *v1alpha1.BGPMultipath) error {
 }
 
 type BGPPeer struct {
-	VRFName             string      `json:"-"`
-	Addr                string      `json:"addr"`
-	AdminSt             AdminSt     `json:"adminSt"`
-	Asn                 string      `json:"asn"`
-	AsnType             PeerAsnType `json:"asnType"`
-	Name                string      `json:"name,omitempty"`
-	SrcIf               string      `json:"srcIf,omitempty"`
-	InheritContPeerCtrl string      `json:"inheritContPeerCtrl"`
-	AfItems             struct {
+	VRFName       string      `json:"-"`
+	Addr          string      `json:"addr"`
+	AdminSt       AdminSt     `json:"adminSt"`
+	Asn           string      `json:"asn"`
+	AsnType       PeerAsnType `json:"asnType"`
+	Name          string      `json:"name,omitempty"`
+	SrcIf         string      `json:"srcIf,omitempty"`
+	LocalAsnItems struct {
+		AsnPropagate AsnPropagate `json:"asnPropagate"`
+		LocalAsn     string       `json:"localAsn"`
+	} `json:"localasn-items,omitzero"`
+	AfItems struct {
 		PeerAfList gnmiext.List[AddressFamily, *BGPPeerAfItem] `json:"PeerAf-list,omitzero"`
 	} `json:"af-items,omitzero"`
 }
+
+type AsnPropagate string
+
+const (
+	// AsnPropagateNone sends the local-as with no additional options.
+	AsnPropagateNone AsnPropagate = "none"
+	// AsnPropagateNoPrep does not prepend the local-as number to updates
+	// received from the eBGP neighbor.
+	AsnPropagateNoPrep AsnPropagate = "no-prepend"
+	// AsnPropagateReplaceAs prepends only the local-as number to updates
+	// sent to the eBGP neighbor.
+	AsnPropagateReplaceAs AsnPropagate = "replace-as"
+	// AsnPropagateDualAs allows the peer to connect using either the
+	// local-as number or the real AS.
+	AsnPropagateDualAs AsnPropagate = "dual-as"
+)
 
 func (*BGPPeer) IsListItem() {}
 
@@ -322,7 +349,7 @@ func (AsFormat) XPath() string {
 }
 
 const (
-	AsFormatAsDot AsFormat = "as-dot"
+	AsFormatAsDot AsFormat = "asdot"
 )
 
 type PeerAsnType string

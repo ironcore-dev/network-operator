@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -71,7 +72,7 @@ type DeviceReconciler struct {
 //
 // For more details about the method shape, read up here:
 // - https://ahmet.im/blog/controller-pitfalls/#reconcile-method-shape
-func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
+func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) { //nolint:gocyclo
 	log := ctrl.LoggerFrom(ctx)
 	log.V(3).Info("Reconciling resource")
 
@@ -148,12 +149,23 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, nil
 
 	case v1alpha1.DevicePhaseProvisioning:
+		if obj.Spec.Provisioning == nil {
+			log.Info("Provisioning configuration was removed, resetting device into pending phase")
+			if activeProv := obj.GetActiveProvisioning(); activeProv != nil {
+				activeProv.EndTime = metav1.Now()
+			}
+			obj.Status.Phase = v1alpha1.DevicePhasePending
+			r.Recorder.Eventf(obj, nil, "Warning", "ProvisioningAborted", "Reconcile", "Provisioning configuration was removed, resetting device into pending phase")
+			return ctrl.Result{}, nil
+		}
 		activeProv := obj.GetActiveProvisioning()
 		if activeProv == nil {
 			log.Info("Device has not made a provisioning request yet")
 			return ctrl.Result{RequeueAfter: 5 * time.Minute}, nil
 		}
 		if activeProv.StartTime.Add(time.Hour).Before(time.Now()) {
+			activeProv.EndTime = metav1.Now()
+			activeProv.Error = "provisioning timed out"
 			obj.Status.Phase = v1alpha1.DevicePhaseFailed
 			r.Recorder.Eventf(obj, nil, "Warning", "ProvisioningFailed", "Reconcile", "Device provisioning has timed out")
 			return ctrl.Result{}, nil
@@ -172,6 +184,13 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		if !activeProv.RebootTime.IsZero() && activeProv.RebootTime.Time.Add(time.Minute).After(time.Now()) {
 			log.Info("Device is rebooting, requeuing")
 			return ctrl.Result{RequeueAfter: time.Minute}, nil
+		}
+		if activeProv.StartTime.Add(time.Hour).Before(time.Now()) {
+			activeProv.EndTime = metav1.Now()
+			activeProv.Error = "post-provisioning checks timed out"
+			obj.Status.Phase = v1alpha1.DevicePhaseFailed
+			r.Recorder.Eventf(obj, nil, "Warning", "ProvisioningFailed", "Reconcile", "Device post-provisioning checks have timed out")
+			return ctrl.Result{}, nil
 		}
 		log.Info("Device provisioning completed, running post provisioning checks")
 		prov, _ := r.Provider().(provider.ProvisioningProvider)
@@ -323,9 +342,10 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 			device.Labels = map[string]string{}
 		}
 		if serial := strings.ToLower(device.Status.SerialNumber); serial != "" {
+			serial = sanitizeLabelValue(serial)
 			if device.Labels[v1alpha1.DeviceSerialLabel] == "" {
 				device.Labels[v1alpha1.DeviceSerialLabel] = serial
-			} else if device.Labels[v1alpha1.DeviceSerialLabel] != serial {
+			} else if !strings.EqualFold(device.Labels[v1alpha1.DeviceSerialLabel], serial) {
 				log.Info("Device serial label does not match observed device serial number", "labelSerial", device.Labels[v1alpha1.DeviceSerialLabel], "observedSerial", serial)
 			}
 		}
@@ -592,4 +612,18 @@ func PortSummary(ports []v1alpha1.DevicePort) string {
 func Jitter(d time.Duration) time.Duration {
 	r := rand.Float64() // #nosec G404
 	return time.Duration(float64(d) * (0.9 + 0.2*r))
+}
+
+var invalidLabelChars = regexp.MustCompile(`[^A-Za-z0-9_.\-]`)
+
+// sanitizeLabelValue ensures the serial number is a valid Kubernetes label [1]
+// value (max 63 chars, alphanumeric/hyphen/underscore/dot, no leading or
+// trailing separators). The provider returns the raw device serial which may
+// contain characters not allowed in labels.
+//
+// [1]: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
+func sanitizeLabelValue(s string) string {
+	s = invalidLabelChars.ReplaceAllString(s, "-")
+	s = strings.Trim(s, "-_.")
+	return s[:min(len(s), 63)]
 }

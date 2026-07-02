@@ -1,0 +1,573 @@
+// SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-License-Identifier: Apache-2.0
+
+package core
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"time"
+
+	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/tools/events"
+	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/apistatus"
+	"github.com/ironcore-dev/network-operator/internal/conditions"
+	"github.com/ironcore-dev/network-operator/internal/deviceutil"
+	"github.com/ironcore-dev/network-operator/internal/paused"
+	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/resourcelock"
+)
+
+// EthernetSegmentReconciler reconciles a EthernetSegment object
+type EthernetSegmentReconciler struct {
+	client.Client
+	Scheme *runtime.Scheme
+
+	// WatchFilterValue is the label value used to filter events prior to reconciliation.
+	WatchFilterValue string
+
+	// Recorder is used to record events for the controller.
+	// More info: https://book.kubebuilder.io/reference/raising-events
+	Recorder events.EventRecorder
+
+	// Provider is the driver that will be used to create & delete the ethernetsegment.
+	Provider provider.ProviderFunc
+
+	// Locker is used to synchronize operations on resources targeting the same device.
+	Locker *resourcelock.ResourceLocker
+
+	// RequeueInterval is the duration after which the controller should requeue the reconciliation,
+	// in order to periodically reconcile the resource.
+	RequeueInterval time.Duration
+}
+
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=ethernetsegments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=ethernetsegments/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=ethernetsegments/finalizers,verbs=update
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
+
+// Reconcile is part of the main kubernetes reconciliation loop which aims to
+// move the current state of the cluster closer to the desired state.
+//
+// For more details, check Reconcile and its Result here:
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.2/pkg/reconcile
+//
+// For more details about the method shape, read up here:
+// - https://ahmet.im/blog/controller-pitfalls/#reconcile-method-shape
+func (r *EthernetSegmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
+	log := ctrl.LoggerFrom(ctx)
+	log.V(3).Info("Reconciling resource")
+
+	obj := new(v1alpha1.EthernetSegment)
+	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
+		if apierrors.IsNotFound(err) {
+			// If the custom resource is not found then it usually means that it was deleted or not created
+			// In this way, we will stop the reconciliation
+			log.V(3).Info("Resource not found. Ignoring since object must be deleted")
+			return ctrl.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		log.Error(err, "Failed to get resource")
+		return ctrl.Result{}, err
+	}
+
+	prov, ok := r.Provider().(provider.EthernetSegmentProvider)
+	if !ok {
+		if meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
+			Type:    v1alpha1.ReadyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.NotImplementedReason,
+			Message: "Provider does not implement provider.EthernetSegmentProvider",
+		}) {
+			return ctrl.Result{}, r.Status().Update(ctx, obj)
+		}
+		return ctrl.Result{}, nil
+	}
+
+	device, err := deviceutil.GetDeviceByName(ctx, r, obj.Namespace, obj.Spec.DeviceRef.Name)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if isPaused, requeue, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || requeue || err != nil {
+		return ctrl.Result{Requeue: requeue}, err
+	}
+
+	if err := r.Locker.AcquireLock(ctx, device.Name, "ethernetsegment-controller"); err != nil {
+		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
+			log.V(3).Info("Device is already locked, requeuing reconciliation")
+			return ctrl.Result{RequeueAfter: Jitter(time.Second), Priority: new(LockWaitPriorityDefault)}, nil
+		}
+		log.Error(err, "Failed to acquire device lock")
+		return ctrl.Result{}, err
+	}
+	defer func() {
+		if err := r.Locker.ReleaseLock(ctx, device.Name, "ethernetsegment-controller"); err != nil {
+			log.Error(err, "Failed to release device lock")
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+	}()
+
+	conn, err := deviceutil.GetDeviceConnection(ctx, r, device)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	var cfg *provider.ProviderConfig
+	if obj.Spec.ProviderConfigRef != nil {
+		cfg, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	s := &ethernetSegmentScope{
+		Device:          device,
+		EthernetSegment: obj,
+		Connection:      conn,
+		ProviderConfig:  cfg,
+		Provider:        prov,
+	}
+
+	if !obj.DeletionTimestamp.IsZero() {
+		if controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
+			if err := r.finalize(ctx, s); err != nil {
+				log.Error(err, "Failed to finalize resource")
+				return ctrl.Result{}, err
+			}
+			controllerutil.RemoveFinalizer(obj, v1alpha1.FinalizerName)
+			if err := r.Update(ctx, obj); err != nil {
+				log.Error(err, "Failed to remove finalizer from resource")
+				return ctrl.Result{}, err
+			}
+		}
+		log.V(3).Info("Resource is being deleted, skipping reconciliation")
+		return ctrl.Result{}, nil
+	}
+
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
+	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
+		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
+		if err := r.Update(ctx, obj); err != nil {
+			log.Error(err, "Failed to add finalizer to resource")
+			return ctrl.Result{}, err
+		}
+		log.V(1).Info("Added finalizer to resource")
+		return ctrl.Result{}, nil
+	}
+
+	orig := obj.DeepCopy()
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition, v1alpha1.OperationalCondition) {
+		log.V(1).Info("Initializing status conditions")
+		return ctrl.Result{}, r.Status().Update(ctx, obj)
+	}
+
+	// Always attempt to update the metadata/status after reconciliation
+	defer func() {
+		if !equality.Semantic.DeepEqual(orig.ObjectMeta, obj.ObjectMeta) {
+			// Pass obj.DeepCopy() to avoid Patch() modifying obj and interfering with status update below
+			if err := r.Patch(ctx, obj.DeepCopy(), client.MergeFrom(orig)); err != nil {
+				log.Error(err, "Failed to update resource metadata")
+				reterr = kerrors.NewAggregate([]error{reterr, err})
+			}
+		}
+		if !equality.Semantic.DeepEqual(orig.Status, obj.Status) {
+			if err := r.Status().Patch(ctx, obj, client.MergeFrom(orig)); err != nil {
+				log.Error(err, "Failed to update status")
+				reterr = kerrors.NewAggregate([]error{reterr, err})
+			}
+		}
+	}()
+
+	if err := r.reconcile(ctx, s); err != nil {
+		log.Error(err, "Failed to reconcile resource")
+		return ctrl.Result{}, apistatus.WrapTerminalError(err)
+	}
+
+	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
+}
+
+const (
+	ethernetSegmentInterfaceRefKey = ".spec.interfaceRef.name"
+)
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *EthernetSegmentReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
+	labelSelector := metav1.LabelSelector{}
+	if r.WatchFilterValue != "" {
+		labelSelector.MatchLabels = map[string]string{v1alpha1.WatchLabel: r.WatchFilterValue}
+	}
+
+	filter, err := predicate.LabelSelectorPredicate(labelSelector)
+	if err != nil {
+		return fmt.Errorf("failed to create label selector predicate: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.EthernetSegment{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.EthernetSegment)
+		return []string{o.Spec.DeviceRef.Name}
+	}); err != nil {
+		return err
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.EthernetSegment{}, ethernetSegmentInterfaceRefKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.EthernetSegment)
+		return []string{o.Spec.InterfaceRef.Name}
+	}); err != nil {
+		return err
+	}
+
+	bldr := ctrl.NewControllerManagedBy(mgr).
+		For(&v1alpha1.EthernetSegment{}).
+		Named("ethernetsegment").
+		WithEventFilter(filter)
+
+	for _, gvk := range v1alpha1.EthernetSegmentDependencies {
+		obj := &unstructured.Unstructured{}
+		obj.SetGroupVersionKind(gvk)
+
+		bldr = bldr.Watches(
+			obj,
+			handler.EnqueueRequestsFromMapFunc(r.ethernetsegmentsForProviderConfig),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		)
+	}
+
+	return bldr.
+		// Watches enqueues EthernetSegments for updates in referenced Interface resources.
+		// Triggers on create, delete, and update events when the interface's switchport configuration changes.
+		Watches(
+			&v1alpha1.Interface{},
+			handler.EnqueueRequestsFromMapFunc(r.interfaceToEthernetSegments),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					oldIntf, _ := e.ObjectOld.(*v1alpha1.Interface)
+					newIntf, _ := e.ObjectNew.(*v1alpha1.Interface)
+					return oldIntf != nil && newIntf != nil && (oldIntf.Spec.Switchport == nil) != (newIntf.Spec.Switchport == nil)
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
+		// Watches enqueues EthernetSegments for updates in referenced Device resources.
+		// Triggers on create, delete, and update events when the device's effective pause state changes.
+		Watches(
+			&v1alpha1.Device{},
+			handler.EnqueueRequestsFromMapFunc(r.deviceToEthernetSegments),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return paused.DevicePausedChanged(e.ObjectOld, e.ObjectNew)
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
+		Complete(r)
+}
+
+// scope holds the different objects that are read and used during the reconcile.
+type ethernetSegmentScope struct {
+	Device          *v1alpha1.Device
+	EthernetSegment *v1alpha1.EthernetSegment
+	Connection      *deviceutil.Connection
+	ProviderConfig  *provider.ProviderConfig
+	Provider        provider.EthernetSegmentProvider
+}
+
+func (r *EthernetSegmentReconciler) reconcile(ctx context.Context, s *ethernetSegmentScope) (reterr error) {
+	if s.EthernetSegment.Labels == nil {
+		s.EthernetSegment.Labels = make(map[string]string)
+	}
+
+	s.EthernetSegment.Labels[v1alpha1.DeviceLabel] = s.Device.Name
+
+	// Ensure the EthernetSegment is owned by the Device.
+	if !controllerutil.HasControllerReference(s.EthernetSegment) {
+		if err := controllerutil.SetOwnerReference(s.Device, s.EthernetSegment, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
+			return err
+		}
+	}
+
+	defer func() {
+		conditions.RecomputeReady(s.EthernetSegment)
+	}()
+
+	intf, err := r.reconcileInterface(ctx, s)
+	if err != nil {
+		return err
+	}
+
+	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
+		return fmt.Errorf("failed to connect to provider: %w", err)
+	}
+	defer func() {
+		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+	}()
+
+	// Ensure the EthernetSegment is realized on the provider.
+	err = s.Provider.EnsureEthernetSegment(ctx, &provider.EnsureEthernetSegmentRequest{
+		EthernetSegment: s.EthernetSegment,
+		Interface:       intf,
+		ProviderConfig:  s.ProviderConfig,
+	})
+
+	cond := conditions.FromError(err)
+	conditions.Set(s.EthernetSegment, cond)
+
+	if err != nil {
+		return err
+	}
+
+	status, err := s.Provider.GetEthernetSegmentStatus(ctx, &provider.EthernetSegmentStatusRequest{
+		EthernetSegment: s.EthernetSegment,
+		Interface:       intf,
+		ProviderConfig:  s.ProviderConfig,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get ethernet segment status: %w", err)
+	}
+
+	s.EthernetSegment.Status.ESI = status.ESI
+	s.EthernetSegment.Status.ESIType = esiTypeFromValue(status.ESI)
+
+	cond = metav1.Condition{
+		Type:    v1alpha1.OperationalCondition,
+		Status:  metav1.ConditionTrue,
+		Reason:  v1alpha1.OperationalReason,
+		Message: "Ethernet Segment is operationally up",
+	}
+	if !status.OperStatus {
+		cond.Status = metav1.ConditionFalse
+		cond.Reason = v1alpha1.DegradedReason
+		cond.Message = "Ethernet Segment is operationally down"
+	}
+	conditions.Set(s.EthernetSegment, cond)
+
+	return nil
+}
+
+func esiTypeFromValue(esi string) v1alpha1.ESIType {
+	if len(esi) < 2 {
+		return ""
+	}
+	switch esi[:2] {
+	case "00":
+		return v1alpha1.ESITypeArbitrary
+	case "01":
+		return v1alpha1.ESITypeLACP
+	case "02":
+		return v1alpha1.ESITypeMST
+	case "03":
+		return v1alpha1.ESITypeMAC
+	case "04":
+		return v1alpha1.ESITypeRouterID
+	case "05":
+		return v1alpha1.ESITypeAS
+	default:
+		return ""
+	}
+}
+
+// reconcileInterface resolves the referenced Interface and validates that it is of type
+// Aggregate, belongs to the same Device, and has switchport configuration.
+func (r *EthernetSegmentReconciler) reconcileInterface(ctx context.Context, s *ethernetSegmentScope) (*v1alpha1.Interface, error) {
+	key := client.ObjectKey{
+		Name:      s.EthernetSegment.Spec.InterfaceRef.Name,
+		Namespace: s.EthernetSegment.Namespace,
+	}
+
+	intf := new(v1alpha1.Interface)
+	if err := r.Get(ctx, key, intf); err != nil {
+		if apierrors.IsNotFound(err) {
+			conditions.Set(s.EthernetSegment, metav1.Condition{
+				Type:    v1alpha1.ConfiguredCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.InterfaceNotFoundReason,
+				Message: fmt.Sprintf("referenced interface %q not found", key),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("referenced interface %q not found", key))
+		}
+		return nil, fmt.Errorf("failed to get referenced interface %q: %w", key, err)
+	}
+
+	if intf.Spec.DeviceRef.Name != s.Device.Name {
+		conditions.Set(s.EthernetSegment, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.CrossDeviceReferenceReason,
+			Message: fmt.Sprintf("referenced interface %q does not belong to device %q", intf.Name, s.Device.Name),
+		})
+		return nil, reconcile.TerminalError(fmt.Errorf("referenced interface %q does not belong to device %q", intf.Name, s.Device.Name))
+	}
+
+	if intf.Spec.Type != v1alpha1.InterfaceTypeAggregate {
+		conditions.Set(s.EthernetSegment, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.InvalidInterfaceTypeReason,
+			Message: fmt.Sprintf("referenced interface %q is not of type Aggregate, got %q", intf.Name, intf.Spec.Type),
+		})
+		return nil, reconcile.TerminalError(fmt.Errorf("referenced interface %q is not of type Aggregate, got %q", intf.Name, intf.Spec.Type))
+	}
+
+	if intf.Spec.Switchport == nil {
+		conditions.Set(s.EthernetSegment, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.InterfaceNotSwitchportReason,
+			Message: fmt.Sprintf("referenced interface %q must have switchport configuration", intf.Name),
+		})
+		return nil, reconcile.TerminalError(fmt.Errorf("referenced interface %q must have switchport configuration", intf.Name))
+	}
+
+	return intf, nil
+}
+
+func (r *EthernetSegmentReconciler) finalize(ctx context.Context, s *ethernetSegmentScope) (reterr error) {
+	intf := new(v1alpha1.Interface)
+	if err := r.Get(ctx, client.ObjectKey{
+		Name:      s.EthernetSegment.Spec.InterfaceRef.Name,
+		Namespace: s.EthernetSegment.Namespace,
+	}, intf); err != nil {
+		if apierrors.IsNotFound(err) {
+			// If the interface no longer exists, there is no device config to clean up
+			// since the resource could not have been configured without a valid interface.
+			return nil
+		}
+		return fmt.Errorf("failed to get referenced interface: %w", err)
+	}
+
+	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
+		return fmt.Errorf("failed to connect to provider: %w", err)
+	}
+	defer func() {
+		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+	}()
+
+	return s.Provider.DeleteEthernetSegment(ctx, &provider.DeleteEthernetSegmentRequest{
+		EthernetSegment: s.EthernetSegment,
+		Interface:       intf,
+		ProviderConfig:  s.ProviderConfig,
+	})
+}
+
+// deviceToEthernetSegments is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for EthernetSegments when their referenced Device's effective pause state changes.
+func (r *EthernetSegmentReconciler) deviceToEthernetSegments(ctx context.Context, obj client.Object) []ctrl.Request {
+	device, ok := obj.(*v1alpha1.Device)
+	if !ok {
+		panic(fmt.Sprintf("Expected a Device but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
+
+	list := new(v1alpha1.EthernetSegmentList)
+	if err := r.List(
+		ctx, list,
+		client.InNamespace(device.Namespace),
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
+	); err != nil {
+		log.Error(err, "Failed to list EthernetSegments")
+		return nil
+	}
+
+	requests := make([]ctrl.Request, 0, len(list.Items))
+	for _, i := range list.Items {
+		log.V(2).Info("Enqueuing EthernetSegment for reconciliation", "EthernetSegment", klog.KObj(&i))
+		requests = append(requests, ctrl.Request{
+			NamespacedName: client.ObjectKey{
+				Name:      i.Name,
+				Namespace: i.Namespace,
+			},
+		})
+	}
+
+	return requests
+}
+
+// ethernetsegmentsForProviderConfig is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for a EthernetSegment to update when one of its referenced provider configurations gets updated.
+func (r *EthernetSegmentReconciler) ethernetsegmentsForProviderConfig(ctx context.Context, obj client.Object) []reconcile.Request {
+	log := ctrl.LoggerFrom(ctx, "Object", klog.KObj(obj))
+
+	list := &v1alpha1.EthernetSegmentList{}
+	if err := r.List(ctx, list, client.InNamespace(obj.GetNamespace())); err != nil {
+		log.Error(err, "Failed to list EthernetSegments")
+		return nil
+	}
+
+	gkv := obj.GetObjectKind().GroupVersionKind()
+
+	var requests []reconcile.Request
+	for _, m := range list.Items {
+		if m.Spec.ProviderConfigRef != nil &&
+			m.Spec.ProviderConfigRef.Name == obj.GetName() &&
+			m.Spec.ProviderConfigRef.Kind == gkv.Kind &&
+			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
+			log.V(2).Info("Enqueuing EthernetSegment for reconciliation", "EthernetSegment", klog.KObj(&m))
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      m.Name,
+					Namespace: m.Namespace,
+				},
+			})
+		}
+	}
+
+	return requests
+}
+
+// interfaceToEthernetSegments is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for EthernetSegments when their referenced Interface changes.
+func (r *EthernetSegmentReconciler) interfaceToEthernetSegments(ctx context.Context, obj client.Object) []ctrl.Request {
+	intf, ok := obj.(*v1alpha1.Interface)
+	if !ok {
+		panic(fmt.Sprintf("Expected an Interface but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "Interface", klog.KObj(intf))
+
+	list := new(v1alpha1.EthernetSegmentList)
+	if err := r.List(ctx, list, client.InNamespace(intf.Namespace), client.MatchingFields{ethernetSegmentInterfaceRefKey: intf.Name}); err != nil {
+		log.Error(err, "Failed to list EthernetSegments")
+		return nil
+	}
+
+	requests := make([]ctrl.Request, 0, len(list.Items))
+	for _, i := range list.Items {
+		log.V(2).Info("Enqueuing EthernetSegment for reconciliation", "EthernetSegment", klog.KObj(&i))
+		requests = append(requests, ctrl.Request{
+			NamespacedName: client.ObjectKey{
+				Name:      i.Name,
+				Namespace: i.Namespace,
+			},
+		})
+	}
+
+	return requests
+}

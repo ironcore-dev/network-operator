@@ -32,10 +32,10 @@ func init() {
 					Netmask: "255.255.255.0",
 				},
 			},
-			Mtu: 1000,
+			MTU: 1000,
 		},
 		IPv6Network: IPv6Network{
-			Mtu: 2100,
+			MTU: 2100,
 			Addresses: AddressesIPv6{
 				RegularAddresses: RegularAddresses{
 					RegularAddress: []RegularAddress{

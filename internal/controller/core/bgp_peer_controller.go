@@ -323,13 +323,15 @@ func (r *BGPPeerReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 			}),
 		).
 		// Watches enqueues BGPPeers for updates in VRF resources referenced by their BGP.
-		// Only triggers on create and delete events since VRF names are immutable.
+		// Triggers on create, delete, and update events when the VRF's ready state changes.
 		Watches(
 			&v1alpha1.VRF{},
 			handler.EnqueueRequestsFromMapFunc(r.vrfToBGPPeers),
 			builder.WithPredicates(predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					return false
+					oldVRF := e.ObjectOld.(*v1alpha1.VRF)
+					newVRF := e.ObjectNew.(*v1alpha1.VRF)
+					return conditions.IsReady(oldVRF) != conditions.IsReady(newVRF)
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false
@@ -439,6 +441,26 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (ret
 			return reconcile.TerminalError(fmt.Errorf("source interface %q does not belong to device %q", intf.Name, s.Device.Name))
 		}
 		sourceInterface = intf.Spec.Name
+	}
+
+	// TODO: remove use of deprecated LocalASNumber field in a future release.
+	//nolint:staticcheck // handling deprecated field for backward compatibility
+	if s.BGPPeer.Spec.LocalASNumber != nil {
+		s.BGPPeer.Spec.LocalAS = &v1alpha1.LocalAS{
+			ASNumber:        *s.BGPPeer.Spec.LocalASNumber, //nolint:staticcheck
+			PrependLocalAS:  new(bool),
+			PrependGlobalAS: new(bool),
+		}
+	}
+
+	if s.BGPPeer.Spec.LocalAS != nil && s.BGPPeer.Spec.ASNumber.String() == bgp.Spec.ASNumber.String() {
+		conditions.Set(s.BGPPeer, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.ErrorReason,
+			Message: "local-as cannot be configured on iBGP peers",
+		})
+		return reconcile.TerminalError(errors.New("local-as cannot be configured on iBGP peers"))
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
@@ -625,6 +647,17 @@ func (r *BGPPeerReconciler) reconcileVRF(ctx context.Context, peer *v1alpha1.BGP
 			Message: fmt.Sprintf("VRF %s belongs to device %s, not %s", bgp.Spec.VrfRef.Name, vrf.Spec.DeviceRef.Name, device.Name),
 		})
 		return nil, reconcile.TerminalError(fmt.Errorf("vrf %s belongs to different device", bgp.Spec.VrfRef.Name))
+	}
+
+	if !conditions.IsReady(vrf) {
+		// VRF uses ReadyCondition as its top-level configured state (no separate ConfiguredCondition).
+		conditions.Set(peer, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.WaitingForDependenciesReason,
+			Message: fmt.Sprintf("Waiting for VRF %s to become ready", bgp.Spec.VrfRef.Name),
+		})
+		return nil, reconcile.TerminalError(fmt.Errorf("vrf %s is not yet ready", bgp.Spec.VrfRef.Name))
 	}
 
 	return vrf, nil

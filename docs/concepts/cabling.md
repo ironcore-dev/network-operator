@@ -50,6 +50,29 @@ The controller resolves the referenced `Interface`, looks up the owning `Device`
 compares it against the LLDP `systemName`. It then compares the referenced interface name against
 the LLDP `portID`, accounting for vendor-specific naming conventions (e.g. NX-OS `eth1/1` vs. `Ethernet1/1`).
 
+#### Hostname validation with DNS
+
+When validating neighbor adjacencies via labels, the controller compares the remote device's hostname
+against the LLDP `systemName` field. The comparison behavior depends on whether a `DNS` Kubernetes resource is
+configured for the remote device:
+
+**Without DNS configuration:**
+- The controller compares the device's `.status.hostname` directly against `systemName`.
+- Example: If device hostname is `router1` and LLDP reports `systemName: router1`, validation succeeds.
+
+**With DNS configuration:**
+- Devices, e.g., Cisco NX-OS, report the Fully Qualified Domain Name (FQDN) in LLDP when DNS is properly configured.
+- The controller automatically constructs the expected FQDN by combining the device's `.status.hostname`
+with the domain from the associated `DNS` Kubernetes resource.
+- Example: If device hostname is `router1` and a `DNS` resource specifies domain `example.com`, the controller
+validates the label against the value `systemName: router1.example.com`.
+
+This means that if you enable DNS on your devices, you should ensure that:
+1. A `DNS` resource exists for each device that will report FQDN in LLDP.
+2. The domain in the `DNS` resource matches the DNS configuration on the device.
+3. LLDP neighbors will be validated using FQDN (hostname + domain) instead of just the hostname.
+
+
 ### Annotation — the operator manages only one of the interfaces
 
 When the remote end is **not** managed by the operator (e.g. a compute node that does not

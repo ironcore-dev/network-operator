@@ -5,6 +5,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	v1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
@@ -79,5 +80,8 @@ type BGPConfigList struct {
 // itself as a dependency for the BGP core type.
 func init() {
 	v1alpha1.RegisterBGPDependency(GroupVersion.WithKind("BGPConfig"))
-	SchemeBuilder.Register(&BGPConfig{}, &BGPConfigList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &BGPConfig{}, &BGPConfigList{})
+		return nil
+	})
 }

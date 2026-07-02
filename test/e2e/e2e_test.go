@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -322,7 +323,7 @@ var _ = Describe("Manager", Ordered, func() {
 
 		DescribeTable(
 			"Should reconcile the api objects",
-			func(ctx SpecContext, file string) {
+			func(ctx SpecContext, file string, numFiles int) {
 				device := `
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Device
@@ -340,22 +341,40 @@ spec:
 
 				a, err := txtar.ParseFile(filepath.Join(dir, "test", "e2e", "testdata", file))
 				Expect(err).NotTo(HaveOccurred(), "Failed to parse test file")
-				Expect(a.Files).To(HaveLen(2), "Expected 2 files in the test archive")
+				Expect(a.Files).To(HaveLen(numFiles), "Unexpected number of files in the test archive")
 
-				err = Apply(ctx, string(a.Files[0].Data))
-				Expect(err).NotTo(HaveOccurred(), "Failed to apply Interface")
+				// All sections except the last are resource manifests; last is expected state.
+				resources := a.Files[:len(a.Files)-1]
+				stateFile := a.Files[len(a.Files)-1]
 
-				// #nosec G204
+				for _, res := range resources {
+					err = Apply(ctx, string(res.Data))
+					Expect(err).NotTo(HaveOccurred(), "Failed to apply resource %s", res.Name)
+
+					// Determine wait condition from resource type prefix.
+					// vlans/ have no provider in openconfig — skip wait.
+					var condition string
+					switch {
+					case strings.HasPrefix(res.Name, "banners/"):
+						condition = "Ready"
+					case strings.HasPrefix(res.Name, "vlans/"):
+						continue
+					default:
+						condition = "Configured"
+					}
+
+					// #nosec G204
+					cmd := exec.CommandContext(
+						ctx, "kubectl", "wait", res.Name,
+						"--for", "condition="+condition,
+						"--namespace", "default",
+						"--timeout", "5m",
+					)
+					_, err = Run(cmd)
+					Expect(err).NotTo(HaveOccurred())
+				}
+
 				cmd := exec.CommandContext(
-					ctx, "kubectl", "wait", a.Files[0].Name,
-					"--for", "condition=Configured",
-					"--namespace", "default",
-					"--timeout", "5m",
-				)
-				_, err = Run(cmd)
-				Expect(err).NotTo(HaveOccurred())
-
-				cmd = exec.CommandContext(
 					ctx, "kubectl", "exec", "gnmi-test-server",
 					"--namespace", "default",
 					"--",
@@ -364,15 +383,18 @@ spec:
 				got, err := Run(cmd)
 				Expect(err).NotTo(HaveOccurred(), "Failed to execute command on gnmi-test-server")
 
-				err = CompareJSON(got, string(a.Files[1].Data))
+				err = CompareJSON(got, string(stateFile.Data))
 				Expect(err).NotTo(HaveOccurred(), "State output does not match expected JSON")
 
-				// #nosec G204
-				cmd = exec.CommandContext(ctx, "kubectl", "delete", a.Files[0].Name)
-				_, err = Run(cmd)
-				Expect(err).NotTo(HaveOccurred(), "Failed to delete object")
+				// Delete resources in reverse order.
+				for _, res := range slices.Backward(resources) {
+					// #nosec G204
+					cmd = exec.CommandContext(ctx, "kubectl", "delete", res.Name)
+					_, err = Run(cmd)
+					Expect(err).NotTo(HaveOccurred(), "Failed to delete object")
+				}
 
-				cmd = exec.CommandContext(ctx, "kubectl", "delete", "devices/device")
+				cmd = exec.CommandContext(ctx, "kubectl", "delete", "devices/device", "--cascade=foreground")
 				_, err = Run(cmd)
 				Expect(err).NotTo(HaveOccurred(), "Failed to delete object")
 
@@ -380,12 +402,21 @@ spec:
 					ctx, "kubectl", "exec", "gnmi-test-server",
 					"--namespace", "default",
 					"--",
-					"wget", "-qO-", "--header='X-HTTP-Method-Override: DELETE'", "http://localhost:8000/v1/state",
+					"wget", "-qO-", "--header", "X-HTTP-Method-Override: DELETE", "http://localhost:8000/v1/state",
 				)
 				_, err = Run(cmd)
 				Expect(err).NotTo(HaveOccurred(), "Failed to execute command on gnmi-test-server")
 			},
-			Entry("Loopback Interface", "interface.txt"),
+			Entry("Loopback Interface", "interface.txt", 2),
+			Entry("Loopback Multi-Address", "interface_loopback_multi_addr.txt", 2),
+			Entry("Physical IPv4 Address", "interface_physical_ipv4.txt", 2),
+			Entry("Physical Unnumbered", "interface_physical_unnumbered.txt", 3),
+			Entry("Physical Switchport Access", "interface_physical_switchport_access.txt", 2),
+			Entry("Physical Switchport Trunk", "interface_physical_switchport_trunk.txt", 2),
+			Entry("Aggregate L2 Trunk", "interface_aggregate_l2_trunk.txt", 3),
+			Entry("Aggregate L3 Address", "interface_aggregate_l3.txt", 3),
+			Entry("Routed VLAN", "interface_routed_vlan.txt", 3),
+			Entry("Banner PreLogin", "banner.txt", 2),
 		)
 	})
 })
