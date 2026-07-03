@@ -1,71 +1,73 @@
 {
-  "bgp": {
-    "instances": {
-      "instance": {
-        "as": {
-          "vrfs": {
-            "vrf": {
-              "address-families": {
-                "address-family": [
-                  {
-                    "af-name": "ipv4-unicast",
-                    "redistribute": {
-                      "static": {}
+  "router": {
+    "bgp": {
+      "instances": {
+        "instance": {
+          "as": {
+            "vrfs": {
+              "vrf": {
+                "address-families": {
+                  "address-family": [
+                    {
+                      "af-name": "ipv4-unicast",
+                      "redistribute": {
+                        "static": {}
+                      }
                     }
+                  ]
+                },
+                "vrf-name": "testvrf",
+                "rd": {
+                  "two-byte-as": {
+                    "two-byte-as-number": 1000,
+                    "asn2-index": 100
                   }
-                ]
-              },
-              "vrf-name": "testvrf",
-              "rd": {
-                "two-byte-as": {
-                  "two-byte-as-number": 1000,
-                  "asn2-index": 100
-                }
-              },
-              "neighbors": {
-                "neighbor": [
-                  {
-                    "address": "127.0.0.1",
-                    "address-families": {
-                      "address-family": [
-                        {
-                          "af-name": "ipv4-unicast",
-                          "maximum-prefix": {
-                            "maximum-prefix-number": 100,
-                            "restart": 15,
-                            "threshold-value": 80
-                          },
-                          "route-policy": {
-                            "in": "RPL_testvrf",
-                            "out": "RPL_testvrf"
-                          },
-                          "send-community-ebgp": {},
-                          "send-community-gshut-ebgp": {},
-                          "send-extended-community-ebgp": {},
-                          "soft-reconfiguration": {
-                            "inbound": {
-                              "always": [
-                                null
-                              ]
+                },
+                "neighbors": {
+                  "neighbor": [
+                    {
+                      "address": "127.0.0.1",
+                      "address-families": {
+                        "address-family": [
+                          {
+                            "af-name": "ipv4-unicast",
+                            "maximum-prefix": {
+                              "maximum-prefix-number": 100,
+                              "restart": 15,
+                              "threshold-value": 80
+                            },
+                            "route-policy": {
+                              "in": "RPL_testvrf",
+                              "out": "RPL_testvrf"
+                            },
+                            "send-community-ebgp": {},
+                            "send-community-gshut-ebgp": {},
+                            "send-extended-community-ebgp": {},
+                            "soft-reconfiguration": {
+                              "inbound": {
+                                "always": [
+                                  null
+                                ]
+                              }
                             }
                           }
+                        ]
+                      },
+                      "local-as": {
+                        "as": {
+                          "as-number": 65000,
+                          "no-prepend": {
+                            "replace-as": {}
+                          }
                         }
-                      ]
-                    },
-                    "local-as": {
-                      "as": {
-                        "as-number": 65000,
-                        "no-prepend": {
-                          "replace-as": {}
-                        }
+                      },
+                      "remote-as": 65001,
+                      "use": {
+                        "session-group": "EBGP-CUSTOMER-DEFAULTS"
                       }
-                    },
-                    "remote-as": 65001,
-                    "use": {
-                      "session-group": "EBGP-CUSTOMER-DEFAULTS"
                     }
-                  }
-                ]
+                  ]
+                }
               }
             }
           }

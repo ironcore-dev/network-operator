@@ -1,47 +1,50 @@
 {
-  "interface-configuration": {
-    "interface-name": "TwentyFiveGigE0/0/0/14",
-    "description": "random interface test",
-    "Cisco-IOS-XR-infra-statsd-cfg:statistics": {
-      "load-interval": 30
-    },
-    "mtus": {
-      "mtu": [
-        {
-          "mtu": 9026,
-          "owner": "TwentyFiveGigE"
-        }
-      ]
-    },
-    "active": "act",
-    "Cisco-IOS-XR-infra-rsi-cfg:vrf": "default",
-    "Cisco-IOS-XR-ipv4-io-cfg:ipv4-network": {
-      "addresses": {
-        "primary": {
-          "address": "192.168.1.2",
-          "netmask": "255.255.255.0"
+  "interface-configurations": {
+    "interface-configuration": {
+      "interface-name": "TwentyFiveGigE0/0/0/14",
+      "description": "random interface test",
+      "Cisco-IOS-XR-infra-statsd-cfg:statistics": {
+        "load-interval": 30
+      },
+      "mtus": {
+        "mtu": [
+          {
+            "mtu": 9026,
+            "owner": "TwentyFiveGigE"
+          }
+        ]
+      },
+      "active": "act",
+      "Cisco-IOS-XR-infra-rsi-cfg:vrf": "default",
+      "Cisco-IOS-XR-ipv4-io-cfg:ipv4-network": {
+        "addresses": {
+          "primary": {
+            "address": "192.168.1.2",
+            "netmask": "255.255.255.0"
+          }
+        },
+        "mtu": 1000
+      },
+      "Cisco-IOS-XR-ipv6-ma-cfg:ipv6-network": {
+        "mtu": 2100,
+        "addresses": {
+          "regular-addresses": {
+            "regular-address": [
+              {
+                "address": "2001:db8::1",
+                "prefix-length": 64,
+                "zone": ""
+              }
+            ]
+          }
         }
       },
-      "mtu": 1000
-    },
-    "Cisco-IOS-XR-ipv6-ma-cfg:ipv6-network": {
-      "mtu": 2100,
-      "addresses": {
-        "regular-addresses": {
-          "regular-address": [
-            {
-              "address": "2001:db8::1",
-              "prefix-length": 64,
-              "zone": ""
-            }
-          ]
-        }
-      }
-    },
-    "Cisco-IOS-XR-ipv6-nd-cfg:ipv6-neighbor": {
-      "ra-suppress": true
-    },
-    
-    "shutdown": [null]
+      "Cisco-IOS-XR-ipv6-nd-cfg:ipv6-neighbor": {
+        "ra-suppress": true
+      },
+      "shutdown": [
+        null
+      ]
+    }
   }
 }

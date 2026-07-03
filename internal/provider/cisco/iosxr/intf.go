@@ -84,13 +84,15 @@ type Iface struct {
 	IPv6Neighbor IPv6Neighbor  `json:"Cisco-IOS-XR-ipv6-nd-cfg:ipv6-neighbor,omitzero"`
 	Shutdown     gnmiext.Empty `json:"shutdown,omitzero"`
 
+	// Required for subinterfaces
 	// Existence of this object causes the creation of the software subinterface
 	ModeNoPhysical string `json:"interface-mode-non-physical,omitzero"`
 
 	// BundleMember configuration for Physical interface as member of a Bundle-Ether
 	BundleMember BundleMember `json:"Cisco-IOS-XR-bundlemgr-cfg:bundle-member,omitzero"`
 
-	// Mode in which an interface is running (e.g., virtual for subinterfaces)
+	// Required for bundle-interfaces
+	// Existence of this object causes the creation of the interface within the bundlemgr database
 	Mode         gnmiext.Empty    `json:"interface-virtual,omitzero"`
 	Bundle       Bundle           `json:"Cisco-IOS-XR-bundlemgr-cfg:bundle,omitzero"`
 	SubInterface VlanSubInterface `json:"Cisco-IOS-XR-l2-eth-infra-cfg:vlan-sub-configuration,omitzero"`

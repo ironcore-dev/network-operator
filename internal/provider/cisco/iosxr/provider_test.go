@@ -34,11 +34,11 @@ func Register(name string, val gnmiext.DataElement) {
 }
 
 func removeRootElement(xpath string) string {
-	parts := strings.Split(xpath, "/")
+	parts := strings.Split(xpath, ":")
 	if len(parts) == 1 {
 		return xpath
 	}
-	return strings.Join(parts[1:], "/")
+	return parts[1]
 }
 
 func Test_Payload(t *testing.T) {

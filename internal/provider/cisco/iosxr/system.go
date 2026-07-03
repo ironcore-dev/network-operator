@@ -27,7 +27,7 @@ type BasicDeviceInfo struct {
 
 func (*BasicDeviceInfo) XPath() string {
 	// Rack name defines the physical chassis, which is 0 for single-chassis devices.
-	return "Cisco-IOS-XR-platform-inventory-oper:/platform-inventory/racks/rack[name=0]/attributes/basic-info"
+	return "Cisco-IOS-XR-platform-inventory-oper:platform-inventory/racks/rack[name=0]/attributes/basic-info"
 }
 
 type SystemTime struct {
@@ -52,7 +52,7 @@ type Clock struct {
 }
 
 func (*SystemTime) XPath() string {
-	return "Cisco-IOS-XR-shellutil-oper:/system-time"
+	return "Cisco-IOS-XR-shellutil-oper:system-time"
 }
 
 func (c *Clock) ConvertToTime() time.Time {

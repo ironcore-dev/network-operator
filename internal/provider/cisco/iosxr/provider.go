@@ -220,11 +220,16 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 
 		iface := Iface{
-			Name:           name,
-			Description:    req.Interface.Spec.Description,
-			Active:         "act",
-			ModeNoPhysical: "default",
-			Mode:           gnmiext.Empty(false),
+			Name:        name,
+			Description: req.Interface.Spec.Description,
+			Active:      "act",
+			// Without this, bundlemgr cannot find the Bundle-Ether interface in its database
+			Mode: gnmiext.Empty(true),
+		}
+
+		iface.Shutdown = gnmiext.Empty(false)
+		if req.Interface.Spec.AdminState == v1alpha1.AdminStateDown {
+			iface.Shutdown = gnmiext.Empty(true)
 		}
 
 		bundleID, subinterfaceID, err := ExtractBundleAndSubinterfaceID(name)
@@ -256,13 +261,16 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		return updateInterface(ctx, p.client, conf...)
 	case v1alpha1.InterfaceTypeSubinterface:
 
-		// Set Interface mode to virtual is required for bundle interfaces
 		iface := Iface{
 			Name:           name,
 			Description:    req.Interface.Spec.Description,
 			Active:         "act",
-			Mode:           gnmiext.Empty(false),
 			ModeNoPhysical: "default",
+		}
+
+		iface.Shutdown = gnmiext.Empty(false)
+		if req.Interface.Spec.AdminState == v1alpha1.AdminStateDown {
+			iface.Shutdown = gnmiext.Empty(true)
 		}
 
 		_, subinterfaceID, err := ExtractBundleAndSubinterfaceID(name)
@@ -294,7 +302,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 		iface.IPv4Network = ipv4
 
-		if req.VRF.Spec.Name != "" {
+		if req.VRF != nil && req.VRF.Spec.Name != "" {
 			iface.Vrf = req.VRF.Spec.Name
 		}
 
@@ -469,7 +477,7 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		RD:       rd,
 	}
 
-	if req.BGPPeer.Spec.AddressFamilies.Ipv6Unicast != nil || req.BGPPeer.Spec.AddressFamilies.L2vpnEvpn != nil {
+	if req.BGPPeer.Spec.AddressFamilies != nil && (req.BGPPeer.Spec.AddressFamilies.Ipv6Unicast != nil || req.BGPPeer.Spec.AddressFamilies.L2vpnEvpn != nil) {
 		return errors.New("bgp peer: ipv6 unicast or l2vpnEvpn address family is currently not supported")
 	}
 
