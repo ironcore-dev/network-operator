@@ -10,6 +10,6 @@
     "fmt:fix": "prettier --write ."
   },
   "dependencies": {
-    "asciinema-player": "^3.16.0"
+    "asciinema-player": "^3.17.0"
   }
 }
