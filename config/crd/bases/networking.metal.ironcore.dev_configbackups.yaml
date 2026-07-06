@@ -1,0 +1,353 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: configbackups.networking.metal.ironcore.dev
+spec:
+  group: networking.metal.ironcore.dev
+  names:
+    kind: ConfigBackup
+    listKind: ConfigBackupList
+    plural: configbackups
+    singular: configbackup
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.deviceRef.name
+      name: Device
+      type: string
+    - jsonPath: .spec.type
+      name: Type
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.lastBackup.timestamp
+      name: Last Backup
+      priority: 1
+      type: date
+    - jsonPath: .status.nextScheduledBackup
+      name: Next Backup
+      priority: 1
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ConfigBackup is the Schema for the configbackups API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              Specification of the desired state of the resource.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              deviceRef:
+                description: |-
+                  DeviceRef is a reference to the Device this object belongs to. The Device object must exist in the same namespace.
+                  Immutable.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+                x-kubernetes-validations:
+                - message: DeviceRef is immutable
+                  rule: self == oldSelf
+              path:
+                description: |-
+                  Path is the device-local destination path for Local backups.
+                  Different providers may accept different path formats, such as "bootflash:///backups/".
+                maxLength: 255
+                minLength: 1
+                type: string
+              providerConfigRef:
+                description: |-
+                  ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
+                  This reference is used to link the ConfigBackup to its provider-specific configuration.
+                properties:
+                  apiVersion:
+                    description: APIVersion is the api group version of the resource
+                      being referenced.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/)?([a-z0-9]([-a-z0-9]*[a-z0-9])?)$
+                    type: string
+                  kind:
+                    description: |-
+                      Kind of the resource being referenced.
+                      Kind must consist of alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                    type: string
+                  name:
+                    description: |-
+                      Name of the resource being referenced.
+                      Name must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+              retention:
+                description: Retention configures automatic cleanup of older backups
+                  for Local backups.
+                properties:
+                  keepLast:
+                    default: 1
+                    description: KeepLast is the number of most recent backups to
+                      keep for Local backups.
+                    format: int32
+                    maximum: 100
+                    minimum: 1
+                    type: integer
+                type: object
+              schedule:
+                description: |-
+                  Schedule is an optional cron expression.
+                  If omitted, the controller performs a one-shot backup.
+                type: string
+              storageThreshold:
+                description: StorageThreshold defines the minimum free space that
+                  must remain before creating a new Local backup.
+                properties:
+                  minFreeBytes:
+                    description: MinFreeBytes is the minimum number of free bytes
+                      required before a new backup can be written.
+                    format: int64
+                    minimum: 0
+                    type: integer
+                  minFreePercent:
+                    description: MinFreePercent is the minimum percentage of free
+                      storage required before a new backup can be written.
+                    format: int32
+                    maximum: 100
+                    minimum: 0
+                    type: integer
+                type: object
+                x-kubernetes-validations:
+                - message: at least one threshold must be specified
+                  rule: has(self.minFreeBytes) || has(self.minFreePercent)
+              type:
+                description: Type determines whether the backup is saved as a local
+                  file or as startup-config.
+                enum:
+                - Local
+                - Startup
+                type: string
+            required:
+            - deviceRef
+            - type
+            type: object
+            x-kubernetes-validations:
+            - message: path must be omitted for Startup backups
+              rule: self.type != 'Startup' || (!has(self.path) || size(self.path)
+                == 0)
+            - message: path must be set for Local backups
+              rule: self.type != 'Local' || (has(self.path) && size(self.path) > 0)
+            - message: retention must only be specified for Local backups
+              rule: self.type == 'Local' || !has(self.retention)
+            - message: storageThreshold must only be specified for Local backups
+              rule: self.type == 'Local' || !has(self.storageThreshold)
+          status:
+            description: |-
+              Status of the resource. This is set and updated automatically.
+              Read-only.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              conditions:
+                description: Conditions represent the current state of the ConfigBackup
+                  resource.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              lastAttemptTime:
+                description: |-
+                  LastAttemptTime is the timestamp of the most recent backup attempt, regardless of outcome.
+                  This is updated whenever the controller attempts to perform a backup, even if it fails.
+                format: date-time
+                type: string
+              lastBackup:
+                description: |-
+                  LastBackup contains details about the most recent successful backup operation.
+                  This is updated only when a backup completes successfully, and may be nil if no successful backups have occurred.
+                properties:
+                  duration:
+                    description: Duration is the duration of the backup operation.
+                    type: string
+                  filepath:
+                    description: |-
+                      Filepath is the device-local path of the backup artifact.
+                      This only applies to Local backups, and may be unknown if the controller cannot query the device.
+                    minLength: 1
+                    type: string
+                  observedGeneration:
+                    description: ObservedGeneration represents the .metadata.generation
+                      that produced this backup.
+                    format: int64
+                    minimum: 0
+                    type: integer
+                  sizeBytes:
+                    description: |-
+                      SizeBytes is the size in bytes of the backup artifact.
+                      This only applies to Local backups, and may be unknown if the controller cannot query the device.
+                    format: int64
+                    minimum: 0
+                    type: integer
+                  timestamp:
+                    description: Timestamp is the time at which the backup was created
+                      on the device.
+                    format: date-time
+                    type: string
+                required:
+                - duration
+                - timestamp
+                type: object
+              nextScheduledBackup:
+                description: |-
+                  NextScheduledBackup is the next time at which the controller intends to trigger a backup.
+                  This only applies to scheduled backups, and may be unknown if the controller cannot determine the next schedule.
+                format: date-time
+                type: string
+              oldestBackupTimestamp:
+                description: |-
+                  OldestBackupTimestamp is the timestamp of the oldest discovered backup on the device.
+                  This only applies to Local backups, and may be unknown if the controller cannot query the device.
+                format: date-time
+                type: string
+              storage:
+                description: |-
+                  Storage contains device-local storage statistics for the configured backup target.
+                  This only applies to Local backups, and may be unknown if the controller cannot query the device.
+                properties:
+                  freeBytes:
+                    description: FreeBytes is the free storage in bytes, if known.
+                    format: int64
+                    type: integer
+                  freePercent:
+                    description: FreePercent is the free storage percentage, if known.
+                    format: int32
+                    type: integer
+                  thresholdBreached:
+                    description: ThresholdBreached indicates whether the configured
+                      threshold currently blocks new backups.
+                    type: boolean
+                  totalBytes:
+                    description: TotalBytes is the total storage capacity in bytes,
+                      if known.
+                    format: int64
+                    type: integer
+                  usedBytes:
+                    description: UsedBytes is the used storage in bytes, if known.
+                    format: int64
+                    type: integer
+                type: object
+              totalBackups:
+                description: |-
+                  TotalBackups is the number of backups currently discovered on the device.
+                  This only applies to Local backups, and may be unknown if the controller cannot query the device.
+                  For Startup backups, this is always 1, since the device only maintains a single startup configuration.
+                format: int32
+                type: integer
+              totalSizeBytes:
+                description: |-
+                  TotalSizeBytes is the total size in bytes of the discovered backups on the device.
+                  This only applies to Local backups, and may be unknown if the controller cannot query the device.
+                format: int64
+                type: integer
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

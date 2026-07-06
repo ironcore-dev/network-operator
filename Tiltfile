@@ -147,6 +147,10 @@ k8s_resource(new_name='aaa', objects=['aaa-tacacs:aaa', 'tacacs-server-keys:secr
 # k8s_yaml('./config/samples/cisco/nx/v1alpha1_aaaconfig.yaml')
 # k8s_resource(new_name='aaaconfig', objects=['aaa-tacacs-nxos:aaaconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
+k8s_yaml('./config/samples/v1alpha1_configbackup.yaml')
+k8s_resource(new_name='local-backup', objects=['local-backup:configbackup'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='startup-backup', objects=['startup-backup:configbackup'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+
 k8s_yaml('./config/samples/v1alpha1_indexpool.yaml')
 k8s_resource(new_name='indexpool', objects=['indexpool-sample:indexpool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 

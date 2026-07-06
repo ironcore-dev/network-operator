@@ -37,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	// Import all supported provider implementations.
-	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	_ "github.com/ironcore-dev/network-operator/internal/provider/cisco/iosxr"
 	_ "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos"
 	_ "github.com/ironcore-dev/network-operator/internal/provider/openconfig"
@@ -50,6 +49,7 @@ import (
 	corecontroller "github.com/ironcore-dev/network-operator/internal/controller/core"
 	evpncontroller "github.com/ironcore-dev/network-operator/internal/controller/evpn"
 	poolcontroller "github.com/ironcore-dev/network-operator/internal/controller/pool"
+	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/provisioning"
 	"github.com/ironcore-dev/network-operator/internal/resourcelock"
@@ -650,6 +650,18 @@ func main() { //nolint:gocyclo
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DHCPRelay")
+		os.Exit(1)
+	}
+
+	if err := (&corecontroller.ConfigBackupReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorder("configbackup-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+		Locker:           locker,
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ConfigBackup")
 		os.Exit(1)
 	}
 

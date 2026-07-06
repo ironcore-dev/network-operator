@@ -78,6 +78,7 @@ export default withMermaid({
                 text: 'Concepts',
                 items: [
                     { text: 'Index', link: '/concepts/' },
+                    { text: 'Config Backups', link: '/concepts/config-backup' },
                     { text: 'Pausing Reconciliation', link: '/concepts/pausing' },
                 ],
             },

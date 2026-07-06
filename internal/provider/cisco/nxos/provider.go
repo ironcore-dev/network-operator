@@ -18,6 +18,7 @@ import (
 	"maps"
 	"math"
 	"net/netip"
+	"path"
 	"reflect"
 	"slices"
 	"strconv"
@@ -68,6 +69,7 @@ var (
 	_ provider.DHCPRelayProvider        = (*Provider)(nil)
 	_ provider.EthernetSegmentProvider  = (*Provider)(nil)
 	_ provider.AAAProvider              = (*Provider)(nil)
+	_ provider.ConfigBackupProvider     = (*Provider)(nil)
 )
 
 type Provider struct {
@@ -231,6 +233,198 @@ func (p *Provider) GetLastRebootTime(ctx context.Context) (time.Time, error) {
 		return time.Time{}, err
 	}
 	return bt.Time, nil
+}
+
+func (p *Provider) CreateConfigBackup(ctx context.Context, req *provider.ConfigBackupRequest) (*provider.ConfigBackupFile, error) {
+	if req.ConfigBackup.Spec.Type == v1alpha1.ConfigBackupTypeStartup {
+		_, err := p.nxapi.Do(ctx, nxapi.NewRequest("copy running-config startup-config").WithRollback(nxapi.Stop))
+		return nil, err
+	}
+	if err := p.Mkdir(ctx, req.ConfigBackup.Spec.Path); err != nil {
+		return nil, fmt.Errorf("failed to ensure backup directory: %w", err)
+	}
+	filename := fmt.Sprintf("configbackup-%s-%s-%s", req.ConfigBackup.Namespace, req.ConfigBackup.Name, time.Now().Format("20060102T150405Z"))
+	filename = path.Join(req.ConfigBackup.Spec.Path, filename)
+	cmd := "copy running-config " + filename
+	if _, err := p.nxapi.Do(ctx, nxapi.NewRequest(cmd).WithRollback(nxapi.Stop)); err != nil {
+		return nil, err
+	}
+	dir, err := p.ListDirectory(ctx, req.ConfigBackup.Spec.Path)
+	if err != nil {
+		return nil, err
+	}
+	var file *provider.ConfigBackupFile
+	for _, f := range dir.TABLEDir.ROWDir {
+		if f.Fname == path.Base(filename) {
+			file = &provider.ConfigBackupFile{
+				Path:      filename,
+				SizeBytes: &f.Fsize,
+				CreatedAt: f.Timestring.Time,
+			}
+		}
+	}
+	return file, nil
+}
+
+func (p *Provider) ListConfigBackups(ctx context.Context, req *provider.ConfigBackupRequest) (*provider.ConfigBackupInventory, error) {
+	// Ensure the directory exists; NX-OS returns an error for dir listings on non-existent paths.
+	if err := p.Mkdir(ctx, req.ConfigBackup.Spec.Path); err != nil {
+		return nil, err
+	}
+	dir, err := p.ListDirectory(ctx, req.ConfigBackup.Spec.Path)
+	if err != nil {
+		return nil, err
+	}
+	files := make([]*provider.ConfigBackupFile, 0, len(dir.TABLEDir.ROWDir))
+	for _, f := range dir.TABLEDir.ROWDir {
+		if strings.HasPrefix(f.Fname, fmt.Sprintf("configbackup-%s-%s-", req.ConfigBackup.Namespace, req.ConfigBackup.Name)) {
+			files = append(files, &provider.ConfigBackupFile{
+				Path:      path.Join(req.ConfigBackup.Spec.Path, f.Fname),
+				SizeBytes: &f.Fsize,
+				CreatedAt: f.Timestring.Time,
+			})
+		}
+	}
+	return &provider.ConfigBackupInventory{
+		Backups:    files,
+		TotalBytes: &dir.Bytestotal,
+		UsedBytes:  &dir.Bytesused,
+		FreeBytes:  &dir.Bytesfree,
+	}, nil
+}
+
+func (p *Provider) DeleteConfigBackups(ctx context.Context, files ...*provider.ConfigBackupFile) error {
+	if len(files) == 0 {
+		return nil
+	}
+	cmds := make([]string, len(files))
+	for i, file := range files {
+		cmds[i] = fmt.Sprintf("delete %s no-prompt", file.Path)
+	}
+	_, err := p.nxapi.Do(ctx, nxapi.NewRequest(cmds...).WithRollback(nxapi.Stop))
+	return err
+}
+
+// ListDirectory lists the contents of a directory on the device.
+func (p *Provider) ListDirectory(ctx context.Context, path string) (*Directory, error) {
+	res, err := p.nxapi.Do(ctx, nxapi.NewRequest("dir "+path))
+	if err != nil {
+		return nil, err
+	}
+	if len(res) == 0 {
+		return nil, errors.New("empty response")
+	}
+	var dir Directory
+	if err := json.Unmarshal(res[0], &dir); err != nil {
+		return nil, err
+	}
+	return &dir, nil
+}
+
+// Mkdir ensures the target directory exists on the device, creating
+// intermediate directories as needed. Directories in NX-OS dir output
+// are identified by a trailing "/" in the filename.
+func (p *Provider) Mkdir(ctx context.Context, target string) error {
+	i := strings.Index(target, ":///")
+	if i < 0 {
+		return nil
+	}
+	sub := strings.Trim(target[i+4:], "/")
+	if sub == "" {
+		return nil
+	}
+	current := target[:i+4]
+	for seg := range strings.SplitSeq(sub, "/") {
+		dir, err := p.ListDirectory(ctx, current)
+		if err != nil {
+			return fmt.Errorf("failed to list directory %s: %w", current, err)
+		}
+		exists := false
+		for _, f := range dir.TABLEDir.ROWDir {
+			if f.Fname == seg {
+				return apistatus.NewFailedPreconditionError(fmt.Sprintf("path %q exists as a file, not a directory", current+seg))
+			}
+			if f.Fname == seg+"/" {
+				exists = true
+				break
+			}
+		}
+		current += seg + "/"
+		if !exists {
+			if _, err := p.nxapi.Do(ctx, nxapi.NewRequest("mkdir "+current).WithRollback(nxapi.Stop)); err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", current, err)
+			}
+		}
+	}
+	return nil
+}
+
+// Directory represents the JSON output of the NX-OS "dir" command.
+// NX-OS returns ROW_dir as an array for multiple files, a single object for one file,
+// or omits TABLE_dir entirely for an empty directory.
+type Directory struct {
+	TABLEDir struct {
+		ROWDir []DirEntry
+	}
+	Bytesfree  int64 `json:"bytesfree"`
+	Bytestotal int64 `json:"bytestotal"`
+	Bytesused  int64 `json:"bytesused"`
+}
+
+// DirEntry is a single file or directory entry in a NX-OS directory listing.
+type DirEntry struct {
+	Fname      string  `json:"fname"`
+	Fsize      int64   `json:"fsize"`
+	Timestring dirTime `json:"timestring"`
+}
+
+func (d *Directory) UnmarshalJSON(b []byte) error {
+	var raw struct {
+		TABLEDir *struct {
+			ROWDir json.RawMessage `json:"ROW_dir"`
+		} `json:"TABLE_dir"`
+		Bytesfree  int64 `json:"bytesfree"`
+		Bytestotal int64 `json:"bytestotal"`
+		Bytesused  int64 `json:"bytesused"`
+	}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	d.Bytesfree = raw.Bytesfree
+	d.Bytestotal = raw.Bytestotal
+	d.Bytesused = raw.Bytesused
+
+	if raw.TABLEDir == nil || len(raw.TABLEDir.ROWDir) == 0 {
+		return nil
+	}
+	// Try array first, then single object.
+	if raw.TABLEDir.ROWDir[0] == '[' {
+		return json.Unmarshal(raw.TABLEDir.ROWDir, &d.TABLEDir.ROWDir)
+	}
+	var single DirEntry
+	if err := json.Unmarshal(raw.TABLEDir.ROWDir, &single); err != nil {
+		return err
+	}
+	d.TABLEDir.ROWDir = []DirEntry{single}
+	return nil
+}
+
+// dirTime handles the non-standard timestamp format returned by NX-OS dir output.
+type dirTime struct {
+	time.Time
+}
+
+func (t *dirTime) UnmarshalJSON(b []byte) error {
+	s := strings.Trim(string(b), `"`)
+	if s == "" || s == "null" {
+		return nil
+	}
+	parsed, err := time.Parse("Jan 02 15:04:05 2006", s)
+	if err != nil {
+		return err
+	}
+	t.Time = parsed
+	return nil
 }
 
 func (p *Provider) EnsureACL(ctx context.Context, req *provider.EnsureACLRequest) error {
@@ -1094,8 +1288,8 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		if req.IPv4 != nil || (req.AggregateParent != nil && req.AggregateParent.Spec.IPv4 != nil) {
 			p.Layer = Layer3
 			p.RtvrfMbrItems = NewVrfMember(name, vrf)
-			p.AccessVlan = "unknown"
-			p.NativeVlan = "unknown"
+			p.AccessVlan = string(AdjOperStUnknown)
+			p.NativeVlan = string(AdjOperStUnknown)
 		}
 
 		if isPointToPoint(req.Interface.Spec.IPv4) || (req.AggregateParent != nil && isPointToPoint(req.AggregateParent.Spec.IPv4)) {
@@ -1713,7 +1907,7 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 	case v1alpha1.OverloadBitAlways:
 	case v1alpha1.OverloadBitOnStartup:
 		dom.OverloadItems.AdminSt = "bootup"
-		dom.OverloadItems.BgpAsNumStr = "none"
+		dom.OverloadItems.BgpAsNumStr = string(AdjChangeLogLevelNone)
 		dom.OverloadItems.StartupTime = 61 // seconds
 		dom.OverloadItems.Suppress = ""
 	}
@@ -1752,14 +1946,14 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 			intf.V4Enable = true
 			intf.V4Bfd = "inheritVrf"
 			if iface.Spec.BFD != nil && iface.Spec.BFD.Enabled {
-				intf.V4Bfd = "enabled"
+				intf.V4Bfd = string(PassiveControlEnabled)
 			}
 		}
 		if ipv6 {
 			intf.V6Enable = true
 			intf.V6Bfd = "inheritVrf"
 			if iface.Spec.BFD != nil && iface.Spec.BFD.Enabled {
-				intf.V6Bfd = "enabled"
+				intf.V6Bfd = string(PassiveControlEnabled)
 			}
 		}
 		dom.IfItems.IfList.Set(intf)

@@ -331,6 +331,7 @@ Package v1alpha1 contains API Schema definitions for the networking.metal.ironco
 - [BGPPeer](#bgppeer)
 - [Banner](#banner)
 - [Certificate](#certificate)
+- [ConfigBackup](#configbackup)
 - [DHCPRelay](#dhcprelay)
 - [DNS](#dns)
 - [Device](#device)
@@ -1352,6 +1353,161 @@ _Appears in:_
 | --- | --- |
 | `SHA256` |  |
 | `MD5` |  |
+
+
+#### ConfigBackup
+
+
+
+ConfigBackup is the Schema for the configbackups API.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `ConfigBackup` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[ConfigBackupSpec](#configbackupspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[ConfigBackupStatus](#configbackupstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### ConfigBackupRetention
+
+
+
+ConfigBackupRetention defines how many historical backups are kept on the device.
+
+
+
+_Appears in:_
+- [ConfigBackupSpec](#configbackupspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `keepLast` _integer_ | KeepLast is the number of most recent backups to keep for Local backups. | 1 | Maximum: 100 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+
+
+#### ConfigBackupRunStatus
+
+
+
+ConfigBackupRunStatus contains the result of a single successful backup run.
+
+
+
+_Appears in:_
+- [ConfigBackupStatus](#configbackupstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `timestamp` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | Timestamp is the time at which the backup was created on the device. |  | Required: \{\} <br /> |
+| `duration` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | Duration is the duration of the backup operation. |  | Required: \{\} <br /> |
+| `observedGeneration` _integer_ | ObservedGeneration represents the .metadata.generation that produced this backup. |  | Minimum: 0 <br />Optional: \{\} <br /> |
+| `sizeBytes` _integer_ | SizeBytes is the size in bytes of the backup artifact.<br />This only applies to Local backups, and may be unknown if the controller cannot query the device. |  | Minimum: 0 <br />Optional: \{\} <br /> |
+| `filepath` _string_ | Filepath is the device-local path of the backup artifact.<br />This only applies to Local backups, and may be unknown if the controller cannot query the device. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+
+
+#### ConfigBackupSpec
+
+
+
+ConfigBackupSpec defines the desired state of ConfigBackup.
+
+
+
+_Appears in:_
+- [ConfigBackup](#configbackup)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceRef is a reference to the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the ConfigBackup to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `schedule` _string_ | Schedule is an optional cron expression.<br />If omitted, the controller performs a one-shot backup. |  | Optional: \{\} <br /> |
+| `type` _[ConfigBackupType](#configbackuptype)_ | Type determines whether the backup is saved as a local file or as startup-config. |  | Enum: [Local Startup] <br />Required: \{\} <br /> |
+| `path` _string_ | Path is the device-local destination path for Local backups.<br />Different providers may accept different path formats, such as "bootflash:///backups/". |  | MaxLength: 255 <br />MinLength: 1 <br />Optional: \{\} <br /> |
+| `retention` _[ConfigBackupRetention](#configbackupretention)_ | Retention configures automatic cleanup of older backups for Local backups. |  | Optional: \{\} <br /> |
+| `storageThreshold` _[ConfigBackupStorageThreshold](#configbackupstoragethreshold)_ | StorageThreshold defines the minimum free space that must remain before creating a new Local backup. |  | Optional: \{\} <br /> |
+
+
+#### ConfigBackupStatus
+
+
+
+ConfigBackupStatus defines the observed state of ConfigBackup.
+
+
+
+_Appears in:_
+- [ConfigBackup](#configbackup)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | Conditions represent the current state of the ConfigBackup resource. |  | Optional: \{\} <br /> |
+| `lastBackup` _[ConfigBackupRunStatus](#configbackuprunstatus)_ | LastBackup contains details about the most recent successful backup operation.<br />This is updated only when a backup completes successfully, and may be nil if no successful backups have occurred. |  | Optional: \{\} <br /> |
+| `lastAttemptTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | LastAttemptTime is the timestamp of the most recent backup attempt, regardless of outcome.<br />This is updated whenever the controller attempts to perform a backup, even if it fails. |  | Optional: \{\} <br /> |
+| `oldestBackupTimestamp` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | OldestBackupTimestamp is the timestamp of the oldest discovered backup on the device.<br />This only applies to Local backups, and may be unknown if the controller cannot query the device. |  | Optional: \{\} <br /> |
+| `nextScheduledBackup` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | NextScheduledBackup is the next time at which the controller intends to trigger a backup.<br />This only applies to scheduled backups, and may be unknown if the controller cannot determine the next schedule. |  | Optional: \{\} <br /> |
+| `totalBackups` _integer_ | TotalBackups is the number of backups currently discovered on the device.<br />This only applies to Local backups, and may be unknown if the controller cannot query the device.<br />For Startup backups, this is always 1, since the device only maintains a single startup configuration. |  | Optional: \{\} <br /> |
+| `totalSizeBytes` _integer_ | TotalSizeBytes is the total size in bytes of the discovered backups on the device.<br />This only applies to Local backups, and may be unknown if the controller cannot query the device. |  | Optional: \{\} <br /> |
+| `storage` _[ConfigBackupStorageStatus](#configbackupstoragestatus)_ | Storage contains device-local storage statistics for the configured backup target.<br />This only applies to Local backups, and may be unknown if the controller cannot query the device. |  | Optional: \{\} <br /> |
+
+
+#### ConfigBackupStorageStatus
+
+
+
+ConfigBackupStorageStatus contains storage utilization for the configured backup target.
+
+
+
+_Appears in:_
+- [ConfigBackupStatus](#configbackupstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `totalBytes` _integer_ | TotalBytes is the total storage capacity in bytes, if known. |  | Optional: \{\} <br /> |
+| `usedBytes` _integer_ | UsedBytes is the used storage in bytes, if known. |  | Optional: \{\} <br /> |
+| `freeBytes` _integer_ | FreeBytes is the free storage in bytes, if known. |  | Optional: \{\} <br /> |
+| `freePercent` _integer_ | FreePercent is the free storage percentage, if known. |  | Optional: \{\} <br /> |
+| `thresholdBreached` _boolean_ | ThresholdBreached indicates whether the configured threshold currently blocks new backups. |  | Optional: \{\} <br /> |
+
+
+#### ConfigBackupStorageThreshold
+
+
+
+ConfigBackupStorageThreshold defines when the controller must stop writing additional backups.
+
+
+
+_Appears in:_
+- [ConfigBackupSpec](#configbackupspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `minFreeBytes` _integer_ | MinFreeBytes is the minimum number of free bytes required before a new backup can be written. |  | Minimum: 0 <br />Optional: \{\} <br /> |
+| `minFreePercent` _integer_ | MinFreePercent is the minimum percentage of free storage required before a new backup can be written. |  | Maximum: 100 <br />Minimum: 0 <br />Optional: \{\} <br /> |
+
+
+#### ConfigBackupType
+
+_Underlying type:_ _string_
+
+ConfigBackupType defines how the device should persist a configuration backup.
+
+_Validation:_
+- Enum: [Local Startup]
+
+_Appears in:_
+- [ConfigBackupSpec](#configbackupspec)
+
+| Field | Description |
+| --- | --- |
+| `Local` | ConfigBackupTypeLocal stores the running configuration in a device-local file path.<br /> |
+| `Startup` | ConfigBackupTypeStartup stores the running configuration as the device startup configuration.<br /> |
 
 
 #### ConfigMapKeySelector
@@ -2392,6 +2548,7 @@ _Appears in:_
 - [BannerSpec](#bannerspec)
 - [BorderGatewaySpec](#bordergatewayspec)
 - [CertificateSpec](#certificatespec)
+- [ConfigBackupSpec](#configbackupspec)
 - [DHCPRelaySpec](#dhcprelayspec)
 - [DNSSpec](#dnsspec)
 - [DevicePort](#deviceport)
@@ -3847,6 +4004,7 @@ _Appears in:_
 - [CertificateSpec](#certificatespec)
 - [ClaimSpec](#claimspec)
 - [ClaimStatus](#claimstatus)
+- [ConfigBackupSpec](#configbackupspec)
 - [DHCPRelaySpec](#dhcprelayspec)
 - [DNSSpec](#dnsspec)
 - [EVPNInstanceSpec](#evpninstancespec)
