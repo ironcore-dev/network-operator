@@ -44,9 +44,9 @@ type Option func(*Client) error
 // port (e.g. 8443) than the default (80/443).
 func WithPort(port string) Option {
 	return func(c *Client) error {
-		host, _, err := net.SplitHostPort(c.url.Host)
-		if err != nil {
-			return fmt.Errorf("nxapi: failed to parse address: %w", err)
+		host := c.url.Host
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
 		}
 		c.url.Host = net.JoinHostPort(host, port)
 		return nil

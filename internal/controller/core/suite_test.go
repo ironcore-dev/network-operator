@@ -6,7 +6,9 @@ package core
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -341,6 +343,15 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&ConfigBackupReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+		Locker:   testLocker,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&EthernetSegmentReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
@@ -421,6 +432,7 @@ var (
 	_ provider.LLDPProvider             = (*Provider)(nil)
 	_ provider.DHCPRelayProvider        = (*Provider)(nil)
 	_ provider.EthernetSegmentProvider  = (*Provider)(nil)
+	_ provider.ConfigBackupProvider     = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -458,6 +470,9 @@ type Provider struct {
 	LLDPNeighbors    map[string]*provider.LLDPAdjacency
 	DHCPRelay        *v1alpha1.DHCPRelay
 	EthernetSegments map[string]string
+	StartupConfig    *v1alpha1.ConfigBackup
+	ConfigBackups    []*provider.ConfigBackupFile
+	StorageTotal     int64
 }
 
 func NewProvider() *Provider {
@@ -478,6 +493,7 @@ func NewProvider() *Provider {
 		LLDPOperStatus:   true,
 		LLDPNeighbors:    make(map[string]*provider.LLDPAdjacency),
 		EthernetSegments: make(map[string]string),
+		StorageTotal:     int64(1024 * 1024 * 100),
 	}
 }
 
@@ -918,6 +934,58 @@ func (p *Provider) GetNVEStatus(_ context.Context, _ *provider.NVERequest) (prov
 		}
 	}
 	return status, nil
+}
+
+func (p *Provider) CreateConfigBackup(_ context.Context, req *provider.ConfigBackupRequest) (*provider.ConfigBackupFile, error) {
+	p.Lock()
+	defer p.Unlock()
+
+	if req.ConfigBackup.Spec.Type == v1alpha1.ConfigBackupTypeStartup {
+		p.StartupConfig = req.ConfigBackup
+		return nil, nil //nolint:nilnil
+	}
+
+	file := &provider.ConfigBackupFile{
+		Path:      path.Join(req.ConfigBackup.Spec.Path, fmt.Sprintf("configbackup-%s-", req.ConfigBackup.UID)) + time.Now().Format("20060102T150405Z"),
+		SizeBytes: new(int64(1024)),
+		CreatedAt: time.Now(),
+	}
+	p.ConfigBackups = append(p.ConfigBackups, file)
+	return file, nil
+}
+
+func (p *Provider) ListConfigBackups(_ context.Context, _ *provider.ConfigBackupRequest) (*provider.ConfigBackupInventory, error) {
+	p.Lock()
+	defer p.Unlock()
+	var used int64
+	for _, f := range p.ConfigBackups {
+		if f.SizeBytes != nil {
+			used += *f.SizeBytes
+		}
+	}
+	return &provider.ConfigBackupInventory{
+		Backups:    p.ConfigBackups,
+		TotalBytes: &p.StorageTotal,
+		UsedBytes:  &used,
+		FreeBytes:  new(p.StorageTotal - used),
+	}, nil
+}
+
+func (p *Provider) DeleteConfigBackups(_ context.Context, files ...*provider.ConfigBackupFile) error {
+	p.Lock()
+	defer p.Unlock()
+	remove := make(map[string]struct{}, len(files))
+	for _, f := range files {
+		remove[f.Path] = struct{}{}
+	}
+	filtered := p.ConfigBackups[:0]
+	for _, b := range p.ConfigBackups {
+		if _, ok := remove[b.Path]; !ok {
+			filtered = append(filtered, b)
+		}
+	}
+	p.ConfigBackups = filtered
+	return nil
 }
 
 func (p *Provider) EnsureLLDP(_ context.Context, req *provider.LLDPRequest) error {

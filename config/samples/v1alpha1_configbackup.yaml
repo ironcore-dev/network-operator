@@ -1,0 +1,23 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: ConfigBackup
+metadata:
+  name: local-backup
+spec:
+  deviceRef:
+    name: leaf1
+  schedule: "* * * * *"
+  type: Local
+  path: "bootflash:///backups/"
+  retention:
+    keepLast: 5
+  storageThreshold:
+    minFreePercent: 10
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: ConfigBackup
+metadata:
+  name: startup-backup
+spec:
+  deviceRef:
+    name: leaf1
+  type: Startup

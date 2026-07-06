@@ -40,6 +40,9 @@ resources:
 - certificate_admin_role.yaml
 - certificate_editor_role.yaml
 - certificate_viewer_role.yaml
+- configbackup_admin_role.yaml
+- configbackup_editor_role.yaml
+- configbackup_viewer_role.yaml
 - device_admin_role.yaml
 - device_editor_role.yaml
 - device_viewer_role.yaml

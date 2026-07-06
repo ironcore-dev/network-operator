@@ -45,6 +45,7 @@ graph TD
         ACL[AccessControlList]
         BGP[BGP]
         Banner[Banner]
+        Backup[ConfigBackup]
         Cert[Certificate]
         DNS[DNS]
         EVI[EVPNInstance]
@@ -69,6 +70,7 @@ graph TD
     ACL -- spec.deviceRef --> D
     BGP -- spec.deviceRef --> D
     Banner -- spec.deviceRef --> D
+    Backup -- spec.deviceRef --> D
     Cert -- spec.deviceRef --> D
     DNS -- spec.deviceRef --> D
     EVI -- spec.deviceRef --> D

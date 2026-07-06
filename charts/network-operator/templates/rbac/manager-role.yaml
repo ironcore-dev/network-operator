@@ -80,6 +80,7 @@ rules:
   - bgp
   - bgppeers
   - certificates
+  - configbackups
   - devices
   - dhcprelays
   - dns
@@ -148,6 +149,7 @@ rules:
   - bgp/status
   - bgppeers/status
   - certificates/status
+  - configbackups/status
   - devices/status
   - dhcprelays/status
   - dns/status
