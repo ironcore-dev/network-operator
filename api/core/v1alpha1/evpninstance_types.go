@@ -18,6 +18,7 @@ import (
 //
 // +kubebuilder:validation:XValidation:rule="self.type != 'Bridged' || has(self.vlanRef)",message="VLANRef must be specified when Type is Bridged"
 // +kubebuilder:validation:XValidation:rule="self.type != 'Routed' || has(self.vrfRef)",message="VRFRef must be specified when Type is Routed"
+// +kubebuilder:validation:XValidation:rule="self.type != 'Routed' || !has(self.routeDistinguisher)",message="RouteDistinguisher must not be set when Type is Routed"
 type EVPNInstanceSpec struct {
 	// DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
 	// Immutable.
@@ -51,6 +52,8 @@ type EVPNInstanceSpec struct {
 	MulticastGroupAddress string `json:"multicastGroupAddress,omitempty"`
 
 	// RouteDistinguisher is the route distinguisher for the EVI.
+	// This field is only applicable when Type is Bridged (MAC-VRF).
+	// For Routed type, the route distinguisher is configured on the referenced VRF instead.
 	// Formats supported:
 	//  - Type 0: ASN(0-65535):Number(0-4294967295)
 	//  - Type 1: IPv4:Number(0-65535)
