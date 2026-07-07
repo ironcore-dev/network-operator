@@ -2670,6 +2670,15 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 
 	// RouteDistinguisher is already validated by VRFCustomValidator
 	if req.VRF.Spec.RouteDistinguisher != "" {
+		f := new(Feature)
+		f.Name = "bgp"
+		if err := p.client.GetConfig(ctx, f); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+		if f.AdminSt != AdminStEnabled {
+			return apistatus.NewFailedPreconditionError("bgp feature must be enabled to configure route distinguisher")
+		}
+
 		rd, err := RouteDistinguisher(req.VRF.Spec.RouteDistinguisher)
 		if err != nil {
 			return fmt.Errorf("vrf: invalid route distinguisher: %w", err)
