@@ -18,8 +18,8 @@ var _ gnmiext.DataElement = (*BDEVI)(nil)
 
 // BDEVI represents a Bridge Domain Ethernet VPN Instance (MAC-VRF).
 type BDEVI struct {
-	Encap     string `json:"encap"`
-	Rd        string `json:"rd"`
+	Encap     string         `json:"encap"`
+	Rd        Option[string] `json:"rd"`
 	RttpItems struct {
 		RttPList gnmiext.List[RttEntryType, *RttEntry] `json:"RttP-list,omitzero"`
 	} `json:"rttp-items,omitzero"`

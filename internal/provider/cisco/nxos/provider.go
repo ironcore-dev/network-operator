@@ -880,9 +880,12 @@ func (p *Provider) EnsureEVPNInstance(ctx context.Context, req *provider.EVPNIns
 	case v1alpha1.EVPNInstanceTypeBridged:
 		evi := new(BDEVI)
 		evi.Encap = "vxlan-" + strconv.FormatInt(int64(req.EVPNInstance.Spec.VNI), 10)
-		evi.Rd, err = RouteDistinguisher(req.EVPNInstance.Spec.RouteDistinguisher)
-		if err != nil {
-			return fmt.Errorf("evpn instance: invalid route distinguisher: %w", err)
+		if req.EVPNInstance.Spec.RouteDistinguisher != "" {
+			rd, err := RouteDistinguisher(req.EVPNInstance.Spec.RouteDistinguisher)
+			if err != nil {
+				return fmt.Errorf("evpn instance: invalid route distinguisher: %w", err)
+			}
+			evi.Rd = NewOption(rd)
 		}
 		imports := &RttEntry{Type: RttEntryTypeImport}
 		exports := &RttEntry{Type: RttEntryTypeExport}
