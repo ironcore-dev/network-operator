@@ -39,6 +39,8 @@ type VRFSpec struct {
 	Description string `json:"description,omitempty"`
 
 	// VNI is the VXLAN Network Identifier for the VRF (always an L3).
+	//
+	// Deprecated: Use the VNI field on the EVPNInstance resource instead. This field will be removed in a future release.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=16777215

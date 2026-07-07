@@ -3727,7 +3727,7 @@ _Appears in:_
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the VRF to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `name` _string_ | Name is the name of the VRF.<br />Immutable. |  | MaxLength: 32 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `description` _string_ | Description provides a human-readable description of the VRF. |  | MaxLength: 255 <br />MinLength: 1 <br />Optional: \{\} <br /> |
-| `vni` _integer_ | VNI is the VXLAN Network Identifier for the VRF (always an L3). |  | Maximum: 1.6777215e+07 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `vni` _integer_ | VNI is the VXLAN Network Identifier for the VRF (always an L3).<br />Deprecated: Use the VNI field on the EVPNInstance resource instead. This field will be removed in a future release. |  | Maximum: 1.6777215e+07 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `routeDistinguisher` _string_ | RouteDistinguisher is the route distinguisher for the VRF.<br />Formats supported:<br /> - Type 0: ASN(0-65535):Number(0-4294967295)<br /> - Type 1: IPv4:Number(0-65535)<br /> - Type 2: ASN(65536-4294967295):Number(0-65535)<br />Validation via admission webhook for the VRF type. |  | Optional: \{\} <br /> |
 | `routeTargets` _[RouteTarget](#routetarget) array_ | RouteTargets is the list of route targets for the VRF. |  | Optional: \{\} <br /> |
 

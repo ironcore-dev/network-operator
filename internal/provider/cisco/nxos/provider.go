@@ -2635,9 +2635,10 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 	if req.VRF.Spec.Description != "" {
 		v.Descr = NewOption(req.VRF.Spec.Description)
 	}
-	if req.VRF.Spec.VNI > 0 {
+	// TODO: remove use of deprecated VNI field in a future release.
+	if req.VRF.Spec.VNI > 0 { //nolint:staticcheck // handling deprecated field for backward compatibility
 		v.L3Vni = true
-		v.Encap = NewOption("vxlan-" + strconv.FormatUint(uint64(req.VRF.Spec.VNI), 10))
+		v.Encap = NewOption("vxlan-" + strconv.FormatUint(uint64(req.VRF.Spec.VNI), 10)) //nolint:staticcheck
 	}
 
 	dom := new(VRFDom)

@@ -280,4 +280,27 @@ var _ = Describe("VRF Webhook", func() {
 			Expect(err).To(HaveOccurred())
 		})
 	})
+
+	Context("Deprecated VNI field", func() {
+		It("returns deprecation warning on create when VNI is set", func() {
+			obj.Spec.VNI = 100010 //nolint:staticcheck
+			warnings, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(warnings).To(ContainElement(ContainSubstring("spec.vni is deprecated")))
+		})
+
+		It("returns no warning on create when VNI is not set", func() {
+			warnings, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(warnings).To(BeEmpty())
+		})
+
+		It("returns deprecation warning on update when VNI is set", func() {
+			newObj := obj.DeepCopy()
+			newObj.Spec.VNI = 100010 //nolint:staticcheck
+			warnings, err := validator.ValidateUpdate(ctx, obj, newObj)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(warnings).To(ContainElement(ContainSubstring("spec.vni is deprecated")))
+		})
+	})
 })

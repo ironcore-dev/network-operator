@@ -186,8 +186,10 @@ spec:
                 - value
                 x-kubernetes-list-type: map
               vni:
-                description: VNI is the VXLAN Network Identifier for the VRF (always
-                  an L3).
+                description: |-
+                  VNI is the VXLAN Network Identifier for the VRF (always an L3).
+
+                  Deprecated: Use the VNI field on the EVPNInstance resource instead. This field will be removed in a future release.
                 format: int32
                 maximum: 16777215
                 minimum: 1
