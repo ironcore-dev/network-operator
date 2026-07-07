@@ -920,10 +920,37 @@ func (p *Provider) EnsureEVPNInstance(ctx context.Context, req *provider.EVPNIns
 		vni.AssociateVrfFlag = true
 	}
 
-	return p.Update(ctx, updates...)
+	if err := p.Update(ctx, updates...); err != nil {
+		return err
+	}
+
+	// Patch L3VNI/Encap on the VRF separately. This merges into the existing
+	// VRF tree without replacing fields managed by EnsureVRF.
+	if req.EVPNInstance.Spec.Type == v1alpha1.EVPNInstanceTypeRouted && req.VRF != nil {
+		vrf := new(VRFEncap)
+		vrf.Name = req.VRF.Spec.Name
+		vrf.L3Vni = true
+		vrf.Encap = NewOption("vxlan-" + strconv.FormatInt(int64(req.EVPNInstance.Spec.VNI), 10))
+		if err := p.Patch(ctx, vrf); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (p *Provider) DeleteEVPNInstance(ctx context.Context, req *provider.EVPNInstanceRequest) error {
+	// Clear L3VNI/Encap on the VRF if this is a Routed EVI and the VRF still exists.
+	// If no VRF is passed in the request, assume it has already been deleted and skip this step.
+	if req.EVPNInstance.Spec.Type == v1alpha1.EVPNInstanceTypeRouted && req.VRF != nil {
+		vrf := new(VRFEncap)
+		vrf.Name = req.VRF.Spec.Name
+		vrf.L3Vni = false
+		if err := p.Patch(ctx, vrf); err != nil {
+			return err
+		}
+	}
+
 	deletes := make([]gnmiext.DataElement, 0, 3)
 
 	evi := new(BDEVI)
@@ -2635,15 +2662,11 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 	if req.VRF.Spec.Description != "" {
 		v.Descr = NewOption(req.VRF.Spec.Description)
 	}
-	// TODO: remove use of deprecated VNI field in a future release.
-	if req.VRF.Spec.VNI > 0 { //nolint:staticcheck // handling deprecated field for backward compatibility
-		v.L3Vni = true
-		v.Encap = NewOption("vxlan-" + strconv.FormatUint(uint64(req.VRF.Spec.VNI), 10)) //nolint:staticcheck
-	}
 
 	dom := new(VRFDom)
 	dom.Name = req.VRF.Spec.Name
-	v.DomItems.DomList.Set(dom)
+	domItems := &VRFDomItems{Name: req.VRF.Spec.Name}
+	domItems.DomList.Set(dom)
 
 	// pre: RD format has been already been validated by VRFCustomValidator
 	if req.VRF.Spec.RouteDistinguisher != "" {
@@ -2765,7 +2788,14 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 		dom.AfItems.DomAfList.Set(afIPv6)
 	}
 
-	return p.Update(ctx, v)
+	// Patch the VRF fields (name, description), merges into existing tree
+	// to preserve L3Vni/Encap set by EnsureEVPNInstance.
+	if err := p.Patch(ctx, v); err != nil {
+		return err
+	}
+
+	// Replace the VRF domain items (RD, route targets), fully owned by this controller.
+	return p.Update(ctx, domItems)
 }
 
 func (p *Provider) DeleteVRF(ctx context.Context, req *provider.VRFRequest) error {

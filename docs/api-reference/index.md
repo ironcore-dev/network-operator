@@ -1414,6 +1414,7 @@ _Appears in:_
 | `routeDistinguisher` _string_ | RouteDistinguisher is the route distinguisher for the EVI.<br />Formats supported:<br /> - Type 0: ASN(0-65535):Number(0-4294967295)<br /> - Type 1: IPv4:Number(0-65535)<br /> - Type 2: ASN(65536-4294967295):Number(0-65535) |  | Optional: \{\} <br /> |
 | `routeTargets` _[EVPNRouteTarget](#evpnroutetarget) array_ | RouteTargets is the list of route targets for the EVI. |  | MinItems: 1 <br />Optional: \{\} <br /> |
 | `vlanRef` _[LocalObjectReference](#localobjectreference)_ | VLANRef is a reference to a VLAN resource for which this EVPNInstance builds the MAC-VRF.<br />This field is only applicable when Type is Bridged (L2VNI).<br />The VLAN resource must exist in the same namespace.<br />Immutable. |  | Optional: \{\} <br /> |
+| `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VRFRef is a reference to a VRF resource for which this EVPNInstance provides the L3VNI.<br />This field is only applicable when Type is Routed (L3VNI).<br />The VRF resource must exist in the same namespace.<br />Immutable. |  | Optional: \{\} <br /> |
 
 
 #### EVPNInstanceStatus

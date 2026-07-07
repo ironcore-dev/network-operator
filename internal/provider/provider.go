@@ -563,6 +563,7 @@ type EVPNInstanceRequest struct {
 	EVPNInstance   *v1alpha1.EVPNInstance
 	ProviderConfig *ProviderConfig
 	VLAN           *v1alpha1.VLAN
+	VRF            *v1alpha1.VRF
 }
 
 // PrefixSetProvider is the interface for the realization of the PrefixSet objects over different providers.

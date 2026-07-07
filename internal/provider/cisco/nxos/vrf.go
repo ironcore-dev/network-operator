@@ -11,14 +11,17 @@ const (
 	ManagementVRFName = "management"
 )
 
-var _ gnmiext.DataElement = (*VRF)(nil)
+var (
+	_ gnmiext.DataElement = (*VRF)(nil)
+	_ gnmiext.DataElement = (*VRFEncap)(nil)
+	_ gnmiext.DataElement = (*VRFDomItems)(nil)
+)
 
+// VRF represents the VRF YANG container with name and description patched by [Provider.EnsureVRF].
+// It excludes L3Vni/Encap (patched by [Provider.EnsureEVPNInstance]) and DomItems (sent separately via Update).
 type VRF struct {
-	Encap    Option[string] `json:"encap"`
-	L3Vni    bool           `json:"l3vni"`
-	Name     string         `json:"name"`
-	Descr    Option[string] `json:"descr"`
-	DomItems VRFDomItems    `json:"dom-items,omitzero"`
+	Name  string         `json:"name"`
+	Descr Option[string] `json:"descr"`
 }
 
 func (*VRF) IsListItem() {}
@@ -27,8 +30,30 @@ func (v *VRF) XPath() string {
 	return "System/inst-items/Inst-list[name=" + v.Name + "]"
 }
 
+// VRFEncap represents the VRF YANG container with L3VNI and encapsulation fields,
+// used by [Provider.EnsureEVPNInstance] to patch L3VNI configuration on the VRF.
+type VRFEncap struct {
+	Encap Option[string] `json:"encap"`
+	L3Vni bool           `json:"l3vni"`
+	Name  string         `json:"name"`
+}
+
+func (*VRFEncap) IsListItem() {}
+
+func (v *VRFEncap) XPath() string {
+	return "System/inst-items/Inst-list[name=" + v.Name + "]"
+}
+
 type VRFDomItems struct {
+	Name string `json:"-"`
+
 	DomList gnmiext.List[string, *VRFDom] `json:"Dom-list,omitzero"`
+}
+
+func (*VRFDomItems) IsListItem() {}
+
+func (d *VRFDomItems) XPath() string {
+	return "System/inst-items/Inst-list[name=" + d.Name + "]/dom-items"
 }
 
 type VRFDom struct {

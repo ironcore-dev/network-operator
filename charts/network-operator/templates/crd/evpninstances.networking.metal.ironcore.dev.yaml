@@ -207,6 +207,27 @@ spec:
                 x-kubernetes-validations:
                 - message: VNI is immutable
                   rule: self == oldSelf
+              vrfRef:
+                description: |-
+                  VRFRef is a reference to a VRF resource for which this EVPNInstance provides the L3VNI.
+                  This field is only applicable when Type is Routed (L3VNI).
+                  The VRF resource must exist in the same namespace.
+                  Immutable.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+                x-kubernetes-validations:
+                - message: VRFRef is immutable
+                  rule: self.name == oldSelf.name
             required:
             - deviceRef
             - type
@@ -215,6 +236,8 @@ spec:
             x-kubernetes-validations:
             - message: VLANRef must be specified when Type is Bridged
               rule: self.type != 'Bridged' || has(self.vlanRef)
+            - message: VRFRef must be specified when Type is Routed
+              rule: self.type != 'Routed' || has(self.vrfRef)
           status:
             description: |-
               Status of the resource. This is set and updated automatically.

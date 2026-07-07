@@ -17,6 +17,7 @@ import (
 // [RFC 8365]: https://datatracker.ietf.org/doc/html/rfc8365
 //
 // +kubebuilder:validation:XValidation:rule="self.type != 'Bridged' || has(self.vlanRef)",message="VLANRef must be specified when Type is Bridged"
+// +kubebuilder:validation:XValidation:rule="self.type != 'Routed' || has(self.vrfRef)",message="VRFRef must be specified when Type is Routed"
 type EVPNInstanceSpec struct {
 	// DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
 	// Immutable.
@@ -71,6 +72,14 @@ type EVPNInstanceSpec struct {
 	// +optional
 	// +kubebuilder:validation:XValidation:rule="self.name == oldSelf.name",message="VLANRef is immutable"
 	VLANRef *LocalObjectReference `json:"vlanRef,omitempty"`
+
+	// VRFRef is a reference to a VRF resource for which this EVPNInstance provides the L3VNI.
+	// This field is only applicable when Type is Routed (L3VNI).
+	// The VRF resource must exist in the same namespace.
+	// Immutable.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self.name == oldSelf.name",message="VRFRef is immutable"
+	VRFRef *LocalObjectReference `json:"vrfRef,omitempty"`
 }
 
 // EVPNInstanceType defines the type of EVPN instance.
