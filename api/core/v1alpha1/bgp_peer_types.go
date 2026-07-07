@@ -13,7 +13,6 @@ import (
 )
 
 // BGPPeerSpec defines the desired state of BGPPeer
-// +kubebuilder:validation:XValidation:rule="!(has(self.localAS) && has(self.localASNumber))",message="localAS and localASNumber are mutually exclusive"
 type BGPPeerSpec struct {
 	// DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
 	// Immutable.
@@ -61,13 +60,6 @@ type BGPPeerSpec struct {
 	// Controls which address families are enabled and their specific configuration.
 	// +optional
 	AddressFamilies *BGPPeerAddressFamilies `json:"addressFamilies,omitempty"`
-
-	// LocalASNumber specifies a local AS number to present to the BGP peer.
-	// When set, it is equivalent to LocalAS with ASNumber set and PrependLocalAS/PrependGlobalAS defaults.
-	//
-	// Deprecated: Use LocalAS.ASNumber instead. This field will be removed in a future release.
-	// +optional
-	LocalASNumber *intstr.IntOrString `json:"localASNumber,omitempty"`
 
 	// LocalAS configures the local AS number and how it factors into BGP announcements for this peer.
 	// +optional

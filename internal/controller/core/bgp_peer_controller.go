@@ -443,16 +443,6 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (ret
 		sourceInterface = intf.Spec.Name
 	}
 
-	// TODO: remove use of deprecated LocalASNumber field in a future release.
-	//nolint:staticcheck // handling deprecated field for backward compatibility
-	if s.BGPPeer.Spec.LocalASNumber != nil {
-		s.BGPPeer.Spec.LocalAS = &v1alpha1.LocalAS{
-			ASNumber:        *s.BGPPeer.Spec.LocalASNumber, //nolint:staticcheck
-			PrependLocalAS:  new(bool),
-			PrependGlobalAS: new(bool),
-		}
-	}
-
 	if s.BGPPeer.Spec.LocalAS != nil && s.BGPPeer.Spec.ASNumber.String() == bgp.Spec.ASNumber.String() {
 		conditions.Set(s.BGPPeer, metav1.Condition{
 			Type:    v1alpha1.ConfiguredCondition,

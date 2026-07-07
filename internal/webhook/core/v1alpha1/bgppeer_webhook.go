@@ -34,24 +34,13 @@ var _ admission.Validator[*v1alpha1.BGPPeer] = &BGPPeerCustomValidator{}
 // ValidateCreate implements admission.Validator so a webhook will be registered for the type BGPPeer.
 func (v *BGPPeerCustomValidator) ValidateCreate(_ context.Context, bgppeer *v1alpha1.BGPPeer) (admission.Warnings, error) {
 	bgppeerlog.Info("Validation for BGPPeer upon creation", "name", bgppeer.GetName())
-
-	var warnings admission.Warnings
-	if bgppeer.Spec.LocalASNumber != nil { //nolint:staticcheck
-		warnings = append(warnings, "spec.localASNumber is deprecated; use spec.localAS.asNumber instead")
-	}
-
-	return warnings, validateBGPPeer(bgppeer.Spec)
+	return nil, validateBGPPeer(bgppeer.Spec)
 }
 
 // ValidateUpdate implements admission.Validator so a webhook will be registered for the type BGPPeer.
 func (v *BGPPeerCustomValidator) ValidateUpdate(_ context.Context, _, bgppeer *v1alpha1.BGPPeer) (admission.Warnings, error) {
 	bgppeerlog.Info("Validation for BGPPeer upon update", "name", bgppeer.GetName())
-
-	var warnings admission.Warnings
-	if bgppeer.Spec.LocalASNumber != nil { //nolint:staticcheck
-		warnings = append(warnings, "spec.localASNumber is deprecated; use spec.localAS.asNumber instead")
-	}
-	return warnings, validateBGPPeer(bgppeer.Spec)
+	return nil, validateBGPPeer(bgppeer.Spec)
 }
 
 // ValidateDelete implements admission.Validator so a webhook will be registered for the type BGPPeer.
@@ -66,12 +55,6 @@ func validateBGPPeer(bgppeer v1alpha1.BGPPeerSpec) error {
 
 	if bgppeer.LocalAS != nil {
 		if err := validateASNumber(bgppeer.LocalAS.ASNumber); err != nil {
-			return err
-		}
-	}
-	// TODO: Remove when LocalASNumber is removed from the spec.
-	if bgppeer.LocalASNumber != nil { //nolint:staticcheck
-		if err := validateASNumber(*bgppeer.LocalASNumber); err != nil { //nolint:staticcheck
 			return err
 		}
 	}
