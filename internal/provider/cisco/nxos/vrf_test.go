@@ -42,7 +42,7 @@ func init() {
 
 	dom := new(VRFDom)
 	dom.Name = "CC-CLOUD01"
-	dom.Rd = "rd:as4-nn2:4269539332:101"
+	dom.Rd = NewOption("rd:as4-nn2:4269539332:101")
 	dom.AfItems.DomAfList.Set(af)
 
 	vrf := new(VRF)

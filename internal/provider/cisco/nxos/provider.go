@@ -2668,21 +2668,13 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 	domItems := &VRFDomItems{Name: req.VRF.Spec.Name}
 	domItems.DomList.Set(dom)
 
-	// pre: RD format has been already been validated by VRFCustomValidator
+	// RouteDistinguisher is already validated by VRFCustomValidator
 	if req.VRF.Spec.RouteDistinguisher != "" {
-		tokens := strings.Split(req.VRF.Spec.RouteDistinguisher, ":")
-		if strings.Contains(tokens[0], ".") {
-			dom.Rd = "rd:ipv4-nn2:" + req.VRF.Spec.RouteDistinguisher
-		} else {
-			asn, err := strconv.ParseUint(tokens[0], 10, 32)
-			if err != nil {
-				return fmt.Errorf("invalid ASN in route distinguisher: %w", err)
-			}
-			dom.Rd = "rd:asn2-nn4:" + req.VRF.Spec.RouteDistinguisher
-			if asn < math.MaxUint16 {
-				dom.Rd = "rd:asn4-nn2:" + req.VRF.Spec.RouteDistinguisher
-			}
+		rd, err := RouteDistinguisher(req.VRF.Spec.RouteDistinguisher)
+		if err != nil {
+			return fmt.Errorf("vrf: invalid route distinguisher: %w", err)
 		}
+		dom.Rd = NewOption(rd)
 	}
 
 	// configure route targets
@@ -2696,32 +2688,14 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 	importEntryIPv6EVPN := &RttEntry{Type: RttEntryTypeImport}
 	exportEntryIPv6EVPN := &RttEntry{Type: RttEntryTypeExport}
 
-	// route targets are already validated by VRFCustomValidator
+	// RouteTargets are already validated by VRFCustomValidator
 	for _, rt := range req.VRF.Spec.RouteTargets {
-		rttValue := "route-target:"
-		tokens := strings.Split(rt.Value, ":")
-		if strings.Contains(tokens[0], ".") {
-			rttValue += "ipv4-nn2:" + rt.Value
-		} else {
-			asn, err := strconv.ParseUint(tokens[0], 10, 32)
-			if err != nil {
-				return fmt.Errorf("invalid ASN in route target: %w", err)
-			}
-			if asn > math.MaxUint16 {
-				rttValue += "as4-nn2:" + rt.Value
-			} else {
-				nn, err := strconv.ParseUint(tokens[1], 10, 32)
-				if err != nil {
-					return fmt.Errorf("invalid number in route target: %w", err)
-				}
-				rttValue += "as2-nn2:" + rt.Value
-				if nn > math.MaxUint16 {
-					rttValue += "as2-nn4:" + rt.Value
-				}
-			}
+		rttValue, err := RouteTarget(rt.Value)
+		if err != nil {
+			return fmt.Errorf("invalid route target: %w", err)
 		}
-		rtt := Rtt{Rtt: rttValue}
 
+		rtt := Rtt{Rtt: rttValue}
 		for _, af := range rt.AddressFamilies {
 			switch af {
 			case v1alpha1.IPv4:
@@ -2759,7 +2733,6 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 	}
 
 	if len(req.VRF.Spec.RouteTargets) > 0 {
-		// Initialize address families
 		afIPv4 := &VRFDomAf{Type: AddressFamilyIPv4Unicast}
 		afIPv6 := &VRFDomAf{Type: AddressFamilyIPv6Unicast}
 
@@ -2767,7 +2740,6 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 			if importE.EntItems.RttEntryList.Len() == 0 && exportE.EntItems.RttEntryList.Len() == 0 {
 				return
 			}
-
 			ctrl := &VRFDomAfCtrl{Type: afType}
 			if importE.EntItems.RttEntryList.Len() > 0 {
 				ctrl.RttpItems.RttPList.Set(importE)

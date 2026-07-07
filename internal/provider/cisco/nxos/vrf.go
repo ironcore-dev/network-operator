@@ -57,9 +57,9 @@ func (d *VRFDomItems) XPath() string {
 }
 
 type VRFDom struct {
-	Name    string        `json:"name"`
-	Rd      string        `json:"rd,omitempty"`
-	AfItems VRFDomAfItems `json:"af-items,omitzero"`
+	Name    string         `json:"name"`
+	Rd      Option[string] `json:"rd"`
+	AfItems VRFDomAfItems  `json:"af-items,omitzero"`
 }
 
 func (d *VRFDom) Key() string { return d.Name }
