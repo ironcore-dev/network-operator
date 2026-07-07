@@ -42,6 +42,12 @@ var _ = Describe("VRF Webhook", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("accepts Auto RD", func() {
+			obj.Spec.RouteDistinguisher = "Auto"
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		It("rejects bad format (missing colon)", func() {
 			obj.Spec.RouteDistinguisher = "badformat"
 			_, err := validator.ValidateCreate(ctx, obj)

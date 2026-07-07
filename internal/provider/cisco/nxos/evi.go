@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
@@ -80,7 +81,7 @@ func stdcommunity(s string) (string, error) {
 
 // extcommunity converts a value to an extended community string.
 func extcommunity(s string) (string, error) {
-	if s == "" {
+	if s == "" || s == v1alpha1.RouteDistinguisherAuto {
 		return "unknown:0:0", nil
 	}
 	parts := strings.SplitN(s, ":", 2)

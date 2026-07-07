@@ -70,7 +70,7 @@ func validateVRFSpec(vrf *v1alpha1.VRF) error {
 	var errAgg []error
 
 	rd := strings.TrimSpace(vrf.Spec.RouteDistinguisher)
-	if rd != "" {
+	if rd != "" && rd != v1alpha1.RouteDistinguisherAuto {
 		if err := validateRouteDistinguisher(rd); err != nil {
 			errAgg = append(errAgg, fmt.Errorf("invalid route distinguisher value %q: %w", rd, err))
 		}
