@@ -1,14 +1,14 @@
 // SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
-package main
+package testserver
 
 import (
 	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"flag"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -36,8 +36,115 @@ var _ gpb.GNMIServer = (*Server)(nil)
 // Server implements the GNMI gRPC server
 type Server struct {
 	gpb.UnimplementedGNMIServer
+	// state is the internal state of the server, which can be manipulated via gNMI Set requests or the HTTP API.
+	state *State
+	// grpcServer is the gRPC server instance where gNMI clients can connect to.
+	grpcServer *grpc.Server
+	// grpcAddr is the address grpcServer is listening on, e.g., 127.0.0.1:9443
+	grpcAddr string
+	// httpServer is the HTTP server instance used to inspect and manipulate the server's internal state.
+	httpServer *http.Server
+	// httpAddr is the address httpServer is listening on, e.g., 127.0.0.1:8000
+	httpAddr string
+	// closeOnce ensures Close only runs once, even when triggered by both
+	// context cancellation and an explicit caller.
+	closeOnce sync.Once
+}
 
-	State *State
+// NewTestServer starts an in-process gNMI + HTTP server on random available ports.
+// Returns the server, gRPC address, HTTP address, and any error.
+func NewTestServer(ctx context.Context) (*Server, string, string, error) {
+	lc := &net.ListenConfig{}
+	grpcLis, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
+	if err != nil {
+		return nil, "", "", fmt.Errorf("failed to listen for gRPC: %w", err)
+	}
+
+	httpLis, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
+	if err != nil {
+		grpcLis.Close()
+		return nil, "", "", fmt.Errorf("failed to listen for HTTP: %w", err)
+	}
+
+	cert, err := gtls.NewCert()
+	if err != nil {
+		grpcLis.Close()
+		httpLis.Close()
+		return nil, "", "", fmt.Errorf("failed to create TLS certificate: %w", err)
+	}
+
+	grpcServer := grpc.NewServer(grpc.Creds(credentials.NewTLS(&tls.Config{
+		Certificates: []tls.Certificate{cert},
+	})))
+
+	server := &Server{
+		state:      &State{},
+		grpcServer: grpcServer,
+		grpcAddr:   grpcLis.Addr().String(),
+		httpAddr:   httpLis.Addr().String(),
+	}
+
+	gpb.RegisterGNMIServer(grpcServer, server)
+
+	reflection.Register(grpcServer)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/state", server.handleState)
+	server.httpServer = &http.Server{Handler: mux}
+
+	go func() {
+		log.Printf("Starting HTTP server on %s", server.httpAddr)
+		if err := server.httpServer.Serve(httpLis); err != nil && err != http.ErrServerClosed {
+			log.Printf("HTTP server error: %v", err)
+		}
+	}()
+
+	go func() {
+		log.Printf("Starting gRPC server on %s", server.grpcAddr)
+		if err := grpcServer.Serve(grpcLis); err != nil {
+			log.Printf("gRPC server error: %v", err)
+		}
+	}()
+
+	go func() { //nolint:gosec // G118: ctx is already done, must use Background for shutdown timeout
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Close(shutdownCtx); err != nil { //nolint:contextcheck // shutdownCtx is correctly derived from Background
+			log.Printf("Shutdown error: %v", err)
+		}
+	}()
+
+	return server, server.grpcAddr, server.httpAddr, nil
+}
+
+// GRPCAddr returns the gRPC server address
+func (s *Server) GRPCAddr() string {
+	return s.grpcAddr
+}
+
+// HTTPAddr returns the HTTP server address
+func (s *Server) HTTPAddr() string {
+	return s.httpAddr
+}
+
+// Close gracefully shuts down the server. It is safe to call multiple times
+// and from multiple goroutines; only the first call performs shutdown.
+func (s *Server) Close(ctx context.Context) error {
+	var closeErr error
+	s.closeOnce.Do(func() {
+		log.Printf("Shutting down gNMI test server")
+
+		if s.httpServer != nil {
+			if err := s.httpServer.Shutdown(ctx); err != nil {
+				closeErr = fmt.Errorf("HTTP shutdown: %w", err)
+			}
+		}
+		if s.grpcServer != nil {
+			s.grpcServer.GracefulStop()
+		}
+	})
+	return closeErr
 }
 
 func (s *Server) Capabilities(_ context.Context, _ *gpb.CapabilityRequest) (*gpb.CapabilityResponse, error) {
@@ -51,7 +158,7 @@ func (s *Server) Get(_ context.Context, req *gpb.GetRequest) (*gpb.GetResponse, 
 			return nil, status.Error(codes.InvalidArgument, "root path is not allowed")
 		}
 		log.Printf("Getting path: %v", path)
-		val := s.State.Get(path)
+		val := s.state.Get(path)
 		if val == nil {
 			notifications = append(notifications, &gpb.Notification{
 				Timestamp: time.Now().UnixNano(),
@@ -87,28 +194,28 @@ func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, 
 			Path:      del,
 			Op:        gpb.UpdateResult_DELETE,
 		})
-		s.State.Del(del)
+		s.state.Del(del)
 	}
 	for _, replace := range req.GetReplace() {
 		log.Printf("Replacing path: %v with value: %q", replace.GetPath(), replace.GetVal().GetJsonVal())
 		res = append(res, &gpb.UpdateResult{
 			Timestamp: time.Now().UnixNano(),
-			Path:      replace.Path,
+			Path:      replace.GetPath(),
 			Op:        gpb.UpdateResult_REPLACE,
 		})
 		// Delete the existing value at the path and set the new value.
-		s.State.Del(replace.GetPath())
-		s.State.Set(replace.GetPath(), replace.GetVal().GetJsonVal())
+		s.state.Del(replace.GetPath())
+		s.state.Set(replace.GetPath(), replace.GetVal().GetJsonVal())
 	}
 	for _, update := range req.GetUpdate() {
 		log.Printf("Updating path: %v with value: %q", update.GetPath(), update.GetVal().GetJsonVal())
 		res = append(res, &gpb.UpdateResult{
 			Timestamp: time.Now().UnixNano(),
-			Path:      update.Path,
+			Path:      update.GetPath(),
 			Op:        gpb.UpdateResult_UPDATE,
 		})
 		// The value will automatically be merged into the existing state.
-		s.State.Set(update.GetPath(), update.GetVal().GetJsonVal())
+		s.state.Set(update.GetPath(), update.GetVal().GetJsonVal())
 	}
 	// TODO: Handle UnionReplace
 	return &gpb.SetResponse{
@@ -120,7 +227,7 @@ func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, 
 func (s *Server) Subscribe(stream grpc.BidiStreamingServer[gpb.SubscribeRequest, gpb.SubscribeResponse]) error {
 	req, err := stream.Recv()
 	switch {
-	case err == io.EOF:
+	case errors.Is(err, io.EOF):
 		return nil
 	case err != nil:
 		return err
@@ -178,31 +285,38 @@ func (s *Server) Subscribe(stream grpc.BidiStreamingServer[gpb.SubscribeRequest,
 // handleState handles HTTP requests to the /v1/state endpoint
 func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 	method := r.Method
-	if override := r.Header.Get("X-HTTP-Method-Override"); override != "" {
+	if override := r.Header.Get("X-Http-Method-Override"); override != "" {
 		method = override
 	}
 	switch method {
 	case http.MethodGet:
-		s.State.RLock()
-		defer s.State.RUnlock()
+		s.state.RLock()
+		defer s.state.RUnlock()
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		if len(s.State.Buf) == 0 {
-			w.Write([]byte("{}"))
+		if len(s.state.Buf) == 0 {
+			w.WriteHeader(http.StatusOK)
+			if _, err := w.Write([]byte("{}")); err != nil {
+				log.Printf("Failed to write empty response: %v", err)
+			}
 			return
 		}
 		var buf bytes.Buffer
-		if err := json.Compact(&buf, s.State.Buf); err != nil {
+		if err := json.Compact(&buf, s.state.Buf); err != nil {
 			log.Printf("Failed to compact JSON: %v", err)
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Internal Server Error"))
+			if _, err := w.Write([]byte("Internal Server Error")); err != nil {
+				log.Printf("Failed to write error response: %v", err)
+			}
 			return
 		}
-		w.Write(buf.Bytes())
+		w.WriteHeader(http.StatusOK)
+		if _, err := w.Write(buf.Bytes()); err != nil {
+			log.Printf("Failed to write response: %v", err)
+		}
 	case http.MethodDelete:
-		s.State.Lock()
-		defer s.State.Unlock()
-		s.State.Buf = nil
+		s.state.Lock()
+		defer s.state.Unlock()
+		s.state.Buf = nil
 		w.WriteHeader(http.StatusNoContent)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -216,7 +330,7 @@ type State struct {
 	Buf []byte
 }
 
-func (s State) Get(path *gpb.Path) []byte {
+func (s *State) Get(path *gpb.Path) []byte {
 	s.RLock()
 	defer s.RUnlock()
 	var sb strings.Builder
@@ -321,62 +435,4 @@ func (s *State) Del(path *gpb.Path) {
 	}
 
 	s.Buf, _ = sjson.DeleteBytes(s.Buf, sb.String()) //nolint:errcheck
-}
-
-func main() {
-	// Parse command line flags
-	port := flag.Int("port", 9339, "The gRPC server port")
-	httpPort := flag.Int("http-port", 8000, "The HTTP server port")
-	flag.Parse()
-
-	// Create a listener on the specified port
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
-	if err != nil {
-		log.Fatalf("Failed to listen on port %d: %v", *port, err)
-	}
-
-	// Create a TLS certificate for gRPC server
-	// This is a self-signed certificate for testing purposes.
-	cert, err := gtls.NewCert()
-	if err != nil {
-		log.Fatalf("Failed to create TLS certificate: %v", err)
-	}
-
-	// Create a new gRPC server with TLS
-	grpcServer := grpc.NewServer(grpc.Creds(credentials.NewTLS(&tls.Config{
-		Certificates: []tls.Certificate{cert},
-	})))
-
-	// Create our server implementation
-	server := &Server{State: &State{}}
-
-	// Register the GNMIService with our server implementation
-	gpb.RegisterGNMIServer(grpcServer, server)
-
-	// Enable reflection for easier testing with tools like grpcurl
-	reflection.Register(grpcServer)
-
-	// Setup HTTP server
-	http.HandleFunc("/v1/state", server.handleState)
-	httpServer := &http.Server{Addr: fmt.Sprintf(":%d", *httpPort)}
-
-	// Start HTTP server in a goroutine
-	go func() {
-		log.Printf("Starting HTTP server on port %d", *httpPort)
-		log.Printf("HTTP endpoint available at: /v1/state")
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to serve HTTP server: %v", err)
-		}
-	}()
-
-	log.Printf("Starting gRPC server on port %d", *port)
-	log.Printf("Server is ready to accept connections...")
-	log.Printf("Use --port flag to specify a different gRPC port (default: 9339)")
-	log.Printf("Use --http-port flag to specify a different HTTP port (default: 8000)")
-	log.Printf("Available services: GNMI")
-
-	// Start serving
-	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("Failed to serve gRPC server: %v", err)
-	}
 }
