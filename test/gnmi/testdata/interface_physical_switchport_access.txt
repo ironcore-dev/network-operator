@@ -1,0 +1,44 @@
+# Physical Interface with Switchport Access
+-- interfaces/eth1-10 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: eth1-10
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: eth1/10
+  description: Access port to Host
+  adminState: Up
+  type: Physical
+  mtu: 1500
+  switchport:
+    mode: Access
+    accessVlan: 10
+-- state --
+{
+  "openconfig-interfaces:interfaces": {
+    "interface": [
+      {
+        "name": "eth1/10",
+        "config": {
+          "description": "Access port to Host",
+          "enabled": true,
+          "mtu": 1500,
+          "name": "eth1/10",
+          "tpid": "TPID_0X8100",
+          "type": "iana-if-type:ethernetCsmacd"
+        },
+        "openconfig-if-ethernet:ethernet": {
+          "openconfig-vlan:switched-vlan": {
+            "config": {
+              "access-vlan": 10,
+              "interface-mode": "ACCESS"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

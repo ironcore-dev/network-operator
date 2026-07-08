@@ -1,0 +1,21 @@
+# Banner PreLogin
+-- banners/banner --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Banner
+metadata:
+  name: banner
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  type: PreLogin
+  message:
+    inline: "Unauthorized access is prohibited."
+-- state --
+{
+  "openconfig-system:system": {
+    "config": {
+      "login-banner": "Unauthorized access is prohibited."
+    }
+  }
+}

@@ -1,0 +1,83 @@
+# Aggregate L2 Trunk Interface
+-- interfaces/eth1-10 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: eth1-10
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: eth1/10
+  description: Member of po10
+  adminState: Up
+  type: Physical
+  mtu: 1500
+-- interfaces/po10 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: po10
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: po10
+  description: vPC Leaf1 to Host1
+  adminState: Up
+  type: Aggregate
+  mtu: 1500
+  switchport:
+    mode: Trunk
+    nativeVlan: 1
+    allowedVlans: [10]
+  aggregation:
+    controlProtocol:
+      mode: Active
+    memberInterfaceRefs:
+      - name: eth1-10
+-- state --
+{
+  "openconfig-interfaces:interfaces": {
+    "interface": [
+      {
+        "name": "eth1/10",
+        "config": {
+          "description": "Member of po10",
+          "enabled": true,
+          "mtu": 1500,
+          "name": "eth1/10",
+          "type": "iana-if-type:ethernetCsmacd"
+        },
+        "openconfig-if-ethernet:ethernet": {
+          "config": {
+            "openconfig-if-aggregate:aggregate-id": "po10"
+          }
+        }
+      },
+      {
+        "name": "po10",
+        "config": {
+          "description": "vPC Leaf1 to Host1",
+          "enabled": true,
+          "mtu": 1500,
+          "name": "po10",
+          "tpid": "TPID_0X8100",
+          "type": "iana-if-type:ieee8023adLag"
+        },
+        "openconfig-if-aggregate:aggregation": {
+          "config": {
+            "lag-type": "LACP"
+          },
+          "openconfig-vlan:switched-vlan": {
+            "config": {
+              "interface-mode": "TRUNK",
+              "native-vlan": 1,
+              "trunk-vlans": [10]
+            }
+          }
+        }
+      }
+    ]
+  }
+}
