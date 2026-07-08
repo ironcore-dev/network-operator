@@ -66,6 +66,8 @@ func newGetResourceCmd(root *RootOptions, res ResourceDef) *cobra.Command {
 
 	o.Labels.AddCommonFlags(cmd)
 	switch res.Kind {
+	case "Device":
+		o.Labels.AddDeviceFlags(cmd)
 	case "Interface":
 		o.Labels.AddInterfaceFlags(cmd)
 	case "VLAN":

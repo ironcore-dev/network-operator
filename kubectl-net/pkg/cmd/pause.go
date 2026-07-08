@@ -87,6 +87,8 @@ func newPauseResourceCmd(root *RootOptions, res ResourceDef, pause bool, action 
 
 	o.Labels.AddCommonFlags(cmd)
 	switch res.Kind {
+	case "Device":
+		o.Labels.AddDeviceFlags(cmd)
 	case "Interface":
 		o.Labels.AddInterfaceFlags(cmd)
 	case "VLAN":
