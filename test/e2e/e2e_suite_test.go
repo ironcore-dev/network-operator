@@ -30,10 +30,6 @@ var (
 // with the code source changes to be tested.
 const image = "ghcr.io/ironcore-dev/network-operator:latest"
 
-// serverImage is the name of the image which will be built and loaded
-// with the gNMI test server.
-const serverImage = "ghcr.io/ironcore-dev/gnmi-test-server:latest"
-
 // TestE2E runs the end-to-end (e2e) test suite for the project. These tests execute in an isolated,
 // temporary environment to validate project changes with the purposed to be used in CI jobs.
 // The default setup requires Kind, builds/loads the Manager Docker image locally, and installs
@@ -60,15 +56,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	By("loading the manager(Operator) image on Kind")
 	err = LoadImageToKindClusterWithName(ctx, image)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the manager(Operator) image into Kind")
-
-	By("building the gnmi-test-server image")
-	cmd = exec.CommandContext(ctx, "make", "docker-build-test-gnmi-server", "TEST_SERVER_IMG="+serverImage)
-	_, err = Run(cmd)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to build the gnmi-test-server image")
-
-	By("loading the gnmi-test-server image on Kind")
-	err = LoadImageToKindClusterWithName(ctx, serverImage)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the gnmi-test-server image into Kind")
 
 	// The tests-e2e are intended to run on a temporary cluster that is created and destroyed for testing.
 	// To prevent errors when tests run in environments with Prometheus or CertManager already installed,

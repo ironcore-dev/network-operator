@@ -1,19 +1,16 @@
 // SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
-package main
+package server
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
-	"encoding/json"
-	"flag"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net"
-	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -33,17 +30,99 @@ import (
 
 var _ gpb.GNMIServer = (*Server)(nil)
 
-// Server implements the GNMI gRPC server
+// Server implements the GNMI gRPC server for testing purposes.
+// It maintains an internal state that can be manipulated via gNMI requests or by modifying the internal state directly.
 type Server struct {
 	gpb.UnimplementedGNMIServer
-
-	State *State
+	// state is the internal state of the server.
+	state *State
+	// grpcServer is the gRPC server instance where gNMI clients can connect to.
+	grpcServer *grpc.Server
+	// grpcAddr is the address grpcServer is listening on, e.g., 127.0.0.1:9443
+	grpcAddr string
+	// closeOnce ensures Close only runs once, even when triggered by both
+	// context cancellation and an explicit caller.
+	closeOnce sync.Once
 }
 
+// NewTestServer starts an in-process gNMI server on a random available port.
+func NewTestServer(ctx context.Context) (*Server, error) {
+	lc := &net.ListenConfig{}
+	grpcLis, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
+	if err != nil {
+		return nil, fmt.Errorf("failed to listen for gRPC: %w", err)
+	}
+
+	cert, err := gtls.NewCert()
+	if err != nil {
+		grpcLis.Close()
+		return nil, fmt.Errorf("failed to create TLS certificate: %w", err)
+	}
+
+	grpcServer := grpc.NewServer(grpc.Creds(credentials.NewTLS(&tls.Config{
+		Certificates: []tls.Certificate{cert},
+	})))
+
+	server := &Server{
+		state:      &State{},
+		grpcServer: grpcServer,
+		grpcAddr:   grpcLis.Addr().String(),
+	}
+
+	gpb.RegisterGNMIServer(grpcServer, server)
+
+	reflection.Register(grpcServer)
+
+	go func() {
+		log.Printf("Starting gRPC server on %s", server.grpcAddr)
+		if err := grpcServer.Serve(grpcLis); err != nil {
+			log.Printf("gRPC server error: %v", err)
+		}
+	}()
+
+	go func() { //nolint:gosec // G118: ctx is already done, must use Background for shutdown timeout
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Close(shutdownCtx); err != nil { //nolint:contextcheck // shutdownCtx is correctly derived from Background
+			log.Printf("Shutdown error: %v", err)
+		}
+	}()
+
+	return server, nil
+}
+
+// GRPCAddr returns the gRPC server address
+func (s *Server) GRPCAddr() string {
+	return s.grpcAddr
+}
+
+// State returns the internal state of the server
+// Callers must use State's methods (Get, Set, Del) which handle locking.
+func (s *Server) State() *State {
+	return s.state
+}
+
+// Close gracefully shuts down the server. It is safe to call multiple times
+// and from multiple goroutines; only the first call performs shutdown.
+func (s *Server) Close(ctx context.Context) error {
+	var closeErr error
+	s.closeOnce.Do(func() {
+		log.Printf("Shutting down gNMI test server")
+
+		if s.grpcServer != nil {
+			s.grpcServer.GracefulStop()
+		}
+	})
+	return closeErr
+}
+
+// Capabilities returns the capabilities of the gNMI server
 func (s *Server) Capabilities(_ context.Context, _ *gpb.CapabilityRequest) (*gpb.CapabilityResponse, error) {
 	return &gpb.CapabilityResponse{SupportedEncodings: []gpb.Encoding{gpb.Encoding_JSON}}, nil
 }
 
+// Get returns the current state of the server for the requested path
 func (s *Server) Get(_ context.Context, req *gpb.GetRequest) (*gpb.GetResponse, error) {
 	notifications := make([]*gpb.Notification, 0, len(req.GetPath()))
 	for _, path := range req.GetPath() {
@@ -51,7 +130,7 @@ func (s *Server) Get(_ context.Context, req *gpb.GetRequest) (*gpb.GetResponse, 
 			return nil, status.Error(codes.InvalidArgument, "root path is not allowed")
 		}
 		log.Printf("Getting path: %v", path)
-		val := s.State.Get(path)
+		val := s.state.Get(path)
 		if val == nil {
 			notifications = append(notifications, &gpb.Notification{
 				Timestamp: time.Now().UnixNano(),
@@ -77,6 +156,7 @@ func (s *Server) Get(_ context.Context, req *gpb.GetRequest) (*gpb.GetResponse, 
 	}, nil
 }
 
+// Set updates the state of the server for the requested path
 func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, error) {
 	log.Printf("Received Set request: %v", req)
 	res := make([]*gpb.UpdateResult, 0, len(req.GetDelete())+len(req.GetUpdate()))
@@ -87,28 +167,28 @@ func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, 
 			Path:      del,
 			Op:        gpb.UpdateResult_DELETE,
 		})
-		s.State.Del(del)
+		s.state.Del(del)
 	}
 	for _, replace := range req.GetReplace() {
 		log.Printf("Replacing path: %v with value: %q", replace.GetPath(), replace.GetVal().GetJsonVal())
 		res = append(res, &gpb.UpdateResult{
 			Timestamp: time.Now().UnixNano(),
-			Path:      replace.Path,
+			Path:      replace.GetPath(),
 			Op:        gpb.UpdateResult_REPLACE,
 		})
 		// Delete the existing value at the path and set the new value.
-		s.State.Del(replace.GetPath())
-		s.State.Set(replace.GetPath(), replace.GetVal().GetJsonVal())
+		s.state.Del(replace.GetPath())
+		s.state.Set(replace.GetPath(), replace.GetVal().GetJsonVal())
 	}
 	for _, update := range req.GetUpdate() {
 		log.Printf("Updating path: %v with value: %q", update.GetPath(), update.GetVal().GetJsonVal())
 		res = append(res, &gpb.UpdateResult{
 			Timestamp: time.Now().UnixNano(),
-			Path:      update.Path,
+			Path:      update.GetPath(),
 			Op:        gpb.UpdateResult_UPDATE,
 		})
 		// The value will automatically be merged into the existing state.
-		s.State.Set(update.GetPath(), update.GetVal().GetJsonVal())
+		s.state.Set(update.GetPath(), update.GetVal().GetJsonVal())
 	}
 	// TODO: Handle UnionReplace
 	return &gpb.SetResponse{
@@ -117,10 +197,11 @@ func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, 
 	}, nil
 }
 
+// Subscribe handles gNMI subscription requests.
 func (s *Server) Subscribe(stream grpc.BidiStreamingServer[gpb.SubscribeRequest, gpb.SubscribeResponse]) error {
 	req, err := stream.Recv()
 	switch {
-	case err == io.EOF:
+	case errors.Is(err, io.EOF):
 		return nil
 	case err != nil:
 		return err
@@ -175,40 +256,6 @@ func (s *Server) Subscribe(stream grpc.BidiStreamingServer[gpb.SubscribeRequest,
 	return nil
 }
 
-// handleState handles HTTP requests to the /v1/state endpoint
-func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
-	method := r.Method
-	if override := r.Header.Get("X-HTTP-Method-Override"); override != "" {
-		method = override
-	}
-	switch method {
-	case http.MethodGet:
-		s.State.RLock()
-		defer s.State.RUnlock()
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		if len(s.State.Buf) == 0 {
-			w.Write([]byte("{}"))
-			return
-		}
-		var buf bytes.Buffer
-		if err := json.Compact(&buf, s.State.Buf); err != nil {
-			log.Printf("Failed to compact JSON: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Internal Server Error"))
-			return
-		}
-		w.Write(buf.Bytes())
-	case http.MethodDelete:
-		s.State.Lock()
-		defer s.State.Unlock()
-		s.State.Buf = nil
-		w.WriteHeader(http.StatusNoContent)
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
-	}
-}
-
 // State represents a JSON body that can be manipulated using [sjson] syntax.
 type State struct {
 	sync.RWMutex
@@ -216,7 +263,7 @@ type State struct {
 	Buf []byte
 }
 
-func (s State) Get(path *gpb.Path) []byte {
+func (s *State) Get(path *gpb.Path) []byte {
 	s.RLock()
 	defer s.RUnlock()
 	var sb strings.Builder
@@ -284,6 +331,7 @@ func (s *State) Set(path *gpb.Path, raw []byte) {
 	}
 }
 
+// Del deletes the value at the specified path from the state.
 func (s *State) Del(path *gpb.Path) {
 	s.Lock()
 	defer s.Unlock()
@@ -321,62 +369,4 @@ func (s *State) Del(path *gpb.Path) {
 	}
 
 	s.Buf, _ = sjson.DeleteBytes(s.Buf, sb.String()) //nolint:errcheck
-}
-
-func main() {
-	// Parse command line flags
-	port := flag.Int("port", 9339, "The gRPC server port")
-	httpPort := flag.Int("http-port", 8000, "The HTTP server port")
-	flag.Parse()
-
-	// Create a listener on the specified port
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
-	if err != nil {
-		log.Fatalf("Failed to listen on port %d: %v", *port, err)
-	}
-
-	// Create a TLS certificate for gRPC server
-	// This is a self-signed certificate for testing purposes.
-	cert, err := gtls.NewCert()
-	if err != nil {
-		log.Fatalf("Failed to create TLS certificate: %v", err)
-	}
-
-	// Create a new gRPC server with TLS
-	grpcServer := grpc.NewServer(grpc.Creds(credentials.NewTLS(&tls.Config{
-		Certificates: []tls.Certificate{cert},
-	})))
-
-	// Create our server implementation
-	server := &Server{State: &State{}}
-
-	// Register the GNMIService with our server implementation
-	gpb.RegisterGNMIServer(grpcServer, server)
-
-	// Enable reflection for easier testing with tools like grpcurl
-	reflection.Register(grpcServer)
-
-	// Setup HTTP server
-	http.HandleFunc("/v1/state", server.handleState)
-	httpServer := &http.Server{Addr: fmt.Sprintf(":%d", *httpPort)}
-
-	// Start HTTP server in a goroutine
-	go func() {
-		log.Printf("Starting HTTP server on port %d", *httpPort)
-		log.Printf("HTTP endpoint available at: /v1/state")
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to serve HTTP server: %v", err)
-		}
-	}()
-
-	log.Printf("Starting gRPC server on port %d", *port)
-	log.Printf("Server is ready to accept connections...")
-	log.Printf("Use --port flag to specify a different gRPC port (default: 9339)")
-	log.Printf("Use --http-port flag to specify a different HTTP port (default: 8000)")
-	log.Printf("Available services: GNMI")
-
-	// Start serving
-	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("Failed to serve gRPC server: %v", err)
-	}
 }

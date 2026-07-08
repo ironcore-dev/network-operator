@@ -19,10 +19,21 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 )
 
-const (
-	prometheusURL  = "https://github.com/prometheus-operator/prometheus-operator/releases/download/v0.82.2/bundle.yaml"
-	certmanagerURL = "https://github.com/cert-manager/cert-manager/releases/download/v1.17.2/cert-manager.yaml"
-)
+func getPrometheusURL() string {
+	version := os.Getenv("E2E_PROMETHEUS_OPERATOR_VERSION")
+	if version == "" {
+		panic("E2E_PROMETHEUS_OPERATOR_VERSION environment variable must be set")
+	}
+	return fmt.Sprintf("https://github.com/prometheus-operator/prometheus-operator/releases/download/%s/bundle.yaml", version)
+}
+
+func getCertManagerURL() string {
+	version := os.Getenv("E2E_CERTMANAGER_VERSION")
+	if version == "" {
+		panic("E2E_CERTMANAGER_VERSION environment variable must be set")
+	}
+	return fmt.Sprintf("https://github.com/cert-manager/cert-manager/releases/download/%s/cert-manager.yaml", version)
+}
 
 func warnError(err error) {
 	_, _ = fmt.Fprintf(GinkgoWriter, "warning: %v\n", err)
@@ -118,14 +129,14 @@ func sortSlices(v any) any {
 
 // InstallPrometheusOperator installs the prometheus Operator to be used to export the enabled metrics.
 func InstallPrometheusOperator(ctx context.Context) error {
-	cmd := exec.CommandContext(ctx, "kubectl", "create", "-f", prometheusURL)
+	cmd := exec.CommandContext(ctx, "kubectl", "create", "-f", getPrometheusURL()) // #nosec G204 -- URL from trusted version constant
 	_, err := Run(cmd)
 	return err
 }
 
 // UninstallPrometheusOperator uninstalls the prometheus
 func UninstallPrometheusOperator(ctx context.Context) {
-	cmd := exec.CommandContext(ctx, "kubectl", "delete", "-f", prometheusURL)
+	cmd := exec.CommandContext(ctx, "kubectl", "delete", "-f", getPrometheusURL()) // #nosec G204 -- URL from trusted version constant
 	if _, err := Run(cmd); err != nil {
 		warnError(err)
 	}
@@ -160,26 +171,28 @@ func IsPrometheusCRDsInstalled(ctx context.Context) bool {
 
 // InstallCertManager installs the cert manager bundle.
 func InstallCertManager(ctx context.Context) error {
-	cmd := exec.CommandContext(ctx, "kubectl", "apply", "-f", certmanagerURL)
+	cmd := exec.CommandContext(ctx, "kubectl", "apply", "-f", getCertManagerURL()) // #nosec G204 -- URL from trusted version constant
 	if _, err := Run(cmd); err != nil {
 		return err
 	}
-	// Wait for cert-manager-webhook to be ready, which can take time if cert-manager
-	// was re-installed after uninstalling on a cluster.
-	cmd = exec.CommandContext(
-		ctx, "kubectl", "wait", "deployment.apps/cert-manager-webhook",
-		"--for", "condition=Available",
-		"--namespace", "cert-manager",
-		"--timeout", "5m",
-	)
-
-	_, err := Run(cmd)
-	return err
+	// Wait for all cert-manager deployments to be ready.
+	for _, deploy := range []string{"cert-manager", "cert-manager-cainjector", "cert-manager-webhook"} {
+		cmd = exec.CommandContext( // #nosec G204 -- deployment names from trusted constant list
+			ctx, "kubectl", "wait", "deployment.apps/"+deploy,
+			"--for", "condition=Available",
+			"--namespace", "cert-manager",
+			"--timeout", "5m",
+		)
+		if _, err := Run(cmd); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // UninstallCertManager uninstalls the cert manager
 func UninstallCertManager(ctx context.Context) {
-	cmd := exec.CommandContext(ctx, "kubectl", "delete", "-f", certmanagerURL)
+	cmd := exec.CommandContext(ctx, "kubectl", "delete", "-f", getCertManagerURL()) // #nosec G204 -- URL from trusted version constant
 	if _, err := Run(cmd); err != nil {
 		warnError(err)
 	}
@@ -221,7 +234,7 @@ func IsCertManagerCRDsInstalled(ctx context.Context) bool {
 // LoadImageToKindClusterWithName loads a local docker image to the kind cluster
 func LoadImageToKindClusterWithName(ctx context.Context, name string) error {
 	cluster := "kind"
-	if v, ok := os.LookupEnv("KIND_CLUSTER"); ok {
+	if v, ok := os.LookupEnv("KIND_CLUSTER"); ok && v != "" {
 		cluster = v
 	}
 	// See: https://kind.sigs.k8s.io/docs/user/rootless/#creating-a-kind-cluster-with-rootless-nerdctl
@@ -253,28 +266,6 @@ func LoadImageToKindClusterWithName(ctx context.Context, name string) error {
 	cmd := exec.CommandContext(ctx, "kind", "load", "docker-image", name, "--name", cluster)
 	_, err := Run(cmd)
 	return err
-}
-
-// GetNonEmptyLines converts given command output string into individual objects
-// according to line breakers, and ignores the empty elements in it.
-func GetNonEmptyLines(output string) []string {
-	var res []string
-	for element := range strings.SplitSeq(output, "\n") {
-		if element != "" {
-			res = append(res, element)
-		}
-	}
-	return res
-}
-
-// GetProjectDir will return the directory where the project is
-func GetProjectDir() (string, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return wd, err
-	}
-	wd = strings.ReplaceAll(wd, "/test/e2e", "")
-	return wd, nil
 }
 
 // UncommentCode searches for target in the file and remove the comment prefix
@@ -322,4 +313,26 @@ func UncommentCode(filename, target, prefix string) error {
 	}
 
 	return os.WriteFile(filename, out.Bytes(), 0o644)
+}
+
+// GetNonEmptyLines converts given command output string into individual objects
+// according to line breakers, and ignores the empty elements in it.
+func GetNonEmptyLines(output string) []string {
+	var res []string
+	for element := range strings.SplitSeq(output, "\n") {
+		if element != "" {
+			res = append(res, element)
+		}
+	}
+	return res
+}
+
+// GetProjectDir will return the directory where the project is
+func GetProjectDir() (string, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return wd, err
+	}
+	wd = strings.ReplaceAll(wd, "/test/e2e", "")
+	return wd, nil
 }

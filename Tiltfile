@@ -20,8 +20,6 @@ local_resource('controller-gen', 'make generate', ignore=['**/*/zz_generated.dee
     'api/', 'cmd/', 'hack/', 'internal/', 'go.mod', 'go.sum', 'Makefile',
 ])
 
-docker_build('ghcr.io/ironcore-dev/gnmi-test-server:latest', './test/gnmi')
-
 provider = os.getenv('PROVIDER', 'openconfig')
 
 manager = kustomize('config/develop')

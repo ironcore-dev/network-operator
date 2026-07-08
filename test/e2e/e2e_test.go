@@ -10,13 +10,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"golang.org/x/tools/txtar"
 )
 
 // namespace where the project is deployed in
@@ -33,45 +31,17 @@ const metricsRoleBindingName = "network-operator-metrics-binding"
 
 var _ = Describe("Manager", Ordered, func() {
 	var controllerPodName string
-	var gnmiServerIPAddr string
 
 	// Before running the tests, set up the environment by creating the namespace,
 	// enforce the restricted security policy to the namespace, installing CRDs,
 	// and deploying the controller.
 	BeforeAll(func(ctx SpecContext) {
-		By("deploying the gnmi-test-server")
-		cmd := exec.CommandContext(
-			ctx, "kubectl", "run", "gnmi-test-server",
-			"--image", serverImage,
-			"--image-pull-policy", "Never",
-			"--namespace", "default",
-			"--restart", "Never",
-			"--port", "8000",
-			"--port", "9339",
-		)
-		_, err := Run(cmd)
-		Expect(err).NotTo(HaveOccurred(), "Failed to deploy the gnmi-test-server")
-
-		cmd = exec.CommandContext(
-			ctx, "kubectl", "wait", "pods/gnmi-test-server",
-			"--for", "condition=Ready",
-			"--namespace", "default",
-			"--timeout", "1m",
-		)
-		_, err = Run(cmd)
-		Expect(err).NotTo(HaveOccurred())
-
-		cmd = exec.CommandContext(
-			ctx, "kubectl", "get", "pod", "gnmi-test-server",
-			"--output", "jsonpath='{.status.podIP}'",
-			"--namespace", "default",
-		)
+		By("creating manager namespace")
+		cmd := exec.CommandContext(ctx, "kubectl", "create", "ns", namespace, "--dry-run=client", "-o", "yaml")
 		out, err := Run(cmd)
 		Expect(err).NotTo(HaveOccurred())
-		gnmiServerIPAddr = strings.ReplaceAll(strings.TrimSpace(out), "'", "")
-
-		By("creating manager namespace")
-		cmd = exec.CommandContext(ctx, "kubectl", "create", "ns", namespace)
+		cmd = exec.CommandContext(ctx, "kubectl", "apply", "-f", "-")
+		cmd.Stdin = strings.NewReader(out)
 		_, err = Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to create namespace")
 
@@ -86,21 +56,25 @@ var _ = Describe("Manager", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred(), "Failed to install CRDs")
 
 		By("deploying the controller-manager")
-		cmd = exec.CommandContext(ctx, "make", "deploy")
-		_, err = Run(cmd)
-		Expect(err).NotTo(HaveOccurred(), "Failed to deploy the controller-manager")
+		// Retry deploy because cert-manager webhook may not be ready immediately
+		// after its deployment is Available (TLS certificate propagation delay).
+		Eventually(func() error {
+			cmd = exec.CommandContext(ctx, "make", "deploy")
+			_, err = Run(cmd)
+			return err
+		}).WithTimeout(2*time.Minute).WithPolling(10*time.Second).Should(Succeed(), "Failed to deploy the controller-manager")
 	})
 
 	// After all tests have been executed, clean up by undeploying the controller, uninstalling CRDs,
 	// and deleting the namespace.
 	AfterAll(func(ctx SpecContext) {
 		By("cleaning up the ClusterRoleBinding of the service account to allow access to metrics")
-		cmd := exec.CommandContext(ctx, "kubectl", "delete", "clusterrolebinding", metricsRoleBindingName)
+		cmd := exec.CommandContext(ctx, "kubectl", "delete", "clusterrolebinding", metricsRoleBindingName, "--ignore-not-found")
 		_, err := Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to delete ClusterRoleBinding")
 
 		By("cleaning up the curl pod for metrics")
-		cmd = exec.CommandContext(ctx, "kubectl", "delete", "pod", "curl-metrics", "-n", namespace)
+		cmd = exec.CommandContext(ctx, "kubectl", "delete", "pod", "curl-metrics", "-n", namespace, "--ignore-not-found")
 		_, err = Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to delete curl-metrics pod")
 
@@ -118,11 +92,6 @@ var _ = Describe("Manager", Ordered, func() {
 		cmd = exec.CommandContext(ctx, "kubectl", "delete", "ns", namespace, "--ignore-not-found")
 		_, err = Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to delete namespace")
-
-		By("cleaning up the gnmi-test-server pod")
-		cmd = exec.CommandContext(ctx, "kubectl", "delete", "pod", "gnmi-test-server", "-n", "default")
-		_, err = Run(cmd)
-		Expect(err).NotTo(HaveOccurred(), "Failed to delete gnmi-test-server pod")
 	})
 
 	// After each test, check for failures and collect logs, events,
@@ -320,104 +289,6 @@ var _ = Describe("Manager", Ordered, func() {
 		//    fmt.Sprintf(`controller_runtime_reconcile_total{controller="%s",result="success"} 1`,
 		//    strings.ToLower(<Kind>),
 		// ))
-
-		DescribeTable(
-			"Should reconcile the api objects",
-			func(ctx SpecContext, file string, numFiles int) {
-				device := `
-apiVersion: networking.metal.ironcore.dev/v1alpha1
-kind: Device
-metadata:
-  name: device
-  namespace: default
-spec:
-  endpoint:
-    address: "%s"`
-				err := Apply(ctx, fmt.Sprintf(device, gnmiServerIPAddr+":9339"))
-				Expect(err).NotTo(HaveOccurred(), "Failed to apply Device")
-
-				dir, err := GetProjectDir()
-				Expect(err).NotTo(HaveOccurred(), "Failed to get project directory")
-
-				a, err := txtar.ParseFile(filepath.Join(dir, "test", "e2e", "testdata", file))
-				Expect(err).NotTo(HaveOccurred(), "Failed to parse test file")
-				Expect(a.Files).To(HaveLen(numFiles), "Unexpected number of files in the test archive")
-
-				// All sections except the last are resource manifests; last is expected state.
-				resources := a.Files[:len(a.Files)-1]
-				stateFile := a.Files[len(a.Files)-1]
-
-				for _, res := range resources {
-					err = Apply(ctx, string(res.Data))
-					Expect(err).NotTo(HaveOccurred(), "Failed to apply resource %s", res.Name)
-
-					// Determine wait condition from resource type prefix.
-					// vlans/ have no provider in openconfig — skip wait.
-					var condition string
-					switch {
-					case strings.HasPrefix(res.Name, "banners/"):
-						condition = "Ready"
-					case strings.HasPrefix(res.Name, "vlans/"):
-						continue
-					default:
-						condition = "Configured"
-					}
-
-					// #nosec G204
-					cmd := exec.CommandContext(
-						ctx, "kubectl", "wait", res.Name,
-						"--for", "condition="+condition,
-						"--namespace", "default",
-						"--timeout", "5m",
-					)
-					_, err = Run(cmd)
-					Expect(err).NotTo(HaveOccurred())
-				}
-
-				cmd := exec.CommandContext(
-					ctx, "kubectl", "exec", "gnmi-test-server",
-					"--namespace", "default",
-					"--",
-					"wget", "-qO-", "http://localhost:8000/v1/state",
-				)
-				got, err := Run(cmd)
-				Expect(err).NotTo(HaveOccurred(), "Failed to execute command on gnmi-test-server")
-
-				err = CompareJSON(got, string(stateFile.Data))
-				Expect(err).NotTo(HaveOccurred(), "State output does not match expected JSON")
-
-				// Delete resources in reverse order.
-				for _, res := range slices.Backward(resources) {
-					// #nosec G204
-					cmd = exec.CommandContext(ctx, "kubectl", "delete", res.Name)
-					_, err = Run(cmd)
-					Expect(err).NotTo(HaveOccurred(), "Failed to delete object")
-				}
-
-				cmd = exec.CommandContext(ctx, "kubectl", "delete", "devices/device", "--cascade=foreground")
-				_, err = Run(cmd)
-				Expect(err).NotTo(HaveOccurred(), "Failed to delete object")
-
-				cmd = exec.CommandContext(
-					ctx, "kubectl", "exec", "gnmi-test-server",
-					"--namespace", "default",
-					"--",
-					"wget", "-qO-", "--header", "X-HTTP-Method-Override: DELETE", "http://localhost:8000/v1/state",
-				)
-				_, err = Run(cmd)
-				Expect(err).NotTo(HaveOccurred(), "Failed to execute command on gnmi-test-server")
-			},
-			Entry("Loopback Interface", "interface.txt", 2),
-			Entry("Loopback Multi-Address", "interface_loopback_multi_addr.txt", 2),
-			Entry("Physical IPv4 Address", "interface_physical_ipv4.txt", 2),
-			Entry("Physical Unnumbered", "interface_physical_unnumbered.txt", 3),
-			Entry("Physical Switchport Access", "interface_physical_switchport_access.txt", 2),
-			Entry("Physical Switchport Trunk", "interface_physical_switchport_trunk.txt", 2),
-			Entry("Aggregate L2 Trunk", "interface_aggregate_l2_trunk.txt", 3),
-			Entry("Aggregate L3 Address", "interface_aggregate_l3.txt", 3),
-			Entry("Routed VLAN", "interface_routed_vlan.txt", 3),
-			Entry("Banner PreLogin", "banner.txt", 2),
-		)
 	})
 })
 

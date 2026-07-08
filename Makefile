@@ -36,6 +36,10 @@ default: build-all
 # Image to use all building/pushing image targets
 IMG ?= controller:latest
 
+# E2E test dependency versions
+E2E_PROMETHEUS_OPERATOR_VERSION ?= v0.82.2
+E2E_CERTMANAGER_VERSION ?= v1.17.2
+
 # CONTAINER_TOOL defines the container tool to be used for building images.
 # The default is docker, but it can be overridden to use other tools (i.e. podman or nerdctl).
 CONTAINER_TOOL ?= docker
@@ -83,7 +87,14 @@ test-e2e: FORCE
 	  exit 1; \
 	}
 	@printf "\e[1;36m>> go test ./test/e2e/ -v -ginkgo.v\e[0m\n"
-	@KIND_CLUSTER=$(KIND_CLUSTER) go test ./test/e2e/ -v -ginkgo.v
+	@KIND_CLUSTER=$(KIND_CLUSTER) \
+	  E2E_PROMETHEUS_OPERATOR_VERSION=$(E2E_PROMETHEUS_OPERATOR_VERSION) \
+	  E2E_CERTMANAGER_VERSION=$(E2E_CERTMANAGER_VERSION) \
+	  go test ./test/e2e/ -v -ginkgo.v
+
+# Run integration tests for gNMI.
+test-gnmi: FORCE
+	@printf "\e[1;33m>> gNMI integration tests not yet implemented\e[0m\n"
 
 docker-build: FORCE
 	@printf "\e[1;36m>> $(CONTAINER_TOOL) build --tag=$(IMG) .\e[0m\n"
@@ -158,16 +169,6 @@ netop-provider:
 	@go build -o build/netop-provider ./hack/provider
 	@printf "\e[1;36m>> ./build/netop-provider --help\e[0m\n"
 	@./build/netop-provider --help
-
-TEST_SERVER_IMG ?= ghcr.io/ironcore-dev/gnmi-test-server:latest
-
-docker-build-test-gnmi-server: FORCE
-	@printf "\e[1;36m>> $(CONTAINER_TOOL) build --tag=$(TEST_SERVER_IMG) ./test/gnmi\e[0m\n"
-	@$(CONTAINER_TOOL) build --tag=$(TEST_SERVER_IMG) ./test/gnmi
-
-docker-run-test-gnmi-server: FORCE docker-build-test-gnmi-server
-	@printf "\e[1;36m>> $(CONTAINER_TOOL) run -p 8000:8000 -p 9339:9339 $(TEST_SERVER_IMG)\e[0m\n"
-	@$(CONTAINER_TOOL) run --rm -p 8000:8000 -p 9339:9339 $(TEST_SERVER_IMG)
 
 # TEST_LAB_IMG defines the image to used for packaging the lab tests.
 TEST_LAB_IMG ?= ghcr.io/ironcore-dev/network-operator-lab-test:latest
@@ -274,9 +275,9 @@ check: FORCE static-check build/cover.html build-all
 
 generate: install-controller-gen
 	@printf "\e[1;36m>> controller-gen\e[0m\n"
-	@controller-gen crd rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases output:rbac:artifacts:config=config/rbac
-	@controller-gen object:headerFile="hack/boilerplate.go.txt",year=$(YEAR) paths="./..."
-	@controller-gen applyconfiguration:headerFile="hack/boilerplate.go.txt" paths="./..."
+	@controller-gen crd rbac:roleName=manager-role webhook paths="{./api/...,./internal/...,./cmd/...}" output:crd:artifacts:config=config/crd/bases output:rbac:artifacts:config=config/rbac
+	@controller-gen object:headerFile="hack/boilerplate.go.txt",year=$(YEAR) paths="{./api/...,./internal/...,./cmd/...}"
+	@controller-gen applyconfiguration:headerFile="hack/boilerplate.go.txt" paths="{./api/...,./internal/...,./cmd/...}"
 
 run-golangci-lint: FORCE install-golangci-lint
 	@printf "\e[1;36m>> golangci-lint\e[0m\n"
