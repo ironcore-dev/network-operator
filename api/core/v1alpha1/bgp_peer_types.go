@@ -64,6 +64,11 @@ type BGPPeerSpec struct {
 	// LocalAS configures the local AS number and how it factors into BGP announcements for this peer.
 	// +optional
 	LocalAS *LocalAS `json:"localAS,omitempty"`
+
+	// BFD defines the Bidirectional Forwarding Detection configuration for the interface.
+	// BFD is only applicable for Layer 3 interfaces.
+	// +optional
+	BFD *BFD `json:"bfd,omitempty"`
 }
 
 // LocalAS defines the local AS configuration and how it factors in BGP announcements.

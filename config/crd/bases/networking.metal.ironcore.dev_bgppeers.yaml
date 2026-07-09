@@ -288,6 +288,43 @@ spec:
                   ASNumber is the autonomous system number (ASN) of the BGP peer.
                   Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
                 x-kubernetes-int-or-string: true
+              bfd:
+                description: |-
+                  BFD defines the Bidirectional Forwarding Detection configuration for the interface.
+                  BFD is only applicable for Layer 3 interfaces.
+                properties:
+                  desiredMinimumTxInterval:
+                    description: |-
+                      DesiredMinimumTxInterval is the minimum interval between transmission of BFD control
+                      packets that the operator desires. This value is advertised to the peer.
+                      The actual interval used is the maximum of this value and the remote
+                      required-minimum-receive interval value.
+                    pattern: ^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$
+                    type: string
+                  detectionMultiplier:
+                    description: |-
+                      DetectionMultiplier is the number of packets that must be missed to declare
+                      this session as down. The detection interval for the BFD session is calculated
+                      by multiplying the value of the negotiated transmission interval by this value.
+                    format: int32
+                    maximum: 255
+                    minimum: 1
+                    type: integer
+                  enabled:
+                    description: Enabled indicates whether BFD is enabled on the network
+                      object.
+                    type: boolean
+                  requiredMinimumReceive:
+                    description: |-
+                      RequiredMinimumReceive is the minimum interval between received BFD control packets
+                      that this system should support. This value is advertised to the remote peer to
+                      indicate the maximum frequency between BFD control packets that is acceptable
+                      to the local system.
+                    pattern: ^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$
+                    type: string
+                required:
+                - enabled
+                type: object
               bgpRef:
                 description: |-
                   BgpRef is a reference to the BGP instance this peer belongs to.

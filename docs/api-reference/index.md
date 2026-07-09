@@ -744,16 +744,17 @@ _Appears in:_
 
 
 
-BFD defines the Bidirectional Forwarding Detection configuration for an interface.
+BFD defines the Bidirectional Forwarding Detection configuration for interfaces, bgp peerings and static routes.
 
 
 
 _Appears in:_
+- [BGPPeerSpec](#bgppeerspec)
 - [InterfaceSpec](#interfacespec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `enabled` _boolean_ | Enabled indicates whether BFD is enabled on the interface. |  | Required: \{\} <br /> |
+| `enabled` _boolean_ | Enabled indicates whether BFD is enabled on the network object. |  | Required: \{\} <br /> |
 | `desiredMinimumTxInterval` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | DesiredMinimumTxInterval is the minimum interval between transmission of BFD control<br />packets that the operator desires. This value is advertised to the peer.<br />The actual interval used is the maximum of this value and the remote<br />required-minimum-receive interval value. |  | Pattern: `^([0-9]+(\.[0-9]+)?(ns\|us\|µs\|ms\|s\|m\|h))+$` <br />Type: string <br />Optional: \{\} <br /> |
 | `requiredMinimumReceive` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | RequiredMinimumReceive is the minimum interval between received BFD control packets<br />that this system should support. This value is advertised to the remote peer to<br />indicate the maximum frequency between BFD control packets that is acceptable<br />to the local system. |  | Pattern: `^([0-9]+(\.[0-9]+)?(ns\|us\|µs\|ms\|s\|m\|h))+$` <br />Type: string <br />Optional: \{\} <br /> |
 | `detectionMultiplier` _integer_ | DetectionMultiplier is the number of packets that must be missed to declare<br />this session as down. The detection interval for the BFD session is calculated<br />by multiplying the value of the negotiated transmission interval by this value. |  | Maximum: 255 <br />Minimum: 1 <br />Optional: \{\} <br /> |
@@ -1042,6 +1043,7 @@ _Appears in:_
 | `localAddress` _[BGPPeerLocalAddress](#bgppeerlocaladdress)_ | LocalAddress specifies the local address configuration for the BGP session with this peer.<br />This determines the source address/interface for BGP packets sent to this peer. |  | Optional: \{\} <br /> |
 | `addressFamilies` _[BGPPeerAddressFamilies](#bgppeeraddressfamilies)_ | AddressFamilies configures address family specific settings for this BGP peer.<br />Controls which address families are enabled and their specific configuration. |  | Optional: \{\} <br /> |
 | `localAS` _[LocalAS](#localas)_ | LocalAS configures the local AS number and how it factors into BGP announcements for this peer. |  | Optional: \{\} <br /> |
+| `bfd` _[BFD](#bfd)_ | BFD defines the Bidirectional Forwarding Detection configuration for the interface.<br />BFD is only applicable for Layer 3 interfaces. |  | Optional: \{\} <br /> |
 
 
 #### BGPPeerStatus

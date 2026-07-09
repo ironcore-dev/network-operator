@@ -84,6 +84,8 @@ type Provider struct {
 // timeout is the default timeout for all HTTP/gRPC requests made by the provider.
 const timeout = 30 * time.Second
 
+const featureBFD = "bfd"
+
 func NewProvider() provider.Provider {
 	return &Provider{}
 }
@@ -750,6 +752,28 @@ func (p *Provider) deleteBGP(ctx context.Context, vrfName string) error {
 	return p.client.Delete(ctx, new(BGP))
 }
 
+// applyBGPPeerBFD configures BFD on pe and returns the Feature to enable if BFD is requested.
+// As PeerControl and BfdMultihop are only set when BFD is configured in the spec, this will not
+// work with a gnmiext.Client.Patch call if somebody outside of the network operator configures BFD.
+// "mhbfdintvl-items" would appear in the unmarshaled response and thus we would detect a config
+// drift and reconcile over and over again.
+func applyBGPPeerBFD(pe *BGPPeer, spec *v1alpha1.BFD) (*Feature, error) {
+	f := new(Feature)
+	pe.BfdType = BfdTypeNone
+	if spec == nil || !spec.Enabled {
+		return f, nil
+	}
+	f.Name = featureBFD
+	f.AdminSt = AdminStEnabled
+	bfd, err := NewBGPNeighborBfd(spec)
+	if err != nil {
+		return nil, err
+	}
+	pe.PeerControl = NewOption(PeerControlType)
+	pe.BfdMultihop = bfd
+	return f, nil
+}
+
 func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPeerRequest) error {
 	// Ensure that the BGP domain exists before configuring a peer under it.
 	bgp := new(BGPDom)
@@ -764,6 +788,12 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 	pe := new(BGPPeer)
 	pe.VRFName = bgp.Name
 	pe.Addr = req.BGPPeer.Spec.Address
+
+	f, err := applyBGPPeerBFD(pe, req.BGPPeer.Spec.BFD)
+	if err != nil {
+		return err
+	}
+
 	pe.AdminSt = AdminStEnabled
 	if req.BGPPeer.Spec.AdminState == v1alpha1.AdminStateDown {
 		pe.AdminSt = AdminStDisabled
@@ -841,6 +871,9 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		}
 	}
 
+	if f.AdminSt == AdminStEnabled {
+		return p.client.Update(ctx, f, pe)
+	}
 	return p.client.Update(ctx, pe)
 }
 
@@ -1598,7 +1631,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	switch {
 	case req.Interface.Spec.BFD != nil && req.Interface.Spec.BFD.Enabled:
 		f := new(Feature)
-		f.Name = "bfd"
+		f.Name = featureBFD
 		f.AdminSt = AdminStEnabled
 		sb.Update(f)
 
@@ -1631,7 +1664,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 
 	case req.Interface.Spec.BFD != nil && !req.Interface.Spec.BFD.Enabled:
 		f := new(Feature)
-		f.Name = "bfd"
+		f.Name = featureBFD
 		f.AdminSt = AdminStEnabled
 		sb.Update(f)
 
@@ -1888,7 +1921,7 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 		return intf.Spec.BFD != nil && intf.Spec.BFD.Enabled
 	}) {
 		f := new(Feature)
-		f.Name = "bfd"
+		f.Name = featureBFD
 		f.AdminSt = AdminStEnabled
 		sb.Update(f)
 	}
@@ -2233,7 +2266,7 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 			// BFD-specific fields. Activate it via a separate Set RPC to ensure
 			// the feature is present before the OSPF interface is configured.
 			fb := new(Feature)
-			fb.Name = "bfd"
+			fb.Name = featureBFD
 			fb.AdminSt = AdminStEnabled
 			if err := p.client.Update(ctx, fb); err != nil {
 				return err
