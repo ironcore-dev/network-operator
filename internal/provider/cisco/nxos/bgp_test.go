@@ -51,6 +51,7 @@ func init() {
 		Name:    "EVPN peering with spine",
 		Addr:    "1.1.1.1",
 		SrcIf:   "lo0",
+		BfdType: BfdTypeNone,
 	}
 	bgpPeer.AfItems.PeerAfList.Set(&BGPPeerAfItem{
 		Ctrl:       Option[string]{Value: new(RouteReflectorClient)},
@@ -68,6 +69,7 @@ func init() {
 		AsnType: PeerAsnTypeExternal,
 		Name:    "Unnumbered peering with spine",
 		ID:      "eth1/1",
+		BfdType: BfdTypeNone,
 	}
 	bgpPeerIf.AfItems.PeerAfList.Set(&BGPPeerAfItem{
 		SendComExt: AdminStDisabled,
@@ -83,6 +85,7 @@ func init() {
 		Asn:     "65020",
 		AsnType: PeerAsnTypeNone,
 		ID:      "eth1/2",
+		BfdType: BfdTypeNone,
 	}
 	Register("bgp_peer_if_asn", bgpPeerIfAsn)
 
@@ -95,6 +98,7 @@ func init() {
 		Asn:     "65000",
 		AsnType: PeerAsnTypeNone,
 		Addr:    "10.0.0.1",
+		BfdType: BfdTypeNone,
 	}
 	bgpPeerRpAf := &BGPPeerAfItem{
 		SendComExt: AdminStDisabled,
@@ -111,7 +115,8 @@ func init() {
 		AdminSt: AdminStEnabled,
 		Asn:     "65001",
 		AsnType: PeerAsnTypeNone,
-		Addr:    "1.1.1.1",
+		Addr:    "10.0.0.2",
+		BfdType: BfdTypeNone,
 	}
 	bgpPeerLocalAs.LocalAsnItems.AsnPropagate = AsnPropagateNone
 	bgpPeerLocalAs.LocalAsnItems.LocalAsn = "65002"
@@ -124,5 +129,6 @@ func init() {
 		Asn:     "65000",
 		AsnType: PeerAsnTypeNone,
 		TTL:     NewOption[int32](2),
+		BfdType: BfdTypeNone,
 	})
 }

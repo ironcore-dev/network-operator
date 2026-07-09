@@ -11,7 +11,9 @@
                   "id": "eth1/2",
                   "adminSt": "enabled",
                   "asn": "65020",
-                  "asnType": "none"
+                  "asnType": "none",
+                  "ctrl": "DME_UNSET_PROPERTY_MARKER",
+                  "bfdType": "none"
                 }
               ]
             }

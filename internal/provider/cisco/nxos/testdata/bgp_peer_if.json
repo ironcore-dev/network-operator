@@ -12,6 +12,8 @@
                   "adminSt": "enabled",
                   "asnType": "external",
                   "name": "Unnumbered peering with spine",
+                  "ctrl": "DME_UNSET_PROPERTY_MARKER",
+                  "bfdType": "none",
                   "af-items": {
                     "PeerAf-list": [
                       {
