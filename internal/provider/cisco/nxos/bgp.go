@@ -88,10 +88,12 @@ func (g *BGPPeerGroup) XPath() string {
 }
 
 type BGPDomAfItem struct {
-	MaxExtEcmp    int8          `json:"maxExtEcmp,omitempty"`
-	MaxExtIntEcmp int8          `json:"maxExtIntEcmp,omitempty"`
-	ExportGwIP    AdminSt       `json:"exportGwIp"`
-	Type          AddressFamily `json:"type"`
+	// Maximum number of equal-cost paths for iBGP
+	MaxEcmp int8 `json:"maxEcmp,omitempty"`
+	// Maximum number of equal-cost paths for eBGP
+	MaxExtEcmp int8          `json:"maxExtEcmp,omitempty"`
+	ExportGwIP AdminSt       `json:"exportGwIp"`
+	Type       AddressFamily `json:"type"`
 
 	// The fields below are only valid for the l2vpn-evpn address family.
 	// For other address families, these fields will be omitted in the JSON
@@ -116,16 +118,16 @@ func (af BGPDomAfItem) MarshalJSON() ([]byte, error) {
 	cpy := Copy(af)
 	if af.Type != AddressFamilyL2EVPN {
 		return json.Marshal(struct {
+			MaxEcmp         int8          `json:"maxEcmp,omitempty"`
 			MaxExtEcmp      int8          `json:"maxExtEcmp,omitempty"`
-			MaxExtIntEcmp   int8          `json:"maxExtIntEcmp,omitempty"`
 			ExportGwIP      AdminSt       `json:"exportGwIp"`
 			Type            AddressFamily `json:"type"`
 			InterLeakPItems struct {
 				InterLeakPList gnmiext.List[InterLeakPKey, *InterLeakP] `json:"InterLeakP-list,omitzero"`
 			} `json:"interleak-items,omitzero"`
 		}{
+			MaxEcmp:         af.MaxEcmp,
 			MaxExtEcmp:      af.MaxExtEcmp,
-			MaxExtIntEcmp:   af.MaxExtIntEcmp,
 			ExportGwIP:      af.ExportGwIP,
 			Type:            af.Type,
 			InterLeakPItems: af.InterLeakPItems,
@@ -169,8 +171,8 @@ func NewInterLeakPDirect(rtMap string) *InterLeakP {
 
 func (af *BGPDomAfItem) SetMultipath(m *v1alpha1.BGPMultipath) error {
 	// Default from YANG model
+	af.MaxEcmp = 1
 	af.MaxExtEcmp = 1
-	af.MaxExtIntEcmp = 1
 	if m == nil || !m.Enabled {
 		return nil
 	}
@@ -181,7 +183,7 @@ func (af *BGPDomAfItem) SetMultipath(m *v1alpha1.BGPMultipath) error {
 		}
 	}
 	if m.Ibgp != nil {
-		af.MaxExtIntEcmp = m.Ibgp.MaximumPaths
+		af.MaxEcmp = m.Ibgp.MaximumPaths
 	}
 	return nil
 }
