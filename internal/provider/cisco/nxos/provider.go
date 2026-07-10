@@ -990,6 +990,10 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			p.PhysExtdItems.BufferBoost = AdminStDisable
 		}
 
+		if cfg.Spec.EVPNMultihoming != nil && cfg.Spec.EVPNMultihoming.CoreTracking {
+			p.ESICoreTrackingItems = &ESICoreTracking{CoreTracking: AdminStEnabled}
+		}
+
 		if err := p.Validate(); err != nil {
 			return err
 		}

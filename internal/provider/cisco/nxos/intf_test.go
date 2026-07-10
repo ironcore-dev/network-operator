@@ -136,6 +136,22 @@ func init() {
 	}
 	Register("fwif", fwif)
 
+	Register("physif_coretracking", &PhysIf{
+		AccessVlan:           DefaultVLAN,
+		AdminSt:              AdminStUp,
+		Descr:                NewOption("Uplink to Spine1"),
+		FecMode:              FecModeAuto,
+		ID:                   "eth1/1",
+		Layer:                Layer3,
+		MTU:                  9216,
+		Medium:               MediumPointToPoint,
+		Mode:                 SwitchportModeAccess,
+		NativeVlan:           DefaultVLAN,
+		TrunkVlans:           DefaultVLANRange,
+		UserCfgdFlags:        UserFlagAdminState | UserFlagAdminLayer | UserFlagAdminMTU,
+		ESICoreTrackingItems: &ESICoreTracking{CoreTracking: AdminStEnabled},
+	})
+
 	dci := &MultisiteIfTracking{IfName: "eth1/1", Tracking: MultisiteIfTrackingModeDCI}
 	Register("bgw_tracking", dci)
 

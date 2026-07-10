@@ -20,3 +20,14 @@ spec:
   lacp:
     vpcConvergence: true
     suspendIndividual: false
+---
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: InterfaceConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: evpn-core-tracking
+spec:
+  evpnMultihoming:
+    coreTracking: true

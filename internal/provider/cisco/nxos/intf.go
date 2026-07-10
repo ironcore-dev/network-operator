@@ -85,9 +85,15 @@ type PhysIf struct {
 	PhysExtdItems struct {
 		BufferBoost AdminSt4 `json:"bufferBoost,omitempty"`
 	} `json:"physExtd-items,omitzero"`
+	ESICoreTrackingItems *ESICoreTracking `json:"esimhcoretracking-items,omitempty"`
 }
 
 func (*PhysIf) IsListItem() {}
+
+// ESICoreTracking represents the EVPN ESI multihoming core-tracking configuration on an interface.
+type ESICoreTracking struct {
+	CoreTracking AdminSt `json:"coretracking"`
+}
 
 func (p *PhysIf) XPath() string {
 	return "System/intf-items/phys-items/PhysIf-list[id=" + p.ID + "]"

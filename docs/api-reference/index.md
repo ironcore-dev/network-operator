@@ -4030,6 +4030,22 @@ _Appears in:_
 | `timeout` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | Timeout defines the inactivity timeout for console sessions.<br />If a session is inactive for the specified duration, it will be automatically disconnected.<br />The format is a string representing a duration (e.g., "10m" for 10 minutes). | 10m | Pattern: `^([0-9]+(\.[0-9]+)?(ns\|us\|µs\|ms\|s\|m\|h))+$` <br />Type: string <br />Optional: \{\} <br /> |
 
 
+#### EVPNMultihoming
+
+
+
+EVPNMultihoming defines EVPN ESI multihoming settings for an interface.
+
+
+
+_Appears in:_
+- [InterfaceConfigSpec](#interfaceconfigspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `coreTracking` _boolean_ | CoreTracking enables core-link tracking on the interface.<br />When enabled on uplink (core) interfaces, the switch shuts down<br />ESI-attached access links if all tracked core-links go down,<br />preventing traffic blackholing. |  | Required: \{\} <br /> |
+
+
 #### Enabled
 
 
@@ -4134,6 +4150,7 @@ _Appears in:_
 | `spanningTree` _[SpanningTree](#spanningtree)_ | SpanningTree defines the spanning tree configuration for the interface. |  | Optional: \{\} <br /> |
 | `bufferBoost` _[BufferBoost](#bufferboost)_ | BufferBoost defines the buffer boost configuration for the interface.<br />Buffer boost increases the shared buffer space allocation for the interface. |  | Optional: \{\} <br /> |
 | `lacp` _[InterfaceConfigLACP](#interfaceconfiglacp)_ | LACP defines LACP options for PortChannel (Aggregate) interfaces. |  | Optional: \{\} <br /> |
+| `evpnMultihoming` _[EVPNMultihoming](#evpnmultihoming)_ | EVPNMultihoming defines EVPN ESI multihoming settings for the interface. |  | Optional: \{\} <br /> |
 
 
 #### KeepAlive

@@ -26,6 +26,10 @@ type InterfaceConfigSpec struct {
 	// LACP defines LACP options for PortChannel (Aggregate) interfaces.
 	// +optional
 	LACP *InterfaceConfigLACP `json:"lacp,omitempty"`
+
+	// EVPNMultihoming defines EVPN ESI multihoming settings for the interface.
+	// +optional
+	EVPNMultihoming *EVPNMultihoming `json:"evpnMultihoming,omitempty"`
 }
 
 // SpanningTree defines the spanning tree configuration for an interface.
@@ -51,6 +55,16 @@ type BufferBoost struct {
 	// Maps to CLI command: hardware profile buffer boost
 	// +required
 	Enabled bool `json:"enabled"`
+}
+
+// EVPNMultihoming defines EVPN ESI multihoming settings for an interface.
+type EVPNMultihoming struct {
+	// CoreTracking enables core-link tracking on the interface.
+	// When enabled on uplink (core) interfaces, the switch shuts down
+	// ESI-attached access links if all tracked core-links go down,
+	// preventing traffic blackholing.
+	// +required
+	CoreTracking bool `json:"coreTracking"`
 }
 
 // InterfaceConfigLACP defines LACP options for PortChannel interfaces.

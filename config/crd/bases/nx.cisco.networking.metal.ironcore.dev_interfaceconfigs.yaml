@@ -56,6 +56,20 @@ spec:
                 required:
                 - enabled
                 type: object
+              evpnMultihoming:
+                description: EVPNMultihoming defines EVPN ESI multihoming settings
+                  for the interface.
+                properties:
+                  coreTracking:
+                    description: |-
+                      CoreTracking enables core-link tracking on the interface.
+                      When enabled on uplink (core) interfaces, the switch shuts down
+                      ESI-attached access links if all tracked core-links go down,
+                      preventing traffic blackholing.
+                    type: boolean
+                required:
+                - coreTracking
+                type: object
               lacp:
                 description: LACP defines LACP options for PortChannel (Aggregate)
                   interfaces.
