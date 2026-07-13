@@ -1,0 +1,7 @@
+route-policy BGP-MULTI-ACTION
+  if destination in (10.0.0.0/8) then
+    set community (65000:100, 65000:200)
+    set extcommunity rt (65000:100)
+    done
+  endif
+end-policy
