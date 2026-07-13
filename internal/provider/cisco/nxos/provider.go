@@ -469,8 +469,14 @@ func (p *Provider) DeleteBGP(ctx context.Context, req *provider.DeleteBGPRequest
 // The function is a no-op when the BGP feature is disabled.
 func (p *Provider) deleteBGP(ctx context.Context, vrfName string) error {
 	f := &Feature{Name: "bgp"}
-	if err := p.client.GetConfig(ctx, f); err != nil || f.AdminSt != AdminStEnabled {
+	if err := p.client.GetConfig(ctx, f); err != nil {
+		if errors.Is(err, gnmiext.ErrNil) {
+			return nil // ErrNil: path does not exist: feature is not enabled.
+		}
 		return err
+	}
+	if f.AdminSt != AdminStEnabled {
+		return nil
 	}
 
 	// Remove this domain's ownership marker from the default VRF.
