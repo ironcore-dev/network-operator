@@ -1,0 +1,62 @@
+# NX-OS Banner Integration Test
+
+
+-- state/preload --
+{
+  "System": {
+    "name": "device",
+    "ch-items": {
+      "model": "N9K-C93180YC-FX",
+      "ser": "TEST123456"
+    },
+    "showversion-items": {
+      "nxosVersion": "10.6(4)"
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": []
+      }
+    }
+  }
+}
+
+-- banner/prelogin --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Banner
+metadata:
+  name: prelogin
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  type: PreLogin
+  message:
+    inline: "Authorized users only. All activity is monitored."
+
+-- state/expect --
+{
+  "System": {
+    "name": "device",
+    "ch-items": {
+      "model": "N9K-C93180YC-FX",
+      "ser": "TEST123456"
+    },
+    "showversion-items": {
+      "nxosVersion": "10.3(1)"
+    },
+    "userext-items": {
+      "preloginbanner-items": {
+        "delimiter": "^",
+        "message": "Authorized users only. All activity is monitored."
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

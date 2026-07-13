@@ -1,0 +1,142 @@
+# NX-OS Subinterface Integration Test
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- interface/parent-eth --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: parent-eth
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  name: eth1/3
+  type: Physical
+  adminState: Up
+  mtu: 9216
+  description: "Parent interface for subinterfaces"
+
+-- interface/subif-vlan100 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: subif-vlan100
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  name: eth1/3.100
+  type: Subinterface
+  adminState: Up
+  mtu: 1500
+  description: "L3 Subinterface VLAN 100"
+  parentInterfaceRef:
+    name: parent-eth
+  encapsulation:
+    type: "802.1q"
+    tag: 100
+  ipv4:
+    addresses:
+      - 10.100.0.1/24
+
+-- state/expect --
+{
+  "System": {
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "FECMode": "auto",
+            "accessVlan": "vlan-1",
+            "adminSt": "up",
+            "descr": "Parent interface for subinterfaces",
+            "id": "eth1/3",
+            "layer": "Layer2",
+            "medium": "broadcast",
+            "mode": "access",
+            "mtu": 9216,
+            "nativeVlan": "vlan-1",
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            },
+            "trunkVlans": "1-4094",
+            "userCfgdFlags": "admin_layer,admin_mtu,admin_state"
+          }
+        ]
+      },
+      "encrtd-items": {
+        "EncRtdIf-list": [
+          {
+            "adminSt": "up",
+            "descr": "L3 Subinterface VLAN 100",
+            "encap": "vlan-100",
+            "id": "eth1/3.100",
+            "mediumType": "broadcast",
+            "mtu": 1500,
+            "mtuInherit": false,
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            }
+          }
+        ]
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "eth1/3.100",
+                    "addr-items": {
+                      "Addr-list": [
+                        {
+                          "addr": "10.100.0.1/24",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "primary"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "stp-items": {
+      "inst-items": {
+        "if-items": {
+          "If-list": [
+            {
+              "id": "eth1/3",
+              "mode": "default",
+              "bpdufilter": "default",
+              "bpduguard": "default"
+            }
+          ]
+        }
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

@@ -1,0 +1,58 @@
+# NX-OS LLDP Integration Test
+
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- lldpconfig/lldp-settings --
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: LLDPConfig
+metadata:
+  name: lldp-settings
+  namespace: default
+spec:
+  holdTime: 180
+  initDelay: 5
+
+-- lldp/config --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: LLDP
+metadata:
+  name: config
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  adminState: Up
+  providerConfigRef:
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+    kind: LLDPConfig
+    name: lldp-settings
+
+-- state/expect --
+{
+  "System": {
+    "fm-items": {
+      "lldp-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "lldp-items": {
+      "inst-items": {
+        "holdTime": 180,
+        "initDelayTime": 5
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

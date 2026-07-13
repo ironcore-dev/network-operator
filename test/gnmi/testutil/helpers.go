@@ -1,0 +1,94 @@
+// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-License-Identifier: Apache-2.0
+
+package testutil
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"reflect"
+	"sort"
+)
+
+// CompareJSON compares two JSON strings and returns an error if they are not equal.
+// For comparison, it unmarshals both into interface{} and uses reflect.DeepEqual
+// after sorting any arrays and removing empty arrays/objects to ignore ordering
+// and cleanup artifacts.
+func CompareJSON(got, want string) error {
+	var gotObj, wantObj any
+	if err := json.Unmarshal([]byte(got), &gotObj); err != nil {
+		return fmt.Errorf("failed to unmarshal got JSON: %w", err)
+	}
+	if err := json.Unmarshal([]byte(want), &wantObj); err != nil {
+		return fmt.Errorf("failed to unmarshal want JSON: %w", err)
+	}
+
+	// Normalize both objects (sort arrays, remove empty containers)
+	gotObj = normalizeJSON(gotObj)
+	wantObj = normalizeJSON(wantObj)
+
+	if !reflect.DeepEqual(gotObj, wantObj) {
+		// For error message, show original compacted JSON (not normalized)
+		// so empty objects show as {} not null
+		var gotBuf, wantBuf bytes.Buffer
+		_ = json.Compact(&gotBuf, []byte(got))   //nolint:errcheck // already parsed successfully above
+		_ = json.Compact(&wantBuf, []byte(want)) //nolint:errcheck // already parsed successfully above
+		return fmt.Errorf("JSON mismatch:\ngot:  %s\nwant: %s", gotBuf.String(), wantBuf.String())
+	}
+	return nil
+}
+
+// normalizeJSON recursively sorts arrays and removes empty arrays/objects
+// to make comparison order-independent and ignore cleanup artifacts.
+func normalizeJSON(v any) any {
+	switch val := v.(type) {
+	case map[string]any:
+		result := make(map[string]any)
+		for k, v := range val {
+			normalized := normalizeJSON(v)
+			// Skip empty maps and empty arrays
+			if !isEmpty(normalized) {
+				result[k] = normalized
+			}
+		}
+		if len(result) == 0 {
+			return nil
+		}
+		return result
+	case []any:
+		var result []any
+		for _, elem := range val {
+			normalized := normalizeJSON(elem)
+			if !isEmpty(normalized) {
+				result = append(result, normalized)
+			}
+		}
+		if len(result) == 0 {
+			return nil
+		}
+		// Sort the array by JSON representation
+		sort.Slice(result, func(i, j int) bool {
+			bi, _ := json.Marshal(result[i]) //nolint:errcheck // sorting comparison, errors treated as equal
+			bj, _ := json.Marshal(result[j]) //nolint:errcheck // sorting comparison, errors treated as equal
+			return string(bi) < string(bj)
+		})
+		return result
+	default:
+		return v
+	}
+}
+
+// isEmpty checks if a value is an empty map, empty array, or nil.
+func isEmpty(v any) bool {
+	if v == nil {
+		return true
+	}
+	switch val := v.(type) {
+	case map[string]any:
+		return len(val) == 0
+	case []any:
+		return len(val) == 0
+	}
+	return false
+}

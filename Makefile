@@ -97,9 +97,13 @@ test-gnmi-unit: FORCE
 	@printf "\e[1;36m>> go test ./test/gnmi/testserver/...\e[0m\n"
 	@go test ./test/gnmi/testserver/...
 
-# Run gNMI integration tests (envtest-based)
-test-gnmi: FORCE test-gnmi-unit
-	@printf "\e[1;33m>> gNMI integration tests not yet implemented\e[0m\n"
+# Run gNMI integration tests (envtest + controller + gNMI server)
+test-gnmi-integration: FORCE
+	@printf "\e[1;36m>> go test ./test/gnmi -v -ginkgo.v --ginkgo.label-filter='integration'\e[0m\n"
+	@go test ./test/gnmi -v -ginkgo.v --ginkgo.label-filter='integration'
+
+# Run all gNMI tests
+test-gnmi: FORCE test-gnmi-unit test-gnmi-integration
 
 docker-build: FORCE
 	@printf "\e[1;36m>> $(CONTAINER_TOOL) build --tag=$(IMG) .\e[0m\n"

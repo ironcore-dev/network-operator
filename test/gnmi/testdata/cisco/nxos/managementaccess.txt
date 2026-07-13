@@ -1,0 +1,75 @@
+# NX-OS ManagementAccess Integration Test
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- managementaccess/config --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: ManagementAccess
+metadata:
+  name: config
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  grpc:
+    enabled: true
+    port: 9339
+    vrfName: default
+    gnmi:
+      maxConcurrentCall: 8
+      keepAliveTimeout: 600s
+  ssh:
+    enabled: true
+    timeout: 10m
+    sessionLimit: 32
+
+-- state/expect --
+{
+  "System": {
+    "fm-items": {
+      "grpc-items": {
+        "adminSt": "enabled"
+      },
+      "ssh-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "grpc-items": {
+      "gnmi-items": {
+        "keepAliveTimeout": 600,
+        "maxCalls": 8
+      },
+      "port": 9339,
+      "useVrf": "default"
+    },
+    "terml-items": {
+      "ln-items": {
+        "cons-items": {
+          "execTmeout-items": {
+            "timeout": 0
+          }
+        },
+        "vty-items": {
+          "execTmeout-items": {
+            "timeout": 10
+          },
+          "ssLmt-items": {
+            "sesLmt": 32
+          }
+        }
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

@@ -1,0 +1,178 @@
+# NX-OS DHCP Relay Integration Test
+#
+# Resource dependency chain:
+#   vlan100     -> VLAN (id: 100, name: DHCP-VLAN)
+#   svi100      -> RoutedVLAN Interface referencing vlan100 (spec.name: Vlan100)
+#   relay-config -> DHCPRelay with server and interface reference
+
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- vlan/vlan100 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: VLAN
+metadata:
+  name: vlan100
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  id: 100
+  name: DHCP-VLAN
+
+-- interface/svi100 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: svi100
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  name: Vlan100
+  adminState: Up
+  type: RoutedVLAN
+  vlanRef:
+    name: vlan100
+  ipv4:
+    addresses:
+      - 192.168.100.1/24
+
+-- dhcprelay/relay-config --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: DHCPRelay
+metadata:
+  name: relay-config
+  namespace: default
+  labels:
+    networking.metal.ironcore.dev/device: device
+spec:
+  deviceRef:
+    name: device
+  servers:
+    - "10.0.0.10"
+  interfaceRefs:
+    - name: svi100
+
+-- state/expect --
+{
+  "System": {
+    "bd-items": {
+      "bd-items": {
+        "BD-list": [
+          {
+            "BdState": "active",
+            "adminSt": "active",
+            "fabEncap": "vlan-100",
+            "name": "DHCP-VLAN"
+          }
+        ]
+      }
+    },
+    "dhcp-items": {
+      "inst-items": {
+        "relayif-items": {
+          "RelayIf-list": [
+            {
+              "addr-items": {
+                "RelayAddr-list": [
+                  {
+                    "address": "10.0.0.10",
+                    "vrf": "!unspecified"
+                  }
+                ]
+              },
+              "id": "vlan100"
+            }
+          ]
+        }
+      }
+    },
+    "fm-items": {
+      "dhcp-items": {
+        "adminSt": "enabled"
+      },
+      "ifvlan-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "if-items": {
+                "If-list": [
+                  {
+                    "ctrl": "port-unreachable",
+                    "id": "vlan100"
+                  }
+                ]
+              },
+              "name": "default"
+            }
+          ]
+        }
+      }
+    },
+    "intf-items": {
+      "svi-items": {
+        "If-list": [
+          {
+            "adminSt": "up",
+            "descr": "",
+            "id": "vlan100",
+            "medium": "bcast",
+            "mtu": 1500,
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            },
+            "vlanId": 100
+          }
+        ]
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "if-items": {
+                "If-list": [
+                  {
+                    "addr-items": {
+                      "Addr-list": [
+                        {
+                          "addr": "192.168.100.1/24",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "primary"
+                        }
+                      ]
+                    },
+                    "id": "vlan100"
+                  }
+                ]
+              },
+              "name": "default"
+            }
+          ]
+        }
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
