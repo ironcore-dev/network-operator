@@ -47,7 +47,12 @@ spec:
       "ser": "TEST123456"
     },
     "showversion-items": {
-      "nxosVersion": "10.3(1)"
+      "nxosVersion": "10.6(4)"
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": []
+      }
     },
     "userext-items": {
       "preloginbanner-items": {

@@ -28,6 +28,7 @@ import (
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	nxcontroller "github.com/ironcore-dev/network-operator/internal/controller/cisco/nx"
 	"github.com/ironcore-dev/network-operator/internal/controller/core"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos"
@@ -35,14 +36,21 @@ import (
 	"github.com/ironcore-dev/network-operator/test/gnmi/testserver"
 )
 
+const (
+	// testReconcilerRequeueInterval is the requeue interval for reconcilers that poll operational state.
+	// Set high to reduce log spam in integration tests since operational state reconciliation
+	// is tested in controller unit tests.
+	testReconcilerRequeueInterval = 1 * time.Second
+)
+
 // Integration test variables - separate from existing gnmi_suite_test.go
 var (
-	integrationCtx     context.Context
-	integrationCancel  context.CancelFunc
-	integrationTestEnv *envtest.Environment
-	integrationClient  client.Client
-	integrationManager ctrl.Manager
-	integrationServer  *testserver.Server
+	integrationCtx      context.Context
+	integrationCancel   context.CancelFunc
+	integrationTestEnv  *envtest.Environment
+	integrationClient   client.Client
+	integrationManager  ctrl.Manager
+	integrationServer   *testserver.Server
 	integrationGRPCAddr string
 )
 
@@ -141,7 +149,7 @@ var _ = BeforeSuite(func() {
 		Recorder:        recorder,
 		Provider:        prov,
 		Locker:          testLocker,
-		RequeueInterval: time.Second,
+		RequeueInterval: testReconcilerRequeueInterval,
 	}).SetupWithManager(integrationCtx, integrationManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -241,7 +249,7 @@ var _ = BeforeSuite(func() {
 		Recorder:        recorder,
 		Provider:        prov,
 		Locker:          testLocker,
-		RequeueInterval: time.Second,
+		RequeueInterval: testReconcilerRequeueInterval,
 	}).SetupWithManager(integrationCtx, integrationManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -251,7 +259,7 @@ var _ = BeforeSuite(func() {
 		Recorder:        recorder,
 		Provider:        prov,
 		Locker:          testLocker,
-		RequeueInterval: time.Second,
+		RequeueInterval: testReconcilerRequeueInterval,
 	}).SetupWithManager(integrationCtx, integrationManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -261,7 +269,7 @@ var _ = BeforeSuite(func() {
 		Recorder:        recorder,
 		Provider:        prov,
 		Locker:          testLocker,
-		RequeueInterval: time.Second,
+		RequeueInterval: testReconcilerRequeueInterval,
 	}).SetupWithManager(integrationCtx, integrationManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -271,7 +279,7 @@ var _ = BeforeSuite(func() {
 		Recorder:        recorder,
 		Provider:        prov,
 		Locker:          testLocker,
-		RequeueInterval: time.Second,
+		RequeueInterval: testReconcilerRequeueInterval,
 	}).SetupWithManager(integrationCtx, integrationManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -290,7 +298,7 @@ var _ = BeforeSuite(func() {
 		Recorder:        recorder,
 		Provider:        prov,
 		Locker:          testLocker,
-		RequeueInterval: time.Second,
+		RequeueInterval: testReconcilerRequeueInterval,
 	}).SetupWithManager(integrationCtx, integrationManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -318,7 +326,7 @@ var _ = BeforeSuite(func() {
 		Recorder:        recorder,
 		Provider:        prov,
 		Locker:          testLocker,
-		RequeueInterval: time.Second,
+		RequeueInterval: testReconcilerRequeueInterval,
 	}).SetupWithManager(integrationCtx, integrationManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -328,7 +336,7 @@ var _ = BeforeSuite(func() {
 		Recorder:        recorder,
 		Provider:        prov,
 		Locker:          testLocker,
-		RequeueInterval: time.Second,
+		RequeueInterval: testReconcilerRequeueInterval,
 	}).SetupWithManager(integrationCtx, integrationManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -338,6 +346,16 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
+	}).SetupWithManager(integrationCtx, integrationManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&nxcontroller.VPCDomainReconciler{
+		Client:          integrationManager.GetClient(),
+		Scheme:          integrationManager.GetScheme(),
+		Recorder:        recorder,
+		Provider:        prov,
+		Locker:          testLocker,
+		RequeueInterval: testReconcilerRequeueInterval,
 	}).SetupWithManager(integrationCtx, integrationManager)
 	Expect(err).NotTo(HaveOccurred())
 

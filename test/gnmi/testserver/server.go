@@ -253,10 +253,16 @@ func (s *Server) Get(_ context.Context, req *gpb.GetRequest) (*gpb.GetResponse, 
 		log.Printf("Getting path: %v", path)
 		val := s.state.Get(path)
 		if val == nil {
-			notifications = append(notifications, &gpb.Notification{
-				Timestamp: time.Now().UnixNano(),
-			})
-			continue
+			// Per gNMI spec, return NOT_FOUND for missing paths.
+			// NX-OS devices have a non-compliant implementation that returns
+			// an empty notification instead. Use WithNXOSBehavior() to emulate this.
+			if s.state.nos == nosNXOS {
+				notifications = append(notifications, &gpb.Notification{
+					Timestamp: time.Now().UnixNano(),
+				})
+				continue
+			}
+			return nil, status.Errorf(codes.NotFound, "path not found: %v", path)
 		}
 		notifications = append(notifications, &gpb.Notification{
 			Timestamp: time.Now().UnixNano(),
@@ -579,13 +585,25 @@ func (s *State) Set(path *gpb.Path, raw []byte) {
 		sb.WriteByte('.')
 		sb.WriteString(strconv.Itoa(idx))
 		for k, v := range elem.GetKey() {
-			s.Buf, _ = sjson.SetBytes(s.Buf, sb.String()+"."+k, v) //nolint:errcheck
+			s.Buf, _ = sjson.SetBytes(s.Buf, sb.String()+"."+k, parseKeyValue(v)) //nolint:errcheck
 		}
 	}
 	s.Buf, _ = sjson.SetRawBytes(s.Buf, sb.String(), raw) //nolint:errcheck
 	for k, v := range path.GetElem()[len(path.GetElem())-1].GetKey() {
-		s.Buf, _ = sjson.SetBytes(s.Buf, sb.String()+"."+k, v) //nolint:errcheck
+		s.Buf, _ = sjson.SetBytes(s.Buf, sb.String()+"."+k, parseKeyValue(v)) //nolint:errcheck
 	}
+}
+
+// parseKeyValue converts a gNMI path key value to the appropriate Go type.
+// Numbers are converted to int64, "true"/"false" to bool, otherwise string.
+func parseKeyValue(v string) any {
+	if i, err := strconv.ParseInt(v, 10, 64); err == nil {
+		return i
+	}
+	if b, err := strconv.ParseBool(v); err == nil {
+		return b
+	}
+	return v
 }
 
 func (s *State) Del(path *gpb.Path) {

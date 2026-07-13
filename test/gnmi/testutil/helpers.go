@@ -4,11 +4,12 @@
 package testutil
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
+
+	"github.com/pmezard/go-difflib/difflib"
 )
 
 // CompareJSON compares two JSON strings and returns an error if they are not equal.
@@ -29,12 +30,19 @@ func CompareJSON(got, want string) error {
 	wantObj = normalizeJSON(wantObj)
 
 	if !reflect.DeepEqual(gotObj, wantObj) {
-		// For error message, show original compacted JSON (not normalized)
-		// so empty objects show as {} not null
-		var gotBuf, wantBuf bytes.Buffer
-		_ = json.Compact(&gotBuf, []byte(got))   //nolint:errcheck // already parsed successfully above
-		_ = json.Compact(&wantBuf, []byte(want)) //nolint:errcheck // already parsed successfully above
-		return fmt.Errorf("JSON mismatch:\ngot:  %s\nwant: %s", gotBuf.String(), wantBuf.String())
+		// Pretty-print both for readable diff
+		gotPretty, _ := json.MarshalIndent(gotObj, "", "  ")
+		wantPretty, _ := json.MarshalIndent(wantObj, "", "  ")
+
+		diff := difflib.UnifiedDiff{
+			A:        difflib.SplitLines(string(wantPretty)),
+			B:        difflib.SplitLines(string(gotPretty)),
+			FromFile: "want",
+			ToFile:   "got",
+			Context:  3,
+		}
+		diffStr, _ := difflib.GetUnifiedDiffString(diff)
+		return fmt.Errorf("JSON mismatch:\n%s", diffStr)
 	}
 	return nil
 }

@@ -3,11 +3,25 @@
 -- state/preload --
 {
   "System": {
+    "name": "device",
+    "ch-items": {
+      "model": "N9K-C93180YC-FX",
+      "ser": "TEST123456"
+    },
+    "showversion-items": {
+      "nxosVersion": "10.6(4)"
+    },
     "procsys-items": {
       "bootTime": "1700000000"
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": []
+      }
     }
   }
 }
+
 
 -- managementaccess/config --
 apiVersion: networking.metal.ironcore.dev/v1alpha1
@@ -35,6 +49,17 @@ spec:
 -- state/expect --
 {
   "System": {
+    "name": "device",
+    "ch-items": {
+      "model": "N9K-C93180YC-FX",
+      "ser": "TEST123456"
+    },
+    "showversion-items": {
+      "nxosVersion": "10.6(4)"
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
     "fm-items": {
       "grpc-items": {
         "adminSt": "enabled"
@@ -67,9 +92,6 @@ spec:
           }
         }
       }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }

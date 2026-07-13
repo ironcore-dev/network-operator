@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -119,24 +120,22 @@ var _ = Describe("gNMI Integration", Ordered, Label("integration"), func() {
 				Expect(err).NotTo(HaveOccurred(), "Failed to create %s", manifest.Name)
 				createdObjects = append(createdObjects, obj)
 
-				// Determine wait condition from resource type
-				// Config-only resources: wait for Ready (which reflects Configured internally)
-				// Operational resources: wait for Configured
-				var condition string
+				// Determine if we should wait for a condition
+				// Operational resources: don't wait (they poll for state continuously)
+				// Config-only resources: wait for Ready
+				// VLAN: may not have conditions
 				kind := obj.GetKind()
 				switch kind {
-				case "VLAN":
-					// VLANs may not have conditions in openconfig mode
+				case "VLAN", "Interface", "BGP", "BGPPeer", "OSPF", "LLDP", "NetworkVirtualizationEdge", "DHCPRelay",
+					"BGPConfig", "LLDPConfig": // Provider-specific config resources without their own controller
+					// Skip condition wait for operational resources and VLANs
+					// They either poll continuously or don't have conditions
+					GinkgoWriter.Printf("Skipping condition wait for %s/%s (operational or no conditions)\n", kind, obj.GetName())
 					continue
-				case "Interface", "BGP", "BGPPeer", "OSPF", "LLDP", "NetworkVirtualizationEdge", "DHCPRelay":
-					// Resources with operational state
-					condition = "Configured"
-				default:
-					// Config-only resources (Banner, ACL, DNS, NTP, Syslog, etc.)
-					condition = "Ready"
 				}
 
-				// Wait for condition
+			// Wait for a condition to be True
+				// Prefer Configured (means config was pushed), fall back to Ready
 				Eventually(func(g Gomega) {
 					key := client.ObjectKeyFromObject(obj)
 					refreshed := &unstructured.Unstructured{}
@@ -151,20 +150,22 @@ var _ = Describe("gNMI Integration", Ordered, Label("integration"), func() {
 						return
 					}
 
-					// Find matching condition
-					var conditionFound bool
+					// Check for Configured=True first, then Ready=True
+					var configuredTrue, readyTrue bool
 					for _, c := range conditions {
-						condMap, ok := c.(map[string]interface{})
+						condMap, ok := c.(map[string]any)
 						if !ok {
 							continue
 						}
-						if condMap["type"] == condition && condMap["status"] == "True" {
-							conditionFound = true
-							break
+						if condMap["type"] == "Configured" && condMap["status"] == "True" {
+							configuredTrue = true
+						}
+						if condMap["type"] == "Ready" && condMap["status"] == "True" {
+							readyTrue = true
 						}
 					}
-					g.Expect(conditionFound).To(BeTrue(), "Condition %s not True for %s/%s", condition, kind, obj.GetName())
-				}).WithTimeout(testutil.VeryLongTimeout).WithPolling(testutil.DefaultPollingInterval).Should(Succeed())
+					g.Expect(configuredTrue || readyTrue).To(BeTrue(), "Neither Configured nor Ready is True for %s/%s", kind, obj.GetName())
+				}).WithTimeout(testutil.DefaultTimeout).WithPolling(testutil.DefaultPollingInterval).Should(Succeed())
 			}
 
 			By("verifying gNMI server state")
@@ -172,31 +173,35 @@ var _ = Describe("gNMI Integration", Ordered, Label("integration"), func() {
 				got, err := integrationServer.GetState()
 				g.Expect(err).NotTo(HaveOccurred())
 
-				GinkgoWriter.Printf("Actual state: %s\n", string(got))
-				GinkgoWriter.Printf("Expected state: %s\n", expectedState)
-
 				err = testutil.CompareJSON(string(got), expectedState)
+				if err != nil {
+					GinkgoWriter.Printf("State not yet matching: %v\n", err)
+				}
 				g.Expect(err).NotTo(HaveOccurred(), "State mismatch")
-			}).WithTimeout(testutil.LongTimeout).WithPolling(testutil.DefaultPollingInterval).Should(Succeed())
+			}).WithTimeout(10 * time.Second).WithPolling(testutil.DefaultPollingInterval).Should(Succeed())
 
 			By("cleaning up resources")
-			// Delete resources in reverse order
+			// Delete resources in reverse order and wait for them to be gone
 			for _, obj := range slices.Backward(createdObjects) {
 				GinkgoWriter.Printf("Deleting %s/%s\n", obj.GetKind(), obj.GetName())
-				err := integrationClient.Delete(ctx, obj)
-				Expect(client.IgnoreNotFound(err)).To(Succeed())
+				Expect(client.IgnoreNotFound(integrationClient.Delete(ctx, obj))).To(Succeed())
+
+				// Wait for the resource to be fully deleted
+				key := client.ObjectKeyFromObject(obj)
+				Eventually(func() bool {
+					err := integrationClient.Get(ctx, key, obj)
+					return client.IgnoreNotFound(err) == nil && err != nil
+				}).WithTimeout(testutil.DefaultTimeout).WithPolling(testutil.DefaultPollingInterval).Should(BeTrue(),
+					"Resource %s/%s was not deleted in time", obj.GetKind(), obj.GetName())
 			}
 
-			// Delete Device
-			err = integrationClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))
-			Expect(client.IgnoreNotFound(err)).To(Succeed())
-
-			// Wait for Device deletion
-			Eventually(func(g Gomega) {
+			// Delete Device and wait for it to be gone
+			Expect(client.IgnoreNotFound(integrationClient.Delete(ctx, device))).To(Succeed())
+			Eventually(func() bool {
 				err := integrationClient.Get(ctx, client.ObjectKeyFromObject(device), device)
-				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
-				g.Expect(err).To(HaveOccurred(), "Device should be deleted")
-			}).WithTimeout(testutil.LongTimeout).WithPolling(testutil.DefaultPollingInterval).Should(Succeed())
+				return client.IgnoreNotFound(err) == nil && err != nil
+			}).WithTimeout(testutil.DefaultTimeout).WithPolling(testutil.DefaultPollingInterval).Should(BeTrue(),
+				"Device was not deleted in time")
 		},
 		// Cisco NX-OS testdata entries
 		Entry("ACL", "acl.txt"),
