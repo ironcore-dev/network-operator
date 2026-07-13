@@ -8,7 +8,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -51,25 +50,88 @@ type Server struct {
 	closeOnce sync.Once
 }
 
-// NewTestServer starts an in-process gNMI + HTTP server on random available ports.
+// ServerOption configures the test server
+type ServerOption func(*serverConfig)
+
+type serverConfig struct {
+	// nos indicates the network operating system flavor for the test server. This is used to enable specific behaviors, such as stripping DME markers for NXOS.
+	nos         nos
+	grpcPort    int
+	httpPort    int
+	bindAddress string
+}
+
+// nos is a type representing the network operating system flavor for the test server.
+type nos string
+
+const (
+	nosNone nos = "none"
+	nosNXOS nos = "nxos"
+)
+
+// dmeUnsetPropertyMarker is the value NX-OS uses to signal that a field should
+// be unset rather than stored as a literal string.
+const dmeUnsetPropertyMarker = "DME_UNSET_PROPERTY_MARKER"
+
+// WithGRPCPort sets a specific gRPC port (default: 0 for random)
+func WithGRPCPort(port int) ServerOption {
+	return func(c *serverConfig) {
+		c.grpcPort = port
+	}
+}
+
+// WithHTTPPort sets a specific HTTP port (default: 0 for random)
+func WithHTTPPort(port int) ServerOption {
+	return func(c *serverConfig) {
+		c.httpPort = port
+	}
+}
+
+// WithBindAddress sets the address to bind to (default: 127.0.0.1).
+func WithBindAddress(addr string) ServerOption {
+	return func(c *serverConfig) {
+		c.bindAddress = addr
+	}
+}
+
+// WithNXOSBehavior configures the server to emulate NX-OS device behavior:
+//   - Strips fields with DME_UNSET_PROPERTY_MARKER value when value is stored in the server state
+//     (the marker means "unset this field", not "store this literal string")
+func WithNXOSBehavior() ServerOption {
+	return func(c *serverConfig) {
+		c.nos = nosNXOS
+	}
+}
+
+// NewTestServer starts an in-process gNMI + HTTP server.
+// By default, it uses random available ports. Use WithGRPCPort/WithHTTPPort to specify ports.
 // Returns the server, gRPC address, HTTP address, and any error.
-func NewTestServer(ctx context.Context) (*Server, string, string, error) {
-	lc := &net.ListenConfig{}
-	grpcLis, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
+func NewTestServer(ctx context.Context, opts ...ServerOption) (*Server, string, string, error) {
+	cfg := &serverConfig{
+		nos:         nosNone,     // No special behavior by default
+		grpcPort:    0,           // Random port by default
+		httpPort:    0,           // Random port by default
+		bindAddress: "127.0.0.1", // Localhost by default (safe for in-process tests)
+	}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	grpcListener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.bindAddress, cfg.grpcPort))
 	if err != nil {
 		return nil, "", "", fmt.Errorf("failed to listen for gRPC: %w", err)
 	}
 
-	httpLis, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
+	httpListener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.bindAddress, cfg.httpPort))
 	if err != nil {
-		grpcLis.Close()
+		grpcListener.Close()
 		return nil, "", "", fmt.Errorf("failed to listen for HTTP: %w", err)
 	}
 
 	cert, err := gtls.NewCert()
 	if err != nil {
-		grpcLis.Close()
-		httpLis.Close()
+		grpcListener.Close()
+		httpListener.Close()
 		return nil, "", "", fmt.Errorf("failed to create TLS certificate: %w", err)
 	}
 
@@ -78,10 +140,12 @@ func NewTestServer(ctx context.Context) (*Server, string, string, error) {
 	})))
 
 	server := &Server{
-		state:      &State{},
+		state: &State{
+			nos: cfg.nos,
+		},
 		grpcServer: grpcServer,
-		grpcAddr:   grpcLis.Addr().String(),
-		httpAddr:   httpLis.Addr().String(),
+		grpcAddr:   grpcListener.Addr().String(),
+		httpAddr:   httpListener.Addr().String(),
 	}
 
 	gpb.RegisterGNMIServer(grpcServer, server)
@@ -90,27 +154,26 @@ func NewTestServer(ctx context.Context) (*Server, string, string, error) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/state", server.handleState)
+	mux.HandleFunc("/v1/clear", server.handleClear)
 	server.httpServer = &http.Server{Handler: mux}
 
 	go func() {
 		log.Printf("Starting HTTP server on %s", server.httpAddr)
-		if err := server.httpServer.Serve(httpLis); err != nil && err != http.ErrServerClosed {
+		if err := server.httpServer.Serve(httpListener); err != nil && err != http.ErrServerClosed {
 			log.Printf("HTTP server error: %v", err)
 		}
 	}()
 
 	go func() {
 		log.Printf("Starting gRPC server on %s", server.grpcAddr)
-		if err := grpcServer.Serve(grpcLis); err != nil {
+		if err := grpcServer.Serve(grpcListener); err != nil {
 			log.Printf("gRPC server error: %v", err)
 		}
 	}()
 
-	go func() { //nolint:gosec // G118: ctx is already done, must use Background for shutdown timeout
+	go func() {
 		<-ctx.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := server.Close(shutdownCtx); err != nil { //nolint:contextcheck // shutdownCtx is correctly derived from Background
+		if err := server.Close(); err != nil {
 			log.Printf("Shutdown error: %v", err)
 		}
 	}()
@@ -128,12 +191,42 @@ func (s *Server) HTTPAddr() string {
 	return s.httpAddr
 }
 
+// GetState returns the current JSON state
+func (s *Server) GetState() ([]byte, error) {
+	s.state.RLock()
+	defer s.state.RUnlock()
+	if len(s.state.Buf) == 0 {
+		return []byte("{}"), nil
+	}
+	var buf bytes.Buffer
+	if err := json.Compact(&buf, s.state.Buf); err != nil {
+		return nil, fmt.Errorf("failed to compact JSON: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+// SetState replaces the server state with the given JSON bytes.
+func (s *Server) SetState(data []byte) {
+	s.state.Lock()
+	defer s.state.Unlock()
+	s.state.Buf = data
+}
+
+// ClearState clears all accumulated state
+func (s *Server) ClearState() {
+	s.state.Lock()
+	defer s.state.Unlock()
+	s.state.Buf = nil
+}
+
 // Close gracefully shuts down the server. It is safe to call multiple times
 // and from multiple goroutines; only the first call performs shutdown.
-func (s *Server) Close(ctx context.Context) error {
+func (s *Server) Close() error {
 	var closeErr error
 	s.closeOnce.Do(func() {
 		log.Printf("Shutting down gNMI test server")
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 
 		if s.httpServer != nil {
 			if err := s.httpServer.Shutdown(ctx); err != nil {
@@ -200,7 +293,7 @@ func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, 
 		log.Printf("Replacing path: %v with value: %q", replace.GetPath(), replace.GetVal().GetJsonVal())
 		res = append(res, &gpb.UpdateResult{
 			Timestamp: time.Now().UnixNano(),
-			Path:      replace.GetPath(),
+			Path:      replace.Path,
 			Op:        gpb.UpdateResult_REPLACE,
 		})
 		// Delete the existing value at the path and set the new value.
@@ -211,7 +304,7 @@ func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, 
 		log.Printf("Updating path: %v with value: %q", update.GetPath(), update.GetVal().GetJsonVal())
 		res = append(res, &gpb.UpdateResult{
 			Timestamp: time.Now().UnixNano(),
-			Path:      update.GetPath(),
+			Path:      update.Path,
 			Op:        gpb.UpdateResult_UPDATE,
 		})
 		// The value will automatically be merged into the existing state.
@@ -227,7 +320,7 @@ func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, 
 func (s *Server) Subscribe(stream grpc.BidiStreamingServer[gpb.SubscribeRequest, gpb.SubscribeResponse]) error {
 	req, err := stream.Recv()
 	switch {
-	case errors.Is(err, io.EOF):
+	case err == io.EOF:
 		return nil
 	case err != nil:
 		return err
@@ -282,45 +375,86 @@ func (s *Server) Subscribe(stream grpc.BidiStreamingServer[gpb.SubscribeRequest,
 	return nil
 }
 
-// handleState handles HTTP requests to the /v1/state endpoint
+// handleState handles HTTP requests to the /v1/state endpoint:
+//   - GET: returns the current state as JSON
+//   - POST: merges the JSON request body into the root of the state
+//     (shallow: top-level keys overwrite, nested objects are replaced);
+//     an empty body is a no-op, invalid JSON returns 400
+//   - DELETE: clears all state
+//
+// If set, the X-HTTP-Method-Override header overrides the request method
+// (case-insensitive), so clients that can only send GET/POST can still invoke
+// DELETE. Any other method returns 405.
 func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 	method := r.Method
-	if override := r.Header.Get("X-Http-Method-Override"); override != "" {
-		method = override
+	if override := r.Header.Get("X-HTTP-Method-Override"); override != "" {
+		method = strings.ToUpper(override)
 	}
 	switch method {
 	case http.MethodGet:
-		s.state.RLock()
-		defer s.state.RUnlock()
-		w.Header().Set("Content-Type", "application/json")
-		if len(s.state.Buf) == 0 {
-			w.WriteHeader(http.StatusOK)
-			if _, err := w.Write([]byte("{}")); err != nil {
-				log.Printf("Failed to write empty response: %v", err)
-			}
-			return
-		}
-		var buf bytes.Buffer
-		if err := json.Compact(&buf, s.state.Buf); err != nil {
-			log.Printf("Failed to compact JSON: %v", err)
+		state, err := s.GetState()
+		if err != nil {
+			log.Printf("Failed to get state: %v", err)
 			w.WriteHeader(http.StatusInternalServerError)
-			if _, err := w.Write([]byte("Internal Server Error")); err != nil {
-				log.Printf("Failed to write error response: %v", err)
-			}
+			w.Write([]byte("Internal Server Error"))
 			return
 		}
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write(buf.Bytes()); err != nil {
-			log.Printf("Failed to write response: %v", err)
+		w.Write(state)
+	case http.MethodPost:
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			log.Printf("Failed to read body: %v", err)
+			http.Error(w, "Failed to read body", http.StatusBadRequest)
+			return
 		}
+		if len(body) == 0 {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		if !gjson.ValidBytes(body) {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		s.state.Set(&gpb.Path{}, body)
+		log.Printf("Merged state from JSON")
+		w.WriteHeader(http.StatusNoContent)
 	case http.MethodDelete:
-		s.state.Lock()
-		defer s.state.Unlock()
-		s.state.Buf = nil
+		s.ClearState()
 		w.WriteHeader(http.StatusNoContent)
 	default:
+		w.Header().Set("Allow", "GET, POST, DELETE")
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
+}
+
+// handleClear handles POST /v1/clear to clear all state.
+func (s *Server) handleClear(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	s.ClearState()
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// mergeJSON merges src JSON into dst JSON at the root level.
+// Keys in src overwrite keys in dst. The merge is shallow: nested objects are
+// replaced wholesale, not deep-merged. If src is not a JSON object (e.g. an
+// array or scalar), dst is discarded and src is returned as-is.
+func mergeJSON(dst, src []byte) []byte {
+	srcParsed := gjson.ParseBytes(src)
+	if !srcParsed.IsObject() {
+		return src
+	}
+	result := dst
+	srcParsed.ForEach(func(key, value gjson.Result) bool {
+		result, _ = sjson.SetRawBytes(result, key.String(), []byte(value.Raw))
+		return true
+	})
+	return result
 }
 
 // State represents a JSON body that can be manipulated using [sjson] syntax.
@@ -328,6 +462,51 @@ type State struct {
 	sync.RWMutex
 
 	Buf []byte
+	// nos defines network-operating-system-specific behavior, e.g. strip DME markers.
+	nos nos
+}
+
+// stripMarkerFields removes fields with the DME marker value from JSON recursively.
+// It is a no-op when the server is not configured to emulate NX-OS behavior.
+func (s *State) stripMarkerFields(data []byte) []byte {
+	if s.nos != nosNXOS {
+		return data
+	}
+	return s.stripMarkersRecursive(data)
+}
+
+// stripMarkersRecursive walks the JSON structure and removes marker fields.
+func (s *State) stripMarkersRecursive(data []byte) []byte {
+	parsed := gjson.ParseBytes(data)
+	if !parsed.IsObject() && !parsed.IsArray() {
+		return data
+	}
+
+	if parsed.IsArray() {
+		var results []string
+		parsed.ForEach(func(_, value gjson.Result) bool {
+			processed := s.stripMarkersRecursive([]byte(value.Raw))
+			results = append(results, string(processed))
+			return true
+		})
+		return []byte("[" + strings.Join(results, ",") + "]")
+	}
+
+	var toDelete []string
+	parsed.ForEach(func(key, value gjson.Result) bool {
+		keyStr := key.String()
+		if value.Type == gjson.String && value.String() == dmeUnsetPropertyMarker {
+			toDelete = append(toDelete, keyStr)
+		} else if value.IsObject() || value.IsArray() {
+			processed := s.stripMarkersRecursive([]byte(value.Raw))
+			data, _ = sjson.SetRawBytes(data, keyStr, processed)
+		}
+		return true
+	})
+	for _, key := range toDelete {
+		data, _ = sjson.DeleteBytes(data, key)
+	}
+	return data
 }
 
 func (s *State) Get(path *gpb.Path) []byte {
@@ -355,15 +534,26 @@ func (s *State) Get(path *gpb.Path) []byte {
 		}
 	}
 	res := gjson.GetBytes(s.Buf, sb.String())
-	if !res.Exists() || (res.IsArray() && len(res.Array()) == 0) {
-		return nil
+
+	// For NX-OS, return empty bytes when the path is missing or resolves to an empty array
+	if s.nos == nosNXOS && (!res.Exists() || (res.IsArray() && len(res.Array()) == 0)) {
+		return []byte{}
 	}
+
 	return []byte(res.Raw)
 }
 
 func (s *State) Set(path *gpb.Path, raw []byte) {
 	s.Lock()
 	defer s.Unlock()
+
+	raw = s.stripMarkerFields(raw)
+
+	if len(path.GetElem()) == 0 {
+		s.Buf = mergeJSON(s.Buf, raw)
+		return
+	}
+
 	var sb strings.Builder
 	for _, elem := range path.GetElem() {
 		if elem.GetName() == "" {
