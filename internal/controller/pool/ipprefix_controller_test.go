@@ -22,12 +22,8 @@ var _ = Describe("IPPrefix Controller", func() {
 				Namespace:    metav1.NamespaceDefault,
 			},
 			Spec: poolv1alpha1.IPPrefixPoolSpec{
-				Prefixes: []poolv1alpha1.IPPrefixPoolPrefix{
-					{
-						Prefix:       corev1alpha1.MustParsePrefix("10.0.0.0/24"),
-						PrefixLength: 26,
-					},
-				},
+				Prefixes:               []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.0.0.0/24")},
+				AllocationPrefixLength: 26,
 			},
 		}
 		Expect(k8sClient.Create(ctx, pool)).To(Succeed())
@@ -71,12 +67,8 @@ var _ = Describe("IPPrefix Controller", func() {
 				Namespace:    metav1.NamespaceDefault,
 			},
 			Spec: poolv1alpha1.IPPrefixPoolSpec{
-				Prefixes: []poolv1alpha1.IPPrefixPoolPrefix{
-					{
-						Prefix:       corev1alpha1.MustParsePrefix("10.0.0.0/24"),
-						PrefixLength: 26,
-					},
-				},
+				Prefixes:               []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.0.0.0/24")},
+				AllocationPrefixLength: 26,
 			},
 		}
 		Expect(k8sClient.Create(ctx, pool)).To(Succeed())

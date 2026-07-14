@@ -6,7 +6,6 @@ package v1alpha1
 import (
 	"math/big"
 	"net/netip"
-	"reflect"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,7 +24,8 @@ func TestIPPrefixPool_Total(t *testing.T) {
 			name: "empty prefixes",
 			pool: IPPrefixPool{
 				Spec: IPPrefixPoolSpec{
-					Prefixes: []IPPrefixPoolPrefix{},
+					Prefixes:               []corev1alpha1.IPPrefix{},
+					AllocationPrefixLength: 28,
 				},
 			},
 			want: big.NewInt(0),
@@ -34,12 +34,8 @@ func TestIPPrefixPool_Total(t *testing.T) {
 			name: "single IPv4 prefix /24 allocating /28",
 			pool: IPPrefixPool{
 				Spec: IPPrefixPoolSpec{
-					Prefixes: []IPPrefixPoolPrefix{
-						{
-							Prefix:       corev1alpha1.MustParsePrefix("192.168.1.0/24"),
-							PrefixLength: 28,
-						},
-					},
+					Prefixes:               []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("192.168.1.0/24")},
+					AllocationPrefixLength: 28,
 				},
 			},
 			want: big.NewInt(16),
@@ -48,12 +44,8 @@ func TestIPPrefixPool_Total(t *testing.T) {
 			name: "single IPv4 prefix /16 allocating /24",
 			pool: IPPrefixPool{
 				Spec: IPPrefixPoolSpec{
-					Prefixes: []IPPrefixPoolPrefix{
-						{
-							Prefix:       corev1alpha1.MustParsePrefix("10.0.0.0/16"),
-							PrefixLength: 24,
-						},
-					},
+					Prefixes:               []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.0.0.0/16")},
+					AllocationPrefixLength: 24,
 				},
 			},
 			want: big.NewInt(256),
@@ -62,16 +54,11 @@ func TestIPPrefixPool_Total(t *testing.T) {
 			name: "multiple IPv4 prefixes",
 			pool: IPPrefixPool{
 				Spec: IPPrefixPoolSpec{
-					Prefixes: []IPPrefixPoolPrefix{
-						{
-							Prefix:       corev1alpha1.MustParsePrefix("192.168.0.0/24"),
-							PrefixLength: 28,
-						},
-						{
-							Prefix:       corev1alpha1.MustParsePrefix("10.0.0.0/24"),
-							PrefixLength: 28,
-						},
+					Prefixes: []corev1alpha1.IPPrefix{
+						corev1alpha1.MustParsePrefix("192.168.0.0/24"),
+						corev1alpha1.MustParsePrefix("10.0.0.0/24"),
 					},
+					AllocationPrefixLength: 28,
 				},
 			},
 			want: big.NewInt(32),
@@ -80,12 +67,8 @@ func TestIPPrefixPool_Total(t *testing.T) {
 			name: "IPv6 prefix /48 allocating /64",
 			pool: IPPrefixPool{
 				Spec: IPPrefixPoolSpec{
-					Prefixes: []IPPrefixPoolPrefix{
-						{
-							Prefix:       corev1alpha1.MustParsePrefix("2001:db8::/48"),
-							PrefixLength: 64,
-						},
-					},
+					Prefixes:               []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("2001:db8::/48")},
+					AllocationPrefixLength: 64,
 				},
 			},
 			want: big.NewInt(65536),
@@ -94,30 +77,21 @@ func TestIPPrefixPool_Total(t *testing.T) {
 			name: "invalid prefix - target smaller than base",
 			pool: IPPrefixPool{
 				Spec: IPPrefixPoolSpec{
-					Prefixes: []IPPrefixPoolPrefix{
-						{
-							Prefix:       corev1alpha1.MustParsePrefix("192.168.1.0/24"),
-							PrefixLength: 16,
-						},
-					},
+					Prefixes:               []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("192.168.1.0/24")},
+					AllocationPrefixLength: 16,
 				},
 			},
 			want: big.NewInt(0),
 		},
 		{
-			name: "mixed valid and invalid prefixes",
+			name: "mixed valid and invalid base prefixes",
 			pool: IPPrefixPool{
 				Spec: IPPrefixPoolSpec{
-					Prefixes: []IPPrefixPoolPrefix{
-						{
-							Prefix:       corev1alpha1.MustParsePrefix("192.168.0.0/24"),
-							PrefixLength: 28,
-						},
-						{
-							Prefix:       corev1alpha1.MustParsePrefix("10.0.0.0/24"),
-							PrefixLength: 16,
-						},
+					Prefixes: []corev1alpha1.IPPrefix{
+						corev1alpha1.MustParsePrefix("192.168.0.0/24"),
+						corev1alpha1.MustParsePrefix("10.0.0.0/30"), // /30 base with /28 target is invalid (28 < 30)
 					},
+					AllocationPrefixLength: 28,
 				},
 			},
 			want: big.NewInt(16),
@@ -142,7 +116,7 @@ func TestIPPrefixPool_IsExhausted(t *testing.T) {
 		{
 			name: "empty pool - exhausted",
 			pool: IPPrefixPool{
-				Spec:   IPPrefixPoolSpec{Prefixes: []IPPrefixPoolPrefix{}},
+				Spec:   IPPrefixPoolSpec{Prefixes: []corev1alpha1.IPPrefix{}, AllocationPrefixLength: 31},
 				Status: IPPrefixPoolStatus{Allocated: 0},
 			},
 			want: true,
@@ -151,12 +125,8 @@ func TestIPPrefixPool_IsExhausted(t *testing.T) {
 			name: "no allocations - not exhausted",
 			pool: IPPrefixPool{
 				Spec: IPPrefixPoolSpec{
-					Prefixes: []IPPrefixPoolPrefix{
-						{
-							Prefix:       corev1alpha1.MustParsePrefix("192.168.1.0/30"),
-							PrefixLength: 31,
-						},
-					},
+					Prefixes:               []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("192.168.1.0/30")},
+					AllocationPrefixLength: 31,
 				},
 				Status: IPPrefixPoolStatus{Allocated: 0},
 			},
@@ -166,12 +136,8 @@ func TestIPPrefixPool_IsExhausted(t *testing.T) {
 			name: "partially allocated - not exhausted",
 			pool: IPPrefixPool{
 				Spec: IPPrefixPoolSpec{
-					Prefixes: []IPPrefixPoolPrefix{
-						{
-							Prefix:       corev1alpha1.MustParsePrefix("192.168.1.0/30"),
-							PrefixLength: 31,
-						},
-					},
+					Prefixes:               []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("192.168.1.0/30")},
+					AllocationPrefixLength: 31,
 				},
 				Status: IPPrefixPoolStatus{Allocated: 1},
 			},
@@ -181,12 +147,8 @@ func TestIPPrefixPool_IsExhausted(t *testing.T) {
 			name: "fully allocated - exhausted",
 			pool: IPPrefixPool{
 				Spec: IPPrefixPoolSpec{
-					Prefixes: []IPPrefixPoolPrefix{
-						{
-							Prefix:       corev1alpha1.MustParsePrefix("192.168.1.0/30"),
-							PrefixLength: 31,
-						},
-					},
+					Prefixes:               []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("192.168.1.0/30")},
+					AllocationPrefixLength: 31,
 				},
 				Status: IPPrefixPoolStatus{Allocated: 2},
 			},
@@ -196,12 +158,8 @@ func TestIPPrefixPool_IsExhausted(t *testing.T) {
 			name: "over-allocated - exhausted",
 			pool: IPPrefixPool{
 				Spec: IPPrefixPoolSpec{
-					Prefixes: []IPPrefixPoolPrefix{
-						{
-							Prefix:       corev1alpha1.MustParsePrefix("192.168.1.0/31"),
-							PrefixLength: 32,
-						},
-					},
+					Prefixes:               []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("192.168.1.0/31")},
+					AllocationPrefixLength: 32,
 				},
 				Status: IPPrefixPoolStatus{Allocated: 5},
 			},
@@ -232,12 +190,8 @@ func TestIPPrefixPool_Allocate(t *testing.T) {
 			pool: IPPrefixPool{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-pool", Namespace: "default"},
 				Spec: IPPrefixPoolSpec{
-					Prefixes: []IPPrefixPoolPrefix{
-						{
-							Prefix:       corev1alpha1.MustParsePrefix("10.0.0.0/24"),
-							PrefixLength: 26,
-						},
-					},
+					Prefixes:               []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.0.0.0/24")},
+					AllocationPrefixLength: 26,
 				},
 			},
 			existing: nil,
@@ -249,12 +203,8 @@ func TestIPPrefixPool_Allocate(t *testing.T) {
 			pool: IPPrefixPool{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-pool", Namespace: "default"},
 				Spec: IPPrefixPoolSpec{
-					Prefixes: []IPPrefixPoolPrefix{
-						{
-							Prefix:       corev1alpha1.MustParsePrefix("10.0.0.0/24"),
-							PrefixLength: 26,
-						},
-					},
+					Prefixes:               []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.0.0.0/24")},
+					AllocationPrefixLength: 26,
 				},
 			},
 			existing: []client.Object{
@@ -268,12 +218,8 @@ func TestIPPrefixPool_Allocate(t *testing.T) {
 			pool: IPPrefixPool{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-pool", Namespace: "default"},
 				Spec: IPPrefixPoolSpec{
-					Prefixes: []IPPrefixPoolPrefix{
-						{
-							Prefix:       corev1alpha1.MustParsePrefix("10.0.0.0/24"),
-							PrefixLength: 26,
-						},
-					},
+					Prefixes:               []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.0.0.0/24")},
+					AllocationPrefixLength: 26,
 				},
 			},
 			existing: []client.Object{

@@ -60,31 +60,21 @@ spec:
               Specification of the desired state of the resource.
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
             properties:
+              allocationPrefixLength:
+                description: AllocationPrefixLength is the prefix length to allocate
+                  within each base prefix.
+                format: int32
+                maximum: 128
+                minimum: 0
+                type: integer
               prefixes:
-                description: Prefixes defines the base prefixes and target prefix
-                  lengths to allocate from.
+                description: Prefixes defines the base prefixes to allocate from.
                 items:
-                  description: IPPrefixPoolPrefix defines a pool prefix and the target
-                    length to allocate.
-                  properties:
-                    prefix:
-                      description: Prefix is the base prefix to allocate prefixes
-                        from.
-                      format: cidr
-                      type: string
-                    prefixLength:
-                      description: PrefixLength is the prefix length to allocate within
-                        the base prefix.
-                      format: int32
-                      maximum: 128
-                      minimum: 0
-                      type: integer
-                  required:
-                  - prefix
-                  - prefixLength
-                  type: object
+                  format: cidr
+                  type: string
                 minItems: 1
                 type: array
+                x-kubernetes-list-type: set
               reclaimPolicy:
                 default: Recycle
                 description: |-
@@ -99,6 +89,7 @@ spec:
                 - message: reclaimPolicy is immutable
                   rule: self == oldSelf
             required:
+            - allocationPrefixLength
             - prefixes
             type: object
           status:

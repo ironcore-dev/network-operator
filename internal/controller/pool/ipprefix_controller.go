@@ -103,7 +103,7 @@ func (r *IPPrefixReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 
 	inRange := false
 	for _, prefix := range pool.Spec.Prefixes {
-		if int32(candidate.Bits()) == prefix.PrefixLength && prefix.Prefix.Masked().Contains(candidate.Addr()) { // #nosec G115
+		if int32(candidate.Bits()) == pool.Spec.AllocationPrefixLength && prefix.Masked().Contains(candidate.Addr()) { // #nosec G115
 			inRange = true
 			break
 		}

@@ -18,10 +18,17 @@ import (
 
 // IPPrefixPoolSpec defines the desired state of IPPrefixPool
 type IPPrefixPoolSpec struct {
-	// Prefixes defines the base prefixes and target prefix lengths to allocate from.
+	// Prefixes defines the base prefixes to allocate from.
 	// +required
 	// +kubebuilder:validation:MinItems=1
-	Prefixes []IPPrefixPoolPrefix `json:"prefixes"`
+	// +listType=set
+	Prefixes []corev1alpha1.IPPrefix `json:"prefixes"`
+
+	// AllocationPrefixLength is the prefix length to allocate within each base prefix.
+	// +required
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=128
+	AllocationPrefixLength int32 `json:"allocationPrefixLength"`
 
 	// ReclaimPolicy controls what happens to an allocation when a claim is deleted.
 	// Recycle returns the allocation to the pool. Retain keeps it reserved.
@@ -52,19 +59,6 @@ type IPPrefixPoolStatus struct {
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-}
-
-// IPPrefixPoolPrefix defines a pool prefix and the target length to allocate.
-type IPPrefixPoolPrefix struct {
-	// Prefix is the base prefix to allocate prefixes from.
-	// +required
-	Prefix corev1alpha1.IPPrefix `json:"prefix"`
-
-	// PrefixLength is the prefix length to allocate within the base prefix.
-	// +required
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Maximum=128
-	PrefixLength int32 `json:"prefixLength"`
 }
 
 // +kubebuilder:object:root=true
@@ -98,13 +92,13 @@ type IPPrefixPool struct {
 // Total returns the total number of allocatable prefixes in the pool.
 func (p *IPPrefixPool) Total() *big.Int {
 	total := new(big.Int)
-	for _, poolPrefix := range p.Spec.Prefixes {
-		base := poolPrefix.Prefix.Masked()
+	target := int(p.Spec.AllocationPrefixLength)
+	for _, prefix := range p.Spec.Prefixes {
+		base := prefix.Masked()
 		bits := 32
 		if base.Addr().Is6() {
 			bits = 128
 		}
-		target := int(poolPrefix.PrefixLength)
 		if target < base.Bits() || target > bits {
 			continue
 		}
@@ -190,9 +184,9 @@ func (p *IPPrefixPool) Allocate(claim *Claim, existing []Allocation) (Allocation
 	for _, obj := range existing {
 		allocated[obj.(*IPPrefix).Spec.Prefix.Prefix] = struct{}{}
 	}
+	target := int(p.Spec.AllocationPrefixLength)
 	for _, prefix := range p.Spec.Prefixes {
-		masked := prefix.Prefix.Masked()
-		target := int(prefix.PrefixLength)
+		masked := prefix.Masked()
 		bits := 32
 		if masked.Addr().Is6() {
 			bits = 128

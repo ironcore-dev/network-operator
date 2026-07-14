@@ -1709,7 +1709,7 @@ _Validation:_
 _Appears in:_
 - [ACLEntry](#aclentry)
 - [IPAddressPoolSpec](#ipaddresspoolspec)
-- [IPPrefixPoolPrefix](#ipprefixpoolprefix)
+- [IPPrefixPoolSpec](#ipprefixpoolspec)
 - [IPPrefixSpec](#ipprefixspec)
 - [InterfaceIPv4](#interfaceipv4)
 - [MulticastGroups](#multicastgroups)
@@ -4831,23 +4831,6 @@ IPPrefixPool is the Schema for the ipprefixpools API
 | `status` _[IPPrefixPoolStatus](#ipprefixpoolstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
 
 
-#### IPPrefixPoolPrefix
-
-
-
-IPPrefixPoolPrefix defines a pool prefix and the target length to allocate.
-
-
-
-_Appears in:_
-- [IPPrefixPoolSpec](#ipprefixpoolspec)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `prefix` _[IPPrefix](#ipprefix)_ | Prefix is the base prefix to allocate prefixes from. |  | Format: cidr <br />Type: string <br />Required: \{\} <br /> |
-| `prefixLength` _integer_ | PrefixLength is the prefix length to allocate within the base prefix. |  | Maximum: 128 <br />Minimum: 0 <br />Required: \{\} <br /> |
-
-
 #### IPPrefixPoolSpec
 
 
@@ -4861,7 +4844,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `prefixes` _[IPPrefixPoolPrefix](#ipprefixpoolprefix) array_ | Prefixes defines the base prefixes and target prefix lengths to allocate from. |  | MinItems: 1 <br />Required: \{\} <br /> |
+| `prefixes` _[IPPrefix](#ipprefix) array_ | Prefixes defines the base prefixes to allocate from. |  | Format: cidr <br />MinItems: 1 <br />Type: string <br />Required: \{\} <br /> |
+| `allocationPrefixLength` _integer_ | AllocationPrefixLength is the prefix length to allocate within each base prefix. |  | Maximum: 128 <br />Minimum: 0 <br />Required: \{\} <br /> |
 | `reclaimPolicy` _[ReclaimPolicy](#reclaimpolicy)_ | ReclaimPolicy controls what happens to an allocation when a claim is deleted.<br />Recycle returns the allocation to the pool. Retain keeps it reserved.<br />Immutable. | Recycle | Enum: [Recycle Retain] <br />Optional: \{\} <br /> |
 
 
