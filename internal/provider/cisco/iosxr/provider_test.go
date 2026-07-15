@@ -194,6 +194,10 @@ func (m *MockClient) Delete(ctx context.Context, deletes ...gnmiext.DataElement)
 	return nil
 }
 
+func (m *MockClient) Do(_ context.Context, _ *gnmiext.SetBuilder) error {
+	return nil
+}
+
 func Test_EnsureInterface(t *testing.T) {
 	m := &MockClient{}
 	p := &Provider{client: m}

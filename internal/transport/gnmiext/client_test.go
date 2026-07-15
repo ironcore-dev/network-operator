@@ -1112,6 +1112,167 @@ func TestClient_Delete(t *testing.T) {
 	}
 }
 
+func TestClient_Do(t *testing.T) {
+	tests := []struct {
+		name    string
+		conn    grpc.ClientConnInterface
+		builder *SetBuilder
+		wantErr bool
+	}{
+		{
+			name: "Mixed operations in single request",
+			conn: &MockClientConn{
+				GetFunc: func(ctx context.Context, req *gpb.GetRequest) (*gpb.GetResponse, error) {
+					return &gpb.GetResponse{
+						Notification: []*gpb.Notification{
+							{
+								Update: []*gpb.Update{
+									{
+										Path: req.Path[0],
+										Val: &gpb.TypedValue{
+											Value: &gpb.TypedValue_JsonVal{
+												JsonVal: []byte(`"old-value"`),
+											},
+										},
+									},
+								},
+							},
+						},
+					}, nil
+				},
+				SetFunc: func(ctx context.Context, req *gpb.SetRequest) (*gpb.SetResponse, error) {
+					if len(req.Replace) != 1 {
+						t.Errorf("Expected 1 Replace, got %d", len(req.Replace))
+					}
+					if len(req.Update) != 1 {
+						t.Errorf("Expected 1 Update, got %d", len(req.Update))
+					}
+					if len(req.Delete) != 1 {
+						t.Errorf("Expected 1 Delete, got %d", len(req.Delete))
+					}
+					return &gpb.SetResponse{
+						Timestamp: time.Now().UnixNano(),
+					}, nil
+				},
+			},
+			builder: new(SetBuilder).
+				Update(new(Hostname("update-host"))).
+				Patch(new(Hostname("patch-host"))).
+				Delete(new(Hostname)),
+			wantErr: false,
+		},
+		{
+			name: "All unchanged skips Set RPC",
+			conn: &MockClientConn{
+				GetFunc: func(ctx context.Context, req *gpb.GetRequest) (*gpb.GetResponse, error) {
+					return &gpb.GetResponse{
+						Notification: []*gpb.Notification{
+							{
+								Update: []*gpb.Update{
+									{
+										Path: req.Path[0],
+										Val: &gpb.TypedValue{
+											Value: &gpb.TypedValue_JsonVal{
+												JsonVal: []byte(`"same"`),
+											},
+										},
+									},
+								},
+							},
+						},
+					}, nil
+				},
+				SetFunc: func(ctx context.Context, req *gpb.SetRequest) (*gpb.SetResponse, error) {
+					t.Error("Set RPC should not be called when config is unchanged")
+					return nil, nil //nolint:nilnil
+				},
+			},
+			builder: new(SetBuilder).
+				Update(new(Hostname("same"))),
+			wantErr: false,
+		},
+		{
+			name: "Limit splits into multiple RPCs",
+			conn: func() *MockClientConn {
+				calls := 0
+				return &MockClientConn{
+					GetFunc: func(ctx context.Context, req *gpb.GetRequest) (*gpb.GetResponse, error) {
+						return nil, status.Error(codes.NotFound, "not found")
+					},
+					SetFunc: func(ctx context.Context, req *gpb.SetRequest) (*gpb.SetResponse, error) {
+						calls++
+						total := len(req.Replace) + len(req.Update) + len(req.Delete)
+						if total > 2 {
+							t.Errorf("Set call %d: expected at most 2 operations, got %d", calls, total)
+						}
+						return &gpb.SetResponse{
+							Timestamp: time.Now().UnixNano(),
+						}, nil
+					},
+				}
+			}(),
+			builder: new(SetBuilder).
+				Limit(2).
+				Update(new(Hostname("a"))).
+				Update(new(Hostname("b"))).
+				Update(new(Hostname("c"))),
+			wantErr: false,
+		},
+		{
+			name:    "Empty builder",
+			builder: new(SetBuilder),
+			wantErr: false,
+		},
+		{
+			name: "Set RPC error",
+			conn: &MockClientConn{
+				GetFunc: func(ctx context.Context, req *gpb.GetRequest) (*gpb.GetResponse, error) {
+					return nil, status.Error(codes.NotFound, "not found")
+				},
+				SetFunc: func(ctx context.Context, req *gpb.SetRequest) (*gpb.SetResponse, error) {
+					return nil, errors.New("set rpc failed")
+				},
+			},
+			builder: new(SetBuilder).
+				Update(new(Hostname("new"))),
+			wantErr: true,
+		},
+		{
+			name: "Defaultable delete becomes replace",
+			conn: &MockClientConn{
+				SetFunc: func(ctx context.Context, req *gpb.SetRequest) (*gpb.SetResponse, error) {
+					if len(req.Replace) != 1 {
+						t.Errorf("Expected 1 Replace for Defaultable, got %d", len(req.Replace))
+					}
+					if len(req.Delete) != 0 {
+						t.Errorf("Expected 0 Delete for Defaultable, got %d", len(req.Delete))
+					}
+					return &gpb.SetResponse{
+						Timestamp: time.Now().UnixNano(),
+					}, nil
+				},
+			},
+			builder: new(SetBuilder).
+				Delete(new(DefaultableHostname)),
+			wantErr: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client := &client{
+				encoding: gpb.Encoding_JSON,
+				gnmi:     gpb.NewGNMIClient(test.conn),
+			}
+
+			err := client.Do(t.Context(), test.builder)
+			if (err != nil) != test.wantErr {
+				t.Errorf("Do() error = %v, wantErr %v", err, test.wantErr)
+			}
+		})
+	}
+}
+
 func TestStringToStructuredPath(t *testing.T) {
 	tests := []struct {
 		name    string
