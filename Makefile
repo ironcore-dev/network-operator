@@ -195,6 +195,7 @@ run-docs:
 docs: install-crd-ref-docs
 	crd-ref-docs --source-path=./api --config=./hack/api-reference/config.yaml --renderer=markdown --output-path=./docs/api-reference/index.md
 	@$(SED) -i \
+	  -e '/^SPDX-/d' \
 	  -e 's/#networkingmetalironcoredevv1alpha1/#networking-metal-ironcore-dev-v1alpha1/g' \
 	  -e 's/#nxcisconetworkingmetalironcoredevv1alpha1/#nx-cisco-networking-metal-ironcore-dev-v1alpha1/g' \
 	  -e 's/#xecisconetworkingmetalironcoredevv1alpha1/#xe-cisco-networking-metal-ironcore-dev-v1alpha1/g' \
