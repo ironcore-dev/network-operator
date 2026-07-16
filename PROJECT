@@ -323,6 +323,9 @@ resources:
   kind: IndexPool
   path: github.com/ironcore-dev/network-operator/api/pool/v1alpha1
   version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
@@ -332,6 +335,9 @@ resources:
   kind: IPAddressPool
   path: github.com/ironcore-dev/network-operator/api/pool/v1alpha1
   version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
@@ -341,6 +347,9 @@ resources:
   kind: IPPrefixPool
   path: github.com/ironcore-dev/network-operator/api/pool/v1alpha1
   version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true

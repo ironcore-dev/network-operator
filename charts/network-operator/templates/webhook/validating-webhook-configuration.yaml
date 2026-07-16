@@ -134,6 +134,66 @@ webhooks:
     service:
       name: {{ include "network-operator.resourceName" (dict "suffix" "webhook-service" "context" $) }}
       namespace: {{ .Release.Namespace }}
+      path: /validate-pool-networking-metal-ironcore-dev-v1alpha1-indexpool
+  failurePolicy: Fail
+  name: vindexpool-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - pool.networking.metal.ironcore.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - indexpools
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ include "network-operator.resourceName" (dict "suffix" "webhook-service" "context" $) }}
+      namespace: {{ .Release.Namespace }}
+      path: /validate-pool-networking-metal-ironcore-dev-v1alpha1-ipaddresspool
+  failurePolicy: Fail
+  name: vipaddresspool-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - pool.networking.metal.ironcore.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - ipaddresspools
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ include "network-operator.resourceName" (dict "suffix" "webhook-service" "context" $) }}
+      namespace: {{ .Release.Namespace }}
+      path: /validate-pool-networking-metal-ironcore-dev-v1alpha1-ipprefixpool
+  failurePolicy: Fail
+  name: vipprefixpool-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - pool.networking.metal.ironcore.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - ipprefixpools
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ include "network-operator.resourceName" (dict "suffix" "webhook-service" "context" $) }}
+      namespace: {{ .Release.Namespace }}
       path: /validate-networking-metal-ironcore-dev-v1alpha1-vrf
   failurePolicy: Fail
   name: vrf-v1alpha1.kb.io

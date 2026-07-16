@@ -54,6 +54,7 @@ import (
 	tftpserver "github.com/ironcore-dev/network-operator/internal/tftp"
 	webhooknxv1alpha1 "github.com/ironcore-dev/network-operator/internal/webhook/cisco/nx/v1alpha1"
 	webhookv1alpha1 "github.com/ironcore-dev/network-operator/internal/webhook/core/v1alpha1"
+	webhookpoolv1alpha1 "github.com/ironcore-dev/network-operator/internal/webhook/pool/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -653,84 +654,6 @@ func main() { //nolint:gocyclo
 		os.Exit(1)
 	}
 
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := webhookv1alpha1.SetupVRFWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "VRF")
-			os.Exit(1)
-		}
-
-		if err := webhookv1alpha1.SetupInterfaceWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Interface")
-			os.Exit(1)
-		}
-
-		if err := webhookv1alpha1.SetupPrefixSetWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "PrefixSet")
-			os.Exit(1)
-		}
-
-		if err := webhookv1alpha1.SetupBGPWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "BGP")
-			os.Exit(1)
-		}
-
-		if err := webhookv1alpha1.SetupBGPPeerWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "BGPPeer")
-			os.Exit(1)
-		}
-
-		if err := webhookv1alpha1.SetupNetworkVirtualizationEdgeWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "NetworkVirtualizationEdge")
-			os.Exit(1)
-		}
-
-		if err := webhookv1alpha1.SetupRoutingPolicyWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "Failed to create webhook", "webhook", "RoutingPolicy")
-			os.Exit(1)
-		}
-
-		if err := webhooknxv1alpha1.SetupNetworkVirtualizationEdgeConfigWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "NetworkVirtualizationEdgeConfig")
-			os.Exit(1)
-		}
-	}
-
-	// Start provisioning HTTP server if the provisioning provider
-	// is implemented and the port is set to a non-zero value.
-	// The server is added to the manager so it starts after the cache is synced
-	// and shuts down gracefully when the manager stops.
-	provisioningProvider, ok := prov().(provider.ProvisioningProvider)
-	if provisioningHTTPPort != 0 && ok {
-		provisioningServer := &provisioning.HTTPServer{
-			Client:           mgr.GetClient(),
-			Logger:           ctrl.Log.WithName("provisioning"),
-			Recorder:         mgr.GetEventRecorder("provisioning"),
-			ValidateSourceIP: provisioningHTTPValidateSourceIP,
-			Provider:         provisioningProvider,
-			Port:             provisioningHTTPPort,
-		}
-		setupLog.Info("Adding provisioning HTTP server to manager", "port", provisioningHTTPPort, "validateSourceIP", provisioningHTTPValidateSourceIP)
-		if err := mgr.Add(provisioningServer); err != nil {
-			setupLog.Error(err, "unable to add provisioning server to manager")
-			os.Exit(1)
-		}
-	}
-
-	// Start inline TFTP server when the configured port is non-zero.
-	if tftpPort != 0 {
-		srv := &tftpserver.Server{
-			Client:         mgr.GetClient(),
-			Logger:         ctrl.Log.WithName("provisioning"),
-			ValidateSource: tftpValidateSource,
-			Port:           tftpPort,
-		}
-		setupLog.Info("Adding inline TFTP server to manager", "port", tftpPort, "validateSource", tftpValidateSource)
-		if err := mgr.Add(srv); err != nil {
-			setupLog.Error(err, "unable to add TFTP server to manager")
-			os.Exit(1)
-		}
-	}
-
 	if err := (&poolcontroller.IndexPoolReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -785,6 +708,98 @@ func main() { //nolint:gocyclo
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "pool-ipprefix")
 		os.Exit(1)
+	}
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err := webhookv1alpha1.SetupVRFWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "VRF")
+			os.Exit(1)
+		}
+
+		if err := webhookv1alpha1.SetupInterfaceWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Interface")
+			os.Exit(1)
+		}
+
+		if err := webhookv1alpha1.SetupPrefixSetWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "PrefixSet")
+			os.Exit(1)
+		}
+
+		if err := webhookv1alpha1.SetupBGPWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "BGP")
+			os.Exit(1)
+		}
+
+		if err := webhookv1alpha1.SetupBGPPeerWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "BGPPeer")
+			os.Exit(1)
+		}
+
+		if err := webhookv1alpha1.SetupNetworkVirtualizationEdgeWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "NetworkVirtualizationEdge")
+			os.Exit(1)
+		}
+
+		if err := webhookv1alpha1.SetupRoutingPolicyWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "RoutingPolicy")
+			os.Exit(1)
+		}
+
+		if err := webhooknxv1alpha1.SetupNetworkVirtualizationEdgeConfigWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "NetworkVirtualizationEdgeConfig")
+			os.Exit(1)
+		}
+
+		if err := webhookpoolv1alpha1.SetupIndexPoolWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "IndexPool")
+			os.Exit(1)
+		}
+
+		if err := webhookpoolv1alpha1.SetupIPAddressPoolWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "IPAddressPool")
+			os.Exit(1)
+		}
+
+		if err := webhookpoolv1alpha1.SetupIPPrefixPoolWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "IPPrefixPool")
+			os.Exit(1)
+		}
+	}
+
+	// Start provisioning HTTP server if the provisioning provider
+	// is implemented and the port is set to a non-zero value.
+	// The server is added to the manager so it starts after the cache is synced
+	// and shuts down gracefully when the manager stops.
+	provisioningProvider, ok := prov().(provider.ProvisioningProvider)
+	if provisioningHTTPPort != 0 && ok {
+		provisioningServer := &provisioning.HTTPServer{
+			Client:           mgr.GetClient(),
+			Logger:           ctrl.Log.WithName("provisioning"),
+			Recorder:         mgr.GetEventRecorder("provisioning"),
+			ValidateSourceIP: provisioningHTTPValidateSourceIP,
+			Provider:         provisioningProvider,
+			Port:             provisioningHTTPPort,
+		}
+		setupLog.Info("Adding provisioning HTTP server to manager", "port", provisioningHTTPPort, "validateSourceIP", provisioningHTTPValidateSourceIP)
+		if err := mgr.Add(provisioningServer); err != nil {
+			setupLog.Error(err, "unable to add provisioning server to manager")
+			os.Exit(1)
+		}
+	}
+
+	// Start inline TFTP server when the configured port is non-zero.
+	if tftpPort != 0 {
+		srv := &tftpserver.Server{
+			Client:         mgr.GetClient(),
+			Logger:         ctrl.Log.WithName("provisioning"),
+			ValidateSource: tftpValidateSource,
+			Port:           tftpPort,
+		}
+		setupLog.Info("Adding inline TFTP server to manager", "port", tftpPort, "validateSource", tftpValidateSource)
+		if err := mgr.Add(srv); err != nil {
+			setupLog.Error(err, "unable to add TFTP server to manager")
+			os.Exit(1)
+		}
 	}
 
 	// +kubebuilder:scaffold:builder
