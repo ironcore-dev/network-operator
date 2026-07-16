@@ -116,6 +116,8 @@ func (b *SetBuilder) Limit(n int) *SetBuilder {
 	return b
 }
 
+//go:generate go tool moq -with-resets -out client_mock.go . Client
+
 type Client interface {
 	Capabilities() *Capabilities
 	GetConfig(context.Context, ...DataElement) error

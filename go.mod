@@ -2,6 +2,8 @@ module github.com/ironcore-dev/network-operator
 
 go 1.26.0
 
+tool github.com/matryer/moq
+
 require (
 	github.com/felix-kaestner/copy v0.0.0-20250930112410-8fbc5c5b74a5
 	github.com/go-crypt/crypt v0.14.15
@@ -74,6 +76,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
+	github.com/matryer/moq v0.7.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
