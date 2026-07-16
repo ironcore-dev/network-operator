@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"time"
 
 	cp "github.com/felix-kaestner/copy"
 	"github.com/go-logr/logr"
@@ -132,6 +133,7 @@ type client struct {
 	encoding     gnmipb.Encoding
 	capabilities *Capabilities
 	logger       logr.Logger
+	target       string
 }
 
 var _ Client = &client{}
@@ -168,7 +170,7 @@ func New(ctx context.Context, conn grpc.ClientConnInterface, opts ...Option) (Cl
 		}
 	}
 	logger := logr.FromSlogHandler(slog.Default().Handler())
-	c := &client{gnmi, encoding, capabilities, logger}
+	c := &client{gnmi, encoding, capabilities, logger, ""}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -181,6 +183,13 @@ type Option func(*client)
 func WithLogger(logger logr.Logger) Option {
 	return func(c *client) {
 		c.logger = logger
+	}
+}
+
+// WithTarget sets the device target label used in metrics.
+func WithTarget(target string) Option {
+	return func(c *client) {
+		c.target = target
 	}
 }
 
@@ -287,9 +296,22 @@ func (c *client) get(ctx context.Context, dt gnmipb.GetRequest_DataType, element
 		}
 		r.Path = append(r.Path, path)
 	}
+	op := "get_config"
+	if dt == gnmipb.GetRequest_STATE {
+		op = "get_state"
+	}
+	start := time.Now()
 	res, err := c.gnmi.Get(ctx, r)
 	if err != nil {
+		rpcDurationSeconds.WithLabelValues(c.target, "Get", "error").Observe(time.Since(start).Seconds())
+		for _, p := range r.GetPath() {
+			operationsTotal.WithLabelValues(c.target, "Get", op, metricPath(p), "error").Inc()
+		}
 		return fmt.Errorf("gnmiext: failed to perform get rpc: %w", err)
+	}
+	rpcDurationSeconds.WithLabelValues(c.target, "Get", "success").Observe(time.Since(start).Seconds())
+	for _, p := range r.GetPath() {
+		operationsTotal.WithLabelValues(c.target, "Get", op, metricPath(p), "success").Inc()
 	}
 	// As per [gNMI spec] the response MUST contain one notification
 	// for each path in the request.
@@ -361,6 +383,7 @@ func (c *client) set(ctx context.Context, r *gnmipb.SetRequest, patch bool, elem
 		// This avoids unnecessary updates and potential disruptions.
 		if err == nil && reflect.DeepEqual(el, got) {
 			c.logger.V(2).Info("Configuration is already up-to-date", "path", el.XPath())
+			operationsSkippedTotal.WithLabelValues(c.target, op, metricPath(path)).Inc()
 			continue
 		}
 		b, err := c.Marshal(el)
@@ -409,12 +432,28 @@ func (c *client) delete(_ context.Context, r *gnmipb.SetRequest, elements ...Dat
 	return nil
 }
 
-// do fires the given SetRequest. Returns nil if the request is empty.
+// do fires the given SetRequest and records operation metrics. Returns nil if the request is empty.
 func (c *client) do(ctx context.Context, r *gnmipb.SetRequest) error {
 	if len(r.GetUpdate()) == 0 && len(r.GetReplace()) == 0 && len(r.GetDelete()) == 0 {
 		return nil
 	}
-	if _, err := c.gnmi.Set(ctx, r); err != nil {
+	start := time.Now()
+	_, err := c.gnmi.Set(ctx, r)
+	st := "success"
+	if err != nil {
+		st = "error"
+	}
+	rpcDurationSeconds.WithLabelValues(c.target, "Set", st).Observe(time.Since(start).Seconds())
+	for _, u := range r.GetReplace() {
+		operationsTotal.WithLabelValues(c.target, "Set", "replace", metricPath(u.GetPath()), st).Inc()
+	}
+	for _, u := range r.GetUpdate() {
+		operationsTotal.WithLabelValues(c.target, "Set", "update", metricPath(u.GetPath()), st).Inc()
+	}
+	for _, d := range r.GetDelete() {
+		operationsTotal.WithLabelValues(c.target, "Set", "delete", metricPath(d), st).Inc()
+	}
+	if err != nil {
 		return fmt.Errorf("gnmiext: failed to perform set rpc: %w", err)
 	}
 	return nil
