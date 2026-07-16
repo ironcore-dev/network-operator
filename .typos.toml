@@ -18,6 +18,8 @@ mininum = "mininum"
 specifc = "specifc"
 # Go built-in keyword
 cpy = "cpy"
+# The Kubernetes built-in matchExpressions field uses the word "ANDed" in its documentation.
+ded = "ded"
 
 [files]
 extend-exclude = [
