@@ -99,7 +99,7 @@ func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (er
 	// NXAPI only uses the address for URI construction.
 	c := *conn
 	c.Address = netip.MustParseAddrPort(conn.Address).Addr().String()
-	p.nxapi, err = nxapi.NewClient(&c, timeout)
+	p.nxapi, err = nxapi.NewClient(&c, nxapi.WithTimeout(timeout))
 	if err != nil {
 		return fmt.Errorf("failed to create nxapi client: %w", err)
 	}
@@ -154,7 +154,7 @@ func (p *Provider) Reprovision(ctx context.Context, conn *deviceutil.Connection)
 		c := *conn
 		c.Address = netip.MustParseAddrPort(conn.Address).Addr().String()
 		var err error
-		client, err = nxapi.NewClient(&c, timeout)
+		client, err = nxapi.NewClient(&c, nxapi.WithTimeout(timeout))
 		if err != nil {
 			return fmt.Errorf("failed to create nxapi client: %w", err)
 		}

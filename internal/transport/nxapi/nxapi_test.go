@@ -37,7 +37,7 @@ func TestUri(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			c, err := NewClient(test.conn, 0)
+			c, err := NewClient(test.conn)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -258,7 +258,7 @@ func TestDo(t *testing.T) {
 				Username: "admin",
 				Password: "secret",
 			}
-			c, err := NewClient(conn, 0)
+			c, err := NewClient(conn)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

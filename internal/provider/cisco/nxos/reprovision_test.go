@@ -62,7 +62,7 @@ func TestReprovision(t *testing.T) {
 
 		_, port, _ := net.SplitHostPort(srv.Listener.Addr().String()) //nolint:errcheck // httptest address is always host:port
 		conn := &deviceutil.Connection{Address: srv.Listener.Addr().String(), Username: "admin", Password: "secret"}
-		client, err := nxapi.NewClient(conn, 0, nxapi.WithPort(port))
+		client, err := nxapi.NewClient(conn, nxapi.WithPort(port))
 		if err != nil {
 			t.Fatalf("failed to create nxapi client: %v", err)
 		}
@@ -93,7 +93,7 @@ func TestReprovision(t *testing.T) {
 
 		_, port, _ := net.SplitHostPort(srv.Listener.Addr().String()) //nolint:errcheck // httptest address is always host:port
 		conn := &deviceutil.Connection{Address: srv.Listener.Addr().String(), Username: "admin", Password: "secret"}
-		client, err := nxapi.NewClient(conn, 0, nxapi.WithPort(port))
+		client, err := nxapi.NewClient(conn, nxapi.WithPort(port))
 		if err != nil {
 			t.Fatalf("failed to create nxapi client: %v", err)
 		}
@@ -123,7 +123,7 @@ func TestReprovision(t *testing.T) {
 
 		_, port, _ := net.SplitHostPort(srv.Listener.Addr().String()) //nolint:errcheck // httptest address is always host:port
 		conn := &deviceutil.Connection{Address: srv.Listener.Addr().String(), Username: "admin", Password: "secret"}
-		client, err := nxapi.NewClient(conn, 0, nxapi.WithPort(port))
+		client, err := nxapi.NewClient(conn, nxapi.WithPort(port))
 		if err != nil {
 			t.Fatalf("failed to create nxapi client: %v", err)
 		}

@@ -53,11 +53,18 @@ func WithPort(port string) Option {
 	}
 }
 
+// WithTimeout sets the HTTP client timeout.
+// The default is 0 (no timeout).
+func WithTimeout(d time.Duration) Option {
+	return func(c *Client) error {
+		c.client.Timeout = d
+		return nil
+	}
 }
 
 // NewClient creates a new [Client] for the given connection.
 // If the connection has a TLS configuration set, HTTPS is used; otherwise HTTP.
-func NewClient(conn *deviceutil.Connection, timeout time.Duration, opts ...Option) (*Client, error) {
+func NewClient(conn *deviceutil.Connection, opts ...Option) (*Client, error) {
 	proto := "http"
 	if conn.TLS != nil {
 		proto = "https"
@@ -74,7 +81,6 @@ func NewClient(conn *deviceutil.Connection, timeout time.Duration, opts ...Optio
 				r.SetBasicAuth(conn.Username, conn.Password)
 				return transport.RoundTrip(r)
 			}),
-			Timeout: timeout,
 		},
 		url: url.URL{
 			Scheme: proto,
