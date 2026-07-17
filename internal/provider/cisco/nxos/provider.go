@@ -149,18 +149,7 @@ func (p *Provider) FactoryReset(ctx context.Context, conn *deviceutil.Connection
 }
 
 func (p *Provider) Reprovision(ctx context.Context, conn *deviceutil.Connection) error {
-	client := p.nxapi
-	if client == nil {
-		c := *conn
-		c.Address = netip.MustParseAddrPort(conn.Address).Addr().String()
-		var err error
-		client, err = nxapi.NewClient(&c, nxapi.WithTimeout(timeout))
-		if err != nil {
-			return fmt.Errorf("failed to create nxapi client: %w", err)
-		}
-	}
-
-	_, err := client.Do(ctx, nxapi.NewRequest(
+	_, err := p.nxapi.Do(ctx, nxapi.NewRequest(
 		"boot poap enable",
 		"copy running-config startup-config",
 	).WithRollback(nxapi.Stop))
@@ -171,7 +160,7 @@ func (p *Provider) Reprovision(ctx context.Context, conn *deviceutil.Connection)
 	// Reboot is issued as a separate request because it actually restarts
 	// the device. The connection will drop before a response is received,
 	// so transport errors are expected and tolerated.
-	_, err = client.Do(ctx, nxapi.NewRequest("reload"))
+	_, err = p.nxapi.Do(ctx, nxapi.NewRequest("reload"))
 	if err != nil && !nxapi.IsTransportError(err) {
 		return fmt.Errorf("failed to reboot device: %w", err)
 	}
