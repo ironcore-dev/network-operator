@@ -11,8 +11,11 @@ watch_settings(ignore=['**/*/zz_generated.deepcopy.go', 'config/crd/bases/*'])
 
 allow_k8s_contexts(['minikube', 'kind-network-operator'])
 
+cluster_name = str(local('kubectl config current-context', quiet=True)).strip()
+is_kind = cluster_name.startswith('kind-')
+
 load('ext://cert_manager', 'deploy_cert_manager')
-deploy_cert_manager(version='v1.18.2')
+deploy_cert_manager(version='v1.21.0', load_to_kind=is_kind, kind_cluster_name=cluster_name.removeprefix('kind-'))
 
 docker_build('controller:latest', '.', only=[
     'api/', 'cmd/', 'internal/', 'go.mod', 'go.sum'
