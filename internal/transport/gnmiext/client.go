@@ -116,6 +116,21 @@ func (b *SetBuilder) Limit(n int) *SetBuilder {
 	return b
 }
 
+// Split partitions operations by a predicate. Matching ops go into the
+// first builder, the rest into the second. Both inherit the limit.
+func (b *SetBuilder) Split(fn func(DataElement) bool) (match, rest *SetBuilder) {
+	match = &SetBuilder{limit: b.limit}
+	rest = &SetBuilder{limit: b.limit}
+	for _, op := range b.ops {
+		if fn(op.el) {
+			match.ops = append(match.ops, op)
+		} else {
+			rest.ops = append(rest.ops, op)
+		}
+	}
+	return match, rest
+}
+
 //go:generate go tool moq -with-resets -out client_mock.go . Client
 
 type Client interface {
