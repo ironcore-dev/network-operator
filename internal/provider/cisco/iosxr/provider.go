@@ -26,6 +26,7 @@ var (
 	_ provider.VRFProvider       = &Provider{}
 	_ provider.BGPProvider       = &Provider{}
 	_ provider.BGPPeerProvider   = &Provider{}
+	_ provider.PrefixSetProvider = &Provider{}
 )
 
 type Provider struct {
@@ -572,6 +573,42 @@ func (p *Provider) GetPeerStatus(ctx context.Context, req *provider.BGPPeerStatu
 	}
 
 	return state, nil
+}
+
+func (p *Provider) EnsurePrefixSet(ctx context.Context, req *provider.PrefixSetRequest) error {
+	s := new(PrefixList)
+	s.Name = req.PrefixSet.Spec.Name
+	s.Is6 = req.PrefixSet.Is6()
+	for _, entry := range req.PrefixSet.Spec.Entries {
+		bits := int8(entry.Prefix.Bits()) // #nosec G115 -- prefix length is max 32 (IPv4) or 128 (IPv6)
+		pfxEntry := &PrefixEntry{
+			SequenceNumber: entry.Sequence,
+			Permission:     PermissionPermit,
+			Prefix:         entry.Prefix.Addr().String(),
+			Mask:           net.IP(net.CIDRMask(entry.Prefix.Bits(), entry.Prefix.Addr().BitLen())).String(),
+			MatchPrefixLength: &MatchPrefixLength{
+				EQ: bits,
+			},
+		}
+
+		if entry.MaskLengthRange != nil && (entry.MaskLengthRange.Min != bits || entry.MaskLengthRange.Max != bits) {
+			pfxEntry.MatchPrefixLength.GE = entry.MaskLengthRange.Min
+			pfxEntry.MatchPrefixLength.LE = entry.MaskLengthRange.Max
+			pfxEntry.MatchPrefixLength.EQ = 0
+		}
+
+		s.Sequences.Sequence.Set(pfxEntry)
+	}
+
+	return p.client.Update(ctx, s)
+}
+
+func (p *Provider) DeletePrefixSet(ctx context.Context, req *provider.PrefixSetRequest) error {
+	s := new(PrefixList)
+	s.Name = req.PrefixSet.Spec.Name
+	s.Is6 = req.PrefixSet.Is6()
+
+	return p.client.Delete(ctx, s)
 }
 
 func init() {
