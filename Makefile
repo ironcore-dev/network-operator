@@ -87,7 +87,7 @@ setup-test-e2e: kind ## Set up a Kind cluster for e2e tests if it does not exist
 	esac
 
 # E2E test dependency versions
-E2E_PROMETHEUS_OPERATOR_VERSION ?= v0.82.2
+E2E_PROMETHEUS_OPERATOR_VERSION ?= v0.92.1
 E2E_CERTMANAGER_VERSION ?= v1.21.0
 
 .PHONY: test-e2e

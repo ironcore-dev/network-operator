@@ -17,6 +17,23 @@ is_kind = cluster_name.startswith('kind-')
 load('ext://cert_manager', 'deploy_cert_manager')
 deploy_cert_manager(version='v1.21.0', load_to_kind=is_kind, kind_cluster_name=cluster_name.removeprefix('kind-'))
 
+def deploy_prometheus_operator(version='v0.92.1'):
+    local('kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -', quiet=True, echo_off=True)
+
+    print('Installing prometheus-operator')
+    cache_file = '.tiltcache/prometheus-operator-{}.yaml'.format(version)
+    if not os.path.exists(cache_file):
+        local("mkdir -p .tiltcache && curl -sL https://github.com/prometheus-operator/prometheus-operator/releases/download/{}/bundle.yaml | sed 's/namespace: default/namespace: monitoring/g' > {}".format(version, cache_file), quiet=True, echo_off=True)
+    local('kubectl apply --server-side -n monitoring -f {}'.format(cache_file), quiet=True, echo_off=True)
+
+    print('Waiting for prometheus-operator to start')
+    local('kubectl wait --for=condition=Available --timeout=300s -n monitoring deployment/prometheus-operator', quiet=True, echo_off=True)
+
+    k8s_yaml('./config/develop/prometheus.yaml')
+    k8s_resource(new_name = 'prometheus', objects = ['prometheus:prometheus'], port_forwards = '9090', extra_pod_selectors = [{'app.kubernetes.io/name': 'prometheus'}], labels = ['observability'])
+
+deploy_prometheus_operator()
+
 docker_build('controller:latest', '.', only=[
     'api/', 'cmd/', 'internal/', 'go.mod', 'go.sum'
 ])
