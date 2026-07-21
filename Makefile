@@ -276,9 +276,9 @@ check: FORCE static-check build/cover.html build-all
 
 generate: install-controller-gen
 	@printf "\e[1;36m>> controller-gen\e[0m\n"
-	@controller-gen crd rbac:roleName=manager-role webhook paths="{./api/...,./internal/...,./cmd/...}" output:crd:artifacts:config=config/crd/bases output:rbac:artifacts:config=config/rbac
-	@controller-gen object:headerFile="hack/boilerplate.go.txt",year=$(YEAR) paths="{./api/...,./internal/...,./cmd/...}"
-	@controller-gen applyconfiguration:headerFile="hack/boilerplate.go.txt" paths="{./api/...,./internal/...,./cmd/...}"
+	@controller-gen crd rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases output:rbac:artifacts:config=config/rbac
+	@controller-gen object:headerFile="hack/boilerplate.go.txt",year=$(YEAR) paths="./..."
+	@controller-gen applyconfiguration:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 run-golangci-lint: FORCE install-golangci-lint
 	@printf "\e[1;36m>> golangci-lint\e[0m\n"

@@ -77,7 +77,7 @@ verbatim: |
 
   # E2E test dependency versions
   E2E_PROMETHEUS_OPERATOR_VERSION ?= v0.82.2
-  E2ECERTMANAGER_VERSION ?= v1.17.2
+  E2E_CERTMANAGER_VERSION ?= v1.17.2
 
   # CONTAINER_TOOL defines the container tool to be used for building images.
   # The default is docker, but it can be overridden to use other tools (i.e. podman or nerdctl).
@@ -208,16 +208,6 @@ verbatim: |
     @go build -o build/netop-provider ./hack/provider
     @printf "\e[1;36m>> ./build/netop-provider --help\e[0m\n"
     @./build/netop-provider --help
-
-  TEST_SERVER_IMG ?= ghcr.io/ironcore-dev/gnmi-test-server:latest
-
-  docker-build-test-gnmi-server: FORCE
-    @printf "\e[1;36m>> $(CONTAINER_TOOL) build --tag=$(TEST_SERVER_IMG) ./test/gnmi\e[0m\n"
-    @$(CONTAINER_TOOL) build --tag=$(TEST_SERVER_IMG) ./test/gnmi
-
-  docker-run-test-gnmi-server: FORCE docker-build-test-gnmi-server
-    @printf "\e[1;36m>> $(CONTAINER_TOOL) run -p 8000:8000 -p 9339:9339 $(TEST_SERVER_IMG)\e[0m\n"
-    @$(CONTAINER_TOOL) run --rm -p 8000:8000 -p 9339:9339 $(TEST_SERVER_IMG)
 
   # TEST_LAB_IMG defines the image to used for packaging the lab tests.
   TEST_LAB_IMG ?= ghcr.io/ironcore-dev/network-operator-lab-test:latest
