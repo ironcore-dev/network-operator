@@ -16,8 +16,23 @@ spec:
     addresses:
       - 10.0.1.10/32
       - 10.1.0.10/32
--- state --
+
+-- state/preload --
 {
+  "openconfig-system:system": {
+    "state": {
+      "boot-time": "1784731445707000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "openconfig-system:system": {
+    "state": {
+      "boot-time": "1784731445707000000"
+    }
+  },
   "openconfig-interfaces:interfaces": {
     "interface": [
       {
@@ -66,5 +81,14 @@ spec:
         }
       }
     ]
+  }
+}
+
+-- state/delete --
+{
+  "openconfig-system:system": {
+    "state": {
+      "boot-time": "1784731445707000000"
+    }
   }
 }

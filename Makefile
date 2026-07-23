@@ -68,7 +68,7 @@ vet: ## Run go vet against code.
 
 .PHONY: test
 test: manifests generate setup-envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $$(go list ./... | grep -v /e2e | grep -v /lab) -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $$(go list ./... | grep -v /e2e | grep -v /lab | grep -v /gnmi/) -coverprofile cover.out
 
 .PHONY: coverage
 coverage: test ## Run tests and generate coverage report.
@@ -99,9 +99,15 @@ test-e2e: setup-test-e2e manifests generate ## Run the e2e tests. Expected an is
 cleanup-test-e2e: ## Tear down the Kind cluster used for e2e tests
 	@$(KIND) delete cluster --name $(KIND_CLUSTER)
 
+# Provider used in test-gnmi
+PROVIDER ?= openconfig
+
+# Number of parallel Ginkgo processes
+GINKGO_PROCS ?= $(shell nproc 2>/dev/null || sysctl -n hw.logicalcpu)
+
 .PHONY: test-gnmi
-test-gnmi: FORCE ## Run integration tests for gNMI.
-	@printf "\e[1;33m>> gNMI integration tests not yet implemented\e[0m\n"
+test-gnmi: setup-envtest ## Run gNMI tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" PROVIDER=$(PROVIDER) go test ./test/gnmi/ -v -ginkgo.v
 
 .PHONY: test-lab
 test-lab: ## Run lab tests against a real network device.
