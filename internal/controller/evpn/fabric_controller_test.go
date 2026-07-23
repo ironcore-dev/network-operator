@@ -497,6 +497,27 @@ var _ = Describe("Fabric Controller", func() {
 				}).Should(Succeed())
 			}
 
+			By("Verifying NVE resources are created for VTEP devices (leaves)")
+			for _, leaf := range []*corev1alpha1.Device{leaf1, leaf2} {
+				Eventually(func(g Gomega) {
+					nve := &corev1alpha1.NetworkVirtualizationEdge{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + leaf.Name + "-nve", Namespace: metav1.NamespaceDefault}, nve)).To(Succeed())
+					g.Expect(nve.Spec.DeviceRef.Name).To(Equal(leaf.Name))
+					g.Expect(nve.Spec.AdminState).To(Equal(corev1alpha1.AdminStateUp))
+					g.Expect(nve.Spec.HostReachability).To(Equal(corev1alpha1.HostReachabilityTypeBGP))
+					g.Expect(nve.Spec.SuppressARP).To(BeTrue())
+					g.Expect(nve.Spec.SourceInterfaceRef.Name).To(Equal(fabric.Name + "-" + leaf.Name + "-lo1"))
+					g.Expect(nve.Spec.AnycastSourceInterfaceRef).NotTo(BeNil())
+					g.Expect(nve.Spec.AnycastSourceInterfaceRef.Name).To(Equal(fabric.Name + "-" + leaf.Name + "-lo2"))
+
+					g.Expect(nve.OwnerReferences).To(ContainElement(SatisfyAll(
+						HaveField("Kind", "Fabric"),
+						HaveField("Name", fabric.Name),
+						HaveField("Controller", HaveValue(BeTrue())),
+					)))
+				}).Should(Succeed())
+			}
+
 			By("Verifying the Fabric Ready condition is True once all phases are complete")
 			Eventually(func(g Gomega) {
 				f := &evpnv1alpha1.Fabric{}

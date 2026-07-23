@@ -60,6 +60,7 @@ type FabricReconciler struct {
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgp,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgppeers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=pim,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=networkvirtualizationedges,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=claims,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=ipaddresspools,verbs=get;list;watch
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=ipprefixpools,verbs=get;list;watch
@@ -175,6 +176,7 @@ func (r *FabricReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&v1alpha1.BGP{}).
 		Owns(&v1alpha1.BGPPeer{}).
 		Owns(&v1alpha1.PIM{}).
+		Owns(&v1alpha1.NetworkVirtualizationEdge{}).
 		// Re-reconcile when a Device's labels change so that devices newly
 		// matching a deviceSelector are enrolled into the fabric.
 		Watches(
@@ -234,6 +236,7 @@ func (r *FabricReconciler) reconcile(ctx context.Context, fabric *evpnv1alpha1.F
 		r.reconcileUnderlayIGP,
 		r.reconcileOverlayBGP,
 		r.reconcileMulticastPIM,
+		r.reconcileVTEPNVE,
 	}
 	for _, phase := range phases {
 		res, err := phase(ctx, fabric, state)
@@ -1155,6 +1158,76 @@ func (r *FabricReconciler) reconcilePIM(ctx context.Context, deviceName string, 
 	}
 	if res == controllerutil.OperationResultCreated {
 		r.Recorder.Eventf(fabric, nil, "Normal", "PIMCreated", "Reconcile", "Created multicast PIM %s", name)
+	}
+	return nil
+}
+
+// reconcileVTEPNVE creates one NetworkVirtualizationEdge resource per VTEP device.
+// The NVE references lo1 (primary VTEP) as source and lo2 (anycast VTEP) as anycast source.
+func (r *FabricReconciler) reconcileVTEPNVE(ctx context.Context, fabric *evpnv1alpha1.Fabric, state *ReconcileState) (ctrl.Result, error) {
+	selector, err := metav1.LabelSelectorAsSelector(&fabric.Spec.VTEP.DeviceSelector)
+	if err != nil {
+		return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("invalid vtep deviceSelector: %w", err))
+	}
+
+	devices := &v1alpha1.DeviceList{}
+	if err := r.List(ctx, devices, client.InNamespace(fabric.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
+		return ctrl.Result{}, fmt.Errorf("listing VTEP devices: %w", err)
+	}
+
+	for i := range devices.Items {
+		device := &devices.Items[i]
+
+		lo1Name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, device.Name, LoopbackVTEP)
+		lo2Name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, device.Name, LoopbackVTEPAnycast)
+
+		// Skip if lo1 is not yet allocated.
+		loopbacks := state.loopbacks[device.Name]
+		if !slices.ContainsFunc(loopbacks, func(intf *v1alpha1.Interface) bool { return intf.Name == lo1Name }) {
+			ctrl.LoggerFrom(ctx).V(1).Info("Skipping NVE reconciliation: lo1 not yet allocated", "device", device.Name)
+			continue
+		}
+
+		if err := r.reconcileNVE(ctx, device, fabric, lo1Name, lo2Name); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	return ctrl.Result{}, nil
+}
+
+// reconcileNVE creates or updates the NetworkVirtualizationEdge resource for a VTEP device.
+func (r *FabricReconciler) reconcileNVE(ctx context.Context, device *v1alpha1.Device, fabric *evpnv1alpha1.Fabric, lo1Name, lo2Name string) error {
+	name := fmt.Sprintf("%s-%s-nve", fabric.Name, device.Name)
+
+	nve := &v1alpha1.NetworkVirtualizationEdge{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: fabric.Namespace,
+		},
+	}
+	res, err := controllerutil.CreateOrPatch(ctx, r.Client, nve, func() error {
+		if nve.Labels == nil {
+			nve.Labels = make(map[string]string)
+		}
+		nve.Labels[evpnv1alpha1.FabricLabel] = fabric.Name
+		nve.Spec.DeviceRef = v1alpha1.LocalObjectReference{Name: device.Name}
+		nve.Spec.AdminState = v1alpha1.AdminStateUp
+		nve.Spec.HostReachability = v1alpha1.HostReachabilityTypeBGP
+		nve.Spec.SuppressARP = true
+		nve.Spec.SourceInterfaceRef = v1alpha1.LocalObjectReference{Name: lo1Name}
+		nve.Spec.AnycastSourceInterfaceRef = &v1alpha1.LocalObjectReference{Name: lo2Name}
+		if fabric.Spec.VTEP.AnycastGateway != nil {
+			nve.Spec.AnycastGateway = &v1alpha1.AnycastGateway{
+				VirtualMAC: fabric.Spec.VTEP.AnycastGateway.VirtualMAC,
+			}
+		}
+		return controllerutil.SetControllerReference(fabric, nve, r.Scheme)
+	})
+	if err != nil {
+		return fmt.Errorf("reconciling NVE %s: %w", name, err)
+	}
+	if res == controllerutil.OperationResultCreated {
+		r.Recorder.Eventf(fabric, nil, "Normal", "NVECreated", "Reconcile", "Created NVE %s", name)
 	}
 	return nil
 }
