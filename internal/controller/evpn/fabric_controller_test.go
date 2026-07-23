@@ -438,6 +438,65 @@ var _ = Describe("Fabric Controller", func() {
 				}
 			}
 
+			By("Verifying PIM resources are created for RP devices (spines) with anycast addresses")
+			for _, spine := range []*corev1alpha1.Device{spine1, spine2} {
+				Eventually(func(g Gomega) {
+					pim := &corev1alpha1.PIM{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + spine.Name + "-multicast", Namespace: metav1.NamespaceDefault}, pim)).To(Succeed())
+					g.Expect(pim.Spec.DeviceRef.Name).To(Equal(spine.Name))
+					g.Expect(pim.Spec.AdminState).To(Equal(corev1alpha1.AdminStateUp))
+
+					// RP must have a rendezvous point entry with anycast addresses (other spine lo0 IPs).
+					g.Expect(pim.Spec.RendezvousPoints).To(HaveLen(1))
+					rp := pim.Spec.RendezvousPoints[0]
+
+					// Anycast IP is the lo100 address.
+					lo100 := &corev1alpha1.Interface{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + spine.Name + "-lo100", Namespace: metav1.NamespaceDefault}, lo100)).To(Succeed())
+					g.Expect(lo100.Spec.IPv4).NotTo(BeNil())
+					g.Expect(rp.Address).To(Equal(lo100.Spec.IPv4.Addresses[0].Addr().String()))
+
+					g.Expect(rp.MulticastGroups).To(HaveLen(1))
+					g.Expect(rp.MulticastGroups[0].String()).To(Equal("224.0.0.0/4"))
+
+					// AnycastAddresses should contain the other spine's lo0 IP (not self).
+					g.Expect(rp.AnycastAddresses).To(HaveLen(1))
+
+					// Interface refs should include lo0, lo100, and the uplink.
+					g.Expect(pim.Spec.InterfaceRefs).To(ContainElement(HaveField("Name", fabric.Name+"-"+spine.Name+"-lo0")))
+					g.Expect(pim.Spec.InterfaceRefs).To(ContainElement(HaveField("Name", fabric.Name+"-"+spine.Name+"-lo100")))
+
+					g.Expect(pim.OwnerReferences).To(ContainElement(SatisfyAll(
+						HaveField("Kind", "Fabric"),
+						HaveField("Name", fabric.Name),
+						HaveField("Controller", HaveValue(BeTrue())),
+					)))
+				}).Should(Succeed())
+			}
+
+			By("Verifying PIM resources are created for client devices (leaves) without anycast addresses")
+			for _, leaf := range []*corev1alpha1.Device{leaf1, leaf2} {
+				Eventually(func(g Gomega) {
+					pim := &corev1alpha1.PIM{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + leaf.Name + "-multicast", Namespace: metav1.NamespaceDefault}, pim)).To(Succeed())
+					g.Expect(pim.Spec.DeviceRef.Name).To(Equal(leaf.Name))
+
+					g.Expect(pim.Spec.RendezvousPoints).To(HaveLen(1))
+					rp := pim.Spec.RendezvousPoints[0]
+
+					// Same anycast IP as spines.
+					g.Expect(rp.Address).NotTo(BeEmpty())
+					g.Expect(rp.MulticastGroups).To(HaveLen(1))
+
+					// Clients have no anycast addresses.
+					g.Expect(rp.AnycastAddresses).To(BeEmpty())
+
+					// Interface refs should include lo0, lo1 (VTEP).
+					g.Expect(pim.Spec.InterfaceRefs).To(ContainElement(HaveField("Name", fabric.Name+"-"+leaf.Name+"-lo0")))
+					g.Expect(pim.Spec.InterfaceRefs).To(ContainElement(HaveField("Name", fabric.Name+"-"+leaf.Name+"-lo1")))
+				}).Should(Succeed())
+			}
+
 			By("Verifying the Fabric Ready condition is True once all phases are complete")
 			Eventually(func(g Gomega) {
 				f := &evpnv1alpha1.Fabric{}
