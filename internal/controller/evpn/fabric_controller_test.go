@@ -363,6 +363,81 @@ var _ = Describe("Fabric Controller", func() {
 				}).Should(Succeed())
 			}
 
+			By("Verifying a BGP resource is created per fabric device with iBGP overlay settings")
+			for _, d := range []*corev1alpha1.Device{spine1, spine2, leaf1, leaf2} {
+				Eventually(func(g Gomega) {
+					bgp := &corev1alpha1.BGP{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-overlay", Namespace: metav1.NamespaceDefault}, bgp)).To(Succeed())
+					g.Expect(bgp.Spec.DeviceRef.Name).To(Equal(d.Name))
+					g.Expect(bgp.Spec.ASNumber).To(Equal(intstr.FromInt(65000)))
+					g.Expect(bgp.Spec.AdminState).To(Equal(corev1alpha1.AdminStateUp))
+
+					// RouterID should match the lo0 address of this device.
+					lo0 := &corev1alpha1.Interface{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-lo0", Namespace: metav1.NamespaceDefault}, lo0)).To(Succeed())
+					g.Expect(lo0.Spec.IPv4).NotTo(BeNil())
+					g.Expect(bgp.Spec.RouterID).To(Equal(lo0.Spec.IPv4.Addresses[0].Addr().String()))
+
+					// L2VPN EVPN must be enabled with retainAll.
+					g.Expect(bgp.Spec.AddressFamilies).NotTo(BeNil())
+					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn).NotTo(BeNil())
+					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn.Enabled).To(BeTrue())
+					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn.RouteTargetPolicy).NotTo(BeNil())
+					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn.RouteTargetPolicy.RetainAll).To(BeTrue())
+
+					g.Expect(bgp.OwnerReferences).To(ContainElement(SatisfyAll(
+						HaveField("Kind", "Fabric"),
+						HaveField("Name", fabric.Name),
+						HaveField("Controller", HaveValue(BeTrue())),
+					)))
+				}).Should(Succeed())
+			}
+
+			By("Verifying BGPPeer resources for spine→leaf (RR client) and leaf→spine relationships")
+			for _, spine := range []*corev1alpha1.Device{spine1, spine2} {
+				for _, leaf := range []*corev1alpha1.Device{leaf1, leaf2} {
+					// Spine → Leaf peer (routeReflectorClient: true)
+					Eventually(func(g Gomega) {
+						peer := &corev1alpha1.BGPPeer{}
+						g.Expect(k8sClient.Get(ctx, client.ObjectKey{
+							Name:      fabric.Name + "-" + spine.Name + "-" + leaf.Name,
+							Namespace: metav1.NamespaceDefault,
+						}, peer)).To(Succeed())
+						g.Expect(peer.Spec.DeviceRef.Name).To(Equal(spine.Name))
+						g.Expect(peer.Spec.BgpRef.Name).To(Equal(fabric.Name + "-" + spine.Name + "-overlay"))
+						g.Expect(peer.Spec.ASNumber).To(Equal(intstr.FromInt(65000)))
+						g.Expect(peer.Spec.LocalAddress).NotTo(BeNil())
+						g.Expect(peer.Spec.LocalAddress.InterfaceRef.Name).To(Equal(fabric.Name + "-" + spine.Name + "-lo0"))
+
+						// Peer address should match the leaf's lo0 address.
+						leafLo0 := &corev1alpha1.Interface{}
+						g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + leaf.Name + "-lo0", Namespace: metav1.NamespaceDefault}, leafLo0)).To(Succeed())
+						g.Expect(peer.Spec.Address).To(Equal(leafLo0.Spec.IPv4.Addresses[0].Addr().String()))
+
+						g.Expect(peer.Spec.AddressFamilies).NotTo(BeNil())
+						g.Expect(peer.Spec.AddressFamilies.L2vpnEvpn).NotTo(BeNil())
+						g.Expect(peer.Spec.AddressFamilies.L2vpnEvpn.Enabled).To(BeTrue())
+						g.Expect(peer.Spec.AddressFamilies.L2vpnEvpn.SendCommunity).To(Equal(corev1alpha1.BGPCommunityTypeBoth))
+						g.Expect(peer.Spec.AddressFamilies.L2vpnEvpn.RouteReflectorClient).To(BeTrue())
+					}).Should(Succeed())
+
+					// Leaf → Spine peer (routeReflectorClient: false)
+					Eventually(func(g Gomega) {
+						peer := &corev1alpha1.BGPPeer{}
+						g.Expect(k8sClient.Get(ctx, client.ObjectKey{
+							Name:      fabric.Name + "-" + leaf.Name + "-" + spine.Name,
+							Namespace: metav1.NamespaceDefault,
+						}, peer)).To(Succeed())
+						g.Expect(peer.Spec.DeviceRef.Name).To(Equal(leaf.Name))
+						g.Expect(peer.Spec.BgpRef.Name).To(Equal(fabric.Name + "-" + leaf.Name + "-overlay"))
+
+						g.Expect(peer.Spec.AddressFamilies).NotTo(BeNil())
+						g.Expect(peer.Spec.AddressFamilies.L2vpnEvpn).NotTo(BeNil())
+						g.Expect(peer.Spec.AddressFamilies.L2vpnEvpn.RouteReflectorClient).To(BeFalse())
+					}).Should(Succeed())
+				}
+			}
+
 			By("Verifying the Fabric Ready condition is True once all phases are complete")
 			Eventually(func(g Gomega) {
 				f := &evpnv1alpha1.Fabric{}
