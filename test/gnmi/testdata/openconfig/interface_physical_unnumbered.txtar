@@ -14,6 +14,7 @@ spec:
   ipv4:
     addresses:
       - 10.0.0.10/32
+
 -- interfaces/eth1-1 --
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
@@ -32,8 +33,23 @@ spec:
     unnumbered:
       interfaceRef:
         name: lo0
--- state --
+
+-- state/preload --
 {
+  "openconfig-system:system": {
+    "state": {
+      "boot-time": "1784731445707000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "openconfig-system:system": {
+    "state": {
+      "boot-time": "1784731445707000000"
+    }
+  },
   "openconfig-interfaces:interfaces": {
     "interface": [
       {
@@ -106,5 +122,14 @@ spec:
         }
       }
     ]
+  }
+}
+
+-- state/delete --
+{
+  "openconfig-system:system": {
+    "state": {
+      "boot-time": "1784731445707000000"
+    }
   }
 }
