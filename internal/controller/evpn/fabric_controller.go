@@ -57,6 +57,8 @@ type FabricReconciler struct {
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=interfaces,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=ospf,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=isis,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgp,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgppeers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=claims,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=ipaddresspools,verbs=get;list;watch
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=ipprefixpools,verbs=get;list;watch
@@ -169,6 +171,8 @@ func (r *FabricReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&v1alpha1.Interface{}).
 		Owns(&v1alpha1.OSPF{}).
 		Owns(&v1alpha1.ISIS{}).
+		Owns(&v1alpha1.BGP{}).
+		Owns(&v1alpha1.BGPPeer{}).
 		// Re-reconcile when a Device's labels change so that devices newly
 		// matching a deviceSelector are enrolled into the fabric.
 		Watches(
@@ -210,6 +214,7 @@ func (r *FabricReconciler) reconcile(ctx context.Context, fabric *evpnv1alpha1.F
 		r.reconcileAnycastRPLoopbacks,
 		r.reconcileUnderlayLinks,
 		r.reconcileUnderlayIGP,
+		r.reconcileOverlayBGP,
 	}
 	for _, phase := range phases {
 		res, err := phase(ctx, fabric, state)
@@ -367,7 +372,7 @@ func (r *FabricReconciler) reconcileLoopbackClaim(ctx context.Context, fabric *e
 func (r *FabricReconciler) reconcileLoopbackInterface(ctx context.Context, fabric *evpnv1alpha1.Fabric, device *v1alpha1.Device, loopbackID int, claim *poolv1alpha1.Claim) (*v1alpha1.Interface, error) {
 	cond := conditions.Get(claim, poolv1alpha1.AllocatedCondition)
 	if cond == nil || cond.Status != metav1.ConditionTrue || claim.Status.Value == "" {
-		return nil, nil //nolint:nilnil
+		return nil, nil //nolint:nilnil // claim not yet allocated; Owns() watch will re-enqueue
 	}
 
 	prefix, err := v1alpha1.ParsePrefix(claim.Status.Value + "/32")
@@ -737,6 +742,207 @@ func isisNETFromIPv4(addr string) (string, error) {
 	padded := fmt.Sprintf("%03d%03d%03d%03d", octets[0], octets[1], octets[2], octets[3])
 	systemID := fmt.Sprintf("%s.%s.%s", padded[0:4], padded[4:8], padded[8:12])
 	return fmt.Sprintf("49.0001.%s.00", systemID), nil
+}
+
+// reconcileOverlayBGP materialises the iBGP overlay control plane. For each route reflector
+// group it creates BGPPeer resources for each directional peering relationship. When
+// deviceSelector and clientDeviceSelector resolve to the same set, a full mesh is created;
+// otherwise RR-to-client peering is established.
+func (r *FabricReconciler) reconcileOverlayBGP(ctx context.Context, fabric *evpnv1alpha1.Fabric, state *ReconcileState) (ctrl.Result, error) {
+	if fabric.Spec.Overlay.Protocol != evpnv1alpha1.OverlayProtocolIBGP || fabric.Spec.Overlay.IBGP == nil {
+		return ctrl.Result{}, nil
+	}
+
+	// Create a BGP instance on every fabric device.
+	selector, err := metav1.LabelSelectorAsSelector(&fabric.Spec.DeviceSelector)
+	if err != nil {
+		return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("invalid deviceSelector: %w", err))
+	}
+
+	devices := &v1alpha1.DeviceList{}
+	if err := r.List(ctx, devices, client.InNamespace(fabric.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
+		return ctrl.Result{}, fmt.Errorf("listing devices: %w", err)
+	}
+
+	for i := range devices.Items {
+		device := &devices.Items[i]
+		lo0Name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, device.Name, LoopbackRouterID)
+
+		loopbacks := state.loopbacks[device.Name]
+		idx := slices.IndexFunc(loopbacks, func(intf *v1alpha1.Interface) bool { return intf.Name == lo0Name })
+		if idx < 0 {
+			ctrl.LoggerFrom(ctx).V(1).Info("Skipping BGP reconciliation: lo0 not yet allocated", "device", device.Name)
+			continue
+		}
+
+		lo0 := loopbacks[idx]
+		if lo0.Spec.IPv4 == nil || len(lo0.Spec.IPv4.Addresses) == 0 {
+			return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("lo0 interface %s has no IPv4 address", lo0Name))
+		}
+
+		routerID := lo0.Spec.IPv4.Addresses[0].Addr().String()
+		name := fmt.Sprintf("%s-%s-overlay", fabric.Name, device.Name)
+
+		if err := r.reconcileBGP(ctx, device, fabric, name, routerID); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	// Create BGPPeer resources per route reflector group.
+	for _, group := range fabric.Spec.Overlay.IBGP.RouteReflectors {
+		rrSelector, err := metav1.LabelSelectorAsSelector(&group.DeviceSelector)
+		if err != nil {
+			return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("invalid deviceSelector in RR group %q: %w", group.Name, err))
+		}
+		clientSelector, err := metav1.LabelSelectorAsSelector(&group.ClientDeviceSelector)
+		if err != nil {
+			return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("invalid clientDeviceSelector in RR group %q: %w", group.Name, err))
+		}
+
+		rrDevices := &v1alpha1.DeviceList{}
+		if err := r.List(ctx, rrDevices, client.InNamespace(fabric.Namespace), client.MatchingLabelsSelector{Selector: rrSelector}); err != nil {
+			return ctrl.Result{}, fmt.Errorf("listing RR devices for group %q: %w", group.Name, err)
+		}
+		clientDevices := &v1alpha1.DeviceList{}
+		if err := r.List(ctx, clientDevices, client.InNamespace(fabric.Namespace), client.MatchingLabelsSelector{Selector: clientSelector}); err != nil {
+			return ctrl.Result{}, fmt.Errorf("listing client devices for group %q: %w", group.Name, err)
+		}
+
+		// Determine peering mode: full mesh or RR-to-client.
+		rrNames := sets.New[string]()
+		for i := range rrDevices.Items {
+			rrNames.Insert(rrDevices.Items[i].Name)
+		}
+		clientNames := sets.New[string]()
+		for i := range clientDevices.Items {
+			clientNames.Insert(clientDevices.Items[i].Name)
+		}
+
+		if rrNames.Equal(clientNames) {
+			// Full mesh: every device peers with every other.
+			for i := range rrDevices.Items {
+				for j := range rrDevices.Items {
+					if i == j {
+						continue
+					}
+					if err := r.reconcileBGPPeer(ctx, &rrDevices.Items[i], &rrDevices.Items[j], fabric, state, false); err != nil {
+						return ctrl.Result{}, err
+					}
+				}
+			}
+		} else {
+			// RR-to-client: each RR peers with each client.
+			for i := range rrDevices.Items {
+				for j := range clientDevices.Items {
+					if rrDevices.Items[i].Name == clientDevices.Items[j].Name {
+						continue
+					}
+					if err := r.reconcileBGPPeer(ctx, &rrDevices.Items[i], &clientDevices.Items[j], fabric, state, true); err != nil {
+						return ctrl.Result{}, err
+					}
+					if err := r.reconcileBGPPeer(ctx, &clientDevices.Items[j], &rrDevices.Items[i], fabric, state, false); err != nil {
+						return ctrl.Result{}, err
+					}
+				}
+			}
+		}
+	}
+	return ctrl.Result{}, nil
+}
+
+// reconcileBGP creates or updates the overlay BGP instance for a fabric device.
+func (r *FabricReconciler) reconcileBGP(ctx context.Context, device *v1alpha1.Device, fabric *evpnv1alpha1.Fabric, name, routerID string) error {
+	bgp := &v1alpha1.BGP{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: fabric.Namespace,
+		},
+	}
+	res, err := controllerutil.CreateOrPatch(ctx, r.Client, bgp, func() error {
+		if bgp.Labels == nil {
+			bgp.Labels = make(map[string]string)
+		}
+		bgp.Labels[evpnv1alpha1.FabricLabel] = fabric.Name
+		bgp.Spec.DeviceRef = v1alpha1.LocalObjectReference{Name: device.Name}
+		bgp.Spec.AdminState = v1alpha1.AdminStateUp
+		bgp.Spec.ASNumber = fabric.Spec.Overlay.IBGP.ASNumber
+		bgp.Spec.RouterID = routerID
+		bgp.Spec.AddressFamilies = &v1alpha1.BGPAddressFamilies{
+			L2vpnEvpn: &v1alpha1.BGPL2vpnEvpn{
+				BGPAddressFamily: v1alpha1.BGPAddressFamily{Enabled: true},
+				RouteTargetPolicy: &v1alpha1.BGPRouteTargetPolicy{
+					RetainAll: true,
+				},
+			},
+		}
+		return controllerutil.SetControllerReference(fabric, bgp, r.Scheme)
+	})
+	if err != nil {
+		return fmt.Errorf("reconciling BGP %s: %w", name, err)
+	}
+	if res == controllerutil.OperationResultCreated {
+		r.Recorder.Eventf(fabric, nil, "Normal", "BGPCreated", "Reconcile", "Created overlay BGP %s", name)
+	}
+	return nil
+}
+
+// reconcileBGPPeer creates or updates a directional BGP peer between two fabric devices.
+// If rrClient is true, the remote device is marked as a route-reflector client of the local device.
+func (r *FabricReconciler) reconcileBGPPeer(ctx context.Context, local, remote *v1alpha1.Device, fabric *evpnv1alpha1.Fabric, state *ReconcileState, rrClient bool) error {
+	// Resolve remote lo0 address for the peer address.
+	remoteLo0Name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, remote.Name, LoopbackRouterID)
+	remoteLoopbacks := state.loopbacks[remote.Name]
+
+	idx := slices.IndexFunc(remoteLoopbacks, func(intf *v1alpha1.Interface) bool { return intf.Name == remoteLo0Name })
+	if idx < 0 {
+		ctrl.LoggerFrom(ctx).V(1).Info("Skipping BGPPeer: remote lo0 not yet allocated", "local", local.Name, "remote", remote.Name)
+		return nil
+	}
+
+	remoteLo0 := remoteLoopbacks[idx]
+	if remoteLo0.Spec.IPv4 == nil || len(remoteLo0.Spec.IPv4.Addresses) == 0 {
+		return reconcile.TerminalError(fmt.Errorf("lo0 interface %s has no IPv4 address", remoteLo0Name))
+	}
+
+	peerAddr := remoteLo0.Spec.IPv4.Addresses[0].Addr().String()
+	localLo0Name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, local.Name, LoopbackRouterID)
+	name := fmt.Sprintf("%s-%s-%s", fabric.Name, local.Name, remote.Name)
+
+	peer := &v1alpha1.BGPPeer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: fabric.Namespace,
+		},
+	}
+	res, err := controllerutil.CreateOrPatch(ctx, r.Client, peer, func() error {
+		if peer.Labels == nil {
+			peer.Labels = make(map[string]string)
+		}
+		peer.Labels[evpnv1alpha1.FabricLabel] = fabric.Name
+		peer.Spec.DeviceRef = v1alpha1.LocalObjectReference{Name: local.Name}
+		peer.Spec.AdminState = v1alpha1.AdminStateUp
+		peer.Spec.BgpRef = v1alpha1.LocalObjectReference{Name: fmt.Sprintf("%s-%s-overlay", fabric.Name, local.Name)}
+		peer.Spec.Address = peerAddr
+		peer.Spec.ASNumber = fabric.Spec.Overlay.IBGP.ASNumber
+		peer.Spec.LocalAddress = &v1alpha1.BGPPeerLocalAddress{
+			InterfaceRef: v1alpha1.LocalObjectReference{Name: localLo0Name},
+		}
+		peer.Spec.AddressFamilies = &v1alpha1.BGPPeerAddressFamilies{
+			L2vpnEvpn: &v1alpha1.BGPPeerAddressFamily{
+				Enabled:              true,
+				SendCommunity:        v1alpha1.BGPCommunityTypeBoth,
+				RouteReflectorClient: rrClient,
+			},
+		}
+		return controllerutil.SetControllerReference(fabric, peer, r.Scheme)
+	})
+	if err != nil {
+		return fmt.Errorf("reconciling BGPPeer %s: %w", name, err)
+	}
+	if res == controllerutil.OperationResultCreated {
+		r.Recorder.Eventf(fabric, nil, "Normal", "BGPPeerCreated", "Reconcile", "Created overlay BGPPeer %s", name)
+	}
+	return nil
 }
 
 // devicesToFabrics is a [handler.MapFunc] that enqueues all Fabrics whose
