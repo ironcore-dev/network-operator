@@ -141,8 +141,8 @@ github.com/openconfig/gnoi v0.8.0 h1:fwZm4zlwoY5i7KALTpVhpAv53Y3YskleoTpg1IUCa+c
 github.com/openconfig/gnoi v0.8.0/go.mod h1:/kbYAWyBjQ08oahe7VGG8lAJc+yIfXdD7CF/T8RUjl0=
 github.com/openconfig/goyang v1.6.3 h1:9nWXBwd6b4+nZr8ni7O4zUXVhrVMXCLFz8os5YWFuo4=
 github.com/openconfig/goyang v1.6.3/go.mod h1:5WolITjek1NF8yrNERyVZ7jqjOClJTpO8p/+OwmETM4=
-github.com/openconfig/ygot v0.34.0 h1:9OkVjy3SGi4mbvAZc4HTQBU9u4MT6k4j5DdX+hgRiC4=
-github.com/openconfig/ygot v0.34.0/go.mod h1:eMNQHrJpanet+pQoBw/P3ua4sLY/tRTXyJ7ALkWCvl4=
+github.com/openconfig/ygot v0.35.0 h1:RCS7a5h40cyGAZQjQZGA7SunPuKl188l94DYTnHFX9A=
+github.com/openconfig/ygot v0.35.0/go.mod h1:bMjol0ooiK1suQZ8vG3OVj+I6D8yk9/aP6zXCf+V0kQ=
 github.com/pin/tftp/v3 v3.2.0 h1:q6K5G6T0TA7e3wDJsB/7VpD3iaWwVEJD/nEuh3q9Sk0=
 github.com/pin/tftp/v3 v3.2.0/go.mod h1:qc5ySXB5aOS1H6ULneqB4g5nshqV1CgeV/l/M6rEDms=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=

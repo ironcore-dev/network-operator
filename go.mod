@@ -11,7 +11,7 @@ require (
 	github.com/onsi/gomega v1.42.1
 	github.com/openconfig/gnmi v0.14.1
 	github.com/openconfig/gnoi v0.8.0
-	github.com/openconfig/ygot v0.34.0
+	github.com/openconfig/ygot v0.35.0
 	github.com/pin/tftp/v3 v3.2.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.19.0
