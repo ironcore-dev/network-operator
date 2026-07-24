@@ -146,6 +146,13 @@ var _ = Describe("BGP Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, bgp)).To(Succeed())
 
+			By("Waiting for BGP's condition to be fully consistent")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.BGP{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgp), resource)).To(Succeed())
+				g.Expect(conditions.IsConfigured(resource)).To(BeFalse()) // checks ObservedGeneration too
+			}).Should(Succeed())
+
 			By("Expecting ConfiguredCondition to be False with VRFNotFoundReason reason")
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.BGP{}

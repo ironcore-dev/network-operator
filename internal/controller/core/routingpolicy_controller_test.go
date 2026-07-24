@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/conditions"
 )
 
 var _ = Describe("RoutingPolicy Controller", func() {
@@ -182,6 +183,13 @@ var _ = Describe("RoutingPolicy Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, rp)).To(Succeed())
+
+			By("Waiting for RoutingPolicy's condition to be fully consistent")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.RoutingPolicy{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(conditions.IsConfigured(resource)).To(BeFalse()) // checks ObservedGeneration too
+			}).Should(Succeed())
 
 			By("Verifying the controller sets successful status conditions")
 			Eventually(func(g Gomega) {

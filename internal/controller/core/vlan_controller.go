@@ -290,6 +290,11 @@ func (r *VLANReconciler) reconcile(ctx context.Context, s *vlanScope) (reterr er
 		conditions.RecomputeReady(s.VLAN)
 	}()
 
+	conditions.Set(s.VLAN, metav1.Condition{
+		Type:   v1alpha1.ConfiguredCondition,
+		Status: metav1.ConditionFalse,
+	})
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}

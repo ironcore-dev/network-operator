@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/conditions"
 )
 
 var _ = Describe("VLAN Controller", func() {
@@ -95,6 +96,13 @@ var _ = Describe("VLAN Controller", func() {
 				g.Expect(resource.OwnerReferences).To(HaveLen(1))
 				g.Expect(resource.OwnerReferences[0].Kind).To(Equal("Device"))
 				g.Expect(resource.OwnerReferences[0].Name).To(Equal(name))
+			}).Should(Succeed())
+
+			By("Waiting for VLAN's condition to be fully consistent")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.VLAN{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(conditions.IsConfigured(resource)).To(BeTrue()) // checks ObservedGeneration too
 			}).Should(Succeed())
 
 			By("Updating the resource status")

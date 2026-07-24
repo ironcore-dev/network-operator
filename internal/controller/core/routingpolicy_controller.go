@@ -304,6 +304,11 @@ func (r *RoutingPolicyReconciler) reconcile(ctx context.Context, s *routingPolic
 		conditions.RecomputeReady(s.RoutingPolicy)
 	}()
 
+	conditions.Set(s.RoutingPolicy, metav1.Condition{
+		Type:   v1alpha1.ConfiguredCondition,
+		Status: metav1.ConditionFalse,
+	})
+
 	// Ensure the RoutingPolicy is owned by the Device.
 	if !controllerutil.HasControllerReference(s.RoutingPolicy) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.RoutingPolicy, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {

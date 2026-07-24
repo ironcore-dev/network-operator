@@ -227,6 +227,11 @@ func (r *DHCPRelayReconciler) reconcile(ctx context.Context, s *dhcprelayScope) 
 		conditions.RecomputeReady(s.DHCPRelay)
 	}()
 
+	conditions.Set(s.DHCPRelay, metav1.Condition{
+		Type:   v1alpha1.ConfiguredCondition,
+		Status: metav1.ConditionFalse,
+	})
+
 	// Ensure the DHCPRelay is owned by the Device.
 	if !controllerutil.HasControllerReference(s.DHCPRelay) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.DHCPRelay, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
