@@ -616,5 +616,5 @@ func (p *Provider) LoopbackInterfaceName(id int) (string, error) {
 }
 
 func init() {
-	provider.Register("cisco-iosxr-gnmi", NewProvider)
+	provider.Register("iosxr.cisco.networking.metal.ironcore.dev", NewProvider)
 }

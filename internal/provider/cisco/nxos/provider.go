@@ -4334,5 +4334,5 @@ func NormalizeMACAddress(mac string) string {
 }
 
 func init() {
-	provider.Register("cisco-nxos-gnmi", NewProvider)
+	provider.Register("nx.cisco.networking.metal.ironcore.dev", NewProvider)
 }
