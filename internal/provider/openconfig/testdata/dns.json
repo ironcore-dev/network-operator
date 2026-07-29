@@ -1,0 +1,17 @@
+{
+  "config": {
+    "search": [
+      "example.com"
+    ]
+  },
+  "servers": {
+    "server": [
+      {
+        "address": "1.1.1.1",
+        "config": {
+          "address": "1.1.1.1"
+        }
+      }
+    ]
+  }
+}
