@@ -192,9 +192,14 @@ spec:
                   the Device and its associated objects.
                 type: boolean
               provider:
-                description: Provider is the name of the provider plugin which is
-                  responsible for reconciling the CRD connected to the device
+                description: |-
+                  Provider identifies the provider implementation used to reconcile this Device and all CRDs that reference it.
+                  Immutable.
+                minLength: 1
                 type: string
+                x-kubernetes-validations:
+                - message: Provider is immutable
+                  rule: self == oldSelf
               provisioning:
                 description: |-
                   Provisioning is an optional configuration for the device provisioning process.
@@ -301,6 +306,7 @@ spec:
                 type: object
             required:
             - endpoint
+            - provider
             type: object
           status:
             description: |-

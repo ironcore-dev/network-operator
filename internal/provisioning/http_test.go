@@ -27,6 +27,7 @@ import (
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
+	"github.com/ironcore-dev/network-operator/internal/provider"
 )
 
 var (
@@ -37,6 +38,7 @@ var (
 			v1alpha1.DeviceSerialLabel: "ABC123",
 		},
 		Spec: v1alpha1.DeviceSpec{
+			Provider: "test-provider",
 			Endpoint: v1alpha1.Endpoint{
 				Address: "192.168.1.100:22",
 				SecretRef: &v1alpha1.SecretReference{
@@ -73,6 +75,14 @@ var (
 
 type MockProvider struct {
 	mock.Mock
+}
+
+func (m *MockProvider) Connect(ctx context.Context, conn *deviceutil.Connection) error {
+	return nil
+}
+
+func (m *MockProvider) Disconnect(ctx context.Context, conn *deviceutil.Connection) error {
+	return nil
 }
 
 func (m *MockProvider) HashProvisioningPassword(password string) (string, string, error) {
@@ -405,6 +415,7 @@ func TestHandleProvisioningRequest(t *testing.T) {
 				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: "192.168.1.200:22"},
+					Provider: "test-provider",
 				},
 				Status: v1alpha1.DeviceStatus{SerialNumber: "ABC123"},
 			},
@@ -421,6 +432,7 @@ func TestHandleProvisioningRequest(t *testing.T) {
 				Namespace: "default",
 				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Spec: v1alpha1.DeviceSpec{
+					Provider: "test-provider",
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.1.100:22",
 						SecretRef: &v1alpha1.SecretReference{
@@ -488,7 +500,6 @@ func TestHandleProvisioningRequest(t *testing.T) {
 				Client:           k8sClient,
 				Logger:           klog.NewKlogr(),
 				ValidateSourceIP: tt.validateSourceIP,
-				Provider:         new(MockProvider),
 			}
 
 			rr := httptest.NewRecorder()
@@ -928,6 +939,7 @@ func TestGetMTLSClientCA(t *testing.T) {
 				Namespace: "default",
 				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Spec: v1alpha1.DeviceSpec{
+					Provider: "test-provider",
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.1.100:22",
 					},
@@ -950,6 +962,7 @@ func TestGetMTLSClientCA(t *testing.T) {
 				Namespace: "default",
 				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Spec: v1alpha1.DeviceSpec{
+					Provider: "test-provider",
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.1.100:22",
 						TLS: &v1alpha1.TLS{
@@ -980,6 +993,7 @@ func TestGetMTLSClientCA(t *testing.T) {
 				Namespace: "default",
 				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Spec: v1alpha1.DeviceSpec{
+					Provider: "test-provider",
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.1.100:22",
 						TLS: &v1alpha1.TLS{
@@ -1009,6 +1023,7 @@ func TestGetMTLSClientCA(t *testing.T) {
 				Namespace: "default",
 				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Spec: v1alpha1.DeviceSpec{
+					Provider: "test-provider",
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.1.100:22",
 						TLS: &v1alpha1.TLS{
@@ -1086,4 +1101,5 @@ func TestGetMTLSClientCA(t *testing.T) {
 
 func init() {
 	utilruntime.Must(v1alpha1.AddToScheme(scheme.Scheme))
+	provider.Register("test-provider", func() provider.Provider { return &MockProvider{} })
 }

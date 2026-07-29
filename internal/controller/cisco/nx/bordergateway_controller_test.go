@@ -29,6 +29,7 @@ var _ = Describe("BorderGateway Controller", func() {
 				GenerateName: "test-bgw-",
 				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
+					Provider: "test-provider",
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
 					},

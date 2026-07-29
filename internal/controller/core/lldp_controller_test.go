@@ -35,6 +35,7 @@ var _ = Describe("LLDP Controller", func() {
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -312,6 +313,7 @@ var _ = Describe("LLDP Controller", func() {
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.6:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -432,6 +434,7 @@ var _ = Describe("LLDP Controller", func() {
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -571,6 +574,7 @@ var _ = Describe("LLDP Controller", func() {
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.3:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -650,6 +654,7 @@ var _ = Describe("LLDP Controller", func() {
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.99:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, otherDevice)).To(Succeed())
@@ -789,6 +794,7 @@ var _ = Describe("LLDP Controller", func() {
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.4:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -1018,6 +1024,7 @@ var _ = Describe("LLDP Controller", func() {
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.7:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -1197,6 +1204,7 @@ var _ = Describe("LLDP Controller", func() {
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.8:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
