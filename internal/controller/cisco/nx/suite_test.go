@@ -116,13 +116,12 @@ var _ = BeforeSuite(func() {
 	_, err = k8sManager.GetCache().GetInformer(ctx, &coordinationv1.Lease{})
 	Expect(err).NotTo(HaveOccurred())
 
-	prov := func() provider.Provider { return testProvider }
+	provider.Register("test-provider", func() provider.Provider { return testProvider })
 
 	err = (&SystemReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
-		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -131,7 +130,6 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   scheme.Scheme,
 		Recorder: recorder,
-		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -140,7 +138,6 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
-		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -153,7 +150,6 @@ var _ = BeforeSuite(func() {
 		Client:            k8sManager.GetClient(),
 		Scheme:            k8sManager.GetScheme(),
 		Recorder:          recorder,
-		Provider:          prov,
 		HeartbeatInterval: 10 * time.Minute,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())

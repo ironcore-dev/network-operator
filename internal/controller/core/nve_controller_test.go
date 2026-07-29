@@ -35,6 +35,7 @@ var _ = Describe("NVE Controller", func() {
 				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: testEndpointAddr},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -202,6 +203,7 @@ var _ = Describe("NVE Controller", func() {
 				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: testEndpointAddr},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -319,6 +321,7 @@ var _ = Describe("NVE Controller", func() {
 				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: testEndpointAddr},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -391,6 +394,7 @@ var _ = Describe("NVE Controller", func() {
 				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: testEndpointAddr},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -484,6 +488,7 @@ var _ = Describe("NVE Controller", func() {
 				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: testEndpointAddr},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -591,6 +596,7 @@ var _ = Describe("NVE Controller", func() {
 				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: testEndpointAddr},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -689,6 +695,7 @@ var _ = Describe("NVE Controller", func() {
 				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: testEndpointAddr},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -701,6 +708,7 @@ var _ = Describe("NVE Controller", func() {
 				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: testEndpointAddr},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device2)).To(Succeed())
@@ -805,6 +813,7 @@ var _ = Describe("NVE Controller", func() {
 				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: testEndpointAddr},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())

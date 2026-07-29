@@ -69,6 +69,7 @@ var _ = Describe("Device Controller", func() {
 							Name: name,
 						},
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -153,6 +154,7 @@ var _ = Describe("Device Controller", func() {
 							Name: name,
 						},
 					},
+					Provider: "test-provider",
 					Provisioning: &v1alpha1.Provisioning{
 						Image: v1alpha1.Image{
 							URL:          "http://example.com/nxos.bin",
@@ -195,6 +197,7 @@ var _ = Describe("Device Controller", func() {
 							Name: name,
 						},
 					},
+					Provider: "test-provider",
 					Provisioning: &v1alpha1.Provisioning{
 						Image: v1alpha1.Image{
 							URL:          "http://example.com/nxos.bin",
@@ -250,6 +253,7 @@ var _ = Describe("Device Controller", func() {
 							Name: name,
 						},
 					},
+					Provider: "test-provider",
 					Provisioning: &v1alpha1.Provisioning{
 						Image: v1alpha1.Image{
 							URL:          "http://example.com/nxos.bin",
@@ -308,6 +312,7 @@ var _ = Describe("Device Controller", func() {
 							Name: name,
 						},
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -334,6 +339,7 @@ var _ = Describe("Device Controller", func() {
 							Name: name,
 						},
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -375,6 +381,87 @@ var _ = Describe("Device Controller", func() {
 			}).Should(Succeed())
 		})
 
+		It("Should transition from Running to Provisioning once the reset-phase annotation is set", func() {
+			By("Creating a Device")
+			device := &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.5:9339",
+						SecretRef: &v1alpha1.SecretReference{
+							Name: name,
+						},
+					},
+					Provider: "test-provider",
+					Provisioning: &v1alpha1.Provisioning{
+						BootScript: v1alpha1.TemplateSource{
+							Inline: new("boot nxos.bin"),
+						},
+						Image: v1alpha1.Image{
+							URL:          "https://best-vendor-images.to/windows98",
+							Checksum:     "d41d8cd98f00b204e9800998ecf8427e",
+							ChecksumType: v1alpha1.ChecksumTypeMD5,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+
+			By("Verifying the device transitions to Provisioning phase")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseProvisioning))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.ReachableCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionUnknown))
+			}).Should(Succeed())
+
+			By("Setting the device to Running phase")
+			orig := device.DeepCopy()
+			device.Status.Phase = v1alpha1.DevicePhaseRunning
+			Expect(k8sClient.Status().Patch(ctx, device, client.MergeFrom(orig))).To(Succeed())
+
+			By("Verifying the device transitions to Running phase")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseRunning))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.ReachableCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionTrue))
+			}).Should(Succeed())
+
+			By("Adding the reset-phase annotation to the device")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				patch := resource.DeepCopy()
+				annotations := make(map[string]string)
+				annotations[v1alpha1.DeviceMaintenanceAnnotation] = v1alpha1.DeviceMaintenanceResetPhase
+				patch.SetAnnotations(annotations)
+				g.Expect(k8sClient.Patch(ctx, patch, client.MergeFrom(resource))).To(Succeed())
+			}).Should(Succeed())
+
+			By("Verifying the device transitions to Provisioning phase and the annotation is removed")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseProvisioning))
+				_, exists := resource.Annotations[v1alpha1.DeviceMaintenanceAnnotation]
+				g.Expect(exists).To(BeFalse(), "Maintenance annotation should be removed after processing")
+			}).Should(Succeed())
+		})
+
 		It("Should set Reachable=False and Ready=Unknown when the device is unreachable", func() {
 			By("Making the provider return a connect error")
 			testProvider.SetConnectError(errors.New("connection refused"))
@@ -394,6 +481,7 @@ var _ = Describe("Device Controller", func() {
 							Name: name,
 						},
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -440,6 +528,7 @@ var _ = Describe("Device Controller", func() {
 							Name: name,
 						},
 					},
+					Provider: "test-provider",
 					Provisioning: &v1alpha1.Provisioning{
 						Image: v1alpha1.Image{
 							URL:          "http://example.com/nxos.bin",
@@ -491,6 +580,7 @@ var _ = Describe("Device Controller", func() {
 							Name: name,
 						},
 					},
+					Provider: "test-provider",
 					Provisioning: &v1alpha1.Provisioning{
 						Image: v1alpha1.Image{
 							URL:          "http://example.com/nxos.bin",
@@ -555,6 +645,7 @@ var _ = Describe("Device Controller", func() {
 							Name: name,
 						},
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
