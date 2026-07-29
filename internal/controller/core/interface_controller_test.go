@@ -35,6 +35,7 @@ var _ = Describe("Interface Controller", func() {
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -1282,6 +1283,7 @@ var _ = Describe("Interface Controller", func() {
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.10:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, localDevice)).To(Succeed())
@@ -1295,6 +1297,7 @@ var _ = Describe("Interface Controller", func() {
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.11:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, remoteDevice)).To(Succeed())

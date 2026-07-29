@@ -51,6 +51,8 @@ type MaintenanceProvider interface {
 
 // ProvisioningProvider is the interface for the realization of the provisioning-related operations over different providers.
 type ProvisioningProvider interface {
+	Provider
+
 	// Reprovision prepares the device for reprovisioning by resetting it and reenabling provisioning mechanisms.
 	Reprovision(context.Context, *deviceutil.Connection) error
 	// HashProvisioningPassword takes a plaintext password and returns the hashed password along with the hash type.
@@ -898,4 +900,44 @@ type ProviderConfig struct { //nolint:revive // stutter is intentional; Provider
 // Into converts the underlying unstructured object into the specified type.
 func (p ProviderConfig) Into(v any) error {
 	return runtime.DefaultUnstructuredConverter.FromUnstructured(p.obj.Object, v)
+}
+
+type NotFoundError struct {
+	Message string
+}
+
+func (e NotFoundError) Error() string {
+	return e.Message
+}
+
+func (e NotFoundError) Is(target error) bool {
+	_, ok := target.(NotFoundError)
+	return ok
+}
+
+type NotImplementedError struct {
+	Message string
+}
+
+func (e NotImplementedError) Error() string {
+	return e.Message
+}
+
+func (e NotImplementedError) Is(target error) bool {
+	_, ok := target.(NotImplementedError)
+	return ok
+}
+
+// LoadProvider returns a provider instance cast to the requested interface type T.
+// Returns NotFoundError if the provider is not registered, NotImplementedError if it does not implement T.
+func LoadProvider[T Provider](providerName string) (zero T, _ error) {
+	prov, err := Get(providerName)
+	if err != nil {
+		return zero, NotFoundError{Message: fmt.Sprintf("Provider %q is not registered", providerName)}
+	}
+	provider, ok := prov().(T)
+	if !ok {
+		return zero, NotImplementedError{Message: fmt.Sprintf("provider %q does not implement %T", providerName, zero)}
+	}
+	return provider, nil
 }

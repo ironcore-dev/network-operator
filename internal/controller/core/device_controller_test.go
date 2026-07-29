@@ -70,6 +70,7 @@ var _ = Describe("Device Controller", func() {
 							Name: name,
 						},
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -158,6 +159,7 @@ var _ = Describe("Device Controller", func() {
 							Name: name,
 						},
 					},
+					Provider: "test-provider",
 					Provisioning: &v1alpha1.Provisioning{
 						Image: v1alpha1.Image{
 							URL:          "http://example.com/nxos.bin",
@@ -202,6 +204,7 @@ var _ = Describe("Device Controller", func() {
 							Name: name,
 						},
 					},
+					Provider: "test-provider",
 					Provisioning: &v1alpha1.Provisioning{
 						Image: v1alpha1.Image{
 							URL:          "http://example.com/nxos.bin",
@@ -259,6 +262,7 @@ var _ = Describe("Device Controller", func() {
 							Name: name,
 						},
 					},
+					Provider: "test-provider",
 					Provisioning: &v1alpha1.Provisioning{
 						Image: v1alpha1.Image{
 							URL:          "http://example.com/nxos.bin",
@@ -319,6 +323,7 @@ var _ = Describe("Device Controller", func() {
 							Name: name,
 						},
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -347,6 +352,7 @@ var _ = Describe("Device Controller", func() {
 							Name: name,
 						},
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -402,6 +408,7 @@ var _ = Describe("Device Controller", func() {
 							Name: name,
 						},
 					},
+					Provider: "test-provider",
 					Provisioning: &v1alpha1.Provisioning{
 						BootScript: v1alpha1.TemplateSource{
 							Inline: new("boot nxos.bin"),
@@ -489,6 +496,7 @@ var _ = Describe("Device Controller", func() {
 							Name: name,
 						},
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -537,6 +545,7 @@ var _ = Describe("Device Controller", func() {
 							Name: name,
 						},
 					},
+					Provider: "test-provider",
 					Provisioning: &v1alpha1.Provisioning{
 						Image: v1alpha1.Image{
 							URL:          "http://example.com/nxos.bin",
@@ -590,6 +599,7 @@ var _ = Describe("Device Controller", func() {
 							Name: name,
 						},
 					},
+					Provider: "test-provider",
 					Provisioning: &v1alpha1.Provisioning{
 						Image: v1alpha1.Image{
 							URL:          "http://example.com/nxos.bin",
@@ -656,6 +666,7 @@ var _ = Describe("Device Controller", func() {
 							Name: name,
 						},
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())

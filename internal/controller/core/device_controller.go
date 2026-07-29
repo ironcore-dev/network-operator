@@ -49,9 +49,6 @@ type DeviceReconciler struct {
 	// More info: https://book.kubebuilder.io/reference/raising-events
 	Recorder events.EventRecorder
 
-	// Provider is the driver that will be used to create & delete the interface.
-	Provider provider.ProviderFunc
-
 	// HeartbeatInterval is the duration after which the controller requeues the reconciliation,
 	// regardless of changes.
 	HeartbeatInterval time.Duration
@@ -128,8 +125,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 			obj.Status.Phase = v1alpha1.DevicePhaseRunning
 			return ctrl.Result{}, nil
 		}
-
-		if _, ok := r.Provider().(provider.ProvisioningProvider); !ok {
+		if _, err := provider.LoadProvider[provider.ProvisioningProvider](obj.Spec.Provider); err != nil {
 			// Skip provisioning if the provider does not support it.
 			log.Info("Provider does not support provisioning, skipping")
 			obj.Status.Phase = v1alpha1.DevicePhaseFailed
@@ -193,7 +189,11 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 			return ctrl.Result{}, nil
 		}
 		log.Info("Device provisioning completed, running post provisioning checks")
-		prov, _ := r.Provider().(provider.ProvisioningProvider)
+		prov, err := provider.LoadProvider[provider.ProvisioningProvider](obj.Spec.Provider)
+		if err != nil {
+			log.Error(err, "Failed to load provisioning provider")
+			return ctrl.Result{}, err
+		}
 		if ok := prov.VerifyProvisioned(ctx, conn, obj); !ok {
 			return ctrl.Result{RequeueAfter: r.HeartbeatInterval}, nil
 		}
@@ -203,7 +203,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, nil
 
 	case v1alpha1.DevicePhaseRunning:
-		if prov, ok := r.Provider().(provider.DeviceProvider); ok {
+		if prov, err := provider.LoadProvider[provider.DeviceProvider](obj.Spec.Provider); err == nil {
 			if err := r.reconcile(ctx, obj, prov, conn); err != nil {
 				log.Error(err, "Failed to reconcile resource")
 				return ctrl.Result{}, err
@@ -384,7 +384,10 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 }
 
 func (r *DeviceReconciler) reconcileMinimal(ctx context.Context, device *v1alpha1.Device, conn *deviceutil.Connection) (reterr error) {
-	prov := r.Provider()
+	prov, err := provider.LoadProvider[provider.DeviceProvider](device.Spec.Provider)
+	if err != nil {
+		return fmt.Errorf("failed to load device provider: %w", err)
+	}
 	if err := prov.Connect(ctx, conn); err != nil {
 		conditions.Set(device, metav1.Condition{
 			Type:    v1alpha1.ReachableCondition,
@@ -440,7 +443,11 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 		v1alpha1.DeviceMaintenanceFactoryReset,
 		v1alpha1.DeviceMaintenanceReprovision:
 
-		prov := r.Provider()
+		prov, err := provider.LoadProvider[provider.DeviceProvider](obj.Spec.Provider)
+		if err != nil {
+			return fmt.Errorf("failed to load device provider: %w", err)
+		}
+
 		if err := prov.Connect(ctx, conn); err != nil {
 			return fmt.Errorf("failed to connect to device: %w", err)
 		}
