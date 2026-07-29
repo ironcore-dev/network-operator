@@ -55,5 +55,5 @@ func (p *Provider) Disconnect(_ context.Context, _ *deviceutil.Connection) error
 }
 
 func init() {
-	provider.Register("openconfig", NewProvider)
+	provider.Register("openconfig.networking.metal.ironcore.dev", NewProvider)
 }
