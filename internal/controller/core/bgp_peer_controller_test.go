@@ -263,6 +263,13 @@ var _ = Describe("BGPPeer Controller", func() {
 				Expect(k8sClient.Delete(ctx, bgppeer)).To(Succeed())
 			})
 
+			By("Waiting for BGPPeer's condition to be fully consistent")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.BGPPeer{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgppeer), resource)).To(Succeed())
+				g.Expect(conditions.IsConfigured(resource)).To(BeFalse()) // checks ObservedGeneration too
+			}).Should(Succeed())
+
 			By("Verifying the controller sets Interface not found status")
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.BGPPeer{}
@@ -513,6 +520,13 @@ var _ = Describe("BGPPeer Controller", func() {
 					g.Expect(testProvider.BGPPeers.Has(host)).To(BeFalse(), "Provider should not have BGP peer configured")
 				}).Should(Succeed())
 			})
+
+			By("Waiting for BGPPeer's condition to be fully consistent")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.BGPPeer{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgppeer), resource)).To(Succeed())
+				g.Expect(conditions.IsConfigured(resource)).To(BeFalse()) // checks ObservedGeneration too
+			}).Should(Succeed())
 
 			By("Verifying the controller sets Configured=False with appropriate reason")
 			Eventually(func(g Gomega) {
