@@ -25,6 +25,10 @@ Network-operator is a project built using Kubebuilder and controller-runtime to 
 - kubectl version v1.33.1+.
 - Access to a Kubernetes v1.33.0+ cluster.
 - [Git LFS](https://git-lfs.com) installed (`git lfs install`)
+- kind version 0.32.0+
+- Tilt version v0.37.3+
+- gh version 2.93.0+
+- coreutils 9.11+
 
 ### To Deploy on the cluster
 
