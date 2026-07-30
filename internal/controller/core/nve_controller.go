@@ -173,7 +173,7 @@ func (r *NetworkVirtualizationEdgeReconciler) Reconcile(ctx context.Context, req
 	}
 
 	orig := obj.DeepCopy()
-	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
@@ -227,6 +227,13 @@ func (r *NetworkVirtualizationEdgeReconciler) reconcile(ctx context.Context, s *
 	defer func() {
 		conditions.RecomputeReady(s.NVE)
 	}()
+
+	conditions.Set(s.NVE, metav1.Condition{
+		Type:    v1alpha1.ConfiguredCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  v1alpha1.ReconcilePendingReason,
+		Message: "Reconciliation is in progress",
+	})
 
 	if err := r.validateUniqueNVEPerDevice(ctx, s); err != nil {
 		return err

@@ -284,6 +284,13 @@ func (r *UserReconciler) reconcile(ctx context.Context, s *userScope) (reterr er
 		conditions.RecomputeReady(s.User)
 	}()
 
+	conditions.Set(s.User, metav1.Condition{
+		Type:    v1alpha1.ConfiguredCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  v1alpha1.ReconcilePendingReason,
+		Message: "Reconciliation is in progress",
+	})
+
 	// Ensure the User is owned by the Device.
 	if !controllerutil.HasControllerReference(s.User) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.User, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {

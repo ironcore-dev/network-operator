@@ -251,6 +251,13 @@ func (r *SystemReconciler) reconcile(ctx context.Context, s *systemScope) (reter
 		conditions.RecomputeReady(s.System)
 	}()
 
+	conditions.Set(s.System, metav1.Condition{
+		Type:    v1alpha1.ConfiguredCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  v1alpha1.ReconcilePendingReason,
+		Message: "Reconciliation is in progress",
+	})
+
 	// Ensure the System is owned by the Device.
 	if !controllerutil.HasControllerReference(s.System) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.System, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {

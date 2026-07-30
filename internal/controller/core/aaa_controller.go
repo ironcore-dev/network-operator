@@ -246,6 +246,13 @@ func (r *AAAReconciler) reconcile(ctx context.Context, s *aaaScope) (reterr erro
 		conditions.RecomputeReady(s.AAA)
 	}()
 
+	conditions.Set(s.AAA, metav1.Condition{
+		Type:    v1alpha1.ConfiguredCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  v1alpha1.ReconcilePendingReason,
+		Message: "Reconciliation is in progress",
+	})
+
 	// Ensure the AAA is owned by the Device.
 	if !controllerutil.HasControllerReference(s.AAA) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.AAA, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {

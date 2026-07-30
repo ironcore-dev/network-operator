@@ -275,6 +275,13 @@ func (r *AccessControlListReconciler) reconcile(ctx context.Context, s *aclScope
 		conditions.RecomputeReady(s.ACL)
 	}()
 
+	conditions.Set(s.ACL, metav1.Condition{
+		Type:    v1alpha1.ConfiguredCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  v1alpha1.ReconcilePendingReason,
+		Message: "Reconciliation is in progress",
+	})
+
 	// Ensure the AccessControlList is owned by the Device.
 	if !controllerutil.HasControllerReference(s.ACL) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.ACL, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {

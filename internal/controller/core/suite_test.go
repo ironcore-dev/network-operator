@@ -90,9 +90,10 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:  scheme.Scheme,
-		Logger:  GinkgoLogr,
-		Metrics: metricsserver.Options{BindAddress: "0"},
+		Scheme:                 scheme.Scheme,
+		Logger:                 GinkgoLogr,
+		Metrics:                metricsserver.Options{BindAddress: "0"},
+		HealthProbeBindAddress: "0",
 	})
 	Expect(err).ToNot(HaveOccurred())
 

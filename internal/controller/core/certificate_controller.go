@@ -284,6 +284,13 @@ func (r *CertificateReconciler) reconcile(ctx context.Context, s *certificateSco
 		conditions.RecomputeReady(s.Certificate)
 	}()
 
+	conditions.Set(s.Certificate, metav1.Condition{
+		Type:    v1alpha1.ConfiguredCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  v1alpha1.ReconcilePendingReason,
+		Message: "Reconciliation is in progress",
+	})
+
 	// Ensure the Certificate is owned by the Device.
 	if !controllerutil.HasControllerReference(s.Certificate) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.Certificate, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {

@@ -275,6 +275,13 @@ func (r *ManagementAccessReconciler) reconcile(ctx context.Context, s *managemen
 		conditions.RecomputeReady(s.ManagementAccess)
 	}()
 
+	conditions.Set(s.ManagementAccess, metav1.Condition{
+		Type:    v1alpha1.ConfiguredCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  v1alpha1.ReconcilePendingReason,
+		Message: "Reconciliation is in progress",
+	})
+
 	// Ensure the ManagementAccess is owned by the Device.
 	if !controllerutil.HasControllerReference(s.ManagementAccess) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.ManagementAccess, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {

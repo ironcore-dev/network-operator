@@ -224,8 +224,10 @@ func (r *VRFReconciler) reconcile(ctx context.Context, s *vrfScope) (reterr erro
 	}()
 
 	conditions.Set(s.VRF, metav1.Condition{
-		Type:   v1alpha1.ConfiguredCondition,
-		Status: metav1.ConditionFalse,
+		Type:    v1alpha1.ConfiguredCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  v1alpha1.ReconcilePendingReason,
+		Message: "Reconciliation is in progress",
 	})
 
 	// Ensure the VRF is owned by the Device.

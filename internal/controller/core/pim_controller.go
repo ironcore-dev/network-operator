@@ -294,6 +294,13 @@ func (r *PIMReconciler) reconcile(ctx context.Context, s *pimScope) (reterr erro
 		conditions.RecomputeReady(s.PIM)
 	}()
 
+	conditions.Set(s.PIM, metav1.Condition{
+		Type:    v1alpha1.ConfiguredCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  v1alpha1.ReconcilePendingReason,
+		Message: "Reconciliation is in progress",
+	})
+
 	// Ensure the PIM is owned by the Device.
 	if !controllerutil.HasControllerReference(s.PIM) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.PIM, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
