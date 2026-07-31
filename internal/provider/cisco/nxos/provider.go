@@ -1335,7 +1335,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			return err
 		}
 
-		sb.Update(p)
+		sb.Patch(p)
 
 	case v1alpha1.InterfaceTypeLoopback:
 		lb := new(Loopback)
@@ -1348,7 +1348,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			lb.AdminSt = AdminStUp
 		}
 		lb.RtvrfMbrItems = NewVrfMember(name, vrf)
-		sb.Update(lb)
+		sb.Patch(lb)
 
 	case v1alpha1.InterfaceTypeAggregate:
 		f := new(Feature)
@@ -1462,13 +1462,13 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		}
 
-		sb.Update(pc)
+		sb.Patch(pc)
 
 		if req.MultiChassisID != nil {
 			v := new(VPCIf)
 			v.ID = int(*req.MultiChassisID)
 			v.SetPortChannel(name)
-			sb.Update(v)
+			sb.Patch(v)
 		}
 
 	case v1alpha1.InterfaceTypeRoutedVLAN:
@@ -1491,7 +1491,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 		svi.VlanID = req.VLAN.Spec.ID
 		svi.RtvrfMbrItems = NewVrfMember(name, vrf)
-		sb.Update(svi)
+		sb.Patch(svi)
 
 		fwif := new(FabricFwdIf)
 		fwif.ID = name
@@ -1508,7 +1508,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 
 			fwif.AdminSt = AdminStEnabled
 			fwif.Mode = FwdModeAnycastGateway
-			sb.Update(fwif)
+			sb.Patch(fwif)
 		default:
 			sb.Delete(fwif)
 		}
@@ -1550,7 +1550,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			s.Medium = MediumPointToPoint
 		}
 
-		sb.Update(s)
+		sb.Patch(s)
 
 	default:
 		return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
@@ -1589,12 +1589,12 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				}
 			}
 		}
-		sb.Update(stp)
+		sb.Patch(stp)
 	}
 
 	// Add the address items last, as they depend on the interface being created first.
 	if addr != nil {
-		sb.Update(addr)
+		sb.Patch(addr)
 	}
 
 	switch {
@@ -1602,14 +1602,14 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		f := new(Feature)
 		f.Name = "bfd"
 		f.AdminSt = AdminStEnabled
-		sb.Update(f)
+		sb.Patch(f)
 
 		// Disable ICMP redirect messages on BFD-enabled interfaces.
 		// See: https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/106x/configuration/interfaces/cisco-nexus-9000-series-nx-os-interfaces-configuration-guide-release-106x/b-cisco-nexus-9000-nx-os-interfaces-configuration-guide-93x_chapter_01111.html
 		icmp := new(ICMPIf)
 		icmp.ID = name
 		icmp.Ctrl = "port-unreachable"
-		sb.Update(icmp)
+		sb.Patch(icmp)
 
 		bfd := new(BFD)
 		bfd.ID = name
@@ -1629,18 +1629,18 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		if err := bfd.Validate(); err != nil {
 			return err
 		}
-		sb.Update(bfd)
+		sb.Patch(bfd)
 
 	case req.Interface.Spec.BFD != nil && !req.Interface.Spec.BFD.Enabled:
 		f := new(Feature)
 		f.Name = "bfd"
 		f.AdminSt = AdminStEnabled
-		sb.Update(f)
+		sb.Patch(f)
 
 		bfd := new(BFD)
 		bfd.ID = name
 		bfd.AdminSt = AdminStDisabled
-		sb.Update(bfd)
+		sb.Patch(bfd)
 
 	default:
 		// BFD not specified — clean up any leftover BFD config on the interface.
@@ -1659,10 +1659,10 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			sb.Delete(icmp)
 		case v1alpha1.InterfaceTypeLoopback:
 			icmp.Ctrl = "port-unreachable,redirect"
-			sb.Update(icmp)
+			sb.Patch(icmp)
 		case v1alpha1.InterfaceTypeRoutedVLAN:
 			icmp.Ctrl = "port-unreachable"
-			sb.Update(icmp)
+			sb.Patch(icmp)
 		}
 	}
 
