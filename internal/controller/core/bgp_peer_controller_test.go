@@ -267,6 +267,7 @@ var _ = Describe("BGPPeer Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.BGPPeer{}
 				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgppeer), resource)).To(Succeed())
+				g.Expect(resource.Status.Conditions).NotTo(BeEmpty())
 				g.Expect(conditions.IsConfigured(resource)).To(BeFalse()) // checks ObservedGeneration too
 			}).Should(Succeed())
 
@@ -525,6 +526,7 @@ var _ = Describe("BGPPeer Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.BGPPeer{}
 				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgppeer), resource)).To(Succeed())
+				g.Expect(resource.Status.Conditions).NotTo(BeEmpty())
 				g.Expect(conditions.IsConfigured(resource)).To(BeFalse()) // checks ObservedGeneration too
 			}).Should(Succeed())
 
