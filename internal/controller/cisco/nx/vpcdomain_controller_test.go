@@ -116,16 +116,16 @@ var _ = Describe("VPCDomain Controller", func() {
 			By("Cleanup the specific resource instance VPCDomain")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 
+			By("Ensuring the resource is deleted from the provider")
+			Eventually(func(g Gomega) {
+				g.Expect(testProvider.VPCDomain).To(BeNil(), "Provider VPCDomain should be nil")
+			}).Should(Succeed())
+
 			resource = &corev1.Device{}
 			Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
 
 			By("Cleanup the specific resource instance Device")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-
-			By("Ensuring the resource is deleted from the provider")
-			Eventually(func(g Gomega) {
-				g.Expect(testProvider.VPCDomain).To(BeNil(), "Provider VPCDomain should be nil")
-			}).Should(Succeed())
 		})
 
 		It("Should successfully reconcile the resource", func() {
@@ -296,18 +296,28 @@ var _ = Describe("VPCDomain Controller", func() {
 			By("Cleanup the VPCDomain")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 
-			By("Cleanup all Interface and VRF resources")
-			Expect(k8sClient.DeleteAllOf(ctx, &corev1.Interface{}, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
-			Expect(k8sClient.DeleteAllOf(ctx, &corev1.VRF{}, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
-
-			By("Cleanup Device A and B")
-			Expect(k8sClient.Delete(ctx, &corev1.Device{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault}})).To(Succeed())
-			Expect(k8sClient.Delete(ctx, &corev1.Device{ObjectMeta: metav1.ObjectMeta{Name: name + "-b", Namespace: metav1.NamespaceDefault}})).To(Succeed())
+			By("Cleanup Interface and VRF resources")
+			for _, ifName := range []string{name + "-phys", name + "-po", name + "-phys-b", name + "-po-b", name + "-lo0"} {
+				intf := &corev1.Interface{}
+				intf.Name = ifName
+				intf.Namespace = metav1.NamespaceDefault
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed())
+			}
+			for _, vrfName := range []string{name + "-vrf-a", name + "-vrf-b"} {
+				vrf := &corev1.VRF{}
+				vrf.Name = vrfName
+				vrf.Namespace = metav1.NamespaceDefault
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, vrf))).To(Succeed())
+			}
 
 			By("Ensuring the resource is deleted from the provider")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.VPCDomain).To(BeNil(), "Provider VPCDomain should be nil")
 			}).Should(Succeed())
+
+			By("Cleanup Device A and B")
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &corev1.Device{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault}}))).To(Succeed())
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &corev1.Device{ObjectMeta: metav1.ObjectMeta{Name: name + "-b", Namespace: metav1.NamespaceDefault}}))).To(Succeed())
 		})
 
 		It("reports WaitingForDependencies when peer-link interface is missing", func() {

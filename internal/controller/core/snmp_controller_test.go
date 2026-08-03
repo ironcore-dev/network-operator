@@ -6,7 +6,6 @@ package core
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -71,30 +70,22 @@ var _ = Describe("SNMP Controller", func() {
 		})
 
 		AfterEach(func() {
-			var resource client.Object = &v1alpha1.SNMP{}
-			err := k8sClient.Get(ctx, key, resource)
-			Expect(err).NotTo(HaveOccurred())
+			By("Cleaning up the SNMP resource")
+			snmp := &v1alpha1.SNMP{}
+			snmp.Name = name
+			snmp.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, snmp))).To(Succeed())
 
-			By("Cleanup the specific resource instance SNMP")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-
-			By("Waiting for SNMP to be fully deleted")
-			Eventually(func(g Gomega) {
-				err := k8sClient.Get(ctx, key, &v1alpha1.SNMP{})
-				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
-			}).Should(Succeed())
-
-			resource = &v1alpha1.Device{}
-			err = k8sClient.Get(ctx, key, resource)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleanup the specific resource instance Device")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-
-			By("Ensuring the resource is deleted from the provider")
+			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.SNMP).To(BeNil(), "Provider should not have SNMP configured")
 			}).Should(Succeed())
+
+			By("Cleaning up the Device resource")
+			device := &v1alpha1.Device{}
+			device.Name = name
+			device.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should successfully reconcile the resource", func() {

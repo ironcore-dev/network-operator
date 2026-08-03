@@ -42,30 +42,28 @@ var _ = Describe("RoutingPolicy Controller", func() {
 		})
 
 		AfterEach(func() {
-			rp := &v1alpha1.RoutingPolicy{}
-			err := k8sClient.Get(ctx, key, rp)
-			Expect(err).NotTo(HaveOccurred())
-
 			By("Cleaning up the RoutingPolicy resource")
-			Expect(k8sClient.Delete(ctx, rp)).To(Succeed())
+			rp := &v1alpha1.RoutingPolicy{}
+			rp.Name = name
+			rp.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, rp))).To(Succeed())
 
 			By("Cleaning up the PrefixSet resource")
 			ps := &v1alpha1.PrefixSet{}
-			if err := k8sClient.Get(ctx, key, ps); err == nil {
-				Expect(k8sClient.Delete(ctx, ps)).To(Succeed())
-			}
-
-			device := &v1alpha1.Device{}
-			err = k8sClient.Get(ctx, key, device)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleaning up the test Device resource")
-			Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
+			ps.Name = name
+			ps.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, ps))).To(Succeed())
 
 			By("Verifying the RoutingPolicy is removed from the provider")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.RoutingPolicies.Has(name)).To(BeFalse(), "Provider shouldn't have RoutingPolicy configured anymore")
 			}).Should(Succeed())
+
+			By("Cleaning up the Device resource")
+			device := &v1alpha1.Device{}
+			device.Name = name
+			device.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should successfully reconcile the resource", func() {
