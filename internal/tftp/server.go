@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 
 	tftp "github.com/pin/tftp/v3"
@@ -29,6 +30,15 @@ type Server struct {
 }
 
 func (s *Server) Start(ctx context.Context) error {
+	addr := fmt.Sprintf(":%d", s.Port)
+	conn, err := new(net.ListenConfig).ListenPacket(ctx, "udp", addr)
+	if err != nil {
+		return err
+	}
+	return s.serve(ctx, conn)
+}
+
+func (s *Server) serve(ctx context.Context, conn net.PacketConn) error {
 	readHandler := func(filename string, rf io.ReaderFrom) error {
 		log := s.Logger.WithValues("filename", filename)
 
@@ -96,13 +106,12 @@ func (s *Server) Start(ctx context.Context) error {
 		return nil
 	}
 
-	addr := fmt.Sprintf(":%d", s.Port)
 	srv := tftp.NewServer(readHandler, nil)
 	go func() {
 		<-ctx.Done()
 		srv.Shutdown()
 	}()
-	return srv.ListenAndServe(addr)
+	return srv.Serve(conn)
 }
 
 func resolveBootScript(ctx context.Context, r client.Reader, ns string, p *corev1.Provisioning) []byte {
