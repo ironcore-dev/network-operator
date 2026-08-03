@@ -344,13 +344,12 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&EthernetSegmentReconciler{
-		Client:          k8sManager.GetClient(),
-		Scheme:          k8sManager.GetScheme(),
-		Recorder:        recorder,
-		Provider:        prov,
-		Locker:          testLocker,
-		RequeueInterval: time.Second,
+	err = (&ConfigBackupReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
