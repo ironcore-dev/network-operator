@@ -43,39 +43,45 @@ var _ = Describe("Interface Controller", func() {
 		})
 
 		AfterEach(func() {
-			By("Cleaning up all Interface resources")
-			Expect(k8sClient.DeleteAllOf(ctx, &v1alpha1.Interface{}, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+			By("Cleaning up Interface resources for this device")
+			interfaces := &v1alpha1.InterfaceList{}
+			Expect(k8sClient.List(ctx, interfaces, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+			for i := range interfaces.Items {
+				deviceName := interfaces.Items[i].Spec.DeviceRef.Name
+				if deviceName == name || deviceName == "different-device" || deviceName == "non-existing-device" {
+					Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &interfaces.Items[i]))).To(Succeed())
+				}
+			}
+
+			By("Waiting for Interfaces to be fully deleted")
+			Eventually(func(g Gomega) {
+				list := &v1alpha1.InterfaceList{}
+				g.Expect(k8sClient.List(ctx, list, client.InNamespace(metav1.NamespaceDefault), client.MatchingLabels{v1alpha1.DeviceLabel: name})).To(Succeed())
+				g.Expect(list.Items).To(BeEmpty())
+			}).Should(Succeed())
 
 			By("Cleaning up test VLAN resource")
 			vlan := &v1alpha1.VLAN{}
-			if err := k8sClient.Get(ctx, key, vlan); err == nil {
-				Expect(k8sClient.Delete(ctx, vlan)).To(Succeed())
-			}
+			vlan.Name = name
+			vlan.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, vlan))).To(Succeed())
 
 			By("Cleaning up test VRF resource")
 			vrf := &v1alpha1.VRF{}
-			if err := k8sClient.Get(ctx, key, vrf); err == nil {
-				Expect(k8sClient.Delete(ctx, vrf)).To(Succeed())
-			}
-
-			device := &v1alpha1.Device{}
-			err := k8sClient.Get(ctx, key, device)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleaning up the test Device resource")
-			Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
-
-			By("Verifying all Interfaces are deleted")
-			Eventually(func(g Gomega) {
-				intfList := &v1alpha1.InterfaceList{}
-				g.Expect(k8sClient.List(ctx, intfList, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
-				g.Expect(intfList.Items).To(BeEmpty())
-			}).Should(Succeed())
+			vrf.Name = name
+			vrf.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, vrf))).To(Succeed())
 
 			By("Verifying the Interface is removed from the provider")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.Ports.Has(name)).To(BeFalse(), "Provider shouldn't have Interface configured anymore")
 			}).Should(Succeed())
+
+			By("Cleaning up the Device resource")
+			device := &v1alpha1.Device{}
+			device.Name = name
+			device.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should successfully reconcile a Physical Interface with IPv4 addresses", func() {
@@ -1364,11 +1370,20 @@ var _ = Describe("Interface Controller", func() {
 			testProvider.Unlock()
 
 			By("Cleaning up all Interface resources")
-			Expect(k8sClient.DeleteAllOf(ctx, &v1alpha1.Interface{}, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+			intfList := &v1alpha1.InterfaceList{}
+			Expect(k8sClient.List(ctx, intfList, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+			for i := range intfList.Items {
+				if intfList.Items[i].Spec.DeviceRef.Name == localDevice.Name || intfList.Items[i].Spec.DeviceRef.Name == remoteDevice.Name {
+					Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &intfList.Items[i]))).To(Succeed())
+				}
+			}
 			Eventually(func(g Gomega) {
-				intfList := &v1alpha1.InterfaceList{}
-				g.Expect(k8sClient.List(ctx, intfList, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
-				g.Expect(intfList.Items).To(BeEmpty())
+				list := &v1alpha1.InterfaceList{}
+				g.Expect(k8sClient.List(ctx, list, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+				for _, item := range list.Items {
+					g.Expect(item.Spec.DeviceRef.Name).NotTo(Equal(localDevice.Name))
+					g.Expect(item.Spec.DeviceRef.Name).NotTo(Equal(remoteDevice.Name))
+				}
 			}).Should(Succeed())
 
 			By("Cleaning up DNS resource")
@@ -1378,10 +1393,10 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Cleaning up Device resources")
 			if localDevice != nil {
-				Expect(k8sClient.Delete(ctx, localDevice, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
+				Expect(k8sClient.Delete(ctx, localDevice)).To(Succeed())
 			}
 			if remoteDevice != nil {
-				Expect(k8sClient.Delete(ctx, remoteDevice, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
+				Expect(k8sClient.Delete(ctx, remoteDevice)).To(Succeed())
 			}
 		})
 

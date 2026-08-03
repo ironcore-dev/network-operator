@@ -43,19 +43,17 @@ var _ = Describe("Device Controller", func() {
 		})
 
 		AfterEach(func() {
-			device := &v1alpha1.Device{}
-			err := k8sClient.Get(ctx, key, device)
-			Expect(err).NotTo(HaveOccurred())
-
 			By("Cleanup the specific resource instance Device")
-			Expect(k8sClient.Delete(ctx, device)).To(Succeed())
-
-			secret := &corev1.Secret{}
-			err = k8sClient.Get(ctx, key, secret)
-			Expect(err).NotTo(HaveOccurred())
+			device := &v1alpha1.Device{}
+			device.Name = name
+			device.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 
 			By("Cleanup the specific resource instance Secret")
-			Expect(k8sClient.Delete(ctx, secret)).To(Succeed())
+			secret := &corev1.Secret{}
+			secret.Name = name
+			secret.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, secret))).To(Succeed())
 		})
 
 		It("Should successfully reconcile the resource", func() {

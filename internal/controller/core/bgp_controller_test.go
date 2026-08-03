@@ -6,7 +6,6 @@ package core
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,8 +36,41 @@ var _ = Describe("BGP Controller", func() {
 		})
 
 		AfterEach(func() {
+			By("Cleaning up BGP resources for this device")
+			bgpList := &v1alpha1.BGPList{}
+			Expect(k8sClient.List(ctx, bgpList, client.InNamespace(metav1.NamespaceDefault), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name})).To(Succeed())
+			for i := range bgpList.Items {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &bgpList.Items[i]))).To(Succeed())
+			}
+
+			By("Cleaning up VRF resources for this device")
+			vrfList := &v1alpha1.VRFList{}
+			Expect(k8sClient.List(ctx, vrfList, client.InNamespace(metav1.NamespaceDefault), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name})).To(Succeed())
+			for i := range vrfList.Items {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &vrfList.Items[i]))).To(Succeed())
+			}
+
+			By("Cleaning up RoutingPolicy resources for this device")
+			rpList := &v1alpha1.RoutingPolicyList{}
+			Expect(k8sClient.List(ctx, rpList, client.InNamespace(metav1.NamespaceDefault), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name})).To(Succeed())
+			for i := range rpList.Items {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &rpList.Items[i]))).To(Succeed())
+			}
+
+			By("Waiting for BGP resources to be fully deleted")
+			Eventually(func(g Gomega) {
+				list := &v1alpha1.BGPList{}
+				g.Expect(k8sClient.List(ctx, list, client.InNamespace(metav1.NamespaceDefault), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name})).To(Succeed())
+				g.Expect(list.Items).To(BeEmpty())
+			}).Should(Succeed())
+
+			By("Verifying BGP is removed from the provider")
+			Eventually(func(g Gomega) {
+				g.Expect(testProvider.BGP).To(BeNil(), "Provider should not have BGP instance configured")
+			}).Should(Succeed())
+
 			By("Deleting the Device resource")
-			Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should successfully reconcile the resource", func() {
@@ -55,17 +87,6 @@ var _ = Describe("BGP Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, bgp)).To(Succeed())
-			DeferCleanup(func() {
-				Expect(k8sClient.Delete(ctx, bgp)).To(Succeed())
-				Eventually(func(g Gomega) {
-					b := &v1alpha1.BGP{}
-					g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgp), b))).To(BeTrue())
-				}).Should(Succeed())
-				By("Ensuring the resource is deleted from the provider")
-				Eventually(func(g Gomega) {
-					g.Expect(testProvider.BGP).To(BeNil(), "Provider should not have BGP instance configured")
-				}).Should(Succeed())
-			})
 
 			By("Adding a finalizer to the resource")
 			Eventually(func(g Gomega) {
@@ -122,13 +143,6 @@ var _ = Describe("BGP Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, bgp)).To(Succeed())
-			DeferCleanup(func() {
-				Expect(k8sClient.Delete(ctx, bgp)).To(Succeed())
-				Eventually(func(g Gomega) {
-					b := &v1alpha1.BGP{}
-					g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgp), b))).To(BeTrue())
-				}).Should(Succeed())
-			})
 
 			By("Expecting ReadyCondition to be False with VRFNotFoundReason reason")
 			Eventually(func(g Gomega) {
@@ -154,9 +168,6 @@ var _ = Describe("BGP Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, vrf)).To(Succeed())
-			DeferCleanup(func() {
-				Expect(k8sClient.Delete(ctx, vrf)).To(Succeed())
-			})
 
 			By("Creating a BGP with the vrfRef set")
 			bgp := &v1alpha1.BGP{
@@ -172,13 +183,6 @@ var _ = Describe("BGP Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, bgp)).To(Succeed())
-			DeferCleanup(func() {
-				Expect(k8sClient.Delete(ctx, bgp)).To(Succeed())
-				Eventually(func(g Gomega) {
-					b := &v1alpha1.BGP{}
-					g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgp), b))).To(BeTrue())
-				}).Should(Succeed())
-			})
 
 			By("Ensuring the provider receives the VRF")
 			Eventually(func(g Gomega) {
@@ -218,13 +222,6 @@ var _ = Describe("BGP Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, bgp)).To(Succeed())
-			DeferCleanup(func() {
-				Expect(k8sClient.Delete(ctx, bgp)).To(Succeed())
-				Eventually(func(g Gomega) {
-					b := &v1alpha1.BGP{}
-					g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgp), b))).To(BeTrue())
-				}).Should(Succeed())
-			})
 
 			By("Expecting ReadyCondition to be False with WaitingForDependencies reason")
 			Eventually(func(g Gomega) {
@@ -256,13 +253,6 @@ var _ = Describe("BGP Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, rp)).To(Succeed())
-			DeferCleanup(func() {
-				Expect(k8sClient.Delete(ctx, rp)).To(Succeed())
-				Eventually(func(g Gomega) {
-					r := &v1alpha1.RoutingPolicy{}
-					g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(rp), r))).To(BeTrue())
-				}).Should(Succeed())
-			})
 
 			By("Expecting ReadyCondition to become True after the RoutingPolicy is created")
 			Eventually(func(g Gomega) {
@@ -288,13 +278,6 @@ var _ = Describe("BGP Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, bgp)).To(Succeed())
-			DeferCleanup(func() {
-				Expect(k8sClient.Delete(ctx, bgp)).To(Succeed())
-				Eventually(func(g Gomega) {
-					b := &v1alpha1.BGP{}
-					g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgp), b))).To(BeTrue())
-				}).Should(Succeed())
-			})
 
 			By("Waiting for the BGP to be reconciled so we know it exists")
 			Eventually(func(g Gomega) {
