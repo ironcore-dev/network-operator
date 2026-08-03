@@ -6,6 +6,7 @@ package core
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -58,6 +59,12 @@ var _ = Describe("PIM Controller", func() {
 
 			By("Cleanup the specific resource instance PIM")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+
+			By("Waiting for PIM to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, &v1alpha1.PIM{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			resource = &v1alpha1.Device{}
 			err = k8sClient.Get(ctx, key, resource)

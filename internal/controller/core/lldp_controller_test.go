@@ -406,6 +406,15 @@ var _ = Describe("LLDP Controller", func() {
 				g.Expect(k8sClient.Update(ctx, device)).To(Succeed())
 			}).Should(Succeed())
 
+			By("Waiting for LLDP to acknowledge the pause")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, lldp)
+				g.Expect(err).NotTo(HaveOccurred())
+				cond := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.PausedCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			}).Should(Succeed())
+
 			By("Updating LLDP AdminState to Down")
 			Eventually(func(g Gomega) {
 				err := k8sClient.Get(ctx, resourceKey, lldp)
