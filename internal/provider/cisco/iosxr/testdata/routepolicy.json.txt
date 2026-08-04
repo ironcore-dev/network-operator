@@ -1,0 +1,6 @@
+route-policy TEST-POLICY
+  if destination in (10.0.0.0/8) then
+    set community (65000:100)
+    done
+  endif
+end-policy

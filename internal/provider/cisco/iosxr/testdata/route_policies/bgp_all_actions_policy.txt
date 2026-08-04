@@ -1,0 +1,8 @@
+route-policy BGP-ALL-ACTIONS
+  if destination in (172.16.0.0/12) then
+    set community (65000:100, 65000:200, 65000:300)
+    set extcommunity rt (rt:65000:100, rt:65000:200)
+    prepend as-path 65200
+    done
+  endif
+end-policy

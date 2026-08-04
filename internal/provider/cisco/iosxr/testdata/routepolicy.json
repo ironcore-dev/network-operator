@@ -1,0 +1,10 @@
+ {
+    "routing-policy": {
+      "route-policies": {
+        "route-policy": {
+      "route-policy-name": "TEST-POLICY",
+      "rpl-route-policy": "route-policy TEST-POLICY\n  if destination in (10.0.0.0/8) then\n    set community (65000:100)\n    done\n  endif\nend-policy\n"
+    }
+      }
+    }
+ }

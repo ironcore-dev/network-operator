@@ -20,12 +20,13 @@ import (
 )
 
 var (
-	_ provider.Provider          = &Provider{}
-	_ provider.DeviceProvider    = &Provider{}
-	_ provider.InterfaceProvider = &Provider{}
-	_ provider.VRFProvider       = &Provider{}
-	_ provider.BGPProvider       = &Provider{}
-	_ provider.BGPPeerProvider   = &Provider{}
+	_ provider.Provider              = &Provider{}
+	_ provider.DeviceProvider        = &Provider{}
+	_ provider.InterfaceProvider     = &Provider{}
+	_ provider.VRFProvider           = &Provider{}
+	_ provider.BGPProvider           = &Provider{}
+	_ provider.BGPPeerProvider       = &Provider{}
+	_ provider.RoutingPolicyProvider = &Provider{}
 )
 
 type Provider struct {
@@ -457,7 +458,7 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 	routerID := bgp.AS[0].ASNumber
 
 	// Create Default Route Policies for the peer
-	defaultRpl := NewRoutePolicy(req.VRF.Spec.Name)
+	defaultRpl := NewEmptyAcceptRoutePolicy(req.VRF.Spec.Name)
 
 	err := p.client.Update(ctx, &defaultRpl)
 	if err != nil {
@@ -546,7 +547,7 @@ func (p *Provider) DeleteBGPPeer(ctx context.Context, req *provider.DeleteBGPPee
 		return fmt.Errorf("bgp peer: failed to get bgp instance 'default': %w", err)
 	}
 
-	defaultRpl := NewRoutePolicy(req.VRF.Spec.Name)
+	defaultRpl := NewEmptyAcceptRoutePolicy(req.VRF.Spec.Name)
 
 	peer := BGPPeer{
 		RouterID: bgp.AS[0].ASNumber,
@@ -572,6 +573,28 @@ func (p *Provider) GetPeerStatus(ctx context.Context, req *provider.BGPPeerStatu
 	}
 
 	return state, nil
+}
+
+func (p *Provider) EnsureRoutingPolicy(ctx context.Context, req *provider.EnsureRoutingPolicyRequest) error {
+	policy, err := NewPolicyString(req.Name, req.Statements)
+	if err != nil {
+		return err
+	}
+
+	rp := &RoutePolicy{
+		Name: req.Name,
+		Body: policy.String(),
+	}
+
+	return p.client.Update(ctx, rp)
+}
+
+func (p *Provider) DeleteRoutingPolicy(ctx context.Context, req *provider.DeleteRoutingPolicyRequest) error {
+	rp := &RoutePolicy{
+		Name: req.Name,
+	}
+
+	return p.client.Delete(ctx, rp)
 }
 
 func init() {
