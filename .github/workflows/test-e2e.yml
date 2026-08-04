@@ -11,6 +11,9 @@ on:
       - 'docs/**'
       - '**/*.md'
 
+permissions:
+  contents: read
+
 jobs:
   test-e2e:
     name: Run E2E Tests
