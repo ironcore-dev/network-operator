@@ -66,7 +66,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt /* == syscall.SIGINT */, syscall.SIGTERM)
 	defer cancel()
 
-	c, err := nxapi.NewClient(conn, 0)
+	c, err := nxapi.NewClient(conn)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return

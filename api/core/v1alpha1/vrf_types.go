@@ -11,6 +11,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+// RouteDistinguisherAuto is the special value for automatic RD derivation (equivalent to "rd auto").
+const RouteDistinguisherAuto = "Auto"
+
 // VRFSpec defines the desired state of VRF
 type VRFSpec struct {
 	// DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
@@ -39,13 +42,17 @@ type VRFSpec struct {
 	Description string `json:"description,omitempty"`
 
 	// VNI is the VXLAN Network Identifier for the VRF (always an L3).
+	//
+	// Deprecated: Use the VNI field on the EVPNInstance resource instead. This field will be removed in a future release.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=16777215
 	VNI uint32 `json:"vni,omitempty"`
 
 	// RouteDistinguisher is the route distinguisher for the VRF.
+	// Set to "Auto" for automatic derivation (equivalent to "rd auto").
 	// Formats supported:
+	//  - "Auto" (automatic derivation)
 	//  - Type 0: ASN(0-65535):Number(0-4294967295)
 	//  - Type 1: IPv4:Number(0-65535)
 	//  - Type 2: ASN(65536-4294967295):Number(0-65535)

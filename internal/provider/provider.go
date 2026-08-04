@@ -84,6 +84,81 @@ type DeviceInfo struct {
 	FirmwareVersion string
 }
 
+// ConfigBackupProvider performs on-device configuration backup operations.
+type ConfigBackupProvider interface {
+	Provider
+
+	// CreateConfigBackup writes a new configuration backup to the device.
+	CreateConfigBackup(context.Context, *ConfigBackupRequest) (*ConfigBackupFile, error)
+	// ListConfigBackups lists the backups currently discovered for the ConfigBackup policy.
+	ListConfigBackups(context.Context, *ConfigBackupRequest) (*ConfigBackupInventory, error)
+	// DeleteConfigBackups removes the provided backups from the device.
+	DeleteConfigBackups(context.Context, ...*ConfigBackupFile) error
+}
+
+type ConfigBackupRequest struct {
+	ConfigBackup   *v1alpha1.ConfigBackup
+	ProviderConfig *ProviderConfig
+}
+
+type ConfigBackupInventory struct {
+	// Backups contains only the backups managed by this ConfigBackup policy.
+	Backups []*ConfigBackupFile
+	// TotalBytes/UsedBytes/FreeBytes describe the underlying storage usage on the device
+	// and may include unrelated files outside Backups. A value of `nil` indicates that the
+	// provider does not support reporting storage usage.
+	TotalBytes *int64
+	UsedBytes  *int64
+	FreeBytes  *int64
+}
+
+// TotalBackupSizeBytes returns the total size of all backups in the inventory, in bytes.
+// If a backup's size is unknown (nil), it is ignored in the total.
+// If all backups have unknown sizes, ok will be false.
+func (i *ConfigBackupInventory) TotalBackupSizeBytes() (total int64, ok bool) {
+	for _, backup := range i.Backups {
+		if backup.SizeBytes != nil {
+			total += *backup.SizeBytes
+			ok = true
+		}
+	}
+	return
+}
+
+// FreePercent returns the free storage as a percentage (0-100), or nil
+// if the inventory lacks the data to compute it.
+func (i *ConfigBackupInventory) FreePercent() *int32 {
+	if i.FreeBytes == nil || i.TotalBytes == nil || *i.TotalBytes <= 0 {
+		return nil
+	}
+	v := int32(*i.FreeBytes * 100 / *i.TotalBytes) // #nosec G115
+	return &v
+}
+
+// ThresholdBreached reports whether the inventory's free storage violates
+// the given threshold. Returns false if threshold is nil or the inventory
+// lacks the data to evaluate.
+func (i *ConfigBackupInventory) ThresholdBreached(threshold *v1alpha1.ConfigBackupStorageThreshold) bool {
+	if threshold == nil || i.FreeBytes == nil {
+		return false
+	}
+	if threshold.MinFreeBytes != nil && *i.FreeBytes < *threshold.MinFreeBytes {
+		return true
+	}
+	if threshold.MinFreePercent != nil {
+		if free := i.FreePercent(); free != nil && *free < *threshold.MinFreePercent {
+			return true
+		}
+	}
+	return false
+}
+
+type ConfigBackupFile struct {
+	Path      string
+	SizeBytes *int64
+	CreatedAt time.Time
+}
+
 // InterfaceProvider is the interface for the realization of the Interface objects over different providers.
 type InterfaceProvider interface {
 	Provider
@@ -563,6 +638,7 @@ type EVPNInstanceRequest struct {
 	EVPNInstance   *v1alpha1.EVPNInstance
 	ProviderConfig *ProviderConfig
 	VLAN           *v1alpha1.VLAN
+	VRF            *v1alpha1.VRF
 }
 
 // PrefixSetProvider is the interface for the realization of the PrefixSet objects over different providers.

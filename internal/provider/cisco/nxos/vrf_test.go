@@ -42,14 +42,21 @@ func init() {
 
 	dom := new(VRFDom)
 	dom.Name = "CC-CLOUD01"
-	dom.Rd = "rd:as4-nn2:4269539332:101"
+	dom.Rd = NewOption("rd:as4-nn2:4269539332:101")
 	dom.AfItems.DomAfList.Set(af)
 
 	vrf := new(VRF)
 	vrf.Name = "CC-CLOUD01"
-	vrf.L3Vni = true
-	vrf.Encap = NewOption("vxlan-101")
 	vrf.Descr = NewOption("CC-CLOUD01 VRF")
-	vrf.DomItems.DomList.Set(dom)
 	Register("vrf", vrf)
+
+	vrfEncap := new(VRFEncap)
+	vrfEncap.Name = "CC-CLOUD01"
+	vrfEncap.L3Vni = true
+	vrfEncap.Encap = NewOption("vxlan-101")
+	Register("vrf_encap", vrfEncap)
+
+	domItems := &VRFDomItems{Name: "CC-CLOUD01"}
+	domItems.DomList.Set(dom)
+	Register("vrf_dom", domItems)
 }

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"time"
@@ -32,38 +33,67 @@ func (f RoundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 // Use [NewClient] to construct one.
 type Client struct {
 	client *http.Client
-	uri    string
+	url    url.URL
+}
+
+// Option configures a [Client].
+type Option func(*Client) error
+
+// WithPort overrides the port in the connection address.
+// This is useful when NX-API is reachable on a different
+// port (e.g. 8443) than the default (80/443).
+func WithPort(port string) Option {
+	return func(c *Client) error {
+		host := c.url.Host
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+		c.url.Host = net.JoinHostPort(host, port)
+		return nil
+	}
+}
+
+// WithTimeout sets the HTTP client timeout.
+// The default is 0 (no timeout).
+func WithTimeout(d time.Duration) Option {
+	return func(c *Client) error {
+		c.client.Timeout = d
+		return nil
+	}
 }
 
 // NewClient creates a new [Client] for the given connection.
 // If the connection has a TLS configuration set, HTTPS is used; otherwise HTTP.
-// The underlying HTTP client uses timeout for all requests; a value of 0
-// means no timeout.
-func NewClient(c *deviceutil.Connection, timeout time.Duration) (*Client, error) {
+func NewClient(conn *deviceutil.Connection, opts ...Option) (*Client, error) {
 	proto := "http"
-	if c.TLS != nil {
+	if conn.TLS != nil {
 		proto = "https"
 	}
-	uri, err := url.JoinPath(proto+"://"+c.Address, "ins")
-	if err != nil {
-		return nil, fmt.Errorf("nxapi: failed to join path: %w", err)
-	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	if c.TLS != nil {
-		transport.TLSClientConfig = c.TLS
+	if conn.TLS != nil {
+		transport.TLSClientConfig = conn.TLS
 	}
-	return &Client{
+	c := &Client{
 		client: &http.Client{
 			Transport: RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 				r.Header.Set("Content-Type", "application/json-rpc")
 				r.Header.Set("Cache-Control", "no-cache")
-				r.SetBasicAuth(c.Username, c.Password)
+				r.SetBasicAuth(conn.Username, conn.Password)
 				return transport.RoundTrip(r)
 			}),
-			Timeout: timeout,
 		},
-		uri: uri,
-	}, nil
+		url: url.URL{
+			Scheme: proto,
+			Host:   conn.Address,
+			Path:   "/ins",
+		},
+	}
+	for _, opt := range opts {
+		if err := opt(c); err != nil {
+			return nil, err
+		}
+	}
+	return c, nil
 }
 
 // Do sends a Request to the device and returns one [json.RawMessage] per
@@ -76,7 +106,7 @@ func (c *Client) Do(ctx context.Context, r Request) ([]json.RawMessage, error) {
 		return nil, fmt.Errorf("nxapi: failed to encode request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.uri, bytes.NewReader(b))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.url.String(), bytes.NewReader(b))
 	if err != nil {
 		return nil, fmt.Errorf("nxapi: failed to create request: %w", err)
 	}
@@ -262,4 +292,20 @@ type HTTPError struct {
 
 func (e *HTTPError) Error() string {
 	return fmt.Sprintf("nxapi: non-2xx status code: %d - %s", e.Code, string(e.Body))
+}
+
+// IsTransportError reports whether err is a network-level transport error
+// (connection reset, timeout, EOF) as opposed to a logical error returned
+// by the NX-API endpoint (RPCError, HTTPError). This is useful for callers
+// that issue disruptive commands (e.g. reboot) where the device going down
+// mid-request is expected.
+func IsTransportError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return true
+	}
+	var netErr net.Error
+	return errors.As(err, &netErr)
 }

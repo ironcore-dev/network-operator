@@ -191,6 +191,18 @@ const (
 	DuplicateResourceOnDevice = "DuplicateResourceOnDevice"
 )
 
+// Reasons that are specific to [ConfigBackup] objects.
+const (
+	// BackupSuccessfulReason indicates that the latest backup operation completed successfully.
+	BackupSuccessfulReason = "BackupSuccessful"
+
+	// ScheduleInvalidReason indicates that the configured cron schedule is invalid.
+	ScheduleInvalidReason = "ScheduleInvalid"
+
+	// StorageThresholdExceededReason indicates that a configured storage safety threshold was exceeded.
+	StorageThresholdExceededReason = "StorageThresholdExceeded"
+)
+
 // Reasons that are specific to [Interface] objects.
 const (
 	// InterfaceNotFoundReason indicates that a referenced interface was not found.

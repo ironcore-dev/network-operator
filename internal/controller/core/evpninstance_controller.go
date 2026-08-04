@@ -204,7 +204,10 @@ func (r *EVPNInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return ctrl.Result{}, nil
 }
 
-var eviVlanRefKey = ".spec.vlanRef.name"
+var (
+	eviVlanRefKey = ".spec.vlanRef.name"
+	eviVrfRefKey  = ".spec.vrfRef.name"
+)
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *EVPNInstanceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
@@ -224,6 +227,16 @@ func (r *EVPNInstanceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 			return nil
 		}
 		return []string{evi.Spec.VLANRef.Name}
+	}); err != nil {
+		return err
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.EVPNInstance{}, eviVrfRefKey, func(obj client.Object) []string {
+		evi := obj.(*v1alpha1.EVPNInstance)
+		if evi.Spec.VRFRef == nil {
+			return nil
+		}
+		return []string{evi.Spec.VRFRef.Name}
 	}); err != nil {
 		return err
 	}
@@ -257,6 +270,20 @@ func (r *EVPNInstanceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 		Watches(
 			&v1alpha1.VLAN{},
 			handler.EnqueueRequestsFromMapFunc(r.vlanToEVPNInstance),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
+		// Watches enqueues EVPNInstances for updates in referenced VRF resources.
+		// Only triggers on create and delete events since VRF names and deviceRef are immutable.
+		Watches(
+			&v1alpha1.VRF{},
+			handler.EnqueueRequestsFromMapFunc(r.vrfToEVPNInstance),
 			builder.WithPredicates(predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					return false
@@ -315,6 +342,15 @@ func (r *EVPNInstanceReconciler) reconcile(ctx context.Context, s *eviScope) (re
 		}
 	}
 
+	var vrf *v1alpha1.VRF
+	if s.EVPNInstance.Spec.Type == v1alpha1.EVPNInstanceTypeRouted && s.EVPNInstance.Spec.VRFRef != nil {
+		var err error
+		vrf, err = r.reconcileVRF(ctx, s)
+		if err != nil {
+			return err
+		}
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -329,6 +365,7 @@ func (r *EVPNInstanceReconciler) reconcile(ctx context.Context, s *eviScope) (re
 		EVPNInstance:   s.EVPNInstance,
 		ProviderConfig: s.ProviderConfig,
 		VLAN:           vlan,
+		VRF:            vrf,
 	})
 
 	cond := conditions.FromError(err)
@@ -402,9 +439,58 @@ func (r *EVPNInstanceReconciler) reconcileVLAN(ctx context.Context, s *eviScope)
 	return vlan, nil
 }
 
+// reconcileVRF ensures that the referenced VRF exists and belongs to the same device as the EVPNInstance.
+func (r *EVPNInstanceReconciler) reconcileVRF(ctx context.Context, s *eviScope) (*v1alpha1.VRF, error) {
+	key := client.ObjectKey{
+		Name:      s.EVPNInstance.Spec.VRFRef.Name,
+		Namespace: s.EVPNInstance.Namespace,
+	}
+
+	vrf := new(v1alpha1.VRF)
+	if err := r.Get(ctx, key, vrf); err != nil {
+		if apierrors.IsNotFound(err) {
+			conditions.Set(s.EVPNInstance, metav1.Condition{
+				Type:    v1alpha1.ReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.VRFNotFoundReason,
+				Message: fmt.Sprintf("referenced VRF %q not found", key),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("referenced VRF %q not found", key))
+		}
+		return nil, fmt.Errorf("failed to get referenced VRF %q: %w", key, err)
+	}
+
+	if vrf.Spec.DeviceRef.Name != s.Device.Name {
+		conditions.Set(s.EVPNInstance, metav1.Condition{
+			Type:    v1alpha1.ReadyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.CrossDeviceReferenceReason,
+			Message: fmt.Sprintf("referenced VRF %q does not belong to device %q", vrf.Name, s.Device.Name),
+		})
+		return nil, reconcile.TerminalError(fmt.Errorf("referenced VRF %q does not belong to device %q", vrf.Name, s.Device.Name))
+	}
+
+	return vrf, nil
+}
+
 func (r *EVPNInstanceReconciler) finalize(ctx context.Context, s *eviScope) (reterr error) {
 	if err := r.finalizeVLAN(ctx, s); err != nil {
 		return err
+	}
+
+	var vrf *v1alpha1.VRF
+	if s.EVPNInstance.Spec.VRFRef != nil {
+		vrf = new(v1alpha1.VRF)
+		err := r.Get(ctx, client.ObjectKey{
+			Name:      s.EVPNInstance.Spec.VRFRef.Name,
+			Namespace: s.EVPNInstance.Namespace,
+		}, vrf)
+		if client.IgnoreNotFound(err) != nil {
+			return fmt.Errorf("failed to get referenced VRF: %w", err)
+		}
+		if err != nil {
+			vrf = nil
+		}
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
@@ -419,6 +505,7 @@ func (r *EVPNInstanceReconciler) finalize(ctx context.Context, s *eviScope) (ret
 	return s.Provider.DeleteEVPNInstance(ctx, &provider.EVPNInstanceRequest{
 		EVPNInstance:   s.EVPNInstance,
 		ProviderConfig: s.ProviderConfig,
+		VRF:            vrf,
 	})
 }
 
@@ -506,6 +593,39 @@ func (r *EVPNInstanceReconciler) vlanToEVPNInstance(ctx context.Context, obj cli
 	requests := []ctrl.Request{}
 	for _, evi := range evpnInstances.Items {
 		if evi.Spec.VLANRef != nil && evi.Spec.VLANRef.Name == vlan.Name {
+			log.V(2).Info("Enqueuing EVPNInstance for reconciliation", "EVPNInstance", klog.KObj(&evi))
+
+			requests = append(requests, ctrl.Request{
+				NamespacedName: client.ObjectKey{
+					Name:      evi.Name,
+					Namespace: evi.Namespace,
+				},
+			})
+		}
+	}
+
+	return requests
+}
+
+// vrfToEVPNInstance is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for an EVPNInstance when its referenced VRF changes.
+func (r *EVPNInstanceReconciler) vrfToEVPNInstance(ctx context.Context, obj client.Object) []ctrl.Request {
+	vrf, ok := obj.(*v1alpha1.VRF)
+	if !ok {
+		panic(fmt.Sprintf("Expected a VRF but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "VRF", klog.KObj(vrf))
+
+	evpnInstances := new(v1alpha1.EVPNInstanceList)
+	if err := r.List(ctx, evpnInstances, client.InNamespace(vrf.Namespace), client.MatchingFields{eviVrfRefKey: vrf.Name}); err != nil {
+		log.Error(err, "Failed to list EVPNInstances")
+		return nil
+	}
+
+	requests := []ctrl.Request{}
+	for _, evi := range evpnInstances.Items {
+		if evi.Spec.VRFRef != nil && evi.Spec.VRFRef.Name == vrf.Name {
 			log.V(2).Info("Enqueuing EVPNInstance for reconciliation", "EVPNInstance", klog.KObj(&evi))
 
 			requests = append(requests, ctrl.Request{

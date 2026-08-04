@@ -7,18 +7,19 @@ analytics_settings(False)
 
 update_settings(k8s_upsert_timeout_secs=60)
 
-allow_k8s_contexts(['minikube', 'kind-network'])
+watch_settings(ignore=['**/*/zz_generated.deepcopy.go', 'config/crd/bases/*'])
+
+allow_k8s_contexts(['minikube', 'kind-network-operator'])
 
 load('ext://cert_manager', 'deploy_cert_manager')
 deploy_cert_manager(version='v1.18.2')
 
-docker_build('ghcr.io/ironcore-dev/network-operator', '.', ignore=['config/crd/bases/*'], only=[
-    'api/', 'cmd/', 'hack/', 'internal/', 'go.mod', 'go.sum', 'Makefile',
+docker_build('controller:latest', '.', only=[
+    'api/', 'cmd/', 'internal/', 'go.mod', 'go.sum'
 ])
 
-local_resource('controller-gen', 'make generate', ignore=['**/*/zz_generated.deepcopy.go', 'config/crd/bases/*'], deps=[
-    'api/', 'cmd/', 'hack/', 'internal/', 'go.mod', 'go.sum', 'Makefile',
-])
+local_resource('controller-gen', 'make generate', deps=['api/', 'hack/boilerplate.go.txt'])
+local_resource('crds', 'make install', deps=['api/'])
 
 provider = os.getenv('PROVIDER', 'openconfig')
 
@@ -146,6 +147,10 @@ k8s_resource(new_name='aaa', objects=['aaa-tacacs:aaa', 'tacacs-server-keys:secr
 # k8s_yaml('./config/samples/cisco/nx/v1alpha1_aaaconfig.yaml')
 # k8s_resource(new_name='aaaconfig', objects=['aaa-tacacs-nxos:aaaconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
+k8s_yaml('./config/samples/v1alpha1_configbackup.yaml')
+k8s_resource(new_name='local-backup', objects=['local-backup:configbackup'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='startup-backup', objects=['startup-backup:configbackup'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+
 k8s_yaml('./config/samples/v1alpha1_indexpool.yaml')
 k8s_resource(new_name='indexpool', objects=['indexpool-sample:indexpool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
@@ -159,6 +164,9 @@ k8s_yaml('./config/samples/v1alpha1_claim.yaml')
 k8s_resource(new_name='claim-index', objects=['claim-index:claim'], resource_deps=['indexpool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='claim-ipaddress', objects=['claim-ipaddress:claim'], resource_deps=['ipaddresspool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 k8s_resource(new_name='claim-prefix', objects=['claim-prefix:claim'], resource_deps=['ipprefixpool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+
+k8s_yaml('./config/samples/v1alpha1_fabric.yaml')
+k8s_resource(new_name='fabric', objects=['fabric:fabric', 'loopback-pool:ipaddresspool', 'underlay-p2p-pool:ipprefixpool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')

@@ -295,6 +295,14 @@ resources:
     namespaced: true
   controller: true
   domain: networking.metal.ironcore.dev
+  kind: ConfigBackup
+  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: networking.metal.ironcore.dev
   kind: EthernetSegment
   path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
   version: v1alpha1
@@ -385,5 +393,14 @@ resources:
   group: pool
   kind: IPPrefix
   path: github.com/ironcore-dev/network-operator/api/pool/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: networking.metal.ironcore.dev
+  group: evpn
+  kind: Fabric
+  path: github.com/ironcore-dev/network-operator/api/evpn/v1alpha1
   version: v1alpha1
 version: "3"

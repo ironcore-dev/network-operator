@@ -9,9 +9,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
+	"net/url"
 	"testing"
 
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
@@ -36,16 +37,18 @@ func TestUri(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			c, err := NewClient(test.conn, 0)
+			c, err := NewClient(test.conn)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			wantPrefix := test.wantProto + "://"
-			if !strings.HasPrefix(c.uri, wantPrefix) {
-				t.Errorf("uri = %q, want prefix %q", c.uri, wantPrefix)
+			if c.url.Scheme != test.wantProto {
+				t.Errorf("scheme = %q, want %q", c.url.Scheme, test.wantProto)
 			}
-			if !strings.HasSuffix(c.uri, "/ins") {
-				t.Errorf("uri = %q, want suffix %q", c.uri, "/ins")
+			if c.url.Host != test.conn.Address {
+				t.Errorf("host = %q, want %q", c.url.Host, test.conn.Address)
+			}
+			if c.url.Path != "/ins" {
+				t.Errorf("path = %q, want %q", c.url.Path, "/ins")
 			}
 		})
 	}
@@ -255,7 +258,7 @@ func TestDo(t *testing.T) {
 				Username: "admin",
 				Password: "secret",
 			}
-			c, err := NewClient(conn, 0)
+			c, err := NewClient(conn)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -295,3 +298,82 @@ func TestDo(t *testing.T) {
 		})
 	}
 }
+
+func TestIsTransportError(t *testing.T) {
+	tests := []struct {
+		desc string
+		err  error
+		want bool
+	}{
+		{
+			desc: "nil is not a transport error",
+			err:  nil,
+			want: false,
+		},
+		{
+			desc: "RPCError is not a transport error",
+			err:  &RPCError{Code: -32602, Message: "Invalid params"},
+			want: false,
+		},
+		{
+			desc: "RPCErrors is not a transport error",
+			err:  RPCErrors{&RPCError{Code: -32602, Message: "Invalid params"}},
+			want: false,
+		},
+		{
+			desc: "HTTPError is not a transport error",
+			err:  &HTTPError{Code: 401, Body: []byte("unauthorized")},
+			want: false,
+		},
+		{
+			desc: "generic error is not a transport error",
+			err:  errors.New("some logic error"),
+			want: false,
+		},
+		{
+			desc: "io.EOF is a transport error",
+			err:  io.EOF,
+			want: true,
+		},
+		{
+			desc: "io.ErrUnexpectedEOF is a transport error",
+			err:  io.ErrUnexpectedEOF,
+			want: true,
+		},
+		{
+			desc: "wrapped io.EOF is a transport error",
+			err:  fmt.Errorf("request failed: %w", io.EOF),
+			want: true,
+		},
+		{
+			desc: "net.Error is a transport error",
+			err:  &netError{msg: "i/o timeout"},
+			want: true,
+		},
+		{
+			desc: "url.Error wrapping net.Error is a transport error",
+			err:  &url.Error{Op: "Post", URL: "http://x/ins", Err: &netError{msg: "i/o timeout"}},
+			want: true,
+		},
+		{
+			desc: "wrapped net.Error is a transport error",
+			err:  fmt.Errorf("read tcp: %w", &netError{msg: "connection reset by peer"}),
+			want: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			got := IsTransportError(test.err)
+			if got != test.want {
+				t.Errorf("IsTransportError(%v) = %t, want %t", test.err, got, test.want)
+			}
+		})
+	}
+}
+
+// netError is a mock net.Error for testing.
+type netError struct{ msg string }
+
+func (e *netError) Error() string   { return e.msg }
+func (e *netError) Timeout() bool   { return false }
+func (e *netError) Temporary() bool { return false }

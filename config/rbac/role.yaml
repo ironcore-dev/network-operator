@@ -40,6 +40,32 @@ rules:
   - create
   - patch
 - apiGroups:
+  - evpn.networking.metal.ironcore.dev
+  resources:
+  - fabrics
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - evpn.networking.metal.ironcore.dev
+  resources:
+  - fabrics/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - evpn.networking.metal.ironcore.dev
+  resources:
+  - fabrics/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - networking.metal.ironcore.dev
   resources:
   - aaa
@@ -48,6 +74,7 @@ rules:
   - bgp
   - bgppeers
   - certificates
+  - configbackups
   - devices
   - dhcprelays
   - dns
@@ -116,6 +143,7 @@ rules:
   - bgp/status
   - bgppeers/status
   - certificates/status
+  - configbackups/status
   - devices/status
   - dhcprelays/status
   - dns/status

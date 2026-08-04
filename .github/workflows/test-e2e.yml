@@ -23,8 +23,8 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@v1
         with:
-          version: v0.31.0
-          kubectl_version: v1.35.0
+          version: v0.32.0
+          kubectl_version: v1.36.1
           cluster_name: network
       - name: Running E2E Tests
         run: |

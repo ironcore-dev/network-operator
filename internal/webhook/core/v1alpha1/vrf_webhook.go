@@ -41,14 +41,24 @@ var _ admission.Validator[*v1alpha1.VRF] = &VRFCustomValidator{}
 func (v *VRFCustomValidator) ValidateCreate(_ context.Context, vrf *v1alpha1.VRF) (admission.Warnings, error) {
 	vrflog.Info("Validation for VRF upon creation", "name", vrf.GetName())
 
-	return nil, validateVRFSpec(vrf)
+	var warnings admission.Warnings
+	if vrf.Spec.VNI > 0 { //nolint:staticcheck // handling deprecated field for backward compatibility
+		warnings = append(warnings, "spec.vni is deprecated; use the vni field on the EVPNInstance resource instead")
+	}
+
+	return warnings, validateVRFSpec(vrf)
 }
 
 // ValidateUpdate implements admission.Validator so a webhook will be registered for the type VRF.
 func (v *VRFCustomValidator) ValidateUpdate(_ context.Context, _, vrf *v1alpha1.VRF) (admission.Warnings, error) {
 	vrflog.Info("Validation for VRF upon update", "name", vrf.GetName())
 
-	return nil, validateVRFSpec(vrf)
+	var warnings admission.Warnings
+	if vrf.Spec.VNI > 0 { //nolint:staticcheck // handling deprecated field for backward compatibility
+		warnings = append(warnings, "spec.vni is deprecated; use the vni field on the EVPNInstance resource instead")
+	}
+
+	return warnings, validateVRFSpec(vrf)
 }
 
 // ValidateDelete implements admission.Validator so a webhook will be registered for the type VRF.
@@ -60,7 +70,7 @@ func validateVRFSpec(vrf *v1alpha1.VRF) error {
 	var errAgg []error
 
 	rd := strings.TrimSpace(vrf.Spec.RouteDistinguisher)
-	if rd != "" {
+	if rd != "" && rd != v1alpha1.RouteDistinguisherAuto {
 		if err := validateRouteDistinguisher(rd); err != nil {
 			errAgg = append(errAgg, fmt.Errorf("invalid route distinguisher value %q: %w", rd, err))
 		}

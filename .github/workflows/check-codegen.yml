@@ -22,16 +22,18 @@ jobs:
           go-version-file: 'go.mod'
       - name: Run make generate
         run: make generate
+      - name: Run make manifests
+        run: make manifests
       - name: Run make docs
         run: make docs
-      - name: Run make charts
-        run: make charts
+      - name: Run make helm
+        run: make helm
       - name: Run fmt
         run: make fmt
       - name: Compare the expected and actual generated/* directories
         run: |
           if [ "$(git diff | wc -l)" -gt "0" ]; then
-            echo "Detected uncommitted changes after build. Consider running 'make generate && make docs && make charts && make fmt'."
+            echo "Detected uncommitted changes after build. Consider running 'make generate && make manifests && make docs && make helm && make fmt'."
             echo "See status below:"
             git diff
             exit 1

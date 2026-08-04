@@ -1075,12 +1075,20 @@ var _ = Describe("DHCPRelay Controller", func() {
 			err = k8sClient.Get(ctx, interfaceKey, intf)
 			if err == nil {
 				Expect(k8sClient.Delete(ctx, intf)).To(Succeed())
+				Eventually(func(g Gomega) {
+					err := k8sClient.Get(ctx, interfaceKey, &v1alpha1.Interface{})
+					g.Expect(errors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
 			}
 
 			By("Cleaning up the VLAN resource")
 			err = k8sClient.Get(ctx, vlanKey, vlan)
 			if err == nil {
 				Expect(k8sClient.Delete(ctx, vlan)).To(Succeed())
+				Eventually(func(g Gomega) {
+					err := k8sClient.Get(ctx, vlanKey, &v1alpha1.VLAN{})
+					g.Expect(errors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
 			}
 
 			By("Cleaning up the Device resource")

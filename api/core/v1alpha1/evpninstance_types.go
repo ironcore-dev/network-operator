@@ -17,6 +17,8 @@ import (
 // [RFC 8365]: https://datatracker.ietf.org/doc/html/rfc8365
 //
 // +kubebuilder:validation:XValidation:rule="self.type != 'Bridged' || has(self.vlanRef)",message="VLANRef must be specified when Type is Bridged"
+// +kubebuilder:validation:XValidation:rule="self.type != 'Routed' || has(self.vrfRef)",message="VRFRef must be specified when Type is Routed"
+// +kubebuilder:validation:XValidation:rule="self.type != 'Routed' || !has(self.routeDistinguisher)",message="RouteDistinguisher must not be set when Type is Routed"
 type EVPNInstanceSpec struct {
 	// DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
 	// Immutable.
@@ -50,7 +52,11 @@ type EVPNInstanceSpec struct {
 	MulticastGroupAddress string `json:"multicastGroupAddress,omitempty"`
 
 	// RouteDistinguisher is the route distinguisher for the EVI.
+	// This field is only applicable when Type is Bridged (MAC-VRF).
+	// For Routed type, the route distinguisher is configured on the referenced VRF instead.
+	// Set to "Auto" for automatic derivation (equivalent to "rd auto").
 	// Formats supported:
+	//  - "Auto" (automatic derivation)
 	//  - Type 0: ASN(0-65535):Number(0-4294967295)
 	//  - Type 1: IPv4:Number(0-65535)
 	//  - Type 2: ASN(65536-4294967295):Number(0-65535)
@@ -71,6 +77,14 @@ type EVPNInstanceSpec struct {
 	// +optional
 	// +kubebuilder:validation:XValidation:rule="self.name == oldSelf.name",message="VLANRef is immutable"
 	VLANRef *LocalObjectReference `json:"vlanRef,omitempty"`
+
+	// VRFRef is a reference to a VRF resource for which this EVPNInstance provides the L3VNI.
+	// This field is only applicable when Type is Routed (L3VNI).
+	// The VRF resource must exist in the same namespace.
+	// Immutable.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self.name == oldSelf.name",message="VRFRef is immutable"
+	VRFRef *LocalObjectReference `json:"vrfRef,omitempty"`
 }
 
 // EVPNInstanceType defines the type of EVPN instance.

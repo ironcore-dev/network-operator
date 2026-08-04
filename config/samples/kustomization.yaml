@@ -1,6 +1,7 @@
 ## Append samples of your project ##
 resources:
 - v1alpha1_device.yaml
+- v1alpha1_configbackup.yaml
 - v1alpha1_dhcprelay.yaml
 - v1alpha1_interface.yaml
 - v1alpha1_lldp.yaml
@@ -33,6 +34,7 @@ resources:
 - v1alpha1_ipaddress.yaml
 - v1alpha1_ipprefix.yaml
 - v1alpha1_claim.yaml
+- v1alpha1_fabric.yaml
 - cisco/nx/v1alpha1_bordergateway.yaml
 - cisco/nx/v1alpha1_managementaccessconfig.yaml
 - cisco/nx/v1alpha1_nveconfig.yaml
