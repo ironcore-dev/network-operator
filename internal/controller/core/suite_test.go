@@ -93,7 +93,7 @@ var _ = BeforeSuite(func() {
 		Scheme:                 scheme.Scheme,
 		Logger:                 GinkgoLogr,
 		Metrics:                metricsserver.Options{BindAddress: "0"},
-		HealthProbeBindAddress: "0",
+		HealthProbeBindAddress: "0", // This enables running multiple instances of the test suite in parallel
 	})
 	Expect(err).ToNot(HaveOccurred())
 
