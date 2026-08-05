@@ -137,6 +137,14 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 			return ctrl.Result{}, reconcile.TerminalError(errors.New("provider does not support provisioning"))
 		}
 
+		if action, ok := obj.Annotations[v1alpha1.DeviceMaintenanceAnnotation]; ok && action == v1alpha1.DeviceMaintenanceSkipProvisioning {
+			// Transition to Running without removing the annotation.
+			// Annotation is removed by reconcileMaintenance on the next reconcile.
+			obj.Status.Phase = v1alpha1.DevicePhaseRunning
+			r.Recorder.Eventf(obj, nil, "Normal", "SkipProvisioning", "Maintenance", "Device in pending phase will skip provisioning due to maintenance annotation")
+			return ctrl.Result{}, nil
+		}
+
 		log.Info("Device is in pending phase, starting provisioning")
 		conditions.Set(obj, metav1.Condition{
 			Type:    v1alpha1.ReadyCondition,
@@ -149,6 +157,16 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, nil
 
 	case v1alpha1.DevicePhaseProvisioning:
+		if action, ok := obj.Annotations[v1alpha1.DeviceMaintenanceAnnotation]; ok && action == v1alpha1.DeviceMaintenanceSkipProvisioning {
+			// Close active provisioning and transition to Running; annotation removed by reconcileMaintenance.
+			if activeProv := obj.GetActiveProvisioning(); activeProv != nil {
+				activeProv.EndTime = metav1.Now()
+			}
+			obj.Status.Phase = v1alpha1.DevicePhaseRunning
+			r.Recorder.Eventf(obj, nil, "Normal", "SkipProvisioning", "Maintenance", "Device in provisioning phase will skip provisioning due to maintenance annotation")
+			return ctrl.Result{}, nil
+		}
+
 		if obj.Spec.Provisioning == nil {
 			log.Info("Provisioning configuration was removed, resetting device into pending phase")
 			if activeProv := obj.GetActiveProvisioning(); activeProv != nil {
@@ -434,6 +452,13 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 	}
 
 	switch action {
+	case v1alpha1.DeviceMaintenanceSkipProvisioning:
+		// The phase handler (Pending/Provisioning) already transitioned the device to Running.
+		// By the time reconcileMaintenance runs, the phase is stable and we can clean up the annotation.
+		delete(obj.Annotations, v1alpha1.DeviceMaintenanceAnnotation)
+		r.Recorder.Eventf(obj, nil, "Normal", "SkipProvisioning", "Maintenance", "Removing skip-provisioning maintenance annotation from device in Running phase")
+		return nil
+
 	case v1alpha1.DeviceMaintenanceResetPhase:
 		// Reset phase is a soft reset that only changes the device phase to Pending without
 		// performing any device-side operations. This is useful for recovering from terminal
