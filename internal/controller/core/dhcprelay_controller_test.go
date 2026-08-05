@@ -102,48 +102,46 @@ var _ = Describe("DHCPRelay Controller", func() {
 		AfterEach(func() {
 			By("Cleaning up the DHCPRelay resource")
 			dhcprelay = &v1alpha1.DHCPRelay{}
-			err := k8sClient.Get(ctx, resourceKey, dhcprelay)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, dhcprelay)).To(Succeed())
+			dhcprelay.Name = resourceKey.Name
+			dhcprelay.Namespace = resourceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, dhcprelay))).To(Succeed())
 
-				By("Waiting for DHCPRelay resource to be fully deleted")
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, resourceKey, &v1alpha1.DHCPRelay{})
-					g.Expect(errors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
-			}
+			By("Waiting for DHCPRelay resource to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, &v1alpha1.DHCPRelay{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up the Interface resource")
 			intf = &v1alpha1.Interface{}
-			err = k8sClient.Get(ctx, interfaceKey, intf)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, intf)).To(Succeed())
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, interfaceKey, &v1alpha1.Interface{})
-					g.Expect(errors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
-			}
+			intf.Name = interfaceKey.Name
+			intf.Namespace = interfaceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, interfaceKey, &v1alpha1.Interface{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up the VLAN resource")
 			vlan = &v1alpha1.VLAN{}
-			err = k8sClient.Get(ctx, vlanKey, vlan)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, vlan)).To(Succeed())
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, vlanKey, &v1alpha1.VLAN{})
-					g.Expect(errors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
-			}
-
-			By("Cleaning up the Device resource")
-			err = k8sClient.Get(ctx, deviceKey, device)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
+			vlan.Name = vlanKey.Name
+			vlan.Namespace = vlanKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, vlan))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, vlanKey, &v1alpha1.VLAN{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Verifying the resource has been deleted")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.DHCPRelay).To(BeNil(), "Provider should have no DHCPRelay configured")
 			}).Should(Succeed())
+
+			By("Cleaning up the Device resource")
+			device = &v1alpha1.Device{}
+			device.Name = deviceKey.Name
+			device.Namespace = deviceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should successfully reconcile the resource", func() {
@@ -332,15 +330,9 @@ var _ = Describe("DHCPRelay Controller", func() {
 		AfterEach(func() {
 			By("Cleaning up the DHCPRelay resource")
 			dhcprelay := &v1alpha1.DHCPRelay{}
-			err := k8sClient.Get(ctx, resourceKey, dhcprelay)
-			if err == nil {
-				// Remove finalizer if present to allow deletion
-				if controllerutil.ContainsFinalizer(dhcprelay, v1alpha1.FinalizerName) {
-					controllerutil.RemoveFinalizer(dhcprelay, v1alpha1.FinalizerName)
-					Expect(k8sClient.Update(ctx, dhcprelay)).To(Succeed())
-				}
-				Expect(k8sClient.Delete(ctx, dhcprelay)).To(Succeed())
-			}
+			dhcprelay.Name = resourceKey.Name
+			dhcprelay.Namespace = resourceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, dhcprelay))).To(Succeed())
 		})
 
 		It("Should not add finalizer when Device does not exist", func() {
@@ -401,20 +393,19 @@ var _ = Describe("DHCPRelay Controller", func() {
 		AfterEach(func() {
 			By("Cleaning up the DHCPRelay resource")
 			dhcprelay := &v1alpha1.DHCPRelay{}
-			err := k8sClient.Get(ctx, resourceKey, dhcprelay)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, dhcprelay)).To(Succeed())
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, resourceKey, &v1alpha1.DHCPRelay{})
-					g.Expect(errors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
-			}
+			dhcprelay.Name = resourceKey.Name
+			dhcprelay.Namespace = resourceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, dhcprelay))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, &v1alpha1.DHCPRelay{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
-			err = k8sClient.Get(ctx, deviceKey, device)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
-			}
+			device := &v1alpha1.Device{}
+			device.Name = deviceKey.Name
+			device.Namespace = deviceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should set ConfiguredCondition to False when Interface does not exist", func() {
@@ -541,36 +532,35 @@ var _ = Describe("DHCPRelay Controller", func() {
 		AfterEach(func() {
 			By("Cleaning up the DHCPRelay resource")
 			dhcprelay := &v1alpha1.DHCPRelay{}
-			err := k8sClient.Get(ctx, resourceKey, dhcprelay)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, dhcprelay)).To(Succeed())
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, resourceKey, &v1alpha1.DHCPRelay{})
-					g.Expect(errors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
-			}
+			dhcprelay.Name = resourceKey.Name
+			dhcprelay.Namespace = resourceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, dhcprelay))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, &v1alpha1.DHCPRelay{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up the Interface resource")
-			err = k8sClient.Get(ctx, otherIntfKey, otherIntf)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, otherIntf)).To(Succeed())
-			}
+			otherIntf := &v1alpha1.Interface{}
+			otherIntf.Name = otherIntfKey.Name
+			otherIntf.Namespace = otherIntfKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, otherIntf))).To(Succeed())
 
 			By("Cleaning up the VLAN resource")
-			err = k8sClient.Get(ctx, otherVlanKey, otherVlan)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, otherVlan)).To(Succeed())
-			}
+			otherVlan := &v1alpha1.VLAN{}
+			otherVlan.Name = otherVlanKey.Name
+			otherVlan.Namespace = otherVlanKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, otherVlan))).To(Succeed())
 
 			By("Cleaning up the Device resources")
-			err = k8sClient.Get(ctx, deviceKey, device)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
-			}
-			err = k8sClient.Get(ctx, otherDeviceKey, otherDevice)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, otherDevice, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
-			}
+			device := &v1alpha1.Device{}
+			device.Name = deviceKey.Name
+			device.Namespace = deviceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
+			otherDevice := &v1alpha1.Device{}
+			otherDevice.Name = otherDeviceKey.Name
+			otherDevice.Namespace = otherDeviceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, otherDevice))).To(Succeed())
 		})
 
 		It("Should set ConfiguredCondition to False with CrossDeviceReferenceReason", func() {
@@ -724,42 +714,41 @@ var _ = Describe("DHCPRelay Controller", func() {
 		AfterEach(func() {
 			By("Cleaning up the DHCPRelay resource")
 			dhcprelay := &v1alpha1.DHCPRelay{}
-			err := k8sClient.Get(ctx, resourceKey, dhcprelay)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, dhcprelay)).To(Succeed())
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, resourceKey, &v1alpha1.DHCPRelay{})
-					g.Expect(errors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
-			}
+			dhcprelay.Name = resourceKey.Name
+			dhcprelay.Namespace = resourceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, dhcprelay))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, &v1alpha1.DHCPRelay{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up the VRF resource")
-			err = k8sClient.Get(ctx, otherVrfKey, otherVrf)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, otherVrf)).To(Succeed())
-			}
+			otherVrf := &v1alpha1.VRF{}
+			otherVrf.Name = otherVrfKey.Name
+			otherVrf.Namespace = otherVrfKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, otherVrf))).To(Succeed())
 
 			By("Cleaning up the Interface resource")
-			err = k8sClient.Get(ctx, interfaceKey, intf)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, intf)).To(Succeed())
-			}
+			intf := &v1alpha1.Interface{}
+			intf.Name = interfaceKey.Name
+			intf.Namespace = interfaceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed())
 
 			By("Cleaning up the VLAN resource")
-			err = k8sClient.Get(ctx, vlanKey, vlan)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, vlan)).To(Succeed())
-			}
+			vlan := &v1alpha1.VLAN{}
+			vlan.Name = vlanKey.Name
+			vlan.Namespace = vlanKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, vlan))).To(Succeed())
 
 			By("Cleaning up the Device resources")
-			err = k8sClient.Get(ctx, deviceKey, device)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
-			}
-			err = k8sClient.Get(ctx, otherDeviceKey, otherDevice)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, otherDevice, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
-			}
+			device := &v1alpha1.Device{}
+			device.Name = deviceKey.Name
+			device.Namespace = deviceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
+			otherDevice := &v1alpha1.Device{}
+			otherDevice.Name = otherDeviceKey.Name
+			otherDevice.Namespace = otherDeviceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, otherDevice))).To(Succeed())
 		})
 
 		It("Should set ConfiguredCondition to False with CrossDeviceReferenceReason", func() {
@@ -892,45 +881,38 @@ var _ = Describe("DHCPRelay Controller", func() {
 		AfterEach(func() {
 			By("Cleaning up the DHCPRelay resource")
 			dhcprelay := &v1alpha1.DHCPRelay{}
-			err := k8sClient.Get(ctx, resourceKey, dhcprelay)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, dhcprelay)).To(Succeed())
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, resourceKey, &v1alpha1.DHCPRelay{})
-					g.Expect(errors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
-			}
+			dhcprelay.Name = resourceKey.Name
+			dhcprelay.Namespace = resourceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, dhcprelay))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, &v1alpha1.DHCPRelay{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up the unnumbered Interface resource")
-			err = k8sClient.Get(ctx, unnumberedIntfKey, unnumberedIntf)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, unnumberedIntf)).To(Succeed())
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, unnumberedIntfKey, &v1alpha1.Interface{})
-					g.Expect(errors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
-			}
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, unnumberedIntf))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, unnumberedIntfKey, &v1alpha1.Interface{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up the loopback Interface resource")
-			err = k8sClient.Get(ctx, loopbackIntfKey, loopbackIntf)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, loopbackIntf)).To(Succeed())
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, loopbackIntfKey, &v1alpha1.Interface{})
-					g.Expect(errors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
-			}
-
-			By("Cleaning up the Device resource")
-			err = k8sClient.Get(ctx, deviceKey, device)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
-			}
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, loopbackIntf))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, loopbackIntfKey, &v1alpha1.Interface{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Verifying the provider has been cleaned up")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.DHCPRelay).To(BeNil(), "Provider should have no DHCPRelay configured")
 			}).Should(Succeed())
+
+			By("Cleaning up the Device resource")
+			device = &v1alpha1.Device{}
+			device.Name = deviceKey.Name
+			device.Namespace = deviceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should successfully reconcile with an unnumbered Interface", func() {
@@ -1062,41 +1044,31 @@ var _ = Describe("DHCPRelay Controller", func() {
 		AfterEach(func() {
 			By("Cleaning up the DHCPRelay resource")
 			dhcprelay := &v1alpha1.DHCPRelay{}
-			err := k8sClient.Get(ctx, resourceKey, dhcprelay)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, dhcprelay)).To(Succeed())
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, resourceKey, &v1alpha1.DHCPRelay{})
-					g.Expect(errors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
-			}
+			dhcprelay.Name = resourceKey.Name
+			dhcprelay.Namespace = resourceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, dhcprelay))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, &v1alpha1.DHCPRelay{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up the Interface resource")
-			err = k8sClient.Get(ctx, interfaceKey, intf)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, intf)).To(Succeed())
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, interfaceKey, &v1alpha1.Interface{})
-					g.Expect(errors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
-			}
+			i := &v1alpha1.Interface{}
+			i.Name = interfaceKey.Name
+			i.Namespace = interfaceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, i))).To(Succeed())
 
 			By("Cleaning up the VLAN resource")
-			err = k8sClient.Get(ctx, vlanKey, vlan)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, vlan)).To(Succeed())
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, vlanKey, &v1alpha1.VLAN{})
-					g.Expect(errors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
-			}
+			vlan := &v1alpha1.VLAN{}
+			vlan.Name = vlanKey.Name
+			vlan.Namespace = vlanKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, vlan))).To(Succeed())
 
 			By("Cleaning up the Device resource")
-			device = &v1alpha1.Device{}
-			err = k8sClient.Get(ctx, deviceKey, device)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
-			}
+			device := &v1alpha1.Device{}
+			device.Name = deviceKey.Name
+			device.Namespace = deviceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should set ConfiguredCondition to False with WaitingForDependenciesReason when Interface is not configured", func() {

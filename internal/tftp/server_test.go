@@ -5,6 +5,7 @@ package tftpserver
 
 import (
 	"bytes"
+	"net"
 	"testing"
 
 	tftp "github.com/pin/tftp/v3"
@@ -163,19 +164,25 @@ func TestServer(t *testing.T) {
 				}).
 				Build()
 
+			// Bind to port 0 to get an OS-assigned free port
+			conn, err := new(net.ListenConfig).ListenPacket(t.Context(), "udp", "127.0.0.1:0")
+			if err != nil {
+				t.Fatalf("listen: %v", err)
+			}
+			addr := conn.LocalAddr().String()
+
 			srv := &Server{
 				Client:         fc,
 				Logger:         klog.NewKlogr(),
 				ValidateSource: tt.validateSource,
-				Port:           16900,
 			}
 			go func() {
-				if err := srv.Start(t.Context()); err != nil {
+				if err := srv.serve(t.Context(), conn); err != nil {
 					t.Errorf("start server: %v", err)
 				}
 			}()
 
-			tc, err := tftp.NewClient("127.0.0.1:16900")
+			tc, err := tftp.NewClient(addr)
 			if err != nil {
 				t.Fatalf("create TFTP client: %v", err)
 			}

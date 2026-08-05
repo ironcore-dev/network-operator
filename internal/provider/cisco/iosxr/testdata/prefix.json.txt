@@ -1,0 +1,4 @@
+ipv4 prefix-list PL-IPv4
+ 10 permit 10.10.0.0/16 ge 16
+ 20 permit 192.168.1.0/24 le 30
+ 30 permit 172.16.0.0/12 ge 12 le 24

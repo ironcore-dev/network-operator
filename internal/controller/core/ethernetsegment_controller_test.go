@@ -47,8 +47,11 @@ var _ = Describe("EthernetSegment Controller", func() {
 		})
 
 		AfterEach(func() {
-			By("Cleaning up all EthernetSegment resources")
-			Expect(k8sClient.DeleteAllOf(ctx, &v1alpha1.EthernetSegment{}, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+			By("Cleaning up the EthernetSegment resource")
+			es := &v1alpha1.EthernetSegment{}
+			es.Name = name
+			es.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, es))).To(Succeed())
 
 			By("Verifying the EthernetSegment is removed from the provider")
 			Eventually(func(g Gomega) {
@@ -58,16 +61,15 @@ var _ = Describe("EthernetSegment Controller", func() {
 
 			By("Cleaning up test Interface resource")
 			intf := &v1alpha1.Interface{}
-			if err := k8sClient.Get(ctx, key, intf); err == nil {
-				Expect(k8sClient.Delete(ctx, intf)).To(Succeed())
-			}
-
-			device := &v1alpha1.Device{}
-			err := k8sClient.Get(ctx, key, device)
-			Expect(err).NotTo(HaveOccurred())
+			intf.Name = name
+			intf.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed())
 
 			By("Cleaning up the test Device resource")
-			Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
+			device := &v1alpha1.Device{}
+			device.Name = name
+			device.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should successfully reconcile an EthernetSegment", func() {

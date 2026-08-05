@@ -48,26 +48,26 @@ var _ = Describe("LLDP Controller", func() {
 		AfterEach(func() {
 			By("Cleaning up the LLDP resource")
 			lldp = &v1alpha1.LLDP{}
-			err := k8sClient.Get(ctx, resourceKey, lldp)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, lldp)).To(Succeed())
+			lldp.Name = resourceKey.Name
+			lldp.Namespace = resourceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, lldp))).To(Succeed())
 
-				By("Waiting for LLDP resource to be fully deleted")
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, resourceKey, &v1alpha1.LLDP{})
-					g.Expect(errors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
-			}
-
-			By("Cleaning up the Device resource")
-			err = k8sClient.Get(ctx, deviceKey, device)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
+			By("Waiting for LLDP resource to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, &v1alpha1.LLDP{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Verifying the resource has been deleted")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.LLDP).To(BeNil(), "Provider should have no LLDP configured")
 			}).Should(Succeed())
+
+			By("Cleaning up the Device resource")
+			device = &v1alpha1.Device{}
+			device.Name = deviceKey.Name
+			device.Namespace = deviceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should successfully reconcile the resource", func() {
@@ -279,15 +279,9 @@ var _ = Describe("LLDP Controller", func() {
 		AfterEach(func() {
 			By("Cleaning up the LLDP resource")
 			lldp := &v1alpha1.LLDP{}
-			err := k8sClient.Get(ctx, resourceKey, lldp)
-			if err == nil {
-				// Remove finalizer if present to allow deletion
-				if controllerutil.ContainsFinalizer(lldp, v1alpha1.FinalizerName) {
-					controllerutil.RemoveFinalizer(lldp, v1alpha1.FinalizerName)
-					Expect(k8sClient.Update(ctx, lldp)).To(Succeed())
-				}
-				Expect(k8sClient.Delete(ctx, lldp)).To(Succeed())
-			}
+			lldp.Name = resourceKey.Name
+			lldp.Namespace = resourceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, lldp))).To(Succeed())
 		})
 
 		It("Should not add finalizer when Device does not exist", func() {
@@ -345,33 +339,26 @@ var _ = Describe("LLDP Controller", func() {
 		AfterEach(func() {
 			By("Cleaning up the LLDP resource")
 			lldp = &v1alpha1.LLDP{}
-			err := k8sClient.Get(ctx, resourceKey, lldp)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, lldp)).To(Succeed())
+			lldp.Name = resourceKey.Name
+			lldp.Namespace = resourceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, lldp))).To(Succeed())
 
-				By("Waiting for LLDP resource to be fully deleted")
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, resourceKey, &v1alpha1.LLDP{})
-					g.Expect(errors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
-			}
-
-			By("Cleaning up the Device resource")
-			device = &v1alpha1.Device{}
-			err = k8sClient.Get(ctx, deviceKey, device)
-			if err == nil {
-				// Ensure device is not paused before deletion
-				if device.Spec.Paused {
-					device.Spec.Paused = false
-					Expect(k8sClient.Update(ctx, device)).To(Succeed())
-				}
-				Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
-			}
+			By("Waiting for LLDP resource to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, &v1alpha1.LLDP{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Verifying the provider has been cleaned up")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.LLDP).To(BeNil(), "Provider should have no LLDP configured")
 			}).Should(Succeed())
+
+			By("Cleaning up the Device resource")
+			device = &v1alpha1.Device{}
+			device.Name = deviceKey.Name
+			device.Namespace = deviceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should skip reconciliation when Device is paused", func() {
@@ -476,27 +463,26 @@ var _ = Describe("LLDP Controller", func() {
 		AfterEach(func() {
 			By("Cleaning up the LLDP resource")
 			lldp = &v1alpha1.LLDP{}
-			err := k8sClient.Get(ctx, resourceKey, lldp)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, lldp)).To(Succeed())
+			lldp.Name = resourceKey.Name
+			lldp.Namespace = resourceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, lldp))).To(Succeed())
 
-				By("Waiting for LLDP resource to be fully deleted")
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, resourceKey, &v1alpha1.LLDP{})
-					g.Expect(errors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
-			}
-
-			By("Cleaning up the Device resource")
-			err = k8sClient.Get(ctx, deviceKey, device)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
-			}
+			By("Waiting for LLDP resource to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, &v1alpha1.LLDP{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Verifying the resource has been deleted")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.LLDP).To(BeNil(), "Provider should have no LLDP configured")
 			}).Should(Succeed())
+
+			By("Cleaning up the Device resource")
+			device = &v1alpha1.Device{}
+			device.Name = deviceKey.Name
+			device.Namespace = deviceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should handle missing ProviderConfigRef", func() {
@@ -624,27 +610,26 @@ var _ = Describe("LLDP Controller", func() {
 		AfterEach(func() {
 			By("Cleaning up the LLDP resource")
 			lldp = &v1alpha1.LLDP{}
-			err := k8sClient.Get(ctx, resourceKey, lldp)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, lldp)).To(Succeed())
+			lldp.Name = resourceKey.Name
+			lldp.Namespace = resourceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, lldp))).To(Succeed())
 
-				By("Waiting for LLDP resource to be fully deleted")
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, resourceKey, &v1alpha1.LLDP{})
-					g.Expect(errors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
-			}
-
-			By("Cleaning up the Device resource")
-			err = k8sClient.Get(ctx, deviceKey, device)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
-			}
+			By("Waiting for LLDP resource to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, &v1alpha1.LLDP{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Verifying the resource has been deleted")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.LLDP).To(BeNil(), "Provider should have no LLDP configured")
 			}).Should(Succeed())
+
+			By("Cleaning up the Device resource")
+			device = &v1alpha1.Device{}
+			device.Name = deviceKey.Name
+			device.Namespace = deviceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should handle missing InterfaceRef", func() {
@@ -746,7 +731,7 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Cleaning up the other Interface and Device")
 			Expect(k8sClient.Delete(ctx, otherInterface)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, otherDevice, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
+			Expect(k8sClient.Delete(ctx, otherDevice)).To(Succeed())
 		})
 
 		It("Should successfully reconcile with multiple InterfaceRefs", func() {
@@ -859,27 +844,26 @@ var _ = Describe("LLDP Controller", func() {
 		AfterEach(func() {
 			By("Cleaning up the LLDP resource")
 			lldp = &v1alpha1.LLDP{}
-			err := k8sClient.Get(ctx, resourceKey, lldp)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, lldp)).To(Succeed())
+			lldp.Name = resourceKey.Name
+			lldp.Namespace = resourceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, lldp))).To(Succeed())
 
-				By("Waiting for LLDP resource to be fully deleted")
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, resourceKey, &v1alpha1.LLDP{})
-					g.Expect(errors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
-			}
-
-			By("Cleaning up the Device resource")
-			err = k8sClient.Get(ctx, deviceKey, device)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
-			}
+			By("Waiting for LLDP resource to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, &v1alpha1.LLDP{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Verifying the resource has been deleted")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.LLDP).To(BeNil(), "Provider should have no LLDP configured")
 			}).Should(Succeed())
+
+			By("Cleaning up the Device resource")
+			device = &v1alpha1.Device{}
+			device.Name = deviceKey.Name
+			device.Namespace = deviceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should handle AdminState update from Up to Down", func() {
@@ -1103,38 +1087,36 @@ var _ = Describe("LLDP Controller", func() {
 		AfterEach(func() {
 			By("Cleaning up the LLDP resource")
 			lldp = &v1alpha1.LLDP{}
-			err := k8sClient.Get(ctx, resourceKey, lldp)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, lldp)).To(Succeed())
+			lldp.Name = resourceKey.Name
+			lldp.Namespace = resourceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, lldp))).To(Succeed())
 
-				By("Waiting for LLDP resource to be fully deleted")
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, resourceKey, &v1alpha1.LLDP{})
-					g.Expect(errors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
-			}
+			By("Waiting for LLDP resource to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, &v1alpha1.LLDP{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up the Interface resource")
 			intf = &v1alpha1.Interface{}
-			err = k8sClient.Get(ctx, interfaceKey, intf)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, intf)).To(Succeed())
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, interfaceKey, &v1alpha1.Interface{})
-					g.Expect(errors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
-			}
-
-			By("Cleaning up the Device resource")
-			err = k8sClient.Get(ctx, deviceKey, device)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
-			}
+			intf.Name = interfaceKey.Name
+			intf.Namespace = interfaceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, interfaceKey, &v1alpha1.Interface{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Verifying the provider has been cleaned up")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.LLDP).To(BeNil(), "Provider should have no LLDP configured")
 			}).Should(Succeed())
+
+			By("Cleaning up the Device resource")
+			device = &v1alpha1.Device{}
+			device.Name = deviceKey.Name
+			device.Namespace = deviceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should re-reconcile LLDP when referenced Interface is created", func() {
@@ -1297,27 +1279,26 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Cleaning up the LLDP resource")
 			lldp = &v1alpha1.LLDP{}
-			err := k8sClient.Get(ctx, resourceKey, lldp)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, lldp)).To(Succeed())
+			lldp.Name = resourceKey.Name
+			lldp.Namespace = resourceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, lldp))).To(Succeed())
 
-				By("Waiting for LLDP resource to be fully deleted")
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, resourceKey, &v1alpha1.LLDP{})
-					g.Expect(errors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
-			}
-
-			By("Cleaning up the Device resource")
-			err = k8sClient.Get(ctx, deviceKey, device)
-			if err == nil {
-				Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
-			}
+			By("Waiting for LLDP resource to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, resourceKey, &v1alpha1.LLDP{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Verifying the provider has been cleaned up")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.LLDP).To(BeNil(), "Provider should have no LLDP configured")
 			}).Should(Succeed())
+
+			By("Cleaning up the Device resource")
+			device = &v1alpha1.Device{}
+			device.Name = deviceKey.Name
+			device.Namespace = deviceKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should set OperationalCondition to False when LLDP is operationally down", func() {

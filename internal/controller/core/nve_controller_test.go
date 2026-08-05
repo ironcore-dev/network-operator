@@ -24,7 +24,6 @@ var _ = Describe("NVE Controller", func() {
 		var (
 			name          string
 			nveKey        client.ObjectKey
-			deviceKey     client.ObjectKey
 			interfaceKeys []client.ObjectKey
 			nve           *v1alpha1.NetworkVirtualizationEdge
 		)
@@ -42,7 +41,6 @@ var _ = Describe("NVE Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
 			name = device.Name
-			deviceKey = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 			nveKey = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 
 			By("Creating loopback interfaces")
@@ -81,18 +79,20 @@ var _ = Describe("NVE Controller", func() {
 
 		AfterEach(func() {
 			By("Cleaning up NVE")
-			nveObj := &v1alpha1.NetworkVirtualizationEdge{}
-			Expect(k8sClient.Get(ctx, nveKey, nveObj)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, nveObj)).To(Succeed())
+			n := &v1alpha1.NetworkVirtualizationEdge{}
+			n.Name = name
+			n.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, n))).To(Succeed())
 			Eventually(func() bool {
 				return errors.IsNotFound(k8sClient.Get(ctx, nveKey, &v1alpha1.NetworkVirtualizationEdge{}))
 			}).Should(BeTrue())
 
 			By("Cleaning up interfaces")
 			for _, ifKey := range interfaceKeys {
-				ifObj := &v1alpha1.Interface{}
-				Expect(k8sClient.Get(ctx, ifKey, ifObj)).To(Succeed())
-				Expect(k8sClient.Delete(ctx, ifObj)).To(Succeed())
+				intf := &v1alpha1.Interface{}
+				intf.Name = ifKey.Name
+				intf.Namespace = ifKey.Namespace
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed())
 				Eventually(func() bool {
 					return errors.IsNotFound(k8sClient.Get(ctx, ifKey, &v1alpha1.Interface{}))
 				}).Should(BeTrue())
@@ -100,10 +100,11 @@ var _ = Describe("NVE Controller", func() {
 
 			By("Cleaning up Device")
 			d := &v1alpha1.Device{}
-			Expect(k8sClient.Get(ctx, deviceKey, d)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, d)).To(Succeed())
+			d.Name = name
+			d.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, d))).To(Succeed())
 			Eventually(func() bool {
-				return errors.IsNotFound(k8sClient.Get(ctx, deviceKey, &v1alpha1.Device{}))
+				return errors.IsNotFound(k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}, &v1alpha1.Device{}))
 			}).Should(BeTrue())
 
 			Eventually(func(g Gomega) {
@@ -192,7 +193,6 @@ var _ = Describe("NVE Controller", func() {
 		var (
 			name          string
 			nveKey        client.ObjectKey
-			deviceKey     client.ObjectKey
 			interfaceKeys []client.ObjectKey
 			nve           *v1alpha1.NetworkVirtualizationEdge
 		)
@@ -210,7 +210,6 @@ var _ = Describe("NVE Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
 			name = device.Name
-			deviceKey = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 			nveKey = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 
 			By("Creating loopback interfaces")
@@ -249,18 +248,20 @@ var _ = Describe("NVE Controller", func() {
 
 		AfterEach(func() {
 			By("Cleaning up NVE")
-			nveObj := &v1alpha1.NetworkVirtualizationEdge{}
-			Expect(k8sClient.Get(ctx, nveKey, nveObj)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, nveObj)).To(Succeed())
+			nveCleanup := &v1alpha1.NetworkVirtualizationEdge{}
+			nveCleanup.Name = name
+			nveCleanup.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, nveCleanup))).To(Succeed())
 			Eventually(func() bool {
 				return errors.IsNotFound(k8sClient.Get(ctx, nveKey, &v1alpha1.NetworkVirtualizationEdge{}))
 			}).Should(BeTrue())
 
 			By("Cleaning up interfaces")
 			for _, ifKey := range interfaceKeys {
-				ifObj := &v1alpha1.Interface{}
-				Expect(k8sClient.Get(ctx, ifKey, ifObj)).To(Succeed())
-				Expect(k8sClient.Delete(ctx, ifObj)).To(Succeed())
+				intf := &v1alpha1.Interface{}
+				intf.Name = ifKey.Name
+				intf.Namespace = ifKey.Namespace
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed())
 				Eventually(func() bool {
 					return errors.IsNotFound(k8sClient.Get(ctx, ifKey, &v1alpha1.Interface{}))
 				}).Should(BeTrue())
@@ -268,10 +269,11 @@ var _ = Describe("NVE Controller", func() {
 
 			By("Cleaning up Device")
 			d := &v1alpha1.Device{}
-			Expect(k8sClient.Get(ctx, deviceKey, d)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, d)).To(Succeed())
+			d.Name = name
+			d.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, d))).To(Succeed())
 			Eventually(func() bool {
-				return errors.IsNotFound(k8sClient.Get(ctx, deviceKey, &v1alpha1.Device{}))
+				return errors.IsNotFound(k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}, &v1alpha1.Device{}))
 			}).Should(BeTrue())
 
 			Eventually(func(g Gomega) {
@@ -310,9 +312,8 @@ var _ = Describe("NVE Controller", func() {
 
 	Context("When source interface is missing", func() {
 		var (
-			name      string
-			nveKey    client.ObjectKey
-			deviceKey client.ObjectKey
+			name   string
+			nveKey client.ObjectKey
 		)
 
 		BeforeEach(func() {
@@ -328,7 +329,6 @@ var _ = Describe("NVE Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
 			name = device.Name
-			deviceKey = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 			nveKey = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 
 			By("Creating an NVE object with a reference to a non-existent interface")
@@ -346,19 +346,21 @@ var _ = Describe("NVE Controller", func() {
 
 		AfterEach(func() {
 			By("Cleaning up NVE")
-			nveObj := &v1alpha1.NetworkVirtualizationEdge{}
-			Expect(k8sClient.Get(ctx, nveKey, nveObj)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, nveObj)).To(Succeed())
+			nve := &v1alpha1.NetworkVirtualizationEdge{}
+			nve.Name = name
+			nve.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, nve))).To(Succeed())
 			Eventually(func() bool {
 				return errors.IsNotFound(k8sClient.Get(ctx, nveKey, &v1alpha1.NetworkVirtualizationEdge{}))
 			}).Should(BeTrue())
 
 			By("Cleaning up Device")
 			d := &v1alpha1.Device{}
-			Expect(k8sClient.Get(ctx, deviceKey, d)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, d)).To(Succeed())
+			d.Name = name
+			d.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, d))).To(Succeed())
 			Eventually(func() bool {
-				return errors.IsNotFound(k8sClient.Get(ctx, deviceKey, &v1alpha1.Device{}))
+				return errors.IsNotFound(k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}, &v1alpha1.Device{}))
 			}).Should(BeTrue())
 
 			Eventually(func(g Gomega) {
@@ -385,9 +387,8 @@ var _ = Describe("NVE Controller", func() {
 
 	Context("When AnycastSourceInterfaceRef is omitted", func() {
 		var (
-			name      string
-			nveKey    client.ObjectKey
-			deviceKey client.ObjectKey
+			name   string
+			nveKey client.ObjectKey
 		)
 
 		BeforeEach(func() {
@@ -402,7 +403,6 @@ var _ = Describe("NVE Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
 			name = device.Name
-			deviceKey = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 			nveKey = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 
 			Expect(k8sClient.Create(ctx, &v1alpha1.Interface{
@@ -430,28 +430,31 @@ var _ = Describe("NVE Controller", func() {
 
 		AfterEach(func() {
 			By("Cleaning up NVE")
-			nveObj := &v1alpha1.NetworkVirtualizationEdge{}
-			Expect(k8sClient.Get(ctx, nveKey, nveObj)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, nveObj)).To(Succeed())
+			nve := &v1alpha1.NetworkVirtualizationEdge{}
+			nve.Name = name
+			nve.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, nve))).To(Succeed())
 			Eventually(func() bool {
 				return errors.IsNotFound(k8sClient.Get(ctx, nveKey, &v1alpha1.NetworkVirtualizationEdge{}))
 			}).Should(BeTrue())
 
 			By("Cleaning up interface")
-			ifObj := &v1alpha1.Interface{}
 			ifKey := client.ObjectKey{Name: name + "-lo0", Namespace: metav1.NamespaceDefault}
-			Expect(k8sClient.Get(ctx, ifKey, ifObj)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, ifObj)).To(Succeed())
+			intf := &v1alpha1.Interface{}
+			intf.Name = ifKey.Name
+			intf.Namespace = ifKey.Namespace
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed())
 			Eventually(func() bool {
 				return errors.IsNotFound(k8sClient.Get(ctx, ifKey, &v1alpha1.Interface{}))
 			}).Should(BeTrue())
 
 			By("Cleaning up Device")
 			d := &v1alpha1.Device{}
-			Expect(k8sClient.Get(ctx, deviceKey, d)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, d)).To(Succeed())
+			d.Name = name
+			d.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, d))).To(Succeed())
 			Eventually(func() bool {
-				return errors.IsNotFound(k8sClient.Get(ctx, deviceKey, &v1alpha1.Device{}))
+				return errors.IsNotFound(k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}, &v1alpha1.Device{}))
 			}).Should(BeTrue())
 
 			Eventually(func(g Gomega) {
@@ -478,10 +481,9 @@ var _ = Describe("NVE Controller", func() {
 
 	Context("When creating more than one NVE per device", func() {
 		var (
-			name      string
-			nve1Key   client.ObjectKey
-			nve2Key   client.ObjectKey
-			deviceKey client.ObjectKey
+			name    string
+			nve1Key client.ObjectKey
+			nve2Key client.ObjectKey
 		)
 
 		BeforeEach(func() {
@@ -496,7 +498,6 @@ var _ = Describe("NVE Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
 			name = device.Name
-			deviceKey = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 
 			for _, ifName := range []string{name + "-lo0", name + "-lo1"} {
 				Expect(k8sClient.Create(ctx, &v1alpha1.Interface{
@@ -538,9 +539,10 @@ var _ = Describe("NVE Controller", func() {
 		AfterEach(func() {
 			By("Cleaning up NVEs")
 			for _, nveKey := range []client.ObjectKey{nve1Key, nve2Key} {
-				nveObj := &v1alpha1.NetworkVirtualizationEdge{}
-				Expect(k8sClient.Get(ctx, nveKey, nveObj)).To(Succeed())
-				Expect(k8sClient.Delete(ctx, nveObj)).To(Succeed())
+				nve := &v1alpha1.NetworkVirtualizationEdge{}
+				nve.Name = nveKey.Name
+				nve.Namespace = nveKey.Namespace
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, nve))).To(Succeed())
 				Eventually(func() bool {
 					return errors.IsNotFound(k8sClient.Get(ctx, nveKey, &v1alpha1.NetworkVirtualizationEdge{}))
 				}).Should(BeTrue())
@@ -551,9 +553,10 @@ var _ = Describe("NVE Controller", func() {
 				{Name: name + "-lo0", Namespace: metav1.NamespaceDefault},
 				{Name: name + "-lo1", Namespace: metav1.NamespaceDefault},
 			} {
-				ifObj := &v1alpha1.Interface{}
-				Expect(k8sClient.Get(ctx, ifKey, ifObj)).To(Succeed())
-				Expect(k8sClient.Delete(ctx, ifObj)).To(Succeed())
+				intf := &v1alpha1.Interface{}
+				intf.Name = ifKey.Name
+				intf.Namespace = ifKey.Namespace
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed())
 				Eventually(func() bool {
 					return errors.IsNotFound(k8sClient.Get(ctx, ifKey, &v1alpha1.Interface{}))
 				}).Should(BeTrue())
@@ -561,10 +564,11 @@ var _ = Describe("NVE Controller", func() {
 
 			By("Cleaning up Device")
 			d := &v1alpha1.Device{}
-			Expect(k8sClient.Get(ctx, deviceKey, d)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, d)).To(Succeed())
+			d.Name = name
+			d.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, d))).To(Succeed())
 			Eventually(func() bool {
-				return errors.IsNotFound(k8sClient.Get(ctx, deviceKey, &v1alpha1.Device{}))
+				return errors.IsNotFound(k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}, &v1alpha1.Device{}))
 			}).Should(BeTrue())
 
 			Eventually(func(g Gomega) {
@@ -586,9 +590,8 @@ var _ = Describe("NVE Controller", func() {
 
 	Context("When using erroneous interface references (non loopback type)", func() {
 		var (
-			name      string
-			nveKey    client.ObjectKey
-			deviceKey client.ObjectKey
+			name   string
+			nveKey client.ObjectKey
 		)
 
 		BeforeEach(func() {
@@ -604,7 +607,6 @@ var _ = Describe("NVE Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
 			name = device.Name
-			deviceKey = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 			nveKey = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 
 			By("Creating interfaces with wrong type")
@@ -638,9 +640,10 @@ var _ = Describe("NVE Controller", func() {
 
 		AfterEach(func() {
 			By("Cleaning up NVE")
-			nveObj := &v1alpha1.NetworkVirtualizationEdge{}
-			Expect(k8sClient.Get(ctx, nveKey, nveObj)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, nveObj)).To(Succeed())
+			nve := &v1alpha1.NetworkVirtualizationEdge{}
+			nve.Name = name
+			nve.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, nve))).To(Succeed())
 			Eventually(func() bool {
 				return errors.IsNotFound(k8sClient.Get(ctx, nveKey, &v1alpha1.NetworkVirtualizationEdge{}))
 			}).Should(BeTrue())
@@ -650,9 +653,10 @@ var _ = Describe("NVE Controller", func() {
 				{Name: name + "-eth0", Namespace: metav1.NamespaceDefault},
 				{Name: name + "-eth1", Namespace: metav1.NamespaceDefault},
 			} {
-				ifObj := &v1alpha1.Interface{}
-				Expect(k8sClient.Get(ctx, ifKey, ifObj)).To(Succeed())
-				Expect(k8sClient.Delete(ctx, ifObj)).To(Succeed())
+				intf := &v1alpha1.Interface{}
+				intf.Name = ifKey.Name
+				intf.Namespace = ifKey.Namespace
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed())
 				Eventually(func() bool {
 					return errors.IsNotFound(k8sClient.Get(ctx, ifKey, &v1alpha1.Interface{}))
 				}).Should(BeTrue())
@@ -660,10 +664,11 @@ var _ = Describe("NVE Controller", func() {
 
 			By("Cleaning up Device")
 			d := &v1alpha1.Device{}
-			Expect(k8sClient.Get(ctx, deviceKey, d)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, d)).To(Succeed())
+			d.Name = name
+			d.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, d))).To(Succeed())
 			Eventually(func() bool {
-				return errors.IsNotFound(k8sClient.Get(ctx, deviceKey, &v1alpha1.Device{}))
+				return errors.IsNotFound(k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}, &v1alpha1.Device{}))
 			}).Should(BeTrue())
 
 			Eventually(func(g Gomega) {
@@ -685,9 +690,8 @@ var _ = Describe("NVE Controller", func() {
 
 	Context("When using erroneous interface references (cross-device reference)", func() {
 		var (
-			name      string
-			nveKey    client.ObjectKey
-			deviceKey client.ObjectKey
+			name   string
+			nveKey client.ObjectKey
 		)
 
 		BeforeEach(func() {
@@ -703,7 +707,6 @@ var _ = Describe("NVE Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
 			name = device.Name
-			deviceKey = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 			nveKey = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 
 			By("Creating a second device whose interfaces will be referenced cross-device")
@@ -757,9 +760,10 @@ var _ = Describe("NVE Controller", func() {
 
 		AfterEach(func() {
 			By("Cleaning up NVE")
-			nveObj := &v1alpha1.NetworkVirtualizationEdge{}
-			Expect(k8sClient.Get(ctx, nveKey, nveObj)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, nveObj)).To(Succeed())
+			nve := &v1alpha1.NetworkVirtualizationEdge{}
+			nve.Name = name
+			nve.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, nve))).To(Succeed())
 			Eventually(func() bool {
 				return errors.IsNotFound(k8sClient.Get(ctx, nveKey, &v1alpha1.NetworkVirtualizationEdge{}))
 			}).Should(BeTrue())
@@ -769,9 +773,10 @@ var _ = Describe("NVE Controller", func() {
 				{Name: name + "-lo0", Namespace: metav1.NamespaceDefault},
 				{Name: name + "-lo1", Namespace: metav1.NamespaceDefault},
 			} {
-				ifObj := &v1alpha1.Interface{}
-				Expect(k8sClient.Get(ctx, ifKey, ifObj)).To(Succeed())
-				Expect(k8sClient.Delete(ctx, ifObj)).To(Succeed())
+				intf := &v1alpha1.Interface{}
+				intf.Name = ifKey.Name
+				intf.Namespace = ifKey.Namespace
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed())
 				Eventually(func() bool {
 					return errors.IsNotFound(k8sClient.Get(ctx, ifKey, &v1alpha1.Interface{}))
 				}).Should(BeTrue())
@@ -779,10 +784,11 @@ var _ = Describe("NVE Controller", func() {
 
 			By("Cleaning up Device")
 			d := &v1alpha1.Device{}
-			Expect(k8sClient.Get(ctx, deviceKey, d)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, d)).To(Succeed())
+			d.Name = name
+			d.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, d))).To(Succeed())
 			Eventually(func() bool {
-				return errors.IsNotFound(k8sClient.Get(ctx, deviceKey, &v1alpha1.Device{}))
+				return errors.IsNotFound(k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}, &v1alpha1.Device{}))
 			}).Should(BeTrue())
 
 			Eventually(func(g Gomega) {
@@ -804,9 +810,8 @@ var _ = Describe("NVE Controller", func() {
 
 	Context("When using a non registered dependency for providerConfigRef", func() {
 		var (
-			name      string
-			nveKey    client.ObjectKey
-			deviceKey client.ObjectKey
+			name   string
+			nveKey client.ObjectKey
 		)
 
 		BeforeEach(func() {
@@ -822,7 +827,6 @@ var _ = Describe("NVE Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
 			name = device.Name
-			deviceKey = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 			nveKey = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 
 			By("Creating loopback interfaces")
@@ -859,9 +863,10 @@ var _ = Describe("NVE Controller", func() {
 
 		AfterEach(func() {
 			By("Cleaning up NVE")
-			nveObj := &v1alpha1.NetworkVirtualizationEdge{}
-			Expect(k8sClient.Get(ctx, nveKey, nveObj)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, nveObj)).To(Succeed())
+			nve := &v1alpha1.NetworkVirtualizationEdge{}
+			nve.Name = name
+			nve.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, nve))).To(Succeed())
 			Eventually(func() bool {
 				return errors.IsNotFound(k8sClient.Get(ctx, nveKey, &v1alpha1.NetworkVirtualizationEdge{}))
 			}).Should(BeTrue())
@@ -872,9 +877,10 @@ var _ = Describe("NVE Controller", func() {
 				{Name: name + "-lo1", Namespace: metav1.NamespaceDefault},
 				{Name: name + "-lo2", Namespace: metav1.NamespaceDefault},
 			} {
-				ifObj := &v1alpha1.Interface{}
-				Expect(k8sClient.Get(ctx, ifKey, ifObj)).To(Succeed())
-				Expect(k8sClient.Delete(ctx, ifObj)).To(Succeed())
+				intf := &v1alpha1.Interface{}
+				intf.Name = ifKey.Name
+				intf.Namespace = ifKey.Namespace
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed())
 				Eventually(func() bool {
 					return errors.IsNotFound(k8sClient.Get(ctx, ifKey, &v1alpha1.Interface{}))
 				}).Should(BeTrue())
@@ -882,10 +888,11 @@ var _ = Describe("NVE Controller", func() {
 
 			By("Cleaning up Device")
 			d := &v1alpha1.Device{}
-			Expect(k8sClient.Get(ctx, deviceKey, d)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, d)).To(Succeed())
+			d.Name = name
+			d.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, d))).To(Succeed())
 			Eventually(func() bool {
-				return errors.IsNotFound(k8sClient.Get(ctx, deviceKey, &v1alpha1.Device{}))
+				return errors.IsNotFound(k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}, &v1alpha1.Device{}))
 			}).Should(BeTrue())
 
 			Eventually(func(g Gomega) {

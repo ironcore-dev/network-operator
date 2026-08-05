@@ -55,24 +55,22 @@ var _ = Describe("System Controller", func() {
 		})
 
 		AfterEach(func() {
-			var resource client.Object = &nxv1alpha1.System{}
-			err := k8sClient.Get(ctx, key, resource)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleanup the specific resource instance System")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-
-			resource = &v1alpha1.Device{}
-			err = k8sClient.Get(ctx, key, resource)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleanup the specific resource instance Device")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+			By("Cleaning up the System resource")
+			system := &nxv1alpha1.System{}
+			system.Name = name
+			system.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, system))).To(Succeed())
 
 			By("Ensuring the resource is deleted from the provider")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.Settings).To(BeNil(), "Provider System settings should be reset after deletion")
 			}).Should(Succeed())
+
+			By("Cleaning up the Device resource")
+			device := &v1alpha1.Device{}
+			device.Name = name
+			device.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should successfully reconcile the resource", func() {
