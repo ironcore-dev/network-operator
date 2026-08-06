@@ -24,6 +24,11 @@ type DeviceSpec struct {
 	// +required
 	Endpoint Endpoint `json:"endpoint"`
 
+	// Provider is the name of the provider plugin which is responsible for reconciling the CRD connected to the device
+	// +optional
+	// +immutable
+	Provider string `json:"provider,omitempty"`
+
 	// Provisioning is an optional configuration for the device provisioning process.
 	// It can be used to provide initial configuration templates or scripts that are applied during the device provisioning.
 	// +optional

@@ -1786,6 +1786,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `paused` _boolean_ | Paused can be used to prevent controllers from processing the Device and its associated objects. | false | Optional: \{\} <br /> |
 | `endpoint` _[Endpoint](#endpoint)_ | Endpoint contains the connection information for the device. |  | Required: \{\} <br /> |
+| `provider` _string_ | Provider is the name of the provider plugin which is responsible for reconciling the CRD connected to the device |  | Optional: \{\} <br /> |
 | `provisioning` _[Provisioning](#provisioning)_ | Provisioning is an optional configuration for the device provisioning process.<br />It can be used to provide initial configuration templates or scripts that are applied during the device provisioning. |  | Optional: \{\} <br /> |
 
 
