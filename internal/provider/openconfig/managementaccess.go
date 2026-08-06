@@ -26,13 +26,13 @@ func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.Ens
 	grpcServer := &GRPCServer{
 		Name:            grpcServerName,
 		Enable:          ma.Spec.GRPC.Enabled,
-		Port:            uint16(ma.Spec.GRPC.Port),
+		Port:            ma.Spec.GRPC.Port,
 		CertificateID:   ma.Spec.GRPC.CertificateID,
 		NetworkInstance: ma.Spec.GRPC.VrfName,
 	}
 	sshServer := &SSHServer{
 		Enable:  ma.Spec.SSH.Enabled,
-		Timeout: uint32(ma.Spec.SSH.Timeout.Duration.Seconds()),
+		Timeout: uint32(ma.Spec.SSH.Timeout.Seconds()),
 	}
 	return p.client.Update(ctx, grpcServer, sshServer)
 }
@@ -72,7 +72,7 @@ var (
 type GRPCServer struct {
 	Name            string `json:"name"`
 	Enable          bool   `json:"enable"`
-	Port            uint16 `json:"port"`
+	Port            int32  `json:"port"`
 	CertificateID   string `json:"certificate-id,omitempty"`
 	NetworkInstance string `json:"network-instance,omitempty"`
 }
@@ -87,6 +87,6 @@ type SSHServer struct {
 	Timeout uint32 `json:"timeout,omitempty"`
 }
 
-func (s *SSHServer) XPath() string {
+func (*SSHServer) XPath() string {
 	return "openconfig-system:system/ssh-server/config"
 }
