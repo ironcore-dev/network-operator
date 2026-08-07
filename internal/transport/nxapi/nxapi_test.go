@@ -56,13 +56,15 @@ func TestUri(t *testing.T) {
 
 func TestEncode(t *testing.T) {
 	tests := []struct {
-		desc string
-		cmds []string
-		want string
+		desc   string
+		cmds   []string
+		method Method
+		want   string
 	}{
 		{
-			desc: "single show command",
-			cmds: []string{"show crypto ca certificates"},
+			desc:   "single show command",
+			cmds:   []string{"show crypto ca certificates"},
+			method: MethodCLI,
 			want: `
 [
   {
@@ -77,8 +79,9 @@ func TestEncode(t *testing.T) {
 ]`,
 		},
 		{
-			desc: "multiple conf commands",
-			cmds: []string{"crypto ca trustpoint mytrustpoint", "crypto ca import mytrustpoint pkcs12 bootflash:server.pfx cisco123"},
+			desc:   "multiple conf commands",
+			cmds:   []string{"crypto ca trustpoint mytrustpoint", "crypto ca import mytrustpoint pkcs12 bootflash:server.pfx cisco123"},
+			method: MethodCLI,
 			want: `
 [
   {
@@ -101,10 +104,27 @@ func TestEncode(t *testing.T) {
   }
 ]`,
 		},
+		{
+			desc:   "cli_ascii method",
+			cmds:   []string{"show running-config"},
+			method: MethodCLIASCII,
+			want: `
+[
+  {
+    "jsonrpc": "2.0",
+    "method": "cli_ascii",
+    "params": {
+      "cmd": "show running-config",
+      "version": 1
+    },
+    "id": 1
+  }
+]`,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			r := NewRequest(test.cmds...)
+			r := NewRequest(test.cmds...).WithMethod(test.method)
 			b, err := r.Encode()
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -172,6 +192,7 @@ func TestDo(t *testing.T) {
 		statusCode     int
 		serverResponse string
 		wantResultLen  int
+		wantResult     string // if set, check first result content
 		wantRPCErrors  int
 		wantHTTPError  bool
 	}{
@@ -195,6 +216,13 @@ func TestDo(t *testing.T) {
 			statusCode:     http.StatusOK,
 			serverResponse: `{"jsonrpc":"2.0","result":null,"id":1}`,
 			wantResultLen:  1,
+		},
+		{
+			desc:           "2xx cli_ascii result with msg field",
+			statusCode:     http.StatusOK,
+			serverResponse: `{"jsonrpc":"2.0","result":{"msg":"\nhostname leaf1\nfeature bgp\n"},"id":1}`,
+			wantResultLen:  1,
+			wantResult:     `"\nhostname leaf1\nfeature bgp\n"`,
 		},
 		{
 			desc:           "non-2xx single RPC error",
@@ -294,6 +322,11 @@ func TestDo(t *testing.T) {
 			}
 			if len(results) != test.wantResultLen {
 				t.Fatalf("len(results) = %d, want %d", len(results), test.wantResultLen)
+			}
+			if test.wantResult != "" {
+				if got := string(results[0]); got != test.wantResult {
+					t.Errorf("result[0] = %q, want %q", got, test.wantResult)
+				}
 			}
 		})
 	}
