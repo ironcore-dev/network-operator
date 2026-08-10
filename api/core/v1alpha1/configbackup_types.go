@@ -120,6 +120,33 @@ type ConfigBackupS3 struct {
 	// CredentialsSecretRef references a Secret containing "accessKeyID" and "secretAccessKey" keys.
 	// +required
 	CredentialsSecretRef SecretReference `json:"credentialsSecretRef"`
+
+	// Encryption configures optional encryption for backup objects, performed in the controller pod before upload.
+	// If omitted, backups are stored unencrypted.
+	// +optional
+	Encryption *ConfigBackupEncryption `json:"encryption,omitempty"`
+}
+
+// EncryptionAlgorithm defines the supported encryption algorithms for remote backups.
+// +kubebuilder:validation:Enum="AES-256-GCM";"ChaCha20-Poly1305"
+type EncryptionAlgorithm string
+
+const (
+	// EncryptionAES256GCM uses AES-256 in GCM mode. Key must be 32 bytes.
+	EncryptionAES256GCM EncryptionAlgorithm = "AES-256-GCM"
+	// EncryptionChaCha20Poly1305 uses ChaCha20-Poly1305. Key must be 32 bytes.
+	EncryptionChaCha20Poly1305 EncryptionAlgorithm = "ChaCha20-Poly1305"
+)
+
+// ConfigBackupEncryption configures encryption for remote backup objects, performed in the controller pod.
+type ConfigBackupEncryption struct {
+	// Algorithm is the encryption algorithm to use.
+	// +required
+	Algorithm EncryptionAlgorithm `json:"algorithm"`
+
+	// KeySecret references the Secret and key containing the 32-byte encryption key.
+	// +required
+	KeySecret SecretKeySelector `json:"keySecret"`
 }
 
 // ConfigBackupStatus defines the observed state of ConfigBackup.
@@ -195,6 +222,16 @@ type ConfigBackupRunStatus struct {
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	Filepath string `json:"filepath,omitempty"`
+
+	// EncryptionAlgorithm is the encryption algorithm used for this backup, if any.
+	// Only set for encrypted Remote backups.
+	// +optional
+	EncryptionAlgorithm EncryptionAlgorithm `json:"encryptionAlgorithm,omitempty"`
+
+	// EncryptionKeySecret is the name of the Secret that provided the encryption key.
+	// Only set for encrypted Remote backups.
+	// +optional
+	EncryptionKeySecret string `json:"encryptionKeySecret,omitempty"`
 }
 
 // ConfigBackupStorageStatus contains storage utilization for the configured backup target.
@@ -264,6 +301,9 @@ func (c *ConfigBackup) GetSecretRefs() []SecretReference {
 	refs := []SecretReference{}
 	if c.Spec.S3 != nil {
 		refs = append(refs, c.Spec.S3.CredentialsSecretRef)
+		if c.Spec.S3.Encryption != nil {
+			refs = append(refs, c.Spec.S3.Encryption.KeySecret.SecretReference)
+		}
 	}
 	for i := range refs {
 		if refs[i].Namespace == "" {

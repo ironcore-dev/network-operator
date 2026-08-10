@@ -1392,6 +1392,23 @@ ConfigBackup is the Schema for the configbackups API.
 | `status` _[ConfigBackupStatus](#configbackupstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
 
 
+#### ConfigBackupEncryption
+
+
+
+ConfigBackupEncryption configures encryption for remote backup objects, performed in the controller pod.
+
+
+
+_Appears in:_
+- [ConfigBackupS3](#configbackups3)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `algorithm` _[EncryptionAlgorithm](#encryptionalgorithm)_ | Algorithm is the encryption algorithm to use. |  | Enum: [AES-256-GCM ChaCha20-Poly1305] <br />Required: \{\} <br /> |
+| `keySecret` _[SecretKeySelector](#secretkeyselector)_ | KeySecret references the Secret and key containing the 32-byte encryption key. |  | Required: \{\} <br /> |
+
+
 #### ConfigBackupRetention
 
 
@@ -1426,6 +1443,8 @@ _Appears in:_
 | `observedGeneration` _integer_ | ObservedGeneration represents the .metadata.generation that produced this backup. |  | Minimum: 0 <br />Optional: \{\} <br /> |
 | `sizeBytes` _integer_ | SizeBytes is the size in bytes of the backup artifact.<br />This only applies to Local backups, and may be unknown if the controller cannot query the device. |  | Minimum: 0 <br />Optional: \{\} <br /> |
 | `filepath` _string_ | Filepath is the device-local path of the backup artifact.<br />This only applies to Local backups, and may be unknown if the controller cannot query the device. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `encryptionAlgorithm` _[EncryptionAlgorithm](#encryptionalgorithm)_ | EncryptionAlgorithm is the encryption algorithm used for this backup, if any.<br />Only set for encrypted Remote backups. |  | Enum: [AES-256-GCM ChaCha20-Poly1305] <br />Optional: \{\} <br /> |
+| `encryptionKeySecret` _string_ | EncryptionKeySecret is the name of the Secret that provided the encryption key.<br />Only set for encrypted Remote backups. |  | Optional: \{\} <br /> |
 
 
 #### ConfigBackupS3
@@ -1445,6 +1464,7 @@ _Appears in:_
 | `bucket` _string_ | Bucket is the name of the S3 bucket. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `region` _string_ | Region is the endpoint region. Optional for S3-compatible stores that don't require it. |  | MaxLength: 63 <br />Optional: \{\} <br /> |
 | `credentialsSecretRef` _[SecretReference](#secretreference)_ | CredentialsSecretRef references a Secret containing "accessKeyID" and "secretAccessKey" keys. |  | Required: \{\} <br /> |
+| `encryption` _[ConfigBackupEncryption](#configbackupencryption)_ | Encryption configures optional encryption for backup objects, performed in the controller pod before upload.<br />If omitted, backups are stored unencrypted. |  | Optional: \{\} <br /> |
 
 
 #### ConfigBackupSpec
@@ -2010,6 +2030,25 @@ _Appears in:_
 | `tag` _integer_ |  |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `innerTag` _integer_ | InnerTag specifies the inner VLAN ID for QinQ encapsulation.<br />Only applicable when Type is set to "QinQ". |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `outerTag` _integer_ | OuterTag specifies the outer VLAN ID for QinQ encapsulation.<br />Only applicable when Type is set to "QinQ". |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+
+
+#### EncryptionAlgorithm
+
+_Underlying type:_ _string_
+
+EncryptionAlgorithm defines the supported encryption algorithms for remote backups.
+
+_Validation:_
+- Enum: [AES-256-GCM ChaCha20-Poly1305]
+
+_Appears in:_
+- [ConfigBackupEncryption](#configbackupencryption)
+- [ConfigBackupRunStatus](#configbackuprunstatus)
+
+| Field | Description |
+| --- | --- |
+| `AES-256-GCM` | EncryptionAES256GCM uses AES-256 in GCM mode. Key must be 32 bytes.<br /> |
+| `ChaCha20-Poly1305` | EncryptionChaCha20Poly1305 uses ChaCha20-Poly1305. Key must be 32 bytes.<br /> |
 
 
 #### Endpoint
@@ -3755,6 +3794,7 @@ SecretKeySelector contains enough information to select a key of a Secret.
 _Appears in:_
 - [AAAServerRADIUS](#aaaserverradius)
 - [AAAServerTACACS](#aaaservertacacs)
+- [ConfigBackupEncryption](#configbackupencryption)
 - [PasswordSource](#passwordsource)
 - [SSHPublicKeySource](#sshpublickeysource)
 - [TLS](#tls)

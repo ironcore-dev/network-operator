@@ -5,12 +5,16 @@ package core
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"sort"
 	"time"
 
 	"github.com/robfig/cron/v3"
+	"golang.org/x/crypto/chacha20poly1305"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,6 +37,7 @@ import (
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/apistatus"
+	"github.com/ironcore-dev/network-operator/internal/clientutil"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/objectstorage"
@@ -484,6 +489,10 @@ func (r *ConfigBackupReconciler) reconcile(ctx context.Context, s *configBackupS
 			configBackupSizeBytes.WithLabelValues(string(s.ConfigBackup.Spec.Type)).Observe(float64(*file.SizeBytes))
 		}
 	}
+	if s.ConfigBackup.Spec.S3 != nil && s.ConfigBackup.Spec.S3.Encryption != nil {
+		s.ConfigBackup.Status.LastBackup.EncryptionAlgorithm = s.ConfigBackup.Spec.S3.Encryption.Algorithm
+		s.ConfigBackup.Status.LastBackup.EncryptionKeySecret = s.ConfigBackup.Spec.S3.Encryption.KeySecret.Name
+	}
 
 	r.Recorder.Eventf(s.ConfigBackup, nil, "Normal", "BackupSuccessful", "Reconcile", "Backup completed successfully")
 
@@ -571,6 +580,32 @@ func (r *ConfigBackupReconciler) CreateRemoteConfigBackup(ctx context.Context, s
 	if err != nil {
 		return nil, fmt.Errorf("failed to get running config: %w", err)
 	}
+	if enc := s.ConfigBackup.Spec.S3.Encryption; enc != nil {
+		key, err := clientutil.NewClient(r.Client, s.ConfigBackup.Namespace).Secret(ctx, &enc.KeySecret)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				conditions.Set(s.ConfigBackup, metav1.Condition{
+					Type:    v1alpha1.ReadyCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  v1alpha1.SecretNotFoundReason,
+					Message: fmt.Sprintf("encryption key secret %q not found", enc.KeySecret.Name),
+				})
+				return nil, reconcile.TerminalError(err)
+			}
+			return nil, fmt.Errorf("failed to resolve encryption key: %w", err)
+		}
+		data, err = encrypt(data, enc.Algorithm, key)
+		if err != nil {
+			conditions.Set(s.ConfigBackup, metav1.Condition{
+				Type:    v1alpha1.ReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.EncryptionFailedReason,
+				Message: err.Error(),
+			})
+			r.Recorder.Eventf(s.ConfigBackup, nil, "Warning", "EncryptionFailed", "Reconcile", "Failed to encrypt backup: %v", err)
+			return nil, reconcile.TerminalError(fmt.Errorf("failed to encrypt backup: %w", err))
+		}
+	}
 	now := time.Now().UTC()
 	key := fmt.Sprintf(
 		"%sconfigbackup-%s-%s-%s",
@@ -621,6 +656,36 @@ func (r *ConfigBackupReconciler) DeleteRemoteConfigBackups(ctx context.Context, 
 		keys[i] = f.Path
 	}
 	return store.DeleteObjects(ctx, s.ConfigBackup.Spec.S3.Bucket, keys...)
+}
+
+// encrypt performs encryption of data before uploading to remote storage.
+// The nonce is prepended to the ciphertext.
+func encrypt(data []byte, algorithm v1alpha1.EncryptionAlgorithm, key []byte) ([]byte, error) {
+	var c cipher.AEAD
+	switch algorithm {
+	case v1alpha1.EncryptionAES256GCM:
+		block, err := aes.NewCipher(key)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create AES cipher: %w", err)
+		}
+		c, err = cipher.NewGCM(block)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create GCM: %w", err)
+		}
+	case v1alpha1.EncryptionChaCha20Poly1305:
+		var err error
+		c, err = chacha20poly1305.New(key)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create ChaCha20-Poly1305 cipher: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("unsupported encryption algorithm: %s", algorithm)
+	}
+	nonce := make([]byte, c.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return nil, fmt.Errorf("failed to generate nonce: %w", err)
+	}
+	return c.Seal(nonce, nonce, data, nil), nil
 }
 
 func (r *ConfigBackupReconciler) finalize(_ context.Context, _ *configBackupScope) (reterr error) {
