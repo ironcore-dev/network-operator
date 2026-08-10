@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -64,6 +65,19 @@ func (c *Client) HeadBucket(ctx context.Context, bucket string) error {
 		return fmt.Errorf("failed to reach bucket s3://%s: %w", bucket, err)
 	}
 	return nil
+}
+
+// GetObject downloads an object from the store and returns its body.
+func (c *Client) GetObject(ctx context.Context, bucket, key string) ([]byte, error) {
+	out, err := c.s3.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get object s3://%s/%s: %w", bucket, key, err)
+	}
+	defer out.Body.Close()
+	return io.ReadAll(out.Body)
 }
 
 // PutObject uploads a byte slice to the configured S3-compatible store.
