@@ -66,6 +66,7 @@ type ConfigBackupReconciler struct {
 
 // ObjectStorage defines the operations needed for remote config backups.
 type ObjectStorage interface {
+	HeadBucket(ctx context.Context, bucket string) error
 	PutObject(ctx context.Context, obj *objectstorage.Object) error
 	ListObjects(ctx context.Context, bucket, prefix string) ([]objectstorage.Object, error)
 	DeleteObjects(ctx context.Context, bucket string, keys ...string) error
@@ -296,6 +297,27 @@ func (r *ConfigBackupReconciler) reconcile(ctx context.Context, s *configBackupS
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		if err := store.HeadBucket(ctx, s.ConfigBackup.Spec.S3.Bucket); err != nil {
+			conditions.Set(s.ConfigBackup, metav1.Condition{
+				Type:    v1alpha1.RemoteEndpointReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.RemoteEndpointUnreachableReason,
+				Message: err.Error(),
+			})
+			conditions.Set(s.ConfigBackup, metav1.Condition{
+				Type:    v1alpha1.ReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.RemoteEndpointUnreachableReason,
+				Message: "Remote object storage endpoint is not reachable",
+			})
+			return ctrl.Result{}, err
+		}
+		conditions.Set(s.ConfigBackup, metav1.Condition{
+			Type:    v1alpha1.RemoteEndpointReadyCondition,
+			Status:  metav1.ConditionTrue,
+			Reason:  v1alpha1.ReadyReason,
+			Message: "Remote object storage endpoint is reachable",
+		})
 	}
 
 	var schedule cron.Schedule
