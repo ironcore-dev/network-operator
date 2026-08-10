@@ -21,3 +21,21 @@ spec:
   deviceRef:
     name: leaf1
   type: Startup
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: ConfigBackup
+metadata:
+  name: remote-backup
+spec:
+  deviceRef:
+    name: leaf1
+  schedule: "* * * * *"
+  type: Remote
+  path: "leaf-1/"
+  retention:
+    keepLast: 10
+  s3:
+    endpoint: "http://minio.default.svc:9000"
+    bucket: config-backups
+    credentialsSecretRef:
+      name: minio-credentials
