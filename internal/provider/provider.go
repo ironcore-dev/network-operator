@@ -88,6 +88,9 @@ type DeviceInfo struct {
 type ConfigBackupProvider interface {
 	Provider
 
+	// RunningConfig returns the current running configuration of the device
+	// in its provider-specific encoding.
+	RunningConfig(context.Context) ([]byte, error)
 	// CreateConfigBackup writes a new configuration backup to the device.
 	CreateConfigBackup(context.Context, *ConfigBackupRequest) (*ConfigBackupFile, error)
 	// ListConfigBackups lists the backups currently discovered for the ConfigBackup policy.

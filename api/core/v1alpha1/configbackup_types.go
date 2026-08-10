@@ -4,8 +4,6 @@
 package v1alpha1
 
 import (
-	"fmt"
-	"path"
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,8 +14,10 @@ import (
 // ConfigBackupSpec defines the desired state of ConfigBackup.
 // +kubebuilder:validation:XValidation:rule="self.type != 'Startup' || (!has(self.path) || size(self.path) == 0)",message="path must be omitted for Startup backups"
 // +kubebuilder:validation:XValidation:rule="self.type != 'Local' || (has(self.path) && size(self.path) > 0)",message="path must be set for Local backups"
-// +kubebuilder:validation:XValidation:rule="self.type == 'Local' || !has(self.retention)",message="retention must only be specified for Local backups"
+// +kubebuilder:validation:XValidation:rule="self.type == 'Local' || self.type == 'Remote' || !has(self.retention)",message="retention must only be specified for Local or Remote backups"
 // +kubebuilder:validation:XValidation:rule="self.type == 'Local' || !has(self.storageThreshold)",message="storageThreshold must only be specified for Local backups"
+// +kubebuilder:validation:XValidation:rule="self.type != 'Remote' || has(self.s3)",message="s3 must be specified for Remote backups"
+// +kubebuilder:validation:XValidation:rule="self.type == 'Remote' || !has(self.s3)",message="s3 must only be specified for Remote backups"
 type ConfigBackupSpec struct {
 	// DeviceRef is a reference to the Device this object belongs to. The Device object must exist in the same namespace.
 	// Immutable.
@@ -53,10 +53,14 @@ type ConfigBackupSpec struct {
 	// StorageThreshold defines the minimum free space that must remain before creating a new Local backup.
 	// +optional
 	StorageThreshold *ConfigBackupStorageThreshold `json:"storageThreshold,omitempty"`
+
+	// S3 configures the S3-compatible object storage destination for Remote backups.
+	// +optional
+	S3 *ConfigBackupS3 `json:"s3,omitempty"`
 }
 
 // ConfigBackupType defines how the device should persist a configuration backup.
-// +kubebuilder:validation:Enum=Local;Startup
+// +kubebuilder:validation:Enum=Local;Startup;Remote
 type ConfigBackupType string
 
 const (
@@ -64,6 +68,8 @@ const (
 	ConfigBackupTypeLocal ConfigBackupType = "Local"
 	// ConfigBackupTypeStartup stores the running configuration as the device startup configuration.
 	ConfigBackupTypeStartup ConfigBackupType = "Startup"
+	// ConfigBackupTypeRemote uploads the running configuration to an S3-compatible object store.
+	ConfigBackupTypeRemote ConfigBackupType = "Remote"
 )
 
 // ConfigBackupRetention defines how many historical backups are kept on the device.
@@ -89,6 +95,31 @@ type ConfigBackupStorageThreshold struct {
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=100
 	MinFreePercent *int32 `json:"minFreePercent,omitempty"`
+}
+
+// ConfigBackupS3 configures the S3-compatible object storage destination for Remote backups.
+type ConfigBackupS3 struct {
+	// Endpoint is the S3-compatible endpoint URL (e.g., "https://s3.eu-central-1.amazonaws.com").
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=2048
+	// +kubebuilder:validation:XValidation:rule="self.startsWith('https://') || self.startsWith('http://')",message="endpoint must be a valid URL starting with http:// or https://"
+	Endpoint string `json:"endpoint"`
+
+	// Bucket is the name of the S3 bucket.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	Bucket string `json:"bucket"`
+
+	// Region is the endpoint region. Optional for S3-compatible stores that don't require it.
+	// +optional
+	// +kubebuilder:validation:MaxLength=63
+	Region string `json:"region,omitempty"`
+
+	// CredentialsSecretRef references a Secret containing "accessKeyID" and "secretAccessKey" keys.
+	// +required
+	CredentialsSecretRef SecretReference `json:"credentialsSecretRef"`
 }
 
 // ConfigBackupStatus defines the observed state of ConfigBackup.
@@ -217,12 +248,6 @@ type ConfigBackup struct {
 	Status ConfigBackupStatus `json:"status,omitzero"`
 }
 
-// Filename returns a string that can be used as a prefix for backup filenames,
-// incorporating the namespace and name of the ConfigBackup resource.
-func (c *ConfigBackup) Filename() string {
-	return path.Join(c.Spec.Path, fmt.Sprintf("configbackup-%s-%s-", c.Namespace, c.Name))
-}
-
 // GetConditions implements conditions.Getter.
 func (c *ConfigBackup) GetConditions() []metav1.Condition {
 	return c.Status.Conditions
@@ -231,6 +256,21 @@ func (c *ConfigBackup) GetConditions() []metav1.Condition {
 // SetConditions implements conditions.Setter.
 func (c *ConfigBackup) SetConditions(conditions []metav1.Condition) {
 	c.Status.Conditions = conditions
+}
+
+// GetSecretRefs returns the list of SecretReferences used by this ConfigBackup.
+// Namespaces are defaulted to the ConfigBackup's namespace if not explicitly set.
+func (c *ConfigBackup) GetSecretRefs() []SecretReference {
+	refs := []SecretReference{}
+	if c.Spec.S3 != nil {
+		refs = append(refs, c.Spec.S3.CredentialsSecretRef)
+	}
+	for i := range refs {
+		if refs[i].Namespace == "" {
+			refs[i].Namespace = c.Namespace
+		}
+	}
+	return refs
 }
 
 // +kubebuilder:object:root=true

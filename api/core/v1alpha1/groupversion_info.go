@@ -254,6 +254,8 @@ const (
 const (
 	// PrefixSetNotFoundReason indicates that a referenced PrefixSet was not found.
 	PrefixSetNotFoundReason = "PrefixSetNotFound"
+	// SecretNotFoundReason indicates that a referenced Secret was not found.
+	SecretNotFoundReason = "SecretNotFound"
 )
 
 // Reasons that are specific to [BGPPeer] objects.

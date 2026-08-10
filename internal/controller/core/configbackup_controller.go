@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/robfig/cron/v3"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -34,6 +35,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
+	"github.com/ironcore-dev/network-operator/internal/objectstorage"
 	"github.com/ironcore-dev/network-operator/internal/paused"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/resourcelock"
@@ -56,11 +58,22 @@ type ConfigBackupReconciler struct {
 
 	// Locker is used to synchronize operations on resources targeting the same device.
 	Locker *resourcelock.ResourceLocker
+
+	// ObjectStorage is an optional pre-configured object storage client for Remote backups.
+	// If set, it is used instead of creating one from the spec credentials.
+	ObjectStorage ObjectStorage
+}
+
+// ObjectStorage defines the operations needed for remote config backups.
+type ObjectStorage interface {
+	PutObject(ctx context.Context, obj *objectstorage.Object) error
+	ListObjects(ctx context.Context, bucket, prefix string) ([]objectstorage.Object, error)
+	DeleteObjects(ctx context.Context, bucket string, keys ...string) error
 }
 
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=configbackups,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=configbackups/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
 func (r *ConfigBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
@@ -246,6 +259,12 @@ func (r *ConfigBackupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 				},
 			}),
 		).
+		// Watches enqueues ConfigBackups when a referenced S3 credentials Secret is created or updated.
+		Watches(
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.configBackupsForSecret),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		).
 		Complete(r)
 }
 
@@ -270,17 +289,26 @@ func (r *ConfigBackupReconciler) reconcile(ctx context.Context, s *configBackupS
 		}
 	}
 
+	var store ObjectStorage
+	var err error
+	if s.ConfigBackup.Spec.Type == v1alpha1.ConfigBackupTypeRemote {
+		store, err = r.objectStorageClient(ctx, s)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	var schedule cron.Schedule
 	if s.ConfigBackup.Spec.Schedule != "" {
-		schedule, reterr = cron.ParseStandard(s.ConfigBackup.Spec.Schedule)
-		if reterr != nil {
+		schedule, err = cron.ParseStandard(s.ConfigBackup.Spec.Schedule)
+		if err != nil {
 			conditions.Set(s.ConfigBackup, metav1.Condition{
 				Type:    v1alpha1.ReadyCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  v1alpha1.ScheduleInvalidReason,
-				Message: reterr.Error(),
+				Message: err.Error(),
 			})
-			return ctrl.Result{}, reconcile.TerminalError(reterr)
+			return ctrl.Result{}, reconcile.TerminalError(err)
 		}
 
 		// Determine the last backup time. If no backups have been created yet,
@@ -333,7 +361,13 @@ func (r *ConfigBackupReconciler) reconcile(ctx context.Context, s *configBackupS
 			return
 		}
 
-		inventory, err := s.Provider.ListConfigBackups(ctx, req)
+		var inventory *provider.ConfigBackupInventory
+		switch s.ConfigBackup.Spec.Type {
+		case v1alpha1.ConfigBackupTypeRemote:
+			inventory, err = r.ListRemoteConfigBackups(ctx, store, s)
+		default:
+			inventory, err = s.Provider.ListConfigBackups(ctx, req)
+		}
 		if err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, fmt.Errorf("failed to list backups: %w", err)})
 			return
@@ -377,7 +411,13 @@ func (r *ConfigBackupReconciler) reconcile(ctx context.Context, s *configBackupS
 		return ctrl.Result{}, nil
 	}
 
-	inventory, err := s.Provider.ListConfigBackups(ctx, req)
+	var inventory *provider.ConfigBackupInventory
+	switch s.ConfigBackup.Spec.Type {
+	case v1alpha1.ConfigBackupTypeRemote:
+		inventory, err = r.ListRemoteConfigBackups(ctx, store, s)
+	default:
+		inventory, err = s.Provider.ListConfigBackups(ctx, req)
+	}
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to list backups: %w", err)
 	}
@@ -396,7 +436,13 @@ func (r *ConfigBackupReconciler) reconcile(ctx context.Context, s *configBackupS
 	now := metav1.Now()
 	s.ConfigBackup.Status.LastAttemptTime = now
 
-	file, err := s.Provider.CreateConfigBackup(ctx, req)
+	var file *provider.ConfigBackupFile
+	switch s.ConfigBackup.Spec.Type {
+	case v1alpha1.ConfigBackupTypeRemote:
+		file, err = r.CreateRemoteConfigBackup(ctx, store, s)
+	default:
+		file, err = s.Provider.CreateConfigBackup(ctx, req)
+	}
 	if err != nil {
 		r.Recorder.Eventf(s.ConfigBackup, nil, "Warning", "BackupFailed", "Reconcile", "Failed to create backup: %v", err)
 		return ctrl.Result{}, err
@@ -430,7 +476,13 @@ func (r *ConfigBackupReconciler) reconcile(ctx context.Context, s *configBackupS
 		})
 		// Delete the oldest backups that exceed the retention limit.
 		backupsToDelete := inventory.Backups[:total-s.ConfigBackup.Spec.Retention.KeepLast]
-		if err := s.Provider.DeleteConfigBackups(ctx, backupsToDelete...); err != nil {
+		switch s.ConfigBackup.Spec.Type {
+		case v1alpha1.ConfigBackupTypeRemote:
+			err = r.DeleteRemoteConfigBackups(ctx, store, s, backupsToDelete...)
+		default:
+			err = s.Provider.DeleteConfigBackups(ctx, backupsToDelete...)
+		}
+		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to delete old backups: %w", err)
 		}
 	}
@@ -443,6 +495,110 @@ func (r *ConfigBackupReconciler) reconcile(ctx context.Context, s *configBackupS
 	})
 
 	return ctrl.Result{}, nil
+}
+
+const (
+	// S3AccessKeyID is the Secret key for the access key ID in an S3 credentials Secret.
+	S3AccessKeyID = "accessKeyID"
+	// S3SecretAccessKey is the Secret key for the secret access key in an S3 credentials Secret.
+	S3SecretAccessKey = "secretAccessKey"
+)
+
+// objectStorageClient resolves S3 credentials from the referenced Secret and returns an object storage client.
+func (r *ConfigBackupReconciler) objectStorageClient(ctx context.Context, s *configBackupScope) (ObjectStorage, error) {
+	if r.ObjectStorage != nil {
+		return r.ObjectStorage, nil
+	}
+	ref := s.ConfigBackup.Spec.S3.CredentialsSecretRef
+	ns := ref.Namespace
+	if ns == "" {
+		ns = s.ConfigBackup.Namespace
+	}
+	var secret corev1.Secret
+	if err := r.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: ns}, &secret); err != nil {
+		if apierrors.IsNotFound(err) {
+			conditions.Set(s.ConfigBackup, metav1.Condition{
+				Type:    v1alpha1.ReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.SecretNotFoundReason,
+				Message: fmt.Sprintf("S3 credentials secret %s/%s not found", ns, ref.Name),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("S3 credentials secret %s/%s not found", ns, ref.Name))
+		}
+		return nil, fmt.Errorf("failed to get S3 credentials secret %s/%s: %w", ns, ref.Name, err)
+	}
+	accessKeyID, ok := secret.Data[S3AccessKeyID]
+	if !ok {
+		return nil, reconcile.TerminalError(fmt.Errorf("secret %s/%s missing key %q", ns, ref.Name, S3AccessKeyID))
+	}
+	secretAccessKey, ok := secret.Data[S3SecretAccessKey]
+	if !ok {
+		return nil, reconcile.TerminalError(fmt.Errorf("secret %s/%s missing key %q", ns, ref.Name, S3SecretAccessKey))
+	}
+	return objectstorage.NewClient(objectstorage.Options{
+		Endpoint:        s.ConfigBackup.Spec.S3.Endpoint,
+		Region:          s.ConfigBackup.Spec.S3.Region,
+		AccessKeyID:     string(accessKeyID),
+		SecretAccessKey: string(secretAccessKey),
+	}), nil
+}
+
+// CreateRemoteConfigBackup fetches the running config from the device and uploads it to S3.
+func (r *ConfigBackupReconciler) CreateRemoteConfigBackup(ctx context.Context, store ObjectStorage, s *configBackupScope) (*provider.ConfigBackupFile, error) {
+	data, err := s.Provider.RunningConfig(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get running config: %w", err)
+	}
+	now := time.Now().UTC()
+	key := fmt.Sprintf(
+		"%sconfigbackup-%s-%s-%s",
+		s.ConfigBackup.Spec.Path,
+		s.ConfigBackup.Namespace,
+		s.ConfigBackup.Name,
+		now.Format("20060102T150405Z"),
+	)
+	if err := store.PutObject(ctx, &objectstorage.Object{
+		Bucket: s.ConfigBackup.Spec.S3.Bucket,
+		Key:    key,
+		Body:   data,
+	}); err != nil {
+		return nil, fmt.Errorf("failed to upload backup to S3: %w", err)
+	}
+	return &provider.ConfigBackupFile{
+		Path:      fmt.Sprintf("s3://%s/%s", s.ConfigBackup.Spec.S3.Bucket, key),
+		SizeBytes: new(int64(len(data))),
+		CreatedAt: now,
+	}, nil
+}
+
+// ListRemoteConfigBackups lists backup objects from S3 and returns them as a ConfigBackupInventory.
+// Storage fields (TotalBytes, UsedBytes, FreeBytes) are nil since S3 does not expose free-space information.
+func (r *ConfigBackupReconciler) ListRemoteConfigBackups(ctx context.Context, store ObjectStorage, s *configBackupScope) (*provider.ConfigBackupInventory, error) {
+	objects, err := store.ListObjects(ctx, s.ConfigBackup.Spec.S3.Bucket, s.ConfigBackup.Spec.Path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list remote backups: %w", err)
+	}
+	backups := make([]*provider.ConfigBackupFile, len(objects))
+	for i := range objects {
+		backups[i] = &provider.ConfigBackupFile{
+			Path:      objects[i].Key,
+			SizeBytes: &objects[i].Size,
+			CreatedAt: objects[i].LastModified,
+		}
+	}
+	return &provider.ConfigBackupInventory{Backups: backups}, nil
+}
+
+// DeleteRemoteConfigBackups deletes the specified backup objects from S3.
+func (r *ConfigBackupReconciler) DeleteRemoteConfigBackups(ctx context.Context, store ObjectStorage, s *configBackupScope, files ...*provider.ConfigBackupFile) error {
+	if len(files) == 0 {
+		return nil
+	}
+	keys := make([]string, len(files))
+	for i, f := range files {
+		keys[i] = f.Path
+	}
+	return store.DeleteObjects(ctx, s.ConfigBackup.Spec.S3.Bucket, keys...)
 }
 
 func (r *ConfigBackupReconciler) finalize(_ context.Context, _ *configBackupScope) (reterr error) {
@@ -509,6 +665,36 @@ func (r *ConfigBackupReconciler) ConfigBackupsForProviderConfig(ctx context.Cont
 					Namespace: m.Namespace,
 				},
 			})
+		}
+	}
+
+	return requests
+}
+
+// configBackupsForSecret is a [handler.MapFunc] that enqueues reconciliation requests
+// for ConfigBackups that reference the given Secret as their S3 credentials source.
+func (r *ConfigBackupReconciler) configBackupsForSecret(ctx context.Context, obj client.Object) []reconcile.Request {
+	log := ctrl.LoggerFrom(ctx, "Secret", klog.KObj(obj))
+
+	list := &v1alpha1.ConfigBackupList{}
+	if err := r.List(ctx, list); err != nil {
+		log.Error(err, "Failed to list ConfigBackups")
+		return nil
+	}
+
+	var requests []reconcile.Request
+	for _, m := range list.Items {
+		for _, ref := range m.GetSecretRefs() {
+			if ref.Name == obj.GetName() && ref.Namespace == obj.GetNamespace() {
+				log.V(2).Info("Enqueuing ConfigBackup for reconciliation", "ConfigBackup", klog.KObj(&m))
+				requests = append(requests, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      m.Name,
+						Namespace: m.Namespace,
+					},
+				})
+				break
+			}
 		}
 	}
 

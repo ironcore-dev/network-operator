@@ -256,6 +256,21 @@ func (p *Provider) GetLastRebootTime(ctx context.Context) (time.Time, error) {
 	return bt.Time, nil
 }
 
+func (p *Provider) RunningConfig(ctx context.Context) ([]byte, error) {
+	res, err := p.nxapi.Do(ctx, nxapi.NewRequest("show running-config").WithMethod(nxapi.MethodCLIASCII))
+	if err != nil {
+		return nil, err
+	}
+	if len(res) == 0 {
+		return nil, errors.New("empty response")
+	}
+	var body string
+	if err := json.Unmarshal(res[0], &body); err != nil {
+		return nil, fmt.Errorf("failed to decode running config: %w", err)
+	}
+	return []byte(body), nil
+}
+
 func (p *Provider) CreateConfigBackup(ctx context.Context, req *provider.ConfigBackupRequest) (*provider.ConfigBackupFile, error) {
 	if req.ConfigBackup.Spec.Type == v1alpha1.ConfigBackupTypeStartup {
 		_, err := p.nxapi.Do(ctx, nxapi.NewRequest("copy running-config startup-config").WithRollback(nxapi.Stop))
