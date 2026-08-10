@@ -7,7 +7,7 @@ spec:
     name: leaf1
   schedule: "* * * * *"
   type: Local
-  path: "bootflash:///backups/"
+  path: "bootflash:///backups/" # vendor-specific device path (Cisco NX-OS)
   retention:
     keepLast: 5
   storageThreshold:

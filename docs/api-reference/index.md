@@ -1428,6 +1428,25 @@ _Appears in:_
 | `filepath` _string_ | Filepath is the device-local path of the backup artifact.<br />This only applies to Local backups, and may be unknown if the controller cannot query the device. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 
 
+#### ConfigBackupS3
+
+
+
+ConfigBackupS3 configures the S3-compatible object storage destination for Remote backups.
+
+
+
+_Appears in:_
+- [ConfigBackupSpec](#configbackupspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `endpoint` _string_ | Endpoint is the S3-compatible endpoint URL (e.g., "https://s3.eu-central-1.amazonaws.com"). |  | MaxLength: 2048 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `bucket` _string_ | Bucket is the name of the S3 bucket. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `region` _string_ | Region is the endpoint region. Optional for S3-compatible stores that don't require it. |  | MaxLength: 63 <br />Optional: \{\} <br /> |
+| `credentialsSecretRef` _[SecretReference](#secretreference)_ | CredentialsSecretRef references a Secret containing "accessKeyID" and "secretAccessKey" keys. |  | Required: \{\} <br /> |
+
+
 #### ConfigBackupSpec
 
 
@@ -1444,10 +1463,11 @@ _Appears in:_
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceRef is a reference to the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the ConfigBackup to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `schedule` _string_ | Schedule is an optional cron expression.<br />If omitted, the controller performs a one-shot backup. |  | Optional: \{\} <br /> |
-| `type` _[ConfigBackupType](#configbackuptype)_ | Type determines whether the backup is saved as a local file or as startup-config. |  | Enum: [Local Startup] <br />Required: \{\} <br /> |
+| `type` _[ConfigBackupType](#configbackuptype)_ | Type determines whether the backup is saved as a local file or as startup-config. |  | Enum: [Local Startup Remote] <br />Required: \{\} <br /> |
 | `path` _string_ | Path is the device-local destination path for Local backups.<br />Different providers may accept different path formats, such as "bootflash:///backups/". |  | MaxLength: 255 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 | `retention` _[ConfigBackupRetention](#configbackupretention)_ | Retention configures automatic cleanup of older backups for Local backups. |  | Optional: \{\} <br /> |
 | `storageThreshold` _[ConfigBackupStorageThreshold](#configbackupstoragethreshold)_ | StorageThreshold defines the minimum free space that must remain before creating a new Local backup. |  | Optional: \{\} <br /> |
+| `s3` _[ConfigBackupS3](#configbackups3)_ | S3 configures the S3-compatible object storage destination for Remote backups. |  | Optional: \{\} <br /> |
 
 
 #### ConfigBackupStatus
@@ -1517,7 +1537,7 @@ _Underlying type:_ _string_
 ConfigBackupType defines how the device should persist a configuration backup.
 
 _Validation:_
-- Enum: [Local Startup]
+- Enum: [Local Startup Remote]
 
 _Appears in:_
 - [ConfigBackupSpec](#configbackupspec)
@@ -1526,6 +1546,7 @@ _Appears in:_
 | --- | --- |
 | `Local` | ConfigBackupTypeLocal stores the running configuration in a device-local file path.<br /> |
 | `Startup` | ConfigBackupTypeStartup stores the running configuration as the device startup configuration.<br /> |
+| `Remote` | ConfigBackupTypeRemote uploads the running configuration to an S3-compatible object store.<br /> |
 
 
 #### ConfigMapKeySelector
@@ -3758,6 +3779,7 @@ in any namespace.
 _Appears in:_
 - [CertificateSource](#certificatesource)
 - [CertificateSpec](#certificatespec)
+- [ConfigBackupS3](#configbackups3)
 - [Endpoint](#endpoint)
 - [SecretKeySelector](#secretkeyselector)
 
