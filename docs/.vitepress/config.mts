@@ -71,6 +71,7 @@ export default withMermaid({
                 text: 'Overview',
                 items: [
                     { text: 'Index', link: '/overview/' },
+                    { text: 'Getting Started', link: '/overview/getting-started' },
                     { text: 'Architecture', link: '/architecture-overview' },
                 ],
             },
@@ -80,13 +81,6 @@ export default withMermaid({
                     { text: 'Index', link: '/concepts/' },
                     { text: 'Config Backups', link: '/concepts/config-backup' },
                     { text: 'Pausing Reconciliation', link: '/concepts/pausing' },
-                ],
-            },
-            {
-                text: 'Concepts',
-                items: [
-                    { text: 'Index', link: '/concepts/' },
-                    { text: 'Pausing Reconciliation', link: '/concepts/pausing' },
                     { text: 'Numbered Resources', link: '/concepts/numbered-resources' },
                 ],
             },
@@ -94,7 +88,8 @@ export default withMermaid({
                 text: 'Tutorials',
                 items: [
                     { text: 'Index', link: '/tutorials/' },
-                    { text: 'EVPN/VXLAN Fabric', link: '/tutorials/evpn-vxlan-fabric' }
+                    { text: 'Device Onboarding', link: '/tutorials/device-onboarding' },
+                    { text: 'EVPN/VXLAN Fabric', link: '/tutorials/evpn-vxlan-fabric' },
                 ],
             },
             {
