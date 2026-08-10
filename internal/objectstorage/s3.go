@@ -55,6 +55,17 @@ type Object struct {
 	LastModified time.Time
 }
 
+// HeadBucket checks whether the bucket exists and is accessible.
+func (c *Client) HeadBucket(ctx context.Context, bucket string) error {
+	_, err := c.s3.HeadBucket(ctx, &s3.HeadBucketInput{
+		Bucket: aws.String(bucket),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to reach bucket s3://%s: %w", bucket, err)
+	}
+	return nil
+}
+
 // PutObject uploads a byte slice to the configured S3-compatible store.
 func (c *Client) PutObject(ctx context.Context, obj *Object) error {
 	_, err := c.s3.PutObject(ctx, &s3.PutObjectInput{

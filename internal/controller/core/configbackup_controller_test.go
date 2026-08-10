@@ -327,6 +327,10 @@ var _ = Describe("ConfigBackup Controller", func() {
 				g.Expect(cond).NotTo(BeNil())
 				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(cond.Reason).To(Equal(v1alpha1.BackupSuccessfulReason))
+
+				cond = meta.FindStatusCondition(resource.Status.Conditions, v1alpha1.RemoteEndpointReadyCondition)
+				g.Expect(cond).NotTo(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 			}).Should(Succeed())
 
 			By("Verifying the mock S3 server received the upload")
@@ -348,6 +352,10 @@ type mockObjectStorage struct {
 
 func NewMockObjectStorage() *mockObjectStorage {
 	return &mockObjectStorage{Objects: make(map[string][]byte)}
+}
+
+func (m *mockObjectStorage) HeadBucket(_ context.Context, _ string) error {
+	return nil
 }
 
 func (m *mockObjectStorage) PutObject(_ context.Context, obj *objectstorage.Object) error {
