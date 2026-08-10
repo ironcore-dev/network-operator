@@ -1,6 +1,7 @@
 resources:
 - ../default
 - ../prometheus
+- minio.yaml
 
 patches:
  - path: manager_patch.yaml
