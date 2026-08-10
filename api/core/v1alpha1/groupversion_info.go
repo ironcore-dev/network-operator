@@ -262,6 +262,8 @@ const (
 	SecretNotFoundReason = "SecretNotFound"
 	// RemoteEndpointUnreachableReason indicates that the remote object storage endpoint is not reachable.
 	RemoteEndpointUnreachableReason = "RemoteEndpointUnreachable"
+	// EncryptionFailedReason indicates that encryption of the backup data failed.
+	EncryptionFailedReason = "EncryptionFailed"
 )
 
 // Reasons that are specific to [BGPPeer] objects.
