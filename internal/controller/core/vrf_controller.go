@@ -223,13 +223,6 @@ func (r *VRFReconciler) reconcile(ctx context.Context, s *vrfScope) (reterr erro
 		conditions.RecomputeReady(s.VRF)
 	}()
 
-	conditions.Set(s.VRF, metav1.Condition{
-		Type:    v1alpha1.ConfiguredCondition,
-		Status:  metav1.ConditionFalse,
-		Reason:  v1alpha1.ReconcilePendingReason,
-		Message: "Reconciliation is in progress",
-	})
-
 	// Ensure the VRF is owned by the Device.
 	if !controllerutil.HasControllerReference(s.VRF) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.VRF, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {

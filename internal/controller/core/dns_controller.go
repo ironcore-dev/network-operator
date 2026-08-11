@@ -275,13 +275,6 @@ func (r *DNSReconciler) reconcile(ctx context.Context, s *dnsScope) (reterr erro
 		conditions.RecomputeReady(s.DNS)
 	}()
 
-	conditions.Set(s.DNS, metav1.Condition{
-		Type:    v1alpha1.ConfiguredCondition,
-		Status:  metav1.ConditionFalse,
-		Reason:  v1alpha1.ReconcilePendingReason,
-		Message: "Reconciliation is in progress",
-	})
-
 	// Ensure the DNS is owned by the Device.
 	if !controllerutil.HasControllerReference(s.DNS) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.DNS, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {

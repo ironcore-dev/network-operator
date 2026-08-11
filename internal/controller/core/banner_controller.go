@@ -291,13 +291,6 @@ func (r *BannerReconciler) reconcile(ctx context.Context, s *bannerScope) (reter
 		conditions.RecomputeReady(s.Banner)
 	}()
 
-	conditions.Set(s.Banner, metav1.Condition{
-		Type:    v1alpha1.ConfiguredCondition,
-		Status:  metav1.ConditionFalse,
-		Reason:  v1alpha1.ReconcilePendingReason,
-		Message: "Reconciliation is in progress",
-	})
-
 	// Ensure the Banner is owned by the Device.
 	if !controllerutil.HasControllerReference(s.Banner) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.Banner, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {

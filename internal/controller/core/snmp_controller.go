@@ -275,13 +275,6 @@ func (r *SNMPReconciler) reconcile(ctx context.Context, s *snmpScope) (reterr er
 		conditions.RecomputeReady(s.SNMP)
 	}()
 
-	conditions.Set(s.SNMP, metav1.Condition{
-		Type:    v1alpha1.ConfiguredCondition,
-		Status:  metav1.ConditionFalse,
-		Reason:  v1alpha1.ReconcilePendingReason,
-		Message: "Reconciliation is in progress",
-	})
-
 	// Ensure the SNMP is owned by the Device.
 	if !controllerutil.HasControllerReference(s.SNMP) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.SNMP, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {

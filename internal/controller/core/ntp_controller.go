@@ -275,13 +275,6 @@ func (r *NTPReconciler) reconcile(ctx context.Context, s *ntpScope) (reterr erro
 		conditions.RecomputeReady(s.NTP)
 	}()
 
-	conditions.Set(s.NTP, metav1.Condition{
-		Type:    v1alpha1.ConfiguredCondition,
-		Status:  metav1.ConditionFalse,
-		Reason:  v1alpha1.ReconcilePendingReason,
-		Message: "Reconciliation is in progress",
-	})
-
 	// Ensure the NTP is owned by the Device.
 	if !controllerutil.HasControllerReference(s.NTP) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.NTP, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {

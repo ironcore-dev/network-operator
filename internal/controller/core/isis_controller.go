@@ -294,13 +294,6 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (reterr er
 		conditions.RecomputeReady(s.ISIS)
 	}()
 
-	conditions.Set(s.ISIS, metav1.Condition{
-		Type:    v1alpha1.ConfiguredCondition,
-		Status:  metav1.ConditionFalse,
-		Reason:  v1alpha1.ReconcilePendingReason,
-		Message: "Reconciliation is in progress",
-	})
-
 	// Ensure the ISIS is owned by the Device.
 	if !controllerutil.HasControllerReference(s.ISIS) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.ISIS, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {

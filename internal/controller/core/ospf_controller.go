@@ -311,13 +311,6 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (reterr er
 		conditions.RecomputeReady(s.OSPF)
 	}()
 
-	conditions.Set(s.OSPF, metav1.Condition{
-		Type:    v1alpha1.ConfiguredCondition,
-		Status:  metav1.ConditionFalse,
-		Reason:  v1alpha1.ReconcilePendingReason,
-		Message: "Reconciliation is in progress",
-	})
-
 	var interfaces []provider.OSPFInterface
 	for _, ref := range s.OSPF.Spec.InterfaceRefs {
 		intf := new(v1alpha1.Interface)

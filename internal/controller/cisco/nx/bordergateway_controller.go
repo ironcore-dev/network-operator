@@ -331,13 +331,6 @@ func (r *BorderGatewayReconciler) reconcile(ctx context.Context, s *borderGatewa
 		conditions.RecomputeReady(s.BorderGateway)
 	}()
 
-	conditions.Set(s.BorderGateway, metav1.Condition{
-		Type:    v1alpha1.ConfiguredCondition,
-		Status:  metav1.ConditionFalse,
-		Reason:  v1alpha1.ReconcilePendingReason,
-		Message: "Reconciliation is in progress",
-	})
-
 	// Ensure the BorderGateway is owned by the Device.
 	if !controllerutil.HasControllerReference(s.BorderGateway) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.BorderGateway, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {

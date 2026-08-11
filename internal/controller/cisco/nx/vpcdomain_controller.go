@@ -297,13 +297,6 @@ func (r *VPCDomainReconciler) reconcile(ctx context.Context, s *vpcdomainScope) 
 		conditions.RecomputeReady(s.VPCDomain)
 	}()
 
-	conditions.Set(s.VPCDomain, metav1.Condition{
-		Type:    v1alpha1.ConfiguredCondition,
-		Status:  metav1.ConditionFalse,
-		Reason:  v1alpha1.ReconcilePendingReason,
-		Message: "Reconciliation is in progress",
-	})
-
 	peerLink, err := r.reconcilePeerLink(ctx, s)
 	if err != nil {
 		reterr = kerrors.NewAggregate([]error{reterr, fmt.Errorf("failed to reconcile referenced resource: %w", err)})

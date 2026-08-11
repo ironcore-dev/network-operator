@@ -382,13 +382,6 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (ret
 		conditions.RecomputeReady(s.BGPPeer)
 	}()
 
-	conditions.Set(s.BGPPeer, metav1.Condition{
-		Type:    v1alpha1.ConfiguredCondition,
-		Status:  metav1.ConditionFalse,
-		Reason:  v1alpha1.ReconcilePendingReason,
-		Message: "Reconciliation is in progress",
-	})
-
 	bgp, err := r.reconcileBGP(ctx, s.BGPPeer, s.Device)
 	if err != nil {
 		return err

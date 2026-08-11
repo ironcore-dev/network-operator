@@ -228,13 +228,6 @@ func (r *NetworkVirtualizationEdgeReconciler) reconcile(ctx context.Context, s *
 		conditions.RecomputeReady(s.NVE)
 	}()
 
-	conditions.Set(s.NVE, metav1.Condition{
-		Type:    v1alpha1.ConfiguredCondition,
-		Status:  metav1.ConditionFalse,
-		Reason:  v1alpha1.ReconcilePendingReason,
-		Message: "Reconciliation is in progress",
-	})
-
 	if err := r.validateUniqueNVEPerDevice(ctx, s); err != nil {
 		return err
 	}

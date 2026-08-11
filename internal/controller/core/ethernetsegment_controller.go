@@ -313,13 +313,6 @@ func (r *EthernetSegmentReconciler) reconcile(ctx context.Context, s *ethernetSe
 		conditions.RecomputeReady(s.EthernetSegment)
 	}()
 
-	conditions.Set(s.EthernetSegment, metav1.Condition{
-		Type:    v1alpha1.ConfiguredCondition,
-		Status:  metav1.ConditionFalse,
-		Reason:  v1alpha1.ReconcilePendingReason,
-		Message: "Reconciliation is in progress",
-	})
-
 	intf, err := r.reconcileInterface(ctx, s)
 	if err != nil {
 		return err
