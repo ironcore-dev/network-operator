@@ -612,5 +612,5 @@ func (p *Provider) DeletePrefixSet(ctx context.Context, req *provider.PrefixSetR
 }
 
 func init() {
-	provider.Register("cisco-iosxr-gnmi", NewProvider)
+	provider.Register("iosxr.cisco.networking.metal.ironcore.dev", NewProvider)
 }

@@ -4016,5 +4016,5 @@ func (p *Provider) DeleteAAA(ctx context.Context, req *provider.DeleteAAARequest
 }
 
 func init() {
-	provider.Register("cisco-nxos-gnmi", NewProvider)
+	provider.Register("nx.cisco.networking.metal.ironcore.dev", NewProvider)
 }

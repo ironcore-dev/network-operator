@@ -91,7 +91,6 @@ type HTTPServer struct {
 	Mux              *http.ServeMux
 	Recorder         events.EventRecorder
 	ValidateSourceIP bool
-	Provider         provider.ProvisioningProvider
 	Port             int
 }
 
@@ -306,7 +305,14 @@ func (s *HTTPServer) HandleProvisioningRequest(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	hashedPassword, hashAlgorithm, err := s.Provider.HashProvisioningPassword(string(pass))
+	prov, err := provider.LoadProvider[provider.ProvisioningProvider](device.Spec.Provider)
+	if err != nil {
+		s.Logger.Error(err, "Failed to get provider", "provider", device.Spec.Provider, "device", device.Name, "error", err)
+		http.Error(w, "Failed to get provider", http.StatusPreconditionRequired)
+		return
+	}
+
+	hashedPassword, hashAlgorithm, err := prov.HashProvisioningPassword(string(pass))
 	if err != nil {
 		s.Logger.Error(err, "Failed to hash provisioning password", "device", device.Name)
 		http.Error(w, "Failed to hash provisioning password", http.StatusInternalServerError)

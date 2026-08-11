@@ -181,6 +181,9 @@ const (
 	// ErrorReason indicates that an error occurred while reconciling the resource.
 	ErrorReason = "Error"
 
+	// ProviderNotFoundReason indicates that the provider specified in the resource's device.spec.provider field was not found.
+	ProviderNotFoundReason = "ProviderNotFound"
+
 	// WaitingForDependenciesReason indicates that the resource is waiting for its dependencies to be ready.
 	WaitingForDependenciesReason = "WaitingForDependencies"
 

@@ -50,7 +50,6 @@ import (
 	evpncontroller "github.com/ironcore-dev/network-operator/internal/controller/evpn"
 	poolcontroller "github.com/ironcore-dev/network-operator/internal/controller/pool"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
-	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/provisioning"
 	"github.com/ironcore-dev/network-operator/internal/resourcelock"
 	tftpserver "github.com/ironcore-dev/network-operator/internal/tftp"
@@ -97,7 +96,6 @@ func main() { //nolint:gocyclo
 	var tlsOpts []func(*tls.Config)
 	var watchNamespace string
 	var watchFilterValue string
-	var providerName string
 	var requeueInterval time.Duration
 	var heartbeatInterval time.Duration
 	var tftpPort int
@@ -123,7 +121,6 @@ func main() { //nolint:gocyclo
 	flag.BoolVar(&enableHTTP2, "enable-http2", false, "If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.StringVar(&watchNamespace, "namespace", "", "Namespace that the controller watches to reconcile api objects. If unspecified, the controller watches for api objects across all namespaces.")
 	flag.StringVar(&watchFilterValue, "watch-filter", "", fmt.Sprintf("Label value that the controller watches to reconcile api objects. Label key is always %q. If unspecified, the controller watches for all api objects.", v1alpha1.WatchLabel))
-	flag.StringVar(&providerName, "provider", "openconfig", "The provider to use for the controller. If not specified, the default provider is used. Available providers: "+strings.Join(provider.Providers(), ", "))
 	flag.DurationVar(&requeueInterval, "requeue-interval", time.Hour, "The interval after which Kubernetes resources should be reconciled again regardless of whether they have changed.")
 	flag.DurationVar(&heartbeatInterval, "heartbeat-interval", 30*time.Second, "The interval after which the controller retries a reachability check on each device.")
 	flag.IntVar(&tftpPort, "tftp-port", 1069, "The port on which the inline TFTP server listens. Set to 0 to disable the TFTP server.")
@@ -259,13 +256,6 @@ func main() { //nolint:gocyclo
 		os.Exit(1)
 	}
 
-	setupLog.Info("Using provider", "provider", providerName)
-	prov, err := provider.Get(providerName)
-	if err != nil {
-		setupLog.Error(err, "failed to get provider", "provider", providerName)
-		os.Exit(1)
-	}
-
 	ctx := ctrl.SetupSignalHandler()
 
 	if lockerNamespace == "" {
@@ -313,7 +303,6 @@ func main() { //nolint:gocyclo
 		Scheme:            mgr.GetScheme(),
 		Recorder:          mgr.GetEventRecorder("device-controller"),
 		WatchFilterValue:  watchFilterValue,
-		Provider:          prov,
 		HeartbeatInterval: heartbeatInterval,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Device")
@@ -325,7 +314,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("interface-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
@@ -338,7 +326,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("banner-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Banner")
@@ -350,7 +337,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("user-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "User")
@@ -362,7 +348,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("dns-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DNS")
@@ -374,7 +359,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("ntp-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "NTP")
@@ -386,7 +370,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("acl-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AccessControlList")
@@ -398,7 +381,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("certificate-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Certificate")
@@ -410,7 +392,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("snmp-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SNMP")
@@ -422,7 +403,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("syslog-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Syslog")
@@ -434,7 +414,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("managementaccess-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ManagementAccess")
@@ -446,7 +425,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("isis-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ISIS")
@@ -458,7 +436,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("pim-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PIM")
@@ -470,7 +447,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("bgp-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
@@ -483,7 +459,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("bgppeer-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
@@ -496,7 +471,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("lldp-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
@@ -509,7 +483,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("ospf-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
@@ -522,7 +495,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("vlan-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
@@ -535,7 +507,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("vrf-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VRF")
@@ -547,7 +518,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("cisco-nx-vpcdomain-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
@@ -560,7 +530,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("nve-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
@@ -573,7 +542,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("cisco-nx-system-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "System")
@@ -585,7 +553,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("evpn-instance-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "EVPNInstance")
@@ -597,7 +564,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("aaa-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AAA")
@@ -609,7 +575,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("prefixset-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PrefixSet")
@@ -621,7 +586,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("routingpolicy-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RoutingPolicy")
@@ -633,7 +597,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("cisco-nx-border-gateway-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BorderGateway")
@@ -645,7 +608,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("dhcprelay-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
@@ -658,7 +620,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("configbackup-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ConfigBackup")
@@ -670,7 +631,6 @@ func main() { //nolint:gocyclo
 		Scheme:           mgr.GetScheme(),
 		Recorder:         mgr.GetEventRecorder("ethernetsegment-controller"),
 		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
 		Locker:           locker,
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
@@ -794,14 +754,12 @@ func main() { //nolint:gocyclo
 	// is implemented and the port is set to a non-zero value.
 	// The server is added to the manager so it starts after the cache is synced
 	// and shuts down gracefully when the manager stops.
-	provisioningProvider, ok := prov().(provider.ProvisioningProvider)
-	if provisioningHTTPPort != 0 && ok {
+	if provisioningHTTPPort != 0 {
 		provisioningServer := &provisioning.HTTPServer{
 			Client:           mgr.GetClient(),
 			Logger:           ctrl.Log.WithName("provisioning"),
 			Recorder:         mgr.GetEventRecorder("provisioning"),
 			ValidateSourceIP: provisioningHTTPValidateSourceIP,
-			Provider:         provisioningProvider,
 			Port:             provisioningHTTPPort,
 		}
 		setupLog.Info("Adding provisioning HTTP server to manager", "port", provisioningHTTPPort, "validateSourceIP", provisioningHTTPValidateSourceIP)

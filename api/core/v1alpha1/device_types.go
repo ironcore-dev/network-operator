@@ -24,10 +24,12 @@ type DeviceSpec struct {
 	// +required
 	Endpoint Endpoint `json:"endpoint"`
 
-	// Provider is the name of the provider plugin which is responsible for reconciling the CRD connected to the device
-	// +optional
-	// +immutable
-	Provider string `json:"provider,omitempty"`
+	// Provider identifies the provider implementation used to reconcile this Device and all CRDs that reference it.
+	// Immutable.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Provider is immutable"
+	Provider string `json:"provider"`
 
 	// Provisioning is an optional configuration for the device provisioning process.
 	// It can be used to provide initial configuration templates or scripts that are applied during the device provisioning.

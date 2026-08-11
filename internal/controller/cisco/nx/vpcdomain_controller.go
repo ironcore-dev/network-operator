@@ -51,9 +51,6 @@ type VPCDomainReconciler struct {
 	// More info: https://book.kubebuilder.io/reference/raising-events
 	Recorder events.EventRecorder
 
-	// Provider is the driver that will be used to create & delete the vPC
-	Provider provider.ProviderFunc
-
 	// Locker is used to synchronize operations on resources targeting the same device.
 	Locker *resourcelock.ResourceLocker
 
@@ -89,20 +86,35 @@ func (r *VPCDomainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	prov, ok := r.Provider().(Provider)
-	if !ok {
-		meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  v1alpha1.NotImplementedReason,
-			Message: "Invalid provider configured for VPCDomain reconciler",
-		})
-		return ctrl.Result{}, r.Status().Update(ctx, obj)
-	}
-
 	device, err := deviceutil.GetDeviceByName(ctx, r, obj.Namespace, obj.Spec.DeviceRef.Name)
 	if err != nil {
 		return ctrl.Result{}, err
+	}
+
+	p, err := provider.Get(device.Spec.Provider)
+	if err != nil {
+		if meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
+			Type:    v1alpha1.ReadyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.ProviderNotFoundReason,
+			Message: fmt.Sprintf("Provider %q is not registered", device.Spec.Provider),
+		}) {
+			return ctrl.Result{}, r.Status().Update(ctx, obj)
+		}
+		return ctrl.Result{}, nil
+	}
+	prov, ok := p().(Provider)
+
+	if !ok {
+		if meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
+			Type:    v1alpha1.ReadyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.NotImplementedReason,
+			Message: "Provider does not implement provider.VPCDomainProvider",
+		}) {
+			return ctrl.Result{}, r.Status().Update(ctx, obj)
+		}
+		return ctrl.Result{}, nil
 	}
 
 	if isPaused, requeue, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || requeue || err != nil {

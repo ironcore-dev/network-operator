@@ -46,6 +46,7 @@ var _ = Describe("DHCPRelay Controller", func() {
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.50:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -383,6 +384,7 @@ var _ = Describe("DHCPRelay Controller", func() {
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.51:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -469,6 +471,7 @@ var _ = Describe("DHCPRelay Controller", func() {
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.52:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -485,6 +488,7 @@ var _ = Describe("DHCPRelay Controller", func() {
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.53:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, otherDevice)).To(Succeed())
@@ -627,6 +631,7 @@ var _ = Describe("DHCPRelay Controller", func() {
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.57:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -643,6 +648,7 @@ var _ = Describe("DHCPRelay Controller", func() {
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.58:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, otherDevice)).To(Succeed())
@@ -811,6 +817,7 @@ var _ = Describe("DHCPRelay Controller", func() {
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.54:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -986,6 +993,7 @@ var _ = Describe("DHCPRelay Controller", func() {
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.55:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())

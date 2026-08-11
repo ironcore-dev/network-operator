@@ -24,7 +24,7 @@ local_resource('crds', 'make install', deps=['api/'])
 provider = os.getenv('PROVIDER', 'openconfig')
 
 manager = kustomize('config/develop')
-manager = str(manager).replace('--provider=openconfig', '--provider={}'.format(provider))
+manager = str(manager)
 
 k8s_yaml(blob(manager))
 k8s_resource('network-operator-controller-manager', resource_deps=['controller-gen'])
@@ -32,6 +32,7 @@ k8s_resource('network-operator-controller-manager', resource_deps=['controller-g
 # Sample resources with manual trigger mode
 def device_yaml():
     decoded = read_yaml_stream('./config/samples/v1alpha1_device.yaml')
+    decoded[0]['spec']['provider'] = provider
     ip = str(local("docker run --rm busybox:1.37.0 nslookup -type=a host.docker.internal 2>/dev/null | grep 'Address:' | tail -n 1 | awk '{print $2}' || echo ''", quiet=True)).rstrip('\n')
     if len(ip) > 0:
         decoded[0]['spec']['endpoint']['address'] = ip+':9339'
