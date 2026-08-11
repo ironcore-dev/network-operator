@@ -674,17 +674,17 @@ func (p *Provider) DeleteNTP(context.Context) error {
 	return nil
 }
 
-func (p *Provider) EnsureACL(_ context.Context, req *provider.EnsureACLRequest) error {
+func (p *Provider) EnsureACL(_ context.Context, req *provider.ACLRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.ACLs.Insert(req.ACL.Spec.Name)
 	return nil
 }
 
-func (p *Provider) DeleteACL(_ context.Context, req *provider.DeleteACLRequest) error {
+func (p *Provider) DeleteACL(_ context.Context, req *provider.ACLRequest) error {
 	p.Lock()
 	defer p.Unlock()
-	p.ACLs.Delete(req.Name)
+	p.ACLs.Delete(req.ACL.Spec.Name)
 	return nil
 }
 

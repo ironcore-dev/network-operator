@@ -432,7 +432,7 @@ func performCreate(ctx context.Context, prov provider.Provider, obj client.Objec
 			}
 		}
 
-		return ap.EnsureACL(ctx, &provider.EnsureACLRequest{
+		return ap.EnsureACL(ctx, &provider.ACLRequest{
 			ACL:            res,
 			ProviderConfig: cfg,
 		})
@@ -1067,8 +1067,8 @@ func performDelete(ctx context.Context, prov provider.Provider, obj client.Objec
 		if !ok {
 			return errors.New("provider does not implement ACLProvider")
 		}
-		return ap.DeleteACL(ctx, &provider.DeleteACLRequest{
-			Name: resource.Spec.Name,
+		return ap.DeleteACL(ctx, &provider.ACLRequest{
+			ACL: resource,
 		})
 
 	case *v1alpha1.Banner:

@@ -448,7 +448,7 @@ func (t *dirTime) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (p *Provider) EnsureACL(ctx context.Context, req *provider.EnsureACLRequest) error {
+func (p *Provider) EnsureACL(ctx context.Context, req *provider.ACLRequest) error {
 	a := new(ACL)
 	a.Name = req.ACL.Spec.Name
 	for i, entry := range req.ACL.Spec.Entries {
@@ -477,9 +477,9 @@ func (p *Provider) EnsureACL(ctx context.Context, req *provider.EnsureACLRequest
 	return p.client.Update(ctx, a)
 }
 
-func (p *Provider) DeleteACL(ctx context.Context, req *provider.DeleteACLRequest) error {
+func (p *Provider) DeleteACL(ctx context.Context, req *provider.ACLRequest) error {
 	a := new(ACL)
-	a.Name = req.Name
+	a.Name = req.ACL.Spec.Name
 	// Check if the ACL is IPv4 by trying to fetch its config. If it does not exist, assume it's IPv6.
 	// As the names are unique across both types, this will ensure we delete the correct one.
 	if err := p.client.GetConfig(ctx, a); errors.Is(err, gnmiext.ErrNil) {

@@ -317,18 +317,13 @@ type ACLProvider interface {
 	Provider
 
 	// EnsureACL call is responsible for AccessControlList realization on the provider.
-	EnsureACL(context.Context, *EnsureACLRequest) error
+	EnsureACL(context.Context, *ACLRequest) error
 	// DeleteACL call is responsible for AccessControlList deletion on the provider.
-	DeleteACL(context.Context, *DeleteACLRequest) error
+	DeleteACL(context.Context, *ACLRequest) error
 }
 
-type EnsureACLRequest struct {
+type ACLRequest struct {
 	ACL            *v1alpha1.AccessControlList
-	ProviderConfig *ProviderConfig
-}
-
-type DeleteACLRequest struct {
-	Name           string
 	ProviderConfig *ProviderConfig
 }
 

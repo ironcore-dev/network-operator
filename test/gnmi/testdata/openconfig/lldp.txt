@@ -1,0 +1,32 @@
+# LLDP enabled globally
+-- lldps/lldp --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: LLDP
+metadata:
+  name: lldp
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  adminState: Up
+
+-- state/preload --
+{}
+
+-- state/expect --
+{
+  "openconfig-lldp:lldp": {
+    "config": {
+      "enabled": true
+    }
+  }
+}
+
+-- state/delete --
+{
+  "openconfig-lldp:lldp": {
+    "config": {
+      "enabled": false
+    }
+  }
+}

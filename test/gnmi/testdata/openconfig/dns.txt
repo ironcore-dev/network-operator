@@ -12,7 +12,10 @@ spec:
   servers:
     - address: 8.8.8.8
     - address: 1.1.1.1
--- state --
+-- state/preload --
+{}
+
+-- state/expect --
 {
   "openconfig-system:system": {
     "dns": {
@@ -40,3 +43,6 @@ spec:
     }
   }
 }
+
+-- state/delete --
+{}
