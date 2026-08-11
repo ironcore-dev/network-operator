@@ -38,8 +38,10 @@ make charts     # Regenerate Helm chart manifests
 
 ```bash
 make fmt        # Format code
+make vet        # Static analysis
 make lint       # Lint code style
 make test       # Run unit tests (uses envtest: real K8s API + etcd)
+make test-gnmi  # gNMI integration tests (fake server, no cluster needed)
 ```
 
 Tests use **Ginkgo + Gomega** (BDD style) for controller and webhook tests — check `suite_test.go` in each package for setup.
@@ -49,6 +51,25 @@ All other packages use the **standard library `testing` package** with table-dri
 - Test helpers stay in the same file as their tests
 
 **All of `make fmt lint test` must pass before work is considered complete.**
+
+**Check rules:**
+- Stop if `make vet` fails — these are likely bugs that need manual fixes
+- If `make lint` fails, do NOT run `make lint-fix` automatically — ask the user first
+- Run `make fmt` + `git diff --name-only` only when vet or lint failed; report drift but do NOT stage or commit
+
+**Check output format** (report after running all steps):
+
+```
+  Local Check Report
+  ─────────────────────────────────────────────────────
+  Vet:         ✓ passed  (or ✗ N issues)
+  Lint:        ✓ passed  (or ✗ N issues)
+  Fmt:         ✓ no drift  (or ✗ N files need formatting)  ← only shown when vet or lint failed
+  Unit tests:  ✓ N passed, 0 failed  (or ✗ list failing tests)
+  gNMI tests:  ✓ N passed, 0 failed  (or ✗ list failing testdata files + diff)
+  ─────────────────────────────────────────────────────
+  Overall:     ✓ all checks passed  (or ✗ see above)
+```
 
 ## Commits
 
