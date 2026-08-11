@@ -57,8 +57,14 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		i.Config.Type = InterfaceTypeIEEE8023adLag
 		i.Aggregation = &InterfaceAggregation{
 			Config: &InterfaceAggregationConfig{
-				LagType: "LACP",
+				LagType: LagTypeLACP,
 			},
+		}
+		if req.MultiChassisID != nil {
+			return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+				Field:       "spec.aggregation.multichassis",
+				Description: "openconfig provider does not support multi-chassis LAG on SRLinux",
+			})
 		}
 
 	case v1alpha1.InterfaceTypeRoutedVLAN:
@@ -135,6 +141,13 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		i.Subinterfaces = subs
 	}
 
+	if spec.BFD != nil {
+		return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+			Field:       "spec.bfd",
+			Description: "openconfig provider does not support BFD on SRLinux",
+		})
+	}
+
 	return p.client.Update(ctx, i)
 }
 
@@ -189,7 +202,7 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 	}, nil
 }
 
-func (p *Provider) InterfaceNameEqual(_ context.Context, a, b string) (bool, error) {
+func (*Provider) InterfaceNameEqual(_ context.Context, a, b string) (bool, error) {
 	return a == b, nil
 }
 
@@ -330,6 +343,13 @@ type InterfaceTPID string
 
 const (
 	InterfaceTPIDDot1Q InterfaceTPID = "TPID_0X8100"
+)
+
+// LagType represents the OpenConfig LAG type identity.
+type LagType string
+
+const (
+	LagTypeLACP LagType = "LACP"
 )
 
 // Compile-time assertions.
@@ -539,7 +559,7 @@ type InterfaceAggregation struct {
 
 // InterfaceAggregationConfig holds the config container for aggregation.
 type InterfaceAggregationConfig struct {
-	LagType  string  `json:"lag-type,omitempty"`
+	LagType  LagType `json:"lag-type,omitempty"`
 	MinLinks *uint16 `json:"min-links,omitempty"`
 }
 

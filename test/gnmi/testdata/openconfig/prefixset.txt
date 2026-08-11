@@ -1,0 +1,59 @@
+# PrefixSet with exact match entries
+-- prefixsets/pfx-loopbacks --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: PrefixSet
+metadata:
+  name: pfx-loopbacks
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: LOOPBACKS
+  entries:
+    - sequence: 10
+      prefix: 10.0.0.0/24
+    - sequence: 20
+      prefix: 10.1.0.0/16
+
+-- state/preload --
+{}
+
+-- state/expect --
+{
+  "openconfig-routing-policy:routing-policy": {
+    "defined-sets": {
+      "prefix-sets": {
+        "prefix-set": [
+          {
+            "config": {
+              "name": "LOOPBACKS"
+            },
+            "prefixes": {
+              "prefix": [
+                {
+                  "ip-prefix": "10.0.0.0/24",
+                  "masklength-range": "exact",
+                  "config": {
+                    "ip-prefix": "10.0.0.0/24",
+                    "masklength-range": "exact"
+                  }
+                },
+                {
+                  "ip-prefix": "10.1.0.0/16",
+                  "masklength-range": "exact",
+                  "config": {
+                    "ip-prefix": "10.1.0.0/16",
+                    "masklength-range": "exact"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}
+
+-- state/delete --
+{}

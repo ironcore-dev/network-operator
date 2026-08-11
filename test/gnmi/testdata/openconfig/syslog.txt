@@ -1,0 +1,48 @@
+# Syslog remote server
+-- syslogs/syslog --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Syslog
+metadata:
+  name: syslog
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  servers:
+    - address: 192.0.2.100
+      severity: Info
+
+-- state/preload --
+{}
+
+-- state/expect --
+{
+  "openconfig-system:system": {
+    "logging": {
+      "remote-servers": {
+        "remote-server": [
+          {
+            "config": {
+              "host": "192.0.2.100"
+            },
+            "selectors": {
+              "selector": [
+                {
+                  "facility": "ALL",
+                  "severity": "INFORMATIONAL",
+                  "config": {
+                    "facility": "ALL",
+                    "severity": "INFORMATIONAL"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}
+
+-- state/delete --
+{}
