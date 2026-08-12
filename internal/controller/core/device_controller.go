@@ -310,7 +310,9 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 		return fmt.Errorf("failed to get last reboot time: %w", err)
 	}
 
-	if device.Status.LastRebootTime.IsZero() || lastReboot.After(device.Status.LastRebootTime.Time) {
+	hasRebooted := device.Status.LastRebootTime.IsZero() || lastReboot.After(device.Status.LastRebootTime.Time)
+
+	if hasRebooted {
 		info, err := prov.GetDeviceInfo(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get device info: %w", err)
@@ -322,6 +324,22 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 		device.Status.FirmwareVersion = info.FirmwareVersion
 		device.Status.LastRebootTime = metav1.NewTime(lastReboot)
 
+		log := ctrl.LoggerFrom(ctx)
+		if device.Labels == nil {
+			device.Labels = map[string]string{}
+		}
+		if serial := strings.ToLower(device.Status.SerialNumber); serial != "" {
+			serial = sanitizeLabelValue(serial)
+			if device.Labels[v1alpha1.DeviceSerialLabel] == "" {
+				device.Labels[v1alpha1.DeviceSerialLabel] = serial
+			} else if !strings.EqualFold(device.Labels[v1alpha1.DeviceSerialLabel], serial) {
+				log.Info("Device serial label does not match observed device serial number", "labelSerial", device.Labels[v1alpha1.DeviceSerialLabel], "observedSerial", serial)
+			}
+		}
+	}
+
+	// upon reboot or if the port summary does not contain speeds (e.g., "used/total ()"), fetch the full port list and update the status.
+	if hasRebooted || strings.HasSuffix(device.Status.PortSummary, "()") {
 		ports, err := prov.ListPorts(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to list device ports: %w", err)
@@ -335,19 +353,6 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 				Transceiver:         p.Transceiver,
 			}
 			slices.Sort(device.Status.Ports[i].SupportedSpeedsGbps)
-		}
-
-		log := ctrl.LoggerFrom(ctx)
-		if device.Labels == nil {
-			device.Labels = map[string]string{}
-		}
-		if serial := strings.ToLower(device.Status.SerialNumber); serial != "" {
-			serial = sanitizeLabelValue(serial)
-			if device.Labels[v1alpha1.DeviceSerialLabel] == "" {
-				device.Labels[v1alpha1.DeviceSerialLabel] = serial
-			} else if !strings.EqualFold(device.Labels[v1alpha1.DeviceSerialLabel], serial) {
-				log.Info("Device serial label does not match observed device serial number", "labelSerial", device.Labels[v1alpha1.DeviceSerialLabel], "observedSerial", serial)
-			}
 		}
 	}
 
