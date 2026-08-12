@@ -11,6 +11,9 @@ on:
       - 'docs/**'
       - '**/*.md'
 
+permissions:
+  contents: read
+
 jobs:
   test-chart:
     name: Run Chart Tests

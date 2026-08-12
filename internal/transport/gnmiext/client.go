@@ -10,11 +10,13 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
+	"slices"
 	"strings"
+	"time"
 
 	cp "github.com/felix-kaestner/copy"
 	"github.com/go-logr/logr"
-	gpb "github.com/openconfig/gnmi/proto/gnmi"
+	gnmipb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ygot/ygot"
 	"github.com/tidwall/gjson"
 	"google.golang.org/grpc"
@@ -61,10 +63,66 @@ type Capabilities struct {
 	SupportedModels []Model
 }
 
+// mode represents the type of gNMI Set operation.
+type mode uint8
+
+const (
+	replace mode = iota + 1 // gNMI replace — used by SetBuilder.Update (full state declaration)
+	update                  // gNMI update  — used by SetBuilder.Patch (partial merge)
+	del                     // gNMI delete  — used by SetBuilder.Delete
+)
+
+// operation pairs a data element with the Set operation to apply.
+type operation struct {
+	el   DataElement
+	mode mode
+}
+
+// SetBuilder accumulates gNMI Set operations to be executed as one or
+// more batched SetRequest RPCs.
+type SetBuilder struct {
+	ops   []operation
+	limit int
+}
+
+// Update queues a full replacement of the given elements (gNMI replace).
+func (b *SetBuilder) Update(elements ...DataElement) *SetBuilder {
+	for _, el := range elements {
+		b.ops = append(b.ops, operation{el: el, mode: replace})
+	}
+	return b
+}
+
+// Patch queues a partial merge of the given elements (gNMI update).
+func (b *SetBuilder) Patch(elements ...DataElement) *SetBuilder {
+	for _, el := range elements {
+		b.ops = append(b.ops, operation{el: el, mode: update})
+	}
+	return b
+}
+
+// Delete queues removal of the given elements (gNMI delete).
+func (b *SetBuilder) Delete(elements ...DataElement) *SetBuilder {
+	for _, el := range elements {
+		b.ops = append(b.ops, operation{el: el, mode: del})
+	}
+	return b
+}
+
+// Limit sets the maximum number of operations per SetRequest RPC.
+// If unset or <= 0, all operations are sent in a single request.
+func (b *SetBuilder) Limit(n int) *SetBuilder {
+	b.limit = n
+	return b
+}
+
+//go:generate go tool moq -with-resets -out client_mock.go . Client
+
 type Client interface {
 	Capabilities() *Capabilities
 	GetConfig(context.Context, ...DataElement) error
 	GetState(context.Context, ...DataElement) error
+	Do(context.Context, *SetBuilder) error
 	Patch(context.Context, ...DataElement) error
 	Update(context.Context, ...DataElement) error
 	Delete(context.Context, ...DataElement) error
@@ -73,10 +131,11 @@ type Client interface {
 // Client is a gNMI client offering convenience methods for device configuration
 // using gNMI.
 type client struct {
-	gnmi         gpb.GNMIClient
-	encoding     gpb.Encoding
+	gnmi         gnmipb.GNMIClient
+	encoding     gnmipb.Encoding
 	capabilities *Capabilities
 	logger       logr.Logger
+	target       string
 }
 
 var _ Client = &client{}
@@ -87,15 +146,15 @@ var _ Client = &client{}
 // By default, the client uses [slog.Default] for logging.
 // Use [WithLogger] to provide a custom logger.
 func New(ctx context.Context, conn grpc.ClientConnInterface, opts ...Option) (Client, error) {
-	gnmi := gpb.NewGNMIClient(conn)
-	res, err := gnmi.Capabilities(ctx, &gpb.CapabilityRequest{})
+	gnmi := gnmipb.NewGNMIClient(conn)
+	res, err := gnmi.Capabilities(ctx, &gnmipb.CapabilityRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("gnmiext: failed to retrieve capabilities: %w", err)
 	}
-	encoding := gpb.Encoding(-1)
+	encoding := gnmipb.Encoding(-1)
 	for _, e := range res.GetSupportedEncodings() {
 		switch e {
-		case gpb.Encoding_JSON, gpb.Encoding_JSON_IETF:
+		case gnmipb.Encoding_JSON, gnmipb.Encoding_JSON_IETF:
 			encoding = e
 		default:
 			// Ignore unsupported encodings.
@@ -113,7 +172,7 @@ func New(ctx context.Context, conn grpc.ClientConnInterface, opts ...Option) (Cl
 		}
 	}
 	logger := logr.FromSlogHandler(slog.Default().Handler())
-	c := &client{gnmi, encoding, capabilities, logger}
+	c := &client{gnmi, encoding, capabilities, logger, ""}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -129,6 +188,13 @@ func WithLogger(logger logr.Logger) Option {
 	}
 }
 
+// WithTarget sets the device target label used in metrics.
+func WithTarget(target string) Option {
+	return func(c *client) {
+		c.target = target
+	}
+}
+
 // ErrNil indicates that the value for a xpath is not defined.
 var ErrNil = errors.New("gnmiext: nil")
 
@@ -139,61 +205,77 @@ func (c *client) Capabilities() *Capabilities {
 
 // GetConfig retrieves config and unmarshals it into the provided targets.
 // If some of the values for the given xpaths are not defined, [ErrNil] is returned.
-func (c *client) GetConfig(ctx context.Context, el ...DataElement) error {
-	return c.get(ctx, gpb.GetRequest_CONFIG, el...)
+func (c *client) GetConfig(ctx context.Context, elements ...DataElement) error {
+	return c.get(ctx, gnmipb.GetRequest_CONFIG, elements...)
 }
 
 // GetState retrieves state and unmarshals it into the provided targets.
 // If some of the values for the given xpaths are not defined, [ErrNil] is returned.
-func (c *client) GetState(ctx context.Context, el ...DataElement) error {
-	return c.get(ctx, gpb.GetRequest_STATE, el...)
+func (c *client) GetState(ctx context.Context, elements ...DataElement) error {
+	return c.get(ctx, gnmipb.GetRequest_STATE, elements...)
 }
 
-// Update replaces the configuration for the given set of items.4c890d
+// Update replaces the configuration for the given set of items.
 // If the current configuration equals the desired configuration, the operation is skipped.
 // For partial updates that merge changes, use [Client.Patch] instead.
-func (c *client) Update(ctx context.Context, el ...DataElement) error {
-	return c.set(ctx, false, el...)
+func (c *client) Update(ctx context.Context, elements ...DataElement) error {
+	r := new(gnmipb.SetRequest)
+	if err := c.set(ctx, r, false, elements...); err != nil {
+		return err
+	}
+	return c.do(ctx, r)
 }
 
 // Patch merges the configuration for the given set of items.
 // If the current configuration equals the desired configuration, the operation is skipped.
 // For full replacement of configuration, use [Client.Update] instead.
-func (c *client) Patch(ctx context.Context, el ...DataElement) error {
-	return c.set(ctx, true, el...)
+func (c *client) Patch(ctx context.Context, elements ...DataElement) error {
+	r := new(gnmipb.SetRequest)
+	if err := c.set(ctx, r, true, elements...); err != nil {
+		return err
+	}
+	return c.do(ctx, r)
 }
 
 // Delete resets the configuration for the given set of items.
 // If an item implements [Defaultable], it's reset to default value.
 // Otherwise, the configuration is deleted.
-func (c *client) Delete(ctx context.Context, el ...DataElement) error {
-	if len(el) == 0 {
-		return nil
+func (c *client) Delete(ctx context.Context, elements ...DataElement) error {
+	r := new(gnmipb.SetRequest)
+	if err := c.delete(ctx, r, elements...); err != nil {
+		return err
 	}
-	r := new(gpb.SetRequest)
-	for _, e := range el {
-		path, err := StringToStructuredPath(e.XPath())
-		if err != nil {
+	return c.do(ctx, r)
+}
+
+// Do executes the accumulated operations in the SetBuilder as one or
+// more gNMI Set RPCs, respecting the configured limit.
+func (c *client) Do(ctx context.Context, b *SetBuilder) error {
+	chunks := [][]operation{b.ops}
+	if b.limit > 0 {
+		chunks = slices.Collect(slices.Chunk(b.ops, b.limit))
+	}
+	for _, chunk := range chunks {
+		r := new(gnmipb.SetRequest)
+		for _, op := range chunk {
+			switch op.mode {
+			case replace:
+				if err := c.set(ctx, r, false, op.el); err != nil {
+					return err
+				}
+			case update:
+				if err := c.set(ctx, r, true, op.el); err != nil {
+					return err
+				}
+			case del:
+				if err := c.delete(ctx, r, op.el); err != nil {
+					return err
+				}
+			}
+		}
+		if err := c.do(ctx, r); err != nil {
 			return err
 		}
-		if d, ok := e.(Defaultable); ok {
-			d.Default()
-			b, err := c.Marshal(e)
-			if err != nil {
-				return err
-			}
-			c.logger.V(1).Info("Resetting to default", "path", e.XPath(), "payload", string(b))
-			r.Replace = append(r.Replace, &gpb.Update{
-				Path: path,
-				Val:  c.Encode(b),
-			})
-			continue
-		}
-		c.logger.V(1).Info("Deleting", "path", e.XPath())
-		r.Delete = append(r.Delete, path)
-	}
-	if _, err := c.gnmi.Set(ctx, r); err != nil {
-		return fmt.Errorf("gnmiext: failed to perform set rpc: %w", err)
 	}
 	return nil
 }
@@ -201,39 +283,52 @@ func (c *client) Delete(ctx context.Context, el ...DataElement) error {
 // get retrieves data of the specified type (CONFIG or STATE) and unmarshals it
 // into the provided targets. If some of the values for the given xpaths are not
 // defined, [ErrNil] is returned.
-func (c *client) get(ctx context.Context, dt gpb.GetRequest_DataType, el ...DataElement) error {
-	if len(el) == 0 {
+func (c *client) get(ctx context.Context, dt gnmipb.GetRequest_DataType, elements ...DataElement) error {
+	if len(elements) == 0 {
 		return nil
 	}
-	r := &gpb.GetRequest{
+	r := &gnmipb.GetRequest{
 		Type:     dt,
 		Encoding: c.encoding,
 	}
-	for _, e := range el {
-		path, err := StringToStructuredPath(e.XPath())
+	for _, el := range elements {
+		path, err := StringToStructuredPath(el.XPath())
 		if err != nil {
 			return err
 		}
 		r.Path = append(r.Path, path)
 	}
+	op := "get_config"
+	if dt == gnmipb.GetRequest_STATE {
+		op = "get_state"
+	}
+	start := time.Now()
 	res, err := c.gnmi.Get(ctx, r)
 	if err != nil {
+		rpcDurationSeconds.WithLabelValues(c.target, "Get", "error").Observe(time.Since(start).Seconds())
+		for _, p := range r.GetPath() {
+			operationsTotal.WithLabelValues(c.target, "Get", op, metricPath(p), "error").Inc()
+		}
 		return fmt.Errorf("gnmiext: failed to perform get rpc: %w", err)
+	}
+	rpcDurationSeconds.WithLabelValues(c.target, "Get", "success").Observe(time.Since(start).Seconds())
+	for _, p := range r.GetPath() {
+		operationsTotal.WithLabelValues(c.target, "Get", op, metricPath(p), "success").Inc()
 	}
 	// As per [gNMI spec] the response MUST contain one notification
 	// for each path in the request.
 	//
 	// [gNMI spec]: https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#332-the-getresponse-message
 	notifications := res.GetNotification()
-	if len(notifications) != len(el) {
+	if len(notifications) != len(elements) {
 		// This should never happen. If it does, it indicates a bug in the
 		// gNMI server.
-		return fmt.Errorf("gnmiext: unexpected number of notifications: got %d, want %d", len(notifications), len(el))
+		return fmt.Errorf("gnmiext: unexpected number of notifications: got %d, want %d", len(notifications), len(elements))
 	}
 	// prevent bounds check in for the range loop below
 	// [Bounds Check Elimination]: https://go101.org/optimizations/5-bce.html
-	_ = notifications[len(el)-1]
-	for i, e := range el {
+	_ = notifications[len(elements)-1]
+	for i, el := range elements {
 		n := notifications[i]
 		switch len(n.GetUpdate()) {
 		case 0:
@@ -244,7 +339,7 @@ func (c *client) get(ctx context.Context, dt gpb.GetRequest_DataType, el ...Data
 				return err
 			}
 			// Some target devices (e.g., Cisco NX-OS) have an incorrect
-			// implementation of the [gNMI spec] and return an empty [gpb.TypedValue]
+			// implementation of the [gNMI spec] and return an empty [gnmipb.TypedValue]
 			// instead of a NotFound status error when the requested path is
 			// syntactically correct but does not exist on the device.
 			//
@@ -257,7 +352,7 @@ func (c *client) get(ctx context.Context, dt gpb.GetRequest_DataType, el ...Data
 			if len(b) == 0 || string(b) == "null" {
 				return ErrNil
 			}
-			if err := c.Unmarshal(b, e); err != nil {
+			if err := c.Unmarshal(b, el); err != nil {
 				return err
 			}
 		default:
@@ -267,38 +362,38 @@ func (c *client) get(ctx context.Context, dt gpb.GetRequest_DataType, el ...Data
 	return nil
 }
 
-// set applies the provided configuration items. If patch is true, a
-// partial update is performed by merging the changes into the existing
-// configuration. Otherwise, a full replacement is done.
-// If the current configuration equals the desired configuration, the operation
-// is skipped.
-func (c *client) set(ctx context.Context, patch bool, el ...DataElement) error {
-	if len(el) == 0 {
-		return nil
+// set appends update or replace operations to the given SetRequest.
+// If patch is true, elements are appended as gNMI update (merge);
+// otherwise as gNMI replace (full replacement).
+// Elements whose current configuration already matches are skipped.
+func (c *client) set(ctx context.Context, r *gnmipb.SetRequest, patch bool, elements ...DataElement) error {
+	op := "replace"
+	if patch {
+		op = "update"
 	}
-	r := new(gpb.SetRequest)
-	for _, e := range el {
-		path, err := StringToStructuredPath(e.XPath())
+	for _, el := range elements {
+		path, err := StringToStructuredPath(el.XPath())
 		if err != nil {
 			return err
 		}
-		got := cp.Deep(e)
+		got := cp.Deep(el)
 		err = c.GetConfig(ctx, got)
 		if err != nil && !errors.Is(err, ErrNil) && status.Code(err) != codes.NotFound {
-			return fmt.Errorf("gnmiext: failed to retrieve current config for %s: %w", e.XPath(), err)
+			return fmt.Errorf("gnmiext: failed to retrieve current config for %s: %w", el.XPath(), err)
 		}
 		// If the current configuration is equal to the desired configuration, skip the update.
 		// This avoids unnecessary updates and potential disruptions.
-		if err == nil && reflect.DeepEqual(e, got) {
-			c.logger.V(2).Info("Configuration is already up-to-date", "path", e.XPath())
+		if err == nil && reflect.DeepEqual(el, got) {
+			c.logger.V(2).Info("Configuration is already up-to-date", "path", el.XPath())
+			operationsSkippedTotal.WithLabelValues(c.target, op, metricPath(path)).Inc()
 			continue
 		}
-		b, err := c.Marshal(e)
+		b, err := c.Marshal(el)
 		if err != nil {
 			return err
 		}
-		c.logger.V(1).Info("Updating", "path", e.XPath(), "payload", string(b), "patch", patch)
-		u := &gpb.Update{
+		c.logger.V(1).Info("Updating", "path", el.XPath(), "payload", string(b), "operation", op)
+		u := &gnmipb.Update{
 			Path: path,
 			Val:  c.Encode(b),
 		}
@@ -308,11 +403,59 @@ func (c *client) set(ctx context.Context, patch bool, el ...DataElement) error {
 		}
 		r.Replace = append(r.Replace, u)
 	}
-	if len(r.GetUpdate()) == 0 && len(r.GetReplace()) == 0 {
-		// All configurations are already up-to-date.
+	return nil
+}
+
+// delete appends delete operations to the given SetRequest.
+// If an element implements [Defaultable], a replace-with-default is
+// appended instead of a path deletion.
+func (c *client) delete(_ context.Context, r *gnmipb.SetRequest, elements ...DataElement) error {
+	for _, el := range elements {
+		path, err := StringToStructuredPath(el.XPath())
+		if err != nil {
+			return err
+		}
+		if d, ok := el.(Defaultable); ok {
+			d.Default()
+			b, err := c.Marshal(el)
+			if err != nil {
+				return err
+			}
+			c.logger.V(1).Info("Resetting to default", "path", el.XPath(), "payload", string(b))
+			r.Replace = append(r.Replace, &gnmipb.Update{
+				Path: path,
+				Val:  c.Encode(b),
+			})
+			continue
+		}
+		c.logger.V(1).Info("Deleting", "path", el.XPath())
+		r.Delete = append(r.Delete, path)
+	}
+	return nil
+}
+
+// do fires the given SetRequest and records operation metrics. Returns nil if the request is empty.
+func (c *client) do(ctx context.Context, r *gnmipb.SetRequest) error {
+	if len(r.GetUpdate()) == 0 && len(r.GetReplace()) == 0 && len(r.GetDelete()) == 0 {
 		return nil
 	}
-	if _, err := c.gnmi.Set(ctx, r); err != nil {
+	start := time.Now()
+	_, err := c.gnmi.Set(ctx, r)
+	st := "success"
+	if err != nil {
+		st = "error"
+	}
+	rpcDurationSeconds.WithLabelValues(c.target, "Set", st).Observe(time.Since(start).Seconds())
+	for _, u := range r.GetReplace() {
+		operationsTotal.WithLabelValues(c.target, "Set", "replace", metricPath(u.GetPath()), st).Inc()
+	}
+	for _, u := range r.GetUpdate() {
+		operationsTotal.WithLabelValues(c.target, "Set", "update", metricPath(u.GetPath()), st).Inc()
+	}
+	for _, d := range r.GetDelete() {
+		operationsTotal.WithLabelValues(c.target, "Set", "delete", metricPath(d), st).Inc()
+	}
+	if err != nil {
 		return fmt.Errorf("gnmiext: failed to perform set rpc: %w", err)
 	}
 	return nil
@@ -401,18 +544,18 @@ func (c *client) Unmarshal(b []byte, dst any) (err error) {
 	return nil
 }
 
-// Encode encodes the provided byte slice into a [gpb.TypedValue] using the client's encoding.
-func (c *client) Encode(b []byte) *gpb.TypedValue {
+// Encode encodes the provided byte slice into a [gnmipb.TypedValue] using the client's encoding.
+func (c *client) Encode(b []byte) *gnmipb.TypedValue {
 	switch c.encoding {
-	case gpb.Encoding_JSON:
-		return &gpb.TypedValue{
-			Value: &gpb.TypedValue_JsonVal{
+	case gnmipb.Encoding_JSON:
+		return &gnmipb.TypedValue{
+			Value: &gnmipb.TypedValue_JsonVal{
 				JsonVal: b,
 			},
 		}
-	case gpb.Encoding_JSON_IETF:
-		return &gpb.TypedValue{
-			Value: &gpb.TypedValue_JsonIetfVal{
+	case gnmipb.Encoding_JSON_IETF:
+		return &gnmipb.TypedValue{
+			Value: &gnmipb.TypedValue_JsonIetfVal{
 				JsonIetfVal: b,
 			},
 		}
@@ -421,17 +564,17 @@ func (c *client) Encode(b []byte) *gpb.TypedValue {
 	}
 }
 
-// Decode decodes the provided [gpb.TypedValue] into the provided destination using the client's encoding.
-func (c *client) Decode(val *gpb.TypedValue) ([]byte, error) {
+// Decode decodes the provided [gnmipb.TypedValue] into the provided destination using the client's encoding.
+func (c *client) Decode(val *gnmipb.TypedValue) ([]byte, error) {
 	switch c.encoding {
-	case gpb.Encoding_JSON:
-		v, ok := val.GetValue().(*gpb.TypedValue_JsonVal)
+	case gnmipb.Encoding_JSON:
+		v, ok := val.GetValue().(*gnmipb.TypedValue_JsonVal)
 		if !ok {
 			return nil, fmt.Errorf("gnmiext: unexpected value type: expected JsonVal, got %T", val.GetValue())
 		}
 		return v.JsonVal, nil
-	case gpb.Encoding_JSON_IETF:
-		v, ok := val.GetValue().(*gpb.TypedValue_JsonIetfVal)
+	case gnmipb.Encoding_JSON_IETF:
+		v, ok := val.GetValue().(*gnmipb.TypedValue_JsonIetfVal)
 		if !ok {
 			return nil, fmt.Errorf("gnmiext: unexpected value type: expected JsonIetfVal, got %T", val.GetValue())
 		}
@@ -448,7 +591,7 @@ func (c *client) Decode(val *gpb.TypedValue) ([]byte, error) {
 // the module name qualifies the first identifier in a JSON-encoded YANG path.
 //
 // [1]: https://datatracker.ietf.org/doc/html/rfc7951#section-4
-func StringToStructuredPath(xpath string) (*gpb.Path, error) {
+func StringToStructuredPath(xpath string) (*gnmipb.Path, error) {
 	path, err := ygot.StringToStructuredPath(xpath)
 	if err != nil {
 		return nil, fmt.Errorf("gnmiext: failed to convert xpath '%s' to path: %w", xpath, err)

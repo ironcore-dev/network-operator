@@ -194,6 +194,10 @@ spec:
                 description: Paused can be used to prevent controllers from processing
                   the Device and its associated objects.
                 type: boolean
+              provider:
+                description: Provider is the name of the provider plugin which is
+                  responsible for reconciling the CRD connected to the device
+                type: string
               provisioning:
                 description: |-
                   Provisioning is an optional configuration for the device provisioning process.

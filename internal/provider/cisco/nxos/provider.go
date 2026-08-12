@@ -1850,6 +1850,10 @@ func (p *Provider) InterfaceNameEqual(_ context.Context, a, b string) (bool, err
 	return shortA == shortB, nil
 }
 
+func (p *Provider) LoopbackInterfaceName(id int) (string, error) {
+	return fmt.Sprintf("Loopback%d", id), nil
+}
+
 var ErrInterfaceNotFound = errors.New("one or more interfaces do not exist")
 
 func (p *Provider) EnsureInterfacesExist(ctx context.Context, interfaces []*v1alpha1.Interface) (names []string, err error) {
