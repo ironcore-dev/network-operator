@@ -394,12 +394,16 @@ type ManagementAccessProvider interface {
 	// EnsureManagementAccess call is responsible for ManagementAccess realization on the provider.
 	EnsureManagementAccess(context.Context, *EnsureManagementAccessRequest) error
 	// DeleteManagementAccess call is responsible for ManagementAccess deletion on the provider.
-	DeleteManagementAccess(context.Context) error
+	DeleteManagementAccess(context.Context, *DeleteManagementAccessRequest) error
 }
 
 type EnsureManagementAccessRequest struct {
 	ManagementAccess *v1alpha1.ManagementAccess
 	ProviderConfig   *ProviderConfig
+}
+
+type DeleteManagementAccessRequest struct {
+	ManagementAccess *v1alpha1.ManagementAccess
 }
 
 // ISISProvider is the interface for the realization of the ISIS objects over different providers.

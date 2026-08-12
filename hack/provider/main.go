@@ -1125,11 +1125,11 @@ func performDelete(ctx context.Context, prov provider.Provider, obj client.Objec
 			if len(refStore) == 0 {
 				return errors.New("evpninstance resource references vlan but no reference files provided (use --ref-files)")
 			}
-			obj := refStore.Get(resource.Spec.VLANRef.Name, resource.Namespace)
-			if obj == nil {
+			vlanObj := refStore.Get(resource.Spec.VLANRef.Name, resource.Namespace)
+			if vlanObj == nil {
 				return fmt.Errorf("referenced vlan %s not found in reference files", resource.Spec.VLANRef.Name)
 			}
-			v, ok := obj.(*v1alpha1.VLAN)
+			v, ok := vlanObj.(*v1alpha1.VLAN)
 			if !ok {
 				return fmt.Errorf("referenced resource %s is not a VLAN", resource.Spec.VLANRef.Name)
 			}
@@ -1164,7 +1164,9 @@ func performDelete(ctx context.Context, prov provider.Provider, obj client.Objec
 		if !ok {
 			return errors.New("provider does not implement ManagementAccessProvider")
 		}
-		return ma.DeleteManagementAccess(ctx)
+		return ma.DeleteManagementAccess(ctx, &provider.DeleteManagementAccessRequest{
+			ManagementAccess: resource,
+		})
 
 	case *v1alpha1.NTP:
 		np, ok := prov.(provider.NTPProvider)

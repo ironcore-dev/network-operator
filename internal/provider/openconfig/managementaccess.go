@@ -4,6 +4,7 @@
 package openconfig
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"time"
@@ -16,15 +17,13 @@ import (
 
 var _ provider.ManagementAccessProvider = (*Provider)(nil)
 
-const grpcServerName = "gnmi"
-
 func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.EnsureManagementAccessRequest) error {
 	ma := req.ManagementAccess
 	if err := validateManagementAccessSpec(ma.Spec); err != nil {
 		return err
 	}
 	grpcServer := &GRPCServer{
-		Name:            grpcServerName,
+		Name:            cmp.Or(ma.Spec.GRPC.ServerName, "gnmi"),
 		Enable:          ma.Spec.GRPC.Enabled,
 		Port:            ma.Spec.GRPC.Port,
 		CertificateID:   ma.Spec.GRPC.CertificateID,
@@ -37,8 +36,8 @@ func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.Ens
 	return p.client.Update(ctx, grpcServer, sshServer)
 }
 
-func (p *Provider) DeleteManagementAccess(ctx context.Context) error {
-	return p.client.Delete(ctx, &GRPCServer{Name: grpcServerName}, &SSHServer{})
+func (p *Provider) DeleteManagementAccess(ctx context.Context, req *provider.DeleteManagementAccessRequest) error {
+	return p.client.Delete(ctx, &GRPCServer{Name: cmp.Or(req.ManagementAccess.Spec.GRPC.ServerName, "gnmi")}, &SSHServer{})
 }
 
 func validateManagementAccessSpec(spec v1alpha1.ManagementAccessSpec) error {
