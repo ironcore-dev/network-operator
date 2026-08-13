@@ -115,16 +115,14 @@ func (p *Provider) Disconnect(_ context.Context, _ *deviceutil.Connection) error
 	return p.conn.Close()
 }
 
-// Do applies the SetBuilder to the device. On NX-OS versions <= 10.6(2),
-// feature activation is separated into its own Set RPC executed before
-// the remaining operations to ensure features are enabled before config
-// that depends on them is applied. On newer versions, all operations are
-// sent in a single Set RPC.
-// For more details, see: https://github.com/ironcore-dev/network-operator/issues/148
+// Do applies the SetBuilder to the device. Feature activations are always
+// separated into their own Set RPC executed before the remaining operations.
+// The gNMI specification mandates that operations within a single Set RPC
+// are processed in the order Delete, Replace, then Update. When a feature
+// enable (Update) is mixed with dependent config that uses Delete or Replace,
+// the dependent operation is processed first — before the feature is active —
+// causing the device to reject with "First enable feature ... Commit Failed".
 func (p *Provider) Do(ctx context.Context, b *gnmiext.SetBuilder) error {
-	if NXVersion(p.client.Capabilities()) > VersionNX10_6_2 {
-		return p.client.Do(ctx, b)
-	}
 	features, rest := b.Split(func(el gnmiext.DataElement) bool {
 		_, ok := el.(*Feature)
 		return ok
@@ -1602,7 +1600,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		f := new(Feature)
 		f.Name = "bfd"
 		f.AdminSt = AdminStEnabled
-		sb.Patch(f)
+		sb.Update(f)
 
 		// Disable ICMP redirect messages on BFD-enabled interfaces.
 		// See: https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/106x/configuration/interfaces/cisco-nexus-9000-series-nx-os-interfaces-configuration-guide-release-106x/b-cisco-nexus-9000-nx-os-interfaces-configuration-guide-93x_chapter_01111.html
@@ -1635,7 +1633,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		f := new(Feature)
 		f.Name = "bfd"
 		f.AdminSt = AdminStEnabled
-		sb.Patch(f)
+		sb.Update(f)
 
 		bfd := new(BFD)
 		bfd.ID = name
@@ -1985,7 +1983,7 @@ func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.Ens
 	if !req.ManagementAccess.Spec.GRPC.Enabled {
 		return errors.New("management access: gRPC must be enabled")
 	}
-	sb.Patch(gf)
+	sb.Update(gf)
 
 	sf := new(Feature)
 	sf.Name = "ssh"
@@ -1993,7 +1991,7 @@ func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.Ens
 	if req.ManagementAccess.Spec.SSH.Enabled {
 		sf.AdminSt = AdminStEnabled
 	}
-	sb.Patch(sf)
+	sb.Update(sf)
 
 	g := new(GRPC)
 	g.Port = req.ManagementAccess.Spec.GRPC.Port
@@ -2329,7 +2327,7 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 	f := new(Feature)
 	f.Name = "pim"
 	f.AdminSt = AdminStEnabled
-	sb.Patch(f)
+	sb.Update(f)
 
 	pim := new(PIM)
 	pim.AdminSt = AdminStEnabled
@@ -3050,7 +3048,7 @@ func (p *Provider) EnsureVPCDomain(ctx context.Context, vpcdomain *nxv1alpha1.VP
 	f := new(Feature)
 	f.Name = "vpc"
 	f.AdminSt = AdminStEnabled
-	sb.Patch(f)
+	sb.Update(f)
 
 	v := new(VPCDomain)
 	v.ID = vpcdomain.Spec.DomainID
@@ -3186,27 +3184,27 @@ func (p *Provider) EnsureBorderGatewaySettings(ctx context.Context, req *BorderG
 	f := new(Feature)
 	f.Name = "bgp"
 	f.AdminSt = AdminStEnabled
-	sb.Patch(f)
+	sb.Update(f)
 
 	f2 := new(Feature)
 	f2.Name = "ifvlan"
 	f2.AdminSt = AdminStEnabled
-	sb.Patch(f2)
+	sb.Update(f2)
 
 	f3 := new(Feature)
 	f3.Name = "vnsegment"
 	f3.AdminSt = AdminStEnabled
-	sb.Patch(f3)
+	sb.Update(f3)
 
 	f4 := new(Feature)
 	f4.Name = "evpn"
 	f4.AdminSt = AdminStEnabled
-	sb.Patch(f4)
+	sb.Update(f4)
 
 	f5 := new(Feature)
 	f5.Name = "nvo"
 	f5.AdminSt = AdminStEnabled
-	sb.Patch(f5)
+	sb.Update(f5)
 
 	bg := new(MultisiteItems)
 	bg.AdminSt = AdminStEnabled
@@ -3339,18 +3337,18 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) erro
 	f1 := new(Feature)
 	f1.Name = "evpn"
 	f1.AdminSt = AdminStEnabled
-	sb.Patch(f1)
+	sb.Update(f1)
 
 	f2 := new(Feature)
 	f2.Name = "nvo"
 	f2.AdminSt = AdminStEnabled
-	sb.Patch(f2)
+	sb.Update(f2)
 
 	if req.NVE.Spec.AnycastGateway != nil {
 		f3 := new(Feature)
 		f3.Name = "hmm"
 		f3.AdminSt = AdminStEnabled
-		sb.Patch(f3)
+		sb.Update(f3)
 	}
 
 	if req.AnycastSourceInterface != nil && req.AnycastSourceInterface.Spec.Name == req.SourceInterface.Spec.Name {
@@ -3484,7 +3482,7 @@ func (p *Provider) EnsureLLDP(ctx context.Context, req *provider.LLDPRequest) er
 	if req.LLDP.Spec.AdminState == v1alpha1.AdminStateDown {
 		f.AdminSt = AdminStDisabled
 	}
-	sb.Patch(f)
+	sb.Update(f)
 
 	// if LLDP is disabled, skip the rest of the configuration since device will reject further LLDP-related configuration
 	if f.AdminSt == AdminStDisabled {
@@ -3549,7 +3547,7 @@ func (p *Provider) DeleteLLDP(ctx context.Context, req *provider.LLDPRequest) er
 	f := new(Feature)
 	f.Name = "lldp"
 	f.AdminSt = AdminStDisabled
-	return p.client.Patch(ctx, f)
+	return p.client.Update(ctx, f)
 }
 
 func (p *Provider) GetLLDPStatus(ctx context.Context, req *provider.LLDPRequest) (provider.LLDPStatus, error) {
@@ -3672,7 +3670,7 @@ func (p *Provider) EnsureEthernetSegment(ctx context.Context, req *provider.Ensu
 	f := new(Feature)
 	f.Name = "evpn"
 	f.AdminSt = AdminStEnabled
-	sb.Patch(f)
+	sb.Update(f)
 
 	mh := new(MultihomingItems)
 	mh.AdminSt = AdminStEnabled
