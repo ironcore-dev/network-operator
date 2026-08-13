@@ -93,6 +93,18 @@ export default withMermaid({
                 ],
             },
             {
+                text: 'Design Documents',
+                items: [
+                    { text: 'Index', link: '/designs/' },
+                    { text: '0001: Device Lifecycle Phases', link: '/designs/0001-device-lifecycle' },
+                    { text: '0002: Provider Interface', link: '/designs/0002-provider-interface' },
+                    { text: '0003: Status Conditions', link: '/designs/0003-status-conditions' },
+                    { text: '0004: Device Resource Locking', link: '/designs/0004-device-resource-locking' },
+                    { text: '0005: Brick Architecture', link: '/designs/0005-brick-architecture' },
+                    { text: '0006: API Deprecation Strategy', link: '/designs/0006-api-deprecation-strategy' },
+                ],
+            },
+            {
                 text: 'API References',
                 items: [{ text: 'Index', link: '/api-reference/' }],
             },
