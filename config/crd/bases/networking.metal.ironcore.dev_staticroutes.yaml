@@ -57,6 +57,8 @@ spec:
             description: spec defines the desired state of StaticRoute
             properties:
               description:
+                description: Description is an optional human-readable description
+                  for this static route.
                 maxLength: 255
                 type: string
               deviceRef:
@@ -168,7 +170,7 @@ spec:
             properties:
               conditions:
                 description: The conditions are a list of status objects that describe
-                  the state of the Interface.
+                  the state of the StaticRoute.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.

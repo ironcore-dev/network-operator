@@ -70,7 +70,6 @@ var (
 	_ provider.EthernetSegmentProvider  = (*Provider)(nil)
 	_ provider.AAAProvider              = (*Provider)(nil)
 	_ provider.ConfigBackupProvider     = (*Provider)(nil)
-	_ provider.StaticRouteProvider      = (*Provider)(nil)
 )
 
 // maxSetOperations is the maximum number of operations per gNMI Set RPC.
@@ -3994,16 +3993,6 @@ func (p *Provider) DeleteAAA(ctx context.Context, req *provider.DeleteAAARequest
 	sb.Update(&Feature{Name: "tacacsplus", AdminSt: AdminStDisabled})
 
 	return p.Do(ctx, sb)
-}
-
-func (p *Provider) EnsureStaticRoute(ctx context.Context, req *provider.StaticRouteRequest) error {
-	// TODO(sven-rosenzweig): implement static route configuration
-	return nil
-}
-
-func (p *Provider) DeleteStaticRoute(ctx context.Context, req *provider.StaticRouteRequest) error {
-	// TODO(sven-rosenzweig): implement static route deletion
-	return nil
 }
 
 func init() {

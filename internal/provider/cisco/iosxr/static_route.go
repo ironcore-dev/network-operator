@@ -6,10 +6,11 @@ package iosxr
 import "strconv"
 
 func (s *Prefix) XPath() string {
-	basePath := "Cisco-IOS-XR-um-router-static-cfg:router/static/vrfs/vrf[vrf-name=" + s.VRFName + "]/address-family/"
-	if s.VRFName == "" {
-		basePath = "Cisco-IOS-XR-um-router-static-cfg:router/static/address-family/"
+	basePath := "Cisco-IOS-XR-um-router-static-cfg:router/static/address-family/"
+	if s.VRFName != "" {
+		basePath = "Cisco-IOS-XR-um-router-static-cfg:router/static/vrfs/vrf[vrf-name=" + s.VRFName + "]/address-family/"
 	}
+
 	if s.IsIpv4 {
 		return basePath + "ipv4/unicast/prefixes/prefix[prefix-address=" + s.PrefixAddress + "][prefix-length=" + strconv.Itoa(s.PrefixLength) + "]"
 	}

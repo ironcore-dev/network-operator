@@ -1088,7 +1088,6 @@ func (p *Provider) GetEthernetSegment(name string) (string, bool) {
 func (p *Provider) EnsureStaticRoute(_ context.Context, req *provider.StaticRouteRequest) error {
 	p.Lock()
 	defer p.Unlock()
-
 	p.StaticRoutes = nil
 	return nil
 }

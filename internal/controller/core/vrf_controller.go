@@ -313,11 +313,6 @@ func (r *VRFReconciler) finalize(ctx context.Context, s *vrfScope) (reterr error
 		}
 	}()
 
-	// Check if the VRF is still referenced by any StaticRoute.
-	if _, found := s.VRF.Labels[v1alpha1.StaticRouteLabel]; found {
-		return fmt.Errorf("cannot delete VRF %q because it is still referenced by StaticRoute %q", s.VRF.Name, s.VRF.Labels[v1alpha1.StaticRouteLabel])
-	}
-
 	return s.Provider.DeleteVRF(ctx, &provider.VRFRequest{
 		VRF:            s.VRF,
 		ProviderConfig: s.ProviderConfig,

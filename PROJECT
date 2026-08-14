@@ -294,7 +294,6 @@ resources:
     crdVersion: v1
     namespaced: true
   domain: networking.metal.ironcore.dev
-  group: core
   kind: StaticRoute
   path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
   version: v1alpha1

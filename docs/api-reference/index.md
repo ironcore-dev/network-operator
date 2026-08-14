@@ -3918,7 +3918,7 @@ _Appears in:_
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Interface to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `name` _string_ | Name is the name of the static route. |  | MaxLength: 255 <br />MinLength: 1 <br />Required: \{\} <br /> |
-| `description` _string_ |  |  | MaxLength: 255 <br />Optional: \{\} <br /> |
+| `description` _string_ | Description is an optional human-readable description for this static route. |  | MaxLength: 255 <br />Optional: \{\} <br /> |
 | `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VrfRef is a reference to the VRF resource that this static route belongs to.<br />If not specified, the static route will be part of the default VRF.<br />The referenced VRF must exist in the same namespace. |  | Optional: \{\} <br /> |
 | `prefix` _[IPPrefix](#ipprefix)_ | IPPrefix is the destination IP prefix for the static route. |  | Format: cidr <br />Type: string <br />Required: \{\} <br /> |
 | `nextHops` _[NextHop](#nexthop) array_ |  |  | MinItems: 1 <br />Required: \{\} <br /> |
@@ -3937,7 +3937,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the Interface. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the StaticRoute. |  | Optional: \{\} <br /> |
 
 
 #### Switchport

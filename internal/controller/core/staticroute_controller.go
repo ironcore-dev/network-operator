@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package core
@@ -255,6 +255,9 @@ func (r *StaticRouteReconciler) SetupWithManager(ctx context.Context, mgr ctrl.M
 			handler.EnqueueRequestsFromMapFunc(r.vrfToStaticRoute),
 			builder.WithPredicates(predicate.Funcs{
 				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+				UpdateFunc: func(e event.UpdateEvent) bool {
 					return false
 				},
 			}),

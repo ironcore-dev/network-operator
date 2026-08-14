@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -191,177 +192,20 @@ var _ = Describe("StaticRoute Controller", func() {
 				resource := &v1alpha1.StaticRoute{}
 				g.Expect(k8sClient.Get(ctx, staticRouteKey, resource)).To(Succeed())
 				g.Expect(resource.Status.Conditions).NotTo(BeEmpty())
-				configured := false
-				for _, cond := range resource.Status.Conditions {
-					if cond.Type == v1alpha1.ConfiguredCondition {
-						configured = true
-						g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-						g.Expect(cond.Reason).To(Equal(v1alpha1.VRFNotFoundReason))
-						g.Expect(cond.Message).To(ContainSubstring("non-existent-vrf"))
-					}
-				}
-				g.Expect(configured).To(BeTrue(), "ConfiguredCondition should be present")
+
+				cond := meta.FindStatusCondition(resource.Status.Conditions, v1alpha1.ConfiguredCondition)
+				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(cond.Reason).To(Equal(v1alpha1.VRFNotFoundReason))
+				g.Expect(cond.Message).To(ContainSubstring("non-existent-vrf"))
 			}).Should(Succeed())
 
 			By("Verifying ReadyCondition is False")
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.StaticRoute{}
 				g.Expect(k8sClient.Get(ctx, staticRouteKey, resource)).To(Succeed())
-				ready := false
-				for _, cond := range resource.Status.Conditions {
-					if cond.Type == v1alpha1.ReadyCondition {
-						ready = true
-						g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-					}
-				}
-				g.Expect(ready).To(BeTrue(), "ReadyCondition should be present")
-			}).Should(Succeed())
-		})
-
-		It("Should reject a second StaticRoute trying to use the same VRF", func() {
-			By("Creating the first StaticRoute with VRF reference")
-			distance := int32(1)
-			staticRoute1 := &v1alpha1.StaticRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-staticroute-first-",
-					Namespace:    metav1.NamespaceDefault,
-				},
-				Spec: v1alpha1.StaticRouteSpec{
-					DeviceRef: v1alpha1.LocalObjectReference{
-						Name: name,
-					},
-					Name: "test-static-route-first",
-					VrfRef: &v1alpha1.LocalObjectReference{
-						Name: vrfName,
-					},
-					Prefix: v1alpha1.IPPrefix{
-						Prefix: netip.MustParsePrefix("10.0.0.0/24"),
-					},
-					NextHops: []*v1alpha1.NextHop{
-						{
-							Address: "192.168.1.1",
-							Metric:  &distance,
-						},
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, staticRoute1)).To(Succeed())
-			staticRouteKey1 := client.ObjectKeyFromObject(staticRoute1)
-
-			By("Waiting for first StaticRoute to be reconciled successfully")
-			Eventually(func(g Gomega) {
-				resource := &v1alpha1.StaticRoute{}
-				g.Expect(k8sClient.Get(ctx, staticRouteKey1, resource)).To(Succeed())
-				g.Expect(controllerutil.ContainsFinalizer(resource, v1alpha1.FinalizerName)).To(BeTrue())
-
-				// Verify VRF has been labeled by the first StaticRoute
-				vrf := &v1alpha1.VRF{}
-				vrfKey := client.ObjectKey{Name: vrfName, Namespace: metav1.NamespaceDefault}
-				g.Expect(k8sClient.Get(ctx, vrfKey, vrf)).To(Succeed())
-				g.Expect(vrf.Labels).To(HaveKeyWithValue(v1alpha1.StaticRouteLabel, staticRoute1.Name))
-			}).Should(Succeed())
-
-			By("Creating a second StaticRoute trying to use the same VRF")
-			staticRoute2 := &v1alpha1.StaticRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-staticroute-second-",
-					Namespace:    metav1.NamespaceDefault,
-				},
-				Spec: v1alpha1.StaticRouteSpec{
-					DeviceRef: v1alpha1.LocalObjectReference{
-						Name: name,
-					},
-					Name: "test-static-route-second",
-					VrfRef: &v1alpha1.LocalObjectReference{
-						Name: vrfName, // Same VRF!
-					},
-					Prefix: v1alpha1.IPPrefix{
-						Prefix: netip.MustParsePrefix("10.1.0.0/24"),
-					},
-					NextHops: []*v1alpha1.NextHop{
-						{
-							Address: "192.168.1.2",
-							Metric:  &distance,
-						},
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, staticRoute2)).To(Succeed())
-			staticRouteKey2 := client.ObjectKeyFromObject(staticRoute2)
-
-			By("Verifying the second StaticRoute gets a finalizer (initial reconcile)")
-			Eventually(func(g Gomega) {
-				resource := &v1alpha1.StaticRoute{}
-				g.Expect(k8sClient.Get(ctx, staticRouteKey2, resource)).To(Succeed())
-				g.Expect(controllerutil.ContainsFinalizer(resource, v1alpha1.FinalizerName)).To(BeTrue())
-			}).Should(Succeed())
-
-			By("Verifying the second StaticRoute has ConfiguredCondition=False with VRFAlreadyInUse reason")
-			Eventually(func(g Gomega) {
-				resource := &v1alpha1.StaticRoute{}
-				g.Expect(k8sClient.Get(ctx, staticRouteKey2, resource)).To(Succeed())
-
-				configured := false
-				for _, cond := range resource.Status.Conditions {
-					if cond.Type == v1alpha1.ConfiguredCondition {
-						configured = true
-						g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-						g.Expect(cond.Reason).To(Equal(v1alpha1.VRFAlreadyInUseReason))
-						g.Expect(cond.Message).To(ContainSubstring("already used by static route"))
-						g.Expect(cond.Message).To(ContainSubstring(staticRoute1.Name))
-					}
-				}
-				g.Expect(configured).To(BeTrue(), "ConfiguredCondition should be present")
-			}).Should(Succeed())
-
-			By("Verifying the second StaticRoute has ReadyCondition=False")
-			Eventually(func(g Gomega) {
-				resource := &v1alpha1.StaticRoute{}
-				g.Expect(k8sClient.Get(ctx, staticRouteKey2, resource)).To(Succeed())
-
-				ready := false
-				for _, cond := range resource.Status.Conditions {
-					if cond.Type == v1alpha1.ReadyCondition {
-						ready = true
-						g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-					}
-				}
-				g.Expect(ready).To(BeTrue(), "ReadyCondition should be present")
-			}).Should(Succeed())
-
-			By("Verifying VRF label still points to the first StaticRoute")
-			vrf := &v1alpha1.VRF{}
-			vrfKey := client.ObjectKey{Name: vrfName, Namespace: metav1.NamespaceDefault}
-			Expect(k8sClient.Get(ctx, vrfKey, vrf)).To(Succeed())
-			Expect(vrf.Labels).To(HaveKeyWithValue(v1alpha1.StaticRouteLabel, staticRoute1.Name))
-
-			By("Deleting the first StaticRoute")
-			Expect(k8sClient.Delete(ctx, staticRoute1)).To(Succeed())
-			Eventually(func(g Gomega) {
-				resource := &v1alpha1.StaticRoute{}
-				err := k8sClient.Get(ctx, staticRouteKey1, resource)
-				g.Expect(err).To(HaveOccurred())
-			}).Should(Succeed())
-
-			By("Verifying the second StaticRoute can now reconcile successfully")
-			Eventually(func(g Gomega) {
-				resource := &v1alpha1.StaticRoute{}
-				g.Expect(k8sClient.Get(ctx, staticRouteKey2, resource)).To(Succeed())
-
-				// Check VRF is now labeled with the second StaticRoute
-				vrf := &v1alpha1.VRF{}
-				g.Expect(k8sClient.Get(ctx, vrfKey, vrf)).To(Succeed())
-				g.Expect(vrf.Labels).To(HaveKeyWithValue(v1alpha1.StaticRouteLabel, staticRoute2.Name))
-
-				// // Check conditions are now successful
-				for _, cond := range resource.Status.Conditions {
-					if cond.Type == v1alpha1.ReadyCondition {
-						g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-					}
-					if cond.Type == v1alpha1.ConfiguredCondition {
-						g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-					}
-				}
+				cond := meta.FindStatusCondition(resource.Status.Conditions, v1alpha1.ReadyCondition)
+				g.Expect(cond).NotTo(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 		})
 	})

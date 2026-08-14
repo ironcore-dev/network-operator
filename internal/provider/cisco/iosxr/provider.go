@@ -633,27 +633,17 @@ func (p *Provider) EnsureStaticRoute(ctx context.Context, req *provider.StaticRo
 		// Pass Interface Type as part of the request
 	}
 
-	if prefixIP.Addr().Is4() {
-		prefix = Prefix{
-			PrefixAddress:  prefixIP.Addr().String(),
-			PrefixLength:   prefixIP.Bits(),
-			NextHopAddress: &nexthopAddress,
-			IsIpv4:         true,
-		}
-	} else if prefixIP.Addr().Is6() {
-		prefix = Prefix{
-			PrefixAddress:  prefixIP.Addr().String(),
-			PrefixLength:   prefixIP.Bits(),
-			NextHopAddress: &nexthopAddress,
-			IsIpv4:         false,
-		}
+	prefix = Prefix{
+		PrefixAddress:  prefixIP.Addr().String(),
+		PrefixLength:   prefixIP.Bits(),
+		NextHopAddress: &nexthopAddress,
+		IsIpv4:         prefixIP.Addr().Is4(),
 	}
 
 	if req.VRF != nil && req.VRF.Spec.Name != "" {
-		vrf := req.VRF.Spec.Name
-		prefix.VRFName = vrf
-		return p.client.Update(ctx, &prefix)
+		prefix.VRFName = req.VRF.Spec.Name
 	}
+
 	return p.client.Update(ctx, &prefix)
 }
 
