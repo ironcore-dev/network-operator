@@ -240,6 +240,8 @@ spec:
                     minimum: 1
                     type: integer
                   type:
+                    description: EncapType represents the encapsulation type used
+                      for a subinterface.
                     enum:
                     - 802.1q
                     - 802.1ad
