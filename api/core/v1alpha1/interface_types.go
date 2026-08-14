@@ -180,6 +180,7 @@ type Switchport struct {
 	AllowedVlans []int32 `json:"allowedVlans,omitempty"`
 }
 
+// EncapType represents the encapsulation type used for a subinterface.
 // +kubebuilder:validation:Enum="802.1q";"802.1ad"
 type EncapType string
 

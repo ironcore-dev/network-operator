@@ -1940,7 +1940,7 @@ _Appears in:_
 
 _Underlying type:_ _string_
 
-
+EncapType represents the encapsulation type used for a subinterface.
 
 _Validation:_
 - Enum: [802.1q 802.1ad]
