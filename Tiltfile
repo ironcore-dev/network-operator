@@ -46,6 +46,11 @@ provider = os.getenv('PROVIDER', 'openconfig')
 manager = kustomize('config/develop')
 manager = str(manager).replace('--provider=openconfig', '--provider={}'.format(provider))
 
+debug = os.getenv('DEBUG', '') == 'true'
+if debug:
+    # Scale the in-cluster manager to 0 so it can be run locally in a debugger.
+    manager = str(manager).replace('replicas: 1', 'replicas: 0')
+
 k8s_yaml(blob(manager))
 k8s_resource('network-operator-controller-manager', resource_deps=['controller-gen'], labels=['operator'])
 
@@ -57,7 +62,10 @@ def device_yaml():
         decoded[0]['spec']['endpoint']['address'] = ip+':9339'
     return encode_yaml_stream(decoded)
 
-k8s_yaml(device_yaml())
+if debug:
+  k8s_yaml('./config/samples/v1alpha1_device.yaml')
+else:
+  k8s_yaml(device_yaml())
 k8s_resource(new_name='leaf1', objects=['leaf1:device', 'secret-basic-auth:secret'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_interface.yaml')

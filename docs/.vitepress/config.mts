@@ -93,6 +93,13 @@ export default withMermaid({
                 ],
             },
             {
+                text: 'Developer Guide',
+                items: [
+                    { text: 'Index', link: '/developer-guide/' },
+                    { text: 'Local Debug Environment', link: '/developer-guide/local-debug-environment' },
+                ],
+            },
+            {
                 text: 'Design Documents',
                 items: [
                     { text: 'Index', link: '/designs/' },
