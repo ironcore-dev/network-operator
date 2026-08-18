@@ -138,64 +138,12 @@ func jsonEqual(a, b []byte) bool {
 	return cmp.Equal(v1, v2, jsonNormalizer)
 }
 
-// MockClient provides a mock implementation
-type MockClient struct {
-	// Function fields for mocking different methods
-	CapabilitiesFunc func() *gnmiext.Capabilities
-	GetConfigFunc    func(ctx context.Context, configs ...gnmiext.DataElement) error
-	PatchFunc        func(ctx context.Context, patches ...gnmiext.DataElement) error
-	UpdateFunc       func(ctx context.Context, updates ...gnmiext.DataElement) error
-	DeleteFunc       func(ctx context.Context, deletes ...gnmiext.DataElement) error
-	GetStateFunc     func(ctx context.Context, states ...gnmiext.DataElement) error
-}
-
-var _ gnmiext.Client = (*MockClient)(nil)
-
-// Implement the methods that Provider uses
-func (m *MockClient) Capabilities() *gnmiext.Capabilities {
-	if m.CapabilitiesFunc != nil {
-		return m.CapabilitiesFunc()
-	}
-	return nil
-}
-
-func (m *MockClient) GetConfig(ctx context.Context, configs ...gnmiext.DataElement) error {
-	if m.GetConfigFunc != nil {
-		return m.GetConfigFunc(ctx, configs...)
-	}
-	return nil
-}
-
-func (m *MockClient) GetState(ctx context.Context, states ...gnmiext.DataElement) error {
-	if m.GetStateFunc != nil {
-		return m.GetStateFunc(ctx, states...)
-	}
-	return nil
-}
-
-func (m *MockClient) Patch(ctx context.Context, patches ...gnmiext.DataElement) error {
-	if m.PatchFunc != nil {
-		return m.PatchFunc(ctx, patches...)
-	}
-	return nil
-}
-
-func (m *MockClient) Update(ctx context.Context, updates ...gnmiext.DataElement) error {
-	if m.UpdateFunc != nil {
-		return m.UpdateFunc(ctx, updates...)
-	}
-	return nil
-}
-
-func (m *MockClient) Delete(ctx context.Context, deletes ...gnmiext.DataElement) error {
-	if m.DeleteFunc != nil {
-		return m.DeleteFunc(ctx, deletes...)
-	}
-	return nil
-}
-
 func Test_EnsureInterface(t *testing.T) {
-	m := &MockClient{}
+	m := &gnmiext.ClientMock{
+		UpdateFunc: func(ctx context.Context, el ...gnmiext.DataElement) error {
+			return nil
+		},
+	}
 	p := &Provider{client: m}
 
 	ctx := t.Context()
@@ -236,7 +184,7 @@ func Test_EnsureInterface(t *testing.T) {
 }
 
 func Test_GetState(t *testing.T) {
-	m := &MockClient{
+	m := &gnmiext.ClientMock{
 		GetStateFunc: func(ctx context.Context, states ...gnmiext.DataElement) error {
 			states[0].(*PhysIfState).State = "im-state-up"
 			return nil

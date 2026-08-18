@@ -5,6 +5,7 @@ package evpn
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -22,8 +23,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
+	corev1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	evpnv1alpha1 "github.com/ironcore-dev/network-operator/api/evpn/v1alpha1"
+	poolv1alpha1 "github.com/ironcore-dev/network-operator/api/pool/v1alpha1"
+	poolcontroller "github.com/ironcore-dev/network-operator/internal/controller/pool"
+	"github.com/ironcore-dev/network-operator/internal/deviceutil"
+	"github.com/ironcore-dev/network-operator/internal/provider"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -52,9 +59,9 @@ var _ = BeforeSuite(func() {
 
 	ctx, cancel = context.WithCancel(ctrl.SetupSignalHandler())
 
-	var err error
-	err = evpnv1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(evpnv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(corev1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(poolv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	// +kubebuilder:scaffold:scheme
 
@@ -74,8 +81,10 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
-		Logger: GinkgoLogr,
+		Scheme:                 scheme.Scheme,
+		Logger:                 GinkgoLogr,
+		Metrics:                metricsserver.Options{BindAddress: "0"},
+		HealthProbeBindAddress: "0",
 	})
 	Expect(err).NotTo(HaveOccurred())
 
@@ -95,7 +104,38 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
+		Provider: NewProvider,
 	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&poolcontroller.IPAddressPoolReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&poolcontroller.IPPrefixPoolReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&poolcontroller.IPAddressReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&poolcontroller.IPPrefixReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&poolcontroller.ClaimReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	go func() {
@@ -138,4 +178,30 @@ func getFirstFoundEnvTestBinaryDir() string {
 		}
 	}
 	return ""
+}
+
+var _ provider.InterfaceProvider = (*Provider)(nil)
+
+type Provider struct{}
+
+func NewProvider() provider.Provider { return &Provider{} }
+
+func (p *Provider) Connect(context.Context, *deviceutil.Connection) error    { return nil }
+func (p *Provider) Disconnect(context.Context, *deviceutil.Connection) error { return nil }
+func (p *Provider) EnsureInterface(context.Context, *provider.EnsureInterfaceRequest) error {
+	return nil
+}
+
+func (p *Provider) DeleteInterface(context.Context, *provider.InterfaceRequest) error { return nil }
+
+func (p *Provider) GetInterfaceStatus(context.Context, *provider.InterfaceRequest) (provider.InterfaceStatus, error) {
+	return provider.InterfaceStatus{}, nil
+}
+
+func (p *Provider) InterfaceNameEqual(_ context.Context, a, b string) (bool, error) {
+	return a == b, nil
+}
+
+func (p *Provider) LoopbackInterfaceName(id int) (string, error) {
+	return fmt.Sprintf("lo%d", id), nil
 }

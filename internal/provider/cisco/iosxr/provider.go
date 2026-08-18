@@ -611,6 +611,10 @@ func (p *Provider) DeletePrefixSet(ctx context.Context, req *provider.PrefixSetR
 	return p.client.Delete(ctx, s)
 }
 
+func (p *Provider) LoopbackInterfaceName(id int) (string, error) {
+	return fmt.Sprintf("Loopback%d", id), nil
+}
+
 func init() {
 	provider.Register("cisco-iosxr-gnmi", NewProvider)
 }
