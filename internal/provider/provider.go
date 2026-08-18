@@ -839,6 +839,88 @@ type EthernetSegmentStatus struct {
 	OperStatus bool
 }
 
+// ProbeProvider executes probe assertions against a device.
+type ProbeProvider interface {
+	Provider
+
+	// Ping sends ICMP echo requests from the device to a target address and returns the statistics.
+	Ping(context.Context, *PingRequest) (*PingStats, error)
+	// GetMACTable retrieves MAC table entries from the device, optionally filtered by VLAN and VRF.
+	GetMACTable(context.Context, *MACTableRequest) ([]MACTableEntry, error)
+	// GetRouteTable retrieves routing table entries for a VRF from the device.
+	GetRouteTable(context.Context, *RouteTableRequest) ([]RouteEntry, error)
+	// GetVTEPPeers retrieves the NVE/VXLAN peer list from the device.
+	GetVTEPPeers(context.Context, *VTEPPeersRequest) ([]VTEPPeer, error)
+}
+
+// PingRequest contains the inputs for executing a ping probe.
+type PingRequest struct {
+	// Address is the target IP to ping.
+	Address string
+	// SourceInterface is the resolved source interface name on the device. May be empty.
+	SourceInterface string
+	// VRF is the resolved VRF name on the device. May be empty for the default VRF.
+	VRF string
+	// Count is the number of ICMP echo requests to send.
+	Count int32
+	// PacketSize is the ICMP payload size in bytes. Zero means use device default.
+	PacketSize int32
+	// Timeout is the maximum time to wait for a reply per echo request. Zero means use device default.
+	Timeout time.Duration
+
+	ProviderConfig *ProviderConfig
+}
+
+// PingStats contains the statistics returned by a Ping probe execution.
+type PingStats struct {
+	Sent     int32
+	Received int32
+	MinTime  time.Duration
+	AvgTime  time.Duration
+	MaxTime  time.Duration
+}
+
+// MACTableRequest contains the inputs for retrieving MAC table entries.
+type MACTableRequest struct {
+	// VLAN constrains the lookup to a specific VLAN ID. Zero means no VLAN filter-w>=
+	VLAN int16
+
+	ProviderConfig *ProviderConfig
+}
+
+// MACTableEntry represents a single entry in the device's MAC address table.
+type MACTableEntry struct {
+	// MACAddress is the MAC address (e.g., "00:1a:2b:3c:4d:5e").
+	MACAddress string
+}
+
+// RouteTableRequest contains the inputs for retrieving routing table entries.
+type RouteTableRequest struct {
+	// VRF is the resolved VRF name on the device. May be empty for the default VRF.
+	VRF string
+
+	ProviderConfig *ProviderConfig
+}
+
+// RouteEntry represents a single entry in the device's routing table.
+type RouteEntry struct {
+	// Prefix is the IP prefix (e.g., "10.100.0.0/16").
+	Prefix string
+}
+
+// VTEPPeersRequest contains the inputs for retrieving VTEP peer information.
+type VTEPPeersRequest struct {
+	ProviderConfig *ProviderConfig
+}
+
+// VTEPPeer represents a single NVE/VXLAN peer entry from the device.
+type VTEPPeer struct {
+	// PeerIP is the remote VTEP IP address.
+	PeerIP string
+	// OperStatus indicates whether the peer is operationally up (true) or down (false).
+	OperStatus bool
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.

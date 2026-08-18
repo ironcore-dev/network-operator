@@ -95,6 +95,7 @@ rules:
   - ospf
   - pim
   - prefixsets
+  - probes
   - routingpolicies
   - snmp
   - syslogs
@@ -164,6 +165,7 @@ rules:
   - ospf/status
   - pim/status
   - prefixsets/status
+  - probes/status
   - routingpolicies/status
   - snmp/status
   - syslogs/status

@@ -212,6 +212,18 @@ const (
 	StorageThresholdExceededReason = "StorageThresholdExceeded"
 )
 
+// Reasons that are specific to [Probe] objects.
+const (
+	// ProbeSuccessfulReason indicates that the probe assertion passed.
+	ProbeSuccessfulReason = "ProbeSuccessful"
+
+	// ProbeFailedReason indicates that the probe assertion did not pass.
+	ProbeFailedReason = "ProbeFailed"
+
+	// ProbeErrorReason indicates that the probe could not be executed.
+	ProbeErrorReason = "ProbeError"
+)
+
 // Reasons that are specific to [Interface] objects.
 const (
 	// InterfaceNotFoundReason indicates that a referenced interface was not found.

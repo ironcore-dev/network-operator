@@ -839,6 +839,19 @@ func main() { //nolint:gocyclo
 		setupLog.Error(err, "Failed to create controller", "controller", "Fabric")
 		os.Exit(1)
 	}
+
+	if err := (&corecontroller.ProbeReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorder("probe-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+		Locker:           locker,
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Probe")
+		os.Exit(1)
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {

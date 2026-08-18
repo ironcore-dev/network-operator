@@ -1,0 +1,73 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Probe
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: ping-peer
+spec:
+  deviceRef:
+    name: leaf1
+  schedule: "* * * * *"
+  type: Ping
+  ping:
+    address: "10.0.0.12"
+    sourceInterface:
+      interfaceRef:
+        name: lo0
+    vrf:
+      name: default
+    count: 3
+    packetSize: 1400
+    timeout: 5s
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Probe
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: mac-entry
+spec:
+  deviceRef:
+    name: leaf1
+  type: MACTableEntry
+  macTableEntry:
+    macAddress: "00:00:00:00:00:02"
+    vlan:
+      id: 10
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Probe
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: route-prefix
+spec:
+  deviceRef:
+    name: leaf1
+  type: RoutePresence
+  routePresence:
+    prefix: "192.168.10.0/24"
+    vrf:
+      name: default
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Probe
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: vtep-peers
+spec:
+  deviceRef:
+    name: leaf1
+  type: VTEPPeerConnectivity
+  vtepPeerConnectivity:
+    expectedPeers:
+      - "10.0.1.12"
