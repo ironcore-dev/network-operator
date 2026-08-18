@@ -119,7 +119,7 @@ func loadResources(apiRoot string) ([]resourceDef, error) {
 
 var (
 	groupNameRe     = regexp.MustCompile(`^\s*//\s*\+groupName=(\S+)`)
-	resourcePathRe  = regexp.MustCompile(`^//\s*\+kubebuilder:resource:path=([^\s]+)`)
+	resourcePathRe  = regexp.MustCompile(`^//\s*\+kubebuilder:resource:path=([^,\s]+)`)
 	resourceSingRe  = regexp.MustCompile(`^//\s*\+kubebuilder:resource:singular=([^\s]+)`)
 	resourceShortRe = regexp.MustCompile(`^//\s*\+kubebuilder:resource:shortName=([^\s]+)`)
 	typeDefRe       = regexp.MustCompile(`^type\s+(\w+)\s+struct\b`)
@@ -141,6 +141,9 @@ func extractResources(content, group, version string) []resourceDef {
 			singular   string
 			shortNames []string
 		)
+
+		// Parse inline singular/shortName from the same line as path.
+		parseInlineAttrs(line, &singular, &shortNames)
 
 		for j := i + 1; j < len(lines); j++ {
 			l := strings.TrimSpace(lines[j])
@@ -181,6 +184,29 @@ func extractResources(content, group, version string) []resourceDef {
 		})
 	}
 	return defs
+}
+
+// parseInlineAttrs extracts singular and shortName from a line like:
+// +kubebuilder:resource:path=indices,singular=index,shortName=idx
+func parseInlineAttrs(line string, singular *string, shortNames *[]string) {
+	idx := strings.Index(line, ":path=")
+	if idx < 0 {
+		return
+	}
+	attrs := line[idx+1:] // "path=indices,singular=index,shortName=idx"
+	for kv := range strings.SplitSeq(attrs, ",") {
+		k, v, _ := strings.Cut(strings.TrimSpace(kv), "=")
+		switch k {
+		case "singular":
+			*singular = v
+		case "shortName":
+			for sn := range strings.SplitSeq(v, ";") {
+				if name := strings.TrimSpace(sn); name != "" {
+					*shortNames = append(*shortNames, name)
+				}
+			}
+		}
+	}
 }
 
 func writeOutput(outPath string, defs []resourceDef) error {
