@@ -1,0 +1,23 @@
+# OSPF Configuration
+# NOTE: OSPF via OpenConfig gNMI is not supported on Nokia SR Linux.
+# The OpenConfig ospfv2 container is defined in the YANG model but not
+# exposed in the Nokia SRL gNMI schema. EnsureOSPF returns UnsupportedField.
+-- ospf/ospf --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: OSPF
+metadata:
+  name: ospf
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  instance: UNDERLAY
+  routerId: 10.0.0.10
+  interfaceRefs:
+    - name: lo0
+      area: "0.0.0.0"
+      passive: true
+    - name: ethernet-1-1
+      area: "0.0.0.0"
+-- state --
+{}
