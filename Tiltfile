@@ -36,7 +36,7 @@ deploy_prometheus_operator()
 
 docker_build('controller:latest', '.', only=[
     'api/', 'cmd/', 'internal/', 'go.mod', 'go.sum'
-], labels=['operator'])
+])
 
 local_resource('controller-gen', 'make generate', deps=['api/', 'hack/boilerplate.go.txt'], labels=['operator'])
 local_resource('crds', 'make install', deps=['api/'], labels=['operator'])
