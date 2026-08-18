@@ -249,6 +249,8 @@ func (r *FabricReconciler) reconcileSystemLoopbacks(ctx context.Context, fabric 
 	if err := r.List(ctx, devices, client.InNamespace(fabric.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
 		return ctrl.Result{}, fmt.Errorf("listing all fabric devices for system loopbacks: %w", err)
 	}
+	// Range by index only — list.Items are value types; using the second loop
+	// variable would copy the entire struct on each iteration.
 	for i := range devices.Items {
 		claimName := fmt.Sprintf("%s-%s-lo%d", fabric.Name, devices.Items[i].Name, LoopbackRouterID)
 		claim, err := r.reconcileLoopbackClaim(ctx, fabric, claimName)
