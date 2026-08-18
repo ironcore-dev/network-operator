@@ -409,14 +409,15 @@ spec:
                     type: integer
                   allowedVlans:
                     description: |-
-                      AllowedVlans is a list of VLAN IDs that are allowed on the trunk port.
+                      AllowedVlans is a list of VLAN ID ranges that are allowed on the trunk port.
+                      Each entry is an inclusive range string like "100..200". For compatibility,
+                      a single integer like 100 is also accepted and treated as "100..100".
                       If not specified, all VLANs (1-4094) are allowed.
                       Only applicable when Mode is set to "Trunk".
                     items:
-                      format: int32
-                      maximum: 4094
-                      minimum: 1
-                      type: integer
+                      pattern: ^[0-9]+(\.\.[0-9]+)?$
+                      type: string
+                      x-kubernetes-int-or-string: true
                     minItems: 1
                     type: array
                   mode:

@@ -2287,11 +2287,13 @@ _Appears in:_
 IndexRange represents an inclusive range of indices.
 
 _Validation:_
-- Pattern: `^[0-9]+\.\.[0-9]+$`
+- Pattern: `^[0-9]+(\.\.[0-9]+)?$`
 - Type: string
+- XIntOrString: {}
 
 _Appears in:_
 - [IndexPoolSpec](#indexpoolspec)
+- [Switchport](#switchport)
 
 
 
@@ -3874,7 +3876,7 @@ _Appears in:_
 | `mode` _[SwitchportMode](#switchportmode)_ | Mode defines the switchport mode, such as access or trunk. |  | Enum: [Access Trunk] <br />Required: \{\} <br /> |
 | `accessVlan` _integer_ | AccessVlan specifies the VLAN ID for access mode switchports.<br />Only applicable when Mode is set to "Access". |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `nativeVlan` _integer_ | NativeVlan specifies the native VLAN ID for trunk mode switchports.<br />Only applicable when Mode is set to "Trunk". |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
-| `allowedVlans` _integer array_ | AllowedVlans is a list of VLAN IDs that are allowed on the trunk port.<br />If not specified, all VLANs (1-4094) are allowed.<br />Only applicable when Mode is set to "Trunk". |  | MinItems: 1 <br />items:Maximum: 4094 <br />items:Minimum: 1 <br />Optional: \{\} <br /> |
+| `allowedVlans` _[IndexRange](#indexrange) array_ | AllowedVlans is a list of VLAN ID ranges that are allowed on the trunk port.<br />Each entry is an inclusive range string like "100..200". For compatibility,<br />a single integer like 100 is also accepted and treated as "100..100".<br />If not specified, all VLANs (1-4094) are allowed.<br />Only applicable when Mode is set to "Trunk". |  | MinItems: 1 <br />Pattern: `^[0-9]+(\.\.[0-9]+)?$` <br />Type: string <br />XIntOrString: \{\} <br />Optional: \{\} <br /> |
 
 
 #### SwitchportMode
@@ -5439,7 +5441,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `ranges` _[IndexRange](#indexrange) array_ | Ranges defines the inclusive index ranges that can be allocated.<br />Example: "64512..65534". |  | MinItems: 1 <br />Required: \{\} <br /> |
+| `ranges` _[IndexRange](#indexrange) array_ | Ranges defines the inclusive index ranges that can be allocated.<br />Example: "64512..65534". |  | MinItems: 1 <br />Pattern: `^[0-9]+(\.\.[0-9]+)?$` <br />Type: string <br />XIntOrString: \{\} <br />Required: \{\} <br /> |
 | `reclaimPolicy` _[ReclaimPolicy](#reclaimpolicy)_ | ReclaimPolicy controls what happens to an allocation when a claim is deleted.<br />Recycle returns the allocation to the pool. Retain keeps it reserved.<br />Immutable. | Recycle | Enum: [Recycle Retain] <br />Optional: \{\} <br /> |
 
 

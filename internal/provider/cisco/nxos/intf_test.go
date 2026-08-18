@@ -3,6 +3,52 @@
 
 package nxos
 
+import (
+	"testing"
+
+	corev1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+)
+
+func TestRange(t *testing.T) {
+	tests := []struct {
+		name string
+		in   []corev1alpha1.IndexRange
+		want string
+	}{
+		{
+			name: "empty",
+			in:   nil,
+			want: "",
+		},
+		{
+			name: "single vlan",
+			in:   []corev1alpha1.IndexRange{corev1alpha1.MustParseIndexRange("10..10")},
+			want: "10",
+		},
+		{
+			name: "range",
+			in:   []corev1alpha1.IndexRange{corev1alpha1.MustParseIndexRange("10..20")},
+			want: "10-20",
+		},
+		{
+			name: "sorted ranges",
+			in: []corev1alpha1.IndexRange{
+				corev1alpha1.MustParseIndexRange("30..40"),
+				corev1alpha1.MustParseIndexRange("10..20"),
+			},
+			want: "10-20,30-40",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := Range(test.in); got != test.want {
+				t.Fatalf("Range() = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
 func init() {
 	Register("loopback", &Loopback{
 		ID:            "lo0",
