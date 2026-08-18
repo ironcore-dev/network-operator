@@ -346,6 +346,7 @@ Package v1alpha1 contains API Schema definitions for the networking.metal.ironco
 - [OSPF](#ospf)
 - [PIM](#pim)
 - [PrefixSet](#prefixset)
+- [Probe](#probe)
 - [RoutingPolicy](#routingpolicy)
 - [SNMP](#snmp)
 - [Syslog](#syslog)
@@ -2236,6 +2237,7 @@ _Validation:_
 
 _Appears in:_
 - [IPAddressSpec](#ipaddressspec)
+- [PingProbe](#pingprobe)
 
 
 
@@ -2260,6 +2262,7 @@ _Appears in:_
 - [MulticastGroups](#multicastgroups)
 - [PrefixEntry](#prefixentry)
 - [RendezvousPoint](#rendezvouspoint)
+- [RoutePresenceProbe](#routepresenceprobe)
 
 
 
@@ -2429,6 +2432,24 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `interfaceRef` _[LocalObjectReference](#localobjectreference)_ | InterfaceRef is a reference to the interface from which to borrow the IP address.<br />The referenced interface must exist and have at least one IPv4 address configured. |  | Required: \{\} <br /> |
+
+
+#### InterfaceSource
+
+
+
+InterfaceSource identifies a interface either by literal name or by reference to a managed Interface resource.
+Exactly one of Name or InterfaceRef must be specified.
+
+
+
+_Appears in:_
+- [PingProbe](#pingprobe)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name is the literal interface name on the device (e.g., "mgmt0", "Loopback0").<br />Use this for interfaces that are not managed as Interface resources. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
+| `interfaceRef` _[LocalObjectReference](#localobjectreference)_ | InterfaceRef references a managed Interface resource in the same namespace.<br />The controller resolves the device interface name from this resource. |  | Optional: \{\} <br /> |
 
 
 #### InterfaceSpec
@@ -2641,6 +2662,7 @@ _Appears in:_
 - [ISISSpec](#isisspec)
 - [InterconnectInterfaceReference](#interconnectinterfacereference)
 - [InterfaceIPv4Unnumbered](#interfaceipv4unnumbered)
+- [InterfaceSource](#interfacesource)
 - [InterfaceSpec](#interfacespec)
 - [InterfaceStatus](#interfacestatus)
 - [KeepAlive](#keepalive)
@@ -2657,14 +2679,17 @@ _Appears in:_
 - [Peer](#peer)
 - [PrefixSetMatchCondition](#prefixsetmatchcondition)
 - [PrefixSetSpec](#prefixsetspec)
+- [ProbeSpec](#probespec)
 - [RoutingPolicySpec](#routingpolicyspec)
 - [SNMPSpec](#snmpspec)
 - [SyslogSpec](#syslogspec)
 - [SystemSpec](#systemspec)
 - [UserSpec](#userspec)
+- [VLANSource](#vlansource)
 - [VLANSpec](#vlanspec)
 - [VLANStatus](#vlanstatus)
 - [VPCDomainSpec](#vpcdomainspec)
+- [VRFSource](#vrfsource)
 - [VRFSpec](#vrfspec)
 
 | Field | Description | Default | Validation |
@@ -2706,6 +2731,23 @@ _Appears in:_
 | `severity` _[Severity](#severity)_ | The servity level of the log messages sent to the server. |  | Enum: [Debug Info Notice Warning Error Critical Alert Emergency] <br />Required: \{\} <br /> |
 | `vrfName` _string_ | The name of the vrf used to reach the log server. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `port` _integer_ | The destination port number for syslog UDP messages to<br />the server. The default is 514. | 514 | Optional: \{\} <br /> |
+
+
+#### MACTableEntryProbe
+
+
+
+MACTableEntryProbe asserts that a specific MAC address exists in the device's forwarding table.
+
+
+
+_Appears in:_
+- [ProbeSpec](#probespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `macAddress` _string_ | MACAddress is the MAC address to look for in the device's MAC table. |  | Pattern: `^([0-9a-fA-F]\{2\}:)\{5\}[0-9a-fA-F]\{2\}$` <br />Required: \{\} <br /> |
+| `vlan` _[VLANSource](#vlansource)_ | VLAN constrains the lookup to a specific VLAN. |  | Optional: \{\} <br /> |
 
 
 #### ManagementAccess
@@ -3262,6 +3304,47 @@ _Appears in:_
 | `secretKeyRef` _[SecretKeySelector](#secretkeyselector)_ | Selects a key of a secret. |  | Required: \{\} <br /> |
 
 
+#### PingProbe
+
+
+
+PingProbe configures an ICMP echo probe from the device to a target address.
+
+
+
+_Appears in:_
+- [ProbeSpec](#probespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `address` _[IPAddr](#ipaddr)_ | Address is the target IPv4 or IPv6 address to ping. |  | Format: ip <br />Type: string <br />Required: \{\} <br /> |
+| `sourceInterface` _[InterfaceSource](#interfacesource)_ | SourceInterface selects the source interface for the ping.<br />The provider uses an address on this interface with the same IP family as Address.<br />If omitted, the device selects the source interface automatically. |  | Optional: \{\} <br /> |
+| `vrf` _[VRFSource](#vrfsource)_ | VRF selects the VRF context in which to execute the ping.<br />If omitted, the ping is executed in the default/global routing table. |  | Optional: \{\} <br /> |
+| `count` _integer_ | Count is the number of ICMP echo requests to send. | 3 | Maximum: 100 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `packetSize` _integer_ | PacketSize is the ICMP payload size in bytes.<br />Useful for detecting MTU issues in VXLAN overlays. |  | Maximum: 65507 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `timeout` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | Timeout is the maximum time to wait for a reply per echo request. |  | Optional: \{\} <br /> |
+
+
+#### PingProbeResult
+
+
+
+PingProbeResult contains the result of a Ping probe execution.
+
+
+
+_Appears in:_
+- [ProbeStatus](#probestatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `sent` _integer_ | Sent is the number of ICMP echo requests sent. |  | Optional: \{\} <br /> |
+| `received` _integer_ | Received is the number of ICMP echo replies received. |  | Optional: \{\} <br /> |
+| `minTime` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | MinTime is the minimum round-trip time. |  | Optional: \{\} <br /> |
+| `avgTime` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | AvgTime is the average round-trip time. |  | Optional: \{\} <br /> |
+| `maxTime` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | MaxTime is the maximum round-trip time. |  | Optional: \{\} <br /> |
+
+
 #### PolicyActions
 
 
@@ -3425,6 +3508,87 @@ _Appears in:_
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the PrefixSet. |  | Optional: \{\} <br /> |
 
 
+#### Probe
+
+
+
+Probe is the Schema for the probes API.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `Probe` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[ProbeSpec](#probespec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[ProbeStatus](#probestatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### ProbeSpec
+
+
+
+ProbeSpec defines the desired state of Probe.
+
+
+
+_Appears in:_
+- [Probe](#probe)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceRef is a reference to the Device this probe targets.<br />The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this probe.<br />This reference is used to link the Probe to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `schedule` _string_ | Schedule is an optional cron expression (e.g., "*/5 * * * *").<br />If omitted, the controller performs a one-shot probe execution only once<br />for the Probe resource; it does not re-execute on subsequent reconciliations.<br />If set, the controller executes the probe periodically according to the schedule. |  | Optional: \{\} <br /> |
+| `type` _[ProbeType](#probetype)_ | Type selects which probe assertion to execute. |  | Enum: [Ping MACTableEntry RoutePresence VTEPPeerConnectivity] <br />Required: \{\} <br /> |
+| `ping` _[PingProbe](#pingprobe)_ | Ping configures an ICMP echo probe.<br />Required when type is Ping, must be omitted otherwise. |  | Optional: \{\} <br /> |
+| `macTableEntry` _[MACTableEntryProbe](#mactableentryprobe)_ | MACTableEntry configures a MAC address table lookup probe.<br />Required when type is MACTableEntry, must be omitted otherwise. |  | Optional: \{\} <br /> |
+| `routePresence` _[RoutePresenceProbe](#routepresenceprobe)_ | RoutePresence configures a routing table prefix lookup probe.<br />Required when type is RoutePresence, must be omitted otherwise. |  | Optional: \{\} <br /> |
+| `vtepPeerConnectivity` _[VTEPPeerConnectivityProbe](#vteppeerconnectivityprobe)_ | VTEPPeerConnectivity configures a VTEP peer connectivity probe.<br />Required when type is VTEPPeerConnectivity, must be omitted otherwise. |  | Optional: \{\} <br /> |
+
+
+#### ProbeStatus
+
+
+
+ProbeStatus defines the observed state of Probe.
+
+
+
+_Appears in:_
+- [Probe](#probe)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `lastRunTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | LastRunTime is the timestamp of the most recent probe execution,<br />regardless of outcome. |  | Optional: \{\} <br /> |
+| `nextRunTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | NextRunTime is the next time at which the controller intends to<br />execute the probe. Only set when Schedule is configured. |  | Optional: \{\} <br /> |
+| `ping` _[PingProbeResult](#pingproberesult)_ | Ping contains the result of the last Ping probe execution.<br />Only set when the probe type is Ping. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | Conditions represent the current state of the Probe resource.<br />The Ready condition indicates whether the probe assertion passed (True) or failed (False). |  | Optional: \{\} <br /> |
+
+
+#### ProbeType
+
+_Underlying type:_ _string_
+
+ProbeType selects which assertion a Probe executes.
+
+_Validation:_
+- Enum: [Ping MACTableEntry RoutePresence VTEPPeerConnectivity]
+
+_Appears in:_
+- [ProbeSpec](#probespec)
+
+| Field | Description |
+| --- | --- |
+| `Ping` | ProbeTypePing sends ICMP echo requests from the device to a target address.<br /> |
+| `MACTableEntry` | ProbeTypeMACTableEntry asserts that a specific MAC address exists in the device's MAC table.<br /> |
+| `RoutePresence` | ProbeTypeRoutePresence asserts that an IP prefix exists in a routing table.<br /> |
+| `VTEPPeerConnectivity` | ProbeTypeVTEPPeerConnectivity asserts that expected remote VTEP peers are present and up.<br /> |
+
+
 #### Protocol
 
 _Underlying type:_ _string_
@@ -3538,6 +3702,23 @@ _Appears in:_
 | --- | --- |
 | `AcceptRoute` | AcceptRoute permits the route and applies any configured actions.<br /> |
 | `RejectRoute` | RejectRoute denies the route immediately.<br /> |
+
+
+#### RoutePresenceProbe
+
+
+
+RoutePresenceProbe asserts that an IP prefix exists in the device's routing table.
+
+
+
+_Appears in:_
+- [ProbeSpec](#probespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `prefix` _[IPPrefix](#ipprefix)_ | Prefix is the IP prefix to check for (e.g., "10.100.0.0/16", "2001:db8::/32"). |  | Format: cidr <br />Type: string <br />Required: \{\} <br /> |
+| `vrf` _[VRFSource](#vrfsource)_ | VRF selects the VRF routing table to check.<br />If omitted, the default/global routing table is checked. |  | Optional: \{\} <br /> |
 
 
 #### RouteTarget
@@ -4106,6 +4287,7 @@ _Appears in:_
 - [OSPFSpec](#ospfspec)
 - [PIMSpec](#pimspec)
 - [PrefixSetSpec](#prefixsetspec)
+- [ProbeSpec](#probespec)
 - [RoutingPolicySpec](#routingpolicyspec)
 - [SNMPSpec](#snmpspec)
 - [SyslogSpec](#syslogspec)
@@ -4211,6 +4393,24 @@ VLAN is the Schema for the vlans API
 | `status` _[VLANStatus](#vlanstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
 
 
+#### VLANSource
+
+
+
+VLANSource identifies a VLAN either by literal ID or by reference to a managed VLAN resource.
+Exactly one of ID or VLANRef must be specified.
+
+
+
+_Appears in:_
+- [MACTableEntryProbe](#mactableentryprobe)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `id` _integer_ | ID is the literal VLAN ID on the device (1-4094).<br />Use this for VLANs that are not managed as VLAN resources. |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `vlanRef` _[LocalObjectReference](#localobjectreference)_ | VLANRef references a managed VLAN resource in the same namespace.<br />The controller resolves the VLAN ID from this resource. |  | Optional: \{\} <br /> |
+
+
 #### VLANSpec
 
 
@@ -4268,6 +4468,25 @@ VRF is the Schema for the vrfs API
 | `status` _[VRFStatus](#vrfstatus)_ | status of the resource. This is set and updated automatically.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
 
 
+#### VRFSource
+
+
+
+VRFSource identifies a VRF/NetworkIntance either by literal name or by reference to a managed VRF resource.
+Exactly one of Name or VRFRef must be specified.
+
+
+
+_Appears in:_
+- [PingProbe](#pingprobe)
+- [RoutePresenceProbe](#routepresenceprobe)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name is the literal VRF name on the device (e.g., "management", "default").<br />Use this for VRFs that are not managed as VRF resources. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
+| `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VRFRef references a managed VRF resource in the same namespace.<br />The controller resolves the device VRF name from this resource. |  | Optional: \{\} <br /> |
+
+
 #### VRFSpec
 
 
@@ -4304,6 +4523,22 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the VRF. |  | Optional: \{\} <br /> |
+
+
+#### VTEPPeerConnectivityProbe
+
+
+
+VTEPPeerConnectivityProbe asserts that expected remote VTEP peers are present and operationally up.
+
+
+
+_Appears in:_
+- [ProbeSpec](#probespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `expectedPeers` _string array_ | ExpectedPeers lists remote VTEP IP addresses that must be present and up on the device. |  | MaxItems: 256 <br />MinItems: 1 <br />Required: \{\} <br /> |
 
 
 

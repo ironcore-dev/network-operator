@@ -118,3 +118,54 @@ type ConfigMapKeySelector struct {
 	// +kubebuilder:validation:MaxLength=253
 	Key string `json:"key"`
 }
+
+// InterfaceSource identifies a interface either by literal name or by reference to a managed Interface resource.
+// Exactly one of Name or InterfaceRef must be specified.
+// +kubebuilder:validation:XValidation:rule="(has(self.name) && !has(self.interfaceRef)) || (!has(self.name) && has(self.interfaceRef))",message="exactly one of name or interfaceRef must be specified"
+type InterfaceSource struct {
+	// Name is the literal interface name on the device (e.g., "mgmt0", "Loopback0").
+	// Use this for interfaces that are not managed as Interface resources.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	Name string `json:"name,omitempty"`
+
+	// InterfaceRef references a managed Interface resource in the same namespace.
+	// The controller resolves the device interface name from this resource.
+	// +optional
+	InterfaceRef *LocalObjectReference `json:"interfaceRef,omitempty"`
+}
+
+// VLANSource identifies a VLAN either by literal ID or by reference to a managed VLAN resource.
+// Exactly one of ID or VLANRef must be specified.
+// +kubebuilder:validation:XValidation:rule="(has(self.id) && !has(self.vlanRef)) || (!has(self.id) && has(self.vlanRef))",message="exactly one of id or vlanRef must be specified"
+type VLANSource struct {
+	// ID is the literal VLAN ID on the device (1-4094).
+	// Use this for VLANs that are not managed as VLAN resources.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4094
+	ID *int16 `json:"id,omitempty"`
+
+	// VLANRef references a managed VLAN resource in the same namespace.
+	// The controller resolves the VLAN ID from this resource.
+	// +optional
+	VLANRef *LocalObjectReference `json:"vlanRef,omitempty"`
+}
+
+// VRFSource identifies a VRF/NetworkIntance either by literal name or by reference to a managed VRF resource.
+// Exactly one of Name or VRFRef must be specified.
+// +kubebuilder:validation:XValidation:rule="(has(self.name) && !has(self.vrfRef)) || (!has(self.name) && has(self.vrfRef))",message="exactly one of name or vrfRef must be specified"
+type VRFSource struct {
+	// Name is the literal VRF name on the device (e.g., "management", "default").
+	// Use this for VRFs that are not managed as VRF resources.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	Name string `json:"name,omitempty"`
+
+	// VRFRef references a managed VRF resource in the same namespace.
+	// The controller resolves the device VRF name from this resource.
+	// +optional
+	VRFRef *LocalObjectReference `json:"vrfRef,omitempty"`
+}

@@ -1,0 +1,476 @@
+{{- if .Values.crd.enabled }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    {{- if .Values.crd.keep }}
+    "helm.sh/resource-policy": keep
+    {{- end }}
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: probes.networking.metal.ironcore.dev
+spec:
+  group: networking.metal.ironcore.dev
+  names:
+    kind: Probe
+    listKind: ProbeList
+    plural: probes
+    shortNames:
+    - networkprobe
+    - netprobe
+    singular: probe
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.deviceRef.name
+      name: Device
+      type: string
+    - jsonPath: .spec.type
+      name: Type
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.lastRunTime
+      name: Last Run
+      priority: 1
+      type: date
+    - jsonPath: .status.nextRunTime
+      name: Next Run
+      priority: 1
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Probe is the Schema for the probes API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              Specification of the desired state of the resource.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              deviceRef:
+                description: |-
+                  DeviceRef is a reference to the Device this probe targets.
+                  The Device object must exist in the same namespace.
+                  Immutable.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+                x-kubernetes-validations:
+                - message: DeviceRef is immutable
+                  rule: self == oldSelf
+              macTableEntry:
+                description: |-
+                  MACTableEntry configures a MAC address table lookup probe.
+                  Required when type is MACTableEntry, must be omitted otherwise.
+                properties:
+                  macAddress:
+                    description: MACAddress is the MAC address to look for in the
+                      device's MAC table.
+                    pattern: ^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$
+                    type: string
+                  vlan:
+                    description: VLAN constrains the lookup to a specific VLAN.
+                    properties:
+                      id:
+                        description: |-
+                          ID is the literal VLAN ID on the device (1-4094).
+                          Use this for VLANs that are not managed as VLAN resources.
+                        maximum: 4094
+                        minimum: 1
+                        type: integer
+                      vlanRef:
+                        description: |-
+                          VLANRef references a managed VLAN resource in the same namespace.
+                          The controller resolves the VLAN ID from this resource.
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
+                    x-kubernetes-validations:
+                    - message: exactly one of id or vlanRef must be specified
+                      rule: (has(self.id) && !has(self.vlanRef)) || (!has(self.id)
+                        && has(self.vlanRef))
+                required:
+                - macAddress
+                type: object
+              ping:
+                description: |-
+                  Ping configures an ICMP echo probe.
+                  Required when type is Ping, must be omitted otherwise.
+                properties:
+                  address:
+                    description: Address is the target IPv4 or IPv6 address to ping.
+                    format: ip
+                    type: string
+                  count:
+                    default: 3
+                    description: Count is the number of ICMP echo requests to send.
+                    format: int32
+                    maximum: 100
+                    minimum: 1
+                    type: integer
+                  packetSize:
+                    description: |-
+                      PacketSize is the ICMP payload size in bytes.
+                      Useful for detecting MTU issues in VXLAN overlays.
+                    format: int32
+                    maximum: 65507
+                    minimum: 1
+                    type: integer
+                  sourceInterface:
+                    description: |-
+                      SourceInterface selects the source interface for the ping.
+                      The provider uses an address on this interface with the same IP family as Address.
+                      If omitted, the device selects the source interface automatically.
+                    properties:
+                      interfaceRef:
+                        description: |-
+                          InterfaceRef references a managed Interface resource in the same namespace.
+                          The controller resolves the device interface name from this resource.
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      name:
+                        description: |-
+                          Name is the literal interface name on the device (e.g., "mgmt0", "Loopback0").
+                          Use this for interfaces that are not managed as Interface resources.
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                    type: object
+                    x-kubernetes-validations:
+                    - message: exactly one of name or interfaceRef must be specified
+                      rule: (has(self.name) && !has(self.interfaceRef)) || (!has(self.name)
+                        && has(self.interfaceRef))
+                  timeout:
+                    description: Timeout is the maximum time to wait for a reply per
+                      echo request.
+                    type: string
+                  vrf:
+                    description: |-
+                      VRF selects the VRF context in which to execute the ping.
+                      If omitted, the ping is executed in the default/global routing table.
+                    properties:
+                      name:
+                        description: |-
+                          Name is the literal VRF name on the device (e.g., "management", "default").
+                          Use this for VRFs that are not managed as VRF resources.
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                      vrfRef:
+                        description: |-
+                          VRFRef references a managed VRF resource in the same namespace.
+                          The controller resolves the device VRF name from this resource.
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
+                    x-kubernetes-validations:
+                    - message: exactly one of name or vrfRef must be specified
+                      rule: (has(self.name) && !has(self.vrfRef)) || (!has(self.name)
+                        && has(self.vrfRef))
+                required:
+                - address
+                type: object
+              providerConfigRef:
+                description: |-
+                  ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this probe.
+                  This reference is used to link the Probe to its provider-specific configuration.
+                properties:
+                  apiVersion:
+                    description: APIVersion is the api group version of the resource
+                      being referenced.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/)?([a-z0-9]([-a-z0-9]*[a-z0-9])?)$
+                    type: string
+                  kind:
+                    description: |-
+                      Kind of the resource being referenced.
+                      Kind must consist of alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                    type: string
+                  name:
+                    description: |-
+                      Name of the resource being referenced.
+                      Name must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+              routePresence:
+                description: |-
+                  RoutePresence configures a routing table prefix lookup probe.
+                  Required when type is RoutePresence, must be omitted otherwise.
+                properties:
+                  prefix:
+                    description: Prefix is the IP prefix to check for (e.g., "10.100.0.0/16",
+                      "2001:db8::/32").
+                    format: cidr
+                    type: string
+                  vrf:
+                    description: |-
+                      VRF selects the VRF routing table to check.
+                      If omitted, the default/global routing table is checked.
+                    properties:
+                      name:
+                        description: |-
+                          Name is the literal VRF name on the device (e.g., "management", "default").
+                          Use this for VRFs that are not managed as VRF resources.
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                      vrfRef:
+                        description: |-
+                          VRFRef references a managed VRF resource in the same namespace.
+                          The controller resolves the device VRF name from this resource.
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
+                    x-kubernetes-validations:
+                    - message: exactly one of name or vrfRef must be specified
+                      rule: (has(self.name) && !has(self.vrfRef)) || (!has(self.name)
+                        && has(self.vrfRef))
+                required:
+                - prefix
+                type: object
+              schedule:
+                description: |-
+                  Schedule is an optional cron expression (e.g., "*/5 * * * *").
+                  If omitted, the controller performs a one-shot probe execution only once
+                  for the Probe resource; it does not re-execute on subsequent reconciliations.
+                  If set, the controller executes the probe periodically according to the schedule.
+                type: string
+              type:
+                description: Type selects which probe assertion to execute.
+                enum:
+                - Ping
+                - MACTableEntry
+                - RoutePresence
+                - VTEPPeerConnectivity
+                type: string
+              vtepPeerConnectivity:
+                description: |-
+                  VTEPPeerConnectivity configures a VTEP peer connectivity probe.
+                  Required when type is VTEPPeerConnectivity, must be omitted otherwise.
+                properties:
+                  expectedPeers:
+                    description: ExpectedPeers lists remote VTEP IP addresses that
+                      must be present and up on the device.
+                    items:
+                      type: string
+                    maxItems: 256
+                    minItems: 1
+                    type: array
+                required:
+                - expectedPeers
+                type: object
+            required:
+            - deviceRef
+            - type
+            type: object
+            x-kubernetes-validations:
+            - message: ping must be specified when type is Ping
+              rule: self.type != 'Ping' || has(self.ping)
+            - message: ping must be omitted when type is not Ping
+              rule: self.type == 'Ping' || !has(self.ping)
+            - message: macTableEntry must be specified when type is MACTableEntry
+              rule: self.type != 'MACTableEntry' || has(self.macTableEntry)
+            - message: macTableEntry must be omitted when type is not MACTableEntry
+              rule: self.type == 'MACTableEntry' || !has(self.macTableEntry)
+            - message: routePresence must be specified when type is RoutePresence
+              rule: self.type != 'RoutePresence' || has(self.routePresence)
+            - message: routePresence must be omitted when type is not RoutePresence
+              rule: self.type == 'RoutePresence' || !has(self.routePresence)
+            - message: vtepPeerConnectivity must be specified when type is VTEPPeerConnectivity
+              rule: self.type != 'VTEPPeerConnectivity' || has(self.vtepPeerConnectivity)
+            - message: vtepPeerConnectivity must be omitted when type is not VTEPPeerConnectivity
+              rule: self.type == 'VTEPPeerConnectivity' || !has(self.vtepPeerConnectivity)
+          status:
+            description: |-
+              Status of the resource. This is set and updated automatically.
+              Read-only.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              conditions:
+                description: |-
+                  Conditions represent the current state of the Probe resource.
+                  The Ready condition indicates whether the probe assertion passed (True) or failed (False).
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              lastRunTime:
+                description: |-
+                  LastRunTime is the timestamp of the most recent probe execution,
+                  regardless of outcome.
+                format: date-time
+                type: string
+              nextRunTime:
+                description: |-
+                  NextRunTime is the next time at which the controller intends to
+                  execute the probe. Only set when Schedule is configured.
+                format: date-time
+                type: string
+              ping:
+                description: |-
+                  Ping contains the result of the last Ping probe execution.
+                  Only set when the probe type is Ping.
+                properties:
+                  avgTime:
+                    description: AvgTime is the average round-trip time.
+                    type: string
+                  maxTime:
+                    description: MaxTime is the maximum round-trip time.
+                    type: string
+                  minTime:
+                    description: MinTime is the minimum round-trip time.
+                    type: string
+                  received:
+                    description: Received is the number of ICMP echo replies received.
+                    format: int32
+                    type: integer
+                  sent:
+                    description: Sent is the number of ICMP echo requests sent.
+                    format: int32
+                    type: integer
+                type: object
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+{{- end }}

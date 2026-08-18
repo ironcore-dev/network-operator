@@ -367,6 +367,15 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&ProbeReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+		Locker:   testLocker,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -439,6 +448,7 @@ var (
 	_ provider.DHCPRelayProvider        = (*Provider)(nil)
 	_ provider.EthernetSegmentProvider  = (*Provider)(nil)
 	_ provider.ConfigBackupProvider     = (*Provider)(nil)
+	_ provider.ProbeProvider            = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -1080,6 +1090,28 @@ func (p *Provider) GetEthernetSegment(name string) (string, bool) {
 	defer p.Unlock()
 	esi, ok := p.EthernetSegments[name]
 	return esi, ok
+}
+
+func (p *Provider) Ping(context.Context, *provider.PingRequest) (*provider.PingStats, error) {
+	return &provider.PingStats{
+		Sent:     3,
+		Received: 3,
+		MinTime:  time.Millisecond,
+		AvgTime:  time.Millisecond,
+		MaxTime:  time.Millisecond,
+	}, nil
+}
+
+func (p *Provider) GetMACTable(context.Context, *provider.MACTableRequest) ([]provider.MACTableEntry, error) {
+	return []provider.MACTableEntry{{MACAddress: "00:1a:2b:3c:4d:5e"}}, nil
+}
+
+func (p *Provider) GetRouteTable(context.Context, *provider.RouteTableRequest) ([]provider.RouteEntry, error) {
+	return []provider.RouteEntry{{Prefix: "10.100.0.0/16"}}, nil
+}
+
+func (p *Provider) GetVTEPPeers(context.Context, *provider.VTEPPeersRequest) ([]provider.VTEPPeer, error) {
+	return []provider.VTEPPeer{{PeerIP: "192.0.2.10", OperStatus: true}}, nil
 }
 
 // SetLLDPNeighbor is a test helper to configure LLDP neighbor information for an interface.
