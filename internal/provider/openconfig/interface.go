@@ -383,8 +383,12 @@ func (i *Interface) SetSwitchport(sp *v1alpha1.Switchport, ifType v1alpha1.Inter
 	case v1alpha1.SwitchportModeTrunk:
 		config.InterfaceMode = SwitchportModeTrunk
 		config.NativeVlan = uint16(sp.NativeVlan) //nolint:gosec
-		for _, vlan := range sp.AllowedVlans {
-			config.TrunkVlans = append(config.TrunkVlans, uint16(vlan)) //nolint:gosec
+		for _, vlanRange := range sp.AllowedVlans {
+			if vlanRange.Start == vlanRange.End {
+				config.TrunkVlans = append(config.TrunkVlans, uint16(vlanRange.Start)) //nolint:gosec
+				continue
+			}
+			config.TrunkVlans = append(config.TrunkVlans, vlanRange.String())
 		}
 	default:
 		return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
@@ -548,7 +552,7 @@ type SwitchedVlanConfig struct {
 	InterfaceMode SwitchportMode `json:"interface-mode,omitempty"`
 	AccessVlan    uint16         `json:"access-vlan,omitempty"`
 	NativeVlan    uint16         `json:"native-vlan,omitempty"`
-	TrunkVlans    []uint16       `json:"trunk-vlans,omitempty"`
+	TrunkVlans    []any          `json:"trunk-vlans,omitempty"`
 }
 
 // InterfaceAggregation holds the openconfig-if-aggregate augmentation.

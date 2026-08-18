@@ -4,6 +4,7 @@
 package nxos
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"strings"
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
@@ -455,33 +457,27 @@ func (*FabricFwdAnycastMAC) XPath() string {
 	return "System/hmm-items/fwdinst-items/amac"
 }
 
-// Range provides a string representation of identifiers (typically VLAN IDs) that formats the range in a human-readable way.
-// Consecutive IDs are represented as a range (e.g., "10-12"), while single IDs are shown individually (e.g., "15").
-// All values are joined in a comma-separated list of ranges and individual IDs, e.g. "10-12,15,20-22".
-func Range(r []int32) string {
+// Range returns a compact comma-separated string for index ranges.
+// Single-value ranges are rendered as an ID (for example, "15"), while wider
+// ranges are rendered as start-end (for example, "10-12").
+func Range(r []v1alpha1.IndexRange) string {
 	if len(r) == 0 {
 		return ""
 	}
 
-	slices.Sort(r)
+	// Sort the ranges by their start value to ensure proper range formatting.
+	// Validation ensures that the ranges are non-overlapping and non-adjacent.
+	slices.SortFunc(r, func(a, b v1alpha1.IndexRange) int {
+		return cmp.Compare(a.Start, b.Start)
+	})
+
 	var ranges []string
-	start, curr := r[0], r[0]
-	for _, id := range r[1:] {
-		if id == curr+1 {
-			curr = id
+	for _, ir := range r {
+		if ir.Start == ir.End {
+			ranges = append(ranges, strconv.FormatInt(ir.Start, 10))
 			continue
 		}
-		if curr != start {
-			ranges = append(ranges, fmt.Sprintf("%d-%d", start, curr))
-		} else {
-			ranges = append(ranges, strconv.FormatInt(int64(start), 10))
-		}
-		start, curr = id, id
-	}
-	if curr != start {
-		ranges = append(ranges, fmt.Sprintf("%d-%d", start, curr))
-	} else {
-		ranges = append(ranges, strconv.FormatInt(int64(start), 10))
+		ranges = append(ranges, fmt.Sprintf("%d-%d", ir.Start, ir.End))
 	}
 
 	return strings.Join(ranges, ",")

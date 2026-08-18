@@ -170,14 +170,14 @@ type Switchport struct {
 	// +kubebuilder:validation:Maximum=4094
 	NativeVlan int32 `json:"nativeVlan,omitempty"`
 
-	// AllowedVlans is a list of VLAN IDs that are allowed on the trunk port.
+	// AllowedVlans is a list of VLAN ID ranges that are allowed on the trunk port.
+	// Each entry is an inclusive range string like "100..200". For compatibility,
+	// a single integer like 100 is also accepted and treated as "100..100".
 	// If not specified, all VLANs (1-4094) are allowed.
 	// Only applicable when Mode is set to "Trunk".
 	// +optional
 	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:items:Minimum=1
-	// +kubebuilder:validation:items:Maximum=4094
-	AllowedVlans []int32 `json:"allowedVlans,omitempty"`
+	AllowedVlans []IndexRange `json:"allowedVlans,omitempty"`
 }
 
 // EncapType represents the encapsulation type used for a subinterface.

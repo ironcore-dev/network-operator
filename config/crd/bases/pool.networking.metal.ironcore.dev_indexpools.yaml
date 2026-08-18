@@ -62,8 +62,9 @@ spec:
                   Ranges defines the inclusive index ranges that can be allocated.
                   Example: "64512..65534".
                 items:
-                  pattern: ^[0-9]+\.\.[0-9]+$
+                  pattern: ^[0-9]+(\.\.[0-9]+)?$
                   type: string
+                  x-kubernetes-int-or-string: true
                 minItems: 1
                 type: array
               reclaimPolicy:
