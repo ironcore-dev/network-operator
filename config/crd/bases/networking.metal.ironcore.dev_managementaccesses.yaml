@@ -154,7 +154,7 @@ spec:
                     type: string
                     x-kubernetes-validations:
                     - message: ServerName is immutable
-                      rule: '!has(oldSelf) || self == oldSelf'
+                      rule: oldSelf == '' || self == oldSelf
                   vrfName:
                     description: Enable the gRPC agent to accept incoming (dial-in)
                       RPC requests from a given vrf.

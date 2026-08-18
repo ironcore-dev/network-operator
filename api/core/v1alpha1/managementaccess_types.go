@@ -57,7 +57,7 @@ type GRPC struct {
 	// Not supported on Cisco NX-OS devices.
 	// Immutable once set.
 	// +optional
-	// +kubebuilder:validation:XValidation:rule="!has(oldSelf) || self == oldSelf",message="ServerName is immutable"
+	// +kubebuilder:validation:XValidation:rule="oldSelf == '' || self == oldSelf",message="ServerName is immutable"
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63
 	ServerName string `json:"serverName,omitempty"`

@@ -151,9 +151,13 @@ spec:
                       Name of the gRPC server instance on the device.
                       If not specified, defaults to "gnmi" on OpenConfig devices.
                       Not supported on Cisco NX-OS devices.
+                      Immutable once set.
                     maxLength: 63
                     minLength: 1
                     type: string
+                    x-kubernetes-validations:
+                    - message: ServerName is immutable
+                      rule: oldSelf == '' || self == oldSelf
                   vrfName:
                     description: Enable the gRPC agent to accept incoming (dial-in)
                       RPC requests from a given vrf.
