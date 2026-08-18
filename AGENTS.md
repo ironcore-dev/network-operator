@@ -182,6 +182,7 @@ log.Error(err, "Failed to create Pod", "name", name)
 - **Fix root causes** — fix bugs where all callers converge, not in each caller
 - **Edge-case correctness** — between two approaches of similar size, pick the one correct on edge cases
 - **Don't over-comment** — don't document trivial steps; avoid unnecessary empty lines between code segments
+- **Range by index over list.Items** — Kubernetes `List` types hold items as value slices; using the second loop variable (`for _, item := range list.Items`) copies the struct each iteration. Use `for i := range list.Items` and reference `&list.Items[i]`
 
 ## References
 
