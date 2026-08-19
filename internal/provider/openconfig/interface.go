@@ -5,6 +5,7 @@ package openconfig
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
@@ -87,10 +88,28 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		})
 	}
 
+	sb := new(gnmiext.SetBuilder)
 	if spec.Switchport != nil {
 		i.Config.TPID = InterfaceTPIDDot1Q
 		if err := i.SetSwitchport(spec.Switchport, spec.Type); err != nil {
 			return err
+		}
+		if spec.Switchport.Mode == v1alpha1.SwitchportModeTrunk && spec.Switchport.AllowedVlansMode != v1alpha1.AllowedVlansModeUnmanaged {
+			switch allowedVlans := spec.Switchport.AllowedVlans; {
+			case len(allowedVlans) == 0:
+				// If no allowed VLANs are specified, we default to allowing all VLANs (1..4094).
+				sb.Patch(&TrunkVlans{InterfaceName: spec.Name, InterfaceType: spec.Type, Vlans: []any{"1..4094"}})
+			default:
+				vlans := make([]any, 0, len(spec.Switchport.AllowedVlans))
+				for _, vlanRange := range spec.Switchport.AllowedVlans {
+					if vlanRange.Start == vlanRange.End {
+						vlans = append(vlans, uint16(vlanRange.Start)) //nolint:gosec
+						continue
+					}
+					vlans = append(vlans, vlanRange.String())
+				}
+				sb.Patch(&TrunkVlans{InterfaceName: spec.Name, InterfaceType: spec.Type, Vlans: vlans})
+			}
 		}
 	}
 
@@ -148,7 +167,8 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		})
 	}
 
-	return p.client.Update(ctx, i)
+	sb.Update(i)
+	return p.client.Do(ctx, sb)
 }
 
 func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceRequest) error {
@@ -164,7 +184,8 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 				Enabled: false,
 			},
 		}
-		return p.client.Update(ctx, i)
+		vlans := &TrunkVlans{InterfaceName: spec.Name, InterfaceType: spec.Type, Vlans: []any{"1..4094"}}
+		return p.client.Update(ctx, i, vlans)
 
 	case v1alpha1.InterfaceTypeLoopback, v1alpha1.InterfaceTypeAggregate, v1alpha1.InterfaceTypeRoutedVLAN:
 		i := &Interface{Name: spec.Name}
@@ -357,6 +378,7 @@ var (
 	_ gnmiext.DataElement = (*Interface)(nil)
 	_ gnmiext.DataElement = (*InterfaceOperState)(nil)
 	_ gnmiext.DataElement = (*SubinterfaceEntry)(nil)
+	_ gnmiext.DataElement = (*TrunkVlans)(nil)
 )
 
 // Interface represents an OpenConfig interface list entry.
@@ -383,13 +405,6 @@ func (i *Interface) SetSwitchport(sp *v1alpha1.Switchport, ifType v1alpha1.Inter
 	case v1alpha1.SwitchportModeTrunk:
 		config.InterfaceMode = SwitchportModeTrunk
 		config.NativeVlan = uint16(sp.NativeVlan) //nolint:gosec
-		for _, vlanRange := range sp.AllowedVlans {
-			if vlanRange.Start == vlanRange.End {
-				config.TrunkVlans = append(config.TrunkVlans, uint16(vlanRange.Start)) //nolint:gosec
-				continue
-			}
-			config.TrunkVlans = append(config.TrunkVlans, vlanRange.String())
-		}
 	default:
 		return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
 			Field:       "spec.switchport.mode",
@@ -553,6 +568,29 @@ type SwitchedVlanConfig struct {
 	AccessVlan    uint16         `json:"access-vlan,omitempty"`
 	NativeVlan    uint16         `json:"native-vlan,omitempty"`
 	TrunkVlans    []any          `json:"trunk-vlans,omitempty"`
+}
+
+type TrunkVlans struct {
+	InterfaceName string                 `json:"-"`
+	InterfaceType v1alpha1.InterfaceType `json:"-"`
+	Vlans         []any                  `json:"-"`
+}
+
+func (t *TrunkVlans) XPath() string {
+	switch t.InterfaceType {
+	case v1alpha1.InterfaceTypeAggregate:
+		return fmt.Sprintf("openconfig-interfaces:interfaces/interface[name=%s]/openconfig-if-aggregate:aggregation/openconfig-vlan:switched-vlan/config/trunk-vlans", t.InterfaceName)
+	default:
+		return fmt.Sprintf("openconfig-interfaces:interfaces/interface[name=%s]/openconfig-if-ethernet:ethernet/openconfig-vlan:switched-vlan/config/trunk-vlans", t.InterfaceName)
+	}
+}
+
+func (t TrunkVlans) MarshalJSON() ([]byte, error) {
+	return json.Marshal(t.Vlans)
+}
+
+func (t *TrunkVlans) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, &t.Vlans)
 }
 
 // InterfaceAggregation holds the openconfig-if-aggregate augmentation.

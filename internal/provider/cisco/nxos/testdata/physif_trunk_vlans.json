@@ -1,0 +1,12 @@
+{
+  "intf-items": {
+    "phys-items": {
+      "PhysIf-list": [
+        {
+          "id": "eth1/10",
+          "trunkVlans": "10"
+        }
+      ]
+    }
+  }
+}

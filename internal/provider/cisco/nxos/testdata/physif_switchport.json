@@ -13,7 +13,6 @@
           "medium": "broadcast",
           "mode": "trunk",
           "nativeVlan": "vlan-1",
-          "trunkVlans": "10",
           "userCfgdFlags": "admin_state"
         }
       ]

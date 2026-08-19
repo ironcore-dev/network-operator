@@ -412,10 +412,11 @@ spec:
                     type: integer
                   allowedVlans:
                     description: |-
-                      AllowedVlans is a list of VLAN ID ranges that are allowed on the trunk port.
+                      AllowedVlans is the exact list of VLAN ID ranges allowed on the trunk port.
                       Each entry is an inclusive range string like "100..200". For compatibility,
                       a single integer like 100 is also accepted and treated as "100..100".
-                      If not specified, all VLANs (1-4094) are allowed.
+                      If not specified and AllowedVlansMode is Exact, all VLANs (1-4094) are allowed.
+                      Must be omitted when AllowedVlansMode is Unmanaged.
                       Only applicable when Mode is set to "Trunk".
                     items:
                       pattern: ^[0-9]+(\.\.[0-9]+)?$
@@ -423,6 +424,18 @@ spec:
                       x-kubernetes-int-or-string: true
                     minItems: 1
                     type: array
+                  allowedVlansMode:
+                    default: Exact
+                    description: |-
+                      AllowedVlansMode defines how trunk allowed VLANs are managed.
+                      When omitted, the mode is Exact.
+                      Exact means the operator owns the complete allowed VLAN list.
+                      Unmanaged means the operator does not change the allowed VLAN list.
+                      Only applicable when Mode is set to "Trunk".
+                    enum:
+                    - Exact
+                    - Unmanaged
+                    type: string
                   mode:
                     description: Mode defines the switchport mode, such as access
                       or trunk.
@@ -444,6 +457,9 @@ spec:
                 x-kubernetes-validations:
                 - message: accessVlan must be specified when mode is Access
                   rule: self.mode != 'Access' || has(self.accessVlan)
+                - message: allowedVlans must be omitted when allowedVlansMode is Unmanaged
+                  rule: '!has(self.allowedVlans) || !has(self.allowedVlansMode) ||
+                    self.allowedVlansMode != ''Unmanaged'''
               type:
                 description: Type indicates the type of the interface.
                 enum:

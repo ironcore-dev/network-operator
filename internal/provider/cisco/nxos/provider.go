@@ -1313,8 +1313,12 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				if req.Interface.Spec.Switchport.NativeVlan != 0 {
 					p.NativeVlan = fmt.Sprintf("vlan-%d", req.Interface.Spec.Switchport.NativeVlan)
 				}
-				if len(req.Interface.Spec.Switchport.AllowedVlans) > 0 {
-					p.TrunkVlans = Range(req.Interface.Spec.Switchport.AllowedVlans)
+				if req.Interface.Spec.Switchport.AllowedVlansMode != v1alpha1.AllowedVlansModeUnmanaged {
+					vlans := DefaultVLANRange
+					if len(req.Interface.Spec.Switchport.AllowedVlans) > 0 {
+						vlans = Range(req.Interface.Spec.Switchport.AllowedVlans)
+					}
+					sb.Patch(&TrunkVlans{IfName: name, Vlans: vlans})
 				}
 			default:
 				return fmt.Errorf("invalid switchport mode: %s", req.Interface.Spec.Switchport.Mode)
@@ -1376,7 +1380,6 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		pc.Medium = MediumBroadcast
 		pc.AccessVlan = DefaultVLAN
 		pc.NativeVlan = DefaultVLAN
-		pc.TrunkVlans = DefaultVLANRange
 		pc.UserCfgdFlags = UserFlagAdminState | UserFlagAdminLayer
 		pc.AggrExtdItems.BufferBoost = AdminStEnable
 
@@ -1417,8 +1420,12 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				if req.Interface.Spec.Switchport.NativeVlan != 0 {
 					pc.NativeVlan = fmt.Sprintf("vlan-%d", req.Interface.Spec.Switchport.NativeVlan)
 				}
-				if len(req.Interface.Spec.Switchport.AllowedVlans) > 0 {
-					pc.TrunkVlans = Range(req.Interface.Spec.Switchport.AllowedVlans)
+				if req.Interface.Spec.Switchport.AllowedVlansMode != v1alpha1.AllowedVlansModeUnmanaged {
+					vlans := DefaultVLANRange
+					if len(req.Interface.Spec.Switchport.AllowedVlans) > 0 {
+						vlans = Range(req.Interface.Spec.Switchport.AllowedVlans)
+					}
+					sb.Patch(&TrunkVlans{IfName: name, Vlans: vlans})
 				}
 			default:
 				return fmt.Errorf("invalid switchport mode: %s", req.Interface.Spec.Switchport.Mode)
@@ -1692,6 +1699,7 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 		i := new(PhysIf)
 		i.ID = name
 		sb.Delete(i)
+		sb.Patch(&TrunkVlans{IfName: name, Vlans: DefaultVLANRange})
 
 		stp := new(SpanningTree)
 		stp.IfName = name
