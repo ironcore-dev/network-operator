@@ -66,6 +66,7 @@ k8s_resource(new_name='lo1', objects=['lo1:interface'], trigger_mode=TRIGGER_MOD
 k8s_resource(new_name='eth1-1', objects=['eth1-1:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='eth1-2', objects=['eth1-2:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='eth1-10', objects=['eth1-10:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='eth1-11', objects=['eth1-11:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='po10', objects=['po-10:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='eth1-3', objects=['eth1-3:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='po20', objects=['po-20:interface'], resource_deps=['eth1-3'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])

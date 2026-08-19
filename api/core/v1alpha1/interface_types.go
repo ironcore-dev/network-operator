@@ -151,6 +151,7 @@ const (
 
 // Switchport defines the switchport configuration for an interface.
 // +kubebuilder:validation:XValidation:rule="self.mode != 'Access' || has(self.accessVlan)", message="accessVlan must be specified when mode is Access"
+// +kubebuilder:validation:XValidation:rule="!has(self.allowedVlans) || !has(self.allowedVlansMode) || self.allowedVlansMode != 'Unmanaged'", message="allowedVlans must be omitted when allowedVlansMode is Unmanaged"
 type Switchport struct {
 	// Mode defines the switchport mode, such as access or trunk.
 	// +required
@@ -170,10 +171,20 @@ type Switchport struct {
 	// +kubebuilder:validation:Maximum=4094
 	NativeVlan int32 `json:"nativeVlan,omitempty"`
 
-	// AllowedVlans is a list of VLAN ID ranges that are allowed on the trunk port.
+	// AllowedVlansMode defines how trunk allowed VLANs are managed.
+	// When omitted, the mode is Exact.
+	// Exact means the operator owns the complete allowed VLAN list.
+	// Unmanaged means the operator does not change the allowed VLAN list.
+	// Only applicable when Mode is set to "Trunk".
+	// +optional
+	// +kubebuilder:default=Exact
+	AllowedVlansMode AllowedVlansMode `json:"allowedVlansMode,omitempty"`
+
+	// AllowedVlans is the exact list of VLAN ID ranges allowed on the trunk port.
 	// Each entry is an inclusive range string like "100..200". For compatibility,
 	// a single integer like 100 is also accepted and treated as "100..100".
-	// If not specified, all VLANs (1-4094) are allowed.
+	// If not specified and AllowedVlansMode is Exact, all VLANs (1-4094) are allowed.
+	// Must be omitted when AllowedVlansMode is Unmanaged.
 	// Only applicable when Mode is set to "Trunk".
 	// +optional
 	// +kubebuilder:validation:MinItems=1
@@ -219,6 +230,17 @@ type Encapsulation struct {
 	// +kubebuilder:validation:Maximum=4094
 	OuterTag int32 `json:"outerTag,omitempty"`
 }
+
+// AllowedVlansMode defines how trunk allowed VLANs are managed.
+// +kubebuilder:validation:Enum=Exact;Unmanaged
+type AllowedVlansMode string
+
+const (
+	// AllowedVlansModeExact means the operator owns the complete trunk allow-list.
+	AllowedVlansModeExact AllowedVlansMode = "Exact"
+	// AllowedVlansModeUnmanaged means the operator leaves the trunk allow-list unchanged.
+	AllowedVlansModeUnmanaged AllowedVlansMode = "Unmanaged"
+)
 
 // SwitchportMode represents the switchport mode of an interface.
 // +kubebuilder:validation:Enum=Access;Trunk

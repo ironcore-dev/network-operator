@@ -722,6 +722,24 @@ _Appears in:_
 | `multichassis` _[MultiChassis](#multichassis)_ | Multichassis defines the multichassis configuration for the aggregate interface. |  | Optional: \{\} <br /> |
 
 
+#### AllowedVlansMode
+
+_Underlying type:_ _string_
+
+AllowedVlansMode defines how trunk allowed VLANs are managed.
+
+_Validation:_
+- Enum: [Exact Unmanaged]
+
+_Appears in:_
+- [Switchport](#switchport)
+
+| Field | Description |
+| --- | --- |
+| `Exact` | AllowedVlansModeExact means the operator owns the complete trunk allow-list.<br /> |
+| `Unmanaged` | AllowedVlansModeUnmanaged means the operator leaves the trunk allow-list unchanged.<br /> |
+
+
 #### AnycastGateway
 
 
@@ -3876,7 +3894,8 @@ _Appears in:_
 | `mode` _[SwitchportMode](#switchportmode)_ | Mode defines the switchport mode, such as access or trunk. |  | Enum: [Access Trunk] <br />Required: \{\} <br /> |
 | `accessVlan` _integer_ | AccessVlan specifies the VLAN ID for access mode switchports.<br />Only applicable when Mode is set to "Access". |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `nativeVlan` _integer_ | NativeVlan specifies the native VLAN ID for trunk mode switchports.<br />Only applicable when Mode is set to "Trunk". |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
-| `allowedVlans` _[IndexRange](#indexrange) array_ | AllowedVlans is a list of VLAN ID ranges that are allowed on the trunk port.<br />Each entry is an inclusive range string like "100..200". For compatibility,<br />a single integer like 100 is also accepted and treated as "100..100".<br />If not specified, all VLANs (1-4094) are allowed.<br />Only applicable when Mode is set to "Trunk". |  | MinItems: 1 <br />Pattern: `^[0-9]+(\.\.[0-9]+)?$` <br />Type: string <br />XIntOrString: \{\} <br />Optional: \{\} <br /> |
+| `allowedVlansMode` _[AllowedVlansMode](#allowedvlansmode)_ | AllowedVlansMode defines how trunk allowed VLANs are managed.<br />When omitted, the mode is Exact.<br />Exact means the operator owns the complete allowed VLAN list.<br />Unmanaged means the operator does not change the allowed VLAN list.<br />Only applicable when Mode is set to "Trunk". | Exact | Enum: [Exact Unmanaged] <br />Optional: \{\} <br /> |
+| `allowedVlans` _[IndexRange](#indexrange) array_ | AllowedVlans is the exact list of VLAN ID ranges allowed on the trunk port.<br />Each entry is an inclusive range string like "100..200". For compatibility,<br />a single integer like 100 is also accepted and treated as "100..100".<br />If not specified and AllowedVlansMode is Exact, all VLANs (1-4094) are allowed.<br />Must be omitted when AllowedVlansMode is Unmanaged.<br />Only applicable when Mode is set to "Trunk". |  | MinItems: 1 <br />Pattern: `^[0-9]+(\.\.[0-9]+)?$` <br />Type: string <br />XIntOrString: \{\} <br />Optional: \{\} <br /> |
 
 
 #### SwitchportMode

@@ -24,6 +24,7 @@ var (
 	_ gnmiext.DataElement = (*PhysIf)(nil)
 	_ gnmiext.Defaultable = (*PhysIf)(nil)
 	_ gnmiext.DataElement = (*PhysIfOperItems)(nil)
+	_ gnmiext.DataElement = (*TrunkVlans)(nil)
 	_ gnmiext.DataElement = (*VrfMember)(nil)
 	_ gnmiext.DataElement = (*SpanningTree)(nil)
 	_ gnmiext.DataElement = (*MultisiteIfTracking)(nil)
@@ -81,7 +82,6 @@ type PhysIf struct {
 	Medium        Medium         `json:"medium"`
 	Mode          SwitchportMode `json:"mode"`
 	NativeVlan    string         `json:"nativeVlan"`
-	TrunkVlans    string         `json:"trunkVlans"`
 	UserCfgdFlags UserFlags      `json:"userCfgdFlags"`
 	RtvrfMbrItems *VrfMember     `json:"rtvrfMbr-items,omitempty"`
 	PhysExtdItems struct {
@@ -116,7 +116,6 @@ func (p *PhysIf) Default() {
 	p.Mode = SwitchportModeAccess
 	p.AccessVlan = DefaultVLAN
 	p.NativeVlan = DefaultVLAN
-	p.TrunkVlans = DefaultVLANRange
 	p.PhysExtdItems.BufferBoost = AdminStEnable
 }
 
@@ -124,6 +123,26 @@ type PhysIfOperItems struct {
 	ID         string `json:"-"`
 	OperSt     OperSt `json:"operSt"`
 	OperStQual string `json:"operStQual"`
+}
+
+type TrunkVlans struct {
+	IfName string `json:"-"`
+	Vlans  string `json:"-"`
+}
+
+func (t *TrunkVlans) XPath() string {
+	if portchannelRe.MatchString(t.IfName) {
+		return "System/intf-items/aggr-items/AggrIf-list[id=" + t.IfName + "]/trunkVlans"
+	}
+	return "System/intf-items/phys-items/PhysIf-list[id=" + t.IfName + "]/trunkVlans"
+}
+
+func (t TrunkVlans) MarshalJSON() ([]byte, error) {
+	return json.Marshal(t.Vlans)
+}
+
+func (t *TrunkVlans) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, &t.Vlans)
 }
 
 func (p *PhysIfOperItems) XPath() string {
@@ -273,7 +292,6 @@ type PortChannel struct {
 	PcMode         PortChannelMode `json:"pcMode"`
 	NativeVlan     string          `json:"nativeVlan"`
 	SuspIndividual AdminSt4        `json:"suspIndividual"`
-	TrunkVlans     string          `json:"trunkVlans"`
 	UserCfgdFlags  UserFlags       `json:"userCfgdFlags"`
 	RtvrfMbrItems  *VrfMember      `json:"rtvrfMbr-items,omitempty"`
 	RsmbrIfsItems  struct {
