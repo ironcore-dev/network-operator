@@ -43,6 +43,7 @@ func NewCmdNet(streams genericiooptions.IOStreams) *cobra.Command {
 		NewCmdGet(o),
 		NewCmdPause(o, true),
 		NewCmdPause(o, false),
+		NewCmdMove(o),
 		NewCmdCompletion(cmd),
 	)
 
