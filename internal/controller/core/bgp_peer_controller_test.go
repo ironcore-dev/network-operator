@@ -34,6 +34,12 @@ var _ = Describe("BGPPeer Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+
+			By("Waiting for the Device to be created")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(device), resource)).To(Succeed())
+			}).Should(Succeed())
 		})
 
 		AfterEach(func() {
@@ -297,6 +303,35 @@ var _ = Describe("BGPPeer Controller", func() {
 		})
 
 		It("Should reject local address reference to Interface on different device", func() {
+			By("Creating a different Device resource for testing")
+			differentDevice := &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "different-device-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.3:9339",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, differentDevice)).To(Succeed())
+			DeferCleanup(func() {
+				intfList := &v1alpha1.InterfaceList{}
+				Expect(k8sClient.List(ctx, intfList, client.InNamespace(metav1.NamespaceDefault), client.MatchingLabels{v1alpha1.DeviceLabel: differentDevice.Name})).To(Succeed())
+				for i := range intfList.Items {
+					Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &intfList.Items[i]))).To(Succeed())
+				}
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, differentDevice))).To(Succeed())
+			})
+
+			By("Waiting for the different Device to be in Running phase")
+			Eventually(func(g Gomega) {
+				d := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(differentDevice), d)).To(Succeed())
+				g.Expect(d.Status.Phase).To(Equal(v1alpha1.DevicePhaseRunning))
+			}).Should(Succeed())
+
 			By("Creating a BGP resource for the Device")
 			bgp := &v1alpha1.BGP{
 				ObjectMeta: metav1.ObjectMeta{
@@ -325,7 +360,7 @@ var _ = Describe("BGPPeer Controller", func() {
 					Namespace:    metav1.NamespaceDefault,
 				},
 				Spec: v1alpha1.InterfaceSpec{
-					DeviceRef:  v1alpha1.LocalObjectReference{Name: "different-device"},
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: differentDevice.Name},
 					Name:       "Loopback0",
 					AdminState: v1alpha1.AdminStateUp,
 					Type:       v1alpha1.InterfaceTypeLoopback,

@@ -33,6 +33,12 @@ var _ = Describe("BGP Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+
+			By("Waiting for the Device to be created")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(device), resource)).To(Succeed())
+			}).Should(Succeed())
 		})
 
 		AfterEach(func() {
