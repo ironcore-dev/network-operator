@@ -1312,7 +1312,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Certificate to its provider-specific configuration. |  | Optional: \{\} <br /> |
-| `id` _string_ | The certificate management id.<br />Immutable. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `id` _string_ | The certificate management id.<br />Immutable. |  | MaxLength: 63 <br />MinLength: 1 <br />Pattern: `^[a-zA-Z0-9]+$` <br />Required: \{\} <br /> |
 | `secretRef` _[SecretReference](#secretreference)_ | Secret containing the certificate source.<br />The secret must be of type kubernetes.io/tls and as such contain the following keys: 'tls.crt' and 'tls.key'. |  | Required: \{\} <br /> |
 
 
