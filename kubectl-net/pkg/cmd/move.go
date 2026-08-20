@@ -4,9 +4,11 @@
 package cmd
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -185,7 +187,10 @@ func (o *MoveOptions) Run(ctx context.Context) error {
 		}
 	}
 
-	// Create on target.
+	// Create on target (sorted by priority: devices, pools, allocations, claims, rest).
+	slices.SortFunc(objects, func(a, b *unstructured.Unstructured) int {
+		return cmp.Compare(movePriority(a), movePriority(b))
+	})
 	fmt.Fprintf(o.Root.IOStreams.Out, "Creating resources on target...\n")
 	var errs []error
 	for _, obj := range objects {
@@ -360,5 +365,20 @@ func gvrFromObject(obj *unstructured.Unstructured) schema.GroupVersionResource {
 		Group:    gvk.Group,
 		Version:  gvk.Version,
 		Resource: fmt.Sprintf("%ss", gvk.Kind),
+	}
+}
+
+func movePriority(obj *unstructured.Unstructured) int {
+	switch obj.GetKind() {
+	case "Device":
+		return 0
+	case "IndexPool", "IPAddressPool", "IPPrefixPool":
+		return 1
+	case "Index", "IPAddress", "IPPrefix":
+		return 2
+	case "Claim":
+		return 3
+	default:
+		return 4
 	}
 }
