@@ -737,7 +737,7 @@ func (p *Provider) EnsureManagementAccess(_ context.Context, req *provider.Ensur
 	return nil
 }
 
-func (p *Provider) DeleteManagementAccess(context.Context) error {
+func (p *Provider) DeleteManagementAccess(context.Context, *provider.DeleteManagementAccessRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.Access = nil

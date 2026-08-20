@@ -1983,6 +1983,12 @@ func (p *Provider) DeleteISIS(ctx context.Context, req *provider.DeleteISISReque
 }
 
 func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.EnsureManagementAccessRequest) error {
+	if req.ManagementAccess.Spec.GRPC.ServerName != "" {
+		return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+			Field:       "spec.grpc.serverName",
+			Description: "serverName is not configurable on Cisco NX-OS devices",
+		})
+	}
 	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
 
 	gf := new(Feature)
@@ -2057,7 +2063,7 @@ func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.Ens
 	return p.Do(ctx, sb)
 }
 
-func (p *Provider) DeleteManagementAccess(ctx context.Context) error {
+func (p *Provider) DeleteManagementAccess(ctx context.Context, _ *provider.DeleteManagementAccessRequest) error {
 	return p.client.Delete(
 		ctx,
 		new(GRPC),

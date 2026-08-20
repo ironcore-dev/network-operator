@@ -25,7 +25,6 @@ type ManagementAccessSpec struct {
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
 
 	// Configuration for the gRPC server on the device.
-	// Currently, only a single "default" gRPC server is supported.
 	// +optional
 	// +kubebuilder:default={enabled:true, port:9339}
 	GRPC GRPC `json:"grpc,omitzero"`
@@ -52,6 +51,16 @@ type GRPC struct {
 	// +kubebuilder:validation:Maximum=65535
 	// +kubebuilder:validation:ExclusiveMaximum=false
 	Port int32 `json:"port"`
+
+	// Name of the gRPC server instance on the device.
+	// If not specified, defaults to "gnmi" on OpenConfig devices.
+	// Not supported on Cisco NX-OS devices.
+	// Immutable once set.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="oldSelf == '' || self == oldSelf",message="ServerName is immutable"
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	ServerName string `json:"serverName,omitempty"`
 
 	// Name of the certificate that is associated with the gRPC service.
 	// The certificate is provisioned through other interfaces on the device,

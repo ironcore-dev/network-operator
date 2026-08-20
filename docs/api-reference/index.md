@@ -2140,6 +2140,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `enabled` _boolean_ | Enable or disable the gRPC server on the device.<br />If not specified, the gRPC server is enabled by default. | true | Optional: \{\} <br /> |
 | `port` _integer_ | The TCP port on which the gRPC server should listen.<br />The range of port-id is from 1024 to 65535.<br />Port 9339 is the default. | 9339 | ExclusiveMaximum: false <br />Maximum: 65535 <br />Minimum: 1024 <br />Optional: \{\} <br /> |
+| `serverName` _string_ | Name of the gRPC server instance on the device.<br />If not specified, defaults to "gnmi" on OpenConfig devices.<br />Not supported on Cisco NX-OS devices.<br />Immutable once set. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 | `certificateId` _string_ | Name of the certificate that is associated with the gRPC service.<br />The certificate is provisioned through other interfaces on the device,<br />such as e.g. the gNOI certificate management service. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 | `vrfName` _string_ | Enable the gRPC agent to accept incoming (dial-in) RPC requests from a given vrf. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 | `gnmi` _[GNMI](#gnmi)_ | Additional gNMI configuration for the gRPC server.<br />This may not be supported by all devices. | \{ keepAliveTimeout:10m maxConcurrentCall:8 \} | Optional: \{\} <br /> |
@@ -2681,7 +2682,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Interface to its provider-specific configuration. |  | Optional: \{\} <br /> |
-| `grpc` _[GRPC](#grpc)_ | Configuration for the gRPC server on the device.<br />Currently, only a single "default" gRPC server is supported. | \{ enabled:true port:9339 \} | Optional: \{\} <br /> |
+| `grpc` _[GRPC](#grpc)_ | Configuration for the gRPC server on the device. | \{ enabled:true port:9339 \} | Optional: \{\} <br /> |
 | `ssh` _[SSH](#ssh)_ | Configuration for the SSH server on the device. | \{ enabled:true sessionLimit:32 timeout:10m \} | Optional: \{\} <br /> |
 
 
