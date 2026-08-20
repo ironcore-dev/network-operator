@@ -47,6 +47,9 @@ const bgpPeerBGPRefIndexKey = ".spec.bgpRef.name"
 // referenced by BGPPeer address families.
 const bgpPeerRoutingPolicyRefIndexKey = ".spec.addressFamilies.routingPolicyRefs"
 
+// bgpPeerInterfaceRefIndexKey is the field index key for BGPPeer.Spec.LocalAddress.InterfaceRef.Name.
+const bgpPeerInterfaceRefIndexKey = ".spec.localAddress.interfaceRef.name"
+
 // BGPPeerReconciler reconciles a BGPPeer object
 type BGPPeerReconciler struct {
 	client.Client
@@ -275,6 +278,16 @@ func (r *BGPPeerReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 		return err
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.BGPPeer{}, bgpPeerInterfaceRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.BGPPeer)
+		if o.Spec.LocalAddress == nil {
+			return nil
+		}
+		return []string{o.Spec.LocalAddress.InterfaceRef.Name}
+	}); err != nil {
+		return err
+	}
+
 	bldr := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.BGPPeer{}).
 		Named("bgppeer").
@@ -343,6 +356,20 @@ func (r *BGPPeerReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 		Watches(
 			&v1alpha1.RoutingPolicy{},
 			handler.EnqueueRequestsFromMapFunc(r.routingPolicyToBGPPeers),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
+		// Watches enqueues BGPPeers when a referenced Interface is created or deleted.
+		// Only triggers on create and delete events since Interface names are immutable.
+		Watches(
+			&v1alpha1.Interface{},
+			handler.EnqueueRequestsFromMapFunc(r.interfaceToBGPPeers),
 			builder.WithPredicates(predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					return false
@@ -426,7 +453,7 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (ret
 					Reason:  v1alpha1.InterfaceNotFoundReason,
 					Message: fmt.Sprintf("source interface %q not found", addr.InterfaceRef.Name),
 				})
-				return reconcile.TerminalError(fmt.Errorf("source interface %q not found", addr.InterfaceRef.Name))
+				return fmt.Errorf("source interface %q not found", addr.InterfaceRef.Name)
 			}
 			return fmt.Errorf("failed to get source interface %q: %w", addr.InterfaceRef.Name, err)
 		}
@@ -867,6 +894,40 @@ func (r *BGPPeerReconciler) routingPolicyToBGPPeers(ctx context.Context, obj cli
 		ctx, list,
 		client.InNamespace(rp.Namespace),
 		client.MatchingFields{bgpPeerRoutingPolicyRefIndexKey: rp.Name},
+	); err != nil {
+		log.Error(err, "Failed to list BGPPeers")
+		return nil
+	}
+
+	requests := make([]ctrl.Request, 0, len(list.Items))
+	for _, p := range list.Items {
+		log.V(2).Info("Enqueuing BGPPeer for reconciliation", "BGPPeer", klog.KObj(&p))
+		requests = append(requests, ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      p.Name,
+				Namespace: p.Namespace,
+			},
+		})
+	}
+
+	return requests
+}
+
+// interfaceToBGPPeers is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for BGPPeers when an Interface referenced by their local address is created or deleted.
+func (r *BGPPeerReconciler) interfaceToBGPPeers(ctx context.Context, obj client.Object) []ctrl.Request {
+	intf, ok := obj.(*v1alpha1.Interface)
+	if !ok {
+		panic(fmt.Sprintf("Expected an Interface but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "Interface", klog.KObj(intf))
+
+	list := new(v1alpha1.BGPPeerList)
+	if err := r.List(
+		ctx, list,
+		client.InNamespace(intf.Namespace),
+		client.MatchingFields{bgpPeerInterfaceRefIndexKey: intf.Name},
 	); err != nil {
 		log.Error(err, "Failed to list BGPPeers")
 		return nil
