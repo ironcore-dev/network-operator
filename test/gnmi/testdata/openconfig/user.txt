@@ -1,0 +1,46 @@
+# User with a single role (password and sshPublicKey are not supported by the OpenConfig user model on SRLinux)
+# Role must be specified as an OpenConfig AAA identity string (e.g. openconfig-aaa-types:SYSTEM_ROLE_ADMIN).
+# The device enforces this via a leafref — native role names (e.g. "admin") are rejected with FailedPrecondition.
+-- users/user --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: User
+metadata:
+  name: user
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  username: testplan
+  password:
+    secretKeyRef:
+      name: user-password
+      key: password
+  roles:
+    - name: openconfig-aaa-types:SYSTEM_ROLE_ADMIN
+
+-- state/preload --
+{}
+
+-- state/expect --
+{
+  "openconfig-system:system": {
+    "aaa": {
+      "authentication": {
+        "users": {
+          "user": [
+            {
+              "config": {
+                "role": "SYSTEM_ROLE_ADMIN",
+                "username": "testplan"
+              },
+              "username": "testplan"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+-- state/delete --
+{}

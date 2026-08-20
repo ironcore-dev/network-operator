@@ -330,6 +330,11 @@ func (r *UserReconciler) reconcile(ctx context.Context, s *userScope) (reterr er
 	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.User, cond)
 
+	// IgnoredField is not a failure — the resource was configured successfully,
+	// the warning is already captured in the condition message.
+	if se, ok := apistatus.FromError(err); ok && se.Code == apistatus.CodeIgnoredField {
+		return nil
+	}
 	return err
 }
 

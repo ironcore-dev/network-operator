@@ -34,12 +34,18 @@ const (
 	// configured out-of-band). [WrapTerminalError] does not promote these
 	// errors to terminal.
 	CodeFailedPrecondition
+
+	// CodeIgnoredField signals that one or more spec fields were silently
+	// ignored during realization because the provider does not support them.
+	// The resource is still considered successfully configured. [WrapTerminalError]
+	// does not promote these errors to terminal.
+	CodeIgnoredField
 )
 
 // Valid reports whether c is a known, non-zero Code.
 func (c Code) Valid() bool {
 	switch c {
-	case CodeInvalidArgument, CodeUnsupportedField, CodeFailedPrecondition:
+	case CodeInvalidArgument, CodeUnsupportedField, CodeFailedPrecondition, CodeIgnoredField:
 		return true
 	default:
 		return false
@@ -55,6 +61,8 @@ func (c Code) String() string {
 		return "UnsupportedField"
 	case CodeFailedPrecondition:
 		return "FailedPrecondition"
+	case CodeIgnoredField:
+		return "IgnoredField"
 	default:
 		return fmt.Sprintf("Code(%d)", c)
 	}
@@ -126,6 +134,17 @@ func NewFailedPreconditionError(message string) *StatusError {
 	return &StatusError{
 		Code:    CodeFailedPrecondition,
 		Message: message,
+	}
+}
+
+// NewIgnoredFieldError returns a [StatusError] with [CodeIgnoredField] for
+// one or more spec fields that were silently ignored during realization.
+// The resource is still considered successfully configured — the condition
+// status will be True with the violation messages as a warning.
+func NewIgnoredFieldError(violations ...FieldViolation) *StatusError {
+	return &StatusError{
+		Code:            CodeIgnoredField,
+		FieldViolations: violations,
 	}
 }
 
