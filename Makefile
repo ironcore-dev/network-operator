@@ -184,11 +184,6 @@ helm: kubebuilder
 	@mv charts/network-operator charts/chart
 	$(KUBEBUILDER) edit --plugins=helm/v2-alpha --output-dir=charts
 	@mv charts/chart charts/network-operator && rm -rf dist
-	@# Fix cert-manager volumeMounts/volumes indentation (https://github.com/kubernetes-sigs/kubebuilder/issues/5677)
-	@sed -i.bak \
-	  -e '/certManager.enable/,/end/{s/^        - mountPath:/          - mountPath:/;s/^          name: webhook-certs/            name: webhook-certs/;s/^          readOnly: true/            readOnly: true/;s/^      - name: webhook-certs/        - name: webhook-certs/;s/^        secret:/          secret:/;s/^          secretName:/            secretName:/}' \
-	  charts/network-operator/templates/manager/manager.yaml
-	@find . -type f -name "*.bak" -delete
 
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
