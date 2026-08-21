@@ -1,0 +1,21 @@
+apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+kind: Index
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: index-sample
+  # The allow-binding annotation permits a Claim with a matching claimRef name
+  # to rebind this allocation by updating the UID.
+  annotations:
+    pool.networking.metal.ironcore.dev/allow-binding: "true"
+spec:
+  poolRef:
+    apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+    kind: IndexPool
+    name: indexpool-sample
+  # Pre-allocated ASN from the private-use range defined in RFC 6996.
+  index: 64512
+  # claimRef name must match the Claim that will bind to this allocation.
+  claimRef:
+    name: claim-sample

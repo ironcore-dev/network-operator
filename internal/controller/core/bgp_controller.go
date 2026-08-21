@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -29,12 +29,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/paused"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/resourcelock"
 )
+
+// bgpVrfRefIndexKey is the field index key for BGP.Spec.VrfRef.Name.
+const bgpVrfRefIndexKey = ".spec.vrfRef.name"
+
+// bgpRedistributeDirectRoutePolicyIndexKey is the field index key for all
+// RoutingPolicy names referenced by BGP address families.
+const bgpRedistributeDirectRoutePolicyIndexKey = ".spec.addressFamilies.redistributeDirectRoutePolicyRefs"
 
 // BGPReconciler reconciles a BGP object
 type BGPReconciler struct {
@@ -46,7 +54,7 @@ type BGPReconciler struct {
 
 	// Recorder is used to record events for the controller.
 	// More info: https://book.kubebuilder.io/reference/raising-events
-	Recorder record.EventRecorder
+	Recorder events.EventRecorder
 
 	// Provider is the driver that will be used to create & delete the bgp.
 	Provider provider.ProviderFunc
@@ -62,7 +70,9 @@ type BGPReconciler struct {
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgp,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgp/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgp/finalizers,verbs=update
-// +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vrfs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=routingpolicies,verbs=get;list;watch
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -74,14 +84,14 @@ type BGPReconciler struct {
 // - https://ahmet.im/blog/controller-pitfalls/#reconcile-method-shape
 func (r *BGPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
-	log.Info("Reconciling resource")
+	log.V(3).Info("Reconciling resource")
 
 	obj := new(v1alpha1.BGP)
 	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
 		if apierrors.IsNotFound(err) {
 			// If the custom resource is not found then it usually means that it was deleted or not created
 			// In this way, we will stop the reconciliation
-			log.Info("Resource not found. Ignoring since object must be deleted")
+			log.V(3).Info("Resource not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -113,8 +123,8 @@ func (r *BGPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 
 	if err := r.Locker.AcquireLock(ctx, device.Name, "bgp-controller"); err != nil {
 		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
-			log.Info("Device is already locked, requeuing reconciliation")
-			return ctrl.Result{RequeueAfter: time.Second}, nil
+			log.V(3).Info("Device is already locked, requeuing reconciliation")
+			return ctrl.Result{RequeueAfter: Jitter(time.Second), Priority: new(LockWaitPriorityDefault)}, nil
 		}
 		log.Error(err, "Failed to acquire device lock")
 		return ctrl.Result{}, err
@@ -159,7 +169,7 @@ func (r *BGPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 				return ctrl.Result{}, err
 			}
 		}
-		log.Info("Resource is being deleted, skipping reconciliation")
+		log.V(3).Info("Resource is being deleted, skipping reconciliation")
 		return ctrl.Result{}, nil
 	}
 
@@ -170,13 +180,13 @@ func (r *BGPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 			log.Error(err, "Failed to add finalizer to resource")
 			return ctrl.Result{}, err
 		}
-		log.Info("Added finalizer to resource")
+		log.V(1).Info("Added finalizer to resource")
 		return ctrl.Result{}, nil
 	}
 
 	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
-		log.Info("Initializing status conditions")
+		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
 
@@ -197,17 +207,16 @@ func (r *BGPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 		}
 	}()
 
-	res, err := r.reconcile(ctx, s)
-	if err != nil {
+	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, apistatus.WrapTerminalError(err)
 	}
 
-	return res, nil
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *BGPReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *BGPReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	if r.RequeueInterval == 0 {
 		return errors.New("requeue interval must not be 0")
 	}
@@ -220,6 +229,43 @@ func (r *BGPReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	filter, err := predicate.LabelSelectorPredicate(labelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to create label selector predicate: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.BGP{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.BGP)
+		return []string{o.Spec.DeviceRef.Name}
+	}); err != nil {
+		return err
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.BGP{}, bgpVrfRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.BGP)
+		if o.Spec.VrfRef == nil {
+			return nil
+		}
+		return []string{o.Spec.VrfRef.Name}
+	}); err != nil {
+		return err
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.BGP{}, bgpRedistributeDirectRoutePolicyIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.BGP)
+		if o.Spec.AddressFamilies == nil {
+			return nil
+		}
+		var names []string
+		for _, af := range []*v1alpha1.BGPUnicastAddressFamily{
+			o.Spec.AddressFamilies.Ipv4Unicast,
+			o.Spec.AddressFamilies.Ipv6Unicast,
+		} {
+			if af == nil || af.RedistributeDirectRoutes == nil {
+				continue
+			}
+			names = append(names, af.RedistributeDirectRoutes.RoutingPolicyRef.Name)
+		}
+		return names
+	}); err != nil {
+		return err
 	}
 
 	bldr := ctrl.NewControllerManagedBy(mgr).
@@ -240,16 +286,43 @@ func (r *BGPReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return bldr.
 		// Watches enqueues BGPs for updates in referenced Device resources.
-		// Triggers on create, delete, and update events when the Paused spec field changes.
+		// Triggers on create, delete, and update events when the device's effective pause state changes.
 		Watches(
 			&v1alpha1.Device{},
 			handler.EnqueueRequestsFromMapFunc(r.deviceToBGPs),
 			builder.WithPredicates(predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					oldDevice := e.ObjectOld.(*v1alpha1.Device)
-					newDevice := e.ObjectNew.(*v1alpha1.Device)
-					// Only trigger when Paused spec field changes.
-					return oldDevice.Spec.Paused != newDevice.Spec.Paused
+					return paused.DevicePausedChanged(e.ObjectOld, e.ObjectNew)
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
+		// Watches enqueues BGPs for updates in referenced VRF resources.
+		// Triggers on create, delete, and update events when the VRF's ready state changes.
+		Watches(
+			&v1alpha1.VRF{},
+			handler.EnqueueRequestsFromMapFunc(r.vrfToBGPs),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					oldVRF := e.ObjectOld.(*v1alpha1.VRF)
+					newVRF := e.ObjectNew.(*v1alpha1.VRF)
+					return conditions.IsReady(oldVRF) != conditions.IsReady(newVRF)
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
+		// Watches enqueues BGPs when a referenced RoutingPolicy is created or deleted.
+		// Only triggers on create and delete events since RoutingPolicy names are immutable.
+		Watches(
+			&v1alpha1.RoutingPolicy{},
+			handler.EnqueueRequestsFromMapFunc(r.routingPolicyToBGPs),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false
@@ -268,7 +341,7 @@ type bgpScope struct {
 	Provider       provider.BGPProvider
 }
 
-func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (_ ctrl.Result, reterr error) {
+func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (reterr error) {
 	if s.BGP.Labels == nil {
 		s.BGP.Labels = make(map[string]string)
 	}
@@ -278,12 +351,29 @@ func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (_ ctrl.Resu
 	// Ensure the BGP is owned by the Device.
 	if !controllerutil.HasControllerReference(s.BGP) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.BGP, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			return ctrl.Result{}, err
+			return err
+		}
+	}
+
+	var vrf *v1alpha1.VRF
+	var err error
+	if s.BGP.Spec.VrfRef != nil {
+		vrf, err = r.reconcileVRF(ctx, s.BGP, s.Device)
+		if err != nil {
+			return err
+		}
+	}
+
+	var redistPolicies map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy
+	if s.BGP.Spec.AddressFamilies != nil {
+		redistPolicies, err = r.reconcileRedistributeDirectPolicies(ctx, s.BGP, s.Device)
+		if err != nil {
+			return err
 		}
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
@@ -292,9 +382,11 @@ func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (_ ctrl.Resu
 	}()
 
 	// Ensure the BGP is realized on the provider.
-	err := s.Provider.EnsureBGP(ctx, &provider.EnsureBGPRequest{
-		BGP:            s.BGP,
-		ProviderConfig: s.ProviderConfig,
+	err = s.Provider.EnsureBGP(ctx, &provider.EnsureBGPRequest{
+		BGP:                             s.BGP,
+		ProviderConfig:                  s.ProviderConfig,
+		VRF:                             vrf,
+		RedistributeDirectRoutePolicies: redistPolicies,
 	})
 
 	cond := conditions.FromError(err)
@@ -302,10 +394,28 @@ func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (_ ctrl.Resu
 	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.BGP, cond)
 
-	return ctrl.Result{}, err
+	return err
 }
 
 func (r *BGPReconciler) finalize(ctx context.Context, s *bgpScope) (reterr error) {
+	var vrf *v1alpha1.VRF
+	if s.BGP.Spec.VrfRef != nil {
+		vrf = new(v1alpha1.VRF)
+		if err := r.Get(ctx, types.NamespacedName{
+			Name:      s.BGP.Spec.VrfRef.Name,
+			Namespace: s.BGP.Namespace,
+		}, vrf); err != nil {
+			// If the VRF is not found, we can assume it was deleted and with it the BGP reference, so we can proceed with deletion without error.
+			return client.IgnoreNotFound(err)
+		}
+		if vrf.Spec.DeviceRef.Name != s.Device.Name {
+			// If the VRF belongs to a different device, the BGP was never successfully reconciled
+			// (reconcileVRF would have returned a terminal error), so there is nothing to clean up
+			// on the provider. Allow the finalizer to be removed.
+			return nil
+		}
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -318,11 +428,102 @@ func (r *BGPReconciler) finalize(ctx context.Context, s *bgpScope) (reterr error
 	return s.Provider.DeleteBGP(ctx, &provider.DeleteBGPRequest{
 		BGP:            s.BGP,
 		ProviderConfig: s.ProviderConfig,
+		VRF:            vrf,
 	})
 }
 
+// reconcileVRF resolves the VRF referenced by the BGP's VrfRef field.
+// Returns nil when no VrfRef is set, meaning the default VRF should be used.
+// Sets ReadyCondition and returns a terminal error when the VRF is not found or belongs to a different device.
+func (r *BGPReconciler) reconcileVRF(ctx context.Context, bgp *v1alpha1.BGP, device *v1alpha1.Device) (*v1alpha1.VRF, error) {
+	vrf := new(v1alpha1.VRF)
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      bgp.Spec.VrfRef.Name,
+		Namespace: bgp.Namespace,
+	}, vrf); err != nil {
+		if apierrors.IsNotFound(err) {
+			conditions.Set(bgp, metav1.Condition{
+				Type:    v1alpha1.ReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.VRFNotFoundReason,
+				Message: fmt.Sprintf("VRF %s not found", bgp.Spec.VrfRef.Name),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("vrf %s not found", bgp.Spec.VrfRef.Name))
+		}
+		return nil, fmt.Errorf("failed to get VRF %s: %w", bgp.Spec.VrfRef.Name, err)
+	}
+	if vrf.Spec.DeviceRef.Name != device.Name {
+		conditions.Set(bgp, metav1.Condition{
+			Type:    v1alpha1.ReadyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.CrossDeviceReferenceReason,
+			Message: fmt.Sprintf("VRF %s belongs to device %s, not %s", bgp.Spec.VrfRef.Name, vrf.Spec.DeviceRef.Name, device.Name),
+		})
+		return nil, reconcile.TerminalError(fmt.Errorf("vrf %s belongs to different device", bgp.Spec.VrfRef.Name))
+	}
+
+	if !conditions.IsReady(vrf) {
+		// VRF uses ReadyCondition as its top-level configured state (no separate ConfiguredCondition).
+		conditions.Set(bgp, metav1.Condition{
+			Type:    v1alpha1.ReadyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.WaitingForDependenciesReason,
+			Message: fmt.Sprintf("Waiting for VRF %s to become ready", bgp.Spec.VrfRef.Name),
+		})
+		return nil, reconcile.TerminalError(fmt.Errorf("vrf %s is not yet ready", bgp.Spec.VrfRef.Name))
+	}
+
+	return vrf, nil
+}
+
+// reconcileRedistributeDirectPolicies resolves the RoutingPolicyRef for
+// redistribute direct on each address family of the BGP instance.
+// Returns a map from BGPAddressFamilyType to the resolved RoutingPolicy.
+// Sets ReadyCondition and returns a terminal error when a referenced policy
+// is not found or belongs to a different device.
+func (r *BGPReconciler) reconcileRedistributeDirectPolicies(ctx context.Context, bgp *v1alpha1.BGP, device *v1alpha1.Device) (map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy, error) {
+	afs := map[v1alpha1.BGPAddressFamilyType]*v1alpha1.BGPUnicastAddressFamily{
+		v1alpha1.BGPAddressFamilyIpv4Unicast: bgp.Spec.AddressFamilies.Ipv4Unicast,
+		v1alpha1.BGPAddressFamilyIpv6Unicast: bgp.Spec.AddressFamilies.Ipv6Unicast,
+	}
+
+	policies := make(map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy, 2)
+	for afType, af := range afs {
+		if af == nil || af.RedistributeDirectRoutes == nil {
+			continue
+		}
+		ref := af.RedistributeDirectRoutes.RoutingPolicyRef
+		rp := new(v1alpha1.RoutingPolicy)
+		if err := r.Get(ctx, types.NamespacedName{Name: ref.Name, Namespace: bgp.Namespace}, rp); err != nil {
+			if apierrors.IsNotFound(err) {
+				conditions.Set(bgp, metav1.Condition{
+					Type:    v1alpha1.ReadyCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  v1alpha1.WaitingForDependenciesReason,
+					Message: fmt.Sprintf("RoutingPolicy %s not found", ref.Name),
+				})
+				return nil, reconcile.TerminalError(fmt.Errorf("routing policy %s not found", ref.Name))
+			}
+			return nil, fmt.Errorf("failed to get routing policy %s: %w", ref.Name, err)
+		}
+
+		if rp.Spec.DeviceRef.Name != device.Name {
+			conditions.Set(bgp, metav1.Condition{
+				Type:    v1alpha1.ReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.CrossDeviceReferenceReason,
+				Message: fmt.Sprintf("RoutingPolicy %s belongs to device %s, not %s", ref.Name, rp.Spec.DeviceRef.Name, device.Name),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("routing policy %s belongs to different device", ref.Name))
+		}
+		policies[afType] = rp
+	}
+
+	return policies, nil
+}
+
 // deviceToBGPs is a [handler.MapFunc] to be used to enqueue requests for reconciliation
-// for BGPs when their referenced Device's Paused spec field changes.
+// for BGPs when their referenced Device's effective pause state changes.
 func (r *BGPReconciler) deviceToBGPs(ctx context.Context, obj client.Object) []ctrl.Request {
 	device, ok := obj.(*v1alpha1.Device)
 	if !ok {
@@ -332,9 +533,10 @@ func (r *BGPReconciler) deviceToBGPs(ctx context.Context, obj client.Object) []c
 	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
 
 	list := new(v1alpha1.BGPList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list BGPs")
 		return nil
@@ -342,7 +544,7 @@ func (r *BGPReconciler) deviceToBGPs(ctx context.Context, obj client.Object) []c
 
 	requests := make([]ctrl.Request, 0, len(list.Items))
 	for _, i := range list.Items {
-		log.Info("Enqueuing BGP for reconciliation", "BGP", klog.KObj(&i))
+		log.V(2).Info("Enqueuing BGP for reconciliation", "BGP", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
 			NamespacedName: client.ObjectKey{
 				Name:      i.Name,
@@ -373,7 +575,7 @@ func (r *BGPReconciler) bgpForProviderConfig(ctx context.Context, obj client.Obj
 			m.Spec.ProviderConfigRef.Name == obj.GetName() &&
 			m.Spec.ProviderConfigRef.Kind == gkv.Kind &&
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
-			log.Info("Enqueuing BGP for reconciliation", "BGP", klog.KObj(&m))
+			log.V(2).Info("Enqueuing BGP for reconciliation", "BGP", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      m.Name,
@@ -383,5 +585,71 @@ func (r *BGPReconciler) bgpForProviderConfig(ctx context.Context, obj client.Obj
 		}
 	}
 
+	return requests
+}
+
+// vrfToBGPs is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for BGPs when their referenced VRF is created or deleted.
+func (r *BGPReconciler) vrfToBGPs(ctx context.Context, obj client.Object) []ctrl.Request {
+	vrf, ok := obj.(*v1alpha1.VRF)
+	if !ok {
+		panic(fmt.Sprintf("Expected a VRF but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "VRF", klog.KObj(vrf))
+
+	list := new(v1alpha1.BGPList)
+	if err := r.List(
+		ctx, list,
+		client.InNamespace(vrf.Namespace),
+		client.MatchingFields{bgpVrfRefIndexKey: vrf.Name},
+	); err != nil {
+		log.Error(err, "Failed to list BGPs")
+		return nil
+	}
+
+	requests := make([]ctrl.Request, 0, len(list.Items))
+	for _, b := range list.Items {
+		log.V(2).Info("Enqueuing BGP for reconciliation", "BGP", klog.KObj(&b))
+		requests = append(requests, ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      b.Name,
+				Namespace: b.Namespace,
+			},
+		})
+	}
+	return requests
+}
+
+// routingPolicyToBGPs is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for BGPs when a RoutingPolicy referenced by one of their address families is created or deleted.
+func (r *BGPReconciler) routingPolicyToBGPs(ctx context.Context, obj client.Object) []ctrl.Request {
+	rp, ok := obj.(*v1alpha1.RoutingPolicy)
+	if !ok {
+		panic(fmt.Sprintf("Expected a RoutingPolicy but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "RoutingPolicy", klog.KObj(rp))
+
+	list := new(v1alpha1.BGPList)
+	if err := r.List(
+		ctx, list,
+		client.InNamespace(rp.Namespace),
+		client.MatchingFields{bgpRedistributeDirectRoutePolicyIndexKey: rp.Name},
+	); err != nil {
+		log.Error(err, "Failed to list BGPs")
+		return nil
+	}
+
+	requests := make([]ctrl.Request, 0, len(list.Items))
+	for _, b := range list.Items {
+		log.V(2).Info("Enqueuing BGP for reconciliation", "BGP", klog.KObj(&b))
+		requests = append(requests, ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      b.Name,
+				Namespace: b.Namespace,
+			},
+		})
+	}
 	return requests
 }

@@ -1,0 +1,464 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: aaa.networking.metal.ironcore.dev
+spec:
+  group: networking.metal.ironcore.dev
+  names:
+    kind: AAA
+    listKind: AAAList
+    plural: aaa
+    singular: aaa
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.deviceRef.name
+      name: Device
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: AAA is the Schema for the aaa API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              Specification of the desired state of the resource.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              accounting:
+                description: Accounting defines the AAA accounting method list.
+                properties:
+                  methods:
+                    description: |-
+                      Methods is the ordered list of accounting methods.
+                      Methods are tried in order until one succeeds or all fail.
+                    items:
+                      description: AAAMethod represents an AAA method.
+                      properties:
+                        groupName:
+                          description: GroupName is the name of the server group when
+                            Type is Group.
+                          maxLength: 63
+                          type: string
+                        type:
+                          description: Type is the type of AAA method.
+                          enum:
+                          - Group
+                          - Local
+                          - None
+                          type: string
+                      required:
+                      - type
+                      type: object
+                      x-kubernetes-validations:
+                      - message: groupName is required when type is Group
+                        rule: self.type != 'Group' || self.groupName != ""
+                    maxItems: 4
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
+                required:
+                - methods
+                type: object
+              authentication:
+                description: Authentication defines the AAA authentication method
+                  list.
+                properties:
+                  methods:
+                    description: |-
+                      Methods is the ordered list of authentication methods.
+                      Methods are tried in order until one succeeds or all fail.
+                    items:
+                      description: AAAMethod represents an AAA method.
+                      properties:
+                        groupName:
+                          description: GroupName is the name of the server group when
+                            Type is Group.
+                          maxLength: 63
+                          type: string
+                        type:
+                          description: Type is the type of AAA method.
+                          enum:
+                          - Group
+                          - Local
+                          - None
+                          type: string
+                      required:
+                      - type
+                      type: object
+                      x-kubernetes-validations:
+                      - message: groupName is required when type is Group
+                        rule: self.type != 'Group' || self.groupName != ""
+                    maxItems: 4
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
+                required:
+                - methods
+                type: object
+              authorization:
+                description: Authorization defines the AAA authorization method list.
+                properties:
+                  methods:
+                    description: |-
+                      Methods is the ordered list of authorization methods.
+                      Methods are tried in order until one succeeds or all fail.
+                    items:
+                      description: AAAMethod represents an AAA method.
+                      properties:
+                        groupName:
+                          description: GroupName is the name of the server group when
+                            Type is Group.
+                          maxLength: 63
+                          type: string
+                        type:
+                          description: Type is the type of AAA method.
+                          enum:
+                          - Group
+                          - Local
+                          - None
+                          type: string
+                      required:
+                      - type
+                      type: object
+                      x-kubernetes-validations:
+                      - message: groupName is required when type is Group
+                        rule: self.type != 'Group' || self.groupName != ""
+                    maxItems: 4
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
+                required:
+                - methods
+                type: object
+              deviceRef:
+                description: |-
+                  DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
+                  Immutable.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+                x-kubernetes-validations:
+                - message: DeviceRef is immutable
+                  rule: self == oldSelf
+              providerConfigRef:
+                description: |-
+                  ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this AAA.
+                  This reference is used to link the AAA to its provider-specific configuration.
+                properties:
+                  apiVersion:
+                    description: APIVersion is the api group version of the resource
+                      being referenced.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/)?([a-z0-9]([-a-z0-9]*[a-z0-9])?)$
+                    type: string
+                  kind:
+                    description: |-
+                      Kind of the resource being referenced.
+                      Kind must consist of alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                    type: string
+                  name:
+                    description: |-
+                      Name of the resource being referenced.
+                      Name must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+              serverGroups:
+                description: ServerGroups is the list of AAA server groups.
+                items:
+                  description: AAAServerGroup represents a named group of AAA servers.
+                  properties:
+                    name:
+                      description: Name is the name of the server group.
+                      maxLength: 63
+                      minLength: 1
+                      type: string
+                    servers:
+                      description: Servers is the list of servers in this group.
+                      items:
+                        description: AAAServer represents a single AAA server within
+                          a group.
+                        properties:
+                          address:
+                            description: Address is the IP address or hostname of
+                              the server.
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                          radius:
+                            description: |-
+                              RADIUS contains RADIUS specific server configuration.
+                              Required when the parent server group type is RADIUS.
+                            properties:
+                              accountingPort:
+                                default: 1813
+                                description: |-
+                                  AccountingPort is the UDP port for RADIUS accounting requests.
+                                  Defaults to 1813 if not specified.
+                                format: int32
+                                maximum: 65535
+                                minimum: 1
+                                type: integer
+                              authenticationPort:
+                                default: 1812
+                                description: |-
+                                  AuthenticationPort is the UDP port for RADIUS authentication requests.
+                                  Defaults to 1812 if not specified.
+                                format: int32
+                                maximum: 65535
+                                minimum: 1
+                                type: integer
+                              keySecretRef:
+                                description: |-
+                                  KeySecretRef is a reference to a secret containing the plain text shared key for this RADIUS server.
+                                  The secret must contain a key specified in the SecretKeySelector.
+                                properties:
+                                  key:
+                                    description: |-
+                                      Key is the of the entry in the secret resource's `data` or `stringData`
+                                      field to be used.
+                                    maxLength: 253
+                                    minLength: 1
+                                    type: string
+                                  name:
+                                    description: Name is unique within a namespace
+                                      to reference a secret resource.
+                                    maxLength: 253
+                                    minLength: 1
+                                    type: string
+                                  namespace:
+                                    description: |-
+                                      Namespace defines the space within which the secret name must be unique.
+                                      If omitted, the namespace of the object being reconciled will be used.
+                                    maxLength: 63
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
+                                x-kubernetes-map-type: atomic
+                            required:
+                            - keySecretRef
+                            type: object
+                          tacacs:
+                            description: |-
+                              TACACS contains TACACS+ specific server configuration.
+                              Required when the parent server group type is TACACS.
+                            properties:
+                              keySecretRef:
+                                description: |-
+                                  KeySecretRef is a reference to a secret containing the plain text shared key for this TACACS+ server.
+                                  The secret must contain a key specified in the SecretKeySelector.
+                                properties:
+                                  key:
+                                    description: |-
+                                      Key is the of the entry in the secret resource's `data` or `stringData`
+                                      field to be used.
+                                    maxLength: 253
+                                    minLength: 1
+                                    type: string
+                                  name:
+                                    description: Name is unique within a namespace
+                                      to reference a secret resource.
+                                    maxLength: 253
+                                    minLength: 1
+                                    type: string
+                                  namespace:
+                                    description: |-
+                                      Namespace defines the space within which the secret name must be unique.
+                                      If omitted, the namespace of the object being reconciled will be used.
+                                    maxLength: 63
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              port:
+                                default: 49
+                                description: |-
+                                  Port is the TCP port of the TACACS+ server.
+                                  Defaults to 49 if not specified.
+                                format: int32
+                                maximum: 65535
+                                minimum: 1
+                                type: integer
+                            required:
+                            - keySecretRef
+                            type: object
+                          timeout:
+                            description: Timeout is the response timeout for this
+                              server.
+                            type: string
+                        required:
+                        - address
+                        type: object
+                      maxItems: 16
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - address
+                      x-kubernetes-list-type: map
+                    sourceInterfaceName:
+                      description: SourceInterfaceName is the source interface to
+                        use for communication with the servers.
+                      maxLength: 63
+                      type: string
+                    type:
+                      description: Type is the protocol type of this server group.
+                      enum:
+                      - TACACS
+                      - RADIUS
+                      type: string
+                    vrfName:
+                      description: VrfName is the VRF to use for communication with
+                        the servers in this group.
+                      maxLength: 63
+                      type: string
+                  required:
+                  - name
+                  - servers
+                  - type
+                  type: object
+                  x-kubernetes-validations:
+                  - message: servers in a TACACS group must have tacacs config
+                    rule: self.type != 'TACACS' || self.servers.all(s, has(s.tacacs))
+                  - message: servers in a RADIUS group must have radius config
+                    rule: self.type != 'RADIUS' || self.servers.all(s, has(s.radius))
+                maxItems: 8
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+            required:
+            - deviceRef
+            type: object
+            x-kubernetes-validations:
+            - message: at least one of serverGroups, authentication, authorization,
+                or accounting must be set
+              rule: has(self.serverGroups) || has(self.authentication) || has(self.authorization)
+                || has(self.accounting)
+          status:
+            description: |-
+              Status of the resource. This is set and updated automatically.
+              Read-only.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              conditions:
+                description: The conditions are a list of status objects that describe
+                  the state of the AAA.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

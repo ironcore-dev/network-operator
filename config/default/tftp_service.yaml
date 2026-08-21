@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    control-plane: controller-manager
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: controller-manager-tftp-service
+  namespace: system
+spec:
+  ports:
+  - name: tftp
+    port: 1069
+    protocol: UDP
+    targetPort: 1069
+  selector:
+    control-plane: controller-manager
+    app.kubernetes.io/name: network-operator
+  type: ClusterIP

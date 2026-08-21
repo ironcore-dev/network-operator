@@ -1,0 +1,28 @@
+{
+  "rpm-items": {
+    "rtmap-items": {
+      "Rule-list": [
+        {
+          "name": "RM-PREFIXSET-V6",
+          "ent-items": {
+            "Entry-list": [
+              {
+                "action": "permit",
+                "order": 10,
+                "mrtdst-items": {
+                  "rsrtDstAtt-items": {
+                    "RsRtDstAtt-list": [
+                      {
+                        "tDn": "/System/rpm-items/pfxlistv6-items/RuleV6-list[name='PL-DEVICE-V6']"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

@@ -15,17 +15,17 @@ import (
 
 	"github.com/go-crypt/crypt/algorithm/shacrypt"
 
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
-var _ gnmiext.Configurable = (*User)(nil)
+var _ gnmiext.DataElement = (*User)(nil)
 
 // User represents a local user on a NX-OS device.
 type User struct {
 	AllowExpired   string         `json:"allowExpired"`
 	Expiration     string         `json:"expiration"`
 	Name           string         `json:"name"`
-	Pwd            string         `json:"pwd,omitempty"` // #nosec G117
+	Pwd            string         `json:"pwd,omitempty"`
 	PwdHash        PwdHashType    `json:"passwordHash,omitempty"`
 	PwdEncryptType PwdEncryptType `json:"pwdEncryptType,omitempty"`
 	SshauthItems   struct {

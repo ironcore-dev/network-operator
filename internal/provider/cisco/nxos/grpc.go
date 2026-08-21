@@ -7,14 +7,14 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
 var (
-	_ gnmiext.Configurable = (*GRPC)(nil)
-	_ gnmiext.Defaultable  = (*GRPC)(nil)
-	_ gnmiext.Configurable = (*GNMI)(nil)
-	_ gnmiext.Defaultable  = (*GNMI)(nil)
+	_ gnmiext.DataElement = (*GRPC)(nil)
+	_ gnmiext.Defaultable = (*GRPC)(nil)
+	_ gnmiext.DataElement = (*GNMI)(nil)
+	_ gnmiext.Defaultable = (*GNMI)(nil)
 )
 
 // GRPC represents the gRPC configuration on a NX-OS device.

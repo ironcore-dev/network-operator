@@ -44,6 +44,34 @@ spec:
             name: blocked-networks
       actions:
         routeDisposition: RejectRoute
+    - sequence: 40
+      actions:
+        routeDisposition: AcceptRoute
+        bgpActions:
+          setASPath:
+            prepend:
+              asNumber: 65000
+    - sequence: 50
+      actions:
+        routeDisposition: AcceptRoute
+        bgpActions:
+          setASPath:
+            prepend:
+              useLastAS: 5
+    - sequence: 60
+      actions:
+        routeDisposition: AcceptRoute
+        bgpActions:
+          setASPath:
+            replace:
+              privateAS: true
+              replacement: 65100
+    - sequence: 70
+      actions:
+        routeDisposition: AcceptRoute
+        bgpActions:
+          setASPath:
+            asNumber: 65000
     - sequence: 100
       actions:
         routeDisposition: AcceptRoute

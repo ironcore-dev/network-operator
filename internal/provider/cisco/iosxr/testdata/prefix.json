@@ -1,0 +1,41 @@
+{
+  "ipv4": {
+    "prefix-lists": {
+      "prefix-list": {
+        "prefix-list-name": "PL-IPv4",
+        "sequences": {
+          "sequence": [
+            {
+              "sequence-number": 10,
+              "permission": "permit",
+              "prefix": "10.10.0.0",
+              "mask": "255.255.0.0",
+              "match-prefix-length": {
+                "eq": 16
+              }
+            },
+            {
+              "sequence-number": 20,
+              "permission": "permit",
+              "prefix": "192.168.1.0",
+              "mask": "255.255.255.0",
+              "match-prefix-length": {
+                "le": 30
+              }
+            },
+            {
+              "sequence-number": 30,
+              "permission": "permit",
+              "prefix": "172.16.0.0",
+              "mask": "255.240.0.0",
+              "match-prefix-length": {
+                "ge": 12,
+                "le": 24
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

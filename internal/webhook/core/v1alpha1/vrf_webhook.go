@@ -12,10 +12,8 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
@@ -26,8 +24,7 @@ var vrflog = logf.Log.WithName("vrf-resource")
 
 // SetupVRFWebhookWithManager registers the webhook for VRF in the manager.
 func SetupVRFWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha1.VRF{}).
+	return ctrl.NewWebhookManagedBy(mgr, &v1alpha1.VRF{}).
 		WithValidator(&VRFCustomValidator{}).
 		Complete()
 }
@@ -38,32 +35,34 @@ func SetupVRFWebhookWithManager(mgr ctrl.Manager) error {
 // when it is created, updated, or deleted.
 type VRFCustomValidator struct{}
 
-var _ webhook.CustomValidator = &VRFCustomValidator{}
+var _ admission.Validator[*v1alpha1.VRF] = &VRFCustomValidator{}
 
-// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type VRF.
-func (v *VRFCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	vrf, ok := obj.(*v1alpha1.VRF)
-	if !ok {
-		return nil, fmt.Errorf("expected a VRF object but got %T", obj)
-	}
+// ValidateCreate implements admission.Validator so a webhook will be registered for the type VRF.
+func (v *VRFCustomValidator) ValidateCreate(_ context.Context, vrf *v1alpha1.VRF) (admission.Warnings, error) {
 	vrflog.Info("Validation for VRF upon creation", "name", vrf.GetName())
 
-	return nil, validateVRFSpec(vrf)
+	var warnings admission.Warnings
+	if vrf.Spec.VNI > 0 { //nolint:staticcheck // handling deprecated field for backward compatibility
+		warnings = append(warnings, "spec.vni is deprecated; use the vni field on the EVPNInstance resource instead")
+	}
+
+	return warnings, validateVRFSpec(vrf)
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type VRF.
-func (v *VRFCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	vrf, ok := newObj.(*v1alpha1.VRF)
-	if !ok {
-		return nil, fmt.Errorf("expected a VRF object for the newObj but got %T", newObj)
-	}
+// ValidateUpdate implements admission.Validator so a webhook will be registered for the type VRF.
+func (v *VRFCustomValidator) ValidateUpdate(_ context.Context, _, vrf *v1alpha1.VRF) (admission.Warnings, error) {
 	vrflog.Info("Validation for VRF upon update", "name", vrf.GetName())
 
-	return nil, validateVRFSpec(vrf)
+	var warnings admission.Warnings
+	if vrf.Spec.VNI > 0 { //nolint:staticcheck // handling deprecated field for backward compatibility
+		warnings = append(warnings, "spec.vni is deprecated; use the vni field on the EVPNInstance resource instead")
+	}
+
+	return warnings, validateVRFSpec(vrf)
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type VRF.
-func (v *VRFCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+// ValidateDelete implements admission.Validator so a webhook will be registered for the type VRF.
+func (v *VRFCustomValidator) ValidateDelete(_ context.Context, _ *v1alpha1.VRF) (admission.Warnings, error) {
 	return nil, nil
 }
 
@@ -71,7 +70,7 @@ func validateVRFSpec(vrf *v1alpha1.VRF) error {
 	var errAgg []error
 
 	rd := strings.TrimSpace(vrf.Spec.RouteDistinguisher)
-	if rd != "" {
+	if rd != "" && rd != v1alpha1.RouteDistinguisherAuto {
 		if err := validateRouteDistinguisher(rd); err != nil {
 			errAgg = append(errAgg, fmt.Errorf("invalid route distinguisher value %q: %w", rd, err))
 		}

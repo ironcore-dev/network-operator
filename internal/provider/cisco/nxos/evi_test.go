@@ -10,8 +10,10 @@ func init() {
 	rt := &RttEntry{Type: RttEntryTypeExport}
 	rt.EntItems.RttEntryList.Set(rtt)
 
+	rd, _ := RouteDistinguisher("10.0.0.10:65000") //nolint:errcheck
+
 	evi := &BDEVI{Encap: "vxlan-100010"}
-	evi.Rd, _ = RouteDistinguisher("10.0.0.10:65000") //nolint:errcheck
+	evi.Rd = NewOption(rd)
 	evi.RttpItems.RttPList.Set(rt)
 	Register("evi", evi)
 }

@@ -4,7 +4,6 @@ package main_test
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -98,7 +97,8 @@ func Vty() script.Cmd {
 				stderr = stderrBuf.String()
 				return
 			}, nil
-		})
+		},
+	)
 }
 
 // Apply returns a script command that applies a Kubernetes manifest to the cluster
@@ -151,18 +151,20 @@ func Apply() script.Cmd {
 				return "", "", fmt.Errorf("resource %s is not ready", res.GetName())
 			}
 			return WaitTimeout(wait, timeout, interval), nil
-		})
+		},
+	)
 }
 
 // TODO(felix-kaestner): Load endpoint configuration from a config file.
 var Endpoint = struct {
 	Addr string
 	User string
-	Pass string // #nosec G117
+	Pass string `json:"-"`
 }{}
 
 // ReadEnv reads required environment variables and populates the global Endpoint struct.
 func ReadEnv(t *testing.T) {
+	t.Helper()
 	Endpoint.Addr = MustGetEnv(t, "ADDR")
 	Endpoint.User = MustGetEnv(t, "USER")
 	Endpoint.Pass = MustGetEnv(t, "PASS")
@@ -243,7 +245,7 @@ func Create(t *testing.T, obj client.Object) {
 	}
 	t.Logf("created %T %s/%s", obj, obj.GetNamespace(), obj.GetName())
 	t.Cleanup(func() {
-		if err := k8sClient.Delete(context.Background(), obj); err != nil {
+		if err := k8sClient.Delete(t.Context(), obj); err != nil {
 			t.Fatalf("failed to delete %T: %v", obj, err)
 		}
 		t.Logf("deleted %T %s/%s", obj, obj.GetNamespace(), obj.GetName())

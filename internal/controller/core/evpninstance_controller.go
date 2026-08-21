@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/paused"
@@ -46,7 +47,7 @@ type EVPNInstanceReconciler struct {
 
 	// Recorder is used to record events for the controller.
 	// More info: https://book.kubebuilder.io/reference/raising-events
-	Recorder record.EventRecorder
+	Recorder events.EventRecorder
 
 	// Provider is the driver that will be used to create & delete the evpninstance.
 	Provider provider.ProviderFunc
@@ -60,7 +61,7 @@ type EVPNInstanceReconciler struct {
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=evpninstances/finalizers,verbs=update
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vlans,verbs=get;list;watch
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vlans/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -72,14 +73,14 @@ type EVPNInstanceReconciler struct {
 // - https://ahmet.im/blog/controller-pitfalls/#reconcile-method-shape
 func (r *EVPNInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
-	log.Info("Reconciling resource")
+	log.V(3).Info("Reconciling resource")
 
 	obj := new(v1alpha1.EVPNInstance)
 	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
 		if apierrors.IsNotFound(err) {
 			// If the custom resource is not found then it usually means that it was deleted or not created
 			// In this way, we will stop the reconciliation
-			log.Info("Resource not found. Ignoring since object must be deleted")
+			log.V(3).Info("Resource not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -111,8 +112,8 @@ func (r *EVPNInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	if err := r.Locker.AcquireLock(ctx, device.Name, "evpn-instance-controller"); err != nil {
 		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
-			log.Info("Device is already locked, requeuing reconciliation")
-			return ctrl.Result{RequeueAfter: time.Second}, nil
+			log.V(3).Info("Device is already locked, requeuing reconciliation")
+			return ctrl.Result{RequeueAfter: Jitter(time.Second), Priority: new(LockWaitPriorityDefault)}, nil
 		}
 		log.Error(err, "Failed to acquire device lock")
 		return ctrl.Result{}, err
@@ -157,7 +158,7 @@ func (r *EVPNInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				return ctrl.Result{}, err
 			}
 		}
-		log.Info("Resource is being deleted, skipping reconciliation")
+		log.V(3).Info("Resource is being deleted, skipping reconciliation")
 		return ctrl.Result{}, nil
 	}
 
@@ -168,13 +169,13 @@ func (r *EVPNInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			log.Error(err, "Failed to add finalizer to resource")
 			return ctrl.Result{}, err
 		}
-		log.Info("Added finalizer to resource")
+		log.V(1).Info("Added finalizer to resource")
 		return ctrl.Result{}, nil
 	}
 
 	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
-		log.Info("Initializing status conditions")
+		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
 
@@ -197,13 +198,16 @@ func (r *EVPNInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, apistatus.WrapTerminalError(err)
 	}
 
 	return ctrl.Result{}, nil
 }
 
-var eviVlanRefKey = ".spec.vlanRef.name"
+var (
+	eviVlanRefKey = ".spec.vlanRef.name"
+	eviVrfRefKey  = ".spec.vrfRef.name"
+)
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *EVPNInstanceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
@@ -223,6 +227,23 @@ func (r *EVPNInstanceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 			return nil
 		}
 		return []string{evi.Spec.VLANRef.Name}
+	}); err != nil {
+		return err
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.EVPNInstance{}, eviVrfRefKey, func(obj client.Object) []string {
+		evi := obj.(*v1alpha1.EVPNInstance)
+		if evi.Spec.VRFRef == nil {
+			return nil
+		}
+		return []string{evi.Spec.VRFRef.Name}
+	}); err != nil {
+		return err
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.EVPNInstance{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.EVPNInstance)
+		return []string{o.Spec.DeviceRef.Name}
 	}); err != nil {
 		return err
 	}
@@ -258,17 +279,28 @@ func (r *EVPNInstanceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 				},
 			}),
 		).
+		// Watches enqueues EVPNInstances for updates in referenced VRF resources.
+		// Only triggers on create and delete events since VRF names and deviceRef are immutable.
+		Watches(
+			&v1alpha1.VRF{},
+			handler.EnqueueRequestsFromMapFunc(r.vrfToEVPNInstance),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
 		// Watches enqueues EVPNInstances for updates in referenced Device resources.
-		// Triggers on create, delete, and update events when the Paused spec field changes.
+		// Triggers on create, delete, and update events when the device's effective pause state changes.
 		Watches(
 			&v1alpha1.Device{},
 			handler.EnqueueRequestsFromMapFunc(r.deviceToEVPNInstances),
 			builder.WithPredicates(predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					oldDevice := e.ObjectOld.(*v1alpha1.Device)
-					newDevice := e.ObjectNew.(*v1alpha1.Device)
-					// Only trigger when Paused spec field changes.
-					return oldDevice.Spec.Paused != newDevice.Spec.Paused
+					return paused.DevicePausedChanged(e.ObjectOld, e.ObjectNew)
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false
@@ -310,6 +342,15 @@ func (r *EVPNInstanceReconciler) reconcile(ctx context.Context, s *eviScope) (re
 		}
 	}
 
+	var vrf *v1alpha1.VRF
+	if s.EVPNInstance.Spec.Type == v1alpha1.EVPNInstanceTypeRouted && s.EVPNInstance.Spec.VRFRef != nil {
+		var err error
+		vrf, err = r.reconcileVRF(ctx, s)
+		if err != nil {
+			return err
+		}
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -324,6 +365,7 @@ func (r *EVPNInstanceReconciler) reconcile(ctx context.Context, s *eviScope) (re
 		EVPNInstance:   s.EVPNInstance,
 		ProviderConfig: s.ProviderConfig,
 		VLAN:           vlan,
+		VRF:            vrf,
 	})
 
 	cond := conditions.FromError(err)
@@ -397,9 +439,58 @@ func (r *EVPNInstanceReconciler) reconcileVLAN(ctx context.Context, s *eviScope)
 	return vlan, nil
 }
 
+// reconcileVRF ensures that the referenced VRF exists and belongs to the same device as the EVPNInstance.
+func (r *EVPNInstanceReconciler) reconcileVRF(ctx context.Context, s *eviScope) (*v1alpha1.VRF, error) {
+	key := client.ObjectKey{
+		Name:      s.EVPNInstance.Spec.VRFRef.Name,
+		Namespace: s.EVPNInstance.Namespace,
+	}
+
+	vrf := new(v1alpha1.VRF)
+	if err := r.Get(ctx, key, vrf); err != nil {
+		if apierrors.IsNotFound(err) {
+			conditions.Set(s.EVPNInstance, metav1.Condition{
+				Type:    v1alpha1.ReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.VRFNotFoundReason,
+				Message: fmt.Sprintf("referenced VRF %q not found", key),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("referenced VRF %q not found", key))
+		}
+		return nil, fmt.Errorf("failed to get referenced VRF %q: %w", key, err)
+	}
+
+	if vrf.Spec.DeviceRef.Name != s.Device.Name {
+		conditions.Set(s.EVPNInstance, metav1.Condition{
+			Type:    v1alpha1.ReadyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.CrossDeviceReferenceReason,
+			Message: fmt.Sprintf("referenced VRF %q does not belong to device %q", vrf.Name, s.Device.Name),
+		})
+		return nil, reconcile.TerminalError(fmt.Errorf("referenced VRF %q does not belong to device %q", vrf.Name, s.Device.Name))
+	}
+
+	return vrf, nil
+}
+
 func (r *EVPNInstanceReconciler) finalize(ctx context.Context, s *eviScope) (reterr error) {
 	if err := r.finalizeVLAN(ctx, s); err != nil {
 		return err
+	}
+
+	var vrf *v1alpha1.VRF
+	if s.EVPNInstance.Spec.VRFRef != nil {
+		vrf = new(v1alpha1.VRF)
+		err := r.Get(ctx, client.ObjectKey{
+			Name:      s.EVPNInstance.Spec.VRFRef.Name,
+			Namespace: s.EVPNInstance.Namespace,
+		}, vrf)
+		if client.IgnoreNotFound(err) != nil {
+			return fmt.Errorf("failed to get referenced VRF: %w", err)
+		}
+		if err != nil {
+			vrf = nil
+		}
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
@@ -414,6 +505,7 @@ func (r *EVPNInstanceReconciler) finalize(ctx context.Context, s *eviScope) (ret
 	return s.Provider.DeleteEVPNInstance(ctx, &provider.EVPNInstanceRequest{
 		EVPNInstance:   s.EVPNInstance,
 		ProviderConfig: s.ProviderConfig,
+		VRF:            vrf,
 	})
 }
 
@@ -449,7 +541,7 @@ func (r *EVPNInstanceReconciler) finalizeVLAN(ctx context.Context, s *eviScope) 
 }
 
 // deviceToEVPNInstances is a [handler.MapFunc] to be used to enqueue requests for reconciliation
-// for EVPNInstances when their referenced Device's Paused spec field changes.
+// for EVPNInstances when their referenced Device's effective pause state changes.
 func (r *EVPNInstanceReconciler) deviceToEVPNInstances(ctx context.Context, obj client.Object) []ctrl.Request {
 	device, ok := obj.(*v1alpha1.Device)
 	if !ok {
@@ -459,9 +551,10 @@ func (r *EVPNInstanceReconciler) deviceToEVPNInstances(ctx context.Context, obj 
 	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
 
 	list := new(v1alpha1.EVPNInstanceList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list EVPNInstances")
 		return nil
@@ -469,7 +562,7 @@ func (r *EVPNInstanceReconciler) deviceToEVPNInstances(ctx context.Context, obj 
 
 	requests := make([]ctrl.Request, 0, len(list.Items))
 	for _, i := range list.Items {
-		log.Info("Enqueuing EVPNInstance for reconciliation", "EVPNInstance", klog.KObj(&i))
+		log.V(2).Info("Enqueuing EVPNInstance for reconciliation", "EVPNInstance", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
 			NamespacedName: client.ObjectKey{
 				Name:      i.Name,
@@ -500,7 +593,40 @@ func (r *EVPNInstanceReconciler) vlanToEVPNInstance(ctx context.Context, obj cli
 	requests := []ctrl.Request{}
 	for _, evi := range evpnInstances.Items {
 		if evi.Spec.VLANRef != nil && evi.Spec.VLANRef.Name == vlan.Name {
-			log.Info("Enqueuing EVPNInstance for reconciliation", "EVPNInstance", klog.KObj(&evi))
+			log.V(2).Info("Enqueuing EVPNInstance for reconciliation", "EVPNInstance", klog.KObj(&evi))
+
+			requests = append(requests, ctrl.Request{
+				NamespacedName: client.ObjectKey{
+					Name:      evi.Name,
+					Namespace: evi.Namespace,
+				},
+			})
+		}
+	}
+
+	return requests
+}
+
+// vrfToEVPNInstance is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for an EVPNInstance when its referenced VRF changes.
+func (r *EVPNInstanceReconciler) vrfToEVPNInstance(ctx context.Context, obj client.Object) []ctrl.Request {
+	vrf, ok := obj.(*v1alpha1.VRF)
+	if !ok {
+		panic(fmt.Sprintf("Expected a VRF but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "VRF", klog.KObj(vrf))
+
+	evpnInstances := new(v1alpha1.EVPNInstanceList)
+	if err := r.List(ctx, evpnInstances, client.InNamespace(vrf.Namespace), client.MatchingFields{eviVrfRefKey: vrf.Name}); err != nil {
+		log.Error(err, "Failed to list EVPNInstances")
+		return nil
+	}
+
+	requests := []ctrl.Request{}
+	for _, evi := range evpnInstances.Items {
+		if evi.Spec.VRFRef != nil && evi.Spec.VRFRef.Name == vrf.Name {
+			log.V(2).Info("Enqueuing EVPNInstance for reconciliation", "EVPNInstance", klog.KObj(&evi))
 
 			requests = append(requests, ctrl.Request{
 				NamespacedName: client.ObjectKey{
@@ -533,7 +659,7 @@ func (r *EVPNInstanceReconciler) evpnInstancesForProviderConfig(ctx context.Cont
 			m.Spec.ProviderConfigRef.Name == obj.GetName() &&
 			m.Spec.ProviderConfigRef.Kind == gkv.Kind &&
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
-			log.Info("Enqueuing EVPNInstance for reconciliation", "EVPNInstance", klog.KObj(&m))
+			log.V(2).Info("Enqueuing EVPNInstance for reconciliation", "EVPNInstance", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      m.Name,

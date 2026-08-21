@@ -73,22 +73,22 @@ var _ = Describe("VRF Controller", func() {
 		})
 
 		AfterEach(func() {
-			err := k8sClient.Get(ctx, key, vrf)
-			Expect(err).NotTo(HaveOccurred())
+			By("Cleaning up the VRF resource")
+			v := &v1alpha1.VRF{}
+			v.Name = name
+			v.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, v))).To(Succeed())
 
-			By("Cleanup the specific resource instance NXOSVPC")
-			Expect(k8sClient.Delete(ctx, vrf)).To(Succeed())
-
-			err = k8sClient.Get(ctx, key, device)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleanup the specific resource instance Device")
-			Expect(k8sClient.Delete(ctx, device)).To(Succeed())
-
-			By("Ensuring the resource is deleted from the provider")
+			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.VRF).To(BeEmpty(), "Provider VPC should be empty")
+				g.Expect(testProvider.VRF.Has("CC-ADMIN-TEST")).To(BeFalse(), "Provider should not have VRF configured anymore")
 			}).Should(Succeed())
+
+			By("Cleaning up the Device resource")
+			device := &v1alpha1.Device{}
+			device.Name = name
+			device.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should successfully reconcile the resource", func() {

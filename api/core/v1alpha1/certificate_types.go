@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -40,11 +41,11 @@ type CertificateSpec struct {
 // CertificateStatus defines the observed state of Certificate.
 type CertificateStatus struct {
 	// The conditions are a list of status objects that describe the state of the Certificate.
-	//+listType=map
-	//+listMapKey=type
-	//+patchStrategy=merge
-	//+patchMergeKey=type
-	//+optional
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
@@ -107,5 +108,8 @@ func RegisterCertificateDependency(gvk schema.GroupVersionKind) {
 }
 
 func init() {
-	SchemeBuilder.Register(&Certificate{}, &CertificateList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &Certificate{}, &CertificateList{})
+		return nil
+	})
 }

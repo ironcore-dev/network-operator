@@ -1,0 +1,23 @@
+{
+  "dhcp-items": {
+    "inst-items": {
+      "relayif-items": {
+        "RelayIf-list": [
+          {
+            "addr-items": {
+              "RelayAddr-list": [
+                {
+                "address": "1.1.1.1"
+                },
+                {
+                  "address": "2.2.2.2",
+                  "vrf": "mgmt0"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

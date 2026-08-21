@@ -5,15 +5,15 @@ package nxos
 
 import (
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
 var (
-	_ gnmiext.Configurable = (*SyslogOrigin)(nil)
-	_ gnmiext.Configurable = (*SyslogSrcIf)(nil)
-	_ gnmiext.Configurable = (*SyslogHistory)(nil)
-	_ gnmiext.Configurable = (*SyslogRemoteItems)(nil)
-	_ gnmiext.Configurable = (*SyslogFacilityItems)(nil)
+	_ gnmiext.DataElement = (*SyslogOrigin)(nil)
+	_ gnmiext.DataElement = (*SyslogSrcIf)(nil)
+	_ gnmiext.DataElement = (*SyslogHistory)(nil)
+	_ gnmiext.DataElement = (*SyslogRemoteItems)(nil)
+	_ gnmiext.DataElement = (*SyslogFacilityItems)(nil)
 )
 
 type SyslogOrigin struct {

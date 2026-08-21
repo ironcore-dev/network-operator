@@ -4,11 +4,10 @@
 package nxos
 
 import (
-	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
-var _ gnmiext.Configurable = (*RouteMap)(nil)
+var _ gnmiext.DataElement = (*RouteMap)(nil)
 
 type RouteMap struct {
 	Name     string `json:"name"`
@@ -42,6 +41,21 @@ type RouteMapEntry struct {
 			RsRtDstAttList gnmiext.List[string, *RsRtDstAtt] `json:"RsRtDstAtt-list,omitzero"`
 		} `json:"rsrtDstAtt-items,omitzero"`
 	} `json:"mrtdst-items,omitzero"`
+	SetASPathPrependItems struct {
+		AS string `json:"as"`
+	} `json:"setaspathprepend-items,omitzero"`
+	SetASPathLastASItems struct {
+		LastAS int32 `json:"lastas"`
+	} `json:"setaspathlastas-items,omitzero"`
+	SetASPathReplaceItems struct {
+		MatchAsnList   string `json:"matchAsnList,omitempty"`
+		MatchPrivateAS bool   `json:"matchPrivateAs"`
+		ReplaceAsn     string `json:"replaceAsn"`
+		ReplaceType    string `json:"replaceType"`
+	} `json:"setaspathreplace-items,omitzero"`
+	SetASPathItems struct {
+		AsnList string `json:"asnList"`
+	} `json:"setaspath-items,omitzero"`
 }
 
 func (e *RouteMapEntry) Key() int32 { return e.Order }
@@ -69,10 +83,10 @@ func (e *RouteMapEntry) SetExtCommunities(communities []string) error {
 	return nil
 }
 
-func (e *RouteMapEntry) SetPrefixSet(ps *v1alpha1.PrefixSet) {
-	tdn := "/System/rpm-items/pfxlistv4-items/RuleV4-list[name='" + ps.Name + "']"
-	if ps.Is6() {
-		tdn = "/System/rpm-items/pfxlistv6-items/RuleV6-list[name='" + ps.Name + "']"
+func (e *RouteMapEntry) SetPrefixSet(name string, isV6 bool) {
+	tdn := "/System/rpm-items/pfxlistv4-items/RuleV4-list[name='" + name + "']"
+	if isV6 {
+		tdn = "/System/rpm-items/pfxlistv6-items/RuleV6-list[name='" + name + "']"
 	}
 	e.MrtdstItems.RsrtDstAttItems.RsRtDstAttList.Set(&RsRtDstAtt{TDn: tdn})
 }

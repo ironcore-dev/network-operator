@@ -1,0 +1,4 @@
+evpn multihoming
+  ead-evi route
+  df-election mode modulo
+  df-election time 2.2

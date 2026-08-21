@@ -18,15 +18,17 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	core "github.com/ironcore-dev/network-operator/internal/controller/core"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos"
@@ -87,12 +89,13 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
-		Logger: GinkgoLogr,
+		Scheme:  scheme.Scheme,
+		Logger:  GinkgoLogr,
+		Metrics: metricsserver.Options{BindAddress: "0"},
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	recorder := record.NewFakeRecorder(0)
+	recorder := events.NewFakeRecorder(0)
 	go func() {
 		for event := range recorder.Events {
 			GinkgoLogr.Info("Event", "event", event)
@@ -121,7 +124,7 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&VPCDomainReconciler{
@@ -142,6 +145,19 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	// Register a DeviceReconciler so that Devices automatically transition to
+	// Running phase (when no provisioning is configured). Without this, child
+	// resources remain paused indefinitely waiting for their parent Device to
+	// reach Running phase.
+	err = (&core.DeviceReconciler{
+		Client:            k8sManager.GetClient(),
+		Scheme:            k8sManager.GetScheme(),
+		Recorder:          recorder,
+		Provider:          prov,
+		HeartbeatInterval: 10 * time.Minute,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -150,7 +166,7 @@ var _ = BeforeSuite(func() {
 
 	Eventually(func() error {
 		var namespace corev1.Namespace
-		return k8sClient.Get(context.Background(), client.ObjectKey{Name: metav1.NamespaceDefault}, &namespace)
+		return k8sClient.Get(ctx, client.ObjectKey{Name: metav1.NamespaceDefault}, &namespace)
 	}).Should(Succeed())
 })
 
@@ -193,7 +209,10 @@ type MockProvider struct {
 	VPCDomain     *nxv1alpha1.VPCDomain
 }
 
-var _ Provider = (*MockProvider)(nil)
+var (
+	_ Provider                = (*MockProvider)(nil)
+	_ provider.DeviceProvider = (*MockProvider)(nil)
+)
 
 func NewMockProvider() *MockProvider {
 	return &MockProvider{}
@@ -201,6 +220,21 @@ func NewMockProvider() *MockProvider {
 
 func (p *MockProvider) Connect(context.Context, *deviceutil.Connection) error    { return nil }
 func (p *MockProvider) Disconnect(context.Context, *deviceutil.Connection) error { return nil }
+
+func (p *MockProvider) ListPorts(context.Context) ([]provider.DevicePort, error) { return nil, nil }
+func (p *MockProvider) GetDeviceInfo(context.Context) (*provider.DeviceInfo, error) {
+	return &provider.DeviceInfo{}, nil
+}
+
+func (p *MockProvider) GetLastRebootTime(context.Context) (time.Time, error) { return time.Time{}, nil }
+func (p *MockProvider) Reboot(context.Context, *deviceutil.Connection) error { return nil }
+func (p *MockProvider) FactoryReset(context.Context, *deviceutil.Connection) error {
+	return nil
+}
+
+func (p *MockProvider) Reprovision(context.Context, *deviceutil.Connection) error {
+	return nil
+}
 
 func (p *MockProvider) EnsureSystemSettings(ctx context.Context, s *nxv1alpha1.System) error {
 	p.Lock()

@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: vpcdomains.nx.cisco.networking.metal.ironcore.dev
 spec:
   group: nx.cisco.networking.metal.ironcore.dev
@@ -403,6 +403,7 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               keepaliveStatus:
+                default: Unknown
                 description: KeepAliveStatus indicates the status of the peer via
                   the keepalive link.
                 type: string
@@ -417,9 +418,11 @@ spec:
                   domain peer-link.
                 type: string
               peerLinkIfOperStatus:
+                default: Unknown
                 description: PeerLinkIfOperStatus is the Operational status of `PeerLinkIf`.
                 type: string
               peerStatus:
+                default: Unknown
                 description: |-
                   PeerStatus indicates the status of the vPC domain peer-link in the latest consistency check with the peer. This means that if
                   the adjacency is lost, e.g., due to a shutdown link, the device will not be able to perform such check and the reported status
@@ -436,6 +439,7 @@ spec:
                   been up and reachable via keepalive.
                 type: string
               role:
+                default: Unknown
                 description: Role indicates the current operational role of this vPC
                   domain peer.
                 type: string

@@ -1,0 +1,102 @@
+# Aggregate L3 Interface with IPv4 Address
+-- interfaces/eth1-3 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: eth1-3
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: eth1/3
+  description: Member of po20
+  adminState: Up
+  type: Physical
+  mtu: 9216
+-- interfaces/po20 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: po20
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: po20
+  description: L3 Port-Channel
+  adminState: Up
+  type: Aggregate
+  mtu: 9216
+  ipv4:
+    addresses:
+      - 10.0.100.0/31
+  aggregation:
+    controlProtocol:
+      mode: Active
+    memberInterfaceRefs:
+      - name: eth1-3
+-- state --
+{
+  "openconfig-interfaces:interfaces": {
+    "interface": [
+      {
+        "name": "eth1/3",
+        "config": {
+          "description": "Member of po20",
+          "enabled": true,
+          "mtu": 9216,
+          "name": "eth1/3",
+          "type": "iana-if-type:ethernetCsmacd"
+        },
+        "openconfig-if-ethernet:ethernet": {
+          "config": {
+            "openconfig-if-aggregate:aggregate-id": "po20"
+          }
+        }
+      },
+      {
+        "name": "po20",
+        "config": {
+          "description": "L3 Port-Channel",
+          "enabled": true,
+          "mtu": 9216,
+          "name": "po20",
+          "type": "iana-if-type:ieee8023adLag"
+        },
+        "openconfig-if-aggregate:aggregation": {
+          "config": {
+            "lag-type": "LACP"
+          }
+        },
+        "subinterfaces": {
+          "subinterface": [
+            {
+              "config": {
+                "enabled": true,
+                "index": 0
+              },
+              "index": 0,
+              "openconfig-if-ip:ipv4": {
+                "addresses": {
+                  "address": [
+                    {
+                      "config": {
+                        "ip": "10.0.100.0",
+                        "prefix-length": 31,
+                        "type": "PRIMARY"
+                      },
+                      "ip": "10.0.100.0"
+                    }
+                  ]
+                },
+                "config": {
+                  "enabled": true
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -75,24 +75,22 @@ var _ = Describe("User Controller", func() {
 		})
 
 		AfterEach(func() {
-			var resource client.Object = &v1alpha1.User{}
-			err := k8sClient.Get(ctx, key, resource)
-			Expect(err).NotTo(HaveOccurred())
+			By("Cleaning up the User resource")
+			user := &v1alpha1.User{}
+			user.Name = name
+			user.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, user))).To(Succeed())
 
-			By("Cleanup the specific resource instance User")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-
-			resource = &v1alpha1.Device{}
-			err = k8sClient.Get(ctx, key, resource)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleanup the specific resource instance Device")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-
-			By("Ensuring the resource is deleted from the provider")
+			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.User.Has(username)).To(BeFalse(), "User should not exist")
 			}).Should(Succeed())
+
+			By("Cleaning up the Device resource")
+			device := &v1alpha1.Device{}
+			device.Name = name
+			device.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should successfully reconcile the resource", func() {

@@ -14,7 +14,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -59,7 +59,7 @@ func getBearerToken(r *http.Request) (string, error) {
 	}
 
 	parts := strings.Split(authHeader, " ")
-	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
 		return "", errInvalidAuthorizationFormat
 	}
 
@@ -67,7 +67,7 @@ func getBearerToken(r *http.Request) (string, error) {
 }
 
 func (s *HTTPServer) findDeviceAndValidateToken(ctx context.Context, serial, token string) (*v1alpha1.Device, *v1alpha1.ProvisioningInfo, int, error) {
-	device, err := deviceutil.GetDeviceBySerial(ctx, s.Client, "", serial)
+	device, err := deviceutil.GetDeviceBySerial(ctx, s.Client, serial)
 	if err != nil {
 		s.Logger.Error(err, "Failed to get device by serial", "serial", serial, "error", err)
 		return nil, nil, http.StatusInternalServerError, fmt.Errorf("Failed to find device by serial: %w", err)
@@ -89,7 +89,7 @@ type HTTPServer struct {
 	Client           client.Client
 	Logger           klog.Logger
 	Mux              *http.ServeMux
-	Recorder         record.EventRecorder
+	Recorder         events.EventRecorder
 	ValidateSourceIP bool
 	Provider         provider.ProvisioningProvider
 	Port             int
@@ -112,7 +112,7 @@ func (s *HTTPServer) Start(ctx context.Context) error {
 		s.Logger.Info("Shutting down provisioning server")
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer shutdownCancel()
-		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		if err := httpServer.Shutdown(shutdownCtx); err != nil { //nolint:contextcheck
 			s.Logger.Error(err, "Error shutting down provisioning server")
 		}
 	}()
@@ -216,7 +216,7 @@ func (s *HTTPServer) HandleStatusReport(w http.ResponseWriter, r *http.Request) 
 		act.Error = report.Detail
 	}
 
-	s.Recorder.Eventf(device, "Normal", "Provisioning", "%s: %s", report.Status, report.Detail)
+	s.Recorder.Eventf(device, nil, "Normal", "Provisioning", "StatusReport", "%s: %s", report.Status, report.Detail)
 
 	if err := s.Client.Status().Update(ctx, device); err != nil {
 		s.Logger.Error(err, "Failed to update device status", "device", device.Name)
@@ -230,7 +230,7 @@ func (s *HTTPServer) HandleStatusReport(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-type ProvisioningResponse struct {
+type Response struct {
 	ProvisioningToken string         `json:"provisioningToken"`
 	Image             v1alpha1.Image `json:"image"`
 	UserAccounts      []UserAccount  `json:"userAccounts"`
@@ -253,7 +253,7 @@ func (s *HTTPServer) HandleProvisioningRequest(w http.ResponseWriter, r *http.Re
 	}
 
 	s.Logger.Info("provisioning request received", "serial", serial)
-	device, err := deviceutil.GetDeviceBySerial(ctx, s.Client, "", serial)
+	device, err := deviceutil.GetDeviceBySerial(ctx, s.Client, serial)
 	if err != nil {
 		s.Logger.Error(err, "Failed to find device by serial", "serial", serial, "error", err)
 		http.Error(w, "Failed to find device by serial", http.StatusInternalServerError)
@@ -319,7 +319,7 @@ func (s *HTTPServer) HandleProvisioningRequest(w http.ResponseWriter, r *http.Re
 		HashAlgorithm:  hashAlgorithm,
 	}
 
-	response := ProvisioningResponse{
+	response := Response{
 		ProvisioningToken: act.Token,
 		Image:             device.Spec.Provisioning.Image,
 		UserAccounts:      []UserAccount{ua},
@@ -432,7 +432,7 @@ func (s *HTTPServer) GetDeviceCertificate(w http.ResponseWriter, r *http.Request
 	c := clientutil.NewClient(s.Client, device.Namespace)
 
 	certList := v1alpha1.CertificateList{}
-	if err = c.List(ctx, &certList, client.InNamespace(device.Namespace), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name}); err != nil {
+	if err = c.List(ctx, &certList, client.InNamespace(device.Namespace), client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name}); err != nil {
 		s.Logger.Error(err, "Failed to list certificates", "device", device.Name)
 		http.Error(w, "Failed to list certificates", http.StatusInternalServerError)
 		return

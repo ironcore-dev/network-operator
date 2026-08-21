@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Testing Guide
 
 This guide covers how the testing framework used for the `network-operator` project.
@@ -14,17 +19,17 @@ The project uses three types of tests:
 
 ### Prerequisites
 
-- Go 1.24+
+- Go 1.26+
 - Make
 
 ### Running Unit Tests
 
 ```sh
 # Run all unit tests and collect coverage information
-make build/cover.out
+make coverage
 
 # Display coverage information in Browser
-open build/cover.html # Use xdg-open on Linux
+open cover.html # Use xdg-open on Linux
 ```
 
 ### What Gets Tested
@@ -46,14 +51,8 @@ open build/cover.html # Use xdg-open on Linux
 ### Running E2E Tests
 
 ```sh
-# Create test cluster
-make kind-create
-
 # Run E2E tests
 make test-e2e
-
-# Cleanup (optional)
-make kind-delete
 ```
 
 ### What Gets Tested

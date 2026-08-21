@@ -6,17 +6,17 @@ package nxos
 import (
 	"encoding/json"
 
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
 var (
-	_ gnmiext.Configurable = (*VLANSystem)(nil)
-	_ gnmiext.Defaultable  = (*VLANSystem)(nil)
-	_ gnmiext.Configurable = (*VLANReservation)(nil)
-	_ gnmiext.Defaultable  = (*VLANReservation)(nil)
-	_ gnmiext.Configurable = (*VLAN)(nil)
-	_ gnmiext.Configurable = (*VLANOperItems)(nil)
-	_ gnmiext.Configurable = (*VXLAN)(nil)
+	_ gnmiext.DataElement = (*VLANSystem)(nil)
+	_ gnmiext.Defaultable = (*VLANSystem)(nil)
+	_ gnmiext.DataElement = (*VLANReservation)(nil)
+	_ gnmiext.Defaultable = (*VLANReservation)(nil)
+	_ gnmiext.DataElement = (*VLAN)(nil)
+	_ gnmiext.DataElement = (*VLANOperItems)(nil)
+	_ gnmiext.DataElement = (*VXLAN)(nil)
 )
 
 // VLANSystem represents the settings shared among all VLANs

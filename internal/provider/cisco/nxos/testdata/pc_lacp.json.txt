@@ -1,0 +1,3 @@
+interface port-channel1
+ lacp vpc-convergence
+ no lacp suspend-individual

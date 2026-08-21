@@ -59,24 +59,22 @@ var _ = Describe("ISIS Controller", func() {
 		})
 
 		AfterEach(func() {
-			var resource client.Object = &v1alpha1.ISIS{}
-			err := k8sClient.Get(ctx, key, resource)
-			Expect(err).NotTo(HaveOccurred())
+			By("Cleaning up the ISIS resource")
+			isis := &v1alpha1.ISIS{}
+			isis.Name = name
+			isis.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, isis))).To(Succeed())
 
-			By("Cleanup the specific resource instance ISIS")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-
-			resource = &v1alpha1.Device{}
-			err = k8sClient.Get(ctx, key, resource)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleanup the specific resource instance Device")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-
-			By("Ensuring the resource is deleted from the provider")
+			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.ISIS.Has("UNDERLAY")).To(BeFalse(), "Provider should not have ISIS instance configured")
 			}).Should(Succeed())
+
+			By("Cleanup the Device resource")
+			device := &v1alpha1.Device{}
+			device.Name = name
+			device.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should successfully reconcile the resource", func() {
@@ -146,15 +144,17 @@ var _ = Describe("ISIS Controller", func() {
 		})
 
 		AfterEach(func() {
-			By("Cleaning up all ISIS resources")
-			Expect(k8sClient.DeleteAllOf(ctx, &v1alpha1.ISIS{}, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
-
-			device := &v1alpha1.Device{}
-			err := k8sClient.Get(ctx, key, device)
-			Expect(err).NotTo(HaveOccurred())
+			By("Cleaning up the ISIS resource")
+			isis := &v1alpha1.ISIS{}
+			isis.Name = name
+			isis.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, isis))).To(Succeed())
 
 			By("Cleanup the Device resource")
-			Expect(k8sClient.Delete(ctx, device)).To(Succeed())
+			device := &v1alpha1.Device{}
+			device.Name = name
+			device.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should set ConfiguredCondition to false when interfaceRef does not exist", func() {

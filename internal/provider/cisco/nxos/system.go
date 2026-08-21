@@ -5,24 +5,27 @@ package nxos
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strconv"
+	"time"
 
 	"google.golang.org/grpc"
 
-	"github.com/openconfig/gnoi/factory_reset"
-	"github.com/openconfig/gnoi/system"
+	factoryresetpb "github.com/openconfig/gnoi/factory_reset"
+	systempb "github.com/openconfig/gnoi/system"
 
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
 const Manufacturer = "Cisco"
 
 var (
-	_ gnmiext.Configurable = (*SystemJumboMTU)(nil)
-	_ gnmiext.Defaultable  = (*SystemJumboMTU)(nil)
-	_ gnmiext.Configurable = (*Model)(nil)
-	_ gnmiext.Configurable = (*SerialNumber)(nil)
-	_ gnmiext.Configurable = (*FirmwareVersion)(nil)
+	_ gnmiext.DataElement = (*SystemJumboMTU)(nil)
+	_ gnmiext.Defaultable = (*SystemJumboMTU)(nil)
+	_ gnmiext.DataElement = (*Model)(nil)
+	_ gnmiext.DataElement = (*SerialNumber)(nil)
+	_ gnmiext.DataElement = (*FirmwareVersion)(nil)
 )
 
 // SystemJumboMTU represents the jumbo MTU size configured on the system.
@@ -34,6 +37,13 @@ func (s *SystemJumboMTU) XPath() string {
 
 func (s *SystemJumboMTU) Default() {
 	*s = 9216
+}
+
+// Hostname is the configured hostname of the device.
+type Hostname string
+
+func (*Hostname) XPath() string {
+	return "System/name"
 }
 
 // Model is the chassis model of the device, e.g. "N9K-C9336C-FX2".
@@ -58,41 +68,63 @@ func (*FirmwareVersion) XPath() string {
 	return "System/showversion-items/nxosVersion"
 }
 
-var _ gnmiext.Configurable = (*BootPOAP)(nil)
+type BootTime UnixTime
 
-type BootPOAP string
+func (*BootTime) XPath() string {
+	return "System/procsys-items/bootTime"
+}
 
-func (*BootPOAP) XPath() string {
-	return "/System/boot-items/poap"
+func (t *BootTime) UnmarshalJSON(b []byte) error {
+	return (*UnixTime)(t).UnmarshalJSON(b)
+}
+
+// UnixTime is a wrapper around time.Time that marshals/unmarshals to/from a Unix timestamp in seconds.
+type UnixTime struct {
+	time.Time `json:"-"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (t *UnixTime) UnmarshalJSON(b []byte) error {
+	var unix int64
+	if err := json.Unmarshal(b, &unix); err != nil {
+		var str string
+		if err := json.Unmarshal(b, &str); err != nil {
+			return fmt.Errorf("failed to unmarshal UnixTime: %w", err)
+		}
+		unix, err = strconv.ParseInt(str, 10, 64)
+		if err != nil {
+			return fmt.Errorf("failed to parse UnixTime string: %w", err)
+		}
+	}
+	t.Time = time.Unix(unix, 0)
+	return nil
 }
 
 func Reboot(ctx context.Context, conn *grpc.ClientConn) error {
-	request := system.RebootRequest{
-		Method: system.RebootMethod_COLD,
-		// Message is not supported on NXOS
-		// Delay is not supported on NXOS
-		Force: true, // only Force true is supported
+	req := &systempb.RebootRequest{
+		Method:  systempb.RebootMethod_COLD,
+		Delay:   0,  // Unsupported on NX-OS, must be 0
+		Message: "", // Unsupported on NX-OS, must be empty
+		Force:   true,
 	}
-	c := system.NewSystemClient(conn)
-	_, err := c.Reboot(ctx, &request, grpc.WaitForReady(true))
+	c := systempb.NewSystemClient(conn)
+	_, err := c.Reboot(ctx, req, grpc.WaitForReady(true))
 	return err
 }
 
-func ResetToFactoryDefaults(ctx context.Context, conn *grpc.ClientConn) error {
-	request := factory_reset.StartRequest{
-		// True not supported on NXOS, NXOS makes sure running OS is preserved
-		FactoryOs:   false,
+func FactoryReset(ctx context.Context, conn *grpc.ClientConn) error {
+	req := &factoryresetpb.StartRequest{
+		FactoryOs:   false, // NX-OS does not support factory OS reset, it always ensures the running OS is preserved
 		ZeroFill:    true,
 		RetainCerts: false,
 	}
-	c := factory_reset.NewFactoryResetClient(conn)
-	response, err := c.Start(ctx, &request, grpc.WaitForReady(true))
+	c := factoryresetpb.NewFactoryResetClient(conn)
+	res, err := c.Start(ctx, req, grpc.WaitForReady(true))
 	if err != nil {
 		return err
 	}
-	resetError := response.GetResetError()
-	if resetError != nil {
-		return fmt.Errorf("factory reset failed: %s", resetError.String())
+	if resetErr := res.GetResetError(); resetErr != nil {
+		return fmt.Errorf("factory reset failed: %s", resetErr.String())
 	}
 	return nil
 }

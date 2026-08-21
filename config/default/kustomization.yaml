@@ -29,6 +29,8 @@ resources:
 - metrics_service.yaml
 # [PROVISIONING] Expose the controller manager provisioning service.
 - provisioning_service.yaml
+# [TFTP] Expose the controller manager TFTP service.
+- tftp_service.yaml
 # [NETWORK POLICY] Protect the /metrics endpoint and Webhook Server with NetworkPolicy.
 # Only Pod(s) running a namespace labeled with 'metrics: enabled' will be able to gather the metrics.
 # Only CR(s) which requires webhooks and are applied on namespaces labeled with 'webhooks: enabled' will
@@ -58,6 +60,11 @@ patches:
 
 # [PROVISIONING] The following patch will add the provisioning port to the manager container.
 - path: manager_provisioning_patch.yaml
+  target:
+    kind: Deployment
+
+# [TFTP] The following patch will add the TFTP port to the manager container.
+- path: manager_tftp_patch.yaml
   target:
     kind: Deployment
 

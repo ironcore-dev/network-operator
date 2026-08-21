@@ -6,7 +6,9 @@ package core
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -21,12 +23,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
@@ -46,6 +49,8 @@ var (
 	k8sManager   ctrl.Manager
 	testProvider = NewProvider()
 	testLocker   *resourcelock.ResourceLocker
+
+	lastRebootTime = time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)
 )
 
 func TestControllers(t *testing.T) {
@@ -85,12 +90,13 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
-		Logger: GinkgoLogr,
+		Scheme:  scheme.Scheme,
+		Logger:  GinkgoLogr,
+		Metrics: metricsserver.Options{BindAddress: "0"},
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	recorder := record.NewFakeRecorder(0)
+	recorder := events.NewFakeRecorder(0)
 	go func() {
 		for event := range recorder.Events {
 			GinkgoLogr.Info("Event", "event", event)
@@ -114,11 +120,11 @@ var _ = BeforeSuite(func() {
 	prov := func() provider.Provider { return testProvider }
 
 	err = (&DeviceReconciler{
-		Client:          k8sManager.GetClient(),
-		Scheme:          k8sManager.GetScheme(),
-		Recorder:        recorder,
-		Provider:        prov,
-		RequeueInterval: time.Second,
+		Client:            k8sManager.GetClient(),
+		Scheme:            k8sManager.GetScheme(),
+		Recorder:          recorder,
+		Provider:          prov,
+		HeartbeatInterval: time.Second,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -138,7 +144,7 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&UserReconciler{
@@ -147,7 +153,7 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&DNSReconciler{
@@ -156,7 +162,7 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&NTPReconciler{
@@ -165,7 +171,7 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&AccessControlListReconciler{
@@ -174,7 +180,7 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&CertificateReconciler{
@@ -183,7 +189,7 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&SNMPReconciler{
@@ -192,7 +198,7 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&SyslogReconciler{
@@ -201,7 +207,7 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&ManagementAccessReconciler{
@@ -210,37 +216,34 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&ISISReconciler{
-		Client:          k8sManager.GetClient(),
-		Scheme:          k8sManager.GetScheme(),
-		Recorder:        recorder,
-		Provider:        prov,
-		Locker:          testLocker,
-		RequeueInterval: time.Second,
-	}).SetupWithManager(k8sManager)
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+		Locker:   testLocker,
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&VRFReconciler{
-		Client:          k8sManager.GetClient(),
-		Scheme:          k8sManager.GetScheme(),
-		Recorder:        recorder,
-		Provider:        prov,
-		Locker:          testLocker,
-		RequeueInterval: time.Second,
-	}).SetupWithManager(k8sManager)
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+		Locker:   testLocker,
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&PIMReconciler{
-		Client:          k8sManager.GetClient(),
-		Scheme:          k8sManager.GetScheme(),
-		Recorder:        recorder,
-		Provider:        prov,
-		Locker:          testLocker,
-		RequeueInterval: time.Second,
-	}).SetupWithManager(k8sManager)
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+		Locker:   testLocker,
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&BGPReconciler{
@@ -250,7 +253,7 @@ var _ = BeforeSuite(func() {
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&BGPPeerReconciler{
@@ -260,7 +263,7 @@ var _ = BeforeSuite(func() {
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&OSPFReconciler{
@@ -270,7 +273,7 @@ var _ = BeforeSuite(func() {
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&VLANReconciler{
@@ -280,7 +283,7 @@ var _ = BeforeSuite(func() {
 		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&EVPNInstanceReconciler{
@@ -308,7 +311,7 @@ var _ = BeforeSuite(func() {
 		Recorder: recorder,
 		Provider: prov,
 		Locker:   testLocker,
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&RoutingPolicyReconciler{
@@ -330,6 +333,35 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&DHCPRelayReconciler{
+		Client:          k8sManager.GetClient(),
+		Scheme:          k8sManager.GetScheme(),
+		Recorder:        recorder,
+		Provider:        prov,
+		Locker:          testLocker,
+		RequeueInterval: time.Second,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&ConfigBackupReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+		Locker:   testLocker,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&EthernetSegmentReconciler{
+		Client:          k8sManager.GetClient(),
+		Scheme:          k8sManager.GetScheme(),
+		Recorder:        recorder,
+		Provider:        prov,
+		Locker:          testLocker,
+		RequeueInterval: time.Second,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -338,7 +370,7 @@ var _ = BeforeSuite(func() {
 
 	Eventually(func() error {
 		var namespace corev1.Namespace
-		return k8sClient.Get(context.Background(), client.ObjectKey{Name: metav1.NamespaceDefault}, &namespace)
+		return k8sClient.Get(ctx, client.ObjectKey{Name: metav1.NamespaceDefault}, &namespace)
 	}).Should(Succeed())
 })
 
@@ -375,6 +407,7 @@ func detectTestBinaryDir() string {
 var (
 	_ provider.Provider                 = (*Provider)(nil)
 	_ provider.DeviceProvider           = (*Provider)(nil)
+	_ provider.MaintenanceProvider      = (*Provider)(nil)
 	_ provider.ProvisioningProvider     = (*Provider)(nil)
 	_ provider.InterfaceProvider        = (*Provider)(nil)
 	_ provider.BannerProvider           = (*Provider)(nil)
@@ -398,55 +431,93 @@ var (
 	_ provider.RoutingPolicyProvider    = (*Provider)(nil)
 	_ provider.NVEProvider              = (*Provider)(nil)
 	_ provider.LLDPProvider             = (*Provider)(nil)
+	_ provider.DHCPRelayProvider        = (*Provider)(nil)
+	_ provider.EthernetSegmentProvider  = (*Provider)(nil)
+	_ provider.ConfigBackupProvider     = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
 type Provider struct {
 	sync.Mutex
 
-	Ports           sets.Set[string]
-	User            sets.Set[string]
-	PreLoginBanner  *string
-	PostLoginBanner *string
-	DNS             *v1alpha1.DNS
-	NTP             *v1alpha1.NTP
-	ACLs            sets.Set[string]
-	Certs           sets.Set[string]
-	SNMP            *v1alpha1.SNMP
-	Syslog          *v1alpha1.Syslog
-	Access          *v1alpha1.ManagementAccess
-	ISIS            sets.Set[string]
-	VRF             sets.Set[string]
-	PIM             *v1alpha1.PIM
-	BGP             *v1alpha1.BGP
-	BGPPeers        sets.Set[string]
-	OSPF            sets.Set[string]
-	VLANs           sets.Set[int16]
-	EVIs            sets.Set[int32]
-	PrefixSets      sets.Set[string]
-	RoutingPolicies sets.Set[string]
-	NVE             *v1alpha1.NetworkVirtualizationEdge
-	LLDP            *v1alpha1.LLDP
+	ConnectError   error // if non-nil, Connect returns this error
+	LastRebootTime time.Time
+
+	Ports            sets.Set[string]
+	User             sets.Set[string]
+	PreLoginBanner   *string
+	PostLoginBanner  *string
+	DNS              *v1alpha1.DNS
+	NTP              *v1alpha1.NTP
+	ACLs             sets.Set[string]
+	Certs            sets.Set[string]
+	SNMP             *v1alpha1.SNMP
+	Syslog           *v1alpha1.Syslog
+	Access           *v1alpha1.ManagementAccess
+	ISIS             sets.Set[string]
+	VRF              sets.Set[string]
+	PIM              *v1alpha1.PIM
+	BGP              *v1alpha1.BGP
+	BGPVRF           *v1alpha1.VRF
+	BGPPeers         sets.Set[string]
+	OSPF             sets.Set[string]
+	VLANs            sets.Set[int16]
+	EVIs             sets.Set[int32]
+	PrefixSets       sets.Set[string]
+	RoutingPolicies  sets.Set[string]
+	NVE              *v1alpha1.NetworkVirtualizationEdge
+	LLDP             *v1alpha1.LLDP
+	LLDPOperStatus   bool
+	LLDPNeighbors    map[string]*provider.LLDPAdjacency
+	DHCPRelay        *v1alpha1.DHCPRelay
+	EthernetSegments map[string]string
+	StartupConfig    *v1alpha1.ConfigBackup
+	ConfigBackups    []*provider.ConfigBackupFile
+	StorageTotal     int64
 }
 
 func NewProvider() *Provider {
 	return &Provider{
-		Ports:           sets.New[string](),
-		User:            sets.New[string](),
-		ACLs:            sets.New[string](),
-		Certs:           sets.New[string](),
-		ISIS:            sets.New[string](),
-		VRF:             sets.New[string](),
-		BGPPeers:        sets.New[string](),
-		OSPF:            sets.New[string](),
-		VLANs:           sets.New[int16](),
-		EVIs:            sets.New[int32](),
-		PrefixSets:      sets.New[string](),
-		RoutingPolicies: sets.New[string](),
+		LastRebootTime:   lastRebootTime,
+		Ports:            sets.New[string](),
+		User:             sets.New[string](),
+		ACLs:             sets.New[string](),
+		Certs:            sets.New[string](),
+		ISIS:             sets.New[string](),
+		VRF:              sets.New[string](),
+		BGPPeers:         sets.New[string](),
+		OSPF:             sets.New[string](),
+		VLANs:            sets.New[int16](),
+		EVIs:             sets.New[int32](),
+		PrefixSets:       sets.New[string](),
+		RoutingPolicies:  sets.New[string](),
+		LLDPOperStatus:   true,
+		LLDPNeighbors:    make(map[string]*provider.LLDPAdjacency),
+		EthernetSegments: make(map[string]string),
+		StorageTotal:     int64(1024 * 1024 * 100),
 	}
 }
 
-func (p *Provider) Connect(context.Context, *deviceutil.Connection) error    { return nil }
+// SetConnectError sets the error that Connect will return on subsequent calls.
+// Pass nil to clear the error and allow connections to succeed.
+func (p *Provider) SetConnectError(err error) {
+	p.Lock()
+	defer p.Unlock()
+	p.ConnectError = err
+}
+
+// SetLastRebootTime sets the time returned by GetLastRebootTime on subsequent calls.
+func (p *Provider) SetLastRebootTime(t time.Time) {
+	p.Lock()
+	defer p.Unlock()
+	p.LastRebootTime = t
+}
+
+func (p *Provider) Connect(_ context.Context, _ *deviceutil.Connection) error {
+	p.Lock()
+	defer p.Unlock()
+	return p.ConnectError
+}
 func (p *Provider) Disconnect(context.Context, *deviceutil.Connection) error { return nil }
 
 func (p *Provider) ListPorts(context.Context) (ports []provider.DevicePort, err error) {
@@ -459,6 +530,12 @@ func (p *Provider) ListPorts(context.Context) (ports []provider.DevicePort, err 
 		})
 	}
 	return
+}
+
+func (p *Provider) GetLastRebootTime(_ context.Context) (time.Time, error) {
+	p.Lock()
+	defer p.Unlock()
+	return p.LastRebootTime, nil
 }
 
 func (p *Provider) GetDeviceInfo(context.Context) (*provider.DeviceInfo, error) {
@@ -504,10 +581,27 @@ func (p *Provider) DeleteInterface(_ context.Context, req *provider.InterfaceReq
 	return nil
 }
 
-func (p *Provider) GetInterfaceStatus(context.Context, *provider.InterfaceRequest) (provider.InterfaceStatus, error) {
-	return provider.InterfaceStatus{
+func (p *Provider) GetInterfaceStatus(_ context.Context, req *provider.InterfaceRequest) (provider.InterfaceStatus, error) {
+	p.Lock()
+	defer p.Unlock()
+
+	status := provider.InterfaceStatus{
 		OperStatus: true,
-	}, nil
+	}
+
+	if neighbor, ok := p.LLDPNeighbors[req.Interface.Spec.Name]; ok {
+		status.LLDPAdjacencies = []provider.LLDPAdjacency{*neighbor}
+	}
+
+	return status, nil
+}
+
+func (p *Provider) InterfaceNameEqual(_ context.Context, a, b string) (bool, error) {
+	return a == b, nil
+}
+
+func (p *Provider) LoopbackInterfaceName(id int) (string, error) {
+	return fmt.Sprintf("lo%d", id), nil
 }
 
 func (p *Provider) EnsureBanner(_ context.Context, req *provider.EnsureBannerRequest) error {
@@ -580,17 +674,17 @@ func (p *Provider) DeleteNTP(context.Context) error {
 	return nil
 }
 
-func (p *Provider) EnsureACL(_ context.Context, req *provider.EnsureACLRequest) error {
+func (p *Provider) EnsureACL(_ context.Context, req *provider.ACLRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.ACLs.Insert(req.ACL.Spec.Name)
 	return nil
 }
 
-func (p *Provider) DeleteACL(_ context.Context, req *provider.DeleteACLRequest) error {
+func (p *Provider) DeleteACL(_ context.Context, req *provider.ACLRequest) error {
 	p.Lock()
 	defer p.Unlock()
-	p.ACLs.Delete(req.Name)
+	p.ACLs.Delete(req.ACL.Spec.Name)
 	return nil
 }
 
@@ -643,7 +737,7 @@ func (p *Provider) EnsureManagementAccess(_ context.Context, req *provider.Ensur
 	return nil
 }
 
-func (p *Provider) DeleteManagementAccess(context.Context) error {
+func (p *Provider) DeleteManagementAccess(context.Context, *provider.DeleteManagementAccessRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.Access = nil
@@ -696,6 +790,7 @@ func (p *Provider) EnsureBGP(_ context.Context, req *provider.EnsureBGPRequest) 
 	p.Lock()
 	defer p.Unlock()
 	p.BGP = req.BGP
+	p.BGPVRF = req.VRF
 	return nil
 }
 
@@ -703,6 +798,7 @@ func (p *Provider) DeleteBGP(context.Context, *provider.DeleteBGPRequest) error 
 	p.Lock()
 	defer p.Unlock()
 	p.BGP = nil
+	p.BGPVRF = nil
 	return nil
 }
 
@@ -845,6 +941,58 @@ func (p *Provider) GetNVEStatus(_ context.Context, _ *provider.NVERequest) (prov
 	return status, nil
 }
 
+func (p *Provider) CreateConfigBackup(_ context.Context, req *provider.ConfigBackupRequest) (*provider.ConfigBackupFile, error) {
+	p.Lock()
+	defer p.Unlock()
+
+	if req.ConfigBackup.Spec.Type == v1alpha1.ConfigBackupTypeStartup {
+		p.StartupConfig = req.ConfigBackup
+		return nil, nil //nolint:nilnil
+	}
+
+	file := &provider.ConfigBackupFile{
+		Path:      path.Join(req.ConfigBackup.Spec.Path, fmt.Sprintf("configbackup-%s-", req.ConfigBackup.UID)) + time.Now().Format("20060102T150405Z"),
+		SizeBytes: new(int64(1024)),
+		CreatedAt: time.Now(),
+	}
+	p.ConfigBackups = append(p.ConfigBackups, file)
+	return file, nil
+}
+
+func (p *Provider) ListConfigBackups(_ context.Context, _ *provider.ConfigBackupRequest) (*provider.ConfigBackupInventory, error) {
+	p.Lock()
+	defer p.Unlock()
+	var used int64
+	for _, f := range p.ConfigBackups {
+		if f.SizeBytes != nil {
+			used += *f.SizeBytes
+		}
+	}
+	return &provider.ConfigBackupInventory{
+		Backups:    p.ConfigBackups,
+		TotalBytes: &p.StorageTotal,
+		UsedBytes:  &used,
+		FreeBytes:  new(p.StorageTotal - used),
+	}, nil
+}
+
+func (p *Provider) DeleteConfigBackups(_ context.Context, files ...*provider.ConfigBackupFile) error {
+	p.Lock()
+	defer p.Unlock()
+	remove := make(map[string]struct{}, len(files))
+	for _, f := range files {
+		remove[f.Path] = struct{}{}
+	}
+	filtered := p.ConfigBackups[:0]
+	for _, b := range p.ConfigBackups {
+		if _, ok := remove[b.Path]; !ok {
+			filtered = append(filtered, b)
+		}
+	}
+	p.ConfigBackups = filtered
+	return nil
+}
+
 func (p *Provider) EnsureLLDP(_ context.Context, req *provider.LLDPRequest) error {
 	p.Lock()
 	defer p.Unlock()
@@ -860,5 +1008,81 @@ func (p *Provider) DeleteLLDP(_ context.Context, req *provider.LLDPRequest) erro
 }
 
 func (p *Provider) GetLLDPStatus(_ context.Context, _ *provider.LLDPRequest) (provider.LLDPStatus, error) {
-	return provider.LLDPStatus{OperStatus: true}, nil
+	p.Lock()
+	defer p.Unlock()
+	return provider.LLDPStatus{OperStatus: p.LLDPOperStatus}, nil
+}
+
+func (p *Provider) EnsureDHCPRelay(_ context.Context, req *provider.DHCPRelayRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.DHCPRelay = req.DHCPRelay
+	return nil
+}
+
+func (p *Provider) DeleteDHCPRelay(_ context.Context, req *provider.DHCPRelayRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.DHCPRelay = nil
+	return nil
+}
+
+func (p *Provider) GetDHCPRelayStatus(_ context.Context, req *provider.DHCPRelayRequest) (provider.DHCPRelayStatus, error) {
+	p.Lock()
+	defer p.Unlock()
+	status := provider.DHCPRelayStatus{}
+	if p.DHCPRelay != nil {
+		// Return the interface names from the request (simulating what the device would return)
+		for _, intf := range req.Interfaces {
+			status.ConfiguredInterfaces = append(status.ConfiguredInterfaces, intf.Spec.Name)
+		}
+	}
+	return status, nil
+}
+
+func (p *Provider) EnsureEthernetSegment(_ context.Context, req *provider.EnsureEthernetSegmentRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	esi := req.EthernetSegment.Spec.ESI
+	if esi == "" {
+		// Simulate auto-generated ESI (Type 3 MAC-based)
+		esi = "03:aa:bb:cc:dd:ee:ff:00:00:01"
+	}
+	p.EthernetSegments[req.EthernetSegment.Name] = esi
+	return nil
+}
+
+func (p *Provider) DeleteEthernetSegment(_ context.Context, req *provider.DeleteEthernetSegmentRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	delete(p.EthernetSegments, req.EthernetSegment.Name)
+	return nil
+}
+
+func (p *Provider) GetEthernetSegmentStatus(_ context.Context, req *provider.EthernetSegmentStatusRequest) (provider.EthernetSegmentStatus, error) {
+	p.Lock()
+	defer p.Unlock()
+	esi := p.EthernetSegments[req.EthernetSegment.Name]
+	return provider.EthernetSegmentStatus{ESI: esi, OperStatus: esi != ""}, nil
+}
+
+func (p *Provider) GetEthernetSegment(name string) (string, bool) {
+	p.Lock()
+	defer p.Unlock()
+	esi, ok := p.EthernetSegments[name]
+	return esi, ok
+}
+
+// SetLLDPNeighbor is a test helper to configure LLDP neighbor information for an interface.
+func (p *Provider) SetLLDPNeighbor(interfaceName, sysName, chassisID, portID string, ttl uint32) {
+	p.Lock()
+	defer p.Unlock()
+	p.LLDPNeighbors[interfaceName] = &provider.LLDPAdjacency{
+		SysName:       sysName,
+		ChassisID:     chassisID,
+		ChassisIDType: 4, // MACAddress
+		PortID:        portID,
+		PortIDType:    7, // Local
+		TTL:           time.Duration(ttl) * time.Second,
+	}
 }

@@ -1,0 +1,24 @@
+{
+  "intf-items": {
+    "phys-items": {
+      "PhysIf-list": [
+        {
+          "accessVlan": "vlan-1",
+          "adminSt": "up",
+          "descr": "Uplink to Spine1",
+          "FECMode": "auto",
+          "id": "eth1/1",
+          "layer": "Layer3",
+          "mtu": 9216,
+          "medium": "p2p",
+          "mode": "access",
+          "nativeVlan": "vlan-1",
+          "userCfgdFlags": "admin_layer,admin_mtu,admin_state",
+          "esimhcoretracking-items": {
+            "coretracking": "enabled"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -4,10 +4,10 @@
 package nxos
 
 import (
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
-var _ gnmiext.Configurable = (*MultisiteItems)(nil)
+var _ gnmiext.DataElement = (*MultisiteItems)(nil)
 
 type MultisiteItems struct {
 	SiteID              string  `json:"siteId"`

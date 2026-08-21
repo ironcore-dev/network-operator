@@ -1,0 +1,21 @@
+apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+kind: IPPrefix
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: ipprefix-sample
+  # The allow-binding annotation permits a Claim with a matching claimRef name
+  # to rebind this allocation by updating the UID.
+  annotations:
+    pool.networking.metal.ironcore.dev/allow-binding: "true"
+spec:
+  poolRef:
+    apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+    kind: IPPrefixPool
+    name: ipprefixpool-sample
+  # Pre-allocated /24 subnet reserved for a specific rack or availability zone.
+  prefix: 10.0.0.0/24
+  # claimRef name must match the Claim that will bind to this allocation.
+  claimRef:
+    name: claim-sample

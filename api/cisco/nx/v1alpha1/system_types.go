@@ -5,6 +5,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
@@ -45,11 +46,11 @@ type SystemSpec struct {
 // SystemStatus defines the observed state of System.
 type SystemStatus struct {
 	// The conditions are a list of status objects that describe the state of the Banner.
-	//+listType=map
-	//+listMapKey=type
-	//+patchStrategy=merge
-	//+patchMergeKey=type
-	//+optional
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
@@ -100,5 +101,8 @@ type SystemList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&System{}, &SystemList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &System{}, &SystemList{})
+		return nil
+	})
 }

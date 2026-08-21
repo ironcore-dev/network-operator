@@ -4,8 +4,9 @@
 package v1alpha1
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
 var (
@@ -13,7 +14,10 @@ var (
 	GroupVersion = schema.GroupVersion{Group: "networking.metal.ironcore.dev", Version: "v1alpha1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme.
-	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
+	SchemeBuilder = runtime.NewSchemeBuilder(func(s *runtime.Scheme) error {
+		metav1.AddToGroupVersion(s, GroupVersion)
+		return nil
+	})
 
 	// AddToScheme adds the types in this group-version to the given scheme.
 	AddToScheme = SchemeBuilder.AddToScheme
@@ -39,6 +43,10 @@ const FinalizerName = "networking.metal.ironcore.dev/finalizer"
 // it is associated with. This label is used by controllers to filter and manage resources
 // based on the device they are intended for.
 const DeviceLabel = "networking.metal.ironcore.dev/device-name"
+
+// DeviceRefIndexKey is the field index key for Spec.DeviceRef.Name, registered by
+// each resource controller so it can list its resources by device name.
+const DeviceRefIndexKey = ".spec.deviceRef.name"
 
 // DeviceSerialLabel is a label applied to any Network API object to indicate the serial number
 // of the device it is associated with. This label is used by the http provisioning server
@@ -76,8 +84,9 @@ const PhysicalInterfaceNeighborLabel = "networking.metal.ironcore.dev/interface-
 
 // PhysicalInterfaceNeighborRawAnnotation stores raw neighbor identification for interfaces
 // connected to unmanaged devices (devices without an Interface resource).
-// The value format is "chassisID::portID" where:
-//   - chassisID: The LLDP chassis identifier (MAC address or system name)
+// The value format is "(chassisID|sysName)::portID" where:
+//   - chassisID: The LLDP Chassis ID (e.g. MAC address)
+//   - sysName: The LLDP System Name (optional TLV)
 //   - portID: The LLDP port identifier (interface name, alias, or MAC address)
 //
 // Example: "00:1a:2b:3c:4d:5e::Ethernet1/1" or "spine-switch-01::Ethernet48"
@@ -123,6 +132,11 @@ const (
 	// intended (e.g., a interface is up). It corresponds to the "oper-status" commonly found
 	// in the OpenConfig models (or "operSt" on Cisco).
 	OperationalCondition = "Operational"
+
+	// ReachableCondition indicates whether the controller can reach the device.
+	// This condition is set to True when the controller successfully connects to
+	// the device, and False when the connection attempt fails.
+	ReachableCondition = "Reachable"
 )
 
 // Reasons that are used across different objects.
@@ -138,6 +152,9 @@ const (
 
 	// NotPausedReason indicates that reconciliation is not paused.
 	NotPausedReason = "NotPaused"
+
+	// ReachableReason indicates that the controller can reach the device.
+	ReachableReason = "Reachable"
 
 	// UnreachableReason indicates that the controller cannot reach the device.
 	UnreachableReason = "Unreachable"
@@ -174,6 +191,18 @@ const (
 	DuplicateResourceOnDevice = "DuplicateResourceOnDevice"
 )
 
+// Reasons that are specific to [ConfigBackup] objects.
+const (
+	// BackupSuccessfulReason indicates that the latest backup operation completed successfully.
+	BackupSuccessfulReason = "BackupSuccessful"
+
+	// ScheduleInvalidReason indicates that the configured cron schedule is invalid.
+	ScheduleInvalidReason = "ScheduleInvalid"
+
+	// StorageThresholdExceededReason indicates that a configured storage safety threshold was exceeded.
+	StorageThresholdExceededReason = "StorageThresholdExceeded"
+)
+
 // Reasons that are specific to [Interface] objects.
 const (
 	// InterfaceNotFoundReason indicates that a referenced interface was not found.
@@ -184,6 +213,9 @@ const (
 
 	// CrossDeviceReferenceReason indicates that a referenced interface belongs to a different device.
 	CrossDeviceReferenceReason = "CrossDeviceReference"
+
+	// InterfaceNotSwitchportReason indicates that a referenced interface does not have switchport configuration.
+	InterfaceNotSwitchportReason = "InterfaceNotSwitchport"
 
 	// MemberInterfaceAlreadyInUseReason indicates that a member interface is already part of another aggregate.
 	MemberInterfaceAlreadyInUseReason = "MemberInterfaceAlreadyInUse"
@@ -196,6 +228,15 @@ const (
 
 	// VRFNotFoundReason indicates that a referenced VRF was not found.
 	VRFNotFoundReason = "VRFNotFound"
+
+	// ParentInterfaceNotFoundReason indicates that a referenced parent interface for a subinterface was not found.
+	ParentInterfaceNotFoundReason = "ParentInterfaceNotFound"
+
+	// ParentInterfaceNotConfiguredReason indicates that the parent interface of a subinterface is not configured.
+	ParentInterfaceNotConfiguredReason = "ParentInterfaceNotConfigured"
+
+	// InvalidParentInterfaceTypeReason indicates that a referenced parent interface type is not supported.
+	InvalidParentInterfaceTypeReason = "InvalidParentInterfaceType"
 )
 
 // Reasons that are specific to [Device] objects.
@@ -210,6 +251,17 @@ const (
 	PrefixSetNotFoundReason = "PrefixSetNotFound"
 )
 
+// Reasons that are specific to [BGPPeer] objects.
+const (
+	// BGPNotFoundReason indicates that no BGP resource was found for the device
+	// referenced by the BGPPeer. A BGPPeer cannot function without a BGP process
+	// running on the same device.
+	BGPNotFoundReason = "BGPNotFound"
+
+	// RoutingPolicyNotFoundReason indicates that a referenced RoutingPolicy was not found.
+	RoutingPolicyNotFoundReason = "RoutingPolicyNotFound"
+)
+
 // Reasons that are specific to [BorderGateway] objects.
 const (
 	// BGPPeerNotFoundReason indicates that a referenced BGPPeer was not found.
@@ -220,4 +272,10 @@ const (
 const (
 	// NVEAlreadyExistsReason indicates that another NetworkVirtualizationEdge already exists on the same device.
 	NVEAlreadyExistsReason = "NetworkVirtualizationEdgeAlreadyExists"
+)
+
+// Reasons that are specific to [DHCPRelay] objects.
+const (
+	// IPAddressingNotFoundReason indicates that a referenced interface has no IPv4 addresses configured.
+	IPAddressingNotFoundReason = "IPAddressingNotFound"
 )

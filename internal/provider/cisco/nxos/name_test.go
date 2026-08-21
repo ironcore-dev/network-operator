@@ -89,6 +89,8 @@ func TestShortName(t *testing.T) {
 			expected: "",
 			wantErr:  true,
 		},
+
+		// Valid Port-Channel interface names
 		{
 			name:     "port-channel full name",
 			input:    "Port-Channel10",
@@ -130,6 +132,38 @@ func TestShortName(t *testing.T) {
 		{
 			name:     "invalid management interface",
 			input:    "mgmt1",
+			expected: "",
+			wantErr:  true,
+		},
+
+		// Subinterfaces
+		{
+			name:     "valid ethernet subinterface",
+			input:    "Ethernet1/1.1",
+			expected: "eth1/1.1",
+			wantErr:  false,
+		},
+		{
+			name:     "valid ethernet subinterface",
+			input:    "eth1/1.1",
+			expected: "eth1/1.1",
+			wantErr:  false,
+		},
+		{
+			name:     "valid port-channel subinterface",
+			input:    "Port-channel1.1",
+			expected: "po1.1",
+			wantErr:  false,
+		},
+		{
+			name:     "valid port-channel subinterface",
+			input:    "po1.1",
+			expected: "po1.1",
+			wantErr:  false,
+		},
+		{
+			name:     "invalid port-channel subinterface format",
+			input:    "po1.00a",
 			expected: "",
 			wantErr:  true,
 		},

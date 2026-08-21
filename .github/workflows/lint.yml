@@ -1,0 +1,73 @@
+# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+# SPDX-License-Identifier: Apache-2.0
+
+name: Lint
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Check Go Code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+  vulnerabilities:
+    name: Check Vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: 'stable'
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - name: Run govulncheck
+        run: govulncheck -format text ./...
+  spelling:
+    name: Check Spelling Errors
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run typos
+        uses: crate-ci/typos@v1
+        env:
+          CLICOLOR: "1"
+  shellcheck:
+    name: Check Shell Scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run shellcheck
+        uses: reviewdog/action-shellcheck@v1
+  license:
+    name: Check Licenses
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+      - name: Install addlicense
+        run: go install github.com/google/addlicense@latest
+      - name: Check License Headers
+        run: addlicense -check -ignore '**/*.yml' -ignore '**/*.yaml' .
+      - name: Install go-licenses
+        run: go install github.com/google/go-licenses@latest
+      - name: Check Dependency Licenses
+        run: go-licenses check --include_tests --disallowed_types=restricted,forbidden,unknown ./...

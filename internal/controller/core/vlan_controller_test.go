@@ -55,24 +55,22 @@ var _ = Describe("VLAN Controller", func() {
 		})
 
 		AfterEach(func() {
-			var resource client.Object = &v1alpha1.VLAN{}
-			err := k8sClient.Get(ctx, key, resource)
-			Expect(err).NotTo(HaveOccurred())
+			By("Cleaning up the VLAN resource")
+			vlan := &v1alpha1.VLAN{}
+			vlan.Name = name
+			vlan.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, vlan))).To(Succeed())
 
-			By("Cleanup the specific resource instance VLAN")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-
-			resource = &v1alpha1.Device{}
-			err = k8sClient.Get(ctx, key, resource)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleanup the specific resource instance Device")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-
-			By("Ensuring the resource is deleted from the provider")
+			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.VLANs.Has(id)).To(BeFalse(), "Provider VLAN should not exist")
 			}).Should(Succeed())
+
+			By("Cleaning up the Device resource")
+			device := &v1alpha1.Device{}
+			device.Name = name
+			device.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should successfully reconcile the resource", func() {

@@ -1,6 +1,13 @@
 apiVersion: rbac.authorization.k8s.io/v1
+{{- if .Values.rbac.namespaced }}
+kind: Role
+{{- else }}
 kind: ClusterRole
+{{- end }}
 metadata:
+{{- if .Values.rbac.namespaced }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}
   name: {{ include "network-operator.resourceName" (dict "suffix" "manager-role" "context" $) }}
 rules:
 - apiGroups:
@@ -11,13 +18,6 @@ rules:
   - get
   - list
   - watch
-- apiGroups:
-  - ""
-  resources:
-  - events
-  verbs:
-  - create
-  - patch
 - apiGroups:
   - ""
   resources:
@@ -39,15 +39,52 @@ rules:
   - update
   - watch
 - apiGroups:
+  - events.k8s.io
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - evpn.networking.metal.ironcore.dev
+  resources:
+  - fabrics
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - evpn.networking.metal.ironcore.dev
+  resources:
+  - fabrics/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - evpn.networking.metal.ironcore.dev
+  resources:
+  - fabrics/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - networking.metal.ironcore.dev
   resources:
+  - aaa
   - accesscontrollists
   - banners
   - bgp
   - bgppeers
   - certificates
+  - configbackups
   - devices
+  - dhcprelays
   - dns
+  - ethernetsegments
   - evpninstances
   - interfaces
   - isis
@@ -75,13 +112,16 @@ rules:
 - apiGroups:
   - networking.metal.ironcore.dev
   resources:
+  - aaa/finalizers
   - accesscontrollists/finalizers
   - banners/finalizers
   - bgp/finalizers
   - bgppeers/finalizers
   - certificates/finalizers
   - devices/finalizers
+  - dhcprelays/finalizers
   - dns/finalizers
+  - ethernetsegments/finalizers
   - evpninstances/finalizers
   - interfaces/finalizers
   - isis/finalizers
@@ -103,13 +143,17 @@ rules:
 - apiGroups:
   - networking.metal.ironcore.dev
   resources:
+  - aaa/status
   - accesscontrollists/status
   - banners/status
   - bgp/status
   - bgppeers/status
   - certificates/status
+  - configbackups/status
   - devices/status
+  - dhcprelays/status
   - dns/status
+  - ethernetsegments/status
   - evpninstances/status
   - interfaces/status
   - isis/status
@@ -133,6 +177,7 @@ rules:
 - apiGroups:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
+  - aaaconfigs
   - bgpconfigs
   - interfaceconfigs
   - lldpconfigs
@@ -170,6 +215,44 @@ rules:
   - bordergateways/status
   - systems/status
   - vpcdomains/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - pool.networking.metal.ironcore.dev
+  resources:
+  - claims
+  - indexpools
+  - indices
+  - ipaddresses
+  - ipaddresspools
+  - ipprefixes
+  - ipprefixpools
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - pool.networking.metal.ironcore.dev
+  resources:
+  - claims/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - pool.networking.metal.ironcore.dev
+  resources:
+  - claims/status
+  - indexpools/status
+  - indices/status
+  - ipaddresses/status
+  - ipaddresspools/status
+  - ipprefixes/status
+  - ipprefixpools/status
   verbs:
   - get
   - patch

@@ -1,6 +1,8 @@
 ## Append samples of your project ##
 resources:
 - v1alpha1_device.yaml
+- v1alpha1_configbackup.yaml
+- v1alpha1_dhcprelay.yaml
 - v1alpha1_interface.yaml
 - v1alpha1_lldp.yaml
 - v1alpha1_banner.yaml
@@ -23,6 +25,16 @@ resources:
 - v1alpha1_nve.yaml
 - v1alpha1_prefixset.yaml
 - v1alpha1_routingpolicy.yaml
+- v1alpha1_ethernetsegment.yaml
+- v1alpha1_aaa.yaml
+- v1alpha1_indexpool.yaml
+- v1alpha1_ipaddresspool.yaml
+- v1alpha1_ipprefixpool.yaml
+- v1alpha1_index.yaml
+- v1alpha1_ipaddress.yaml
+- v1alpha1_ipprefix.yaml
+- v1alpha1_claim.yaml
+- v1alpha1_fabric.yaml
 - cisco/nx/v1alpha1_bordergateway.yaml
 - cisco/nx/v1alpha1_managementaccessconfig.yaml
 - cisco/nx/v1alpha1_nveconfig.yaml
@@ -31,4 +43,5 @@ resources:
 - cisco/nx/v1alpha1_interfaceconfig.yaml
 - cisco/nx/v1alpha1_lldpconfig.yaml
 - cisco/nx/v1alpha1_bgpconfig.yaml
+- cisco/nx/v1alpha1_aaaconfig.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

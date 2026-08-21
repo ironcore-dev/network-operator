@@ -7,11 +7,14 @@
           "adminSt": "up",
           "descr": "vPC Leaf1 to Host1",
           "id": "po10",
+          "lacpVpcConvergence": "disable",
           "layer": "Layer2",
+          "mtu": 1500,
+          "medium": "broadcast",
           "mode": "trunk",
           "pcMode": "active",
           "nativeVlan": "vlan-1",
-          "trunkVlans": "10",
+          "suspIndividual": "enable",
           "userCfgdFlags": "admin_state",
           "rsmbrIfs-items": {
             "RsMbrIfs-list": [

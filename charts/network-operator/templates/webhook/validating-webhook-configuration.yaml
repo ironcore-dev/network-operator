@@ -1,9 +1,9 @@
-{{- if .Values.webhook.enable }}
+{{- if .Values.webhook.enabled }}
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   annotations:
-    {{- if .Values.certManager.enable }}
+    {{- if .Values.certManager.enabled }}
     cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "network-operator.resourceName" (dict "suffix" "serving-cert" "context" $) }}
     {{- end }}
   name: {{ include "network-operator.resourceName" (dict "suffix" "validating-webhook-configuration" "context" $) }}
@@ -107,6 +107,86 @@ webhooks:
     - UPDATE
     resources:
     - prefixsets
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ include "network-operator.resourceName" (dict "suffix" "webhook-service" "context" $) }}
+      namespace: {{ .Release.Namespace }}
+      path: /validate-networking-metal-ironcore-dev-v1alpha1-routingpolicy
+  failurePolicy: Fail
+  name: routingpolicy-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - networking.metal.ironcore.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - routingpolicies
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ include "network-operator.resourceName" (dict "suffix" "webhook-service" "context" $) }}
+      namespace: {{ .Release.Namespace }}
+      path: /validate-pool-networking-metal-ironcore-dev-v1alpha1-indexpool
+  failurePolicy: Fail
+  name: vindexpool-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - pool.networking.metal.ironcore.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - indexpools
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ include "network-operator.resourceName" (dict "suffix" "webhook-service" "context" $) }}
+      namespace: {{ .Release.Namespace }}
+      path: /validate-pool-networking-metal-ironcore-dev-v1alpha1-ipaddresspool
+  failurePolicy: Fail
+  name: vipaddresspool-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - pool.networking.metal.ironcore.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - ipaddresspools
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ include "network-operator.resourceName" (dict "suffix" "webhook-service" "context" $) }}
+      namespace: {{ .Release.Namespace }}
+      path: /validate-pool-networking-metal-ironcore-dev-v1alpha1-ipprefixpool
+  failurePolicy: Fail
+  name: vipprefixpool-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - pool.networking.metal.ironcore.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - ipprefixpools
   sideEffects: None
 - admissionReviewVersions:
   - v1

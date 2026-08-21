@@ -1,0 +1,30 @@
+{
+  "intf-items": {
+    "aggr-items": {
+      "AggrIf-list": [
+        {
+          "accessVlan": "vlan-1",
+          "adminSt": "up",
+          "descr": "vPC Leaf1 to Host1 (LACP)",
+          "id": "po1",
+          "lacpVpcConvergence": "enable",
+          "layer": "Layer2",
+          "mtu": 1500,
+          "medium": "broadcast",
+          "mode": "trunk",
+          "pcMode": "active",
+          "nativeVlan": "vlan-1",
+          "suspIndividual": "disable",
+          "userCfgdFlags": "admin_state",
+          "rsmbrIfs-items": {
+            "RsMbrIfs-list": [
+              {
+                "tDn": "/System/intf-items/phys-items/PhysIf-list[id='eth1/1']"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

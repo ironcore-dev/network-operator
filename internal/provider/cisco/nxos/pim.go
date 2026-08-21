@@ -3,14 +3,16 @@
 
 package nxos
 
-import "github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+import "github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 
 var (
-	_ gnmiext.Configurable = (*PIM)(nil)
-	_ gnmiext.Configurable = (*PIMDom)(nil)
-	_ gnmiext.Configurable = (*StaticRPItems)(nil)
-	_ gnmiext.Configurable = (*AnycastPeerItems)(nil)
-	_ gnmiext.Configurable = (*PIMIfItems)(nil)
+	_ gnmiext.DataElement = (*PIM)(nil)
+	_ gnmiext.DataElement = (*PIMDom)(nil)
+	_ gnmiext.DataElement = (*StaticRPItems)(nil)
+	_ gnmiext.DataElement = (*StaticRP)(nil)
+	_ gnmiext.DataElement = (*StaticRPGrp)(nil)
+	_ gnmiext.DataElement = (*AnycastPeerItems)(nil)
+	_ gnmiext.DataElement = (*PIMIfItems)(nil)
 )
 
 type PIM struct {
@@ -55,17 +57,25 @@ func (rp *StaticRP) Key() string { return rp.Addr }
 
 func (*StaticRP) IsListItem() {}
 
-func (s *StaticRP) XPath() string {
-	return "System/pim-items/inst-items/dom-items/Dom-list[name=default]/staticrp-items/rp-items/StaticRP-list[addr=" + s.Addr + "]"
+func (rp *StaticRP) XPath() string {
+	return "System/pim-items/inst-items/dom-items/Dom-list[name=default]/staticrp-items/rp-items/StaticRP-list[addr=" + rp.Addr + "]"
 }
 
 type StaticRPGrp struct {
 	Bidir       bool   `json:"bidir"`
 	GrpListName string `json:"grpListName"`
 	Override    bool   `json:"override"`
+
+	// RpAddr is the parent StaticRP address, used to construct the XPath.
+	// It is not serialized to JSON.
+	RpAddr string `json:"-"`
 }
 
 func (g *StaticRPGrp) Key() string { return g.GrpListName }
+
+func (g *StaticRPGrp) XPath() string {
+	return "System/pim-items/inst-items/dom-items/Dom-list[name=default]/staticrp-items/rp-items/StaticRP-list[addr=" + g.RpAddr + "]/rpgrplist-items/RPGrpList-list[grpListName=" + g.GrpListName + "]"
+}
 
 type AnycastPeerItems struct {
 	AcastRPPeerList gnmiext.List[AnycastPeerAddr, *AnycastPeerAddr] `json:"AcastRPPeer-list,omitzero"`

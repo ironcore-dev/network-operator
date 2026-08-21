@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -106,11 +107,11 @@ type NetworkVirtualizationEdgeStatus struct {
 	// - "Degraded": the resource failed to reach or maintain its desired state
 	//
 	// The conditions are a list of status objects that describe the state of the NVE.
-	//+listType=map
-	//+listMapKey=type
-	//+patchStrategy=merge
-	//+patchMergeKey=type
-	//+optional
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// SourceInterfaceName is the resolved source interface IP address used for NVE encapsulation.
@@ -186,5 +187,8 @@ func RegisterNetworkVirtualizationEdgeDependency(gvk schema.GroupVersionKind) {
 }
 
 func init() {
-	SchemeBuilder.Register(&NetworkVirtualizationEdge{}, &NetworkVirtualizationEdgeList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &NetworkVirtualizationEdge{}, &NetworkVirtualizationEdgeList{})
+		return nil
+	})
 }

@@ -20,8 +20,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
@@ -78,12 +79,16 @@ type MockProvider struct {
 	mock.Mock
 }
 
-func (m *MockProvider) HashProvisioningPassword(password string) (string, string, error) { //nolint:gocritic
+func (m *MockProvider) HashProvisioningPassword(password string) (string, string, error) {
 	return "hashedpass", "sha256", nil
 }
 
-func (p *MockProvider) VerifyProvisioned(ctx context.Context, conn *deviceutil.Connection, device *v1alpha1.Device) bool {
+func (m *MockProvider) VerifyProvisioned(ctx context.Context, conn *deviceutil.Connection, device *v1alpha1.Device) bool {
 	return true
+}
+
+func (m *MockProvider) Reprovision(ctx context.Context, conn *deviceutil.Connection) error {
+	return nil
 }
 
 func TestGetClientIP(t *testing.T) {
@@ -132,11 +137,11 @@ func TestGetClientIP(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test", http.NoBody)
 			tt.setupRequest(req)
 
 			ip, err := getClientIP(req)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, tt.expectedIP, ip)
 		})
 	}
@@ -178,7 +183,7 @@ func TestGetBearerToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test", http.NoBody)
 			if tt.authorization != "" {
 				req.Header.Set("Authorization", tt.authorization)
 			}
@@ -344,7 +349,7 @@ func TestHandleStatusReport(t *testing.T) {
 				url += "?serial=" + tt.serial
 			}
 
-			req := httptest.NewRequest(tt.method, url, body)
+			req := httptest.NewRequestWithContext(t.Context(), tt.method, url, body)
 			if tt.authorization != "" {
 				req.Header.Set("Authorization", tt.authorization)
 			}
@@ -358,7 +363,7 @@ func TestHandleStatusReport(t *testing.T) {
 			server := &HTTPServer{
 				Client:   k8sClient,
 				Logger:   klog.NewKlogr(),
-				Recorder: record.NewFakeRecorder(10),
+				Recorder: events.NewFakeRecorder(10),
 			}
 
 			rr := httptest.NewRecorder()
@@ -371,7 +376,7 @@ func TestHandleStatusReport(t *testing.T) {
 
 			if tt.validateDevice != nil {
 				var device v1alpha1.Device
-				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: tt.device.Name, Namespace: tt.device.Namespace}, &device)
+				err := k8sClient.Get(t.Context(), types.NamespacedName{Name: tt.device.Name, Namespace: tt.device.Namespace}, &device)
 				require.NoError(t, err)
 				tt.validateDevice(t, &device)
 			}
@@ -389,7 +394,7 @@ func TestHandleProvisioningRequest(t *testing.T) {
 		validateSourceIP bool
 		expectedStatus   int
 		expectedBody     string
-		validateResponse func(*testing.T, *ProvisioningResponse)
+		validateResponse func(*testing.T, *Response)
 	}{
 		{
 			name:           "reject requests without serial parameter",
@@ -464,7 +469,7 @@ func TestHandleProvisioningRequest(t *testing.T) {
 			secret:           testSecret.DeepCopy(),
 			validateSourceIP: true,
 			expectedStatus:   http.StatusOK,
-			validateResponse: func(t *testing.T, res *ProvisioningResponse) {
+			validateResponse: func(t *testing.T, res *Response) {
 				assert.Equal(t, "validtoken", res.ProvisioningToken)
 				assert.Equal(t, "http://example.com/image.bin", res.Image.URL)
 				assert.Equal(t, "test-device", res.Hostname)
@@ -483,7 +488,7 @@ func TestHandleProvisioningRequest(t *testing.T) {
 				url += "?serial=" + tt.serial
 			}
 
-			req := httptest.NewRequest(http.MethodGet, url, http.NoBody)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, url, http.NoBody)
 			if tt.remoteAddr != "" {
 				req.RemoteAddr = tt.remoteAddr
 			}
@@ -514,7 +519,7 @@ func TestHandleProvisioningRequest(t *testing.T) {
 
 			if tt.validateResponse != nil {
 				assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
-				var res ProvisioningResponse
+				var res Response
 				err := json.Unmarshal(rr.Body.Bytes(), &res)
 				require.NoError(t, err)
 				tt.validateResponse(t, &res)
@@ -644,6 +649,7 @@ func TestGetDeviceCertificate(t *testing.T) {
 						Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
 					},
 					Spec: v1alpha1.CertificateSpec{
+						DeviceRef: v1alpha1.LocalObjectReference{Name: "test-device"},
 						SecretRef: v1alpha1.SecretReference{Name: "test-device-cert-secret-1"},
 					},
 				},
@@ -654,6 +660,7 @@ func TestGetDeviceCertificate(t *testing.T) {
 						Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
 					},
 					Spec: v1alpha1.CertificateSpec{
+						DeviceRef: v1alpha1.LocalObjectReference{Name: "test-device"},
 						SecretRef: v1alpha1.SecretReference{Name: "test-device-cert-secret-2"},
 					},
 				},
@@ -685,6 +692,7 @@ func TestGetDeviceCertificate(t *testing.T) {
 						Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
 					},
 					Spec: v1alpha1.CertificateSpec{
+						DeviceRef: v1alpha1.LocalObjectReference{Name: "test-device"},
 						SecretRef: v1alpha1.SecretReference{Name: "nonexistent-secret"},
 					},
 				},
@@ -716,6 +724,7 @@ func TestGetDeviceCertificate(t *testing.T) {
 						Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
 					},
 					Spec: v1alpha1.CertificateSpec{
+						DeviceRef: v1alpha1.LocalObjectReference{Name: "test-device"},
 						SecretRef: v1alpha1.SecretReference{Name: "test-device-cert-secret"},
 					},
 				},
@@ -759,6 +768,7 @@ func TestGetDeviceCertificate(t *testing.T) {
 						Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
 					},
 					Spec: v1alpha1.CertificateSpec{
+						DeviceRef: v1alpha1.LocalObjectReference{Name: "test-device"},
 						SecretRef: v1alpha1.SecretReference{Name: "test-device-cert-secret"},
 					},
 				},
@@ -808,6 +818,7 @@ func TestGetDeviceCertificate(t *testing.T) {
 						Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
 					},
 					Spec: v1alpha1.CertificateSpec{
+						DeviceRef: v1alpha1.LocalObjectReference{Name: "test-device"},
 						SecretRef: v1alpha1.SecretReference{Name: "test-device-cert-secret"},
 					},
 				},
@@ -841,12 +852,16 @@ func TestGetDeviceCertificate(t *testing.T) {
 				url += "?serial=" + tt.serial
 			}
 
-			req := httptest.NewRequest(tt.method, url, http.NoBody)
+			req := httptest.NewRequestWithContext(t.Context(), tt.method, url, http.NoBody)
 			if tt.authorization != "" {
 				req.Header.Set("Authorization", tt.authorization)
 			}
 
-			clientBuilder := fake.NewClientBuilder().WithScheme(scheme.Scheme)
+			clientBuilder := fake.NewClientBuilder().
+				WithScheme(scheme.Scheme).
+				WithIndex(&v1alpha1.Certificate{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+					return []string{obj.(*v1alpha1.Certificate).Spec.DeviceRef.Name}
+				})
 			if tt.device != nil {
 				clientBuilder.WithObjects(tt.device).WithStatusSubresource(tt.device)
 			}
@@ -1100,7 +1115,7 @@ func TestGetMTLSClientCA(t *testing.T) {
 				url += "?serial=" + tt.serial
 			}
 
-			req := httptest.NewRequest(tt.method, url, http.NoBody)
+			req := httptest.NewRequestWithContext(t.Context(), tt.method, url, http.NoBody)
 			if tt.authorization != "" {
 				req.Header.Set("Authorization", tt.authorization)
 			}

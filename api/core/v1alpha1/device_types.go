@@ -7,8 +7,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // DeviceSpec defines the desired state of Device.
@@ -21,6 +23,11 @@ type DeviceSpec struct {
 	// Endpoint contains the connection information for the device.
 	// +required
 	Endpoint Endpoint `json:"endpoint"`
+
+	// Provider is the name of the provider plugin which is responsible for reconciling the CRD connected to the device
+	// +optional
+	// +immutable
+	Provider string `json:"provider,omitempty"`
 
 	// Provisioning is an optional configuration for the device provisioning process.
 	// It can be used to provide initial configuration templates or scripts that are applied during the device provisioning.
@@ -127,6 +134,10 @@ type DeviceStatus struct {
 	// +required
 	Phase DevicePhase `json:"phase,omitempty"`
 
+	// Hostname is the hostname of the Device.
+	// +optional
+	Hostname string `json:"hostname,omitempty"`
+
 	// Manufacturer is the manufacturer of the Device.
 	// +optional
 	Manufacturer string `json:"manufacturer,omitempty"`
@@ -143,12 +154,16 @@ type DeviceStatus struct {
 	// +optional
 	FirmwareVersion string `json:"firmwareVersion,omitempty"`
 
+	// LastRebootTime is the timestamp of the last reboot of the Device, if known.
+	// +optional
+	LastRebootTime metav1.Time `json:"lastRebootTime,omitempty"`
+
 	// Provisioning is the list of provisioning attempts for the Device.
-	//+listType=map
-	//+listMapKey=startTime
-	//+patchStrategy=merge
-	//+patchMergeKey=startTime
-	//+optional
+	// +listType=map
+	// +listMapKey=startTime
+	// +patchStrategy=merge
+	// +patchMergeKey=startTime
+	// +optional
 	Provisioning []ProvisioningInfo `json:"provisioning,omitempty"`
 
 	// Ports is the list of ports on the Device.
@@ -160,22 +175,22 @@ type DeviceStatus struct {
 	PortSummary string `json:"portSummary,omitempty"`
 
 	// The conditions are a list of status objects that describe the state of the Device.
-	//+listType=map
-	//+listMapKey=type
-	//+patchStrategy=merge
-	//+patchMergeKey=type
-	//+optional
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 type ProvisioningInfo struct {
 	StartTime metav1.Time `json:"startTime"`
 	Token     string      `json:"token"`
-	//+optional
+	// +optional
 	EndTime metav1.Time `json:"endTime,omitzero"`
-	//+optional
+	// +optional
 	RebootTime metav1.Time `json:"reboot,omitzero"`
-	//+optional
+	// +optional
 	Error string `json:"error,omitempty"`
 }
 
@@ -275,6 +290,7 @@ const (
 // +kubebuilder:printcolumn:name="Model",type=string,JSONPath=".status.model",priority=1
 // +kubebuilder:printcolumn:name="SerialNumber",type=string,JSONPath=".status.serialNumber",priority=1
 // +kubebuilder:printcolumn:name="FirmwareVersion",type=string,JSONPath=".status.firmwareVersion",priority=1
+// +kubebuilder:printcolumn:name="RebootTime",type="date",JSONPath=".status.lastRebootTime",priority=1
 // +kubebuilder:printcolumn:name="Ports",type=string,JSONPath=".status.portSummary",priority=1
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
@@ -326,6 +342,13 @@ func (d *Device) GetSecretRefs() []SecretReference {
 	return refs
 }
 
+// EndpointIP returns the IP address part of the device's endpoint address.
+func (d *Device) EndpointIP() string {
+	// The address is validated by the kubebuilder validation pattern,
+	/// so we can safely split on ":" and take the first part as the IP.
+	return strings.Split(d.Spec.Endpoint.Address, ":")[0]
+}
+
 // +kubebuilder:object:root=true
 
 // DeviceList contains a list of Device.
@@ -336,5 +359,8 @@ type DeviceList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&Device{}, &DeviceList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &Device{}, &DeviceList{})
+		return nil
+	})
 }

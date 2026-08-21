@@ -7,7 +7,7 @@ hero:
     text: 'Cloud Native Network Device Provisioning'
     tagline: 'Network Operator is an open-source platform designed to empower operators to automate, operate and observe multi-vendor data-center networks'
     image:
-        src: https://raw.githubusercontent.com/ironcore-dev/network-operator/refs/heads/main/docs/assets/network-operator-logo.png
+        src: https://raw.githubusercontent.com/ironcore-dev/ironcore/refs/heads/main/docs/assets/logo_borderless.svg
         alt: Network Operator
     actions:
         - theme: brand

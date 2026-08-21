@@ -7,12 +7,12 @@ import (
 	"fmt"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
 var (
-	_ gnmiext.Configurable = (*Banner)(nil)
-	_ gnmiext.Defaultable  = (*Banner)(nil)
+	_ gnmiext.DataElement = (*Banner)(nil)
+	_ gnmiext.Defaultable = (*Banner)(nil)
 )
 
 // Banner represents the pre-login banner configuration of the device.

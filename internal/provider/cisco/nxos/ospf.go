@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
-var _ gnmiext.Configurable = (*OSPF)(nil)
+var _ gnmiext.DataElement = (*OSPF)(nil)
 
 type OSPF struct {
 	AdminSt  AdminSt `json:"adminSt"`

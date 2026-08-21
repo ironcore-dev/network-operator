@@ -1,4 +1,4 @@
-{{- if .Values.crd.enable }}
+{{- if .Values.crd.enabled }}
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -6,7 +6,7 @@ metadata:
     {{- if .Values.crd.keep }}
     "helm.sh/resource-policy": keep
     {{- end }}
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: bgppeers.networking.metal.ironcore.dev
 spec:
   group: networking.metal.ironcore.dev
@@ -110,6 +110,38 @@ spec:
                           When false, the address family is not negotiated with this peer.
                           Defaults to false.
                         type: boolean
+                      inboundRoutingPolicyRef:
+                        description: |-
+                          InboundRoutingPolicyRef references a RoutingPolicy applied to routes received from this peer
+                          for this address family.
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      outboundRoutingPolicyRef:
+                        description: |-
+                          OutboundRoutingPolicyRef references a RoutingPolicy applied to routes advertised to this peer
+                          for this address family.
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
                       routeReflectorClient:
                         description: |-
                           RouteReflectorClient indicates whether this peer should be treated as a route reflector client
@@ -136,6 +168,38 @@ spec:
                           When false, the address family is not negotiated with this peer.
                           Defaults to false.
                         type: boolean
+                      inboundRoutingPolicyRef:
+                        description: |-
+                          InboundRoutingPolicyRef references a RoutingPolicy applied to routes received from this peer
+                          for this address family.
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      outboundRoutingPolicyRef:
+                        description: |-
+                          OutboundRoutingPolicyRef references a RoutingPolicy applied to routes advertised to this peer
+                          for this address family.
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
                       routeReflectorClient:
                         description: |-
                           RouteReflectorClient indicates whether this peer should be treated as a route reflector client
@@ -162,6 +226,38 @@ spec:
                           When false, the address family is not negotiated with this peer.
                           Defaults to false.
                         type: boolean
+                      inboundRoutingPolicyRef:
+                        description: |-
+                          InboundRoutingPolicyRef references a RoutingPolicy applied to routes received from this peer
+                          for this address family.
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      outboundRoutingPolicyRef:
+                        description: |-
+                          OutboundRoutingPolicyRef references a RoutingPolicy applied to routes advertised to this peer
+                          for this address family.
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
                       routeReflectorClient:
                         description: |-
                           RouteReflectorClient indicates whether this peer should be treated as a route reflector client
@@ -195,6 +291,22 @@ spec:
                   ASNumber is the autonomous system number (ASN) of the BGP peer.
                   Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
                 x-kubernetes-int-or-string: true
+              bgpRef:
+                description: |-
+                  BgpRef is a reference to the BGP instance this peer belongs to.
+                  The BGP object must exist in the same namespace.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               description:
                 description: |-
                   Description is an optional human-readable description for this BGP peer.
@@ -219,6 +331,30 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
+              localAS:
+                description: LocalAS configures the local AS number and how it factors
+                  into BGP announcements for this peer.
+                properties:
+                  asNumber:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: ASNumber specifies a local AS number to present in
+                      BGP sessions with this peer.
+                    x-kubernetes-int-or-string: true
+                  prependGlobalAS:
+                    default: true
+                    description: PrependGlobalAS specifies whether to prepend the
+                      global AS number to updates sent to this neighbor.
+                    type: boolean
+                  prependLocalAS:
+                    default: true
+                    description: PrependLocalAS specifies whether to prepend the local
+                      AS number to updates received from this peer.
+                    type: boolean
+                required:
+                - asNumber
+                type: object
               localAddress:
                 description: |-
                   LocalAddress specifies the local address configuration for the BGP session with this peer.
@@ -281,6 +417,7 @@ spec:
             required:
             - address
             - asNumber
+            - bgpRef
             - deviceRef
             type: object
           status:

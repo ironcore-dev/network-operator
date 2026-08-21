@@ -7,10 +7,10 @@ import (
 	"fmt"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
-var _ gnmiext.Configurable = (*ACL)(nil)
+var _ gnmiext.DataElement = (*ACL)(nil)
 
 // ACL represents an IPv4 or IPv6 access control list, depending on the rules it contains.
 // It can only contain either IPv4 or IPv6 rules, never both. It's name must be unique

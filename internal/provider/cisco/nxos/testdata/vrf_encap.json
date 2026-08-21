@@ -1,0 +1,11 @@
+{
+  "inst-items": {
+    "Inst-list": [
+      {
+        "encap": "vxlan-101",
+        "l3vni": true,
+        "name": "CC-CLOUD01"
+      }
+    ]
+  }
+}

@@ -5,10 +5,10 @@ package nxos
 
 import (
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
-var _ gnmiext.Configurable = (*ISIS)(nil)
+var _ gnmiext.DataElement = (*ISIS)(nil)
 
 // ISIS represents the IS-IS routing protocol configuration on a NX-OS device.
 type ISIS struct {

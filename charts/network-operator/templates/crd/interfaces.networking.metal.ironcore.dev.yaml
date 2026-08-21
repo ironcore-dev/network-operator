@@ -1,4 +1,4 @@
-{{- if .Values.crd.enable }}
+{{- if .Values.crd.enabled }}
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -6,7 +6,7 @@ metadata:
     {{- if .Values.crd.keep }}
     "helm.sh/resource-policy": keep
     {{- end }}
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: interfaces.networking.metal.ironcore.dev
 spec:
   group: networking.metal.ironcore.dev
@@ -160,7 +160,7 @@ spec:
               bfd:
                 description: |-
                   BFD defines the Bidirectional Forwarding Detection configuration for the interface.
-                  BFD is only applicable for Layer 3 interfaces (Physical, Loopback, RoutedVLAN).
+                  BFD is only applicable for Layer 3 interfaces.
                 properties:
                   desiredMinimumTxInterval:
                     description: |-
@@ -217,6 +217,52 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
+              encapsulation:
+                description: Encapsulation defines the subinterfaces config for an
+                  L3 interface.
+                properties:
+                  innerTag:
+                    description: |-
+                      InnerTag specifies the inner VLAN ID for QinQ encapsulation.
+                      Only applicable when Type is set to "QinQ".
+                    format: int32
+                    maximum: 4094
+                    minimum: 1
+                    type: integer
+                  outerTag:
+                    description: |-
+                      OuterTag specifies the outer VLAN ID for QinQ encapsulation.
+                      Only applicable when Type is set to "QinQ".
+                    format: int32
+                    maximum: 4094
+                    minimum: 1
+                    type: integer
+                  tag:
+                    format: int32
+                    maximum: 4094
+                    minimum: 1
+                    type: integer
+                  type:
+                    description: EncapType represents the encapsulation type used
+                      for a subinterface.
+                    enum:
+                    - 802.1q
+                    - 802.1ad
+                    type: string
+                required:
+                - type
+                type: object
+                x-kubernetes-validations:
+                - message: tag must be specified for interfaces of type 802.1q
+                  rule: self.type != '802.1q' || has(self.tag)
+                - message: innerTag or outerTag must not be specified for interfaces
+                    of type 802.1q
+                  rule: self.type != '802.1q' || !(has(self.innerTag) || has(self.outerTag))
+                - message: innerTag and outerTag must be specified for interfaces
+                    of type 802.1ad
+                  rule: self.type != '802.1ad' || (has(self.innerTag) && has(self.outerTag))
+                - message: tag must not be specified for interfaces of type 802.1ad
+                  rule: self.type != '802.1ad' || !has(self.tag)
               ethernet:
                 description: |-
                   Ethernet defines the ethernet-specific configuration for physical interfaces.
@@ -301,6 +347,22 @@ spec:
                 x-kubernetes-validations:
                 - message: Name is immutable
                   rule: self == oldSelf
+              parentInterfaceRef:
+                description: |-
+                  ParentInterfaceRef is a reference to the parent interface for this subinterface.
+                  Required if the interface type is Subinterface. Must not be set for other interface types.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               providerConfigRef:
                 description: |-
                   ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
@@ -350,16 +412,30 @@ spec:
                     type: integer
                   allowedVlans:
                     description: |-
-                      AllowedVlans is a list of VLAN IDs that are allowed on the trunk port.
-                      If not specified, all VLANs (1-4094) are allowed.
+                      AllowedVlans is the exact list of VLAN ID ranges allowed on the trunk port.
+                      Each entry is an inclusive range string like "100..200". For compatibility,
+                      a single integer like 100 is also accepted and treated as "100..100".
+                      If not specified and AllowedVlansMode is Exact, all VLANs (1-4094) are allowed.
+                      Must be omitted when AllowedVlansMode is Unmanaged.
                       Only applicable when Mode is set to "Trunk".
                     items:
-                      format: int32
-                      maximum: 4094
-                      minimum: 1
-                      type: integer
+                      pattern: ^[0-9]+(\.\.[0-9]+)?$
+                      type: string
+                      x-kubernetes-int-or-string: true
                     minItems: 1
                     type: array
+                  allowedVlansMode:
+                    default: Exact
+                    description: |-
+                      AllowedVlansMode defines how trunk allowed VLANs are managed.
+                      When omitted, the mode is Exact.
+                      Exact means the operator owns the complete allowed VLAN list.
+                      Unmanaged means the operator does not change the allowed VLAN list.
+                      Only applicable when Mode is set to "Trunk".
+                    enum:
+                    - Exact
+                    - Unmanaged
+                    type: string
                   mode:
                     description: Mode defines the switchport mode, such as access
                       or trunk.
@@ -381,6 +457,9 @@ spec:
                 x-kubernetes-validations:
                 - message: accessVlan must be specified when mode is Access
                   rule: self.mode != 'Access' || has(self.accessVlan)
+                - message: allowedVlans must be omitted when allowedVlansMode is Unmanaged
+                  rule: '!has(self.allowedVlans) || !has(self.allowedVlansMode) ||
+                    self.allowedVlansMode != ''Unmanaged'''
               type:
                 description: Type indicates the type of the interface.
                 enum:
@@ -388,6 +467,7 @@ spec:
                 - Loopback
                 - Aggregate
                 - RoutedVLAN
+                - Subinterface
                 type: string
                 x-kubernetes-validations:
                 - message: Type is immutable
@@ -444,8 +524,9 @@ spec:
               rule: self.type != 'Aggregate' || has(self.aggregation)
             - message: aggregation must only be specified on interfaces of type Aggregate
               rule: self.type == 'Aggregate' || !has(self.aggregation)
-            - message: ipv4 must not be specified for interfaces of type Aggregate
-              rule: self.type != 'Aggregate' || !has(self.ipv4)
+            - message: ipv4 must not be specified for Aggregate interfaces with switchport
+                configuration
+              rule: self.type != 'Aggregate' || !has(self.switchport) || !has(self.ipv4)
             - message: vlanRef must be specified for interfaces of type RoutedVLAN
               rule: self.type != 'RoutedVLAN' || has(self.vlanRef)
             - message: vlanRef must only be specified on interfaces of type RoutedVLAN
@@ -456,13 +537,25 @@ spec:
               rule: self.type != 'RoutedVLAN' || !has(self.aggregation)
             - message: anycastGateway can only be enabled for interfaces of type RoutedVLAN
               rule: self.type == 'RoutedVLAN' || !has(self.ipv4) || !self.ipv4.anycastGateway
-            - message: vrfRef must not be specified for interfaces of type Aggregate
-              rule: self.type != 'Aggregate' || !has(self.vrfRef)
+            - message: vrfRef must not be specified for Aggregate interfaces with
+                switchport configuration
+              rule: self.type != 'Aggregate' || !has(self.switchport) || !has(self.vrfRef)
             - message: vrfRef must not be specified for Physical interfaces with switchport
                 configuration
               rule: self.type != 'Physical' || !has(self.switchport) || !has(self.vrfRef)
-            - message: bfd must not be specified for interfaces of type Aggregate
-              rule: self.type != 'Aggregate' || !has(self.bfd)
+            - message: bfd must not be specified for Aggregate interfaces with switchport
+                configuration
+              rule: self.type != 'Aggregate' || !has(self.switchport) || !has(self.bfd)
+            - message: encapsulation and parentInterfaceRef must only be specified
+                for subinterfaces
+              rule: self.type == 'Subinterface' || !(has(self.encapsulation) || has(self.parentInterfaceRef))
+            - message: subinterface must not have aggregation, switchport or vlanRef
+                configuration
+              rule: self.type != 'Subinterface' || !(has(self.aggregation) || has(self.switchport)
+                || has(self.vlanRef))
+            - message: encapsulation and parentInterfaceRef must both be specified
+                for subinterfaces
+              rule: self.type != 'Subinterface' || (has(self.encapsulation) && has(self.parentInterfaceRef))
             - message: bfd must not be specified for interfaces with switchport configuration
               rule: '!has(self.bfd) || !has(self.switchport)'
             - message: ethernet configuration must only be specified on interfaces
@@ -551,6 +644,89 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
+              neighbors:
+                description: |-
+                  Neighbors contains a list of neighbor interfaces connected to this interface and discovered with LLDP.
+                  If a single interface has multiple neighbor adjacencies, we validate each adjacency against the same one label/annotation.
+                items:
+                  description: |-
+                    Neighbor represents an LLDP neighbor discovered on an interface.
+                    It includes the results of the LLDP adjacency validation against the expected neighbor information from the interface's labels or annotations.
+                  properties:
+                    chassisId:
+                      description: |-
+                        ChassisID contains an octet string indicating the specific chassis ID of the neighbor.
+                        Its semantics are defined by the ChassisIDType field.
+                      type: string
+                    chassisIdType:
+                      description: |-
+                        ChassisIDType represents the chassis ID subtype.
+                        Full list of types can be found in IEEE 802.1AB-2016 Table 8-2.
+                      enum:
+                      - ChassisComponent
+                      - InterfaceAlias
+                      - PortComponent
+                      - MACAddress
+                      - NetworkAddress
+                      - InterfaceName
+                      - Local
+                      type: string
+                    expirationTime:
+                      description: |-
+                        ExpirationTime is the time when the LLDP neighbor information expires.
+                        It is calculated based on the TTL.
+                      format: date-time
+                      type: string
+                    portDescription:
+                      description: |-
+                        PortDescription contains the port description of the neighbor port.
+                        If the device supports IETF RFC 2863, this is the `ifDescr`
+                      type: string
+                    portId:
+                      description: |-
+                        PortID contains an octet string indicating the specific port ID of the neighbor.
+                        Its semantics are defined by the PortIDType field.
+                      type: string
+                    portIdType:
+                      description: |-
+                        PortIDType represents the port ID subtype.
+                        Full list of types can be found in IEEE 802.1AB-2016 Table 8-3.
+                      enum:
+                      - InterfaceAlias
+                      - PortComponent
+                      - MACAddress
+                      - NetworkAddress
+                      - InterfaceName
+                      - AgentCircuitID
+                      - Local
+                      type: string
+                    systemDescription:
+                      description: |-
+                        SystemDescription is a textual description of the neighbor, should include hardware and software information
+                        If the device supports IETF RFC 3418, this is the `sysDescr`
+                      type: string
+                    systemName:
+                      description: SystemName is an alpha-numeric string that indicates
+                        the system’s administratively assigned name.
+                      type: string
+                    validation:
+                      description: |-
+                        Validation indicates whether the LLDP neighbor information matches the information in the label or annotations of the interface.
+                        Empty when no validation source (label or annotation) is configured on the interface.
+                      enum:
+                      - NotFound
+                      - Verified
+                      - DeviceMismatch
+                      - PortMismatch
+                      type: string
+                  required:
+                  - chassisId
+                  - chassisIdType
+                  - expirationTime
+                  - portId
+                  - portIdType
+                  type: object
+                type: array
             type: object
         required:
         - spec

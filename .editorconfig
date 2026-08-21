@@ -1,14 +1,15 @@
-# SPDX-FileCopyrightText: SAP SE or an SAP affiliate company
+# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
 # SPDX-License-Identifier: Apache-2.0
 
 root = true
 
 [*]
-insert_final_newline = true
 charset = utf-8
-trim_trailing_whitespace = true
-indent_style = space
+end_of_line = lf
 indent_size = 2
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
 
 [{Makefile,go.mod,go.sum,*.go}]
 indent_style = tab

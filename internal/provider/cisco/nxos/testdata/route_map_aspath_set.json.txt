@@ -1,0 +1,2 @@
+route-map RM-ASPATH-SET permit 10
+ set as-path 65000

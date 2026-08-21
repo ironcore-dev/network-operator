@@ -1,0 +1,11 @@
+{
+  "userext-items": {
+    "authrealm-items": {
+      "defaultacc-items": {
+        "realm": "tacacs",
+        "providerGroup": "TACACS-SERVERS",
+        "localRbac": false
+      }
+    }
+  }
+}

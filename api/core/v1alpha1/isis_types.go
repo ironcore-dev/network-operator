@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -94,11 +95,11 @@ const (
 // ISISStatus defines the observed state of ISIS.
 type ISISStatus struct {
 	// The conditions are a list of status objects that describe the state of the ISIS.
-	//+listType=map
-	//+listMapKey=type
-	//+patchStrategy=merge
-	//+patchMergeKey=type
-	//+optional
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
@@ -162,5 +163,8 @@ func RegisterISISDependency(gvk schema.GroupVersionKind) {
 }
 
 func init() {
-	SchemeBuilder.Register(&ISIS{}, &ISISList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &ISIS{}, &ISISList{})
+		return nil
+	})
 }

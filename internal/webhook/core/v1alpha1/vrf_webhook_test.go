@@ -42,6 +42,12 @@ var _ = Describe("VRF Webhook", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("accepts Auto RD", func() {
+			obj.Spec.RouteDistinguisher = "Auto"
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		It("rejects bad format (missing colon)", func() {
 			obj.Spec.RouteDistinguisher = "badformat"
 			_, err := validator.ValidateCreate(ctx, obj)
@@ -278,6 +284,29 @@ var _ = Describe("VRF Webhook", func() {
 			newObj.Spec.RouteTargets = append(newObj.Spec.RouteTargets, v1alpha1.RouteTarget{Value: "10.0.0.1:70000"})
 			_, err := validator.ValidateUpdate(ctx, oldObj, newObj)
 			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Context("Deprecated VNI field", func() {
+		It("returns deprecation warning on create when VNI is set", func() {
+			obj.Spec.VNI = 100010 //nolint:staticcheck
+			warnings, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(warnings).To(ContainElement(ContainSubstring("spec.vni is deprecated")))
+		})
+
+		It("returns no warning on create when VNI is not set", func() {
+			warnings, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(warnings).To(BeEmpty())
+		})
+
+		It("returns deprecation warning on update when VNI is set", func() {
+			newObj := obj.DeepCopy()
+			newObj.Spec.VNI = 100010 //nolint:staticcheck
+			warnings, err := validator.ValidateUpdate(ctx, obj, newObj)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(warnings).To(ContainElement(ContainSubstring("spec.vni is deprecated")))
 		})
 	})
 })

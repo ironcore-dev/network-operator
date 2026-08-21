@@ -5,6 +5,8 @@ metadata:
 spec:
   deviceRef:
     name: leaf2
+  bgpRef:
+    name: leaf2-bgp
   address: 10.0.0.1
   asNumber: 65000
   localAddress:
@@ -22,6 +24,8 @@ metadata:
 spec:
   deviceRef:
     name: leaf2
+  bgpRef:
+    name: leaf2-bgp
   address: 10.0.0.2
   asNumber: 65000
   localAddress:

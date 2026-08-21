@@ -7,20 +7,39 @@ analytics_settings(False)
 
 update_settings(k8s_upsert_timeout_secs=60)
 
-allow_k8s_contexts(['minikube', 'kind-network'])
+watch_settings(ignore=['**/*/zz_generated.deepcopy.go', 'config/crd/bases/*'])
+
+allow_k8s_contexts(['minikube', 'kind-network-operator'])
+
+cluster_name = str(local('kubectl config current-context', quiet=True)).strip()
+is_kind = cluster_name.startswith('kind-')
 
 load('ext://cert_manager', 'deploy_cert_manager')
-deploy_cert_manager(version='v1.18.2')
+deploy_cert_manager(version='v1.21.0', load_to_kind=is_kind, kind_cluster_name=cluster_name.removeprefix('kind-'))
 
-docker_build('ghcr.io/ironcore-dev/network-operator', '.', ignore=['**/*/zz_generated.deepcopy.go', 'config/crd/bases/*'], only=[
-    'api/', 'cmd/', 'hack/', 'internal/', 'go.mod', 'go.sum', 'Makefile',
+def deploy_prometheus_operator(version='v0.92.1'):
+    local('kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -', quiet=True, echo_off=True)
+
+    print('Installing prometheus-operator')
+    cache_file = '.tiltcache/prometheus-operator-{}.yaml'.format(version)
+    if not os.path.exists(cache_file):
+        local("mkdir -p .tiltcache && curl -sL https://github.com/prometheus-operator/prometheus-operator/releases/download/{}/bundle.yaml | sed 's/namespace: default/namespace: monitoring/g' > {}".format(version, cache_file), quiet=True, echo_off=True)
+    local('kubectl apply --server-side -n monitoring -f {}'.format(cache_file), quiet=True, echo_off=True)
+
+    print('Waiting for prometheus-operator to start')
+    local('kubectl wait --for=condition=Available --timeout=300s -n monitoring deployment/prometheus-operator', quiet=True, echo_off=True)
+
+    k8s_yaml('./config/develop/prometheus.yaml')
+    k8s_resource(new_name = 'prometheus', objects = ['prometheus:prometheus'], port_forwards = '9090', extra_pod_selectors = [{'app.kubernetes.io/name': 'prometheus'}], labels = ['observability'])
+
+deploy_prometheus_operator()
+
+docker_build('controller:latest', '.', only=[
+    'api/', 'cmd/', 'internal/', 'go.mod', 'go.sum'
 ])
 
-local_resource('controller-gen', 'make generate', ignore=['**/*/zz_generated.deepcopy.go', 'config/crd/bases/*'], deps=[
-    'api/', 'cmd/', 'hack/', 'internal/', 'go.mod', 'go.sum', 'Makefile',
-])
-
-docker_build('ghcr.io/ironcore-dev/gnmi-test-server:latest', './test/gnmi')
+local_resource('controller-gen', 'make generate', deps=['api/', 'hack/boilerplate.go.txt'], labels=['operator'])
+local_resource('crds', 'make install', deps=['api/'], labels=['operator'])
 
 provider = os.getenv('PROVIDER', 'openconfig')
 
@@ -28,7 +47,7 @@ manager = kustomize('config/develop')
 manager = str(manager).replace('--provider=openconfig', '--provider={}'.format(provider))
 
 k8s_yaml(blob(manager))
-k8s_resource('network-operator-controller-manager', resource_deps=['controller-gen'])
+k8s_resource('network-operator-controller-manager', resource_deps=['controller-gen'], labels=['operator'])
 
 # Sample resources with manual trigger mode
 def device_yaml():
@@ -39,89 +58,136 @@ def device_yaml():
     return encode_yaml_stream(decoded)
 
 k8s_yaml(device_yaml())
-k8s_resource(new_name='leaf1', objects=['leaf1:device', 'secret-basic-auth:secret'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='leaf1', objects=['leaf1:device', 'secret-basic-auth:secret'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_interface.yaml')
-k8s_resource(new_name='lo0', objects=['lo0:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
-k8s_resource(new_name='lo1', objects=['lo1:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
-k8s_resource(new_name='eth1-1', objects=['eth1-1:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
-k8s_resource(new_name='eth1-2', objects=['eth1-2:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
-k8s_resource(new_name='eth1-10', objects=['eth1-10:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
-k8s_resource(new_name='po10', objects=['po-10:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
-k8s_resource(new_name='svi-10', objects=['svi-10:interface'], resource_deps=['vlan-10'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='lo0', objects=['lo0:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='lo1', objects=['lo1:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='eth1-1', objects=['eth1-1:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='eth1-2', objects=['eth1-2:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='eth1-10', objects=['eth1-10:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='eth1-11', objects=['eth1-11:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='po10', objects=['po-10:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='eth1-3', objects=['eth1-3:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='po20', objects=['po-20:interface'], resource_deps=['eth1-3'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='svi-10', objects=['svi-10:interface'], resource_deps=['vlan-10'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_banner.yaml')
-k8s_resource(new_name='banner', objects=['banner:banner'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='banner', objects=['banner:banner'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_user.yaml')
-k8s_resource(new_name='user', objects=['user:user', 'user-password:secret', 'user-ssh-key:secret'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='user', objects=['user:user', 'user-password:secret', 'user-ssh-key:secret'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_dns.yaml')
-k8s_resource(new_name='dns', objects=['dns:dns'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='dns', objects=['dns:dns'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_ntp.yaml')
-k8s_resource(new_name='ntp', objects=['ntp:ntp'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='ntp', objects=['ntp:ntp'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_acl.yaml')
-k8s_resource(new_name='acl', objects=['acl:accesscontrollist'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='acl', objects=['acl:accesscontrollist'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_certificate.yaml')
-k8s_resource(new_name='trustpoint', objects=['network-operator:issuer', 'network-operator-ca:certificate', 'trustpoint:certificate'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='trustpoint', objects=['network-operator:issuer', 'network-operator-ca:certificate', 'trustpoint:certificate'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_snmp.yaml')
-k8s_resource(new_name='snmp', objects=['snmp:snmp'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='snmp', objects=['snmp:snmp'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_syslog.yaml')
-k8s_resource(new_name='syslog', objects=['syslog:syslog'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='syslog', objects=['syslog:syslog'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_managementaccess.yaml')
-k8s_resource(new_name='managementaccess', objects=['managementaccess:managementaccess'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='managementaccess', objects=['managementaccess:managementaccess'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_isis.yaml')
-k8s_resource(new_name='isis-underlay', objects=['underlay:isis'], resource_deps=['lo0', 'lo1', 'eth1-1', 'eth1-2'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='isis-underlay', objects=['underlay:isis'], resource_deps=['lo0', 'lo1', 'eth1-1', 'eth1-2'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_vrf.yaml')
-k8s_resource(new_name='vrf-admin', objects=['vrf-cc-admin:vrf'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='vrf-admin', objects=['vrf-cc-admin:vrf'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_pim.yaml')
-k8s_resource(new_name='pim', objects=['pim:pim'], resource_deps=['lo0', 'lo1', 'eth1-1', 'eth1-2'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='pim', objects=['pim:pim'], resource_deps=['lo0', 'lo1', 'eth1-1', 'eth1-2'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_bgp.yaml')
-k8s_resource(new_name='bgp', objects=['bgp:bgp'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='bgp', objects=['bgp:bgp'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='bgp-vrf-cc-admin', objects=['bgp-vrf-cc-admin:bgp'], resource_deps=['vrf-admin'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='bgp-rdst', objects=['bgp-rdst:bgp'], resource_deps=['bgp-import-policy'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
+k8s_yaml('./config/samples/cisco/nx/v1alpha1_bgpconfig.yaml')
+k8s_resource(new_name='bgpconfig-adv-pip', objects=['bgpconfig-adv-pip:bgpconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='bgpconfig-export-gw', objects=['bgpconfig-export-gw:bgpconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_bgppeer.yaml')
-k8s_resource(new_name='peer-spine1', objects=['leaf1-spine1:bgppeer'], resource_deps=['bgp', 'lo0'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
-k8s_resource(new_name='peer-spine2', objects=['leaf1-spine2:bgppeer'], resource_deps=['bgp', 'lo0'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='peer-spine1', objects=['leaf1-spine1:bgppeer'], resource_deps=['bgp', 'lo0'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='peer-spine2', objects=['leaf1-spine2:bgppeer'], resource_deps=['bgp', 'lo0'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='peer-spine1-filtered', objects=['leaf1-spine1-filtered:bgppeer'], resource_deps=['bgp', 'lo0', 'bgp-import-policy'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_ospf.yaml')
-k8s_resource(new_name='ospf-underlay', objects=['underlay:ospf'], resource_deps=['lo0', 'lo1', 'eth1-1', 'eth1-2'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='ospf-underlay', objects=['underlay:ospf'], resource_deps=['lo0', 'lo1', 'eth1-1', 'eth1-2'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_vlan.yaml')
-k8s_resource(new_name='vlan-10', objects=['vlan-10:vlan'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='vlan-10', objects=['vlan-10:vlan'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_evi.yaml')
-k8s_resource(new_name='vxlan-100010', objects=['vxlan-100010:evpninstance'], resource_deps=['vlan-10'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='vxlan-100010', objects=['vxlan-100010:evpninstance'], resource_deps=['vlan-10'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_prefixset.yaml')
-k8s_resource(new_name='ccloud-prefixset', objects=['ccloud-prefixset:prefixset'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='ccloud-prefixset', objects=['ccloud-prefixset:prefixset'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_routingpolicy.yaml')
-k8s_resource(new_name='bgp-import-policy', objects=['bgp-import-policy:routingpolicy', 'internal-networks:prefixset', 'partner-networks:prefixset', 'blocked-networks:prefixset'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='bgp-import-policy', objects=['bgp-import-policy:routingpolicy', 'internal-networks:prefixset', 'partner-networks:prefixset', 'blocked-networks:prefixset'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/cisco/nx/v1alpha1_vpcdomain.yaml')
-k8s_resource(new_name='vpcdomain', objects=['leaf1-vpcdomain:vpcdomain', 'leaf1-vrfvpckeepalive:vrf', 'eth1-30:interface', 'vpc-peer-link:interfaceconfig', 'eth1-31:interface','eth1-32:interface', 'po1:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='vpcdomain', objects=['leaf1-vpcdomain:vpcdomain', 'leaf1-vrfvpckeepalive:vrf', 'eth1-30:interface', 'vpc-peer-link:interfaceconfig', 'eth1-31:interface','eth1-32:interface', 'po1:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
+k8s_yaml('./config/samples/cisco/nx/v1alpha1_interfaceconfig.yaml')
+k8s_resource(new_name='spanning-tree-network', objects=['spanning-tree-network:interfaceconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='lacp-vpc', objects=['lacp-vpc:interfaceconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_nve.yaml')
-k8s_resource(new_name='nve1', objects=['nve1:networkvirtualizationedge'], trigger_mode=TRIGGER_MODE_MANUAL, resource_deps=['lo0', 'lo1'], auto_init=False)
+k8s_resource(new_name='nve1', objects=['nve1:networkvirtualizationedge'], trigger_mode=TRIGGER_MODE_MANUAL, resource_deps=['lo0', 'lo1'], auto_init=False, labels=['samples'])
 # Uncomment the following lines and edit the above spec to add NXOS provider-specific config to the NetworkVirtualizationEdge resource
 # k8s_yaml('./config/samples/cisco/nx/v1alpha1_nveconfig.yaml')
-# k8s_resource(new_name='nve1-cfg', objects=['nve1-cfg:networkvirtualizationedgeconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+# k8s_resource(new_name='nve1-cfg', objects=['nve1-cfg:networkvirtualizationedgeconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_lldp.yaml')
-k8s_resource(new_name='lldp', objects=['leaf1-lldp:lldp'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='lldp', objects=['leaf1-lldp:lldp'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 # Uncomment the following lines for NXOS specific LLDP config
 # k8s_yaml('./config/samples/cisco/nx/v1alpha1_lldpconfig.yaml')
-# k8s_resource(new_name='lldpconfig', objects=['leaf1-lldpconfig:lldpconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+# k8s_resource(new_name='lldpconfig', objects=['leaf1-lldpconfig:lldpconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
+k8s_yaml('./config/samples/v1alpha1_dhcprelay.yaml')
+k8s_resource(new_name='dhcprelay', objects=['dhcprelay:dhcprelay'], resource_deps=['eth1-1'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
+k8s_yaml('./config/samples/v1alpha1_ethernetsegment.yaml')
+k8s_resource(new_name='ethernetsegment-sample', objects=['ethernetsegment-sample:ethernetsegment'], resource_deps=['po10'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
+k8s_yaml('./config/samples/v1alpha1_aaa.yaml')
+k8s_resource(new_name='aaa', objects=['aaa-tacacs:aaa', 'tacacs-server-keys:secret'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+# Uncomment the following lines for NX-OS specific AAA config
+# k8s_yaml('./config/samples/cisco/nx/v1alpha1_aaaconfig.yaml')
+# k8s_resource(new_name='aaaconfig', objects=['aaa-tacacs-nxos:aaaconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
+k8s_yaml('./config/samples/v1alpha1_configbackup.yaml')
+k8s_resource(new_name='local-backup', objects=['local-backup:configbackup'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='startup-backup', objects=['startup-backup:configbackup'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
+k8s_yaml('./config/samples/v1alpha1_indexpool.yaml')
+k8s_resource(new_name='indexpool', objects=['indexpool-sample:indexpool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
+k8s_yaml('./config/samples/v1alpha1_ipaddresspool.yaml')
+k8s_resource(new_name='ipaddresspool', objects=['ipaddresspool-sample:ipaddresspool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
+k8s_yaml('./config/samples/v1alpha1_ipprefixpool.yaml')
+k8s_resource(new_name='ipprefixpool', objects=['ipprefixpool-sample:ipprefixpool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
+k8s_yaml('./config/samples/v1alpha1_claim.yaml')
+k8s_resource(new_name='claim-index', objects=['claim-index:claim'], resource_deps=['indexpool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='claim-ipaddress', objects=['claim-ipaddress:claim'], resource_deps=['ipaddresspool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='claim-prefix', objects=['claim-prefix:claim'], resource_deps=['ipprefixpool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
+k8s_yaml('./config/samples/v1alpha1_fabric.yaml')
+k8s_resource(new_name='fabric', objects=['fabric:fabric', 'loopback-pool:ipaddresspool', 'underlay-p2p-pool:ipprefixpool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')

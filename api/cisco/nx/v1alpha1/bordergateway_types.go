@@ -5,6 +5,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
@@ -118,6 +119,8 @@ const (
 	BGPPeerTypeFabricBorderLeaf BGPPeerType = "FabricBorderLeaf"
 )
 
+// StormControl defines the storm control configuration for the border gateway, allowing to rate-limit
+// BUM (Broadcast, Unknown unicast, Multicast) traffic on the border gateway interface.
 type StormControl struct {
 	// Level is the suppression level as a percentage of the interface bandwidth.
 	// Must be a floating point number between 1.0 and 100.0.
@@ -146,11 +149,11 @@ const (
 // BorderGatewayStatus defines the observed state of BorderGateway.
 type BorderGatewayStatus struct {
 	// The conditions are a list of status objects that describe the state of the Banner.
-	//+listType=map
-	//+listMapKey=type
-	//+patchStrategy=merge
-	//+patchMergeKey=type
-	//+optional
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
@@ -204,5 +207,8 @@ type BorderGatewayList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&BorderGateway{}, &BorderGatewayList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &BorderGateway{}, &BorderGatewayList{})
+		return nil
+	})
 }

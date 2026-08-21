@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -47,11 +48,11 @@ type VLANSpec struct {
 // VLANStatus defines the observed state of VLAN.
 type VLANStatus struct {
 	// The conditions are a list of status objects that describe the state of the VLAN.
-	//+listType=map
-	//+listMapKey=type
-	//+patchStrategy=merge
-	//+patchMergeKey=type
-	//+optional
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// RoutedBy references the interface that provides Layer 3 routing for this VLAN, if any.
@@ -127,5 +128,8 @@ func RegisterVLANDependency(gvk schema.GroupVersionKind) {
 }
 
 func init() {
-	SchemeBuilder.Register(&VLAN{}, &VLANList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &VLAN{}, &VLANList{})
+		return nil
+	})
 }

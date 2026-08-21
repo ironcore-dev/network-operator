@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/netip"
 	"slices"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -16,10 +17,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -31,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/paused"
@@ -48,7 +52,7 @@ type InterfaceReconciler struct {
 
 	// Recorder is used to record events for the controller.
 	// More info: https://book.kubebuilder.io/reference/raising-events
-	Recorder record.EventRecorder
+	Recorder events.EventRecorder
 
 	// Provider is the driver that will be used to create & delete the interface.
 	Provider provider.ProviderFunc
@@ -67,7 +71,7 @@ type InterfaceReconciler struct {
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vlans,verbs=get;list;watch
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vlans/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vrfs,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -79,14 +83,14 @@ type InterfaceReconciler struct {
 // - https://ahmet.im/blog/controller-pitfalls/#reconcile-method-shape
 func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
-	log.Info("Reconciling resource")
+	log.V(3).Info("Reconciling resource")
 
 	obj := new(v1alpha1.Interface)
 	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
 		if apierrors.IsNotFound(err) {
 			// If the custom resource is not found then it usually means that it was deleted or not created
 			// In this way, we will stop the reconciliation
-			log.Info("Resource not found. Ignoring since object must be deleted")
+			log.V(3).Info("Resource not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -118,8 +122,8 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	if err := r.Locker.AcquireLock(ctx, device.Name, "interface-controller"); err != nil {
 		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
-			log.Info("Device is already locked, requeuing reconciliation")
-			return ctrl.Result{RequeueAfter: time.Second}, nil
+			log.V(3).Info("Device is already locked, requeuing reconciliation")
+			return ctrl.Result{RequeueAfter: Jitter(time.Second), Priority: new(LockWaitPriorityHigh)}, nil
 		}
 		log.Error(err, "Failed to acquire device lock")
 		return ctrl.Result{}, err
@@ -164,7 +168,7 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				return ctrl.Result{}, err
 			}
 		}
-		log.Info("Resource is being deleted, skipping reconciliation")
+		log.V(3).Info("Resource is being deleted, skipping reconciliation")
 		return ctrl.Result{}, nil
 	}
 
@@ -175,13 +179,13 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			log.Error(err, "Failed to add finalizer to resource")
 			return ctrl.Result{}, err
 		}
-		log.Info("Added finalizer to resource")
+		log.V(1).Info("Added finalizer to resource")
 		return ctrl.Result{}, nil
 	}
 
 	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition, v1alpha1.OperationalCondition) {
-		log.Info("Initializing status conditions")
+		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
 
@@ -202,20 +206,20 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}()
 
-	res, err := r.reconcile(ctx, s)
-	if err != nil {
+	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, apistatus.WrapTerminalError(err)
 	}
 
-	return res, nil
+	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
 }
 
-var (
+const (
 	interfaceTypeKey          = ".spec.type"
 	interfaceUnnumberedRefKey = ".spec.ipv4.unnumbered.interfaceRef.name"
 	interfaceVlanRefKey       = ".spec.vlanRef.name"
 	interfaceVrfRefKey        = ".spec.vrfRef.name"
+	interfaceParentRefKey     = ".spec.parentInterfaceRef.name"
 )
 
 // SetupWithManager sets up the controller with the Manager.
@@ -271,8 +275,30 @@ func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 		return err
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.Interface{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.Interface)
+		return []string{o.Spec.DeviceRef.Name}
+	}); err != nil {
+		return err
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.Interface{}, interfaceParentRefKey, func(obj client.Object) []string {
+		intf := obj.(*v1alpha1.Interface)
+		if intf.Spec.ParentInterfaceRef == nil {
+			return nil
+		}
+		return []string{intf.Spec.ParentInterfaceRef.Name}
+	}); err != nil {
+		return err
+	}
+
 	bldr := ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.Interface{}).
+		For(&v1alpha1.Interface{}, builder.WithPredicates(predicate.Or(
+			predicate.GenerationChangedPredicate{},
+			predicate.LabelChangedPredicate{},
+			predicate.AnnotationChangedPredicate{},
+			interfaceUpdatePredicate{},
+		))).
 		Named("interface").
 		WithEventFilter(filter)
 
@@ -302,12 +328,52 @@ func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 				},
 			}),
 		).
+		// Watches enqueues subinterfaces when their parent interface changes.
+		Watches(
+			&v1alpha1.Interface{},
+			handler.EnqueueRequestsFromMapFunc(r.parentToSubinterfaces),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
 		// Watches enqueues Aggregate Interfaces for updates in referenced member resources.
 		Watches(
 			&v1alpha1.Interface{},
 			handler.EnqueueRequestsFromMapFunc(r.interfaceToAggregate),
 			builder.WithPredicates(predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
+		// Watches enqueues member Physical Interfaces when their parent Aggregate changes.
+		// Only triggers when Aggregate Spec fields change that affect member reconciliation.
+		Watches(
+			&v1alpha1.Interface{},
+			handler.EnqueueRequestsFromMapFunc(r.aggregateToMembers),
+			builder.WithPredicates(predicate.Funcs{
+				CreateFunc: func(e event.CreateEvent) bool {
+					return false
+				},
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					oldIntf := e.ObjectOld.(*v1alpha1.Interface)
+					newIntf := e.ObjectNew.(*v1alpha1.Interface)
+					// Only trigger when fields that affect member Physical interface
+					// reconciliation change (e.g. layer, VRF membership, MTU).
+					return !equality.Semantic.DeepEqual(oldIntf.Spec.IPv4, newIntf.Spec.IPv4) ||
+						!equality.Semantic.DeepEqual(oldIntf.Spec.Switchport, newIntf.Spec.Switchport) ||
+						!equality.Semantic.DeepEqual(oldIntf.Spec.VrfRef, newIntf.Spec.VrfRef) ||
+						oldIntf.Spec.MTU != newIntf.Spec.MTU
+				},
+				DeleteFunc: func(e event.DeleteEvent) bool {
 					return false
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
@@ -344,16 +410,30 @@ func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 			}),
 		).
 		// Watches enqueues Interfaces for updates in referenced Device resources.
-		// Triggers on create, delete, and update events when the Paused spec field changes.
+		// Triggers on create, delete, and update events when the device's effective pause state changes.
 		Watches(
 			&v1alpha1.Device{},
 			handler.EnqueueRequestsFromMapFunc(r.deviceToInterfaces),
 			builder.WithPredicates(predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					oldDevice := e.ObjectOld.(*v1alpha1.Device)
-					newDevice := e.ObjectNew.(*v1alpha1.Device)
-					// Only trigger when Paused spec field changes.
-					return oldDevice.Spec.Paused != newDevice.Spec.Paused
+					return paused.DevicePausedChanged(e.ObjectOld, e.ObjectNew)
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
+		// Watches enqueues Interfaces that have neighbor labels pointing to interfaces
+		// on a device when the DNS resource associated with that device changes. This ensures LLDP
+		// validation is re-evaluated when DNS domain changes affect FQDN matching.
+		Watches(
+			&v1alpha1.DNS{},
+			handler.EnqueueRequestsFromMapFunc(r.dnsToNeighborInterfaces),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					oldDNS := e.ObjectOld.(*v1alpha1.DNS)
+					newDNS := e.ObjectNew.(*v1alpha1.DNS)
+					return oldDNS.Spec.Domain != newDNS.Spec.Domain
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false
@@ -361,6 +441,44 @@ func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 			}),
 		).
 		Complete(r)
+}
+
+// interfaceUpdatePredicate passes status-only updates through unless the
+// neighbor ExpirationTime is the only change. Without this filter the status
+// patch would immediately trigger a redundant second reconcile because the
+// controller updates the ExpirationTime in the status during every reconcile loop.
+// This would cause repeated reconciles every time the controller tries to update
+// the status, even if there are no changes to the spec.
+type interfaceUpdatePredicate struct {
+	predicate.Funcs
+}
+
+// Update implements predicate.Predicate.
+func (interfaceUpdatePredicate) Update(e event.UpdateEvent) bool {
+	oldIntf, ok := e.ObjectOld.(*v1alpha1.Interface)
+	if !ok {
+		return true
+	}
+	newIntf, ok := e.ObjectNew.(*v1alpha1.Interface)
+	if !ok {
+		return true
+	}
+
+	// Allow lifecycle metadata transitions to pass through so the controller can
+	// continue after adding/removing finalizers and when deletion starts.
+	if !equality.Semantic.DeepEqual(oldIntf.GetFinalizers(), newIntf.GetFinalizers()) || !equality.Semantic.DeepEqual(oldIntf.GetDeletionTimestamp(), newIntf.GetDeletionTimestamp()) {
+		return true
+	}
+
+	oldStatus := oldIntf.Status.DeepCopy()
+	newStatus := newIntf.Status.DeepCopy()
+	for i := range oldStatus.Neighbors {
+		oldStatus.Neighbors[i].ExpirationTime = metav1.Time{}
+	}
+	for i := range newStatus.Neighbors {
+		newStatus.Neighbors[i].ExpirationTime = metav1.Time{}
+	}
+	return !equality.Semantic.DeepEqual(oldStatus, newStatus)
 }
 
 // scope holds the different objects that are read and used during the reconcile.
@@ -372,17 +490,18 @@ type scope struct {
 	Provider       provider.InterfaceProvider
 }
 
-func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.Result, reterr error) {
+func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (reterr error) {
 	if s.Interface.Labels == nil {
 		s.Interface.Labels = make(map[string]string)
 	}
 
 	s.Interface.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
-	// Ensure the Interface is owned by the Device.
-	if !controllerutil.HasControllerReference(s.Interface) {
+	// Ensure the Interface (except subinterfaces) is owned by the Device.
+	// Subinterfaces have their parent interface as owner, and the parent interface is owned by the Device.
+	if !controllerutil.HasControllerReference(s.Interface) && s.Interface.Spec.Type != v1alpha1.InterfaceTypeSubinterface {
 		if err := controllerutil.SetOwnerReference(s.Device, s.Interface, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
@@ -395,7 +514,26 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		var err error
 		members, err = r.reconcileMemberInterfaces(ctx, s)
 		if err != nil {
-			return ctrl.Result{}, err
+			return err
+		}
+	}
+
+	var aggregateParent *v1alpha1.Interface
+	if s.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical && s.Interface.Status.MemberOf != nil {
+		aggregateParent = new(v1alpha1.Interface)
+		key := client.ObjectKey{Name: s.Interface.Status.MemberOf.Name, Namespace: s.Interface.Namespace}
+		if err := r.Get(ctx, key, aggregateParent); err != nil {
+			if !apierrors.IsNotFound(err) {
+				return fmt.Errorf("failed to get aggregate parent %q: %w", s.Interface.Status.MemberOf.Name, err)
+			}
+			aggregateParent = nil
+		}
+	}
+
+	if s.Interface.Spec.Type == v1alpha1.InterfaceTypeSubinterface {
+		err := r.reconcileSubinterfaces(ctx, s)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -409,7 +547,7 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		var err error
 		vlan, err = r.reconcileVLAN(ctx, s)
 		if err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
@@ -418,21 +556,21 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		var err error
 		vrf, err = r.reconcileVRF(ctx, s)
 		if err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
 	var ip provider.IPv4
-	if s.Interface.Spec.IPv4 != nil {
+	if s.Interface.Spec.IPv4 != nil && (len(s.Interface.Spec.IPv4.Addresses) > 0 || s.Interface.Spec.IPv4.Unnumbered != nil) {
 		var err error
 		ip, err = r.reconcileIPv4(ctx, s)
 		if err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
@@ -442,20 +580,21 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 
 	// Ensure the Interface is realized on the provider.
 	err := s.Provider.EnsureInterface(ctx, &provider.EnsureInterfaceRequest{
-		Interface:      s.Interface,
-		ProviderConfig: s.ProviderConfig,
-		IPv4:           ip,
-		Members:        members,
-		MultiChassisID: multiChassisID,
-		VLAN:           vlan,
-		VRF:            vrf,
+		Interface:       s.Interface,
+		ProviderConfig:  s.ProviderConfig,
+		IPv4:            ip,
+		Members:         members,
+		MultiChassisID:  multiChassisID,
+		AggregateParent: aggregateParent,
+		VLAN:            vlan,
+		VRF:             vrf,
 	})
 
 	cond := conditions.FromError(err)
 	conditions.Set(s.Interface, cond)
 
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	status, err := s.Provider.GetInterfaceStatus(ctx, &provider.InterfaceRequest{
@@ -463,10 +602,25 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		ProviderConfig: s.ProviderConfig,
 	})
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get interface status: %w", err)
+		return fmt.Errorf("failed to get interface status: %w", err)
 	}
 
-	cond = metav1.Condition{
+	r.reconcileInterfaceStatus(ctx, s, &status)
+
+	return nil
+}
+
+func (r *InterfaceReconciler) reconcileInterfaceStatus(ctx context.Context, s *scope, status *provider.InterfaceStatus) {
+	// Neighbor adjacencies is only metadata and should not prevent reconciliation
+	if s.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical && len(status.LLDPAdjacencies) > 0 {
+		if err := r.updateNeighborAdjacenciesStatus(ctx, s, status); err != nil {
+			ctrl.LoggerFrom(ctx).Error(err, "failed to update neighbor adjacency status", "interface", klog.KObj(s.Interface))
+		}
+	} else {
+		s.Interface.Status.Neighbors = nil
+	}
+
+	cond := metav1.Condition{
 		Type:    v1alpha1.OperationalCondition,
 		Status:  metav1.ConditionTrue,
 		Reason:  v1alpha1.OperationalReason,
@@ -481,8 +635,146 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (_ ctrl.R
 		cond.Message = fmt.Sprintf("Device returned %q", status.OperMessage)
 	}
 	conditions.Set(s.Interface, cond)
+}
 
-	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
+// updateNeighborAdjacenciesStatus updates the Interface status with the LLDP neighbor adjacencies returned by the provider.
+// It validates the adjacencies by looking at the corresponding label/annotation.
+// It first attempts to validate through label (neighbor is managed by the operator and exists as a kubernetes resource).
+// If that fails, it attempts to validate through annotation (neighbor is not managed by the operator).
+// Only returns an error if there is an issue during the validation process, but does not return an error if the validation fails (i.e. the adjacency is marked as invalid).
+func (r *InterfaceReconciler) updateNeighborAdjacenciesStatus(ctx context.Context, s *scope, status *provider.InterfaceStatus) error {
+	log := ctrl.LoggerFrom(ctx)
+	if len(status.LLDPAdjacencies) > 1 {
+		log.V(1).Info("Multiple LLDP adjacencies found for a single interface, will validate each adjacency against one single label/annotation", "interface", klog.KObj(s.Interface), "adjacencyCount", len(status.LLDPAdjacencies))
+	}
+
+	var errs []error
+	neighbors := make([]v1alpha1.Neighbor, 0, len(status.LLDPAdjacencies))
+	for _, adj := range status.LLDPAdjacencies {
+		chassisIDType, ok := v1alpha1.ChassisIDTypeFromValue(adj.ChassisIDType)
+		if !ok {
+			log.V(1).Info("Skipping LLDP adjacency with unknown chassis ID type", "chassisID", adj.ChassisID, "chassisIDType", adj.ChassisIDType)
+			continue
+		}
+		portIDType, ok := v1alpha1.PortIDTypeFromValue(adj.PortIDType)
+		if !ok {
+			log.V(1).Info("Skipping LLDP adjacency with unknown port ID type", "chassisID", adj.ChassisID, "portIDType", adj.PortIDType)
+			continue
+		}
+
+		adjacency := v1alpha1.Neighbor{
+			SystemName:        adj.SysName,
+			SystemDescription: adj.SysDescription,
+			ChassisID:         adj.ChassisID,
+			ChassisIDType:     chassisIDType,
+			PortID:            adj.PortID,
+			PortIDType:        portIDType,
+			PortDescription:   adj.PortDescription,
+			ExpirationTime:    metav1.NewTime(time.Now().Add(adj.TTL).Truncate(time.Second)),
+		}
+
+		// NOTE: the operator runs a single provider currently, so s.Provider is used for the
+		// remote device as well. If multi-provider support is added, the remote device's
+		// provider must be resolved here instead.
+		if neighborLabelValue, ok := s.Interface.Labels[v1alpha1.PhysicalInterfaceNeighborLabel]; ok {
+			var err error
+			if adjacency.Validation, err = r.validateLLDPAdjacencyThroughLabel(ctx, s.Provider, s.Interface, &adjacency, neighborLabelValue); err != nil {
+				errs = append(errs, fmt.Errorf("failed to validate LLDP adjacency %q/%q through label %q: %w", adj.ChassisID, adj.PortID, neighborLabelValue, err))
+			}
+		}
+
+		if neighborAnnotationValue, ok := s.Interface.Annotations[v1alpha1.PhysicalInterfaceNeighborRawAnnotation]; ok && adjacency.Validation == "" {
+			var err error
+			if adjacency.Validation, err = r.validateLLDPAdjacencyThroughAnnotation(ctx, s.Interface, &adjacency, neighborAnnotationValue); err != nil {
+				errs = append(errs, fmt.Errorf("failed to validate LLDP adjacency %q/%q through annotation %q: %w", adj.ChassisID, adj.PortID, neighborAnnotationValue, err))
+			}
+		}
+		neighbors = append(neighbors, adjacency)
+	}
+
+	s.Interface.Status.Neighbors = neighbors
+
+	return kerrors.NewAggregate(errs)
+}
+
+func (r *InterfaceReconciler) validateLLDPAdjacencyThroughLabel(ctx context.Context, remoteProvider provider.InterfaceProvider, intf *v1alpha1.Interface, n *v1alpha1.Neighbor, label string) (v1alpha1.NeighborValidation, error) {
+	key := client.ObjectKey{
+		Name:      label,
+		Namespace: intf.Namespace,
+	}
+
+	remoteIntf := new(v1alpha1.Interface)
+	if err := r.Get(ctx, key, remoteIntf); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return "", fmt.Errorf("failed to get neighbor interface %w", err)
+		}
+		return v1alpha1.NeighborNotFound, nil
+	}
+
+	log := ctrl.LoggerFrom(ctx, "LLDP validation", klog.KObj(intf))
+
+	remoteDevice, err := deviceutil.GetDeviceByName(ctx, r, remoteIntf.Namespace, remoteIntf.Spec.DeviceRef.Name)
+	if err != nil {
+		return "", fmt.Errorf("could not find the device for interface %q: %w", remoteIntf.Name, err)
+	}
+
+	if remoteDevice.Status.Hostname == "" {
+		return "", fmt.Errorf("the neighbor device does not have a hostname yet, cannot validate adjacency: neighborInterface=%q", remoteIntf.Name)
+	}
+
+	dns := new(v1alpha1.DNSList)
+	if err := r.List(
+		ctx, dns,
+		client.InNamespace(remoteDevice.Namespace),
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: remoteDevice.Name},
+	); err != nil {
+		return "", fmt.Errorf("failed to list DNSes for device %q: %w", remoteDevice.Name, err)
+	}
+
+	if len(dns.Items) > 1 {
+		return "", fmt.Errorf("multiple DNS resources found for device %q, expected at most one", remoteDevice.Name)
+	}
+
+	var domain string
+	if len(dns.Items) == 1 {
+		domain = "." + dns.Items[0].Spec.Domain
+	}
+
+	if !strings.EqualFold(remoteDevice.Status.Hostname+domain, n.SystemName) {
+		log.V(1).Info("neighbor device name does not match label reference", "actual", n.SystemName, "expected", remoteDevice.Status.Hostname+domain)
+		return v1alpha1.NeighborDeviceMismatch, nil
+	}
+
+	equal, err := remoteProvider.InterfaceNameEqual(ctx, remoteIntf.Spec.Name, n.PortID)
+	if err != nil {
+		return "", fmt.Errorf("failed to compare interface names %q and %q: %w", remoteIntf.Spec.Name, n.PortID, err)
+	}
+	if !equal {
+		log.V(1).Info("the neighbor interface name does not match", "expected", n.PortID, "actual", remoteIntf.Spec.Name)
+		return v1alpha1.NeighborPortMismatch, nil
+	}
+
+	return v1alpha1.NeighborVerified, nil
+}
+
+func (r *InterfaceReconciler) validateLLDPAdjacencyThroughAnnotation(ctx context.Context, intf *v1alpha1.Interface, n *v1alpha1.Neighbor, annotation string) (v1alpha1.NeighborValidation, error) {
+	remoteDeviceID, remotePortID, ok := strings.Cut(annotation, "::")
+	if !ok || remoteDeviceID == "" || remotePortID == "" {
+		return "", errors.New("invalid neighbor annotation value, expected format is <deviceIdentifier>::<portID>")
+	}
+
+	log := ctrl.LoggerFrom(ctx, "LLDP validation", klog.KObj(intf))
+	if remoteDeviceID != n.ChassisID && remoteDeviceID != n.SystemName {
+		log.V(1).Info("the neighbor device identifier does not match", "annotationValue", remoteDeviceID, "chassisID", n.ChassisID, "systemName", n.SystemName)
+		return v1alpha1.NeighborDeviceMismatch, nil
+	}
+
+	if remotePortID != n.PortID {
+		log.V(1).Info("the neighbor port identifier does not match", "annotationValue", remotePortID, "portID", n.PortID)
+		return v1alpha1.NeighborPortMismatch, nil
+	}
+
+	return v1alpha1.NeighborVerified, nil
 }
 
 func (r *InterfaceReconciler) reconcileIPv4(ctx context.Context, s *scope) (provider.IPv4, error) {
@@ -535,9 +827,9 @@ func (r *InterfaceReconciler) reconcileIPv4(ctx context.Context, s *scope) (prov
 		}
 
 		return provider.IPv4Unnumbered{SourceInterface: intf.Spec.Name}, nil
+	default:
+		panic("unreachable")
 	}
-
-	return nil, nil
 }
 
 // reconcileVLAN ensures that the referenced VLAN exists, belongs to the same device as the RoutedVLAN interface.
@@ -720,6 +1012,79 @@ func (r *InterfaceReconciler) reconcileMemberInterfaces(ctx context.Context, s *
 	return members, nil
 }
 
+// reconcileSubinterfaces ensures that the parent interfaces exist and belong to the same device as the subinterface.
+// It also updates the subinterfaces owner reference to the parent interface
+func (r *InterfaceReconciler) reconcileSubinterfaces(ctx context.Context, s *scope) error {
+	parentIntf := new(v1alpha1.Interface)
+
+	key := client.ObjectKey{Name: s.Interface.Spec.ParentInterfaceRef.Name, Namespace: s.Interface.Namespace}
+	if err := r.Get(ctx, key, parentIntf); err != nil {
+		if apierrors.IsNotFound(err) {
+			conditions.Set(s.Interface, metav1.Condition{
+				Type:    v1alpha1.ConfiguredCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.ParentInterfaceNotFoundReason,
+				Message: fmt.Sprintf("referenced parent interface %q for not found", key),
+			})
+			return reconcile.TerminalError(fmt.Errorf("failed to get parent interface %q: %w", s.Interface.Spec.ParentInterfaceRef.Name, err))
+		}
+		return err
+	}
+
+	// Check matching device reference
+	if parentIntf.Spec.DeviceRef.Name != s.Device.Name {
+		conditions.Set(s.Interface, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.CrossDeviceReferenceReason,
+			Message: fmt.Sprintf("parent interface %q belongs to a different device", key),
+		})
+		return reconcile.TerminalError(fmt.Errorf("parent interface %q belongs to device %q in not ready state", s.Interface.Spec.ParentInterfaceRef.Name, parentIntf.Spec.DeviceRef.Name))
+	}
+
+	// Check if parent interface is an aggregate or physical interface
+	if parentIntf.Spec.Type != v1alpha1.InterfaceTypePhysical && parentIntf.Spec.Type != v1alpha1.InterfaceTypeAggregate {
+		conditions.Set(s.Interface, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.InvalidParentInterfaceTypeReason,
+			Message: fmt.Sprintf("parent interface %q is not of type Physical or Aggregate, got %q", key, parentIntf.Spec.Type),
+		})
+		return reconcile.TerminalError(fmt.Errorf("parent interface %q is not of type Physical or Aggregate, got %q", s.Interface.Spec.ParentInterfaceRef.Name, parentIntf.Spec.Type))
+	}
+
+	// L2 interfaces do not support subinterfaces config
+	if parentIntf.Spec.Switchport != nil {
+		conditions.Set(s.Interface, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.InvalidInterfaceTypeReason,
+			Message: fmt.Sprintf("parent interface %q is an L2 interface", key),
+		})
+		return reconcile.TerminalError(fmt.Errorf("parent interface %q is an L2 interface", s.Interface.Spec.ParentInterfaceRef.Name))
+	}
+
+	// Ensure the Subinterface is owned by the parent interface.
+	if !controllerutil.HasControllerReference(s.Interface) {
+		if err := controllerutil.SetOwnerReference(parentIntf, s.Interface, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
+			return reconcile.TerminalError(err)
+		}
+	}
+
+	// Parent interface must be configured
+	if !conditions.IsConfigured(parentIntf) {
+		conditions.Set(s.Interface, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.ParentInterfaceNotConfiguredReason,
+			Message: fmt.Sprintf("parent interface %q not ready", key),
+		})
+		return reconcile.TerminalError(fmt.Errorf("parent interface %q in not ready state", s.Interface.Spec.ParentInterfaceRef.Name))
+	}
+
+	return nil
+}
+
 func (r *InterfaceReconciler) finalize(ctx context.Context, s *scope) (reterr error) {
 	if s.Interface.Spec.Aggregation != nil {
 		if err := r.finalizeMemberInterfaces(ctx, s); err != nil {
@@ -825,8 +1190,7 @@ func (r *InterfaceReconciler) interfaceToUnnumbered(ctx context.Context, obj cli
 	requests := []ctrl.Request{}
 	for _, i := range interfaces.Items {
 		if i.Spec.IPv4 != nil && i.Spec.IPv4.Unnumbered != nil && i.Spec.IPv4.Unnumbered.InterfaceRef.Name == intf.Name {
-			log.Info("Enqueuing Interface for reconciliation", "Interface", klog.KObj(&i))
-
+			log.V(2).Info("Enqueuing Interface for reconciliation", "Interface", klog.KObj(&i))
 			requests = append(requests, ctrl.Request{
 				NamespacedName: client.ObjectKey{
 					Name:      i.Name,
@@ -860,7 +1224,72 @@ func (r *InterfaceReconciler) interfaceToAggregate(ctx context.Context, obj clie
 		if slices.ContainsFunc(i.Spec.Aggregation.MemberInterfaceRefs, func(member v1alpha1.LocalObjectReference) bool {
 			return member.Name == intf.Name
 		}) {
-			log.Info("Enqueuing Aggregate Interface for reconciliation", "Aggregate", klog.KObj(&i))
+			log.V(2).Info("Enqueuing Aggregate Interface for reconciliation", "Aggregate", klog.KObj(&i))
+			requests = append(requests, ctrl.Request{
+				NamespacedName: client.ObjectKey{
+					Name:      i.Name,
+					Namespace: i.Namespace,
+				},
+			})
+		}
+	}
+
+	return requests
+}
+
+// aggregateToMembers is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for member Physical Interfaces when their parent Aggregate Interface gets updated.
+func (r *InterfaceReconciler) aggregateToMembers(ctx context.Context, obj client.Object) []ctrl.Request {
+	intf, ok := obj.(*v1alpha1.Interface)
+	if !ok {
+		panic(fmt.Sprintf("Expected a Interface but got a %T", obj))
+	}
+
+	if intf.Spec.Type != v1alpha1.InterfaceTypeAggregate {
+		return nil
+	}
+
+	log := ctrl.LoggerFrom(ctx, "Aggregate", klog.KObj(intf))
+
+	requests := make([]ctrl.Request, 0, len(intf.Spec.Aggregation.MemberInterfaceRefs))
+	for _, ref := range intf.Spec.Aggregation.MemberInterfaceRefs {
+		log.V(2).Info("Enqueuing member Interface for reconciliation", "Member", ref.Name)
+		requests = append(requests, ctrl.Request{
+			NamespacedName: client.ObjectKey{
+				Name:      ref.Name,
+				Namespace: intf.Namespace,
+			},
+		})
+	}
+
+	return requests
+}
+
+// parentToSubinterfaces is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for Subinterfaces based on their parent Interface.
+func (r *InterfaceReconciler) parentToSubinterfaces(ctx context.Context, obj client.Object) []ctrl.Request {
+	intf, ok := obj.(*v1alpha1.Interface)
+	if !ok {
+		panic(fmt.Sprintf("Expected a Interface but got a %T", obj))
+	}
+
+	if intf.Spec.Type != v1alpha1.InterfaceTypePhysical && intf.Spec.Type != v1alpha1.InterfaceTypeAggregate {
+		return nil
+	}
+
+	log := ctrl.LoggerFrom(ctx, "Interface", klog.KObj(intf))
+	interfaces := new(v1alpha1.InterfaceList)
+
+	// List all interfaces in the same namespace with a parent interface reference to the physical interface.
+	if err := r.List(ctx, interfaces, client.InNamespace(intf.Namespace), client.MatchingFields{interfaceParentRefKey: intf.Name}); err != nil {
+		log.Error(err, "Failed to list Interfaces")
+		return nil
+	}
+
+	requests := []ctrl.Request{}
+	for _, i := range interfaces.Items {
+		if i.Spec.ParentInterfaceRef != nil && i.Spec.ParentInterfaceRef.Name == intf.Name {
+			log.V(2).Info("Enqueuing SubInterface for reconciliation", "SubInterface", klog.KObj(&i))
 			requests = append(requests, ctrl.Request{
 				NamespacedName: client.ObjectKey{
 					Name:      i.Name,
@@ -892,7 +1321,7 @@ func (r *InterfaceReconciler) vlanToRoutedVLAN(ctx context.Context, obj client.O
 	requests := []ctrl.Request{}
 	for _, i := range interfaces.Items {
 		if i.Spec.VlanRef != nil && i.Spec.VlanRef.Name == vlan.Name {
-			log.Info("Enqueuing RoutedVLAN Interface for reconciliation", "Interface", klog.KObj(&i))
+			log.V(2).Info("Enqueuing RoutedVLAN Interface for reconciliation", "Interface", klog.KObj(&i))
 
 			requests = append(requests, ctrl.Request{
 				NamespacedName: client.ObjectKey{
@@ -925,7 +1354,7 @@ func (r *InterfaceReconciler) vrfToInterface(ctx context.Context, obj client.Obj
 	requests := []ctrl.Request{}
 	for _, i := range interfaces.Items {
 		if i.Spec.VrfRef != nil && i.Spec.VrfRef.Name == vrf.Name {
-			log.Info("Enqueuing Interface for reconciliation", "Interface", klog.KObj(&i))
+			log.V(2).Info("Enqueuing Interface for reconciliation", "Interface", klog.KObj(&i))
 
 			requests = append(requests, ctrl.Request{
 				NamespacedName: client.ObjectKey{
@@ -946,7 +1375,7 @@ func (r *InterfaceReconciler) interfacesForProviderConfig(ctx context.Context, o
 
 	list := &v1alpha1.InterfaceList{}
 	if err := r.List(ctx, list, client.InNamespace(obj.GetNamespace())); err != nil {
-		log.Error(err, "Failed to list Interfacees")
+		log.Error(err, "Failed to list Interfaces")
 		return nil
 	}
 
@@ -958,7 +1387,7 @@ func (r *InterfaceReconciler) interfacesForProviderConfig(ctx context.Context, o
 			m.Spec.ProviderConfigRef.Name == obj.GetName() &&
 			m.Spec.ProviderConfigRef.Kind == gkv.Kind &&
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
-			log.Info("Enqueuing Interface for reconciliation", "Interface", klog.KObj(&m))
+			log.V(2).Info("Enqueuing Interface for reconciliation", "Interface", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      m.Name,
@@ -972,7 +1401,7 @@ func (r *InterfaceReconciler) interfacesForProviderConfig(ctx context.Context, o
 }
 
 // deviceToInterfaces is a [handler.MapFunc] to be used to enqueue requests for reconciliation
-// for Interfaces when their referenced Device's Paused spec field changes.
+// for Interfaces when their referenced Device's effective pause state changes.
 func (r *InterfaceReconciler) deviceToInterfaces(ctx context.Context, obj client.Object) []ctrl.Request {
 	device, ok := obj.(*v1alpha1.Device)
 	if !ok {
@@ -982,9 +1411,10 @@ func (r *InterfaceReconciler) deviceToInterfaces(ctx context.Context, obj client
 	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
 
 	interfaces := new(v1alpha1.InterfaceList)
-	if err := r.List(ctx, interfaces,
+	if err := r.List(
+		ctx, interfaces,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list Interfaces")
 		return nil
@@ -992,11 +1422,73 @@ func (r *InterfaceReconciler) deviceToInterfaces(ctx context.Context, obj client
 
 	requests := make([]ctrl.Request, 0, len(interfaces.Items))
 	for _, i := range interfaces.Items {
-		log.Info("Enqueuing Interface for reconciliation", "Interface", klog.KObj(&i))
+		log.V(2).Info("Enqueuing Interface for reconciliation", "Interface", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
 			NamespacedName: client.ObjectKey{
 				Name:      i.Name,
 				Namespace: i.Namespace,
+			},
+		})
+	}
+
+	return requests
+}
+
+// dnsToNeighborInterfaces is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for Interfaces when the DNS resources associated with any neighboring device gets updated, created or deleted.
+// This is relevant for LLDP adjacency validation through neighbor labels, where the neighbor's system name as
+// seen in LLDP is a fully qualified domain name (FQDN).
+func (r *InterfaceReconciler) dnsToNeighborInterfaces(ctx context.Context, obj client.Object) []ctrl.Request {
+	dns, ok := obj.(*v1alpha1.DNS)
+	if !ok {
+		panic(fmt.Sprintf("Expected a DNS but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "DNS", klog.KObj(dns))
+
+	// remoteInterfaces is a list of all interfaces that are on a neighboring device with change in the DNS resource.
+	remoteInterfaces := new(v1alpha1.InterfaceList)
+	if err := r.List(
+		ctx, remoteInterfaces,
+		client.InNamespace(dns.Namespace),
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: dns.Spec.DeviceRef.Name},
+	); err != nil {
+		log.Error(err, "Failed to list Interfaces for device", "device", dns.Spec.DeviceRef.Name)
+		return nil
+	}
+
+	names := make([]string, len(remoteInterfaces.Items))
+	for i, intf := range remoteInterfaces.Items {
+		names[i] = intf.Name
+	}
+
+	req, err := labels.NewRequirement(
+		v1alpha1.PhysicalInterfaceNeighborLabel,
+		selection.In,
+		names,
+	)
+	if err != nil {
+		return nil
+	}
+
+	// localInterfaces is a list of interfaces that reference the remote interfaces as neighbors through their labels.
+	localInterfaces := new(v1alpha1.InterfaceList)
+	if err := r.List(
+		ctx, localInterfaces,
+		client.InNamespace(dns.Namespace),
+		client.MatchingLabelsSelector{Selector: labels.NewSelector().Add(*req)},
+	); err != nil {
+		log.Error(err, "Failed to list local Interfaces with neighbor labels referencing remote interfaces", "remoteInterfaces", names)
+		return nil
+	}
+
+	requests := make([]ctrl.Request, 0, len(localInterfaces.Items))
+	for _, intf := range localInterfaces.Items {
+		log.V(2).Info("Enqueuing local Interface for reconciliation due to DNS change in neighbor device", "Interface", klog.KObj(&intf), "DNS", klog.KObj(dns))
+		requests = append(requests, ctrl.Request{
+			NamespacedName: client.ObjectKey{
+				Name:      intf.Name,
+				Namespace: intf.Namespace,
 			},
 		})
 	}

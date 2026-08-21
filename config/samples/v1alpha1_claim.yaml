@@ -1,0 +1,39 @@
+---
+apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+kind: Claim
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: claim-index
+spec:
+  poolRef:
+    apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+    kind: IndexPool
+    name: indexpool-sample
+---
+apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+kind: Claim
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: claim-ipaddress
+spec:
+  poolRef:
+    apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+    kind: IPAddressPool
+    name: ipaddresspool-sample
+---
+apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+kind: Claim
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: claim-prefix
+spec:
+  poolRef:
+    apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+    kind: IPPrefixPool
+    name: ipprefixpool-sample

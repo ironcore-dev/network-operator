@@ -174,13 +174,20 @@ func (c *Client) TLSSecretPEM(ctx context.Context, ref *v1alpha1.SecretReference
 
 // Certificate loads a [tls.Certificate] from the referenced secret resource.
 // The secret must be of type 'kubernetes.io/tls' and contain the fields 'tls.crt' and 'tls.key'.
+// If a 'ca.crt' field is present, it is appended to the certificate chain.
 func (c *Client) Certificate(ctx context.Context, ref *v1alpha1.SecretReference) (*tls.Certificate, error) {
 	pem, err := c.TLSSecretPEM(ctx, ref)
 	if err != nil {
 		return nil, err
 	}
 
-	certificate, err := tls.X509KeyPair(pem.Certificate, pem.PrivateKey)
+	certPEMBlock := pem.Certificate
+	if len(pem.CA) > 0 {
+		certPEMBlock = append(certPEMBlock, '\n')
+		certPEMBlock = append(certPEMBlock, pem.CA...)
+	}
+
+	certificate, err := tls.X509KeyPair(certPEMBlock, pem.PrivateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load x509 key pair: %w", err)
 	}

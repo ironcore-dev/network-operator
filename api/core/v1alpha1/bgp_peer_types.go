@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -23,6 +24,11 @@ type BGPPeerSpec struct {
 	// This reference is used to link the BGP to its provider-specific configuration.
 	// +optional
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
+
+	// BgpRef is a reference to the BGP instance this peer belongs to.
+	// The BGP object must exist in the same namespace.
+	// +required
+	BgpRef LocalObjectReference `json:"bgpRef"`
 
 	// AdminState indicates whether this BGP peer is administratively up or down.
 	// When Down, the BGP session with this peer is administratively shut down.
@@ -54,6 +60,27 @@ type BGPPeerSpec struct {
 	// Controls which address families are enabled and their specific configuration.
 	// +optional
 	AddressFamilies *BGPPeerAddressFamilies `json:"addressFamilies,omitempty"`
+
+	// LocalAS configures the local AS number and how it factors into BGP announcements for this peer.
+	// +optional
+	LocalAS *LocalAS `json:"localAS,omitempty"`
+}
+
+// LocalAS defines the local AS configuration and how it factors in BGP announcements.
+type LocalAS struct {
+	// ASNumber specifies a local AS number to present in BGP sessions with this peer.
+	// +required
+	ASNumber intstr.IntOrString `json:"asNumber"`
+
+	// PrependLocalAS specifies whether to prepend the local AS number to updates received from this peer.
+	// +optional
+	// +kubebuilder:default=true
+	PrependLocalAS *bool `json:"prependLocalAS,omitempty"`
+
+	// PrependGlobalAS specifies whether to prepend the global AS number to updates sent to this neighbor.
+	// +optional
+	// +kubebuilder:default=true
+	PrependGlobalAS *bool `json:"prependGlobalAS,omitempty"`
 }
 
 // BGPCommunityType represents the type of BGP community attributes that can be sent to peers.
@@ -113,6 +140,16 @@ type BGPPeerAddressFamily struct {
 	// for this specific address family. Defaults to false.
 	// +optional
 	RouteReflectorClient bool `json:"routeReflectorClient,omitempty"`
+
+	// InboundRoutingPolicyRef references a RoutingPolicy applied to routes received from this peer
+	// for this address family.
+	// +optional
+	InboundRoutingPolicyRef *LocalObjectReference `json:"inboundRoutingPolicyRef,omitempty"`
+
+	// OutboundRoutingPolicyRef references a RoutingPolicy applied to routes advertised to this peer
+	// for this address family.
+	// +optional
+	OutboundRoutingPolicyRef *LocalObjectReference `json:"outboundRoutingPolicyRef,omitempty"`
 }
 
 // BGPPeerStatus defines the observed state of BGPPeer.
@@ -277,5 +314,8 @@ func RegisterBGPPeerDependency(gvk schema.GroupVersionKind) {
 }
 
 func init() {
-	SchemeBuilder.Register(&BGPPeer{}, &BGPPeerList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &BGPPeer{}, &BGPPeerList{})
+		return nil
+	})
 }

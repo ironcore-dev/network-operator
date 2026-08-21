@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: interfaceconfigs.nx.cisco.networking.metal.ironcore.dev
 spec:
   group: nx.cisco.networking.metal.ironcore.dev
@@ -12,8 +12,8 @@ spec:
     listKind: InterfaceConfigList
     plural: interfaceconfigs
     shortNames:
-    - intcfg
-    singular: interfaceconfigs
+    - nxint
+    singular: interfaceconfig
   scope: Namespaced
   versions:
   - name: v1alpha1
@@ -56,6 +56,34 @@ spec:
                 required:
                 - enabled
                 type: object
+              evpnMultihoming:
+                description: EVPNMultihoming defines EVPN ESI multihoming settings
+                  for the interface.
+                properties:
+                  coreTracking:
+                    description: |-
+                      CoreTracking enables core-link tracking on the interface.
+                      When enabled on uplink (core) interfaces, the switch shuts down
+                      ESI-attached access links if all tracked core-links go down,
+                      preventing traffic blackholing.
+                    type: boolean
+                required:
+                - coreTracking
+                type: object
+              lacp:
+                description: LACP defines LACP options for PortChannel (Aggregate)
+                  interfaces.
+                properties:
+                  suspendIndividual:
+                    description: |-
+                      SuspendIndividual controls whether a member port is suspended when
+                      LACP PDUs are not received. Set to false to keep the port forwarding.
+                    type: boolean
+                  vpcConvergence:
+                    description: VPCConvergence enables faster LACP convergence in
+                      a vPC topology.
+                    type: boolean
+                type: object
               spanningTree:
                 description: SpanningTree defines the spanning tree configuration
                   for the interface.
@@ -76,6 +104,7 @@ spec:
                     - Normal
                     - Edge
                     - Network
+                    - Trunk
                     type: string
                 required:
                 - portType

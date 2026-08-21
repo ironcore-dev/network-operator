@@ -1,0 +1,4 @@
+aaa group server tacacs+ TACACS-SERVERS
+  server 10.1.1.1
+  use-vrf management
+  source-interface mgmt0

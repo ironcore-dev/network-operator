@@ -10,6 +10,10 @@
     "fmt:fix": "prettier --write ."
   },
   "dependencies": {
-    "asciinema-player": "^3.15.1"
+    "asciinema-player": "^3.17.0"
+  },
+  "overrides": {
+    "vite": "~6.4.3",
+    "esbuild": "~0.25.0"
   }
 }

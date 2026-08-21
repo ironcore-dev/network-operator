@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: managementaccesses.networking.metal.ironcore.dev
 spec:
   group: networking.metal.ironcore.dev
@@ -91,9 +91,7 @@ spec:
                 default:
                   enabled: true
                   port: 9339
-                description: |-
-                  Configuration for the gRPC server on the device.
-                  Currently, only a single "default" gRPC server is supported.
+                description: Configuration for the gRPC server on the device.
                 properties:
                   certificateId:
                     description: |-
@@ -145,6 +143,18 @@ spec:
                     maximum: 65535
                     minimum: 1024
                     type: integer
+                  serverName:
+                    description: |-
+                      Name of the gRPC server instance on the device.
+                      If not specified, defaults to "gnmi" on OpenConfig devices.
+                      Not supported on Cisco NX-OS devices.
+                      Immutable once set.
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                    x-kubernetes-validations:
+                    - message: ServerName is immutable
+                      rule: oldSelf == '' || self == oldSelf
                   vrfName:
                     description: Enable the gRPC agent to accept incoming (dial-in)
                       RPC requests from a given vrf.

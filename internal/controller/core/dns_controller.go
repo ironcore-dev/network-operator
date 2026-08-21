@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/paused"
@@ -46,7 +47,7 @@ type DNSReconciler struct {
 
 	// Recorder is used to record events for the controller.
 	// More info: https://book.kubebuilder.io/reference/raising-events
-	Recorder record.EventRecorder
+	Recorder events.EventRecorder
 
 	// Provider is the driver that will be used to create & delete the dns.
 	Provider provider.ProviderFunc
@@ -58,7 +59,7 @@ type DNSReconciler struct {
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=dns,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=dns/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=dns/finalizers,verbs=update
-// +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -70,14 +71,14 @@ type DNSReconciler struct {
 // - https://ahmet.im/blog/controller-pitfalls/#reconcile-method-shape
 func (r *DNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
-	log.Info("Reconciling resource")
+	log.V(3).Info("Reconciling resource")
 
 	obj := new(v1alpha1.DNS)
 	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
 		if apierrors.IsNotFound(err) {
 			// If the custom resource is not found then it usually means that it was deleted or not created
 			// In this way, we will stop the reconciliation
-			log.Info("Resource not found. Ignoring since object must be deleted")
+			log.V(3).Info("Resource not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -109,8 +110,8 @@ func (r *DNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 
 	if err := r.Locker.AcquireLock(ctx, device.Name, "dns-controller"); err != nil {
 		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
-			log.Info("Device is already locked, requeuing reconciliation")
-			return ctrl.Result{RequeueAfter: time.Second}, nil
+			log.V(3).Info("Device is already locked, requeuing reconciliation")
+			return ctrl.Result{RequeueAfter: Jitter(time.Second), Priority: new(LockWaitPriorityDefault)}, nil
 		}
 		log.Error(err, "Failed to acquire device lock")
 		return ctrl.Result{}, err
@@ -155,7 +156,7 @@ func (r *DNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 				return ctrl.Result{}, err
 			}
 		}
-		log.Info("Resource is being deleted, skipping reconciliation")
+		log.V(3).Info("Resource is being deleted, skipping reconciliation")
 		return ctrl.Result{}, nil
 	}
 
@@ -166,13 +167,13 @@ func (r *DNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 			log.Error(err, "Failed to add finalizer to resource")
 			return ctrl.Result{}, err
 		}
-		log.Info("Added finalizer to resource")
+		log.V(1).Info("Added finalizer to resource")
 		return ctrl.Result{}, nil
 	}
 
 	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
-		log.Info("Initializing status conditions")
+		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
 
@@ -195,14 +196,14 @@ func (r *DNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 
 	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, apistatus.WrapTerminalError(err)
 	}
 
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DNSReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *DNSReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	labelSelector := metav1.LabelSelector{}
 	if r.WatchFilterValue != "" {
 		labelSelector.MatchLabels = map[string]string{v1alpha1.WatchLabel: r.WatchFilterValue}
@@ -211,6 +212,13 @@ func (r *DNSReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	filter, err := predicate.LabelSelectorPredicate(labelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to create label selector predicate: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.DNS{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.DNS)
+		return []string{o.Spec.DeviceRef.Name}
+	}); err != nil {
+		return err
 	}
 
 	bldr := ctrl.NewControllerManagedBy(mgr).
@@ -231,16 +239,13 @@ func (r *DNSReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return bldr.
 		// Watches enqueues DNSs for updates in referenced Device resources.
-		// Triggers on create, delete, and update events when the Paused spec field changes.
+		// Triggers on create, delete, and update events when the device's effective pause state changes.
 		Watches(
 			&v1alpha1.Device{},
 			handler.EnqueueRequestsFromMapFunc(r.deviceToDNSs),
 			builder.WithPredicates(predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					oldDevice := e.ObjectOld.(*v1alpha1.Device)
-					newDevice := e.ObjectNew.(*v1alpha1.Device)
-					// Only trigger when Paused spec field changes.
-					return oldDevice.Spec.Paused != newDevice.Spec.Paused
+					return paused.DevicePausedChanged(e.ObjectOld, e.ObjectNew)
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false
@@ -310,7 +315,7 @@ func (r *DNSReconciler) finalize(ctx context.Context, s *dnsScope) (reterr error
 }
 
 // deviceToDNSs is a [handler.MapFunc] to be used to enqueue requests for reconciliation
-// for DNSs when their referenced Device's Paused spec field changes.
+// for DNSs when their referenced Device's effective pause state changes.
 func (r *DNSReconciler) deviceToDNSs(ctx context.Context, obj client.Object) []ctrl.Request {
 	device, ok := obj.(*v1alpha1.Device)
 	if !ok {
@@ -320,9 +325,10 @@ func (r *DNSReconciler) deviceToDNSs(ctx context.Context, obj client.Object) []c
 	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
 
 	list := new(v1alpha1.DNSList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list DNSs")
 		return nil
@@ -330,7 +336,7 @@ func (r *DNSReconciler) deviceToDNSs(ctx context.Context, obj client.Object) []c
 
 	requests := make([]ctrl.Request, 0, len(list.Items))
 	for _, i := range list.Items {
-		log.Info("Enqueuing DNS for reconciliation", "DNS", klog.KObj(&i))
+		log.V(2).Info("Enqueuing DNS for reconciliation", "DNS", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
 			NamespacedName: client.ObjectKey{
 				Name:      i.Name,
@@ -361,7 +367,7 @@ func (r *DNSReconciler) dnsForProviderConfig(ctx context.Context, obj client.Obj
 			m.Spec.ProviderConfigRef.Name == obj.GetName() &&
 			m.Spec.ProviderConfigRef.Kind == gkv.Kind &&
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
-			log.Info("Enqueuing DNS for reconciliation", "DNS", klog.KObj(&m))
+			log.V(2).Info("Enqueuing DNS for reconciliation", "DNS", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      m.Name,

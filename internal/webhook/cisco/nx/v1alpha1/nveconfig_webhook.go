@@ -9,11 +9,9 @@ import (
 	"fmt"
 	"slices"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
@@ -24,8 +22,7 @@ var vclog = logf.Log.WithName("networkvirtualizationedgeconfig-resource")
 
 // SetupNetworkVirtualizationEdgeConfigWebhookWithManager registers the webhook for NetworkVirtualizationEdge in the manager.
 func SetupNetworkVirtualizationEdgeConfigWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha1.NetworkVirtualizationEdgeConfig{}).
+	return ctrl.NewWebhookManagedBy(mgr, &v1alpha1.NetworkVirtualizationEdgeConfig{}).
 		WithValidator(&NetworkVirtualizationEdgeConfigCustomValidator{Client: mgr.GetClient()}).
 		Complete()
 }
@@ -38,37 +35,24 @@ type NetworkVirtualizationEdgeConfigCustomValidator struct {
 	Client client.Client
 }
 
-var _ webhook.CustomValidator = &NetworkVirtualizationEdgeConfigCustomValidator{}
+var _ admission.Validator[*v1alpha1.NetworkVirtualizationEdgeConfig] = &NetworkVirtualizationEdgeConfigCustomValidator{}
 
-// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type NetworkVirtualizationEdgeConfig.
-func (v *NetworkVirtualizationEdgeConfigCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	vc, ok := obj.(*v1alpha1.NetworkVirtualizationEdgeConfig)
-	if !ok {
-		return nil, fmt.Errorf("expected a NetworkVirtualizationEdgeConfig object but got %T", obj)
-	}
+// ValidateCreate implements admission.Validator so a webhook will be registered for the type NetworkVirtualizationEdgeConfig.
+func (v *NetworkVirtualizationEdgeConfigCustomValidator) ValidateCreate(_ context.Context, vc *v1alpha1.NetworkVirtualizationEdgeConfig) (admission.Warnings, error) {
 	vclog.Info("Validation for NetworkVirtualizationEdgeConfig upon creation", "name", vc.GetName())
 
 	return nil, validateNetworkVirtualizationEdgeConfigSpec(vc)
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type NetworkVirtualizationEdgeConfig.
-func (v *NetworkVirtualizationEdgeConfigCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	vc, ok := newObj.(*v1alpha1.NetworkVirtualizationEdgeConfig)
-
-	if !ok {
-		return nil, fmt.Errorf("expected a NetworkVirtualizationEdgeConfig object for the newObj but got %T", newObj)
-	}
+// ValidateUpdate implements admission.Validator so a webhook will be registered for the type NetworkVirtualizationEdgeConfig.
+func (v *NetworkVirtualizationEdgeConfigCustomValidator) ValidateUpdate(_ context.Context, _, vc *v1alpha1.NetworkVirtualizationEdgeConfig) (admission.Warnings, error) {
 	vclog.Info("Validation for NetworkVirtualizationEdgeConfig upon update", "name", vc.GetName())
 
 	return nil, validateNetworkVirtualizationEdgeConfigSpec(vc)
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type NetworkVirtualizationEdgeConfig.
-func (v *NetworkVirtualizationEdgeConfigCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	_, ok := obj.(*v1alpha1.NetworkVirtualizationEdgeConfig)
-	if !ok {
-		return nil, fmt.Errorf("expected a NetworkVirtualizationEdgeConfig object but got %T", obj)
-	}
+// ValidateDelete implements admission.Validator so a webhook will be registered for the type NetworkVirtualizationEdgeConfig.
+func (v *NetworkVirtualizationEdgeConfigCustomValidator) ValidateDelete(_ context.Context, _ *v1alpha1.NetworkVirtualizationEdgeConfig) (admission.Warnings, error) {
 	return nil, nil
 }
 

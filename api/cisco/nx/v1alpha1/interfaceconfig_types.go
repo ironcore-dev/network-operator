@@ -5,6 +5,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
@@ -21,6 +22,14 @@ type InterfaceConfigSpec struct {
 	// Buffer boost increases the shared buffer space allocation for the interface.
 	// +optional
 	BufferBoost *BufferBoost `json:"bufferBoost,omitempty"`
+
+	// LACP defines LACP options for PortChannel (Aggregate) interfaces.
+	// +optional
+	LACP *InterfaceConfigLACP `json:"lacp,omitempty"`
+
+	// EVPNMultihoming defines EVPN ESI multihoming settings for the interface.
+	// +optional
+	EVPNMultihoming *EVPNMultihoming `json:"evpnMultihoming,omitempty"`
 }
 
 // SpanningTree defines the spanning tree configuration for an interface.
@@ -48,8 +57,30 @@ type BufferBoost struct {
 	Enabled bool `json:"enabled"`
 }
 
+// EVPNMultihoming defines EVPN ESI multihoming settings for an interface.
+type EVPNMultihoming struct {
+	// CoreTracking enables core-link tracking on the interface.
+	// When enabled on uplink (core) interfaces, the switch shuts down
+	// ESI-attached access links if all tracked core-links go down,
+	// preventing traffic blackholing.
+	// +required
+	CoreTracking bool `json:"coreTracking"`
+}
+
+// InterfaceConfigLACP defines LACP options for PortChannel interfaces.
+type InterfaceConfigLACP struct {
+	// VPCConvergence enables faster LACP convergence in a vPC topology.
+	// +optional
+	VPCConvergence *bool `json:"vpcConvergence,omitempty"`
+
+	// SuspendIndividual controls whether a member port is suspended when
+	// LACP PDUs are not received. Set to false to keep the port forwarding.
+	// +optional
+	SuspendIndividual *bool `json:"suspendIndividual,omitempty"`
+}
+
 // SpanningTreePortType represents the spanning tree port type.
-// +kubebuilder:validation:Enum=Normal;Edge;Network
+// +kubebuilder:validation:Enum=Normal;Edge;Network;Trunk
 type SpanningTreePortType string
 
 const (
@@ -57,14 +88,16 @@ const (
 	SpanningTreePortTypeNormal SpanningTreePortType = "Normal"
 	// SpanningTreePortTypeEdge indicates an edge port (connects to end devices).
 	SpanningTreePortTypeEdge SpanningTreePortType = "Edge"
+	// SpanningTreePortTypeTrunk indicates a trunk port performing spanning tree calculations for multiple VLANs (connects to end devices and carries multiple VLANs).
+	SpanningTreePortTypeTrunk SpanningTreePortType = "Trunk"
 	// SpanningTreePortTypeNetwork indicates a network port (connects to other switches).
 	SpanningTreePortTypeNetwork SpanningTreePortType = "Network"
 )
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=interfaceconfigs
-// +kubebuilder:resource:singular=interfaceconfigs
-// +kubebuilder:resource:shortName=intcfg
+// +kubebuilder:resource:singular=interfaceconfig
+// +kubebuilder:resource:shortName=nxint
 
 // InterfaceConfig is the Schema for the interfaceconfigs API
 type InterfaceConfig struct {
@@ -88,5 +121,8 @@ type InterfaceConfigList struct {
 
 func init() {
 	v1alpha1.RegisterInterfaceDependency(GroupVersion.WithKind("InterfaceConfig"))
-	SchemeBuilder.Register(&InterfaceConfig{}, &InterfaceConfigList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &InterfaceConfig{}, &InterfaceConfigList{})
+		return nil
+	})
 }

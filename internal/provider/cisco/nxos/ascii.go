@@ -18,8 +18,7 @@ func (s ASCIIStr) String() string {
 		if v == "0" {
 			break
 		}
-		if num, err := strconv.Atoi(v); err == nil {
-			// #nosec G115
+		if num, err := strconv.Atoi(v); err == nil && num >= 0 && num <= 127 {
 			runes = append(runes, rune(num))
 		}
 	}

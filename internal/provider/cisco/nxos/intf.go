@@ -4,44 +4,48 @@
 package nxos
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"slices"
 	"strconv"
 	"strings"
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
 var (
-	_ gnmiext.Configurable = (*Loopback)(nil)
-	_ gnmiext.Configurable = (*LoopbackOperItems)(nil)
-	_ gnmiext.Configurable = (*PhysIf)(nil)
-	_ gnmiext.Defaultable  = (*PhysIf)(nil)
-	_ gnmiext.Configurable = (*PhysIfOperItems)(nil)
-	_ gnmiext.Configurable = (*VrfMember)(nil)
-	_ gnmiext.Configurable = (*SpanningTree)(nil)
-	_ gnmiext.Configurable = (*MultisiteIfTracking)(nil)
-	_ gnmiext.Configurable = (*BFD)(nil)
-	_ gnmiext.Configurable = (*ICMPIf)(nil)
-	_ gnmiext.Configurable = (*PortChannel)(nil)
-	_ gnmiext.Configurable = (*PortChannelOperItems)(nil)
-	_ gnmiext.Configurable = (*SwitchVirtualInterface)(nil)
-	_ gnmiext.Configurable = (*SwitchVirtualInterfaceOperItems)(nil)
-	_ gnmiext.Configurable = (*AddrItem)(nil)
-	_ gnmiext.Configurable = (*FabricFwdIf)(nil)
+	_ gnmiext.DataElement = (*Loopback)(nil)
+	_ gnmiext.DataElement = (*LoopbackOperItems)(nil)
+	_ gnmiext.DataElement = (*PhysIf)(nil)
+	_ gnmiext.Defaultable = (*PhysIf)(nil)
+	_ gnmiext.DataElement = (*PhysIfOperItems)(nil)
+	_ gnmiext.DataElement = (*TrunkVlans)(nil)
+	_ gnmiext.DataElement = (*VrfMember)(nil)
+	_ gnmiext.DataElement = (*SpanningTree)(nil)
+	_ gnmiext.DataElement = (*MultisiteIfTracking)(nil)
+	_ gnmiext.DataElement = (*BFD)(nil)
+	_ gnmiext.DataElement = (*ICMPIf)(nil)
+	_ gnmiext.DataElement = (*PortChannel)(nil)
+	_ gnmiext.DataElement = (*PortChannelOperItems)(nil)
+	_ gnmiext.DataElement = (*SwitchVirtualInterface)(nil)
+	_ gnmiext.DataElement = (*SwitchVirtualInterfaceOperItems)(nil)
+	_ gnmiext.DataElement = (*EncapRoutedInterface)(nil)
+	_ gnmiext.DataElement = (*EncapRoutedInterfaceOperItems)(nil)
+	_ gnmiext.DataElement = (*AddrItem)(nil)
+	_ gnmiext.DataElement = (*FabricFwdIf)(nil)
 )
 
-// Loopback represents a loopback interface on a NX-OS device.
+// Loopback represents a loopback interface.
 type Loopback struct {
-	AdminSt       AdminSt2   `json:"adminSt"`
-	Descr         string     `json:"descr"`
-	ID            string     `json:"id"`
-	RtvrfMbrItems *VrfMember `json:"rtvrfMbr-items,omitempty"`
+	AdminSt       AdminSt2       `json:"adminSt"`
+	Descr         Option[string] `json:"descr"`
+	ID            string         `json:"id"`
+	RtvrfMbrItems *VrfMember     `json:"rtvrfMbr-items,omitempty"`
 }
 
 func (*Loopback) IsListItem() {}
@@ -51,8 +55,9 @@ func (l *Loopback) XPath() string {
 }
 
 type LoopbackOperItems struct {
-	ID     string `json:"-"`
-	OperSt OperSt `json:"operSt"`
+	ID         string `json:"-"`
+	OperSt     OperSt `json:"operSt"`
+	OperStQual string `json:"operStQual"`
 }
 
 func (l *LoopbackOperItems) XPath() string {
@@ -65,27 +70,32 @@ const (
 	DefaultMTU       = 1500
 )
 
-// PhysIf represents a physical (ethernet) interface on a NX-OS device.
+// PhysIf represents a physical (ethernet) interface.
 type PhysIf struct {
 	AccessVlan    string         `json:"accessVlan"`
 	AdminSt       AdminSt2       `json:"adminSt,omitempty"`
-	Descr         string         `json:"descr"`
+	Descr         Option[string] `json:"descr"`
 	FecMode       FecMode        `json:"FECMode"`
 	ID            string         `json:"id"`
 	Layer         Layer          `json:"layer"`
-	MTU           int32          `json:"mtu,omitempty"`
+	MTU           int32          `json:"mtu"`
 	Medium        Medium         `json:"medium"`
 	Mode          SwitchportMode `json:"mode"`
 	NativeVlan    string         `json:"nativeVlan"`
-	TrunkVlans    string         `json:"trunkVlans"`
 	UserCfgdFlags UserFlags      `json:"userCfgdFlags"`
 	RtvrfMbrItems *VrfMember     `json:"rtvrfMbr-items,omitempty"`
 	PhysExtdItems struct {
 		BufferBoost AdminSt4 `json:"bufferBoost,omitempty"`
 	} `json:"physExtd-items,omitzero"`
+	ESICoreTrackingItems *ESICoreTracking `json:"esimhcoretracking-items,omitempty"`
 }
 
 func (*PhysIf) IsListItem() {}
+
+// ESICoreTracking represents the EVPN ESI multihoming core-tracking configuration on an interface.
+type ESICoreTracking struct {
+	CoreTracking AdminSt `json:"coretracking"`
+}
 
 func (p *PhysIf) XPath() string {
 	return "System/intf-items/phys-items/PhysIf-list[id=" + p.ID + "]"
@@ -99,24 +109,72 @@ func (p *PhysIf) Validate() error {
 }
 
 func (p *PhysIf) Default() {
-	p.AccessVlan = DefaultVLAN
 	p.FecMode = FecModeAuto
 	p.Layer = Layer2
 	p.MTU = DefaultMTU
 	p.Medium = MediumBroadcast
 	p.Mode = SwitchportModeAccess
+	p.AccessVlan = DefaultVLAN
 	p.NativeVlan = DefaultVLAN
-	p.TrunkVlans = DefaultVLANRange
 	p.PhysExtdItems.BufferBoost = AdminStEnable
 }
 
 type PhysIfOperItems struct {
-	ID     string `json:"-"`
-	OperSt OperSt `json:"operSt"`
+	ID         string `json:"-"`
+	OperSt     OperSt `json:"operSt"`
+	OperStQual string `json:"operStQual"`
+}
+
+type TrunkVlans struct {
+	IfName string `json:"-"`
+	Vlans  string `json:"-"`
+}
+
+func (t *TrunkVlans) XPath() string {
+	if portchannelRe.MatchString(t.IfName) {
+		return "System/intf-items/aggr-items/AggrIf-list[id=" + t.IfName + "]/trunkVlans"
+	}
+	return "System/intf-items/phys-items/PhysIf-list[id=" + t.IfName + "]/trunkVlans"
+}
+
+func (t TrunkVlans) MarshalJSON() ([]byte, error) {
+	return json.Marshal(t.Vlans)
+}
+
+func (t *TrunkVlans) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, &t.Vlans)
 }
 
 func (p *PhysIfOperItems) XPath() string {
 	return "System/intf-items/phys-items/PhysIf-list[id=" + p.ID + "]/phys-items"
+}
+
+// EncapRoutedInterface represents an Encapsulated Routed Subinterface.
+type EncapRoutedInterface struct {
+	ID            string         `json:"id"`
+	Medium        Medium         `json:"mediumType"`
+	MTU           int32          `json:"mtu"`
+	MTUInherit    bool           `json:"mtuInherit"`
+	Encap         string         `json:"encap"`
+	AdminSt       AdminSt2       `json:"adminSt"`
+	Descr         Option[string] `json:"descr"`
+	RtvrfMbrItems *VrfMember     `json:"rtvrfMbr-items,omitempty"`
+}
+
+func (*EncapRoutedInterface) IsListItem() {}
+
+func (s *EncapRoutedInterface) XPath() string {
+	return "System/intf-items/encrtd-items/EncRtdIf-list[id=" + s.ID + "]"
+}
+
+type EncapRoutedInterfaceOperItems struct {
+	ID         string `json:"-"`
+	OperSt     OperSt `json:"operSt"`
+	OperStQual string `json:"operStQual"`
+}
+
+func (s *EncapRoutedInterfaceOperItems) XPath() string {
+	return "System/intf-items/encrtd-items/EncRtdIf-list[id=" + s.ID + "]/encrtdif-items"
 }
 
 // VrfMember represents a VRF associtation for an interface.
@@ -128,6 +186,9 @@ type VrfMember struct {
 func (v *VrfMember) XPath() string {
 	if loopbackRe.MatchString(v.IfName) {
 		return "System/intf-items/lb-items/LbRtdIf-list[id=" + v.IfName + "]/rtvrfMbr-items"
+	}
+	if portchannelRe.MatchString(v.IfName) {
+		return "System/intf-items/aggr-items/AggrIf-list[id=" + v.IfName + "]/rtvrfMbr-items"
 	}
 	return "System/intf-items/phys-items/PhysIf-list[id=" + v.IfName + "]/rtvrfMbr-items"
 }
@@ -217,20 +278,23 @@ func (i *ICMPIf) XPath() string {
 	return "System/icmpv4-items/inst-items/dom-items/Dom-list[name=default]/if-items/If-list[id=" + i.ID + "]"
 }
 
-// PortChannel represents a port-channel (LAG) interface on a NX-OS device.
+// PortChannel represents a port-channel (LAG) interface.
 type PortChannel struct {
-	AccessVlan    string          `json:"accessVlan"`
-	AdminSt       AdminSt2        `json:"adminSt"`
-	Descr         string          `json:"descr,omitempty"`
-	ID            string          `json:"id"`
-	Layer         Layer           `json:"layer"`
-	MTU           int32           `json:"mtu,omitempty"`
-	Mode          SwitchportMode  `json:"mode"`
-	PcMode        PortChannelMode `json:"pcMode"`
-	NativeVlan    string          `json:"nativeVlan"`
-	TrunkVlans    string          `json:"trunkVlans"`
-	UserCfgdFlags UserFlags       `json:"userCfgdFlags"`
-	RsmbrIfsItems struct {
+	AccessVlan     string          `json:"accessVlan"`
+	AdminSt        AdminSt2        `json:"adminSt"`
+	Descr          Option[string]  `json:"descr"`
+	ID             string          `json:"id"`
+	VPCConvergence AdminSt4        `json:"lacpVpcConvergence"`
+	Layer          Layer           `json:"layer"`
+	MTU            int32           `json:"mtu"`
+	Medium         Medium          `json:"medium"`
+	Mode           SwitchportMode  `json:"mode"`
+	PcMode         PortChannelMode `json:"pcMode"`
+	NativeVlan     string          `json:"nativeVlan"`
+	SuspIndividual AdminSt4        `json:"suspIndividual"`
+	UserCfgdFlags  UserFlags       `json:"userCfgdFlags"`
+	RtvrfMbrItems  *VrfMember      `json:"rtvrfMbr-items,omitempty"`
+	RsmbrIfsItems  struct {
 		RsMbrIfsList gnmiext.List[string, *PortChannelMember] `json:"RsMbrIfs-list,omitzero"`
 	} `json:"rsmbrIfs-items,omitzero"`
 	AggrExtdItems struct {
@@ -261,7 +325,7 @@ func (p *PortChannel) XPath() string {
 type PortChannelOperItems struct {
 	ID         string `json:"-"`
 	OperSt     OperSt `json:"operSt"`
-	OperStQual string `json:"operStQual,omitempty"`
+	OperStQual string `json:"operStQual"`
 }
 
 func (p *PortChannelOperItems) XPath() string {
@@ -285,8 +349,9 @@ func (s *SwitchVirtualInterface) XPath() string {
 }
 
 type SwitchVirtualInterfaceOperItems struct {
-	ID     string `json:"-"`
-	OperSt OperSt `json:"operSt"`
+	ID         string `json:"-"`
+	OperSt     OperSt `json:"operSt"`
+	OperStQual string `json:"operStQual"`
 }
 
 func (*SwitchVirtualInterfaceOperItems) IsListItem() {}
@@ -367,25 +432,6 @@ func (a *AddrItem) XPath() string {
 	return "System/ipv4-items/inst-items/dom-items/Dom-list[name=" + a.Vrf + "]/if-items/If-list[id=" + a.ID + "]"
 }
 
-// IsPointToPoint checks if the address item represents a point-to-point interface.
-// It returns true if the interface is unnumbered or if its address has a /31 (IPv4) [RFC3021]
-// or /127 (IPv6) [RFC6164] subnet mask, indicating a point-to-point link.
-//
-// [RFC3021]: https://datatracker.ietf.org/doc/html/rfc3021
-// [RFC6164]: https://datatracker.ietf.org/doc/html/rfc6164
-func (a *AddrItem) IsPointToPoint() bool {
-	if a != nil {
-		if a.Unnumbered != "" {
-			return true
-		}
-		if a.AddrItems.AddrList.Len() == 1 {
-			addr := slices.Collect(maps.Values(a.AddrItems.AddrList))[0]
-			return strings.HasSuffix(addr.Addr, "/31") || strings.HasSuffix(addr.Addr, "/127")
-		}
-	}
-	return false
-}
-
 type IntfAddr struct {
 	Addr string       `json:"addr"`
 	Pref int          `json:"pref"`
@@ -429,33 +475,27 @@ func (*FabricFwdAnycastMAC) XPath() string {
 	return "System/hmm-items/fwdinst-items/amac"
 }
 
-// Range provides a string representation of identifiers (typically VLAN IDs) that formats the range in a human-readable way.
-// Consecutive IDs are represented as a range (e.g., "10-12"), while single IDs are shown individually (e.g., "15").
-// All values are joined in a comma-separated list of ranges and individual IDs, e.g. "10-12,15,20-22".
-func Range(r []int32) string {
+// Range returns a compact comma-separated string for index ranges.
+// Single-value ranges are rendered as an ID (for example, "15"), while wider
+// ranges are rendered as start-end (for example, "10-12").
+func Range(r []v1alpha1.IndexRange) string {
 	if len(r) == 0 {
 		return ""
 	}
 
-	slices.Sort(r)
+	// Sort the ranges by their start value to ensure proper range formatting.
+	// Validation ensures that the ranges are non-overlapping and non-adjacent.
+	slices.SortFunc(r, func(a, b v1alpha1.IndexRange) int {
+		return cmp.Compare(a.Start, b.Start)
+	})
+
 	var ranges []string
-	start, curr := r[0], r[0]
-	for _, id := range r[1:] {
-		if id == curr+1 {
-			curr = id
+	for _, ir := range r {
+		if ir.Start == ir.End {
+			ranges = append(ranges, strconv.FormatInt(ir.Start, 10))
 			continue
 		}
-		if curr != start {
-			ranges = append(ranges, fmt.Sprintf("%d-%d", start, curr))
-		} else {
-			ranges = append(ranges, strconv.FormatInt(int64(start), 10))
-		}
-		start, curr = id, id
-	}
-	if curr != start {
-		ranges = append(ranges, fmt.Sprintf("%d-%d", start, curr))
-	} else {
-		ranges = append(ranges, strconv.FormatInt(int64(start), 10))
+		ranges = append(ranges, fmt.Sprintf("%d-%d", ir.Start, ir.End))
 	}
 
 	return strings.Join(ranges, ",")
@@ -466,7 +506,7 @@ func Exists(ctx context.Context, client gnmiext.Client, names ...string) (bool, 
 	if len(names) == 0 {
 		return false, errors.New("at least one interface name must be provided")
 	}
-	conf := make([]gnmiext.Configurable, 0, len(names))
+	el := make([]gnmiext.DataElement, 0, len(names))
 	for _, name := range names {
 		if name == "" {
 			return false, errors.New("interface name must not be empty")
@@ -475,26 +515,32 @@ func Exists(ctx context.Context, client gnmiext.Client, names ...string) (bool, 
 			// mgmt0 is always present
 			continue
 		}
-		var c gnmiext.Configurable
+		var e gnmiext.DataElement
 		if matches := ethernetRe.FindStringSubmatch(name); matches != nil {
-			c = &PhysIf{ID: "eth" + matches[2]}
+			e = &PhysIf{ID: "eth" + matches[2]}
 		}
 		if matches := loopbackRe.FindStringSubmatch(name); matches != nil {
-			c = &Loopback{ID: "lo" + matches[2]}
+			e = &Loopback{ID: "lo" + matches[2]}
 		}
 		if matches := portchannelRe.FindStringSubmatch(name); matches != nil {
-			c = &PortChannel{ID: "po" + matches[2]}
+			e = &PortChannel{ID: "po" + matches[2]}
 		}
 		if matches := vlanRe.FindStringSubmatch(name); matches != nil {
-			c = &SwitchVirtualInterface{ID: "vlan" + matches[2]}
+			e = &SwitchVirtualInterface{ID: "vlan" + matches[2]}
 		}
-		if c == nil {
+		if matches := encapRoutedRe.FindStringSubmatch(name); matches != nil {
+			e = &EncapRoutedInterface{ID: "eth" + matches[2] + "." + matches[3]}
+		}
+		if matches := encapRoutedPoRe.FindStringSubmatch(name); matches != nil {
+			e = &EncapRoutedInterface{ID: "po" + matches[2] + "." + matches[3]}
+		}
+		if e == nil {
 			return false, fmt.Errorf("unsupported interface format %q, expected one of: %s, %s, %s, %s, %s", name, mgmtRe.String(), ethernetRe.String(), loopbackRe.String(), portchannelRe.String(), vlanRe.String())
 		}
-		conf = append(conf, c)
+		el = append(el, e)
 	}
 	const batchSize = 10 // On Cisco NX-OS, more than 10 paths per single gNMI request lead to gRPC errors.
-	for batch := range slices.Chunk(conf, batchSize) {
+	for batch := range slices.Chunk(el, batchSize) {
 		if err := client.GetConfig(ctx, batch...); err != nil {
 			if errors.Is(err, gnmiext.ErrNil) {
 				return false, nil

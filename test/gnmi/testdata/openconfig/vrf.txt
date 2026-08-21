@@ -1,0 +1,31 @@
+# VRF L3VRF
+-- vrfs/vrf-blue --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: VRF
+metadata:
+  name: vrf-blue
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: BLUE
+
+-- state/preload --
+{}
+
+-- state/expect --
+{
+  "openconfig-network-instance:network-instances": {
+    "network-instance": [
+      {
+        "config": {
+          "name": "BLUE",
+          "type": "openconfig-network-instance-types:L3VRF"
+        }
+      }
+    ]
+  }
+}
+
+-- state/delete --
+{}

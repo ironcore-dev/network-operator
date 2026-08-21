@@ -106,10 +106,5 @@ var _ = Describe("NetworkVirtualizationEdge Webhook", func() {
 			_, err := validator.ValidateDelete(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())
 		})
-
-		It("rejects delete when object type is wrong", func() {
-			_, err := validator.ValidateDelete(ctx, &corev1alpha1.NetworkVirtualizationEdgeList{})
-			Expect(err).To(HaveOccurred())
-		})
 	})
 })

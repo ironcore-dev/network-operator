@@ -123,10 +123,35 @@ metadata:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
     networking.metal.ironcore.dev/device-name: leaf1
+  name: eth1-11
+spec:
+  deviceRef:
+    name: leaf1
+  name: eth1/11
+  description: Host trunk with externally managed VLAN allow-list
+  adminState: Up
+  type: Physical
+  mtu: 1500
+  switchport:
+    mode: Trunk
+    nativeVlan: 1
+    allowedVlansMode: Unmanaged
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
   name: po-10
 spec:
   deviceRef:
     name: leaf1
+  # providerConfigRef:
+  #   apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+  #   kind: InterfaceConfig
+  #   name: lacp-vpc
   name: po10
   description: vPC to Host1
   adminState: Up
@@ -144,6 +169,53 @@ spec:
     multichassis:
       enabled: true
       id: 2
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: eth1-3
+spec:
+  deviceRef:
+    name: leaf1
+  name: eth1/3
+  description: L3 Port-Channel Member
+  adminState: Up
+  type: Physical
+  mtu: 9216
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: po-20
+spec:
+  deviceRef:
+    name: leaf1
+  name: po20
+  description: L3 Port-Channel
+  adminState: Up
+  type: Aggregate
+  mtu: 9216
+  ipv4:
+    addresses:
+      - 10.0.100.0/31
+  bfd:
+    enabled: true
+    desiredMinimumTxInterval: 300ms
+    requiredMinimumReceive: 300ms
+    detectionMultiplier: 3
+  aggregation:
+    controlProtocol:
+      mode: Active
+    memberInterfaceRefs:
+      - name: eth1-3
 ---
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface

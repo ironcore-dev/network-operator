@@ -1,0 +1,21 @@
+apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+kind: IPAddress
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: ipaddress-sample
+  # The allow-binding annotation permits a Claim with a matching claimRef name
+  # to rebind this allocation by updating the UID.
+  annotations:
+    pool.networking.metal.ironcore.dev/allow-binding: "true"
+spec:
+  poolRef:
+    apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+    kind: IPAddressPool
+    name: ipaddresspool-sample
+  # Pre-allocated RFC 1918 address reserved for a specific workload.
+  address: 10.0.0.1
+  # claimRef name must match the Claim that will bind to this allocation.
+  claimRef:
+    name: claim-sample

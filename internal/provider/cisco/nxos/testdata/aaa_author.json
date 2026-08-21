@@ -1,0 +1,15 @@
+{
+  "userext-items": {
+    "authrealm-items": {
+      "defaultauthor-items": {
+        "DefaultAuthor-list": [
+          {
+            "cmdType": "config",
+            "providerGroup": "TACACS-SERVERS",
+            "localRbac": false
+          }
+        ]
+      }
+    }
+  }
+}

@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -16,15 +17,18 @@ import (
 // +kubebuilder:validation:XValidation:rule="self.type == 'Physical' || !has(self.ipv4) || !has(self.ipv4.unnumbered)", message="unnumbered ipv4 configuration can only be used for interfaces of type Physical"
 // +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || has(self.aggregation)", message="aggregation must be specified for interfaces of type Aggregate"
 // +kubebuilder:validation:XValidation:rule="self.type == 'Aggregate' || !has(self.aggregation)", message="aggregation must only be specified on interfaces of type Aggregate"
-// +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || !has(self.ipv4)", message="ipv4 must not be specified for interfaces of type Aggregate"
+// +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || !has(self.switchport) || !has(self.ipv4)", message="ipv4 must not be specified for Aggregate interfaces with switchport configuration"
 // +kubebuilder:validation:XValidation:rule="self.type != 'RoutedVLAN' || has(self.vlanRef)", message="vlanRef must be specified for interfaces of type RoutedVLAN"
 // +kubebuilder:validation:XValidation:rule="self.type == 'RoutedVLAN' || !has(self.vlanRef)", message="vlanRef must only be specified on interfaces of type RoutedVLAN"
 // +kubebuilder:validation:XValidation:rule="self.type != 'RoutedVLAN' || !has(self.switchport)", message="switchport must not be specified for interfaces of type RoutedVLAN"
 // +kubebuilder:validation:XValidation:rule="self.type != 'RoutedVLAN' || !has(self.aggregation)", message="aggregation must not be specified for interfaces of type RoutedVLAN"
 // +kubebuilder:validation:XValidation:rule="self.type == 'RoutedVLAN' || !has(self.ipv4) || !self.ipv4.anycastGateway", message="anycastGateway can only be enabled for interfaces of type RoutedVLAN"
-// +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || !has(self.vrfRef)", message="vrfRef must not be specified for interfaces of type Aggregate"
+// +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || !has(self.switchport) || !has(self.vrfRef)", message="vrfRef must not be specified for Aggregate interfaces with switchport configuration"
 // +kubebuilder:validation:XValidation:rule="self.type != 'Physical' || !has(self.switchport) || !has(self.vrfRef)", message="vrfRef must not be specified for Physical interfaces with switchport configuration"
-// +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || !has(self.bfd)", message="bfd must not be specified for interfaces of type Aggregate"
+// +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || !has(self.switchport) || !has(self.bfd)", message="bfd must not be specified for Aggregate interfaces with switchport configuration"
+// +kubebuilder:validation:XValidation:rule="self.type == 'Subinterface' || !(has(self.encapsulation) || has(self.parentInterfaceRef))", message="encapsulation and parentInterfaceRef must only be specified for subinterfaces"
+// +kubebuilder:validation:XValidation:rule="self.type != 'Subinterface' || !(has(self.aggregation) || has(self.switchport) || has(self.vlanRef))",  message="subinterface must not have aggregation, switchport or vlanRef configuration"
+// +kubebuilder:validation:XValidation:rule="self.type != 'Subinterface' || (has(self.encapsulation) && has(self.parentInterfaceRef))", message="encapsulation and parentInterfaceRef must both be specified for subinterfaces"
 // +kubebuilder:validation:XValidation:rule="!has(self.bfd) || !has(self.switchport)", message="bfd must not be specified for interfaces with switchport configuration"
 // +kubebuilder:validation:XValidation:rule="self.type == 'Physical' || !has(self.ethernet)", message="ethernet configuration must only be specified on interfaces of type Physical"
 type InterfaceSpec struct {
@@ -95,7 +99,7 @@ type InterfaceSpec struct {
 	VrfRef *LocalObjectReference `json:"vrfRef,omitempty"`
 
 	// BFD defines the Bidirectional Forwarding Detection configuration for the interface.
-	// BFD is only applicable for Layer 3 interfaces (Physical, Loopback, RoutedVLAN).
+	// BFD is only applicable for Layer 3 interfaces.
 	// +optional
 	BFD *BFD `json:"bfd,omitempty"`
 
@@ -104,6 +108,15 @@ type InterfaceSpec struct {
 	// When omitted, ethernet parameters use their default values (e.g., FEC mode defaults to auto).
 	// +optional
 	Ethernet *Ethernet `json:"ethernet,omitempty"`
+
+	// Encapsulation defines the subinterfaces config for an L3 interface.
+	// +optional
+	Encapsulation *Encapsulation `json:"encapsulation,omitempty"`
+
+	// ParentInterfaceRef is a reference to the parent interface for this subinterface.
+	// Required if the interface type is Subinterface. Must not be set for other interface types.
+	// +optional
+	ParentInterfaceRef *LocalObjectReference `json:"parentInterfaceRef,omitempty"`
 }
 
 // AdminState represents the administrative state of a resource.
@@ -120,7 +133,7 @@ const (
 )
 
 // InterfaceType represents the type of the interface.
-// +kubebuilder:validation:Enum=Physical;Loopback;Aggregate;RoutedVLAN
+// +kubebuilder:validation:Enum=Physical;Loopback;Aggregate;RoutedVLAN;Subinterface
 type InterfaceType string
 
 const (
@@ -132,10 +145,13 @@ const (
 	InterfaceTypeAggregate InterfaceType = "Aggregate"
 	// InterfaceTypeRoutedVLAN indicates that the interface is a routed VLAN interface (SVI/IRB).
 	InterfaceTypeRoutedVLAN InterfaceType = "RoutedVLAN"
+	// InterfaceTypeSubinterface indicates that the interface is a subinterface of an interface.
+	InterfaceTypeSubinterface InterfaceType = "Subinterface"
 )
 
 // Switchport defines the switchport configuration for an interface.
 // +kubebuilder:validation:XValidation:rule="self.mode != 'Access' || has(self.accessVlan)", message="accessVlan must be specified when mode is Access"
+// +kubebuilder:validation:XValidation:rule="!has(self.allowedVlans) || !has(self.allowedVlansMode) || self.allowedVlansMode != 'Unmanaged'", message="allowedVlans must be omitted when allowedVlansMode is Unmanaged"
 type Switchport struct {
 	// Mode defines the switchport mode, such as access or trunk.
 	// +required
@@ -155,15 +171,76 @@ type Switchport struct {
 	// +kubebuilder:validation:Maximum=4094
 	NativeVlan int32 `json:"nativeVlan,omitempty"`
 
-	// AllowedVlans is a list of VLAN IDs that are allowed on the trunk port.
-	// If not specified, all VLANs (1-4094) are allowed.
+	// AllowedVlansMode defines how trunk allowed VLANs are managed.
+	// When omitted, the mode is Exact.
+	// Exact means the operator owns the complete allowed VLAN list.
+	// Unmanaged means the operator does not change the allowed VLAN list.
+	// Only applicable when Mode is set to "Trunk".
+	// +optional
+	// +kubebuilder:default=Exact
+	AllowedVlansMode AllowedVlansMode `json:"allowedVlansMode,omitempty"`
+
+	// AllowedVlans is the exact list of VLAN ID ranges allowed on the trunk port.
+	// Each entry is an inclusive range string like "100..200". For compatibility,
+	// a single integer like 100 is also accepted and treated as "100..100".
+	// If not specified and AllowedVlansMode is Exact, all VLANs (1-4094) are allowed.
+	// Must be omitted when AllowedVlansMode is Unmanaged.
 	// Only applicable when Mode is set to "Trunk".
 	// +optional
 	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:items:Minimum=1
-	// +kubebuilder:validation:items:Maximum=4094
-	AllowedVlans []int32 `json:"allowedVlans,omitempty"`
+	AllowedVlans []IndexRange `json:"allowedVlans,omitempty"`
 }
+
+// EncapType represents the encapsulation type used for a subinterface.
+// +kubebuilder:validation:Enum="802.1q";"802.1ad"
+type EncapType string
+
+const (
+	// EncapsulationTypeDot1Q indicates IEEE 802.1Q encapsulation.
+	EncapsulationTypeDot1Q EncapType = "802.1q"
+	// EncapsulationTypeQinQ indicates IEEE 802.1ad encapsulation.
+	EncapsulationTypeQinQ EncapType = "802.1ad"
+)
+
+// Encapsulation defines config for an L3 subinterface.
+// +kubebuilder:validation:XValidation:rule="self.type != '802.1q' || has(self.tag)", message="tag must be specified for interfaces of type 802.1q"
+// +kubebuilder:validation:XValidation:rule="self.type != '802.1q' || !(has(self.innerTag) || has(self.outerTag))", message="innerTag or outerTag must not be specified for interfaces of type 802.1q"
+// +kubebuilder:validation:XValidation:rule="self.type != '802.1ad' || (has(self.innerTag) && has(self.outerTag))", message="innerTag and outerTag must be specified for interfaces of type 802.1ad"
+// +kubebuilder:validation:XValidation:rule="self.type != '802.1ad' || !has(self.tag)", message="tag must not be specified for interfaces of type 802.1ad"
+type Encapsulation struct {
+	// +required
+	Type EncapType `json:"type"`
+
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4094
+	Tag int32 `json:"tag,omitempty"`
+
+	// InnerTag specifies the inner VLAN ID for QinQ encapsulation.
+	// Only applicable when Type is set to "QinQ".
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4094
+	InnerTag int32 `json:"innerTag,omitempty"`
+
+	// OuterTag specifies the outer VLAN ID for QinQ encapsulation.
+	// Only applicable when Type is set to "QinQ".
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4094
+	OuterTag int32 `json:"outerTag,omitempty"`
+}
+
+// AllowedVlansMode defines how trunk allowed VLANs are managed.
+// +kubebuilder:validation:Enum=Exact;Unmanaged
+type AllowedVlansMode string
+
+const (
+	// AllowedVlansModeExact means the operator owns the complete trunk allow-list.
+	AllowedVlansModeExact AllowedVlansMode = "Exact"
+	// AllowedVlansModeUnmanaged means the operator leaves the trunk allow-list unchanged.
+	AllowedVlansModeUnmanaged AllowedVlansMode = "Unmanaged"
+)
 
 // SwitchportMode represents the switchport mode of an interface.
 // +kubebuilder:validation:Enum=Access;Trunk
@@ -317,18 +394,172 @@ type MultiChassis struct {
 // InterfaceStatus defines the observed state of Interface.
 type InterfaceStatus struct {
 	// The conditions are a list of status objects that describe the state of the Interface.
-	//+listType=map
-	//+listMapKey=type
-	//+patchStrategy=merge
-	//+patchMergeKey=type
-	//+optional
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// MemberOf references the aggregate interface this interface is a member of, if any.
 	// This field only applies to physical interfaces that are part of an aggregate interface.
 	// +optional
 	MemberOf *LocalObjectReference `json:"memberOf,omitempty"`
+
+	// Neighbors contains a list of neighbor interfaces connected to this interface and discovered with LLDP.
+	// If a single interface has multiple neighbor adjacencies, we validate each adjacency against the same one label/annotation.
+	// +optional
+	Neighbors []Neighbor `json:"neighbors,omitempty"`
 }
+
+// Neighbor represents an LLDP neighbor discovered on an interface.
+// It includes the results of the LLDP adjacency validation against the expected neighbor information from the interface's labels or annotations.
+type Neighbor struct {
+	// ChassisID contains an octet string indicating the specific chassis ID of the neighbor.
+	// Its semantics are defined by the ChassisIDType field.
+	// +required
+	ChassisID string `json:"chassisId"`
+
+	// ChassisIDType represents the chassis ID subtype.
+	// Full list of types can be found in IEEE 802.1AB-2016 Table 8-2.
+	// +required
+	// +kubebuilder:validation:Enum=ChassisComponent;InterfaceAlias;PortComponent;MACAddress;NetworkAddress;InterfaceName;Local
+	ChassisIDType ChassisIDType `json:"chassisIdType"`
+
+	// PortID contains an octet string indicating the specific port ID of the neighbor.
+	// Its semantics are defined by the PortIDType field.
+	// +required
+	PortID string `json:"portId"`
+
+	// PortIDType represents the port ID subtype.
+	// Full list of types can be found in IEEE 802.1AB-2016 Table 8-3.
+	// +required
+	// +kubebuilder:validation:Enum=InterfaceAlias;PortComponent;MACAddress;NetworkAddress;InterfaceName;AgentCircuitID;Local
+	PortIDType PortIDType `json:"portIdType"`
+
+	// SystemName is an alpha-numeric string that indicates the system’s administratively assigned name.
+	// +optional
+	SystemName string `json:"systemName,omitempty"`
+
+	// SystemDescription is a textual description of the neighbor, should include hardware and software information
+	// If the device supports IETF RFC 3418, this is the `sysDescr`
+	// +optional
+	SystemDescription string `json:"systemDescription,omitempty"`
+
+	// PortDescription contains the port description of the neighbor port.
+	// If the device supports IETF RFC 2863, this is the `ifDescr`
+	// +optional
+	PortDescription string `json:"portDescription,omitempty"`
+
+	// ExpirationTime is the time when the LLDP neighbor information expires.
+	// It is calculated based on the TTL.
+	// +required
+	ExpirationTime metav1.Time `json:"expirationTime"`
+
+	// Validation indicates whether the LLDP neighbor information matches the information in the label or annotations of the interface.
+	// Empty when no validation source (label or annotation) is configured on the interface.
+	// +optional
+	Validation NeighborValidation `json:"validation,omitempty"`
+}
+
+// ChassisIDType represents the chassis ID subtype for LLDP neighbor information.
+// See IEEE 802.1AB-2016 section 8.5.2.2 for details.
+type ChassisIDType string
+
+const (
+	// ChassisIDTypeChassisComponent is `EntPhysicalAlias` when entPhysClass has a value of ‘chassis(3)’ (IETF RFC 6933)
+	ChassisIDTypeChassisComponent ChassisIDType = "ChassisComponent"
+	// ChassisIDTypeInterfaceAlias is `ifAlias` (IETF RFC 2863)
+	ChassisIDTypeInterfaceAlias ChassisIDType = "InterfaceAlias"
+	// ChassisIDTypePortComponent is `entPhysicalAlias` when `entPhysicalClass` has a value ‘port(10)’ or ‘backplane(4)’ (IETF RFC 6933)
+	ChassisIDTypePortComponent ChassisIDType = "PortComponent"
+	// ChassisIDTypeMACAddress is the MAC address (IEEE Std 802)
+	ChassisIDTypeMACAddress ChassisIDType = "MACAddress"
+	// ChassisIDTypeNetworkAddress is an octet string representation of a particular network family and address.
+	ChassisIDTypeNetworkAddress ChassisIDType = "NetworkAddress"
+	// ChassisIDTypeInterfaceName is `ifName` (IETF RFC 2863)
+	ChassisIDTypeInterfaceName ChassisIDType = "InterfaceName"
+	// ChassisIDTypeLocal is an alphanumeric string that and is locally assigned
+	ChassisIDTypeLocal ChassisIDType = "Local"
+)
+
+func ChassisIDTypeFromValue(value uint8) (ChassisIDType, bool) {
+	switch value {
+	case 1:
+		return ChassisIDTypeChassisComponent, true
+	case 2:
+		return ChassisIDTypeInterfaceAlias, true
+	case 3:
+		return ChassisIDTypePortComponent, true
+	case 4:
+		return ChassisIDTypeMACAddress, true
+	case 5:
+		return ChassisIDTypeNetworkAddress, true
+	case 6:
+		return ChassisIDTypeInterfaceName, true
+	case 7:
+		return ChassisIDTypeLocal, true
+	default:
+		return "", false
+	}
+}
+
+// PortIDType represents the port ID subtype for LLDP neighbor information.
+// See IEEE 802.1AB-2016 section 8.5.3.2 for details.
+type PortIDType string
+
+const (
+	// PortIDTypeInterfaceAlias is `ifAlias` (IETF RFC 2863)
+	PortIDTypeInterfaceAlias PortIDType = "InterfaceAlias"
+	// PortIDTypePortComponent is `entPhysicalAlias` when `entPhysicalClass` has a value ‘port(10)’ or ‘backplane(4)’ (IETF RFC 6933)
+	PortIDTypePortComponent PortIDType = "PortComponent"
+	// PortIDTypeMACAddress is the MAC address (IEEE Std 802)
+	PortIDTypeMACAddress PortIDType = "MACAddress"
+	// PortIDTypeNetworkAddress is an octet string representation of a particular network family and address.
+	PortIDTypeNetworkAddress PortIDType = "NetworkAddress"
+	// PortIDTypeInterfaceName is `ifName` (IETF RFC 2863)
+	PortIDTypeInterfaceName PortIDType = "InterfaceName"
+	// PortIDTypeAgentCircuitID is the agent circuit ID (IETF RFC 3046)
+	PortIDTypeAgentCircuitID PortIDType = "AgentCircuitID"
+	// PortIDTypeLocal is an alphanumeric string that and is locally assigned
+	PortIDTypeLocal PortIDType = "Local"
+)
+
+func PortIDTypeFromValue(value uint8) (PortIDType, bool) {
+	switch value {
+	case 1:
+		return PortIDTypeInterfaceAlias, true
+	case 2:
+		return PortIDTypePortComponent, true
+	case 3:
+		return PortIDTypeMACAddress, true
+	case 4:
+		return PortIDTypeNetworkAddress, true
+	case 5:
+		return PortIDTypeInterfaceName, true
+	case 6:
+		return PortIDTypeAgentCircuitID, true
+	case 7:
+		return PortIDTypeLocal, true
+	default:
+		return "", false
+	}
+}
+
+// NeighborValidation represents the result of the validation of the LLDP neighbor information against the expected values from the interface's labels or annotations.
+// +kubebuilder:validation:Enum=NotFound;Verified;DeviceMismatch;PortMismatch
+type NeighborValidation string
+
+const (
+	// NeighborNotFound indicates that the resource referenced in the PhysicalInterfaceNeighborLabel label could not be found.
+	NeighborNotFound NeighborValidation = "NotFound"
+	// NeighborVerified indicates that the LLDP neighbor information has been verified and matches the expected values.
+	NeighborVerified NeighborValidation = "Verified"
+	// NeighborDeviceMismatch indicates that the LLDP neighbor information does not match the expected values, indicating a potential misconfiguration or unexpected neighbor.
+	NeighborDeviceMismatch NeighborValidation = "DeviceMismatch"
+	// NeighborPortMismatch indicates that the LLDP neighbor information does not match the expected port information, indicating a potential misconfiguration or unexpected neighbor.
+	NeighborPortMismatch NeighborValidation = "PortMismatch"
+)
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
@@ -395,5 +626,8 @@ func RegisterInterfaceDependency(gvk schema.GroupVersionKind) {
 }
 
 func init() {
-	SchemeBuilder.Register(&Interface{}, &InterfaceList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &Interface{}, &InterfaceList{})
+		return nil
+	})
 }

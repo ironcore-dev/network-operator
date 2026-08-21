@@ -5,6 +5,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	v1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
@@ -81,5 +82,8 @@ type NetworkVirtualizationEdgeConfigList struct {
 // itself as a dependency for the NetworkVirtualizationEdge core type.
 func init() {
 	v1alpha1.RegisterNetworkVirtualizationEdgeDependency(GroupVersion.WithKind("NetworkVirtualizationEdgeConfig"))
-	SchemeBuilder.Register(&NetworkVirtualizationEdgeConfig{}, &NetworkVirtualizationEdgeConfigList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &NetworkVirtualizationEdgeConfig{}, &NetworkVirtualizationEdgeConfigList{})
+		return nil
+	})
 }

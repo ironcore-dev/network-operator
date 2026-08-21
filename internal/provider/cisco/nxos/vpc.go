@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
 var (
-	_ gnmiext.Configurable = (*VPCDomain)(nil)
-	_ gnmiext.Configurable = (*VPCIf)(nil)
+	_ gnmiext.DataElement = (*VPCDomain)(nil)
+	_ gnmiext.DataElement = (*VPCIf)(nil)
 )
 
 // VPCDomain represents the domain of a virtual Port Channel (vPC)

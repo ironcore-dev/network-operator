@@ -1,0 +1,48 @@
+# DNS Configuration
+-- dns/dns --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: DNS
+metadata:
+  name: dns
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  domain: example.com
+  servers:
+    - address: 8.8.8.8
+    - address: 1.1.1.1
+-- state/preload --
+{}
+
+-- state/expect --
+{
+  "openconfig-system:system": {
+    "dns": {
+      "config": {
+        "search": [
+          "example.com"
+        ]
+      },
+      "servers": {
+        "server": [
+          {
+            "address": "8.8.8.8",
+            "config": {
+              "address": "8.8.8.8"
+            }
+          },
+          {
+            "address": "1.1.1.1",
+            "config": {
+              "address": "1.1.1.1"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
+
+-- state/delete --
+{}

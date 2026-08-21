@@ -19,7 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/paused"
@@ -48,7 +49,7 @@ type LLDPReconciler struct {
 
 	// Recorder is used to record events for the controller.
 	// More info: https://book.kubebuilder.io/reference/raising-events
-	Recorder record.EventRecorder
+	Recorder events.EventRecorder
 
 	// Provider is the driver that will be used to create & delete the LLDP.
 	Provider provider.ProviderFunc
@@ -64,7 +65,7 @@ type LLDPReconciler struct {
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=lldps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=lldps/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=lldps/finalizers,verbs=update
-// +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -73,12 +74,12 @@ type LLDPReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.22.4/pkg/reconcile
 func (r *LLDPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
-	log.Info("Reconciling resource")
+	log.V(3).Info("Reconciling resource")
 
 	obj := new(v1alpha1.LLDP)
 	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Info("Resource not found. Ignoring reconciliation since object must be deleted")
+			log.V(3).Info("Resource not found. Ignoring reconciliation since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -111,8 +112,8 @@ func (r *LLDPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 	// Prevent concurrent reconciliations of resources targeting the same device
 	if err := r.Locker.AcquireLock(ctx, device.Name, "lldp-controller"); err != nil {
 		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
-			log.Info("Device is already locked, requeuing reconciliation")
-			return ctrl.Result{RequeueAfter: time.Second}, nil
+			log.V(3).Info("Device is already locked, requeuing reconciliation")
+			return ctrl.Result{RequeueAfter: Jitter(time.Second), Priority: new(LockWaitPriorityDefault)}, nil
 		}
 		log.Error(err, "Failed to acquire device lock")
 		return ctrl.Result{}, err
@@ -148,7 +149,7 @@ func (r *LLDPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 				return ctrl.Result{}, err
 			}
 		}
-		log.Info("Resource is being deleted, skipping reconciliation")
+		log.V(3).Info("Resource is being deleted, skipping reconciliation")
 		return ctrl.Result{}, nil
 	}
 
@@ -159,13 +160,13 @@ func (r *LLDPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 			log.Error(err, "Failed to add finalizer to resource")
 			return ctrl.Result{}, err
 		}
-		log.Info("Added finalizer to resource")
+		log.V(1).Info("Added finalizer to resource")
 		return ctrl.Result{}, nil
 	}
 
 	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
-		log.Info("Initializing status conditions")
+		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
 
@@ -188,26 +189,23 @@ func (r *LLDPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		}
 	}()
 
-	res, err := r.reconcile(ctx, s)
-	if err != nil {
+	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, apistatus.WrapTerminalError(err)
 	}
-	return res, nil
+
+	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
 }
 
 type lldpScope struct {
-	Device     *v1alpha1.Device
-	LLDP       *v1alpha1.LLDP
-	Connection *deviceutil.Connection
-	Provider   provider.LLDPProvider
-	// ProviderConfig is the resource referenced by LLDP.Spec.ProviderConfigRef, if any.
+	Device         *v1alpha1.Device
+	LLDP           *v1alpha1.LLDP
+	Connection     *deviceutil.Connection
+	Provider       provider.LLDPProvider
 	ProviderConfig *provider.ProviderConfig
-	// Interfaces are the Interface resources referenced by LLDP.Spec.InterfaceRefs.
-	Interfaces []*v1alpha1.Interface
 }
 
-func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (_ ctrl.Result, reterr error) {
+func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (reterr error) {
 	if s.LLDP.Labels == nil {
 		s.LLDP.Labels = make(map[string]string)
 	}
@@ -216,7 +214,7 @@ func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (_ ctrl.Re
 	// Ensure LLDP resource is owned by the Device.
 	if !controllerutil.HasControllerReference(s.LLDP) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.LLDP, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
@@ -225,21 +223,20 @@ func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (_ ctrl.Re
 	}()
 
 	if err := r.validateUniqueLLDPPerDevice(ctx, s); err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	if err := r.validateProviderConfigRef(ctx, s); err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	interfaces, err := r.reconcileInterfaceRefs(ctx, s)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
-	s.Interfaces = interfaces
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
@@ -251,14 +248,14 @@ func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (_ ctrl.Re
 	err = s.Provider.EnsureLLDP(ctx, &provider.LLDPRequest{
 		LLDP:           s.LLDP,
 		ProviderConfig: s.ProviderConfig,
-		Interfaces:     s.Interfaces,
+		Interfaces:     interfaces,
 	})
 
 	cond := conditions.FromError(err)
 	conditions.Set(s.LLDP, cond)
 
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	status, err := s.Provider.GetLLDPStatus(ctx, &provider.LLDPRequest{
@@ -266,7 +263,7 @@ func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (_ ctrl.Re
 		ProviderConfig: s.ProviderConfig,
 	})
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get LLDP status: %w", err)
+		return fmt.Errorf("failed to get LLDP status: %w", err)
 	}
 
 	cond = metav1.Condition{
@@ -282,7 +279,7 @@ func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (_ ctrl.Re
 	}
 	conditions.Set(s.LLDP, cond)
 
-	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
+	return nil
 }
 
 // validateProviderConfigRef checks if the referenced provider configuration exists and is compatible with the target platform.
@@ -386,9 +383,10 @@ func (r *LLDPReconciler) reconcileInterfaceRef(ctx context.Context, interfaceRef
 
 func (r *LLDPReconciler) validateUniqueLLDPPerDevice(ctx context.Context, s *lldpScope) error {
 	var list v1alpha1.LLDPList
-	if err := r.List(ctx, &list,
+	if err := r.List(
+		ctx, &list,
 		client.InNamespace(s.LLDP.Namespace),
-		client.MatchingFields{".spec.deviceRef.name": s.LLDP.Spec.DeviceRef.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: s.Device.Name},
 	); err != nil {
 		return err
 	}
@@ -422,9 +420,9 @@ func (r *LLDPReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 		return fmt.Errorf("failed to create label selector predicate: %w", err)
 	}
 
-	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.LLDP{}, ".spec.deviceRef.name", func(obj client.Object) []string {
-		lldp := obj.(*v1alpha1.LLDP)
-		return []string{lldp.Spec.DeviceRef.Name}
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.LLDP{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.LLDP)
+		return []string{o.Spec.DeviceRef.Name}
 	}); err != nil {
 		return err
 	}
@@ -437,6 +435,7 @@ func (r *LLDPReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 	for _, gvk := range v1alpha1.LLDPDependencies {
 		obj := &unstructured.Unstructured{}
 		obj.SetGroupVersionKind(gvk)
+
 		c = c.Watches(
 			obj,
 			handler.EnqueueRequestsFromMapFunc(r.mapProviderConfigToLLDP),
@@ -444,24 +443,35 @@ func (r *LLDPReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 		)
 	}
 
-	// Watches enqueues LLDPs for updates in referenced Device resources.
-	// Triggers on update events when the Paused spec field changes.
-	c = c.Watches(
-		&v1alpha1.Device{},
-		handler.EnqueueRequestsFromMapFunc(r.deviceToLLDPs),
-		builder.WithPredicates(predicate.Funcs{
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldDevice := e.ObjectOld.(*v1alpha1.Device)
-				newDevice := e.ObjectNew.(*v1alpha1.Device)
-				// Only trigger when Paused spec field changes.
-				return oldDevice.Spec.Paused != newDevice.Spec.Paused
-			},
-			GenericFunc: func(e event.GenericEvent) bool {
-				return false
-			},
-		}),
-	)
-
+	c = c.
+		// Triggers on create, delete, and update events when the device's effective pause state changes.
+		// Watches enqueues LLDPs for updates in referenced Device resources.
+		Watches(
+			&v1alpha1.Device{},
+			handler.EnqueueRequestsFromMapFunc(r.deviceToLLDPs),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return paused.DevicePausedChanged(e.ObjectOld, e.ObjectNew)
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
+		// Watches enqueues LLDPs for updates in referenced Interface resources.
+		// This ensures LLDP reconciles when a referenced Interface is created or updated.
+		Watches(
+			&v1alpha1.Interface{},
+			handler.EnqueueRequestsFromMapFunc(r.interfaceToLLDPs),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		)
 	return c.Complete(r)
 }
 
@@ -482,7 +492,7 @@ func (r *LLDPReconciler) mapProviderConfigToLLDP(ctx context.Context, obj client
 			m.Spec.ProviderConfigRef.Name == obj.GetName() &&
 			m.Spec.ProviderConfigRef.Kind == gkv.Kind &&
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
-			log.Info("Found matching LLDP for provider config change, enqueuing for reconciliation", "LLDP", klog.KObj(&m))
+			log.V(2).Info("Found matching LLDP for provider config change, enqueuing for reconciliation", "LLDP", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      m.Name,
@@ -510,7 +520,7 @@ func (r *LLDPReconciler) finalize(ctx context.Context, s *lldpScope) (reterr err
 }
 
 // deviceToLLDPs is a [handler.MapFunc] to be used to enqueue requests for reconciliation
-// for LLDPs when their referenced Device's Paused spec field changes.
+// for LLDPs when their referenced Device's effective pause state changes.
 func (r *LLDPReconciler) deviceToLLDPs(ctx context.Context, obj client.Object) []ctrl.Request {
 	device, ok := obj.(*v1alpha1.Device)
 	if !ok {
@@ -520,9 +530,10 @@ func (r *LLDPReconciler) deviceToLLDPs(ctx context.Context, obj client.Object) [
 	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
 
 	lldps := new(v1alpha1.LLDPList)
-	if err := r.List(ctx, lldps,
+	if err := r.List(
+		ctx, lldps,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list LLDPs")
 		return nil
@@ -530,13 +541,52 @@ func (r *LLDPReconciler) deviceToLLDPs(ctx context.Context, obj client.Object) [
 
 	requests := make([]ctrl.Request, 0, len(lldps.Items))
 	for _, l := range lldps.Items {
-		log.Info("Enqueuing LLDP for reconciliation", "LLDP", klog.KObj(&l))
+		log.V(2).Info("Enqueuing LLDP for reconciliation", "LLDP", klog.KObj(&l))
 		requests = append(requests, ctrl.Request{
 			NamespacedName: client.ObjectKey{
 				Name:      l.Name,
 				Namespace: l.Namespace,
 			},
 		})
+	}
+
+	return requests
+}
+
+// interfaceToLLDPs is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for LLDPs when a referenced Interface is created or updated.
+func (r *LLDPReconciler) interfaceToLLDPs(ctx context.Context, obj client.Object) []ctrl.Request {
+	intf, ok := obj.(*v1alpha1.Interface)
+	if !ok {
+		panic(fmt.Sprintf("Expected an Interface but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "Interface", klog.KObj(intf))
+
+	list := new(v1alpha1.LLDPList)
+	if err := r.List(
+		ctx, list,
+		client.InNamespace(intf.Namespace),
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: intf.Spec.DeviceRef.Name},
+	); err != nil {
+		log.Error(err, "Failed to list LLDPs")
+		return nil
+	}
+
+	var requests []ctrl.Request
+	for _, lldp := range list.Items {
+		for _, ifRef := range lldp.Spec.InterfaceRefs {
+			if ifRef.Name == intf.Name {
+				log.V(2).Info("Enqueuing LLDP for reconciliation", "LLDP", klog.KObj(&lldp))
+				requests = append(requests, ctrl.Request{
+					NamespacedName: client.ObjectKey{
+						Name:      lldp.Name,
+						Namespace: lldp.Namespace,
+					},
+				})
+				break
+			}
+		}
 	}
 
 	return requests

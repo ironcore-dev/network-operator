@@ -1,0 +1,17 @@
+{
+  "intf-items": {
+    "encrtd-items": {
+      "EncRtdIf-list": [
+        {
+          "id": "eth1/1.100",
+          "mtu": 1500,
+          "mediumType": "broadcast",
+          "mtuInherit": false,
+          "encap": "100",
+          "adminSt": "up",
+          "descr": "L3 Subinterface on eth1/1"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+# SPDX-License-Identifier: Apache-2.0
+#
+name: Size Label
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+
+permissions:
+  pull-requests: write
+
+jobs:
+  size-label:
+    name: Label PR with size
+    runs-on: ubuntu-latest
+    steps:
+      - name: size-label
+        uses: pascalgn/size-label-action@v0.5.7
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"

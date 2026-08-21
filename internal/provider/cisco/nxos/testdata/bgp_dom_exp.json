@@ -1,0 +1,24 @@
+{
+  "bgp-items": {
+    "inst-items": {
+      "asn": "65000",
+      "dom-items": {
+        "Dom-list": [
+          {
+            "name": "CC-CLOUD01",
+            "rtrId": "1.1.1.1",
+            "rtrIdAuto": "disabled",
+            "af-items": {
+              "DomAf-list": [
+                {
+                  "exportGwIp": "enabled",
+                  "type": "ipv4-ucast"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

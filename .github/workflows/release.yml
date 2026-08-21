@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company
+# SPDX-License-Identifier: Apache-2.0
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    name: Publish Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+      - name: Run prepare make target
+        run: make generate
+      - name: Install syft
+        uses: anchore/sbom-action/download-syft@v0
+      - name: Generate release info
+        run: |
+          go install github.com/sapcc/go-bits/tools/release-info@latest
+          mkdir -p dist
+          release-info CHANGELOG.md "$(git describe --tags --abbrev=0)" > dist/release-info
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          args: release --clean --release-notes=./dist/release-info
+          version: latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,15 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: EthernetSegment
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: ethernetsegment-sample
+spec:
+  deviceRef:
+    name: leaf1
+  interfaceRef:
+    name: po-10
+  esiType: Arbitrary
+  esi: "00:11:22:33:44:55:66:77:88:01"
+  redundancyMode: AllActive

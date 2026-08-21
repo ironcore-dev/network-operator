@@ -11,6 +11,7 @@ import (
 	"net/netip"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"syscall"
@@ -63,7 +64,7 @@ type refStoreReader struct {
 	store ReferenceStore
 }
 
-func (r *refStoreReader) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+func (r *refStoreReader) Get(_ context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
 	o := r.store.Get(key.Name, key.Namespace)
 	if o == nil {
 		return fmt.Errorf("resource %s/%s not found in reference files", key.Namespace, key.Name)
@@ -80,12 +81,13 @@ func (r *refStoreReader) Get(ctx context.Context, key client.ObjectKey, obj clie
 	return nil
 }
 
-func (r *refStoreReader) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+func (r *refStoreReader) List(_ context.Context, _ client.ObjectList, _ ...client.ListOption) error {
 	return errors.New("List operation not supported by refStoreReader")
 }
 
 func usage() {
-	fmt.Fprintf(os.Stderr, "Usage: %s [flags] <create|delete>\n\n", os.Args[0]) // #nosec G705
+	base := filepath.Base(os.Args[0])
+	fmt.Fprintf(os.Stderr, "Usage: %s [flags] <create|delete>\n\n", base)
 	fmt.Fprintf(os.Stderr, "A debug tool for testing provider implementations.\n\n")
 	fmt.Fprintf(os.Stderr, "This tool allows you to directly test provider implementations by creating or\n")
 	fmt.Fprintf(os.Stderr, "deleting resources on network devices.\n\n")
@@ -94,7 +96,7 @@ func usage() {
 	fmt.Fprintf(os.Stderr, "Flags:\n")
 	flag.PrintDefaults()
 	fmt.Fprintf(os.Stderr, "\nExample:\n")
-	fmt.Fprintf(os.Stderr, "  %s -address=192.168.1.1:9339 -username=admin -password=secret -file=config/samples/v1alpha1_interface.yaml create\n", os.Args[0]) // #nosec G705
+	fmt.Fprintf(os.Stderr, "  %s -address=192.168.1.1:9339 -username=admin -password=secret -file=config/samples/v1alpha1_interface.yaml create\n", base)
 }
 
 func validateFlags() error {
@@ -413,7 +415,7 @@ func performOperation(ctx context.Context, prov provider.Provider, obj client.Ob
 	}
 }
 
-func performCreate(ctx context.Context, prov provider.Provider, obj client.Object, c *clientutil.Client) error {
+func performCreate(ctx context.Context, prov provider.Provider, obj client.Object, c *clientutil.Client) error { //nolint:gocyclo
 	switch res := obj.(type) {
 	case *v1alpha1.AccessControlList:
 		ap, ok := prov.(provider.ACLProvider)
@@ -430,7 +432,7 @@ func performCreate(ctx context.Context, prov provider.Provider, obj client.Objec
 			}
 		}
 
-		return ap.EnsureACL(ctx, &provider.EnsureACLRequest{
+		return ap.EnsureACL(ctx, &provider.ACLRequest{
 			ACL:            res,
 			ProviderConfig: cfg,
 		})
@@ -741,7 +743,7 @@ func performCreate(ctx context.Context, prov provider.Provider, obj client.Objec
 		})
 
 	case *v1alpha1.ManagementAccess:
-		map_, ok := prov.(provider.ManagementAccessProvider)
+		mgmtProvider, ok := prov.(provider.ManagementAccessProvider)
 		if !ok {
 			return errors.New("provider does not implement ManagementAccessProvider")
 		}
@@ -755,7 +757,7 @@ func performCreate(ctx context.Context, prov provider.Provider, obj client.Objec
 			}
 		}
 
-		return map_.EnsureManagementAccess(ctx, &provider.EnsureManagementAccessRequest{
+		return mgmtProvider.EnsureManagementAccess(ctx, &provider.EnsureManagementAccessRequest{
 			ManagementAccess: res,
 			ProviderConfig:   cfg,
 		})
@@ -1058,15 +1060,15 @@ func performCreate(ctx context.Context, prov provider.Provider, obj client.Objec
 	}
 }
 
-func performDelete(ctx context.Context, prov provider.Provider, obj client.Object) error {
+func performDelete(ctx context.Context, prov provider.Provider, obj client.Object) error { //nolint:gocyclo
 	switch resource := obj.(type) {
 	case *v1alpha1.AccessControlList:
 		ap, ok := prov.(provider.ACLProvider)
 		if !ok {
 			return errors.New("provider does not implement ACLProvider")
 		}
-		return ap.DeleteACL(ctx, &provider.DeleteACLRequest{
-			Name: resource.Spec.Name,
+		return ap.DeleteACL(ctx, &provider.ACLRequest{
+			ACL: resource,
 		})
 
 	case *v1alpha1.Banner:
@@ -1123,11 +1125,11 @@ func performDelete(ctx context.Context, prov provider.Provider, obj client.Objec
 			if len(refStore) == 0 {
 				return errors.New("evpninstance resource references vlan but no reference files provided (use --ref-files)")
 			}
-			obj := refStore.Get(resource.Spec.VLANRef.Name, resource.Namespace)
-			if obj == nil {
+			vlanObj := refStore.Get(resource.Spec.VLANRef.Name, resource.Namespace)
+			if vlanObj == nil {
 				return fmt.Errorf("referenced vlan %s not found in reference files", resource.Spec.VLANRef.Name)
 			}
-			v, ok := obj.(*v1alpha1.VLAN)
+			v, ok := vlanObj.(*v1alpha1.VLAN)
 			if !ok {
 				return fmt.Errorf("referenced resource %s is not a VLAN", resource.Spec.VLANRef.Name)
 			}
@@ -1162,7 +1164,9 @@ func performDelete(ctx context.Context, prov provider.Provider, obj client.Objec
 		if !ok {
 			return errors.New("provider does not implement ManagementAccessProvider")
 		}
-		return ma.DeleteManagementAccess(ctx)
+		return ma.DeleteManagementAccess(ctx, &provider.DeleteManagementAccessRequest{
+			ManagementAccess: resource,
+		})
 
 	case *v1alpha1.NTP:
 		np, ok := prov.(provider.NTPProvider)

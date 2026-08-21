@@ -16,4 +16,75 @@ func init() {
 	rm.Name = "RM-REDIST"
 	rm.EntItems.EntryList.Set(e)
 	Register("route_map", rm)
+
+	prependEntry := &RouteMapEntry{}
+	prependEntry.Order = 10
+	prependEntry.Action = ActionPermit
+	prependEntry.SetASPathPrependItems.AS = "65000"
+
+	prependRM := &RouteMap{}
+	prependRM.Name = "RM-ASPATH-PREPEND"
+	prependRM.EntItems.EntryList.Set(prependEntry)
+	Register("route_map_aspath_prepend", prependRM)
+
+	lastASEntry := &RouteMapEntry{}
+	lastASEntry.Order = 10
+	lastASEntry.Action = ActionPermit
+	lastASEntry.SetASPathLastASItems.LastAS = 10
+
+	lastASRM := &RouteMap{}
+	lastASRM.Name = "RM-ASPATH-LASTAS"
+	lastASRM.EntItems.EntryList.Set(lastASEntry)
+	Register("route_map_aspath_lastas", lastASRM)
+
+	replaceEntry1 := &RouteMapEntry{}
+	replaceEntry1.Order = 10
+	replaceEntry1.Action = ActionPermit
+	replaceEntry1.SetASPathReplaceItems.MatchPrivateAS = true
+	replaceEntry1.SetASPathReplaceItems.ReplaceAsn = "65000"
+	replaceEntry1.SetASPathReplaceItems.ReplaceType = "asn"
+
+	replaceEntry2 := &RouteMapEntry{}
+	replaceEntry2.Order = 20
+	replaceEntry2.Action = ActionPermit
+	replaceEntry2.SetASPathReplaceItems.MatchAsnList = "65001"
+	replaceEntry2.SetASPathReplaceItems.MatchPrivateAS = false
+	replaceEntry2.SetASPathReplaceItems.ReplaceAsn = "65100"
+	replaceEntry2.SetASPathReplaceItems.ReplaceType = "asn"
+
+	replaceRM := &RouteMap{}
+	replaceRM.Name = "RM-ASPATH-REPLACE"
+	replaceRM.EntItems.EntryList.Set(replaceEntry1)
+	replaceRM.EntItems.EntryList.Set(replaceEntry2)
+	Register("route_map_aspath_replace", replaceRM)
+
+	setEntry := &RouteMapEntry{}
+	setEntry.Order = 10
+	setEntry.Action = ActionPermit
+	setEntry.SetASPathItems.AsnList = "65000"
+
+	setRM := &RouteMap{}
+	setRM.Name = "RM-ASPATH-SET"
+	setRM.EntItems.EntryList.Set(setEntry)
+	Register("route_map_aspath_set", setRM)
+
+	pfxV4Entry := &RouteMapEntry{}
+	pfxV4Entry.Order = 10
+	pfxV4Entry.Action = ActionPermit
+	pfxV4Entry.SetPrefixSet("PL-DEVICE-V4", false)
+
+	pfxV4RM := &RouteMap{}
+	pfxV4RM.Name = "RM-PREFIXSET-V4"
+	pfxV4RM.EntItems.EntryList.Set(pfxV4Entry)
+	Register("route_map_prefixset_v4", pfxV4RM)
+
+	pfxV6Entry := &RouteMapEntry{}
+	pfxV6Entry.Order = 10
+	pfxV6Entry.Action = ActionPermit
+	pfxV6Entry.SetPrefixSet("PL-DEVICE-V6", true)
+
+	pfxV6RM := &RouteMap{}
+	pfxV6RM.Name = "RM-PREFIXSET-V6"
+	pfxV6RM.EntItems.EntryList.Set(pfxV6Entry)
+	Register("route_map_prefixset_v6", pfxV6RM)
 }

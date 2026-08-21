@@ -1,0 +1,13 @@
+{
+  "userext-items": {
+    "authrealm-items": {
+      "consoleauth-items": {
+        "realm": "tacacs",
+        "providerGroup": "TACACS-SERVERS",
+        "fallback": "yes",
+        "local": "yes",
+        "errEn": false
+      }
+    }
+  }
+}

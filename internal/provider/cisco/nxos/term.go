@@ -6,15 +6,15 @@ package nxos
 import (
 	"fmt"
 
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
 var (
-	_ gnmiext.Configurable = (*Console)(nil)
-	_ gnmiext.Defaultable  = (*Console)(nil)
-	_ gnmiext.Configurable = (*VTY)(nil)
-	_ gnmiext.Defaultable  = (*VTY)(nil)
-	_ gnmiext.Configurable = (*VTYAccessClass)(nil)
+	_ gnmiext.DataElement = (*Console)(nil)
+	_ gnmiext.Defaultable = (*Console)(nil)
+	_ gnmiext.DataElement = (*VTY)(nil)
+	_ gnmiext.Defaultable = (*VTY)(nil)
+	_ gnmiext.DataElement = (*VTYAccessClass)(nil)
 )
 
 // Console represents the primary terminal line configuration.

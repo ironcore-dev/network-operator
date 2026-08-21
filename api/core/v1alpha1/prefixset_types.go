@@ -4,9 +4,11 @@
 package v1alpha1
 
 import (
+	"fmt"
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -72,6 +74,11 @@ type MaskLengthRange struct {
 	Max int8 `json:"max"`
 }
 
+// String returns the mask length range in OpenConfig dot-dot notation, e.g. "16..24".
+func (m MaskLengthRange) String() string {
+	return fmt.Sprintf("%d..%d", m.Min, m.Max)
+}
+
 // PrefixSetStatus defines the observed state of PrefixSet.
 type PrefixSetStatus struct {
 	// EntriesSummary provides a human-readable summary of the number of prefix entries.
@@ -79,11 +86,11 @@ type PrefixSetStatus struct {
 	EntriesSummary string `json:"entriesSummary,omitempty"`
 
 	// The conditions are a list of status objects that describe the state of the PrefixSet.
-	//+listType=map
-	//+listMapKey=type
-	//+patchStrategy=merge
-	//+patchMergeKey=type
-	//+optional
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
@@ -160,5 +167,8 @@ func RegisterPrefixSetDependency(gvk schema.GroupVersionKind) {
 }
 
 func init() {
-	SchemeBuilder.Register(&PrefixSet{}, &PrefixSetList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &PrefixSet{}, &PrefixSetList{})
+		return nil
+	})
 }

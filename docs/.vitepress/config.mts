@@ -11,7 +11,7 @@ export default withMermaid({
             'link',
             {
                 rel: 'icon',
-                href: 'https://raw.githubusercontent.com/ironcore-dev/network-operator/refs/heads/main/docs/assets/network-operator-logo.png',
+                href: 'https://raw.githubusercontent.com/ironcore-dev/ironcore/refs/heads/main/docs/assets/logo_borderless.svg',
             },
         ],
     ],
@@ -57,7 +57,7 @@ export default withMermaid({
         },
 
         logo: {
-            src: 'https://raw.githubusercontent.com/ironcore-dev/network-operator/refs/heads/main/docs/assets/network-operator-logo.png',
+            src: 'https://raw.githubusercontent.com/ironcore-dev/ironcore/refs/heads/main/docs/assets/logo_borderless.svg',
             width: 24,
             height: 24,
         },
@@ -69,20 +69,39 @@ export default withMermaid({
         sidebar: [
             {
                 text: 'Overview',
-                items: [{ text: 'Index', link: '/overview/' }],
+                items: [
+                    { text: 'Index', link: '/overview/' },
+                    { text: 'Getting Started', link: '/overview/getting-started' },
+                    { text: 'Architecture', link: '/architecture-overview' },
+                ],
             },
             {
                 text: 'Concepts',
                 items: [
                     { text: 'Index', link: '/concepts/' },
+                    { text: 'Config Backups', link: '/concepts/config-backup' },
                     { text: 'Pausing Reconciliation', link: '/concepts/pausing' },
+                    { text: 'Numbered Resources', link: '/concepts/numbered-resources' },
                 ],
             },
             {
                 text: 'Tutorials',
                 items: [
                     { text: 'Index', link: '/tutorials/' },
-                    { text: 'EVPN/VXLAN Fabric', link: '/tutorials/evpn-vxlan-fabric' }
+                    { text: 'Device Onboarding', link: '/tutorials/device-onboarding' },
+                    { text: 'EVPN/VXLAN Fabric', link: '/tutorials/evpn-vxlan-fabric' },
+                ],
+            },
+            {
+                text: 'Design Documents',
+                items: [
+                    { text: 'Index', link: '/designs/' },
+                    { text: '0001: Device Lifecycle Phases', link: '/designs/0001-device-lifecycle' },
+                    { text: '0002: Provider Interface', link: '/designs/0002-provider-interface' },
+                    { text: '0003: Status Conditions', link: '/designs/0003-status-conditions' },
+                    { text: '0004: Device Resource Locking', link: '/designs/0004-device-resource-locking' },
+                    { text: '0005: Brick Architecture', link: '/designs/0005-brick-architecture' },
+                    { text: '0006: API Deprecation Strategy', link: '/designs/0006-api-deprecation-strategy' },
                 ],
             },
             {

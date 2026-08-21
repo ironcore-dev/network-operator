@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/paused"
@@ -49,7 +50,7 @@ type OSPFReconciler struct {
 
 	// Recorder is used to record events for the controller.
 	// More info: https://book.kubebuilder.io/reference/raising-events
-	Recorder record.EventRecorder
+	Recorder events.EventRecorder
 
 	// Provider is the driver that will be used to create & delete the ospf.
 	Provider provider.ProviderFunc
@@ -65,7 +66,7 @@ type OSPFReconciler struct {
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=ospf,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=ospf/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=ospf/finalizers,verbs=update
-// +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -77,14 +78,14 @@ type OSPFReconciler struct {
 // - https://ahmet.im/blog/controller-pitfalls/#reconcile-method-shape
 func (r *OSPFReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
-	log.Info("Reconciling resource")
+	log.V(3).Info("Reconciling resource")
 
 	obj := new(v1alpha1.OSPF)
 	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
 		if apierrors.IsNotFound(err) {
 			// If the custom resource is not found then it usually means that it was deleted or not created
 			// In this way, we will stop the reconciliation
-			log.Info("Resource not found. Ignoring since object must be deleted")
+			log.V(3).Info("Resource not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -116,8 +117,8 @@ func (r *OSPFReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 
 	if err := r.Locker.AcquireLock(ctx, device.Name, "ospf-controller"); err != nil {
 		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
-			log.Info("Device is already locked, requeuing reconciliation")
-			return ctrl.Result{RequeueAfter: time.Second}, nil
+			log.V(3).Info("Device is already locked, requeuing reconciliation")
+			return ctrl.Result{RequeueAfter: Jitter(time.Second), Priority: new(LockWaitPriorityDefault)}, nil
 		}
 		log.Error(err, "Failed to acquire device lock")
 		return ctrl.Result{}, err
@@ -162,7 +163,7 @@ func (r *OSPFReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 				return ctrl.Result{}, err
 			}
 		}
-		log.Info("Resource is being deleted, skipping reconciliation")
+		log.V(3).Info("Resource is being deleted, skipping reconciliation")
 		return ctrl.Result{}, nil
 	}
 
@@ -173,13 +174,13 @@ func (r *OSPFReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 			log.Error(err, "Failed to add finalizer to resource")
 			return ctrl.Result{}, err
 		}
-		log.Info("Added finalizer to resource")
+		log.V(1).Info("Added finalizer to resource")
 		return ctrl.Result{}, nil
 	}
 
 	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition, v1alpha1.OperationalCondition) {
-		log.Info("Initializing status conditions")
+		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
 
@@ -200,17 +201,16 @@ func (r *OSPFReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		}
 	}()
 
-	res, err := r.reconcile(ctx, s)
-	if err != nil {
+	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, apistatus.WrapTerminalError(err)
 	}
 
-	return res, nil
+	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *OSPFReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *OSPFReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	if r.RequeueInterval == 0 {
 		return errors.New("requeue interval must not be 0")
 	}
@@ -223,6 +223,13 @@ func (r *OSPFReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	filter, err := predicate.LabelSelectorPredicate(labelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to create label selector predicate: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.OSPF{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.OSPF)
+		return []string{o.Spec.DeviceRef.Name}
+	}); err != nil {
+		return err
 	}
 
 	bldr := ctrl.NewControllerManagedBy(mgr).
@@ -243,16 +250,31 @@ func (r *OSPFReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return bldr.
 		// Watches enqueues OSPFs for updates in referenced Device resources.
-		// Triggers on create, delete, and update events when the Paused spec field changes.
+		// Triggers on create, delete, and update events when the device's effective pause state changes.
 		Watches(
 			&v1alpha1.Device{},
 			handler.EnqueueRequestsFromMapFunc(r.deviceToOSPFs),
 			builder.WithPredicates(predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					oldDevice := e.ObjectOld.(*v1alpha1.Device)
-					newDevice := e.ObjectNew.(*v1alpha1.Device)
-					// Only trigger when Paused spec field changes.
-					return oldDevice.Spec.Paused != newDevice.Spec.Paused
+					return paused.DevicePausedChanged(e.ObjectOld, e.ObjectNew)
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
+		// Watches enqueues OSPFs for updates in referenced Interface resources.
+		// Only triggers on create, delete and update events when the Configured condition changes.
+		Watches(
+			&v1alpha1.Interface{},
+			handler.EnqueueRequestsFromMapFunc(r.interfaceToOSPF),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					oldInterface := e.ObjectOld.(*v1alpha1.Interface)
+					newInterface := e.ObjectNew.(*v1alpha1.Interface)
+					oldConfigured := conditions.Get(oldInterface, v1alpha1.ConfiguredCondition)
+					newConfigured := conditions.Get(newInterface, v1alpha1.ConfiguredCondition)
+					return ((oldConfigured == nil) != (newConfigured == nil)) || (newConfigured != nil && oldConfigured.Status != newConfigured.Status)
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false
@@ -271,7 +293,7 @@ type ospfScope struct {
 	Provider       provider.OSPFProvider
 }
 
-func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Result, reterr error) {
+func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (reterr error) {
 	if s.OSPF.Labels == nil {
 		s.OSPF.Labels = make(map[string]string)
 	}
@@ -281,7 +303,7 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Re
 	// Ensure the OSPF is owned by the Device.
 	if !controllerutil.HasControllerReference(s.OSPF) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.OSPF, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
@@ -300,9 +322,9 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Re
 					Reason:  v1alpha1.InterfaceNotFoundReason,
 					Message: fmt.Sprintf("interface %q not found", ref.Name),
 				})
-				return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("interface %q not found", ref.Name))
+				return reconcile.TerminalError(fmt.Errorf("interface %q not found", ref.Name))
 			}
-			return ctrl.Result{}, err
+			return err
 		}
 
 		if !conditions.IsConfigured(intf) {
@@ -312,7 +334,7 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Re
 				Reason:  v1alpha1.WaitingForDependenciesReason,
 				Message: "Waiting for referenced interfaces to be configured",
 			})
-			return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
+			return nil
 		}
 
 		interfaces = append(interfaces, provider.OSPFInterface{
@@ -323,7 +345,7 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Re
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
@@ -342,7 +364,7 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Re
 	conditions.Set(s.OSPF, cond)
 
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	status, err := s.Provider.GetOSPFStatus(ctx, &provider.OSPFStatusRequest{
@@ -351,7 +373,7 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Re
 		ProviderConfig: s.ProviderConfig,
 	})
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get ospf status: %w", err)
+		return fmt.Errorf("failed to get ospf status: %w", err)
 	}
 
 	cond = metav1.Condition{
@@ -413,7 +435,7 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (_ ctrl.Re
 	s.OSPF.Status.AdjacencySummary = strings.Join(summaries, ", ")
 	s.OSPF.Status.ObservedGeneration = s.OSPF.Generation
 
-	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
+	return nil
 }
 
 func (r *OSPFReconciler) finalize(ctx context.Context, s *ospfScope) (reterr error) {
@@ -433,7 +455,7 @@ func (r *OSPFReconciler) finalize(ctx context.Context, s *ospfScope) (reterr err
 }
 
 // deviceToOSPFs is a [handler.MapFunc] to be used to enqueue requests for reconciliation
-// for OSPFs when their referenced Device's Paused spec field changes.
+// for OSPFs when their referenced Device's effective pause state changes.
 func (r *OSPFReconciler) deviceToOSPFs(ctx context.Context, obj client.Object) []ctrl.Request {
 	device, ok := obj.(*v1alpha1.Device)
 	if !ok {
@@ -443,9 +465,10 @@ func (r *OSPFReconciler) deviceToOSPFs(ctx context.Context, obj client.Object) [
 	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
 
 	list := new(v1alpha1.OSPFList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list OSPFs")
 		return nil
@@ -453,13 +476,50 @@ func (r *OSPFReconciler) deviceToOSPFs(ctx context.Context, obj client.Object) [
 
 	requests := make([]ctrl.Request, 0, len(list.Items))
 	for _, i := range list.Items {
-		log.Info("Enqueuing OSPF for reconciliation", "OSPF", klog.KObj(&i))
+		log.V(2).Info("Enqueuing OSPF for reconciliation", "OSPF", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
 			NamespacedName: client.ObjectKey{
 				Name:      i.Name,
 				Namespace: i.Namespace,
 			},
 		})
+	}
+
+	return requests
+}
+
+// interfaceToOSPF is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for OSPFs when one of their referenced Interface's changes.
+func (r *OSPFReconciler) interfaceToOSPF(ctx context.Context, obj client.Object) []ctrl.Request {
+	iface, ok := obj.(*v1alpha1.Interface)
+	if !ok {
+		panic(fmt.Sprintf("Expected a Interface but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "Interface", klog.KObj(iface))
+
+	list := new(v1alpha1.OSPFList)
+	if err := r.List(
+		ctx, list,
+		client.InNamespace(iface.Namespace),
+	); err != nil {
+		log.Error(err, "Failed to list OSPFs")
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0, len(list.Items))
+	for _, i := range list.Items {
+		if slices.ContainsFunc(i.Spec.InterfaceRefs, func(ref v1alpha1.OSPFInterface) bool {
+			return ref.Name == iface.Name
+		}) {
+			log.V(2).Info("Enqueuing OSPF for reconciliation", "OSPF", klog.KObj(&i))
+			requests = append(requests, reconcile.Request{
+				NamespacedName: client.ObjectKey{
+					Name:      i.Name,
+					Namespace: i.Namespace,
+				},
+			})
+		}
 	}
 
 	return requests
@@ -484,7 +544,7 @@ func (r *OSPFReconciler) ospfForProviderConfig(ctx context.Context, obj client.O
 			m.Spec.ProviderConfigRef.Name == obj.GetName() &&
 			m.Spec.ProviderConfigRef.Kind == gkv.Kind &&
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
-			log.Info("Enqueuing OSPF for reconciliation", "OSPF", klog.KObj(&m))
+			log.V(2).Info("Enqueuing OSPF for reconciliation", "OSPF", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      m.Name,

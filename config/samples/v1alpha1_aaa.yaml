@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tacacs-server-keys
+  namespace: default
+type: Opaque
+stringData:
+  server-key: "supersecretkey"
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: AAA
+metadata:
+  name: aaa-tacacs
+  namespace: default
+spec:
+  deviceRef:
+    name: leaf1
+  # providerConfigRef:
+  #   apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+  #   kind: AAAConfig
+  #   name: aaa-tacacs-nxos
+  serverGroups:
+    - name: GR_TACACS
+      type: TACACS
+      vrfName: management
+      sourceInterfaceName: mgmt0
+      servers:
+        - address: "10.16.8.142"
+          tacacs:
+            keySecretRef:
+              name: tacacs-server-keys
+              key: server-key
+        - address: "10.16.8.32"
+          tacacs:
+            keySecretRef:
+              name: tacacs-server-keys
+              key: server-key
+        - address: "169.145.33.51"
+          tacacs:
+            keySecretRef:
+              name: tacacs-server-keys
+              key: server-key
+  authentication:
+    methods:
+      - type: Group
+        groupName: GR_TACACS
+      - type: Local
+  authorization:
+    methods:
+      - type: Group
+        groupName: GR_TACACS
+      - type: Local
+  accounting:
+    methods:
+      - type: Group
+        groupName: GR_TACACS
+      - type: Local

@@ -2,6 +2,7 @@
 # This file is used to track the info used to scaffold your project
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
+cliVersion: 4.15.0
 domain: networking.metal.ironcore.dev
 layout:
 - go.kubebuilder.io/v4
@@ -214,6 +215,9 @@ resources:
   kind: RoutingPolicy
   path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
   version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
@@ -277,5 +281,126 @@ resources:
   group: nx
   kind: BGPConfig
   path: github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: networking.metal.ironcore.dev
+  kind: DHCPRelay
+  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: networking.metal.ironcore.dev
+  kind: ConfigBackup
+  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: networking.metal.ironcore.dev
+  kind: EthernetSegment
+  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: networking.metal.ironcore.dev
+  kind: AAA
+  path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: cisco.networking.metal.ironcore.dev
+  group: nx
+  kind: AAAConfig
+  path: github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: networking.metal.ironcore.dev
+  group: pool
+  kind: IndexPool
+  path: github.com/ironcore-dev/network-operator/api/pool/v1alpha1
+  version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: networking.metal.ironcore.dev
+  group: pool
+  kind: IPAddressPool
+  path: github.com/ironcore-dev/network-operator/api/pool/v1alpha1
+  version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: networking.metal.ironcore.dev
+  group: pool
+  kind: IPPrefixPool
+  path: github.com/ironcore-dev/network-operator/api/pool/v1alpha1
+  version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: networking.metal.ironcore.dev
+  group: pool
+  kind: Claim
+  path: github.com/ironcore-dev/network-operator/api/pool/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: networking.metal.ironcore.dev
+  group: pool
+  kind: Index
+  path: github.com/ironcore-dev/network-operator/api/pool/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: networking.metal.ironcore.dev
+  group: pool
+  kind: IPAddress
+  path: github.com/ironcore-dev/network-operator/api/pool/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: networking.metal.ironcore.dev
+  group: pool
+  kind: IPPrefix
+  path: github.com/ironcore-dev/network-operator/api/pool/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: networking.metal.ironcore.dev
+  group: evpn
+  kind: Fabric
+  path: github.com/ironcore-dev/network-operator/api/evpn/v1alpha1
   version: v1alpha1
 version: "3"

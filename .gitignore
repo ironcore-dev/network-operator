@@ -12,6 +12,7 @@ Dockerfile.cross
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+cover.html
 
 # Go workspace file
 go.work
@@ -28,6 +29,9 @@ generate-provider-matrix
 
 # Helm dependency chart archives
 charts/**/*.tgz
+
+# Tilt cache
+.tiltcache/
 
 # editor and IDE paraphernalia
 .idea

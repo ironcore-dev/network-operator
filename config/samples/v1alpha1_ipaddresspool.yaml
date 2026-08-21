@@ -1,0 +1,13 @@
+apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+kind: IPAddressPool
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: ipaddresspool-sample
+spec:
+  # Reserved IPv4 address ranges for private networks according to [RFC 1918](https://datatracker.ietf.org/doc/html/rfc1918)
+  prefixes:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16

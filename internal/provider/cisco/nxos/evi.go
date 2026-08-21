@@ -11,15 +11,16 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
-var _ gnmiext.Configurable = (*BDEVI)(nil)
+var _ gnmiext.DataElement = (*BDEVI)(nil)
 
 // BDEVI represents a Bridge Domain Ethernet VPN Instance (MAC-VRF).
 type BDEVI struct {
-	Encap     string `json:"encap"`
-	Rd        string `json:"rd"`
+	Encap     string         `json:"encap"`
+	Rd        Option[string] `json:"rd"`
 	RttpItems struct {
 		RttPList gnmiext.List[RttEntryType, *RttEntry] `json:"RttP-list,omitzero"`
 	} `json:"rttp-items,omitzero"`
@@ -80,7 +81,7 @@ func stdcommunity(s string) (string, error) {
 
 // extcommunity converts a value to an extended community string.
 func extcommunity(s string) (string, error) {
-	if s == "" {
+	if s == "" || s == v1alpha1.RouteDistinguisherAuto {
 		return "unknown:0:0", nil
 	}
 	parts := strings.SplitN(s, ":", 2)

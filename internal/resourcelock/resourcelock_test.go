@@ -4,7 +4,6 @@
 package resourcelock
 
 import (
-	"context"
 	"errors"
 	"testing"
 	"time"
@@ -94,7 +93,7 @@ func TestAcquireLock_CreateNew(t *testing.T) {
 		t.Fatalf("NewResourceLocker() error = %v", err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	leaseName := "test-lease"
 	lockerID := "locker-1"
 
@@ -147,7 +146,7 @@ func TestAcquireLock_AlreadyOwned(t *testing.T) {
 		t.Fatalf("NewResourceLocker() error = %v", err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if err := rl.AcquireLock(ctx, leaseName, lockerID); err != nil {
 		t.Errorf("AcquireLock() error = %v, expected success when already owned", err)
 	}
@@ -183,7 +182,7 @@ func TestAcquireLock_HeldByAnother(t *testing.T) {
 		t.Fatalf("NewResourceLocker() error = %v", err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if err := rl.AcquireLock(ctx, leaseName, lockerID2); !errors.Is(err, ErrLockAlreadyHeld) {
 		t.Errorf("AcquireLock() error = %v, want %v", err, ErrLockAlreadyHeld)
 	}
@@ -220,7 +219,7 @@ func TestAcquireLock_ClaimExpired(t *testing.T) {
 		t.Fatalf("NewResourceLocker() error = %v", err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if err := rl.AcquireLock(ctx, leaseName, lockerID2); err != nil {
 		t.Errorf("AcquireLock() error = %v, expected to claim expired lease", err)
 		return
@@ -266,7 +265,7 @@ func TestReleaseLock(t *testing.T) {
 		t.Fatalf("NewResourceLocker() error = %v", err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if err := rl.ReleaseLock(ctx, leaseName, lockerID); err != nil {
 		t.Errorf("ReleaseLock() error = %v", err)
 		return
@@ -309,7 +308,7 @@ func TestReleaseLock_NotOwned(t *testing.T) {
 		t.Fatalf("NewResourceLocker() error = %v", err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if err := rl.ReleaseLock(ctx, leaseName, lockerID2); err != nil {
 		t.Errorf("ReleaseLock() error = %v, expected success (noop) when not owned", err)
 		return
@@ -334,7 +333,7 @@ func TestReleaseLock_NotFound(t *testing.T) {
 		t.Fatalf("NewResourceLocker() error = %v", err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if err := rl.ReleaseLock(ctx, "non-existent-lease", "locker-1"); err != nil {
 		t.Errorf("ReleaseLock() error = %v, expected success (noop) when lease not found", err)
 	}
@@ -369,7 +368,7 @@ func TestRenewLease(t *testing.T) {
 		t.Fatalf("NewResourceLocker() error = %v", err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	beforeRenew := time.Now()
 	if err := rl.renewLease(ctx, leaseName, lockerID); err != nil {
 		t.Errorf("renewLease() error = %v", err)
@@ -422,7 +421,7 @@ func TestRenewLease_NotOwned(t *testing.T) {
 		t.Fatalf("NewResourceLocker() error = %v", err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if err := rl.renewLease(ctx, leaseName, lockerID2); err == nil {
 		t.Errorf("renewLease() expected error when not owner, got nil")
 	}
@@ -455,8 +454,7 @@ func TestReleaseLock_CancelsRenewalGoroutine(t *testing.T) {
 	}
 	defer rl.Close()
 
-	ctx := context.Background()
-
+	ctx := t.Context()
 	if err := rl.AcquireLock(ctx, leaseName, lockerID); err != nil {
 		t.Fatalf("AcquireLock() error = %v", err)
 	}

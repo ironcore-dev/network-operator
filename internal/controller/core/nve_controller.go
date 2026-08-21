@@ -19,7 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/paused"
@@ -48,7 +49,7 @@ type NetworkVirtualizationEdgeReconciler struct {
 
 	// Recorder is used to record events for the controller.
 	// More info: https://book.kubebuilder.io/reference/raising-events
-	Recorder record.EventRecorder
+	Recorder events.EventRecorder
 
 	// Provider is the driver that will be used to create & delete the dns.
 	Provider provider.ProviderFunc
@@ -64,7 +65,7 @@ type NetworkVirtualizationEdgeReconciler struct {
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=networkvirtualizationedges,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=networkvirtualizationedges/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=networkvirtualizationedges/finalizers,verbs=update
-// +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -73,12 +74,12 @@ type NetworkVirtualizationEdgeReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.22.1/pkg/reconcile
 func (r *NetworkVirtualizationEdgeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
-	log.Info("Reconciling resource")
+	log.V(3).Info("Reconciling resource")
 
 	obj := new(v1alpha1.NetworkVirtualizationEdge)
 	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Info("Resource not found. Ignoring reconciliation since object must be deleted")
+			log.V(3).Info("Resource not found. Ignoring reconciliation since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -110,8 +111,8 @@ func (r *NetworkVirtualizationEdgeReconciler) Reconcile(ctx context.Context, req
 
 	if err := r.Locker.AcquireLock(ctx, device.Name, "nve-controller"); err != nil {
 		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
-			log.Info("Device is already locked, requeuing reconciliation")
-			return ctrl.Result{RequeueAfter: time.Second}, nil
+			log.V(3).Info("Device is already locked, requeuing reconciliation")
+			return ctrl.Result{RequeueAfter: Jitter(time.Second), Priority: new(LockWaitPriorityDefault)}, nil
 		}
 		log.Error(err, "Failed to acquire device lock")
 		return ctrl.Result{}, err
@@ -156,7 +157,7 @@ func (r *NetworkVirtualizationEdgeReconciler) Reconcile(ctx context.Context, req
 				return ctrl.Result{}, err
 			}
 		}
-		log.Info("Resource is being deleted, skipping reconciliation")
+		log.V(3).Info("Resource is being deleted, skipping reconciliation")
 		return ctrl.Result{}, nil
 	}
 
@@ -167,13 +168,13 @@ func (r *NetworkVirtualizationEdgeReconciler) Reconcile(ctx context.Context, req
 			log.Error(err, "Failed to add finalizer to resource")
 			return ctrl.Result{}, err
 		}
-		log.Info("Added finalizer to resource")
+		log.V(1).Info("Added finalizer to resource")
 		return ctrl.Result{}, nil
 	}
 
 	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
-		log.Info("Initializing status conditions")
+		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
 
@@ -196,10 +197,9 @@ func (r *NetworkVirtualizationEdgeReconciler) Reconcile(ctx context.Context, req
 
 	if err = r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, apistatus.WrapTerminalError(err)
 	}
 
-	// force a periodic requeue to enforce state is in sync
 	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
 }
 
@@ -236,14 +236,17 @@ func (r *NetworkVirtualizationEdgeReconciler) reconcile(ctx context.Context, s *
 		return err
 	}
 
-	sourceIf, err := r.validateInterfaceRef(ctx, &s.NVE.Spec.SourceInterfaceRef, s)
+	sourceIf, err := r.reconcileInterfaceRef(ctx, &s.NVE.Spec.SourceInterfaceRef, s)
 	if err != nil {
 		return err
 	}
 
-	anycastIf, err := r.validateInterfaceRef(ctx, s.NVE.Spec.AnycastSourceInterfaceRef, s)
-	if err != nil {
-		return err
+	var anycastIf *v1alpha1.Interface
+	if s.NVE.Spec.AnycastSourceInterfaceRef != nil {
+		anycastIf, err = r.reconcileInterfaceRef(ctx, s.NVE.Spec.AnycastSourceInterfaceRef, s)
+		if err != nil {
+			return err
+		}
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
@@ -298,9 +301,10 @@ func (r *NetworkVirtualizationEdgeReconciler) reconcile(ctx context.Context, s *
 
 func (r *NetworkVirtualizationEdgeReconciler) validateUniqueNVEPerDevice(ctx context.Context, s *nveScope) error {
 	var list v1alpha1.NetworkVirtualizationEdgeList
-	if err := r.List(ctx, &list,
+	if err := r.List(
+		ctx, &list,
 		client.InNamespace(s.NVE.Namespace),
-		client.MatchingFields{".spec.deviceRef.name": s.NVE.Spec.DeviceRef.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: s.NVE.Spec.DeviceRef.Name},
 	); err != nil {
 		return err
 	}
@@ -318,11 +322,8 @@ func (r *NetworkVirtualizationEdgeReconciler) validateUniqueNVEPerDevice(ctx con
 	return nil
 }
 
-// validateInterfaceRef checks that the referenced interface exists, is of type Loopback, and belongs to the same device as the NVE.
-func (r *NetworkVirtualizationEdgeReconciler) validateInterfaceRef(ctx context.Context, interfaceRef *v1alpha1.LocalObjectReference, s *nveScope) (*v1alpha1.Interface, error) {
-	if interfaceRef == nil {
-		return nil, nil
-	}
+// reconcileInterfaceRef checks that the referenced interface exists, is of type Loopback, and belongs to the same device as the NVE.
+func (r *NetworkVirtualizationEdgeReconciler) reconcileInterfaceRef(ctx context.Context, interfaceRef *v1alpha1.LocalObjectReference, s *nveScope) (*v1alpha1.Interface, error) {
 	intf := new(v1alpha1.Interface)
 	intf.Name = interfaceRef.Name
 	intf.Namespace = s.NVE.Namespace
@@ -411,7 +412,7 @@ func (r *NetworkVirtualizationEdgeReconciler) SetupWithManager(ctx context.Conte
 	}
 
 	// Index NVEs by their DeviceRef.name for uniqueness checks.
-	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.NetworkVirtualizationEdge{}, ".spec.deviceRef.name", func(obj client.Object) []string {
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.NetworkVirtualizationEdge{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
 		vpc := obj.(*v1alpha1.NetworkVirtualizationEdge)
 		return []string{vpc.Spec.DeviceRef.Name}
 	}); err != nil {
@@ -449,16 +450,13 @@ func (r *NetworkVirtualizationEdgeReconciler) SetupWithManager(ctx context.Conte
 			}),
 		).
 		// Watches enqueues NVEs for updates in referenced Device resources.
-		// Triggers on create, delete, and update events when the Paused spec field changes.
+		// Triggers on create, delete, and update events when the device's effective pause state changes.
 		Watches(
 			&v1alpha1.Device{},
 			handler.EnqueueRequestsFromMapFunc(r.deviceToNVEs),
 			builder.WithPredicates(predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					oldDevice := e.ObjectOld.(*v1alpha1.Device)
-					newDevice := e.ObjectNew.(*v1alpha1.Device)
-					// Only trigger when Paused spec field changes.
-					return oldDevice.Spec.Paused != newDevice.Spec.Paused
+					return paused.DevicePausedChanged(e.ObjectOld, e.ObjectNew)
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false
@@ -501,7 +499,7 @@ func (r *NetworkVirtualizationEdgeReconciler) interfaceToNVE(ctx context.Context
 	for _, i := range nves.Items {
 		if i.Spec.SourceInterfaceRef.Name == intf.Spec.Name ||
 			(i.Spec.AnycastSourceInterfaceRef != nil && i.Spec.AnycastSourceInterfaceRef.Name == intf.Spec.Name) {
-			log.Info("Enqueuing NVE for reconciliation", "NVE", klog.KObj(&i))
+			log.V(2).Info("Enqueuing NVE for reconciliation", "NVE", klog.KObj(&i))
 			requests = append(requests, ctrl.Request{
 				NamespacedName: client.ObjectKey{
 					Name:      i.Name,
@@ -514,7 +512,7 @@ func (r *NetworkVirtualizationEdgeReconciler) interfaceToNVE(ctx context.Context
 }
 
 // deviceToNVEs is a [handler.MapFunc] to be used to enqueue requests for reconciliation
-// for NVEs when their referenced Device's Paused spec field changes.
+// for NVEs when their referenced Device's effective pause state changes.
 func (r *NetworkVirtualizationEdgeReconciler) deviceToNVEs(ctx context.Context, obj client.Object) []ctrl.Request {
 	device, ok := obj.(*v1alpha1.Device)
 	if !ok {
@@ -524,9 +522,10 @@ func (r *NetworkVirtualizationEdgeReconciler) deviceToNVEs(ctx context.Context, 
 	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
 
 	list := new(v1alpha1.NetworkVirtualizationEdgeList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list NVEs")
 		return nil
@@ -534,7 +533,7 @@ func (r *NetworkVirtualizationEdgeReconciler) deviceToNVEs(ctx context.Context, 
 
 	requests := make([]ctrl.Request, 0, len(list.Items))
 	for _, i := range list.Items {
-		log.Info("Enqueuing NVE for reconciliation", "NVE", klog.KObj(&i))
+		log.V(2).Info("Enqueuing NVE for reconciliation", "NVE", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
 			NamespacedName: client.ObjectKey{
 				Name:      i.Name,
@@ -565,7 +564,7 @@ func (r *NetworkVirtualizationEdgeReconciler) nvesForProviderConfig(ctx context.
 			m.Spec.ProviderConfigRef.Name == obj.GetName() &&
 			m.Spec.ProviderConfigRef.Kind == gkv.Kind &&
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
-			log.Info("Enqueuing NVE for reconciliation", "NVE", klog.KObj(&m))
+			log.V(2).Info("Enqueuing NVE for reconciliation", "NVE", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      m.Name,

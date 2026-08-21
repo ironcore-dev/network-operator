@@ -9,11 +9,16 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
 	"math"
 	"net/netip"
+	"path"
 	"reflect"
 	"slices"
 	"strconv"
@@ -23,18 +28,21 @@ import (
 
 	"github.com/go-logr/logr"
 	"google.golang.org/grpc"
-	kerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
+	"github.com/ironcore-dev/network-operator/internal/transport/grpcext"
+	"github.com/ironcore-dev/network-operator/internal/transport/nxapi"
 )
 
 var (
 	_ provider.Provider                 = (*Provider)(nil)
 	_ provider.DeviceProvider           = (*Provider)(nil)
+	_ provider.MaintenanceProvider      = (*Provider)(nil)
 	_ provider.ProvisioningProvider     = (*Provider)(nil)
 	_ provider.ACLProvider              = (*Provider)(nil)
 	_ provider.BannerProvider           = (*Provider)(nil)
@@ -58,19 +66,30 @@ var (
 	_ provider.VRFProvider              = (*Provider)(nil)
 	_ provider.NVEProvider              = (*Provider)(nil)
 	_ provider.LLDPProvider             = (*Provider)(nil)
+	_ provider.DHCPRelayProvider        = (*Provider)(nil)
+	_ provider.EthernetSegmentProvider  = (*Provider)(nil)
+	_ provider.AAAProvider              = (*Provider)(nil)
+	_ provider.ConfigBackupProvider     = (*Provider)(nil)
 )
+
+// maxSetOperations is the maximum number of operations per gNMI Set RPC.
+const maxSetOperations = 20
 
 type Provider struct {
 	conn   *grpc.ClientConn
 	client gnmiext.Client
+	nxapi  *nxapi.Client
 }
+
+// timeout is the default timeout for all HTTP/gRPC requests made by the provider.
+const timeout = 30 * time.Second
 
 func NewProvider() provider.Provider {
 	return &Provider{}
 }
 
 func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (err error) {
-	p.conn, err = deviceutil.NewGrpcClient(ctx, conn, deviceutil.WithDefaultTimeout(30*time.Second))
+	p.conn, err = grpcext.NewClient(conn, grpcext.WithDefaultTimeout(timeout))
 	if err != nil {
 		return fmt.Errorf("failed to create grpc connection: %w", err)
 	}
@@ -79,11 +98,39 @@ func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (er
 		opts = append(opts, gnmiext.WithLogger(logger))
 	}
 	p.client, err = gnmiext.New(ctx, p.conn, opts...)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to create gnmi client: %w", err)
+	}
+	// NXAPI only uses the address for URI construction.
+	c := *conn
+	c.Address = netip.MustParseAddrPort(conn.Address).Addr().String()
+	p.nxapi, err = nxapi.NewClient(&c, nxapi.WithTimeout(timeout))
+	if err != nil {
+		return fmt.Errorf("failed to create nxapi client: %w", err)
+	}
+	return nil
 }
 
 func (p *Provider) Disconnect(_ context.Context, _ *deviceutil.Connection) error {
 	return p.conn.Close()
+}
+
+// Do applies the SetBuilder to the device. Feature activations are always
+// separated into their own Set RPC executed before the remaining operations.
+// The gNMI specification mandates that operations within a single Set RPC
+// are processed in the order Delete, Replace, then Update. When a feature
+// enable (Update) is mixed with dependent config that uses Delete or Replace,
+// the dependent operation is processed first — before the feature is active —
+// causing the device to reject with "First enable feature ... Commit Failed".
+func (p *Provider) Do(ctx context.Context, b *gnmiext.SetBuilder) error {
+	features, rest := b.Split(func(el gnmiext.DataElement) bool {
+		_, ok := el.(*Feature)
+		return ok
+	})
+	if err := p.client.Do(ctx, features); err != nil {
+		return err
+	}
+	return p.client.Do(ctx, rest)
 }
 
 func (p *Provider) HashProvisioningPassword(password string) (hashed, encryptType string, err error) {
@@ -121,26 +168,27 @@ func (p *Provider) Reboot(ctx context.Context, conn *deviceutil.Connection) erro
 }
 
 func (p *Provider) FactoryReset(ctx context.Context, conn *deviceutil.Connection) error {
-	return ResetToFactoryDefaults(ctx, p.conn)
+	return FactoryReset(ctx, p.conn)
 }
 
-func (p *Provider) Reprovision(ctx context.Context, conn *deviceutil.Connection) (reterr error) {
-	if err := p.Connect(ctx, conn); err != nil {
-		return err
+func (p *Provider) Reprovision(ctx context.Context, conn *deviceutil.Connection) error {
+	_, err := p.nxapi.Do(ctx, nxapi.NewRequest(
+		"boot poap enable",
+		"copy running-config startup-config",
+	).WithRollback(nxapi.Stop))
+	if err != nil {
+		return fmt.Errorf("failed to prepare device for reprovisioning: %w", err)
 	}
-	defer func() {
-		if err := p.Disconnect(ctx, conn); err != nil {
-			reterr = kerrors.NewAggregate([]error{reterr, err})
-		}
-	}()
-	// This is currently defunct on NX-OS, as enabling POAP requires a `copy running-config startup-config` which we
-	// cannot issue via GNMI
-	// TODO add once NXAPI client is available
-	poap := BootPOAP("enable")
-	if err := p.client.Update(ctx, &poap); err != nil {
-		return err
+
+	// Reboot is issued as a separate request because it actually restarts
+	// the device. The connection will drop before a response is received,
+	// so transport errors are expected and tolerated.
+	_, err = p.nxapi.Do(ctx, nxapi.NewRequest("reload"))
+	if err != nil && !nxapi.IsTransportError(err) {
+		return fmt.Errorf("failed to reboot device: %w", err)
 	}
-	return Reboot(ctx, p.conn)
+
+	return nil
 }
 
 func (p *Provider) ListPorts(ctx context.Context) ([]provider.DevicePort, error) {
@@ -178,22 +226,229 @@ func (p *Provider) ListPorts(ctx context.Context) ([]provider.DevicePort, error)
 }
 
 func (p *Provider) GetDeviceInfo(ctx context.Context) (*provider.DeviceInfo, error) {
+	h := new(Hostname)
 	m := new(Model)
 	s := new(SerialNumber)
 	fw := new(FirmwareVersion)
+
+	// Hostname is a config item, not state
+	if err := p.client.GetConfig(ctx, h); err != nil {
+		return nil, err
+	}
 	if err := p.client.GetState(ctx, m, s, fw); err != nil {
 		return nil, err
 	}
 
 	return &provider.DeviceInfo{
 		Manufacturer:    Manufacturer,
+		Hostname:        string(*h),
 		Model:           string(*m),
 		SerialNumber:    string(*s),
 		FirmwareVersion: string(*fw),
 	}, nil
 }
 
-func (p *Provider) EnsureACL(ctx context.Context, req *provider.EnsureACLRequest) error {
+func (p *Provider) GetLastRebootTime(ctx context.Context) (time.Time, error) {
+	bt := new(BootTime)
+	if err := p.client.GetState(ctx, bt); err != nil {
+		return time.Time{}, err
+	}
+	return bt.Time, nil
+}
+
+func (p *Provider) CreateConfigBackup(ctx context.Context, req *provider.ConfigBackupRequest) (*provider.ConfigBackupFile, error) {
+	if req.ConfigBackup.Spec.Type == v1alpha1.ConfigBackupTypeStartup {
+		_, err := p.nxapi.Do(ctx, nxapi.NewRequest("copy running-config startup-config").WithRollback(nxapi.Stop))
+		return nil, err
+	}
+	if err := p.Mkdir(ctx, req.ConfigBackup.Spec.Path); err != nil {
+		return nil, fmt.Errorf("failed to ensure backup directory: %w", err)
+	}
+	filename := fmt.Sprintf("configbackup-%s-%s-%s", req.ConfigBackup.Namespace, req.ConfigBackup.Name, time.Now().Format("20060102T150405Z"))
+	filename = path.Join(req.ConfigBackup.Spec.Path, filename)
+	cmd := "copy running-config " + filename
+	if _, err := p.nxapi.Do(ctx, nxapi.NewRequest(cmd).WithRollback(nxapi.Stop)); err != nil {
+		return nil, err
+	}
+	dir, err := p.ListDirectory(ctx, req.ConfigBackup.Spec.Path)
+	if err != nil {
+		return nil, err
+	}
+	var file *provider.ConfigBackupFile
+	for _, f := range dir.TABLEDir.ROWDir {
+		if f.Fname == path.Base(filename) {
+			file = &provider.ConfigBackupFile{
+				Path:      filename,
+				SizeBytes: &f.Fsize,
+				CreatedAt: f.Timestring.Time,
+			}
+		}
+	}
+	return file, nil
+}
+
+func (p *Provider) ListConfigBackups(ctx context.Context, req *provider.ConfigBackupRequest) (*provider.ConfigBackupInventory, error) {
+	// Ensure the directory exists; NX-OS returns an error for dir listings on non-existent paths.
+	if err := p.Mkdir(ctx, req.ConfigBackup.Spec.Path); err != nil {
+		return nil, err
+	}
+	dir, err := p.ListDirectory(ctx, req.ConfigBackup.Spec.Path)
+	if err != nil {
+		return nil, err
+	}
+	files := make([]*provider.ConfigBackupFile, 0, len(dir.TABLEDir.ROWDir))
+	for _, f := range dir.TABLEDir.ROWDir {
+		if strings.HasPrefix(f.Fname, fmt.Sprintf("configbackup-%s-%s-", req.ConfigBackup.Namespace, req.ConfigBackup.Name)) {
+			files = append(files, &provider.ConfigBackupFile{
+				Path:      path.Join(req.ConfigBackup.Spec.Path, f.Fname),
+				SizeBytes: &f.Fsize,
+				CreatedAt: f.Timestring.Time,
+			})
+		}
+	}
+	return &provider.ConfigBackupInventory{
+		Backups:    files,
+		TotalBytes: &dir.Bytestotal,
+		UsedBytes:  &dir.Bytesused,
+		FreeBytes:  &dir.Bytesfree,
+	}, nil
+}
+
+func (p *Provider) DeleteConfigBackups(ctx context.Context, files ...*provider.ConfigBackupFile) error {
+	if len(files) == 0 {
+		return nil
+	}
+	cmds := make([]string, len(files))
+	for i, file := range files {
+		cmds[i] = fmt.Sprintf("delete %s no-prompt", file.Path)
+	}
+	_, err := p.nxapi.Do(ctx, nxapi.NewRequest(cmds...).WithRollback(nxapi.Stop))
+	return err
+}
+
+// ListDirectory lists the contents of a directory on the device.
+func (p *Provider) ListDirectory(ctx context.Context, path string) (*Directory, error) {
+	res, err := p.nxapi.Do(ctx, nxapi.NewRequest("dir "+path))
+	if err != nil {
+		return nil, err
+	}
+	if len(res) == 0 {
+		return nil, errors.New("empty response")
+	}
+	var dir Directory
+	if err := json.Unmarshal(res[0], &dir); err != nil {
+		return nil, err
+	}
+	return &dir, nil
+}
+
+// Mkdir ensures the target directory exists on the device, creating
+// intermediate directories as needed. Directories in NX-OS dir output
+// are identified by a trailing "/" in the filename.
+func (p *Provider) Mkdir(ctx context.Context, target string) error {
+	i := strings.Index(target, ":///")
+	if i < 0 {
+		return nil
+	}
+	sub := strings.Trim(target[i+4:], "/")
+	if sub == "" {
+		return nil
+	}
+	current := target[:i+4]
+	for seg := range strings.SplitSeq(sub, "/") {
+		dir, err := p.ListDirectory(ctx, current)
+		if err != nil {
+			return fmt.Errorf("failed to list directory %s: %w", current, err)
+		}
+		exists := false
+		for _, f := range dir.TABLEDir.ROWDir {
+			if f.Fname == seg {
+				return apistatus.NewFailedPreconditionError(fmt.Sprintf("path %q exists as a file, not a directory", current+seg))
+			}
+			if f.Fname == seg+"/" {
+				exists = true
+				break
+			}
+		}
+		current += seg + "/"
+		if !exists {
+			if _, err := p.nxapi.Do(ctx, nxapi.NewRequest("mkdir "+current).WithRollback(nxapi.Stop)); err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", current, err)
+			}
+		}
+	}
+	return nil
+}
+
+// Directory represents the JSON output of the NX-OS "dir" command.
+// NX-OS returns ROW_dir as an array for multiple files, a single object for one file,
+// or omits TABLE_dir entirely for an empty directory.
+type Directory struct {
+	TABLEDir struct {
+		ROWDir []DirEntry
+	}
+	Bytesfree  int64 `json:"bytesfree"`
+	Bytestotal int64 `json:"bytestotal"`
+	Bytesused  int64 `json:"bytesused"`
+}
+
+// DirEntry is a single file or directory entry in a NX-OS directory listing.
+type DirEntry struct {
+	Fname      string  `json:"fname"`
+	Fsize      int64   `json:"fsize"`
+	Timestring dirTime `json:"timestring"`
+}
+
+func (d *Directory) UnmarshalJSON(b []byte) error {
+	var raw struct {
+		TABLEDir *struct {
+			ROWDir json.RawMessage `json:"ROW_dir"`
+		} `json:"TABLE_dir"`
+		Bytesfree  int64 `json:"bytesfree"`
+		Bytestotal int64 `json:"bytestotal"`
+		Bytesused  int64 `json:"bytesused"`
+	}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	d.Bytesfree = raw.Bytesfree
+	d.Bytestotal = raw.Bytestotal
+	d.Bytesused = raw.Bytesused
+
+	if raw.TABLEDir == nil || len(raw.TABLEDir.ROWDir) == 0 {
+		return nil
+	}
+	// Try array first, then single object.
+	if raw.TABLEDir.ROWDir[0] == '[' {
+		return json.Unmarshal(raw.TABLEDir.ROWDir, &d.TABLEDir.ROWDir)
+	}
+	var single DirEntry
+	if err := json.Unmarshal(raw.TABLEDir.ROWDir, &single); err != nil {
+		return err
+	}
+	d.TABLEDir.ROWDir = []DirEntry{single}
+	return nil
+}
+
+// dirTime handles the non-standard timestamp format returned by NX-OS dir output.
+type dirTime struct {
+	time.Time
+}
+
+func (t *dirTime) UnmarshalJSON(b []byte) error {
+	s := strings.Trim(string(b), `"`)
+	if s == "" || s == "null" {
+		return nil
+	}
+	parsed, err := time.Parse("Jan 02 15:04:05 2006", s)
+	if err != nil {
+		return err
+	}
+	t.Time = parsed
+	return nil
+}
+
+func (p *Provider) EnsureACL(ctx context.Context, req *provider.ACLRequest) error {
 	a := new(ACL)
 	a.Name = req.ACL.Spec.Name
 	for i, entry := range req.ACL.Spec.Entries {
@@ -219,12 +474,12 @@ func (p *Provider) EnsureACL(ctx context.Context, req *provider.EnsureACLRequest
 		})
 	}
 
-	return p.Update(ctx, a)
+	return p.client.Update(ctx, a)
 }
 
-func (p *Provider) DeleteACL(ctx context.Context, req *provider.DeleteACLRequest) error {
+func (p *Provider) DeleteACL(ctx context.Context, req *provider.ACLRequest) error {
 	a := new(ACL)
-	a.Name = req.Name
+	a.Name = req.ACL.Spec.Name
 	// Check if the ACL is IPv4 by trying to fetch its config. If it does not exist, assume it's IPv6.
 	// As the names are unique across both types, this will ensure we delete the correct one.
 	if err := p.client.GetConfig(ctx, a); errors.Is(err, gnmiext.ErrNil) {
@@ -237,11 +492,17 @@ func (p *Provider) EnsureBanner(ctx context.Context, req *provider.EnsureBannerR
 	// See: https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/104x/configuration/fundamentals/cisco-nexus-9000-series-nx-os-fundamentals-configuration-guide-release-104x/m-basic-device-management.html#task_1174841
 	lines := strings.Split(req.Message, "\n")
 	if len(lines) > 40 {
-		return errors.New("banner: maximum of 40 lines allowed")
+		return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+			Field:       "spec.message",
+			Description: fmt.Sprintf("banner exceeds the 40-line limit on NX-OS (%d lines)", len(lines)),
+		})
 	}
 	for i, line := range lines {
 		if n := utf8.RuneCountInString(line); n > 255 {
-			return fmt.Errorf("banner: line %d exceeds 255 characters (%d)", i+1, n)
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "spec.message",
+				Description: fmt.Sprintf("line %d exceeds the 255-character limit on NX-OS (%d characters)", i+1, n),
+			})
 		}
 	}
 
@@ -255,7 +516,7 @@ func (p *Provider) EnsureBanner(ctx context.Context, req *provider.EnsureBannerR
 	b.Message = req.Message
 	b.Type = t
 
-	return p.Patch(ctx, b)
+	return p.client.Patch(ctx, b)
 }
 
 func (p *Provider) DeleteBanner(ctx context.Context, req *provider.DeleteBannerRequest) error {
@@ -269,38 +530,67 @@ func (p *Provider) DeleteBanner(ctx context.Context, req *provider.DeleteBannerR
 	return p.client.Delete(ctx, b)
 }
 
-func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest) (reterr error) {
+func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest) (reterr error) { //nolint:gocyclo
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
 	f := new(Feature)
 	f.Name = "bgp"
 	f.AdminSt = AdminStEnabled
+	sb.Update(f)
 
 	f2 := new(Feature)
 	f2.Name = "evpn"
 	f2.AdminSt = AdminStEnabled
+	sb.Update(f2)
 
+	// If a BGP instance already exists, ensure it has the same ASN and Router-ID as the requested one.
+	// This prevents accidentally overwriting an existing BGP configuration, either by another BGP CR
+	// or manually configured outside of the operator's control.
+	// If it doesn't exist (ErrNil), we'll create it with the correct ASN and Router-ID below.
 	b := new(BGP)
-	b.AdminSt = AdminStEnabled
-	if req.BGP.Spec.AdminState == v1alpha1.AdminStateDown {
-		b.AdminSt = AdminStDisabled
+	err := p.client.GetConfig(ctx, b)
+	if err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
 	}
-	b.Asn = req.BGP.Spec.ASNumber.String()
+	if err == nil && b.Asn != req.BGP.Spec.ASNumber.String() {
+		return fmt.Errorf("BGP instance on device already uses ASN %s, cannot configure with ASN %s", b.Asn, req.BGP.Spec.ASNumber.String())
+	}
+
+	dom := new(BGPDom)
+	dom.Name = DefaultVRFName
+	if req.VRF != nil {
+		dom.Name = req.VRF.Spec.Name
+	}
+
+	err = p.client.GetConfig(ctx, dom)
+	if err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	if err == nil && dom.RtrID != "" && dom.RtrID != req.BGP.Spec.RouterID {
+		return fmt.Errorf("BGP domain %q on device already uses router ID %s, cannot configure with router ID %s", dom.Name, dom.RtrID, req.BGP.Spec.RouterID)
+	}
 
 	var asf AsFormat
 	if err := p.client.GetConfig(ctx, &asf); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 		return err
 	}
 
-	var err error
+	asn := req.BGP.Spec.ASNumber.String()
 	switch {
 	case asf == "" && strings.Contains(b.Asn, "."):
 		asf = AsFormatAsDot
-		err = p.Update(ctx, &asf)
+		sb.Update(&asf)
 	case asf != "" && !strings.Contains(b.Asn, "."):
-		err = p.client.Delete(ctx, &asf)
+		sb.Delete(&asf)
 	}
-	if err != nil {
-		return err
+
+	b = new(BGP)
+	b.AdminSt = AdminStEnabled
+	if req.BGP.Spec.AdminState == v1alpha1.AdminStateDown {
+		b.AdminSt = AdminStDisabled
 	}
+	b.Asn = asn
+	sb.Patch(b)
 
 	var cfg nxv1alpha1.BGPConfig
 	if req.ProviderConfig != nil {
@@ -309,10 +599,20 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 		}
 	}
 
-	dom := new(BGPDom)
+	dom = new(BGPDom)
 	dom.Name = DefaultVRFName
+	if req.VRF != nil {
+		dom.Name = req.VRF.Spec.Name
+	}
 	dom.RtrID = req.BGP.Spec.RouterID
 	dom.RtrIDAuto = AdminStDisabled
+	sb.Patch(dom)
+
+	// Write an ownership marker peer template into the default VRF domain.
+	// Each managed BGP domain gets its own marker keyed by VRF name, allowing
+	// the operator to track all managed domains and decide on cleanup during deletion.
+	marker := &BGPPeerGroup{VRFName: DefaultVRFName, Name: ownershipMarkerName(dom.Name)}
+	sb.Patch(marker)
 
 	if req.BGP.Spec.AddressFamilies != nil {
 		if af := req.BGP.Spec.AddressFamilies.Ipv4Unicast; af != nil && af.Enabled {
@@ -320,6 +620,16 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 			item.Type = AddressFamilyIPv4Unicast
 			if err := item.SetMultipath(af.Multipath); err != nil {
 				return err
+			}
+			if rp := req.RedistributeDirectRoutePolicies[v1alpha1.BGPAddressFamilyIpv4Unicast]; rp != nil {
+				item.InterLeakPItems.InterLeakPList.Set(NewInterLeakPDirect(rp.Spec.Name))
+			}
+			item.ExportGwIP = AdminStDisabled
+			if cfg.Spec.AddressFamilies != nil &&
+				cfg.Spec.AddressFamilies.Ipv4Unicast != nil &&
+				cfg.Spec.AddressFamilies.Ipv4Unicast.ExportGatewayIP != nil &&
+				*cfg.Spec.AddressFamilies.Ipv4Unicast.ExportGatewayIP {
+				item.ExportGwIP = AdminStEnabled
 			}
 			dom.AfItems.DomAfList.Set(item)
 		}
@@ -329,6 +639,16 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 			item.Type = AddressFamilyIPv6Unicast
 			if err := item.SetMultipath(af.Multipath); err != nil {
 				return err
+			}
+			if rp := req.RedistributeDirectRoutePolicies[v1alpha1.BGPAddressFamilyIpv6Unicast]; rp != nil {
+				item.InterLeakPItems.InterLeakPList.Set(NewInterLeakPDirect(rp.Spec.Name))
+			}
+			item.ExportGwIP = AdminStDisabled
+			if cfg.Spec.AddressFamilies != nil &&
+				cfg.Spec.AddressFamilies.Ipv6Unicast != nil &&
+				cfg.Spec.AddressFamilies.Ipv6Unicast.ExportGatewayIP != nil &&
+				*cfg.Spec.AddressFamilies.Ipv6Unicast.ExportGatewayIP {
+				item.ExportGwIP = AdminStEnabled
 			}
 			dom.AfItems.DomAfList.Set(item)
 		}
@@ -350,23 +670,99 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 		}
 	}
 
-	return p.Patch(ctx, f, f2, b, dom)
+	return p.Do(ctx, sb)
 }
 
 func (p *Provider) DeleteBGP(ctx context.Context, req *provider.DeleteBGPRequest) error {
+	// Delete the VRF-scoped BGP domain and, if it was the last operator-managed
+	// one, the global BGP instance as well.
+	vrfName := DefaultVRFName
+	if req.VRF != nil {
+		vrfName = req.VRF.Spec.Name
+	}
+	return p.deleteBGP(ctx, vrfName)
+}
+
+// deleteBGP removes the ownership marker for a BGP domain and cleans up the
+// domain for a VRF. If no remaining ownership markers or non-empty domains
+// exist, the global BGP instance (System/bgp-items/inst-items) is deleted.
+// The function is a no-op when the BGP feature is disabled.
+func (p *Provider) deleteBGP(ctx context.Context, vrfName string) error {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
+	f := &Feature{Name: "bgp"}
+	if err := p.client.GetConfig(ctx, f); err != nil {
+		if errors.Is(err, gnmiext.ErrNil) {
+			return nil // ErrNil: path does not exist: feature is not enabled.
+		}
+		return err
+	}
+	if f.AdminSt != AdminStEnabled {
+		return nil
+	}
+
+	// Remove this domain's ownership marker from the default VRF.
+	marker := &BGPPeerGroup{VRFName: DefaultVRFName, Name: ownershipMarkerName(vrfName)}
+	sb.Delete(marker)
+
+	if vrfName != DefaultVRFName {
+		sb.Delete(&BGPDom{Name: vrfName})
+	} else {
+		// The default VRF domain is always implicitly present when BGP is enabled,
+		// so replace it with only the remaining ownership markers, stripping all
+		// other config atomically.
+		dom := &BGPDom{Name: DefaultVRFName}
+		if err := p.client.GetConfig(ctx, dom); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+		empty := &BGPDom{Name: DefaultVRFName}
+		for _, pg := range dom.PeerContItems.PeerContList {
+			if isOwnershipMarker(pg.Name) {
+				empty.PeerContItems.PeerContList.Set(&BGPPeerGroup{VRFName: DefaultVRFName, Name: pg.Name})
+			}
+		}
+		if len(empty.PeerContItems.PeerContList) > 0 {
+			sb.Update(empty)
+		} else {
+			sb.Delete(&BGPDom{Name: DefaultVRFName})
+		}
+	}
+
+	// Fire the marker/domain removal before counting remaining markers below.
+	if err := p.Do(ctx, sb); err != nil {
+		return err
+	}
+
+	// Retain the global BGP instance only if other ownership markers remain.
+	items := new(BGPDomItems)
+	if err := p.client.GetConfig(ctx, items); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	for _, d := range items.DomList {
+		for _, pg := range d.PeerContItems.PeerContList {
+			if isOwnershipMarker(pg.Name) {
+				return nil
+			}
+		}
+	}
+
+	// No operator-managed domains remain — delete the BGP instance.
 	return p.client.Delete(ctx, new(BGP))
 }
 
 func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPeerRequest) error {
-	// Ensure that the BGP instance exists and is configured on the "default" domain
-	// and return an error if it does not exist.
+	// Ensure that the BGP domain exists before configuring a peer under it.
 	bgp := new(BGPDom)
 	bgp.Name = DefaultVRFName
+	if req.VRF != nil {
+		bgp.Name = req.VRF.Spec.Name
+	}
 	if err := p.client.GetConfig(ctx, bgp); err != nil {
-		return fmt.Errorf("bgp peer: failed to get bgp instance 'default': %w", err)
+		return apistatus.NewFailedPreconditionError(fmt.Sprintf("bgp peer: BGP instance %q must be configured on the device before peers can be realized: %v", bgp.Name, err))
 	}
 
 	pe := new(BGPPeer)
+	pe.VRFName = bgp.Name
 	pe.Addr = req.BGPPeer.Spec.Address
 	pe.AdminSt = AdminStEnabled
 	if req.BGPPeer.Spec.AdminState == v1alpha1.AdminStateDown {
@@ -382,6 +778,34 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 			return fmt.Errorf("bgp peer: invalid source interface name %q: %w", req.SourceInterface, err)
 		}
 		pe.SrcIf = srcIf
+	}
+
+	if req.BGPPeer.Spec.LocalAS != nil {
+		if req.BGPPeer.Spec.LocalAS.ASNumber.String() == req.BGP.Spec.ASNumber.String() {
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "spec.localAS",
+				Description: "local-as cannot be configured on iBGP peers",
+			})
+		}
+
+		pe.LocalAsnItems.LocalAsn = req.BGPPeer.Spec.LocalAS.ASNumber.String()
+
+		prependLocalAS := req.BGPPeer.Spec.LocalAS.PrependLocalAS == nil || *req.BGPPeer.Spec.LocalAS.PrependLocalAS
+		prependGlobalAS := req.BGPPeer.Spec.LocalAS.PrependGlobalAS == nil || *req.BGPPeer.Spec.LocalAS.PrependGlobalAS
+
+		switch {
+		case !prependLocalAS && prependGlobalAS:
+			pe.LocalAsnItems.AsnPropagate = AsnPropagateNoPrep
+		case !prependLocalAS && !prependGlobalAS:
+			pe.LocalAsnItems.AsnPropagate = AsnPropagateReplaceAs
+		case prependLocalAS && !prependGlobalAS:
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "spec.localAS.prependGlobalAS",
+				Description: "prependGlobalAS=false (replace-as mode) requires prependLocalAS=false (no-prepend on inbound)",
+			})
+		default:
+			pe.LocalAsnItems.AsnPropagate = AsnPropagateNone
+		}
 	}
 
 	if req.BGPPeer.Spec.AddressFamilies != nil {
@@ -406,21 +830,36 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 			if af.RouteReflectorClient {
 				item.Ctrl = NewOption(RouteReflectorClient)
 			}
+			afType := t.ToAddressFamilyType()
+			if name, ok := req.InboundRoutingPolicies[afType]; ok {
+				item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionIn, RtMap: name})
+			}
+			if name, ok := req.OutboundRoutingPolicies[afType]; ok {
+				item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionOut, RtMap: name})
+			}
 			pe.AfItems.PeerAfList.Set(item)
 		}
 	}
 
-	return p.Update(ctx, pe)
+	return p.client.Update(ctx, pe)
 }
 
 func (p *Provider) DeleteBGPPeer(ctx context.Context, req *provider.DeleteBGPPeerRequest) error {
 	b := new(BGPPeer)
+	b.VRFName = DefaultVRFName
+	if req.VRF != nil {
+		b.VRFName = req.VRF.Spec.Name
+	}
 	b.Addr = req.BGPPeer.Spec.Address
 	return p.client.Delete(ctx, b)
 }
 
 func (p *Provider) GetPeerStatus(ctx context.Context, req *provider.BGPPeerStatusRequest) (provider.BGPPeerStatus, error) {
 	ps := new(BGPPeerOperItems)
+	ps.VRFName = DefaultVRFName
+	if req.VRF != nil {
+		ps.VRFName = req.VRF.Spec.Name
+	}
 	ps.Addr = req.BGPPeer.Spec.Address
 	if err := p.client.GetState(ctx, ps); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 		return provider.BGPPeerStatus{}, err
@@ -447,27 +886,125 @@ func (p *Provider) GetPeerStatus(ctx context.Context, req *provider.BGPPeerStatu
 }
 
 func (p *Provider) EnsureCertificate(ctx context.Context, req *provider.EnsureCertificateRequest) error {
-	tp := new(Trustpoint)
-	tp.Name = req.ID
+	version := NXVersion(p.client.Capabilities())
 
-	if err := p.Patch(ctx, tp); err != nil {
+	logger := logr.FromContextOrDiscard(ctx).WithValues("nx-version", version)
+
+	if serial, err := p.installedCertSerial(ctx, req.ID); err == nil {
+		want := strings.ToUpper(req.Certificate.Leaf.SerialNumber.Text(16))
+		if strings.TrimLeft(serial, "0") == strings.TrimLeft(want, "0") {
+			logger.V(1).Info("Certificate already installed with matching serial", "serial", serial)
+			return nil
+		}
+	}
+
+	if version >= VersionNX10_7_1 {
+		tp := new(Trustpoint)
+		tp.Name = req.ID
+		if err := p.client.Patch(ctx, tp); err != nil {
+			return err
+		}
+
+		key, ok := req.Certificate.PrivateKey.(*rsa.PrivateKey)
+		if !ok {
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "spec.certificate.privateKey",
+				Description: fmt.Sprintf("unsupported private key type: expected *rsa.PrivateKey, got %T", req.Certificate.PrivateKey),
+			})
+		}
+
+		cert := &Certificate{Key: key, Cert: req.Certificate.Leaf}
+		for _, der := range req.Certificate.Certificate[1:] {
+			ca, err := x509.ParseCertificate(der)
+			if err != nil {
+				return fmt.Errorf("failed to parse CA certificate: %w", err)
+			}
+			cert.CACerts = append(cert.CACerts, ca)
+		}
+
+		err := cert.Load(ctx, p.conn, req.ID)
+		if err != nil {
+			return fmt.Errorf("failed to upload certificate via gNOI: %w", err)
+		}
+
+		logger.V(2).Info("Certificate upload completed")
+		return nil
+	}
+
+	var pass [16]byte
+	_, _ = rand.Read(pass[:])
+	passphrase := hex.EncodeToString(pass[:])
+
+	pfx, err := EncodeCertificatePKCS12(req.Certificate, passphrase)
+	if err != nil {
 		return err
 	}
 
-	key, ok := req.Certificate.PrivateKey.(*rsa.PrivateKey)
-	if !ok {
-		return fmt.Errorf("unsupported private key type: expected *rsa.PrivateKey, got %T", req.Certificate.PrivateKey)
-	}
-
-	kp := new(KeyPair)
-	kp.Name = req.ID
-	if err := p.client.GetConfig(ctx, kp); !errors.Is(err, gnmiext.ErrNil) {
-		// If the key pair already exists, we cannot update it, so we skip the rest of the process.
+	// Delete any existing trustpoint and RSA key before importing.
+	// gNMI delete is idempotent, so this is safe even on a fresh device.
+	if err := p.DeleteCertificate(ctx, &provider.DeleteCertificateRequest{ID: req.ID}); err != nil {
 		return err
 	}
 
-	cert := &Certificate{Key: key, Cert: req.Certificate.Leaf}
-	return cert.Load(ctx, p.conn, req.ID)
+	b64 := base64.StdEncoding.EncodeToString(pfx)
+	file := "/bootflash/" + req.ID + ".pfx"
+	b64File := file + ".b64"
+
+	cmds := []string{
+		"feature bash-shell",
+		"crypto ca trustpoint " + req.ID,
+	}
+	const chunkSize = 512
+	for i := 0; i < len(b64); i += chunkSize {
+		end := min(i+chunkSize, len(b64))
+		op := " >> "
+		if i == 0 {
+			op = " > "
+		}
+		cmds = append(cmds, "run bash echo -n '"+b64[i:end]+"'"+op+b64File)
+	}
+	cmds = append(
+		cmds,
+		"run bash base64 -d "+b64File+" > "+file,
+		"run bash rm "+b64File,
+		"crypto ca import "+req.ID+" pkcs12 bootflash:///"+req.ID+".pfx "+passphrase,
+		"run bash rm "+file,
+	)
+
+	_, err = p.nxapi.Do(ctx, nxapi.NewRequest(cmds...).WithRollback(nxapi.Stop))
+	if err != nil {
+		return fmt.Errorf("failed to upload certificate via NX-API: %w", err)
+	}
+
+	logger.V(2).Info("Certificate upload completed")
+	return nil
+}
+
+// installedCertSerial queries the device for the certificate installed under the
+// given trustpoint and returns its serial number as an uppercase hex string.
+// If the trustpoint does not exist or has no certificate, an error is returned.
+func (p *Provider) installedCertSerial(ctx context.Context, trustpoint string) (string, error) {
+	res, err := p.nxapi.Do(ctx, nxapi.NewRequest("show crypto ca certificates "+trustpoint))
+	if err != nil {
+		return "", err
+	}
+	if len(res) == 0 {
+		return "", errors.New("empty response")
+	}
+	var body struct {
+		Certificate struct {
+			Cert string `json:"certificate"`
+		} `json:"Certificate"`
+	}
+	if err := json.Unmarshal(res[0], &body); err != nil {
+		return "", err
+	}
+	for line := range strings.SplitSeq(body.Certificate.Cert, "\n") {
+		if after, ok := strings.CutPrefix(line, "serial="); ok {
+			return strings.ToUpper(strings.TrimSpace(after)), nil
+		}
+	}
+	return "", errors.New("serial not found in certificate output")
 }
 
 func (p *Provider) DeleteCertificate(ctx context.Context, req *provider.DeleteCertificateRequest) error {
@@ -508,7 +1045,7 @@ func (p *Provider) EnsureDNS(ctx context.Context, req *provider.EnsureDNSRequest
 	}
 	d.ProfItems.ProfList.Set(pf)
 
-	return p.Update(ctx, d)
+	return p.client.Update(ctx, d)
 }
 
 func (p *Provider) DeleteDNS(ctx context.Context) error {
@@ -517,30 +1054,31 @@ func (p *Provider) DeleteDNS(ctx context.Context) error {
 }
 
 func (p *Provider) EnsureEVPNInstance(ctx context.Context, req *provider.EVPNInstanceRequest) (err error) {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
 	f := new(Feature)
 	f.Name = "nvo"
 	f.AdminSt = AdminStEnabled
+	sb.Update(f)
 
 	f2 := new(Feature)
 	f2.Name = "vnsegment"
 	f2.AdminSt = AdminStEnabled
+	sb.Update(f2)
 
-	if err := p.Update(ctx, f, f2); err != nil {
-		return err
-	}
-
-	conf := make([]gnmiext.Configurable, 0, 3)
 	if req.EVPNInstance.Spec.Type == v1alpha1.EVPNInstanceTypeBridged {
 		v := new(VLAN)
 		v.FabEncap = "vlan-" + strconv.FormatInt(int64(req.VLAN.Spec.ID), 10)
 		if err := p.client.GetConfig(ctx, v); err != nil {
-			return fmt.Errorf("evpn instance: failed to get vlan %d: %w", req.VLAN.Spec.ID, err)
+			return apistatus.NewFailedPreconditionError(
+				fmt.Sprintf("evpn instance: VLAN %d must exist on the device before an EVPN instance can be realized: %v", req.VLAN.Spec.ID, err),
+			)
 		}
 
 		vxlan := new(VXLAN)
 		vxlan.AccEncap = "vxlan-" + strconv.FormatInt(int64(req.EVPNInstance.Spec.VNI), 10)
 		vxlan.FabEncap = v.FabEncap
-		conf = append(conf, vxlan)
+		sb.Update(vxlan)
 	}
 
 	vni := new(VNI)
@@ -548,15 +1086,18 @@ func (p *Provider) EnsureEVPNInstance(ctx context.Context, req *provider.EVPNIns
 	if req.EVPNInstance.Spec.MulticastGroupAddress != "" {
 		vni.McastGroup = NewOption(req.EVPNInstance.Spec.MulticastGroupAddress)
 	}
-	conf = append(conf, vni)
+	sb.Update(vni)
 
 	switch req.EVPNInstance.Spec.Type {
 	case v1alpha1.EVPNInstanceTypeBridged:
 		evi := new(BDEVI)
 		evi.Encap = "vxlan-" + strconv.FormatInt(int64(req.EVPNInstance.Spec.VNI), 10)
-		evi.Rd, err = RouteDistinguisher(req.EVPNInstance.Spec.RouteDistinguisher)
-		if err != nil {
-			return fmt.Errorf("evpn instance: invalid route distinguisher: %w", err)
+		if req.EVPNInstance.Spec.RouteDistinguisher != "" {
+			rd, err := RouteDistinguisher(req.EVPNInstance.Spec.RouteDistinguisher)
+			if err != nil {
+				return fmt.Errorf("evpn instance: invalid route distinguisher: %w", err)
+			}
+			evi.Rd = NewOption(rd)
 		}
 		imports := &RttEntry{Type: RttEntryTypeImport}
 		exports := &RttEntry{Type: RttEntryTypeExport}
@@ -588,25 +1129,44 @@ func (p *Provider) EnsureEVPNInstance(ctx context.Context, req *provider.EVPNIns
 		if exports.EntItems.RttEntryList.Len() > 0 {
 			evi.RttpItems.RttPList.Set(exports)
 		}
-		conf = append(conf, evi)
+		sb.Update(evi)
 
 	case v1alpha1.EVPNInstanceTypeRouted:
 		vni.AssociateVrfFlag = true
 	}
 
-	return p.Update(ctx, conf...)
+	// Patch L3VNI/Encap on the VRF separately. This merges into the existing
+	// VRF tree without replacing fields managed by EnsureVRF.
+	if req.EVPNInstance.Spec.Type == v1alpha1.EVPNInstanceTypeRouted && req.VRF != nil {
+		vrf := new(VRFEncap)
+		vrf.Name = req.VRF.Spec.Name
+		vrf.L3Vni = true
+		vrf.Encap = NewOption("vxlan-" + strconv.FormatInt(int64(req.EVPNInstance.Spec.VNI), 10))
+		sb.Patch(vrf)
+	}
+
+	return p.Do(ctx, sb)
 }
 
 func (p *Provider) DeleteEVPNInstance(ctx context.Context, req *provider.EVPNInstanceRequest) error {
-	conf := make([]gnmiext.Configurable, 0, 3)
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
+	// Clear L3VNI/Encap on the VRF if this is a Routed EVI and the VRF still exists.
+	// If no VRF is passed in the request, assume it has already been deleted and skip this step.
+	if req.EVPNInstance.Spec.Type == v1alpha1.EVPNInstanceTypeRouted && req.VRF != nil {
+		vrf := new(VRFEncap)
+		vrf.Name = req.VRF.Spec.Name
+		vrf.L3Vni = false
+		sb.Patch(vrf)
+	}
 
 	evi := new(BDEVI)
 	evi.Encap = "vxlan-" + strconv.FormatInt(int64(req.EVPNInstance.Spec.VNI), 10)
-	conf = append(conf, evi)
+	sb.Delete(evi)
 
 	vni := new(VNI)
 	vni.Vni = req.EVPNInstance.Spec.VNI
-	conf = append(conf, vni)
+	sb.Delete(vni)
 
 	if req.EVPNInstance.Spec.Type == v1alpha1.EVPNInstanceTypeBridged {
 		bd := new(BDItems)
@@ -615,14 +1175,32 @@ func (p *Provider) DeleteEVPNInstance(ctx context.Context, req *provider.EVPNIns
 		}
 
 		if v := bd.GetByVXLAN(evi.Encap); v != nil {
-			conf = append(conf, v)
+			sb.Delete(v)
 		}
 	}
 
-	return p.client.Delete(ctx, conf...)
+	return p.Do(ctx, sb)
 }
 
-func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
+// isPointToPoint reports whether the given IPv4 configuration represents a
+// point-to-point link. It returns true if the interface is unnumbered or if it
+// has a single address whose prefix indicates a point-to-point link.
+func isPointToPoint(ipv4 *v1alpha1.InterfaceIPv4) bool {
+	if ipv4 == nil {
+		return false
+	}
+	if ipv4.Unnumbered != nil {
+		return true
+	}
+	if len(ipv4.Addresses) == 1 {
+		return ipv4.Addresses[0].IsPointToPoint()
+	}
+	return false
+}
+
+func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error { //nolint:gocyclo
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
 	name, err := ShortName(req.Interface.Spec.Name)
 	if err != nil {
 		return err
@@ -668,29 +1246,24 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 	}
 
-	if req.Interface.Spec.Type != v1alpha1.InterfaceTypeAggregate {
-		del := make([]gnmiext.Configurable, 0, 2)
-		addrs := new(AddrList)
-		if err := p.client.GetConfig(ctx, addrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
-			return err
-		}
-		for _, a := range addrs.GetAddrItemsByInterface(name) {
-			if addr == nil || a.Vrf != vrf {
-				del = append(del, a)
-			}
-		}
-		if err := p.client.Delete(ctx, del...); err != nil {
-			return err
+	addrs := new(AddrList)
+	if err := p.client.GetConfig(ctx, addrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	for _, a := range addrs.GetAddrItemsByInterface(name) {
+		if addr == nil || a.Vrf != vrf {
+			sb.Delete(a)
 		}
 	}
 
-	conf := make([]gnmiext.Configurable, 0, 4)
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
 		p := new(PhysIf)
 		p.Default()
 		p.ID = name
-		p.Descr = req.Interface.Spec.Description
+		if req.Interface.Spec.Description != "" {
+			p.Descr = NewOption(req.Interface.Spec.Description)
+		}
 		if req.Interface.Spec.AdminState == v1alpha1.AdminStateUp {
 			p.AdminSt = AdminStUp
 		}
@@ -705,7 +1278,6 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 
 		if req.Interface.Spec.Ethernet != nil && req.Interface.Spec.Ethernet.FECMode != "" {
-			p.FecMode = FecModeAuto
 			switch req.Interface.Spec.Ethernet.FECMode {
 			case v1alpha1.FECModeFC:
 				p.FecMode = FecModeCL74
@@ -718,20 +1290,20 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		}
 
-		if req.IPv4 != nil {
+		// If this Physical interface is a member of an L3 Aggregate (port-channel),
+		// it must be Layer3 on NX-OS even though it has no IP address of its own.
+		if req.IPv4 != nil || (req.AggregateParent != nil && req.AggregateParent.Spec.IPv4 != nil) {
 			p.Layer = Layer3
+			p.RtvrfMbrItems = NewVrfMember(name, vrf)
+			p.AccessVlan = string(AdjOperStUnknown)
+			p.NativeVlan = string(AdjOperStUnknown)
 		}
-		if addr.IsPointToPoint() {
+
+		if isPointToPoint(req.Interface.Spec.IPv4) || (req.AggregateParent != nil && isPointToPoint(req.AggregateParent.Spec.IPv4)) {
 			p.Medium = MediumPointToPoint
 		}
-		p.AccessVlan = "unknown"
-		p.NativeVlan = "unknown"
-		p.RtvrfMbrItems = NewVrfMember(name, vrf)
 
 		if req.Interface.Spec.Switchport != nil {
-			p.RtvrfMbrItems = nil
-			p.AccessVlan = DefaultVLAN
-			p.NativeVlan = DefaultVLAN
 			switch req.Interface.Spec.Switchport.Mode {
 			case v1alpha1.SwitchportModeAccess:
 				p.Mode = SwitchportModeAccess
@@ -741,43 +1313,50 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				if req.Interface.Spec.Switchport.NativeVlan != 0 {
 					p.NativeVlan = fmt.Sprintf("vlan-%d", req.Interface.Spec.Switchport.NativeVlan)
 				}
-				if len(req.Interface.Spec.Switchport.AllowedVlans) > 0 {
-					p.TrunkVlans = Range(req.Interface.Spec.Switchport.AllowedVlans)
+				if req.Interface.Spec.Switchport.AllowedVlansMode != v1alpha1.AllowedVlansModeUnmanaged {
+					vlans := DefaultVLANRange
+					if len(req.Interface.Spec.Switchport.AllowedVlans) > 0 {
+						vlans = Range(req.Interface.Spec.Switchport.AllowedVlans)
+					}
+					sb.Patch(&TrunkVlans{IfName: name, Vlans: vlans})
 				}
 			default:
 				return fmt.Errorf("invalid switchport mode: %s", req.Interface.Spec.Switchport.Mode)
 			}
 		}
 
-		if cfg.Spec.BufferBoost != nil {
+		if cfg.Spec.BufferBoost != nil && !cfg.Spec.BufferBoost.Enabled {
 			p.PhysExtdItems.BufferBoost = AdminStDisable
-			if cfg.Spec.BufferBoost.Enabled {
-				p.PhysExtdItems.BufferBoost = AdminStEnable
-			}
+		}
+
+		if cfg.Spec.EVPNMultihoming != nil && cfg.Spec.EVPNMultihoming.CoreTracking {
+			p.ESICoreTrackingItems = &ESICoreTracking{CoreTracking: AdminStEnabled}
 		}
 
 		if err := p.Validate(); err != nil {
 			return err
 		}
 
-		conf = append(conf, p)
+		sb.Patch(p)
 
 	case v1alpha1.InterfaceTypeLoopback:
 		lb := new(Loopback)
 		lb.ID = name
-		lb.Descr = req.Interface.Spec.Description
+		if req.Interface.Spec.Description != "" {
+			lb.Descr = NewOption(req.Interface.Spec.Description)
+		}
 		lb.AdminSt = AdminStDown
 		if req.Interface.Spec.AdminState == v1alpha1.AdminStateUp {
 			lb.AdminSt = AdminStUp
 		}
 		lb.RtvrfMbrItems = NewVrfMember(name, vrf)
-		conf = append(conf, lb)
+		sb.Patch(lb)
 
 	case v1alpha1.InterfaceTypeAggregate:
 		f := new(Feature)
 		f.Name = "lacp"
 		f.AdminSt = AdminStEnabled
-		conf = append(conf, f)
+		sb.Update(f)
 
 		pcNum, err := strconv.Atoi(name[2:])
 		if err != nil {
@@ -789,17 +1368,18 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 
 		pc := new(PortChannel)
 		pc.ID = name
-		pc.Descr = req.Interface.Spec.Description
+		if req.Interface.Spec.Description != "" {
+			pc.Descr = NewOption(req.Interface.Spec.Description)
+		}
 		pc.AdminSt = AdminStDown
 		if req.Interface.Spec.AdminState == v1alpha1.AdminStateUp {
 			pc.AdminSt = AdminStUp
 		}
-		// Note: Layer 3 port-channel interfaces are not yet supported
 		pc.Layer = Layer2
 		pc.Mode = SwitchportModeAccess
+		pc.Medium = MediumBroadcast
 		pc.AccessVlan = DefaultVLAN
 		pc.NativeVlan = DefaultVLAN
-		pc.TrunkVlans = DefaultVLANRange
 		pc.UserCfgdFlags = UserFlagAdminState | UserFlagAdminLayer
 		pc.AggrExtdItems.BufferBoost = AdminStEnable
 
@@ -807,6 +1387,17 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		if req.Interface.Spec.MTU != 0 {
 			pc.MTU = req.Interface.Spec.MTU
 			pc.UserCfgdFlags |= UserFlagAdminMTU
+		}
+
+		if req.IPv4 != nil {
+			pc.Layer = Layer3
+			pc.RtvrfMbrItems = NewVrfMember(name, vrf)
+			pc.AccessVlan = "unknown"
+			pc.NativeVlan = "unknown"
+		}
+
+		if isPointToPoint(req.Interface.Spec.IPv4) {
+			pc.Medium = MediumPointToPoint
 		}
 
 		pc.PcMode = PortChannelModeActive
@@ -829,8 +1420,12 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				if req.Interface.Spec.Switchport.NativeVlan != 0 {
 					pc.NativeVlan = fmt.Sprintf("vlan-%d", req.Interface.Spec.Switchport.NativeVlan)
 				}
-				if len(req.Interface.Spec.Switchport.AllowedVlans) > 0 {
-					pc.TrunkVlans = Range(req.Interface.Spec.Switchport.AllowedVlans)
+				if req.Interface.Spec.Switchport.AllowedVlansMode != v1alpha1.AllowedVlansModeUnmanaged {
+					vlans := DefaultVLANRange
+					if len(req.Interface.Spec.Switchport.AllowedVlans) > 0 {
+						vlans = Range(req.Interface.Spec.Switchport.AllowedVlans)
+					}
+					sb.Patch(&TrunkVlans{IfName: name, Vlans: vlans})
 				}
 			default:
 				return fmt.Errorf("invalid switchport mode: %s", req.Interface.Spec.Switchport.Mode)
@@ -853,33 +1448,39 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		// Delete the existing VPC interface entry if the MultiChassisID has changed or got removed.
 		if vpc := v.GetListItemByInterface(name); vpc != nil {
 			if req.MultiChassisID == nil || int(*req.MultiChassisID) != vpc.ID {
-				if err := p.client.Delete(ctx, vpc); err != nil {
-					return err
-				}
+				sb.Delete(vpc)
 			}
 		}
 
-		if cfg.Spec.BufferBoost != nil {
+		if cfg.Spec.BufferBoost != nil && !cfg.Spec.BufferBoost.Enabled {
 			pc.AggrExtdItems.BufferBoost = AdminStDisable
-			if cfg.Spec.BufferBoost.Enabled {
-				pc.AggrExtdItems.BufferBoost = AdminStEnable
+		}
+
+		pc.VPCConvergence = AdminStDisable
+		pc.SuspIndividual = AdminStEnable
+		if cfg.Spec.LACP != nil {
+			if cfg.Spec.LACP.VPCConvergence != nil && *cfg.Spec.LACP.VPCConvergence {
+				pc.VPCConvergence = AdminStEnable
+			}
+			if cfg.Spec.LACP.SuspendIndividual != nil && !*cfg.Spec.LACP.SuspendIndividual {
+				pc.SuspIndividual = AdminStDisable
 			}
 		}
 
-		conf = append(conf, pc)
+		sb.Patch(pc)
 
 		if req.MultiChassisID != nil {
 			v := new(VPCIf)
 			v.ID = int(*req.MultiChassisID)
 			v.SetPortChannel(name)
-			conf = append(conf, v)
+			sb.Patch(v)
 		}
 
 	case v1alpha1.InterfaceTypeRoutedVLAN:
 		f := new(Feature)
 		f.Name = "ifvlan"
 		f.AdminSt = AdminStEnabled
-		conf = append(conf, f)
+		sb.Update(f)
 
 		svi := new(SwitchVirtualInterface)
 		svi.ID = name
@@ -895,7 +1496,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 		svi.VlanID = req.VLAN.Spec.ID
 		svi.RtvrfMbrItems = NewVrfMember(name, vrf)
-		conf = append(conf, svi)
+		sb.Patch(svi)
 
 		fwif := new(FabricFwdIf)
 		fwif.ID = name
@@ -912,18 +1513,58 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 
 			fwif.AdminSt = AdminStEnabled
 			fwif.Mode = FwdModeAnycastGateway
-			conf = append(conf, fwif)
+			sb.Patch(fwif)
 		default:
-			if err := p.client.Delete(ctx, fwif); err != nil {
-				return err
-			}
+			sb.Delete(fwif)
+		}
+	case v1alpha1.InterfaceTypeSubinterface:
+		s := new(EncapRoutedInterface)
+		s.ID = name
+
+		if req.Interface.Spec.Description != "" {
+			s.Descr = NewOption(req.Interface.Spec.Description)
 		}
 
+		s.AdminSt = AdminStDown
+		if req.Interface.Spec.AdminState == v1alpha1.AdminStateUp {
+			s.AdminSt = AdminStUp
+		}
+
+		s.MTUInherit = true
+		s.MTU = DefaultMTU
+		if req.Interface.Spec.MTU != 0 {
+			s.MTU = req.Interface.Spec.MTU
+			s.MTUInherit = false
+		}
+
+		var encap string
+		switch req.Interface.Spec.Encapsulation.Type {
+		case v1alpha1.EncapsulationTypeDot1Q:
+			encap = "vlan-" + strconv.FormatInt(int64(req.Interface.Spec.Encapsulation.Tag), 10)
+		default:
+			return fmt.Errorf("unsupported encapsulation type: %s", req.Interface.Spec.Encapsulation.Type)
+		}
+		s.Encap = encap
+
+		if req.IPv4 != nil {
+			s.RtvrfMbrItems = NewVrfMember(name, vrf)
+		}
+
+		s.Medium = MediumBroadcast
+		if isPointToPoint(req.Interface.Spec.IPv4) {
+			s.Medium = MediumPointToPoint
+		}
+
+		sb.Patch(s)
+
 	default:
-		return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
+		return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+			Field:       "spec.type",
+			Description: fmt.Sprintf("unsupported interface type: %s", req.Interface.Spec.Type),
+		})
 	}
 
-	if (req.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical && req.IPv4 == nil) || req.Interface.Spec.Type == v1alpha1.InterfaceTypeAggregate {
+	if (req.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical || req.Interface.Spec.Type == v1alpha1.InterfaceTypeAggregate) && req.IPv4 == nil && (req.AggregateParent == nil || req.AggregateParent.Spec.IPv4 == nil) {
 		stp := new(SpanningTree)
 		stp.IfName = name
 		stp.Mode = SpanningTreeModeDefault
@@ -931,10 +1572,14 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		stp.BPDUGuard = "default"
 		if cfg.Spec.SpanningTree != nil {
 			switch cfg.Spec.SpanningTree.PortType {
+			case nxv1alpha1.SpanningTreePortTypeNormal:
+				stp.Mode = SpanningTreeModeDefault
 			case nxv1alpha1.SpanningTreePortTypeEdge:
 				stp.Mode = SpanningTreeModeEdge
 			case nxv1alpha1.SpanningTreePortTypeNetwork:
 				stp.Mode = SpanningTreeModeNetwork
+			case nxv1alpha1.SpanningTreePortTypeTrunk:
+				stp.Mode = SpanningTreeModeTrunk
 			}
 			if cfg.Spec.SpanningTree.BPDUFilter != nil {
 				stp.BPDUfilter = AdminStDisable
@@ -949,12 +1594,12 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				}
 			}
 		}
-		conf = append(conf, stp)
+		sb.Patch(stp)
 	}
 
 	// Add the address items last, as they depend on the interface being created first.
 	if addr != nil {
-		conf = append(conf, addr)
+		sb.Patch(addr)
 	}
 
 	switch {
@@ -962,14 +1607,14 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		f := new(Feature)
 		f.Name = "bfd"
 		f.AdminSt = AdminStEnabled
-		conf = append(conf, f)
+		sb.Update(f)
 
 		// Disable ICMP redirect messages on BFD-enabled interfaces.
 		// See: https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/106x/configuration/interfaces/cisco-nexus-9000-series-nx-os-interfaces-configuration-guide-release-106x/b-cisco-nexus-9000-nx-os-interfaces-configuration-guide-93x_chapter_01111.html
 		icmp := new(ICMPIf)
 		icmp.ID = name
 		icmp.Ctrl = "port-unreachable"
-		conf = append(conf, icmp)
+		sb.Patch(icmp)
 
 		bfd := new(BFD)
 		bfd.ID = name
@@ -989,27 +1634,25 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		if err := bfd.Validate(); err != nil {
 			return err
 		}
-		conf = append(conf, bfd)
+		sb.Patch(bfd)
 
 	case req.Interface.Spec.BFD != nil && !req.Interface.Spec.BFD.Enabled:
 		f := new(Feature)
 		f.Name = "bfd"
 		f.AdminSt = AdminStEnabled
-		conf = append(conf, f)
+		sb.Update(f)
 
 		bfd := new(BFD)
 		bfd.ID = name
 		bfd.AdminSt = AdminStDisabled
-		conf = append(conf, bfd)
+		sb.Patch(bfd)
 
 	default:
 		// BFD not specified — clean up any leftover BFD config on the interface.
 		// The delete is a no-op if the BFD feature is not activated on the device.
 		bfd := new(BFD)
 		bfd.ID = name
-		if err := p.client.Delete(ctx, bfd); err != nil {
-			return err
-		}
+		sb.Delete(bfd)
 	}
 
 	// Reset ICMP redirect defaults when BFD is not enabled (either explicitly disabled or not specified).
@@ -1017,69 +1660,66 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		icmp := new(ICMPIf)
 		icmp.ID = name
 		switch req.Interface.Spec.Type {
-		case v1alpha1.InterfaceTypePhysical:
-			if err := p.client.Delete(ctx, icmp); err != nil {
-				return err
-			}
+		case v1alpha1.InterfaceTypePhysical, v1alpha1.InterfaceTypeAggregate, v1alpha1.InterfaceTypeSubinterface:
+			sb.Delete(icmp)
 		case v1alpha1.InterfaceTypeLoopback:
 			icmp.Ctrl = "port-unreachable,redirect"
-			conf = append(conf, icmp)
+			sb.Patch(icmp)
 		case v1alpha1.InterfaceTypeRoutedVLAN:
 			icmp.Ctrl = "port-unreachable"
-			conf = append(conf, icmp)
+			sb.Patch(icmp)
 		}
 	}
 
-	return p.Update(ctx, conf...)
+	return p.Do(ctx, sb)
 }
 
 func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceRequest) error {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
 	name, err := ShortName(req.Interface.Spec.Name)
 	if err != nil {
 		return err
 	}
 
-	conf := make([]gnmiext.Configurable, 0, 3)
-	if req.Interface.Spec.Type != v1alpha1.InterfaceTypeAggregate {
-		addrs := new(AddrList)
-		if err := p.client.GetConfig(ctx, addrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
-			return err
-		}
-		for _, addr := range addrs.GetAddrItemsByInterface(name) {
-			conf = append(conf, addr)
-		}
+	addrs := new(AddrList)
+	if err := p.client.GetConfig(ctx, addrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	for _, addr := range addrs.GetAddrItemsByInterface(name) {
+		sb.Delete(addr)
 	}
 
 	bfd := new(BFD)
 	bfd.ID = name
-	conf = append(conf, bfd)
+	sb.Delete(bfd)
 
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
 		i := new(PhysIf)
 		i.ID = name
-		conf = append(conf, i)
+		sb.Delete(i)
+		sb.Patch(&TrunkVlans{IfName: name, Vlans: DefaultVLANRange})
 
-		// Delete any spanning tree config associated with the interface.
 		stp := new(SpanningTree)
 		stp.IfName = name
 		if err = p.client.GetConfig(ctx, stp); err == nil {
-			conf = append(conf, stp)
+			sb.Delete(stp)
 		}
 
 		icmp := new(ICMPIf)
 		icmp.ID = name
-		conf = append(conf, icmp)
+		sb.Delete(icmp)
 
 	case v1alpha1.InterfaceTypeLoopback:
 		lb := new(Loopback)
 		lb.ID = name
-		conf = append(conf, lb)
+		sb.Delete(lb)
 
 	case v1alpha1.InterfaceTypeAggregate:
 		pc := new(PortChannel)
 		pc.ID = name
-		conf = append(conf, pc)
+		sb.Delete(pc)
 
 		v := new(VPCIfItems)
 		if err := p.client.GetConfig(ctx, v); err != nil && !errors.Is(err, gnmiext.ErrNil) {
@@ -1088,19 +1728,25 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 
 		// Make sure to delete any associated VPC interface.
 		if vpc := v.GetListItemByInterface(name); vpc != nil {
-			conf = append(conf, vpc)
+			sb.Delete(vpc)
 		}
 
 	case v1alpha1.InterfaceTypeRoutedVLAN:
 		svi := new(SwitchVirtualInterface)
 		svi.ID = name
-		conf = append(conf, svi)
-
+		sb.Delete(svi)
+	case v1alpha1.InterfaceTypeSubinterface:
+		s := new(EncapRoutedInterface)
+		s.ID = name
+		sb.Delete(s)
 	default:
-		return fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
+		return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+			Field:       "spec.type",
+			Description: fmt.Sprintf("unsupported interface type: %s", req.Interface.Spec.Type),
+		})
 	}
 
-	return p.client.Delete(ctx, conf...)
+	return p.Do(ctx, sb)
 }
 
 func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.InterfaceRequest) (provider.InterfaceStatus, error) {
@@ -1110,17 +1756,36 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 	}
 
 	var (
-		operSt  OperSt
-		operMsg string
+		operSt          OperSt
+		operMsg         string
+		lldpAdjacencies []provider.LLDPAdjacency
 	)
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
 		phys := new(PhysIfOperItems)
 		phys.ID = name
-		if err := p.client.GetState(ctx, phys); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		lldpAdj := new(LLDPAdjacencyItems)
+		lldpAdj.ID = name
+		if err := p.client.GetState(ctx, phys, lldpAdj); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 			return provider.InterfaceStatus{}, err
 		}
 		operSt = phys.OperSt
+		operMsg = phys.OperStQual
+
+		lldpAdjacencies = make([]provider.LLDPAdjacency, 0, len(lldpAdj.AdjItems.AdjEpList))
+		for _, adj := range lldpAdj.AdjItems.AdjEpList {
+			neighbor := provider.LLDPAdjacency{
+				ChassisID:       adj.ChassisIDV,
+				ChassisIDType:   adj.ChassisIDT,
+				PortID:          adj.PortIDV,
+				PortIDType:      adj.PortIDT,
+				PortDescription: adj.PortDesc,
+				SysName:         adj.SysName,
+				SysDescription:  adj.SysDesc,
+				TTL:             time.Duration(adj.TTL) * time.Second,
+			}
+			lldpAdjacencies = append(lldpAdjacencies, neighbor)
+		}
 
 	case v1alpha1.InterfaceTypeLoopback:
 		lb := new(LoopbackOperItems)
@@ -1129,6 +1794,7 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 			return provider.InterfaceStatus{}, err
 		}
 		operSt = lb.OperSt
+		operMsg = lb.OperStQual
 
 	case v1alpha1.InterfaceTypeAggregate:
 		pc := new(PortChannelOperItems)
@@ -1146,15 +1812,54 @@ func (p *Provider) GetInterfaceStatus(ctx context.Context, req *provider.Interfa
 			return provider.InterfaceStatus{}, err
 		}
 		operSt = svi.OperSt
+		operMsg = svi.OperStQual
+
+	case v1alpha1.InterfaceTypeSubinterface:
+		s := new(EncapRoutedInterfaceOperItems)
+		s.ID = name
+		if err := p.client.GetState(ctx, s); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return provider.InterfaceStatus{}, err
+		}
+		operSt = s.OperSt
+		operMsg = s.OperStQual
 
 	default:
-		return provider.InterfaceStatus{}, fmt.Errorf("unsupported interface type: %s", req.Interface.Spec.Type)
+		return provider.InterfaceStatus{}, apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+			Field:       "spec.type",
+			Description: fmt.Sprintf("unsupported interface type: %s", req.Interface.Spec.Type),
+		})
 	}
 
-	return provider.InterfaceStatus{
-		OperStatus:  operSt == OperStUp,
-		OperMessage: operMsg,
-	}, nil
+	// When an interface is operationally up, the operational message will be "none".
+	// In this case, we return an empty string for the operational message to avoid confusion.
+	const operMsgNone = "none"
+	if operSt == OperStUp && operMsg == operMsgNone {
+		operMsg = ""
+	}
+
+	status := provider.InterfaceStatus{
+		OperStatus:      operSt == OperStUp,
+		OperMessage:     operMsg,
+		LLDPAdjacencies: lldpAdjacencies,
+	}
+
+	return status, nil
+}
+
+func (p *Provider) InterfaceNameEqual(_ context.Context, a, b string) (bool, error) {
+	shortA, err := ShortName(a)
+	if err != nil {
+		return false, fmt.Errorf("invalid interface name: %w", err)
+	}
+	shortB, err := ShortName(b)
+	if err != nil {
+		return false, fmt.Errorf("invalid interface name: %w", err)
+	}
+	return shortA == shortB, nil
+}
+
+func (p *Provider) LoopbackInterfaceName(id int) (string, error) {
+	return fmt.Sprintf("Loopback%d", id), nil
 }
 
 var ErrInterfaceNotFound = errors.New("one or more interfaces do not exist")
@@ -1180,11 +1885,12 @@ func (p *Provider) EnsureInterfacesExist(ctx context.Context, interfaces []*v1al
 }
 
 func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISRequest) error {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
 	f := new(Feature)
 	f.Name = "isis"
 	f.AdminSt = AdminStEnabled
-
-	conf := append(make([]gnmiext.Configurable, 0, 3), f)
+	sb.Update(f)
 
 	if slices.ContainsFunc(req.Interfaces, func(intf *v1alpha1.Interface) bool {
 		return intf.Spec.BFD != nil && intf.Spec.BFD.Enabled
@@ -1192,7 +1898,7 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 		f := new(Feature)
 		f.Name = "bfd"
 		f.AdminSt = AdminStEnabled
-		conf = append(conf, f)
+		sb.Update(f)
 	}
 
 	i := new(ISIS)
@@ -1214,7 +1920,7 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 	case v1alpha1.OverloadBitAlways:
 	case v1alpha1.OverloadBitOnStartup:
 		dom.OverloadItems.AdminSt = "bootup"
-		dom.OverloadItems.BgpAsNumStr = "none"
+		dom.OverloadItems.BgpAsNumStr = string(AdjChangeLogLevelNone)
 		dom.OverloadItems.StartupTime = 61 // seconds
 		dom.OverloadItems.Suppress = ""
 	}
@@ -1253,21 +1959,21 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 			intf.V4Enable = true
 			intf.V4Bfd = "inheritVrf"
 			if iface.Spec.BFD != nil && iface.Spec.BFD.Enabled {
-				intf.V4Bfd = "enabled"
+				intf.V4Bfd = string(PassiveControlEnabled)
 			}
 		}
 		if ipv6 {
 			intf.V6Enable = true
 			intf.V6Bfd = "inheritVrf"
 			if iface.Spec.BFD != nil && iface.Spec.BFD.Enabled {
-				intf.V6Bfd = "enabled"
+				intf.V6Bfd = string(PassiveControlEnabled)
 			}
 		}
 		dom.IfItems.IfList.Set(intf)
 	}
-	conf = append(conf, i)
+	sb.Update(i)
 
-	return p.Update(ctx, conf...)
+	return p.Do(ctx, sb)
 }
 
 func (p *Provider) DeleteISIS(ctx context.Context, req *provider.DeleteISISRequest) error {
@@ -1277,12 +1983,21 @@ func (p *Provider) DeleteISIS(ctx context.Context, req *provider.DeleteISISReque
 }
 
 func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.EnsureManagementAccessRequest) error {
+	if req.ManagementAccess.Spec.GRPC.ServerName != "" {
+		return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+			Field:       "spec.grpc.serverName",
+			Description: "serverName is not configurable on Cisco NX-OS devices",
+		})
+	}
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
 	gf := new(Feature)
 	gf.Name = "grpc"
 	gf.AdminSt = AdminStEnabled
 	if !req.ManagementAccess.Spec.GRPC.Enabled {
 		return errors.New("management access: gRPC must be enabled")
 	}
+	sb.Update(gf)
 
 	sf := new(Feature)
 	sf.Name = "ssh"
@@ -1290,6 +2005,7 @@ func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.Ens
 	if req.ManagementAccess.Spec.SSH.Enabled {
 		sf.AdminSt = AdminStEnabled
 	}
+	sb.Update(sf)
 
 	g := new(GRPC)
 	g.Port = req.ManagementAccess.Spec.GRPC.Port
@@ -1303,6 +2019,7 @@ func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.Ens
 	if err := g.Validate(); err != nil {
 		return err
 	}
+	sb.Patch(g)
 
 	gn := new(GNMI)
 	gn.MaxCalls = req.ManagementAccess.Spec.GRPC.GNMI.MaxConcurrentCall
@@ -1310,6 +2027,7 @@ func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.Ens
 	if err := gn.Validate(); err != nil {
 		return err
 	}
+	sb.Patch(gn)
 
 	vty := new(VTY)
 	vty.SsLmtItems.SesLmt = req.ManagementAccess.Spec.SSH.SessionLimit
@@ -1317,6 +2035,7 @@ func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.Ens
 	if err := vty.Validate(); err != nil {
 		return err
 	}
+	sb.Patch(vty)
 
 	var cfg nxv1alpha1.ManagementAccessConfig
 	if req.ProviderConfig != nil {
@@ -1330,26 +2049,21 @@ func (p *Provider) EnsureManagementAccess(ctx context.Context, req *provider.Ens
 	if err := con.Validate(); err != nil {
 		return err
 	}
+	sb.Patch(con)
 
 	acl := new(VTYAccessClass)
 	acl.Name = cfg.Spec.SSH.AccessControlListName
 
 	if acl.Name == "" {
-		if err := p.client.Delete(ctx, acl); err != nil && !errors.Is(err, gnmiext.ErrNil) {
-			return err
-		}
+		sb.Delete(acl)
+	} else {
+		sb.Patch(acl)
 	}
 
-	conf := make([]gnmiext.Configurable, 0, 7)
-	conf = append(conf, gf, sf, g, gn, vty, con)
-	if acl.Name != "" {
-		conf = append(conf, acl)
-	}
-
-	return p.Patch(ctx, conf...)
+	return p.Do(ctx, sb)
 }
 
-func (p *Provider) DeleteManagementAccess(ctx context.Context) error {
+func (p *Provider) DeleteManagementAccess(ctx context.Context, _ *provider.DeleteManagementAccessRequest) error {
 	return p.client.Delete(
 		ctx,
 		new(GRPC),
@@ -1366,9 +2080,12 @@ type NTPConfig struct {
 }
 
 func (p *Provider) EnsureNTP(ctx context.Context, req *provider.EnsureNTPRequest) error {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
 	f := new(Feature)
 	f.Name = "ntpd"
 	f.AdminSt = AdminStEnabled
+	sb.Update(f)
 
 	var cfg NTPConfig
 	if req.ProviderConfig != nil {
@@ -1401,8 +2118,9 @@ func (p *Provider) EnsureNTP(ctx context.Context, req *provider.EnsureNTPRequest
 		n.ProvItems.NtpProviderList.Set(prov)
 	}
 	n.SrcIfItems.SrcIf = req.NTP.Spec.SourceInterfaceName
+	sb.Update(n)
 
-	return p.Update(ctx, f, n)
+	return p.Do(ctx, sb)
 }
 
 func (p *Provider) DeleteNTP(ctx context.Context) error {
@@ -1414,7 +2132,7 @@ func (p *Provider) DeleteNTP(ctx context.Context) error {
 	return p.client.Delete(ctx, n, f)
 }
 
-type NXOSPF struct {
+type OSPFConfig struct {
 	// PropagateDefaultRoute is equivalent to the CLI command `default-information originate`
 	PropagateDefaultRoute *bool
 	// RedistributionConfigs is a list of redistribution configurations for the OSPF process.
@@ -1438,19 +2156,19 @@ type RedistributionConfig struct {
 }
 
 func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFRequest) error {
-	var cfg NXOSPF
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
+	var cfg OSPFConfig
 	if req.ProviderConfig != nil {
 		if err := req.ProviderConfig.Into(&cfg); err != nil {
 			return err
 		}
 	}
 
-	conf := make([]gnmiext.Configurable, 0, 3)
-
 	f := new(Feature)
 	f.Name = "ospf"
 	f.AdminSt = AdminStEnabled
-	conf = append(conf, f)
+	sb.Update(f)
 
 	o := new(OSPF)
 	o.AdminSt = AdminStEnabled
@@ -1458,7 +2176,7 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 		o.AdminSt = AdminStDisabled
 	}
 	o.Name = req.OSPF.Spec.Instance
-	conf = append(conf, o)
+	sb.Update(o)
 
 	dom := new(OSPFDom)
 	dom.Name = DefaultVRFName
@@ -1474,14 +2192,20 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 	dom.BwRefUnit = BwRefUnitMbps
 	if cfg.ReferenceBandwidthMbps != 0 {
 		if cfg.ReferenceBandwidthMbps < 1 || cfg.ReferenceBandwidthMbps > 999999 {
-			return fmt.Errorf("ospf: reference bandwidth %d is out of range (1-999999 Mbps)", cfg.ReferenceBandwidthMbps)
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "providerConfig.referenceBandwidthMbps",
+				Description: fmt.Sprintf("reference bandwidth %d Mbps is out of range, must be between 1 and 999999 Mbps", cfg.ReferenceBandwidthMbps),
+			})
 		}
 		dom.BwRef = cfg.ReferenceBandwidthMbps
 	}
 	dom.Dist = DefaultDist
 	if cfg.Distance != 0 {
 		if cfg.Distance < 1 || cfg.Distance > 255 {
-			return fmt.Errorf("ospf: distance %d is out of range (1-255)", cfg.Distance)
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "providerConfig.distance",
+				Description: fmt.Sprintf("distance %d is out of range, must be between 1 and 255", cfg.Distance),
+			})
 		}
 		dom.Dist = cfg.Distance
 	}
@@ -1519,10 +2243,15 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 		}
 		intf.BFDCtrl = OspfBfdCtrlUnspecified
 		if iface.Interface.Spec.BFD != nil {
+			// BFD feature must be active before OSPF interfaces can reference
+			// BFD-specific fields. Activate it via a separate Set RPC to ensure
+			// the feature is present before the OSPF interface is configured.
 			fb := new(Feature)
 			fb.Name = "bfd"
 			fb.AdminSt = AdminStEnabled
-			conf = slices.Insert(conf, 1, gnmiext.Configurable(fb)) // insert before OSPF
+			if err := p.client.Update(ctx, fb); err != nil {
+				return err
+			}
 
 			intf.BFDCtrl = OspfBfdCtrlDisabled
 			if iface.Interface.Spec.BFD.Enabled {
@@ -1556,7 +2285,7 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 		dom.MaxlsapItems.MaxLsa = cfg.MaxLSA
 	}
 
-	return p.Update(ctx, conf...)
+	return p.Do(ctx, sb)
 }
 
 func (p *Provider) DeleteOSPF(ctx context.Context, req *provider.DeleteOSPFRequest) error {
@@ -1607,9 +2336,12 @@ func (p *Provider) GetOSPFStatus(ctx context.Context, req *provider.OSPFStatusRe
 }
 
 func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest) error {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
 	f := new(Feature)
 	f.Name = "pim"
 	f.AdminSt = AdminStEnabled
+	sb.Update(f)
 
 	pim := new(PIM)
 	pim.AdminSt = AdminStEnabled
@@ -1618,6 +2350,7 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 		pim.AdminSt = AdminStDisabled
 		pim.InstItems.AdminSt = AdminStDisabled
 	}
+	sb.Patch(pim)
 
 	dom := new(PIMDom)
 	dom.Name = DefaultVRFName
@@ -1625,10 +2358,7 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 	if req.PIM.Spec.AdminState == v1alpha1.AdminStateDown {
 		dom.AdminSt = AdminStDisabled
 	}
-
-	if err := p.Patch(ctx, f, pim, dom); err != nil {
-		return err
-	}
+	sb.Patch(dom)
 
 	rpItems := new(StaticRPItems)
 	apItems := new(AnycastPeerItems)
@@ -1674,55 +2404,84 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 		intf.ID = name
 		switch req.Interfaces[i].Mode {
 		case v1alpha1.PIMModeDense:
-			return errors.New("pim: dense mode is not supported on Cisco NX-OS devices")
+			return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+				Field:       "spec.interfaces[*].mode",
+				Description: "PIM dense mode is not supported on Cisco NX-OS devices",
+			})
 		case v1alpha1.PIMModeSparse:
 			intf.PimSparseMode = true
 		}
 		ifItems.IfList.Set(intf)
 	}
 
-	conf := make([]gnmiext.Configurable, 0, 3)
-	del := make([]gnmiext.Configurable, 0, 3)
-
 	if len(rpItems.StaticRPList) > 0 {
-		conf = append(conf, rpItems)
+		// Diff group-to-RP bindings individually; replacing entire StaticRP entries fails on NX-OS
+		// with "child (Rn) cannot be added to deleteseted object Rn=rpgrplist-[...], Commit Failed".
+		current := new(StaticRPItems)
+		if err := p.client.GetConfig(ctx, current); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+		for _, rp := range rpItems.StaticRPList {
+			got, ok := current.StaticRPList.Get(rp.Key())
+			if !ok {
+				// StaticRP does not exist yet — add the entire entry.
+				sb.Update(rp)
+				continue
+			}
+			for _, grp := range rp.RpgrplistItems.RPGrpListList {
+				if gotGrp, ok := got.RpgrplistItems.RPGrpListList.Get(grp.Key()); !ok || !reflect.DeepEqual(gotGrp, grp) {
+					g := *grp
+					g.RpAddr = rp.Addr
+					sb.Update(&g)
+				}
+			}
+			for _, grp := range got.RpgrplistItems.RPGrpListList {
+				if _, ok := rp.RpgrplistItems.RPGrpListList.Get(grp.Key()); !ok {
+					g := *grp
+					g.RpAddr = rp.Addr
+					sb.Delete(&g)
+				}
+			}
+		}
+		for _, rp := range current.StaticRPList {
+			if _, ok := rpItems.StaticRPList.Get(rp.Key()); !ok {
+				sb.Delete(rp)
+			}
+		}
 	} else {
-		del = append(del, rpItems)
+		sb.Delete(rpItems)
 	}
 
 	if len(apItems.AcastRPPeerList) > 0 {
-		conf = append(conf, apItems)
+		sb.Update(apItems)
 	} else {
-		del = append(del, apItems)
+		sb.Delete(apItems)
 	}
 
 	if len(ifItems.IfList) > 0 {
-		conf = append(conf, ifItems)
+		sb.Update(ifItems)
 	} else {
-		del = append(del, ifItems)
+		sb.Delete(ifItems)
 	}
 
-	if err := p.Update(ctx, conf...); err != nil {
-		return err
-	}
-
-	return p.client.Delete(ctx, del...)
+	return p.Do(ctx, sb)
 }
 
 func (p *Provider) DeletePIM(ctx context.Context, _ *provider.DeletePIMRequest) error {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
 	pim := new(PIM)
 	pim.AdminSt = AdminStDisabled
 	pim.InstItems.AdminSt = AdminStDisabled
+	sb.Patch(pim)
 
 	dom := new(PIMDom)
 	dom.Name = DefaultVRFName
 	dom.AdminSt = AdminStDisabled
+	sb.Patch(dom)
 
-	if err := p.Patch(ctx, pim, dom); err != nil {
-		return err
-	}
-
-	return p.client.Delete(ctx, new(StaticRPItems), new(AnycastPeerItems), new(PIMIfItems))
+	sb.Delete(new(StaticRPItems), new(AnycastPeerItems), new(PIMIfItems))
+	return p.Do(ctx, sb)
 }
 
 func (p *Provider) EnsurePrefixSet(ctx context.Context, req *provider.PrefixSetRequest) error {
@@ -1745,7 +2504,7 @@ func (p *Provider) EnsurePrefixSet(ctx context.Context, req *provider.PrefixSetR
 		}
 		s.EntItems.EntryList.Set(e)
 	}
-	return p.Update(ctx, s)
+	return p.client.Update(ctx, s)
 }
 
 func (p *Provider) DeletePrefixSet(ctx context.Context, req *provider.PrefixSetRequest) error {
@@ -1765,7 +2524,7 @@ func (p *Provider) EnsureRoutingPolicy(ctx context.Context, req *provider.Ensure
 		for _, cond := range stmt.Conditions {
 			switch v := cond.(type) {
 			case provider.MatchPrefixSetCondition:
-				e.SetPrefixSet(v.PrefixSet)
+				e.SetPrefixSet(v.PrefixSet.Spec.Name, v.PrefixSet.Is6())
 			default:
 				return fmt.Errorf("routing policy: unsupported condition type %T", cond)
 			}
@@ -1791,11 +2550,37 @@ func (p *Provider) EnsureRoutingPolicy(ctx context.Context, req *provider.Ensure
 					return err
 				}
 			}
+			if stmt.Actions.BgpActions.SetASPath != nil {
+				asp := stmt.Actions.BgpActions.SetASPath
+				if asp.Prepend != nil {
+					if asp.Prepend.ASNumber != nil {
+						e.SetASPathPrependItems.AS = asp.Prepend.ASNumber.String()
+					}
+					if asp.Prepend.UseLastAS != nil {
+						e.SetASPathLastASItems.LastAS = *asp.Prepend.UseLastAS
+					}
+				}
+				if asp.Replace != nil {
+					if asp.Replace.PrivateAS {
+						e.SetASPathReplaceItems.MatchPrivateAS = true
+						e.SetASPathReplaceItems.ReplaceAsn = asp.Replace.Replacement.String()
+						e.SetASPathReplaceItems.ReplaceType = "asn"
+					} else if asp.Replace.ASNumber != nil {
+						e.SetASPathReplaceItems.MatchAsnList = asp.Replace.ASNumber.String()
+						e.SetASPathReplaceItems.MatchPrivateAS = false
+						e.SetASPathReplaceItems.ReplaceAsn = asp.Replace.Replacement.String()
+						e.SetASPathReplaceItems.ReplaceType = "asn"
+					}
+				}
+				if asp.ASNumber != nil {
+					e.SetASPathItems.AsnList = asp.ASNumber.String()
+				}
+			}
 		}
 
 		rm.EntItems.EntryList.Set(e)
 	}
-	return p.Update(ctx, rm)
+	return p.client.Update(ctx, rm)
 }
 
 func (p *Provider) DeleteRoutingPolicy(ctx context.Context, req *provider.DeleteRoutingPolicyRequest) error {
@@ -1849,7 +2634,7 @@ func (p *Provider) EnsureUser(ctx context.Context, req *provider.EnsureUserReque
 		}
 	}
 
-	return p.Patch(ctx, u)
+	return p.client.Patch(ctx, u)
 }
 
 func (p *Provider) DeleteUser(ctx context.Context, req *provider.DeleteUserRequest) error {
@@ -1951,14 +2736,14 @@ func (p *Provider) EnsureSNMP(ctx context.Context, req *provider.EnsureSNMPReque
 		rv.Set(reflect.ValueOf(&SNMPTraps{Trapstatus: AdminStEnable}))
 	}
 
-	return p.Update(ctx, sysInfo, trapsSrcIf, informsSrcIf, communities, hosts, traps)
+	return p.client.Update(ctx, sysInfo, trapsSrcIf, informsSrcIf, communities, hosts, traps)
 }
 
 func (p *Provider) DeleteSNMP(ctx context.Context, req *provider.DeleteSNMPRequest) error {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
 	traps := new(SNMPTrapsItems)
-	if err := p.Update(ctx, traps); err != nil {
-		return err
-	}
+	sb.Update(traps)
 
 	trapsSrcIf := new(SNMPSrcIf)
 	trapsSrcIf.Type = Traps
@@ -1966,14 +2751,14 @@ func (p *Provider) DeleteSNMP(ctx context.Context, req *provider.DeleteSNMPReque
 	informsSrcIf := new(SNMPSrcIf)
 	informsSrcIf.Type = Informs
 
-	return p.client.Delete(
-		ctx,
+	sb.Delete(
 		trapsSrcIf,
 		informsSrcIf,
 		new(SNMPSysInfo),
 		new(SNMPCommunityItems),
 		new(SNMPHostItems),
 	)
+	return p.Do(ctx, sb)
 }
 
 type SyslogConfig struct {
@@ -1997,7 +2782,7 @@ func (p *Provider) EnsureSyslog(ctx context.Context, req *provider.EnsureSyslogR
 	origin := new(SyslogOrigin)
 	addr, err := netip.ParseAddr(cfg.OriginID)
 	switch {
-	case strings.ToLower(cfg.OriginID) == "hostname":
+	case strings.EqualFold(cfg.OriginID, "hostname"):
 		origin.Idtype = "hostname"
 	case err == nil && addr.IsValid():
 		origin.Idtype = "ip"
@@ -2046,7 +2831,7 @@ OUTER:
 		fac.FacilityList.Set(f)
 	}
 
-	return p.Update(ctx, origin, srcIf, hist, re, fac)
+	return p.client.Update(ctx, origin, srcIf, hist, re, fac)
 }
 
 func (p *Provider) DeleteSyslog(ctx context.Context) error {
@@ -2072,7 +2857,7 @@ func (p *Provider) EnsureVLAN(ctx context.Context, req *provider.VLANRequest) er
 		v.Name = NewOption(req.VLAN.Spec.Name)
 	}
 
-	return p.Patch(ctx, v)
+	return p.client.Patch(ctx, v)
 }
 
 func (p *Provider) DeleteVLAN(ctx context.Context, req *provider.VLANRequest) error {
@@ -2093,36 +2878,36 @@ func (p *Provider) GetVLANStatus(ctx context.Context, req *provider.VLANRequest)
 	}, nil
 }
 
-func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) error {
+func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) error { //nolint:gocyclo
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
 	v := new(VRF)
 	v.Name = req.VRF.Spec.Name
 	if req.VRF.Spec.Description != "" {
 		v.Descr = NewOption(req.VRF.Spec.Description)
 	}
-	if req.VRF.Spec.VNI > 0 {
-		v.L3Vni = true
-		v.Encap = NewOption("vxlan-" + strconv.FormatUint(uint64(req.VRF.Spec.VNI), 10))
-	}
 
 	dom := new(VRFDom)
 	dom.Name = req.VRF.Spec.Name
-	v.DomItems.DomList.Set(dom)
+	domItems := &VRFDomItems{Name: req.VRF.Spec.Name}
+	domItems.DomList.Set(dom)
 
-	// pre: RD format has been already been validated by VRFCustomValidator
+	// RouteDistinguisher is already validated by VRFCustomValidator
 	if req.VRF.Spec.RouteDistinguisher != "" {
-		tokens := strings.Split(req.VRF.Spec.RouteDistinguisher, ":")
-		if strings.Contains(tokens[0], ".") {
-			dom.Rd = "rd:ipv4-nn2:" + req.VRF.Spec.RouteDistinguisher
-		} else {
-			asn, err := strconv.ParseUint(tokens[0], 10, 32)
-			if err != nil {
-				return fmt.Errorf("invalid ASN in route distinguisher: %w", err)
-			}
-			dom.Rd = "rd:asn2-nn4:" + req.VRF.Spec.RouteDistinguisher
-			if asn < math.MaxUint16 {
-				dom.Rd = "rd:asn4-nn2:" + req.VRF.Spec.RouteDistinguisher
-			}
+		f := new(Feature)
+		f.Name = "bgp"
+		if err := p.client.GetConfig(ctx, f); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
 		}
+		if f.AdminSt != AdminStEnabled {
+			return apistatus.NewFailedPreconditionError("bgp feature must be enabled to configure route distinguisher")
+		}
+
+		rd, err := RouteDistinguisher(req.VRF.Spec.RouteDistinguisher)
+		if err != nil {
+			return fmt.Errorf("vrf: invalid route distinguisher: %w", err)
+		}
+		dom.Rd = NewOption(rd)
 	}
 
 	// configure route targets
@@ -2136,32 +2921,14 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 	importEntryIPv6EVPN := &RttEntry{Type: RttEntryTypeImport}
 	exportEntryIPv6EVPN := &RttEntry{Type: RttEntryTypeExport}
 
-	// route targets are already validated by VRFCustomValidator
+	// RouteTargets are already validated by VRFCustomValidator
 	for _, rt := range req.VRF.Spec.RouteTargets {
-		rttValue := "route-target:"
-		tokens := strings.Split(rt.Value, ":")
-		if strings.Contains(tokens[0], ".") {
-			rttValue += "ipv4-nn2:" + rt.Value
-		} else {
-			asn, err := strconv.ParseUint(tokens[0], 10, 32)
-			if err != nil {
-				return fmt.Errorf("invalid ASN in route target: %w", err)
-			}
-			if asn > math.MaxUint16 {
-				rttValue += "as4-nn2:" + rt.Value
-			} else {
-				nn, err := strconv.ParseUint(tokens[1], 10, 32)
-				if err != nil {
-					return fmt.Errorf("invalid number in route target: %w", err)
-				}
-				rttValue += "as2-nn2:" + rt.Value
-				if nn > math.MaxUint16 {
-					rttValue += "as2-nn4:" + rt.Value
-				}
-			}
+		rttValue, err := RouteTarget(rt.Value)
+		if err != nil {
+			return fmt.Errorf("invalid route target: %w", err)
 		}
-		rtt := Rtt{Rtt: rttValue}
 
+		rtt := Rtt{Rtt: rttValue}
 		for _, af := range rt.AddressFamilies {
 			switch af {
 			case v1alpha1.IPv4:
@@ -2199,7 +2966,6 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 	}
 
 	if len(req.VRF.Spec.RouteTargets) > 0 {
-		// Initialize address families
 		afIPv4 := &VRFDomAf{Type: AddressFamilyIPv4Unicast}
 		afIPv6 := &VRFDomAf{Type: AddressFamilyIPv6Unicast}
 
@@ -2207,7 +2973,6 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 			if importE.EntItems.RttEntryList.Len() == 0 && exportE.EntItems.RttEntryList.Len() == 0 {
 				return
 			}
-
 			ctrl := &VRFDomAfCtrl{Type: afType}
 			if importE.EntItems.RttEntryList.Len() > 0 {
 				ctrl.RttpItems.RttPList.Set(importE)
@@ -2228,13 +2993,25 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 		dom.AfItems.DomAfList.Set(afIPv6)
 	}
 
-	return p.Update(ctx, v)
+	// Patch the VRF fields (name, description), merges into existing tree
+	// to preserve L3Vni/Encap set by EnsureEVPNInstance.
+	sb.Patch(v)
+
+	// Replace the VRF domain items (RD, route targets), fully owned by this controller.
+	sb.Update(domItems)
+
+	return p.Do(ctx, sb)
 }
 
 func (p *Provider) DeleteVRF(ctx context.Context, req *provider.VRFRequest) error {
 	v := new(VRF)
 	v.Name = req.VRF.Spec.Name
-	return p.client.Delete(ctx, v)
+	if err := p.client.Delete(ctx, v); err != nil {
+		return err
+	}
+	// NX-OS does not automatically remove the BGP domain when a VRF is deleted.
+	// Delete the domain and clean up the global BGP instance if nothing remains.
+	return p.deleteBGP(ctx, req.VRF.Spec.Name)
 }
 
 func (p *Provider) EnsureSystemSettings(ctx context.Context, s *nxv1alpha1.System) error {
@@ -2247,7 +3024,7 @@ func (p *Provider) EnsureSystemSettings(ctx context.Context, s *nxv1alpha1.Syste
 	sys := new(SystemJumboMTU)
 	*sys = SystemJumboMTU(s.Spec.JumboMTU)
 
-	return p.Patch(ctx, long, res, sys)
+	return p.client.Patch(ctx, long, res, sys)
 }
 
 func (p *Provider) ResetSystemSettings(ctx context.Context) error {
@@ -2280,9 +3057,12 @@ type VPCDomainStatus struct {
 // `vrf` is a resource referencing the VRF to use in the keep-alive link configuration, can be nil.
 // `pc` is a resource referencing a port-channel interface to use as vPC peer-link, must not be nil.
 func (p *Provider) EnsureVPCDomain(ctx context.Context, vpcdomain *nxv1alpha1.VPCDomain, vrf *v1alpha1.VRF, pc *v1alpha1.Interface) (reterr error) {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
 	f := new(Feature)
 	f.Name = "vpc"
 	f.AdminSt = AdminStEnabled
+	sb.Update(f)
 
 	v := new(VPCDomain)
 	v.ID = vpcdomain.Spec.DomainID
@@ -2340,8 +3120,9 @@ func (p *Provider) EnsureVPCDomain(ctx context.Context, vpcdomain *nxv1alpha1.VP
 	if vpcdomain.Spec.Peer.AdminState == v1alpha1.AdminStateDown {
 		v.KeepAliveItems.PeerLinkItems.AdminSt = AdminStDisabled
 	}
+	sb.Patch(v)
 
-	return p.Patch(ctx, f, v)
+	return p.Do(ctx, sb)
 }
 
 func (p *Provider) DeleteVPCDomain(ctx context.Context) error {
@@ -2412,31 +3193,33 @@ type BorderGatewayPeer struct {
 }
 
 func (p *Provider) EnsureBorderGatewaySettings(ctx context.Context, req *BorderGatewaySettingsRequest) error {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
 	f := new(Feature)
 	f.Name = "bgp"
 	f.AdminSt = AdminStEnabled
+	sb.Update(f)
 
 	f2 := new(Feature)
 	f2.Name = "ifvlan"
 	f2.AdminSt = AdminStEnabled
+	sb.Update(f2)
 
 	f3 := new(Feature)
 	f3.Name = "vnsegment"
 	f3.AdminSt = AdminStEnabled
+	sb.Update(f3)
 
 	f4 := new(Feature)
 	f4.Name = "evpn"
 	f4.AdminSt = AdminStEnabled
+	sb.Update(f4)
 
 	f5 := new(Feature)
 	f5.Name = "nvo"
 	f5.AdminSt = AdminStEnabled
+	sb.Update(f5)
 
-	if err := p.Patch(ctx, f, f2, f3, f4, f5); err != nil {
-		return err
-	}
-
-	conf := make([]gnmiext.Configurable, 0, 3)
 	bg := new(MultisiteItems)
 	bg.AdminSt = AdminStEnabled
 	if req.BorderGateway.Spec.AdminState == v1alpha1.AdminStateDown {
@@ -2445,19 +3228,25 @@ func (p *Provider) EnsureBorderGatewaySettings(ctx context.Context, req *BorderG
 	bg.SiteID = strconv.FormatInt(req.BorderGateway.Spec.MultisiteID, 10)
 	bg.DelayRestoreSeconds = int64(math.Round(req.BorderGateway.Spec.DelayRestoreTime.Seconds()))
 	if bg.DelayRestoreSeconds < 30 || bg.DelayRestoreSeconds > 1000 {
-		return fmt.Errorf("border gateway: delay restore time %d seconds is out of range (30-1000)", bg.DelayRestoreSeconds)
+		return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+			Field:       "spec.delayRestoreTime",
+			Description: fmt.Sprintf("delay restore time %d seconds is out of range, must be between 30 and 1000 seconds", bg.DelayRestoreSeconds),
+		})
 	}
-	conf = append(conf, bg)
+	sb.Update(bg)
 
 	bgi := MultisiteBorderGatewayInterface(req.SourceInterface.Spec.Name)
-	conf = append(conf, &bgi)
+	sb.Update(&bgi)
 
 	sc := new(StormControlItems)
 	for _, cfg := range req.BorderGateway.Spec.StormControl {
 		ctrl := new(StormControlItem)
 		f, err := strconv.ParseFloat(cfg.Level, 64)
 		if err != nil {
-			return fmt.Errorf("border gateway: invalid storm control level %q: %w", cfg.Level, err)
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "spec.stormControl[*].level",
+				Description: fmt.Sprintf("storm control level %q is not a valid floating-point percentage", cfg.Level),
+			})
 		}
 		ctrl.Floatlevel = strconv.FormatFloat(f, 'f', 6, 64)
 		switch cfg.Traffic {
@@ -2468,16 +3257,18 @@ func (p *Provider) EnsureBorderGatewaySettings(ctx context.Context, req *BorderG
 		case nxv1alpha1.TrafficTypeUnicast:
 			ctrl.Name = StormControlTypeUnicast
 		default:
-			return fmt.Errorf("border gateway: unsupported storm control traffic type %q", cfg.Traffic)
+			return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+				Field:       "spec.stormControl[*].traffic",
+				Description: fmt.Sprintf("storm control traffic type %q is not supported on this platform", cfg.Traffic),
+			})
 		}
 		sc.EvpnStormControlList.Set(ctrl)
 	}
 
-	del := make([]gnmiext.Configurable, 0, 1)
 	if sc.EvpnStormControlList.Len() == 0 {
-		del = append(del, sc)
+		sb.Delete(sc)
 	} else {
-		conf = append(conf, sc)
+		sb.Update(sc)
 	}
 
 	peerItems := new(MultisitePeerItems)
@@ -2499,7 +3290,7 @@ func (p *Provider) EnsureBorderGatewaySettings(ctx context.Context, req *BorderG
 		ic, ok := interconnects[intf.ID]
 		if !ok {
 			if intf.MultisiteIfTracking != nil {
-				del = append(del, intf.MultisiteIfTracking)
+				sb.Delete(intf.MultisiteIfTracking)
 			}
 			continue
 		}
@@ -2509,7 +3300,7 @@ func (p *Provider) EnsureBorderGatewaySettings(ctx context.Context, req *BorderG
 		}
 		intf.MultisiteIfTracking.IfName = intf.ID
 		intf.MultisiteIfTracking.Tracking = MultisiteIfTrackingModeFrom(ic.Tracking)
-		conf = append(conf, intf.MultisiteIfTracking)
+		sb.Update(intf.MultisiteIfTracking)
 	}
 
 	for _, peer := range peerItems.PeerList {
@@ -2518,23 +3309,21 @@ func (p *Provider) EnsureBorderGatewaySettings(ctx context.Context, req *BorderG
 		})
 		if idx == -1 {
 			if peer.PeerType != "" {
-				del = append(del, &MultisitePeer{Addr: peer.Addr})
+				sb.Delete(&MultisitePeer{Addr: peer.Addr})
 			}
 			continue
 		}
 
-		conf = append(conf, &MultisitePeer{Addr: peer.Addr, PeerType: BorderGatewayPeerTypeFrom(req.Peers[idx].PeerType)})
+		sb.Update(&MultisitePeer{Addr: peer.Addr, PeerType: BorderGatewayPeerTypeFrom(req.Peers[idx].PeerType)})
 	}
 
-	if err := p.client.Delete(ctx, del...); err != nil {
-		return err
-	}
-
-	return p.Update(ctx, conf...)
+	return p.Do(ctx, sb)
 }
 
 func (p *Provider) ResetBorderGatewaySettings(ctx context.Context) error {
-	conf := []gnmiext.Configurable{new(MultisiteItems), new(MultisiteBorderGatewayInterface), new(StormControlItems)}
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+	sb.Delete(new(MultisiteItems), new(MultisiteBorderGatewayInterface), new(StormControlItems))
+
 	peerItems := new(MultisitePeerItems)
 	trackingItems := new(MultisiteIfTrackingItems)
 	if err := p.client.GetConfig(ctx, trackingItems, peerItems); err != nil && !errors.Is(err, gnmiext.ErrNil) {
@@ -2542,30 +3331,38 @@ func (p *Provider) ResetBorderGatewaySettings(ctx context.Context) error {
 	}
 	for _, intf := range trackingItems.PhysIfList {
 		if intf.MultisiteIfTracking != nil {
-			conf = append(conf, intf.MultisiteIfTracking)
+			sb.Delete(intf.MultisiteIfTracking)
 		}
 	}
 	for _, peer := range peerItems.PeerList {
 		if peer.PeerType != "" {
-			conf = append(conf, &MultisitePeer{Addr: peer.Addr})
+			sb.Delete(&MultisitePeer{Addr: peer.Addr})
 		}
 	}
-	return p.client.Delete(ctx, conf...)
+
+	return p.Do(ctx, sb)
 }
 
 // EnsureNVE ensures that the NVE configuration on the device matches the desired state specified in the NVE custom resource.
 // If no provider config is provided then the provider will use default settings.
 func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) error {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
 	f1 := new(Feature)
 	f1.Name = "evpn"
 	f1.AdminSt = AdminStEnabled
+	sb.Update(f1)
 
 	f2 := new(Feature)
 	f2.Name = "nvo"
 	f2.AdminSt = AdminStEnabled
+	sb.Update(f2)
 
-	if err := p.Patch(ctx, f1, f2); err != nil {
-		return err
+	if req.NVE.Spec.AnycastGateway != nil {
+		f3 := new(Feature)
+		f3.Name = "hmm"
+		f3.AdminSt = AdminStEnabled
+		sb.Update(f3)
 	}
 
 	if req.AnycastSourceInterface != nil && req.AnycastSourceInterface.Spec.Name == req.SourceInterface.Spec.Name {
@@ -2613,8 +3410,7 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) erro
 		n.AdvertiseVmac = vc.Spec.AdvertiseVirtualMAC
 	}
 
-	conf := make([]gnmiext.Configurable, 0, 3)
-	conf = append(conf, n)
+	sb.Patch(n)
 
 	iv := new(NVEInfraVLANs)
 	for _, ivList := range vc.Spec.InfraVLANs {
@@ -2632,22 +3428,21 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) erro
 			return err
 		}
 		if len(iv.InfraVLANList) != 0 {
-			if err := p.client.Delete(ctx, iv); err != nil {
-				return err
-			}
+			sb.Delete(iv)
 		}
 	} else {
-		conf = append(conf, iv)
+		sb.Patch(iv)
 	}
 
 	ag := new(FabricFwd)
+	ag.AdminSt = AdminStDisabled
 	if req.NVE.Spec.AnycastGateway != nil {
-		ag.AdminSt = string(AdminStEnabled)
+		ag.AdminSt = AdminStEnabled
 		ag.Address = req.NVE.Spec.AnycastGateway.VirtualMAC
 	}
-	conf = append(conf, ag)
+	sb.Patch(ag)
 
-	return p.Patch(ctx, conf...)
+	return p.Do(ctx, sb)
 }
 
 func (p *Provider) DeleteNVE(ctx context.Context, req *provider.NVERequest) error {
@@ -2693,20 +3488,19 @@ func (p *Provider) GetNVEStatus(ctx context.Context, req *provider.NVERequest) (
 }
 
 func (p *Provider) EnsureLLDP(ctx context.Context, req *provider.LLDPRequest) error {
-	f1 := new(Feature)
-	f1.Name = "lldp"
-	f1.AdminSt = AdminStEnabled
-	if req.LLDP.Spec.AdminState == v1alpha1.AdminStateDown {
-		f1.AdminSt = AdminStDisabled
-	}
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
 
-	if err := p.Patch(ctx, f1); err != nil {
-		return err
+	f := new(Feature)
+	f.Name = "lldp"
+	f.AdminSt = AdminStEnabled
+	if req.LLDP.Spec.AdminState == v1alpha1.AdminStateDown {
+		f.AdminSt = AdminStDisabled
 	}
+	sb.Update(f)
 
 	// if LLDP is disabled, skip the rest of the configuration since device will reject further LLDP-related configuration
-	if f1.AdminSt == AdminStDisabled {
-		return nil
+	if f.AdminSt == AdminStDisabled {
+		return p.Do(ctx, sb)
 	}
 
 	// return error if interfaces are referenced but not provided in the request
@@ -2715,6 +3509,18 @@ func (p *Provider) EnsureLLDP(ctx context.Context, req *provider.LLDPRequest) er
 	}
 
 	l := new(LLDP)
+	// Default values based on the YANG model
+	l.HoldTime = NewOption[uint16](120)
+	l.InitDelay = NewOption[uint16](2)
+
+	if req.ProviderConfig != nil {
+		var cfg nxv1alpha1.LLDPConfig
+		if err := req.ProviderConfig.Into(&cfg); err != nil {
+			return fmt.Errorf("failed to decode provider config: %w", err)
+		}
+		l.InitDelay = NewOption(uint16(cfg.Spec.InitDelay)) //nolint:gosec
+		l.HoldTime = NewOption(uint16(cfg.Spec.HoldTime))   //nolint:gosec
+	}
 
 	interfaceMap := make(map[string]*v1alpha1.Interface, len(req.Interfaces))
 	for _, intf := range req.Interfaces {
@@ -2746,31 +3552,16 @@ func (p *Provider) EnsureLLDP(ctx context.Context, req *provider.LLDPRequest) er
 
 		l.IfItems.IfList.Set(item)
 	}
+	sb.Patch(l)
 
-	if req.ProviderConfig == nil {
-		return p.Patch(ctx, l)
-	}
-
-	c := new(nxv1alpha1.LLDPConfig)
-	if err := req.ProviderConfig.Into(c); err != nil {
-		return fmt.Errorf("failed to decode provider config: %w", err)
-	}
-
-	l.InitDelay = NewOption(uint16(c.Spec.InitDelay)) //nolint:gosec
-	l.HoldTime = NewOption(uint16(c.Spec.HoldTime))   //nolint:gosec
-
-	return p.Patch(ctx, l)
+	return p.Do(ctx, sb)
 }
 
 func (p *Provider) DeleteLLDP(ctx context.Context, req *provider.LLDPRequest) error {
-	f1 := new(Feature)
-	f1.Name = "lldp"
-	f1.AdminSt = AdminStDisabled
-
-	if err := p.Patch(ctx, f1); err != nil {
-		return err
-	}
-	return nil
+	f := new(Feature)
+	f.Name = "lldp"
+	f.AdminSt = AdminStDisabled
+	return p.client.Update(ctx, f)
 }
 
 func (p *Provider) GetLLDPStatus(ctx context.Context, req *provider.LLDPRequest) (provider.LLDPStatus, error) {
@@ -2785,43 +3576,437 @@ func (p *Provider) GetLLDPStatus(ctx context.Context, req *provider.LLDPRequest)
 	return s, nil
 }
 
-func (p *Provider) Patch(ctx context.Context, conf ...gnmiext.Configurable) error {
-	if NXVersion(p.client.Capabilities()) > VersionNX10_6_2 {
-		return p.client.Patch(ctx, conf...)
+// EnsureDHCPRelay configures DHCP relay on the specified interfaces.
+// Replaces the entire DHCP relay configuration on the device with the provided configuration in the request.
+func (p *Provider) EnsureDHCPRelay(ctx context.Context, req *provider.DHCPRelayRequest) error {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
+	f := new(Feature)
+	f.Name = "dhcp"
+	f.AdminSt = AdminStEnabled
+	sb.Update(f)
+
+	// undocumented default value for the VRF property in DME (can be verified via NX-API)
+	vrfName := "!unspecified"
+	if req.VRF != nil {
+		vrfName = req.VRF.Spec.Name
 	}
-	fa, conf := separateFeatureActivation(conf)
-	if err := p.client.Patch(ctx, fa...); err != nil {
-		return err
+
+	dhcp := new(DHCPRelayConfig)
+	for _, intf := range req.Interfaces {
+		ifName, err := ShortName(intf.Spec.Name)
+		if err != nil {
+			return fmt.Errorf("dhcp relay: failed to get short name for interface %q: %w", intf.Spec.Name, err)
+		}
+
+		relay := &DHCPRelay{ID: ifName}
+		for _, addr := range req.DHCPRelay.Spec.Servers {
+			a, err := netip.ParseAddr(addr)
+			if err != nil {
+				return fmt.Errorf("dhcp relay: invalid server address %q: %w", addr, err)
+			}
+			relay.AddrItems.AddrList.Set(&DHCPRelayServer{Address: a, Vrf: vrfName})
+		}
+		dhcp.RelayIfList.Set(relay)
 	}
-	return p.client.Patch(ctx, conf...)
+	sb.Update(dhcp)
+
+	return p.Do(ctx, sb)
 }
 
-func (p *Provider) Update(ctx context.Context, conf ...gnmiext.Configurable) error {
-	if NXVersion(p.client.Capabilities()) > VersionNX10_6_2 {
-		return p.client.Update(ctx, conf...)
-	}
-	fa, conf := separateFeatureActivation(conf)
-	if err := p.client.Update(ctx, fa...); err != nil {
-		return err
-	}
-	return p.client.Update(ctx, conf...)
+// DeleteDHCPRelay removes all DHCP relay configurations from the device.
+func (p *Provider) DeleteDHCPRelay(ctx context.Context, req *provider.DHCPRelayRequest) error {
+	return p.client.Delete(ctx, new(DHCPRelayConfig))
 }
 
-// separateFeatureActivation separates feature activation configurations from other configurations.
-// This is necessary for NX-OS versions <= 10.6(2) where feature activation must be performed before applying configurations.
-// For more details, see: https://github.com/ironcore-dev/network-operator/issues/148
-func separateFeatureActivation(conf []gnmiext.Configurable) (features, others []gnmiext.Configurable) {
-	n := 0
-	fa := make([]gnmiext.Configurable, 0, len(conf))
-	for _, c := range conf {
-		if f, ok := c.(*Feature); ok {
-			fa = append(fa, f)
+// GetDHCPRelayStatus retrieves the current DHCP relay status.
+func (p *Provider) GetDHCPRelayStatus(ctx context.Context, req *provider.DHCPRelayRequest) (provider.DHCPRelayStatus, error) {
+	var s provider.DHCPRelayStatus
+
+	config := new(DHCPRelayConfig)
+	if err := p.client.GetConfig(ctx, config); err != nil {
+		if errors.Is(err, gnmiext.ErrNil) {
+			return s, nil
+		}
+		return s, fmt.Errorf("dhcp relay: failed to get status: %w", err)
+	}
+
+	s.ConfiguredInterfaces = make([]string, 0, config.RelayIfList.Len())
+	for _, relay := range config.RelayIfList {
+		s.ConfiguredInterfaces = append(s.ConfiguredInterfaces, relay.ID)
+	}
+
+	return s, nil
+}
+
+func (p *Provider) EnsureEthernetSegment(ctx context.Context, req *provider.EnsureEthernetSegmentRequest) error {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
+	if req.EthernetSegment.Spec.RedundancyMode == v1alpha1.RedundancyModeSingleActive {
+		return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+			Field:       "spec.redundancyMode",
+			Description: "NX-OS only supports AllActive redundancy mode for Ethernet Segments",
+		})
+	}
+
+	switch req.EthernetSegment.Spec.ESIType {
+	case v1alpha1.ESITypeArbitrary, v1alpha1.ESITypeMAC:
+		// supported
+	default:
+		return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+			Field:       "spec.esiType",
+			Description: fmt.Sprintf("NX-OS only supports Arbitrary (Type 0) and MAC (Type 3) ESI types, got %q", req.EthernetSegment.Spec.ESIType),
+		})
+	}
+
+	if df := req.EthernetSegment.Spec.DesignatedForwarder; df != nil {
+		switch df.ElectionMode {
+		case v1alpha1.DFElectionModeDefault:
+			// supported
+		default:
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "spec.designatedForwarder.electionMode",
+				Description: fmt.Sprintf("NX-OS only supports Default (modulo) DF election mode, got %q", df.ElectionMode),
+			})
+		}
+	}
+
+	vpc := &Feature{Name: "vpc"}
+	if err := p.client.GetConfig(ctx, vpc); err == nil && vpc.AdminSt == AdminStEnabled {
+		return apistatus.NewFailedPreconditionError("ethernet segment: EVPN multihoming cannot be used together with vPC on the same device")
+	}
+
+	name, err := ShortName(req.Interface.Spec.Name)
+	if err != nil {
+		return err
+	}
+
+	f := new(Feature)
+	f.Name = "evpn"
+	f.AdminSt = AdminStEnabled
+	sb.Update(f)
+
+	mh := new(MultihomingItems)
+	mh.AdminSt = AdminStEnabled
+	mh.EadEviRoute = true
+	mh.DfElectionMode = DfElectModeModulo
+	mh.DfElectionTime = "3.0"
+	if df := req.EthernetSegment.Spec.DesignatedForwarder; df != nil && df.ElectionWaitTime != nil {
+		mh.DfElectionTime = fmt.Sprintf("%g", df.ElectionWaitTime.Seconds())
+	}
+	sb.Patch(mh)
+
+	mm := new(EvpnMulticastItems)
+	mm.State = AdminStEnabled
+	sb.Patch(mm)
+
+	es := new(EthernetSegmentItems)
+	es.ID = name
+	es.Type = EthernetSegmentTypeNative
+
+	hex := strings.ReplaceAll(req.EthernetSegment.Spec.ESI, ":", "")
+	switch req.EthernetSegment.Spec.ESIType {
+	case v1alpha1.ESITypeArbitrary:
+		es.ESI = NewOption(hex[0:4] + "." + hex[4:8] + "." + hex[8:12] + "." + hex[12:16] + "." + hex[16:20])
+	case v1alpha1.ESITypeMAC:
+		if req.EthernetSegment.Spec.ESI != "" {
+			mac := hex[2:14]
+			es.SysMac = NewOption(mac[0:2] + ":" + mac[2:4] + ":" + mac[4:6] + ":" + mac[6:8] + ":" + mac[8:10] + ":" + mac[10:12])
+			d, err := strconv.ParseUint(hex[14:20], 16, 24)
+			if err != nil {
+				return fmt.Errorf("failed to parse ESI local discriminator: %w", err)
+			}
+			es.LocalIdentifier = uint32(d)
+		} else {
+			es.SysMacInherit = true
+			es.LocalIdentifierInherit = true
+		}
+	case v1alpha1.ESITypeLACP, v1alpha1.ESITypeMST, v1alpha1.ESITypeRouterID, v1alpha1.ESITypeAS:
+		return fmt.Errorf("ESI type %s is not supported by this provider", req.EthernetSegment.Spec.ESIType)
+	}
+	sb.Patch(es)
+
+	return p.Do(ctx, sb)
+}
+
+func (p *Provider) DeleteEthernetSegment(ctx context.Context, req *provider.DeleteEthernetSegmentRequest) error {
+	name, err := ShortName(req.Interface.Spec.Name)
+	if err != nil {
+		return err
+	}
+
+	es := &EthernetSegmentItems{ID: name}
+	return p.client.Delete(ctx, es)
+}
+
+func (p *Provider) GetEthernetSegmentStatus(ctx context.Context, req *provider.EthernetSegmentStatusRequest) (provider.EthernetSegmentStatus, error) {
+	name, err := ShortName(req.Interface.Spec.Name)
+	if err != nil {
+		return provider.EthernetSegmentStatus{}, err
+	}
+
+	res, err := p.nxapi.Do(ctx, nxapi.NewRequest("show nve ethernet-segment summary"))
+	if err != nil {
+		return provider.EthernetSegmentStatus{}, err
+	}
+	if len(res) == 0 {
+		return provider.EthernetSegmentStatus{}, nil
+	}
+
+	var resp EthernetSegmentResponse
+	if err := json.Unmarshal(res[0], &resp); err != nil {
+		return provider.EthernetSegmentStatus{}, err
+	}
+
+	var row *EthernetSegmentRow
+	for i := range resp.Table.Row {
+		short, err := ShortName(resp.Table.Row[i].Interface)
+		if err != nil {
 			continue
 		}
-		conf[n] = c
-		n++
+		if short == name {
+			row = &resp.Table.Row[i]
+			break
+		}
 	}
-	return fa, conf[:n:n]
+	if row == nil || row.ESI == "" {
+		return provider.EthernetSegmentStatus{}, nil
+	}
+
+	// Convert dotted-quad ESI (e.g. "0300.0034.5634.5600.0001") to colon-hex.
+	hex := strings.ReplaceAll(row.ESI, ".", "")
+	if len(hex) != 20 {
+		return provider.EthernetSegmentStatus{}, fmt.Errorf("invalid ESI format: %q", row.ESI)
+	}
+
+	parts := make([]string, 10)
+	for i := range 10 {
+		parts[i] = hex[i*2 : i*2+2]
+	}
+
+	return provider.EthernetSegmentStatus{
+		ESI:        strings.Join(parts, ":"),
+		OperStatus: strings.EqualFold(row.ESState, string(OperStUp)),
+	}, nil
+}
+
+func (p *Provider) EnsureAAA(ctx context.Context, req *provider.EnsureAAARequest) error { //nolint:gocyclo
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
+	var cfg nxv1alpha1.AAAConfig
+	if req.ProviderConfig != nil {
+		if err := req.ProviderConfig.Into(&cfg); err != nil {
+			return err
+		}
+	}
+
+	desiredTACACS := map[string]struct{}{}
+	desiredRADIUS := map[string]struct{}{}
+
+	for _, group := range req.AAA.Spec.ServerGroups {
+		switch group.Type {
+		case v1alpha1.AAAServerGroupTypeTACACS:
+			sb.Update(&Feature{Name: "tacacsplus", AdminSt: AdminStEnabled})
+			for _, server := range group.Servers {
+				desiredTACACS[server.Address] = struct{}{}
+				srv := &TacacsPlusProvider{
+					Name:    server.Address,
+					Port:    server.TACACS.Port,
+					KeyEnc:  "inherit-from-global",
+					Timeout: 0,
+				}
+				if cfg.Spec.KeyEncryption != "" {
+					srv.KeyEnc = MapKeyEncryption(cfg.Spec.KeyEncryption)
+				}
+				if key, ok := req.TACACSServerKeys[server.Address]; ok {
+					srv.Key = NewOption(key)
+				}
+				if server.Timeout != nil {
+					srv.Timeout = int32(server.Timeout.Seconds())
+				}
+				sb.Update(srv)
+			}
+			grp := &TacacsPlusProviderGroup{
+				Name: group.Name,
+				Vrf:  DefaultVRFName,
+			}
+			if group.VrfName != "" {
+				grp.Vrf = group.VrfName
+			}
+			if group.SourceInterfaceName != "" {
+				grp.SrcIf = NewOption(group.SourceInterfaceName)
+			}
+			for _, server := range group.Servers {
+				grp.ProviderRefItems.ProviderRefList.Set(&TacacsPlusProviderRef{Name: server.Address})
+			}
+
+			sb.Update(grp)
+
+		case v1alpha1.AAAServerGroupTypeRADIUS:
+			for _, server := range group.Servers {
+				desiredRADIUS[server.Address] = struct{}{}
+				srv := &RadiusProvider{
+					Name:     server.Address,
+					AuthPort: server.RADIUS.AuthenticationPort,
+					AcctPort: server.RADIUS.AccountingPort,
+					KeyEnc:   "inherit-from-global",
+					Timeout:  5,
+				}
+				if cfg.Spec.RADIUSKeyEncryption != "" {
+					srv.KeyEnc = MapRADIUSKeyEncryption(cfg.Spec.RADIUSKeyEncryption)
+				}
+				if key, ok := req.RADIUSServerKeys[server.Address]; ok {
+					srv.Key = NewOption(key)
+				}
+				if server.Timeout != nil {
+					srv.Timeout = int32(server.Timeout.Seconds())
+				}
+				sb.Update(srv)
+			}
+			grp := &RadiusProviderGroup{
+				Name: group.Name,
+				Vrf:  DefaultVRFName,
+			}
+			if group.VrfName != "" {
+				grp.Vrf = group.VrfName
+			}
+			if group.SourceInterfaceName != "" {
+				grp.SrcIf = NewOption(group.SourceInterfaceName)
+			}
+			for _, server := range group.Servers {
+				grp.ProviderRefItems.ProviderRefList.Set(&RadiusProviderRef{Name: server.Address})
+			}
+			sb.Update(grp)
+		}
+	}
+
+	auth := &AAADefaultAuth{Realm: AAARealmLocal, Local: AAAValueYes, Fallback: AAAValueYes}
+	if req.AAA.Spec.Authentication != nil && len(req.AAA.Spec.Authentication.Methods) > 0 {
+		methods := req.AAA.Spec.Authentication.Methods
+		auth = &AAADefaultAuth{
+			ErrEn:    cfg.Spec.LoginErrorEnable,
+			Fallback: MapFallbackFromMethodList(methods),
+			Local:    MapLocalFromMethodList(methods),
+			Realm:    MapRealmFromMethodType(methods[0].Type),
+		}
+		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
+			auth.Realm = MapRealmFromGroup(methods[0].GroupName, req.AAA.Spec.ServerGroups)
+			auth.ProviderGroup = methods[0].GroupName
+		}
+	}
+	sb.Update(auth)
+
+	console := &AAAConsoleAuth{Realm: AAARealmLocal, Local: AAAValueYes, Fallback: AAAValueYes}
+	if cfg.Spec.ConsoleAuthentication != nil && len(cfg.Spec.ConsoleAuthentication.Methods) > 0 {
+		methods := cfg.Spec.ConsoleAuthentication.Methods
+		console = &AAAConsoleAuth{
+			ErrEn:    cfg.Spec.LoginErrorEnable,
+			Fallback: MapFallbackFromMethodList(methods),
+			Local:    MapLocalFromMethodList(methods),
+			Realm:    MapRealmFromMethodType(methods[0].Type),
+		}
+		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
+			console.Realm = MapRealmFromGroup(methods[0].GroupName, req.AAA.Spec.ServerGroups)
+			console.ProviderGroup = methods[0].GroupName
+		}
+	}
+	sb.Update(console)
+
+	author := &AAADefaultAuthor{CmdType: "config", LocalRbac: true}
+	if req.AAA.Spec.Authorization != nil && len(req.AAA.Spec.Authorization.Methods) > 0 {
+		methods := req.AAA.Spec.Authorization.Methods
+		author = &AAADefaultAuthor{
+			CmdType:   "config",
+			LocalRbac: MapLocalFromMethodList(methods) == AAAValueYes,
+		}
+		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
+			author.ProviderGroup = methods[0].GroupName
+		}
+	}
+	sb.Update(author)
+
+	acc := &AAADefaultAcc{Realm: AAARealmLocal, LocalRbac: true}
+	if req.AAA.Spec.Accounting != nil && len(req.AAA.Spec.Accounting.Methods) > 0 {
+		methods := req.AAA.Spec.Accounting.Methods
+		acc = &AAADefaultAcc{
+			LocalRbac: MapLocalFromMethodList(methods) == AAAValueYes,
+			Realm:     MapRealmFromMethodType(methods[0].Type),
+		}
+		if methods[0].Type == v1alpha1.AAAMethodTypeGroup {
+			acc.Realm = MapRealmFromGroup(methods[0].GroupName, req.AAA.Spec.ServerGroups)
+			acc.ProviderGroup = methods[0].GroupName
+		}
+	}
+	sb.Update(acc)
+
+	// Fetch current server lists before applying desired state to compute stale entries.
+	currentTACACS := new(TacacsPlusProviderItems)
+	if err := p.client.GetConfig(ctx, currentTACACS); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	currentRADIUS := new(RadiusProviderItems)
+	if err := p.client.GetConfig(ctx, currentRADIUS); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+
+	// Apply the desired config first so that group ProviderRef-lists no longer
+	// reference servers we are about to remove.
+	if err := p.Do(ctx, sb); err != nil {
+		return err
+	}
+
+	// Remove server host entries no longer in the spec. The updates above already
+	// dropped stale entries from the group ProviderRef-lists, so the deletes below
+	// are safe (NX-OS rejects deleting a server that is still group-referenced).
+	sb = new(gnmiext.SetBuilder).Limit(maxSetOperations)
+	for i := range currentTACACS.ProviderList {
+		if _, ok := desiredTACACS[currentTACACS.ProviderList[i].Name]; !ok {
+			sb.Delete(&TacacsPlusProvider{Name: currentTACACS.ProviderList[i].Name})
+		}
+	}
+	for i := range currentRADIUS.ProviderList {
+		if _, ok := desiredRADIUS[currentRADIUS.ProviderList[i].Name]; !ok {
+			sb.Delete(&RadiusProvider{Name: currentRADIUS.ProviderList[i].Name})
+		}
+	}
+	return p.Do(ctx, sb)
+}
+
+func (p *Provider) DeleteAAA(ctx context.Context, req *provider.DeleteAAARequest) error {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
+	// Reset auth realms to local before deleting groups. NX-OS may leave auth
+	// in a broken state if the referenced provider group is removed while still active.
+	sb.Update(
+		&AAADefaultAcc{Realm: AAARealmLocal, LocalRbac: true},
+		&AAADefaultAuthor{CmdType: "config", LocalRbac: true},
+		&AAADefaultAuth{Realm: AAARealmLocal, Local: AAAValueYes, Fallback: AAAValueYes},
+		&AAAConsoleAuth{Realm: AAARealmLocal, Local: AAAValueYes, Fallback: AAAValueYes},
+		// Trying to delete the RadiusProviderGroup-list fails with 'default group radius delete not allowed',
+		// hence we replace with the default value.
+		&RadiusProviderGroupItems{
+			GroupList: []RadiusProviderGroup{{
+				Name: "radius",
+				Vrf:  DefaultVRFName,
+			}},
+		},
+	)
+
+	// Delete all TACACS+ and RADIUS server groups and servers.
+	// Groups must precede servers in the delete to avoid reference violations.
+	sb.Delete(
+		new(TacacsPlusProviderGroupItems),
+		new(TacacsPlusProviderItems),
+		new(RadiusProviderItems),
+	)
+
+	// Disable the TACACS feature. Per the gNMI specification, a single Set
+	// request processes operations in order: deletes, then replaces, then
+	// updates. Since the feature deactivation is an update, it will be applied
+	// after the deletions above within the same request.
+	sb.Update(&Feature{Name: "tacacsplus", AdminSt: AdminStDisabled})
+
+	return p.Do(ctx, sb)
 }
 
 func init() {

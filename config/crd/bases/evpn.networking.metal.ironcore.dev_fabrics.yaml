@@ -1,0 +1,694 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: fabrics.evpn.networking.metal.ironcore.dev
+spec:
+  group: evpn.networking.metal.ironcore.dev
+  names:
+    kind: Fabric
+    listKind: FabricList
+    plural: fabrics
+    singular: fabric
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.underlay.protocol
+      name: Underlay
+      type: string
+    - jsonPath: .spec.overlay.protocol
+      name: Overlay
+      type: string
+    - jsonPath: .spec.overlay.ibgp.asNumber
+      name: AS Number
+      type: string
+    - jsonPath: .spec.bum.type
+      name: BUM
+      priority: 1
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Fabric is the Schema for the fabrics API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              Specification of the desired state of the resource.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              bum:
+                description: bum defines how BUM traffic is forwarded across the fabric.
+                properties:
+                  pim:
+                    description: pim configures PIM sparse mode when type is Multicast.
+                    properties:
+                      anycastRendezvousPoints:
+                        description: |-
+                          anycastRendezvousPoints lists the anycast rendezvous point groups used for
+                          PIM sparse mode. Anycast RPs share the same IP address across multiple
+                          devices for redundancy.
+                        items:
+                          description: AnycastRendezvousPoint defines an anycast PIM
+                            rendezvous point group.
+                          properties:
+                            clientDeviceSelector:
+                              description: |-
+                                clientDeviceSelector identifies the devices that register with the rendezvous
+                                points in this group.
+                              properties:
+                                matchExpressions:
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
+                                  items:
+                                    description: |-
+                                      A label selector requirement is a selector that contains values, a key, and an operator that
+                                      relates the key and values.
+                                    properties:
+                                      key:
+                                        description: key is the label key that the
+                                          selector applies to.
+                                        type: string
+                                      operator:
+                                        description: |-
+                                          operator represents a key's relationship to a set of values.
+                                          Valid operators are In, NotIn, Exists and DoesNotExist.
+                                        type: string
+                                      values:
+                                        description: |-
+                                          values is an array of string values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                          the values array must be empty. This array is replaced during a strategic
+                                          merge patch.
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  description: |-
+                                    matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                    operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            deviceSelector:
+                              description: |-
+                                deviceSelector identifies which devices are configured as rendezvous points
+                                in this group.
+                              properties:
+                                matchExpressions:
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
+                                  items:
+                                    description: |-
+                                      A label selector requirement is a selector that contains values, a key, and an operator that
+                                      relates the key and values.
+                                    properties:
+                                      key:
+                                        description: key is the label key that the
+                                          selector applies to.
+                                        type: string
+                                      operator:
+                                        description: |-
+                                          operator represents a key's relationship to a set of values.
+                                          Valid operators are In, NotIn, Exists and DoesNotExist.
+                                        type: string
+                                      values:
+                                        description: |-
+                                          values is an array of string values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                          the values array must be empty. This array is replaced during a strategic
+                                          merge patch.
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  description: |-
+                                    matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                    operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            multicastGroups:
+                              description: |-
+                                multicastGroups lists the multicast group address ranges served by this
+                                rendezvous point. Each entry must be a valid IPv4 multicast CIDR prefix.
+                              items:
+                                format: cidr
+                                type: string
+                              minItems: 1
+                              type: array
+                            name:
+                              description: name is a unique identifier for this rendezvous
+                                point group within the fabric.
+                              maxLength: 63
+                              minLength: 1
+                              type: string
+                          required:
+                          - clientDeviceSelector
+                          - deviceSelector
+                          - multicastGroups
+                          - name
+                          type: object
+                        minItems: 1
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
+                    required:
+                    - anycastRendezvousPoints
+                    type: object
+                  type:
+                    description: type selects the BUM forwarding mechanism.
+                    enum:
+                    - Multicast
+                    type: string
+                required:
+                - type
+                type: object
+                x-kubernetes-validations:
+                - message: pim must be set when type is Multicast
+                  rule: self.type != 'Multicast' || has(self.pim)
+              deviceSelector:
+                description: |-
+                  deviceSelector identifies which devices are members of this fabric.
+                  All devices whose labels match this selector will be enrolled.
+                  A device must not match the deviceSelector of more than one Fabric;
+                  overlapping selectors lead to undefined behaviour as both controllers
+                  will compete for ownership of the device's sub-resources.
+                properties:
+                  matchExpressions:
+                    description: matchExpressions is a list of label selector requirements.
+                      The requirements are ANDed.
+                    items:
+                      description: |-
+                        A label selector requirement is a selector that contains values, a key, and an operator that
+                        relates the key and values.
+                      properties:
+                        key:
+                          description: key is the label key that the selector applies
+                            to.
+                          type: string
+                        operator:
+                          description: |-
+                            operator represents a key's relationship to a set of values.
+                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                          type: string
+                        values:
+                          description: |-
+                            values is an array of string values. If the operator is In or NotIn,
+                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                            the values array must be empty. This array is replaced during a strategic
+                            merge patch.
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: atomic
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                    type: object
+                type: object
+                x-kubernetes-map-type: atomic
+              loopbacks:
+                description: |-
+                  loopbacks configures IP address allocation for loopback interfaces on
+                  fabric devices.
+                properties:
+                  ipAddressPoolRef:
+                    description: |-
+                      ipAddressPoolRef references the IPAddressPool from which loopback addresses
+                      are allocated for devices in the fabric.
+                    properties:
+                      name:
+                        description: |-
+                          Name of the referent.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
+                required:
+                - ipAddressPoolRef
+                type: object
+              overlay:
+                description: overlay defines the overlay control-plane configuration
+                  for the fabric.
+                properties:
+                  ibgp:
+                    description: ibgp configures the iBGP overlay when protocol is
+                      IBGP.
+                    properties:
+                      asNumber:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        description: |-
+                          asNumber is the BGP autonomous system number shared by all devices in the
+                          iBGP fabric. Supports both plain format (1-4294967295) and dotted notation
+                          (1-65535.0-65535) as per RFC 5396.
+                        x-kubernetes-int-or-string: true
+                      routeReflectors:
+                        description: |-
+                          routeReflectors lists the route reflector groups that provide iBGP scalability.
+                          Each group designates a set of reflectors and their client devices.
+                        items:
+                          description: RouteReflectorGroup defines a set of BGP route
+                            reflectors and their clients.
+                          properties:
+                            clientDeviceSelector:
+                              description: |-
+                                clientDeviceSelector identifies the devices that are route reflector clients
+                                for this group.
+                              properties:
+                                matchExpressions:
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
+                                  items:
+                                    description: |-
+                                      A label selector requirement is a selector that contains values, a key, and an operator that
+                                      relates the key and values.
+                                    properties:
+                                      key:
+                                        description: key is the label key that the
+                                          selector applies to.
+                                        type: string
+                                      operator:
+                                        description: |-
+                                          operator represents a key's relationship to a set of values.
+                                          Valid operators are In, NotIn, Exists and DoesNotExist.
+                                        type: string
+                                      values:
+                                        description: |-
+                                          values is an array of string values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                          the values array must be empty. This array is replaced during a strategic
+                                          merge patch.
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  description: |-
+                                    matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                    operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            deviceSelector:
+                              description: deviceSelector identifies which devices
+                                act as route reflectors in this group.
+                              properties:
+                                matchExpressions:
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
+                                  items:
+                                    description: |-
+                                      A label selector requirement is a selector that contains values, a key, and an operator that
+                                      relates the key and values.
+                                    properties:
+                                      key:
+                                        description: key is the label key that the
+                                          selector applies to.
+                                        type: string
+                                      operator:
+                                        description: |-
+                                          operator represents a key's relationship to a set of values.
+                                          Valid operators are In, NotIn, Exists and DoesNotExist.
+                                        type: string
+                                      values:
+                                        description: |-
+                                          values is an array of string values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                          the values array must be empty. This array is replaced during a strategic
+                                          merge patch.
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  description: |-
+                                    matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                    operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            name:
+                              description: name is a unique identifier for this route
+                                reflector group within the fabric.
+                              maxLength: 63
+                              minLength: 1
+                              type: string
+                          required:
+                          - clientDeviceSelector
+                          - deviceSelector
+                          - name
+                          type: object
+                        minItems: 1
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
+                    required:
+                    - asNumber
+                    - routeReflectors
+                    type: object
+                    x-kubernetes-validations:
+                    - message: at least one route reflector group must be specified
+                      rule: size(self.routeReflectors) > 0
+                  protocol:
+                    description: protocol is the control-plane protocol used for the
+                      EVPN overlay.
+                    enum:
+                    - IBGP
+                    type: string
+                required:
+                - protocol
+                type: object
+                x-kubernetes-validations:
+                - message: ibgp must be set when protocol is IBGP
+                  rule: self.protocol != 'IBGP' || has(self.ibgp)
+              underlay:
+                description: underlay defines the underlay routing configuration for
+                  the fabric.
+                properties:
+                  addressing:
+                    description: addressing configures how IP addresses are assigned
+                      to underlay interfaces.
+                    properties:
+                      ipPrefixPoolRef:
+                        description: |-
+                          ipPrefixPoolRef references the IPPrefixPool from which point-to-point
+                          prefixes are allocated for underlay interfaces.
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      unnumbered:
+                        default: false
+                        description: |-
+                          unnumbered controls whether underlay interfaces use unnumbered addressing
+                          (borrowing from loopback0) instead of dedicated point-to-point addresses.
+                        type: boolean
+                    type: object
+                    x-kubernetes-validations:
+                    - message: exactly one of ipPrefixPoolRef or unnumbered must be
+                        set
+                      rule: has(self.ipPrefixPoolRef) != self.unnumbered
+                  interfaceSelector:
+                    description: |-
+                      interfaceSelector identifies which interfaces participate in the underlay.
+                      Interfaces on fabric devices matching these labels will be enrolled in the
+                      underlay routing process.
+                    properties:
+                      matchExpressions:
+                        description: matchExpressions is a list of label selector
+                          requirements. The requirements are ANDed.
+                        items:
+                          description: |-
+                            A label selector requirement is a selector that contains values, a key, and an operator that
+                            relates the key and values.
+                          properties:
+                            key:
+                              description: key is the label key that the selector
+                                applies to.
+                              type: string
+                            operator:
+                              description: |-
+                                operator represents a key's relationship to a set of values.
+                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                              type: string
+                            values:
+                              description: |-
+                                values is an array of string values. If the operator is In or NotIn,
+                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                the values array must be empty. This array is replaced during a strategic
+                                merge patch.
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                          required:
+                          - key
+                          - operator
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
+                      matchLabels:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                        type: object
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  protocol:
+                    description: |-
+                      protocol is the routing protocol used to build IP reachability across the
+                      fabric underlay.
+                    enum:
+                    - OSPF
+                    - ISIS
+                    type: string
+                required:
+                - addressing
+                - interfaceSelector
+                - protocol
+                type: object
+              vtep:
+                description: vtep identifies the VTEP devices and configures their
+                  anycast gateway.
+                properties:
+                  anycastGateway:
+                    description: anycastGateway configures the anycast gateway shared
+                      across all VTEP devices.
+                    properties:
+                      virtualMAC:
+                        description: |-
+                          virtualMAC is the shared MAC address used by all anycast gateway instances
+                          across the fabric. Must be a valid IEEE 802 MAC address in colon-separated
+                          hexadecimal notation (e.g. f0:0c:c1:5c:00:00).
+                        pattern: ^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$
+                        type: string
+                    required:
+                    - virtualMAC
+                    type: object
+                  deviceSelector:
+                    description: deviceSelector identifies which devices are configured
+                      as VTEPs.
+                    properties:
+                      matchExpressions:
+                        description: matchExpressions is a list of label selector
+                          requirements. The requirements are ANDed.
+                        items:
+                          description: |-
+                            A label selector requirement is a selector that contains values, a key, and an operator that
+                            relates the key and values.
+                          properties:
+                            key:
+                              description: key is the label key that the selector
+                                applies to.
+                              type: string
+                            operator:
+                              description: |-
+                                operator represents a key's relationship to a set of values.
+                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                              type: string
+                            values:
+                              description: |-
+                                values is an array of string values. If the operator is In or NotIn,
+                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                the values array must be empty. This array is replaced during a strategic
+                                merge patch.
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                          required:
+                          - key
+                          - operator
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
+                      matchLabels:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                        type: object
+                    type: object
+                    x-kubernetes-map-type: atomic
+                required:
+                - deviceSelector
+                type: object
+            required:
+            - bum
+            - deviceSelector
+            - loopbacks
+            - overlay
+            - underlay
+            - vtep
+            type: object
+          status:
+            description: |-
+              Status of the resource. This is set and updated automatically.
+              Read-only.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              conditions:
+                description: |-
+                  conditions represent the current state of the Fabric resource.
+                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
+                  The status of each condition is one of True, False, or Unknown.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

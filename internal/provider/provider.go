@@ -35,18 +35,27 @@ type DeviceProvider interface {
 	// GetDeviceInfo retrieves basic information about the device,
 	// such as manufacturer, model, serial number, and firmware version.
 	GetDeviceInfo(context.Context) (*DeviceInfo, error)
+	// GetLastRebootTime retrieves the timestamp of the last device reboot.
+	GetLastRebootTime(context.Context) (time.Time, error)
+}
+
+// MaintenanceProvider is the interface for disruptive device lifecycle operations.
+type MaintenanceProvider interface {
+	Provider
+
 	// Reboot initiates a reboot of the device.
 	Reboot(context.Context, *deviceutil.Connection) error
 	// FactoryReset performs a factory reset of the device.
 	FactoryReset(context.Context, *deviceutil.Connection) error
-	// Reprovision prepares the device for reprovisioning by resetting it and reenabling provisioning mechanisms.
-	Reprovision(context.Context, *deviceutil.Connection) error
 }
 
 // ProvisioningProvider is the interface for the realization of the provisioning-related operations over different providers.
 type ProvisioningProvider interface {
-	// HashedPassword takes a plaintext password and returns the hashed password along with the hash type. This is necessary to securely provision user accounts on devices using a potentially insecure channel.
-	HashProvisioningPassword(password string) (string, string, error)
+	// Reprovision prepares the device for reprovisioning by resetting it and reenabling provisioning mechanisms.
+	Reprovision(context.Context, *deviceutil.Connection) error
+	// HashProvisioningPassword takes a plaintext password and returns the hashed password along with the hash type.
+	// This is necessary to securely provision user accounts on devices using a potentially insecure channel.
+	HashProvisioningPassword(password string) (hash string, algorithm string, err error)
 	// VerifyProvisioned checks if the provisioning process has been completed successfully on the device.
 	VerifyProvisioned(context.Context, *deviceutil.Connection, *v1alpha1.Device) bool
 }
@@ -63,6 +72,8 @@ type DevicePort struct {
 }
 
 type DeviceInfo struct {
+	// Hostname is the hostname of the device.
+	Hostname string
 	// Manufacturer is the manufacturer of the device, e.g. "Cisco".
 	Manufacturer string
 	// Model is the model of the device, e.g. "N9K-C9332D-GX2B".
@@ -71,6 +82,81 @@ type DeviceInfo struct {
 	SerialNumber string
 	// FirmwareVersion is the firmware version running on the device, e.g. "10.4(3)".
 	FirmwareVersion string
+}
+
+// ConfigBackupProvider performs on-device configuration backup operations.
+type ConfigBackupProvider interface {
+	Provider
+
+	// CreateConfigBackup writes a new configuration backup to the device.
+	CreateConfigBackup(context.Context, *ConfigBackupRequest) (*ConfigBackupFile, error)
+	// ListConfigBackups lists the backups currently discovered for the ConfigBackup policy.
+	ListConfigBackups(context.Context, *ConfigBackupRequest) (*ConfigBackupInventory, error)
+	// DeleteConfigBackups removes the provided backups from the device.
+	DeleteConfigBackups(context.Context, ...*ConfigBackupFile) error
+}
+
+type ConfigBackupRequest struct {
+	ConfigBackup   *v1alpha1.ConfigBackup
+	ProviderConfig *ProviderConfig
+}
+
+type ConfigBackupInventory struct {
+	// Backups contains only the backups managed by this ConfigBackup policy.
+	Backups []*ConfigBackupFile
+	// TotalBytes/UsedBytes/FreeBytes describe the underlying storage usage on the device
+	// and may include unrelated files outside Backups. A value of `nil` indicates that the
+	// provider does not support reporting storage usage.
+	TotalBytes *int64
+	UsedBytes  *int64
+	FreeBytes  *int64
+}
+
+// TotalBackupSizeBytes returns the total size of all backups in the inventory, in bytes.
+// If a backup's size is unknown (nil), it is ignored in the total.
+// If all backups have unknown sizes, ok will be false.
+func (i *ConfigBackupInventory) TotalBackupSizeBytes() (total int64, ok bool) {
+	for _, backup := range i.Backups {
+		if backup.SizeBytes != nil {
+			total += *backup.SizeBytes
+			ok = true
+		}
+	}
+	return
+}
+
+// FreePercent returns the free storage as a percentage (0-100), or nil
+// if the inventory lacks the data to compute it.
+func (i *ConfigBackupInventory) FreePercent() *int32 {
+	if i.FreeBytes == nil || i.TotalBytes == nil || *i.TotalBytes <= 0 {
+		return nil
+	}
+	v := int32(*i.FreeBytes * 100 / *i.TotalBytes) // #nosec G115
+	return &v
+}
+
+// ThresholdBreached reports whether the inventory's free storage violates
+// the given threshold. Returns false if threshold is nil or the inventory
+// lacks the data to evaluate.
+func (i *ConfigBackupInventory) ThresholdBreached(threshold *v1alpha1.ConfigBackupStorageThreshold) bool {
+	if threshold == nil || i.FreeBytes == nil {
+		return false
+	}
+	if threshold.MinFreeBytes != nil && *i.FreeBytes < *threshold.MinFreeBytes {
+		return true
+	}
+	if threshold.MinFreePercent != nil {
+		if free := i.FreePercent(); free != nil && *free < *threshold.MinFreePercent {
+			return true
+		}
+	}
+	return false
+}
+
+type ConfigBackupFile struct {
+	Path      string
+	SizeBytes *int64
+	CreatedAt time.Time
 }
 
 // InterfaceProvider is the interface for the realization of the Interface objects over different providers.
@@ -83,6 +169,10 @@ type InterfaceProvider interface {
 	DeleteInterface(context.Context, *InterfaceRequest) error
 	// GetInterfaceStatus call is responsible for retrieving the current status of the Interface from the provider.
 	GetInterfaceStatus(context.Context, *InterfaceRequest) (InterfaceStatus, error)
+	// InterfaceNameEqual reports whether two interface names refer to the same interface on the provider.
+	InterfaceNameEqual(context.Context, string, string) (bool, error)
+	// LoopbackInterfaceName returns the vendor-specific interface name for a loopback with the given numeric ID.
+	LoopbackInterfaceName(id int) (string, error)
 }
 
 type EnsureInterfaceRequest struct {
@@ -95,6 +185,10 @@ type EnsureInterfaceRequest struct {
 	Members []*v1alpha1.Interface
 	// MultiChassisID is the multi-chassis identifier for multi-chassis link aggregation.
 	MultiChassisID *int16
+	// AggregateParent is the parent Aggregate interface when this interface is
+	// a member of an aggregated interface.
+	// This field is only applicable if the interface type is Physical.
+	AggregateParent *v1alpha1.Interface
 	// VLAN is the referenced VLAN for routed VLAN interfaces (SVI).
 	// This field is only applicable if the interface type is RoutedVLAN.
 	VLAN *v1alpha1.VLAN
@@ -127,7 +221,22 @@ type InterfaceStatus struct {
 	// OperStatus indicates whether the interface is operationally up (true) or down (false).
 	OperStatus bool
 	// OperMessage provides additional information about the operational status of the interface.
+	// Leave empty if the provider does not return any additional information.
 	OperMessage string
+	// LLDPAdjacencies provides information about the directly connected neighbors on this interface, if available.
+	LLDPAdjacencies []LLDPAdjacency
+}
+
+// LLDPAdjacency represents information about a directly connected neighbor on an interface, as discovered through LLDP.
+type LLDPAdjacency struct {
+	SysName         string
+	SysDescription  string
+	ChassisID       string
+	ChassisIDType   uint8
+	PortID          string
+	PortIDType      uint8
+	PortDescription string
+	TTL             time.Duration
 }
 
 // BannerProvider is the interface for the realization of the Banner objects over different providers.
@@ -162,7 +271,7 @@ type UserProvider interface {
 
 type EnsureUserRequest struct {
 	Username       string
-	Password       string // #nosec G117
+	Password       string `json:"-"`
 	SSHKey         string
 	Roles          []string
 	ProviderConfig *ProviderConfig
@@ -208,18 +317,13 @@ type ACLProvider interface {
 	Provider
 
 	// EnsureACL call is responsible for AccessControlList realization on the provider.
-	EnsureACL(context.Context, *EnsureACLRequest) error
+	EnsureACL(context.Context, *ACLRequest) error
 	// DeleteACL call is responsible for AccessControlList deletion on the provider.
-	DeleteACL(context.Context, *DeleteACLRequest) error
+	DeleteACL(context.Context, *ACLRequest) error
 }
 
-type EnsureACLRequest struct {
+type ACLRequest struct {
 	ACL            *v1alpha1.AccessControlList
-	ProviderConfig *ProviderConfig
-}
-
-type DeleteACLRequest struct {
-	Name           string
 	ProviderConfig *ProviderConfig
 }
 
@@ -285,12 +389,16 @@ type ManagementAccessProvider interface {
 	// EnsureManagementAccess call is responsible for ManagementAccess realization on the provider.
 	EnsureManagementAccess(context.Context, *EnsureManagementAccessRequest) error
 	// DeleteManagementAccess call is responsible for ManagementAccess deletion on the provider.
-	DeleteManagementAccess(context.Context) error
+	DeleteManagementAccess(context.Context, *DeleteManagementAccessRequest) error
 }
 
 type EnsureManagementAccessRequest struct {
 	ManagementAccess *v1alpha1.ManagementAccess
 	ProviderConfig   *ProviderConfig
+}
+
+type DeleteManagementAccessRequest struct {
+	ManagementAccess *v1alpha1.ManagementAccess
 }
 
 // ISISProvider is the interface for the realization of the ISIS objects over different providers.
@@ -369,11 +477,21 @@ type BGPProvider interface {
 type EnsureBGPRequest struct {
 	BGP            *v1alpha1.BGP
 	ProviderConfig *ProviderConfig
+	// VRF is the resolved VRF referenced by BGP.Spec.VrfRef.
+	// When nil, the provider shall use the default VRF.
+	VRF *v1alpha1.VRF
+	// RedistributeDirectRoutePolicies maps each address family to the resolved
+	// RoutingPolicy to apply when redistributing directly connected routes.
+	// Absent key means no redistribution is configured for that family.
+	RedistributeDirectRoutePolicies map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy
 }
 
 type DeleteBGPRequest struct {
 	BGP            *v1alpha1.BGP
 	ProviderConfig *ProviderConfig
+	// VRF is the resolved VRF referenced by BGP.Spec.VrfRef.
+	// When nil, the provider shall use the default VRF.
+	VRF *v1alpha1.VRF
 }
 
 // BGPPeerProvider is the interface for the realization of the BGPPeer objects over different providers.
@@ -392,16 +510,35 @@ type EnsureBGPPeerRequest struct {
 	BGPPeer         *v1alpha1.BGPPeer
 	ProviderConfig  *ProviderConfig
 	SourceInterface string
+	// BGP is the resolved BGP instance referenced by BGPPeer.Spec.BgpRef.
+	BGP *v1alpha1.BGP
+	// VRF is the resolved VRF referenced by BGP.Spec.VrfRef.
+	// When nil, the provider shall use the default VRF.
+	VRF *v1alpha1.VRF
+	// InboundRoutingPolicies maps each address family to the device-level name of
+	// the inbound routing policy to apply. Absent key means no policy is configured.
+	InboundRoutingPolicies map[v1alpha1.BGPAddressFamilyType]string
+	// OutboundRoutingPolicies maps each address family to the device-level name of
+	// the outbound routing policy to apply. Absent key means no policy is configured.
+	OutboundRoutingPolicies map[v1alpha1.BGPAddressFamilyType]string
 }
 
 type DeleteBGPPeerRequest struct {
 	BGPPeer        *v1alpha1.BGPPeer
 	ProviderConfig *ProviderConfig
+	// BGP is the resolved BGP instance referenced by BGPPeer.Spec.BgpRef.
+	BGP *v1alpha1.BGP
+	// VRF is the resolved VRF referenced by BGP.Spec.VrfRef.
+	// When nil, the provider shall use the default VRF.
+	VRF *v1alpha1.VRF
 }
 
 type BGPPeerStatusRequest struct {
 	BGPPeer        *v1alpha1.BGPPeer
 	ProviderConfig *ProviderConfig
+	// VRF is the resolved VRF referenced by the BGP instance of this peer.
+	// When nil, the provider shall use the default VRF.
+	VRF *v1alpha1.VRF
 }
 
 type BGPPeerStatus struct {
@@ -502,6 +639,7 @@ type EVPNInstanceRequest struct {
 	EVPNInstance   *v1alpha1.EVPNInstance
 	ProviderConfig *ProviderConfig
 	VLAN           *v1alpha1.VLAN
+	VRF            *v1alpha1.VRF
 }
 
 // PrefixSetProvider is the interface for the realization of the PrefixSet objects over different providers.
@@ -564,6 +702,32 @@ type NVEProvider interface {
 	GetNVEStatus(context.Context, *NVERequest) (NVEStatus, error)
 }
 
+// AAAProvider is the interface for the realization of the AAA objects over different providers.
+type AAAProvider interface {
+	Provider
+
+	// EnsureAAA call is responsible for AAA realization on the provider.
+	EnsureAAA(context.Context, *EnsureAAARequest) error
+	// DeleteAAA call is responsible for AAA deletion on the provider.
+	DeleteAAA(context.Context, *DeleteAAARequest) error
+}
+
+type EnsureAAARequest struct {
+	AAA            *v1alpha1.AAA
+	ProviderConfig *ProviderConfig
+	// TACACSServerKeys contains the plain text keys for each TACACS+ server,
+	// keyed by server address.
+	TACACSServerKeys map[string]string
+	// RADIUSServerKeys contains the plain text shared secrets for each RADIUS server,
+	// keyed by server address.
+	RADIUSServerKeys map[string]string
+}
+
+type DeleteAAARequest struct {
+	AAA            *v1alpha1.AAA
+	ProviderConfig *ProviderConfig
+}
+
 type NVERequest struct {
 	NVE                    *v1alpha1.NetworkVirtualizationEdge
 	SourceInterface        *v1alpha1.Interface
@@ -612,10 +776,70 @@ type LLDPStatus struct {
 	OperStatus bool
 }
 
+type DHCPRelayProvider interface {
+	Provider
+
+	// EnsureDHCPRelay realizes DHCP Relay configuration.
+	EnsureDHCPRelay(context.Context, *DHCPRelayRequest) error
+	// DeleteDHCPRelay deletes the DHCP Relay configuration.
+	DeleteDHCPRelay(context.Context, *DHCPRelayRequest) error
+	// GetDHCPRelayStatus call retrieves the current status of the DHCP Relay configuration.
+	GetDHCPRelayStatus(context.Context, *DHCPRelayRequest) (DHCPRelayStatus, error)
+}
+
+type DHCPRelayRequest struct {
+	DHCPRelay      *v1alpha1.DHCPRelay
+	ProviderConfig *ProviderConfig
+	Interfaces     []*v1alpha1.Interface
+	VRF            *v1alpha1.VRF
+}
+
+type DHCPRelayStatus struct {
+	// ConfiguredInterfaces contains the names of the interfaces on the device for which DHCP Relay is configured, e.g., eth1/1.
+	ConfiguredInterfaces []string
+}
+
+type EthernetSegmentProvider interface {
+	Provider
+
+	// EnsureEthernetSegment is responsible for EthernetSegment realization on the provider.
+	EnsureEthernetSegment(context.Context, *EnsureEthernetSegmentRequest) error
+	// DeleteEthernetSegment is responsible for EthernetSegment deletion on the provider.
+	DeleteEthernetSegment(context.Context, *DeleteEthernetSegmentRequest) error
+	// GetEthernetSegmentStatus reads back the realized ESI from the device.
+	GetEthernetSegmentStatus(context.Context, *EthernetSegmentStatusRequest) (EthernetSegmentStatus, error)
+}
+
+type EnsureEthernetSegmentRequest struct {
+	EthernetSegment *v1alpha1.EthernetSegment
+	Interface       *v1alpha1.Interface
+	ProviderConfig  *ProviderConfig
+}
+
+type DeleteEthernetSegmentRequest struct {
+	EthernetSegment *v1alpha1.EthernetSegment
+	Interface       *v1alpha1.Interface
+	ProviderConfig  *ProviderConfig
+}
+
+type EthernetSegmentStatusRequest struct {
+	EthernetSegment *v1alpha1.EthernetSegment
+	Interface       *v1alpha1.Interface
+	ProviderConfig  *ProviderConfig
+}
+
+type EthernetSegmentStatus struct {
+	// ESI is the realized 10-byte ESI in colon-separated hex, read from device operational state.
+	// For auto-derived ESI types this is the value generated by the device.
+	ESI string
+	// OperStatus indicates whether the Ethernet Segment is operationally up (true) or down (false).
+	OperStatus bool
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.
-type ProviderFunc func() Provider
+type ProviderFunc func() Provider //nolint:revive // stutter is intentional; ProviderFunc is the established name used across all controllers
 
 // providers holds all registered providers.
 // It should be accessed in a thread-safe manner and kept private to this package.
@@ -668,7 +892,7 @@ func GetProviderConfig(ctx context.Context, r client.Reader, namespace string, r
 }
 
 // ProviderConfig is a wrapper around an [unstructured.Unstructured] object that represents a provider-specific configuration.
-type ProviderConfig struct {
+type ProviderConfig struct { //nolint:revive // stutter is intentional; ProviderConfig is the established name used across all controllers and API types
 	obj *unstructured.Unstructured
 }
 

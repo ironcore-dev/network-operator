@@ -1,0 +1,2 @@
+interface Ethernet1/10
+ switchport trunk allowed vlan 10

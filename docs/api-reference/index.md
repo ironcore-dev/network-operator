@@ -1,27 +1,342 @@
 # API Reference
 
 ## Packages
+- [evpn.networking.metal.ironcore.dev/v1alpha1](#evpnnetworkingmetalironcoredevv1alpha1)
 - [networking.metal.ironcore.dev/v1alpha1](#networking-metal-ironcore-dev-v1alpha1)
 - [nx.cisco.networking.metal.ironcore.dev/v1alpha1](#nx-cisco-networking-metal-ironcore-dev-v1alpha1)
+- [pool.networking.metal.ironcore.dev/v1alpha1](#pool-networking-metal-ironcore-dev-v1alpha1)
 - [xe.cisco.networking.metal.ironcore.dev/v1alpha1](#xe-cisco-networking-metal-ironcore-dev-v1alpha1)
 - [xr.cisco.networking.metal.ironcore.dev/v1alpha1](#xr-cisco-networking-metal-ironcore-dev-v1alpha1)
 
 
+## evpn.networking.metal.ironcore.dev/v1alpha1
+
+Package v1alpha1 contains API Schema definitions for the evpn.networking.metal.ironcore.dev v1alpha1 API group.
+
+### Resource Types
+- [Fabric](#fabric)
+
+
+
+#### AnycastRendezvousPoint
+
+
+
+AnycastRendezvousPoint defines an anycast PIM rendezvous point group.
+
+
+
+_Appears in:_
+- [FabricPIMSpec](#fabricpimspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | name is a unique identifier for this rendezvous point group within the fabric. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `multicastGroups` _[IPPrefix](#ipprefix) array_ | multicastGroups lists the multicast group address ranges served by this<br />rendezvous point. Each entry must be a valid IPv4 multicast CIDR prefix. |  | Format: cidr <br />MinItems: 1 <br />Type: string <br />Required: \{\} <br /> |
+| `deviceSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#labelselector-v1-meta)_ | deviceSelector identifies which devices are configured as rendezvous points<br />in this group. |  | Required: \{\} <br /> |
+| `clientDeviceSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#labelselector-v1-meta)_ | clientDeviceSelector identifies the devices that register with the rendezvous<br />points in this group. |  | Required: \{\} <br /> |
+
+
+#### BUMType
+
+_Underlying type:_ _string_
+
+BUMType is the mechanism used to handle BUM (Broadcast, Unknown unicast,
+Multicast) traffic in the fabric.
+
+_Validation:_
+- Enum: [Multicast]
+
+_Appears in:_
+- [FabricBUMSpec](#fabricbumspec)
+
+| Field | Description |
+| --- | --- |
+| `Multicast` | BUMTypeMulticast uses PIM sparse mode for BUM traffic forwarding.<br /> |
+
+
+#### Fabric
+
+
+
+Fabric is the Schema for the fabrics API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `evpn.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `Fabric` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[FabricSpec](#fabricspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[FabricStatus](#fabricstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### FabricAnycastGatewaySpec
+
+
+
+FabricAnycastGatewaySpec configures the anycast gateway on VTEP devices.
+
+
+
+_Appears in:_
+- [FabricVTEPSpec](#fabricvtepspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `virtualMAC` _string_ | virtualMAC is the shared MAC address used by all anycast gateway instances<br />across the fabric. Must be a valid IEEE 802 MAC address in colon-separated<br />hexadecimal notation (e.g. f0:0c:c1:5c:00:00). |  | Pattern: `^([0-9a-fA-F]\{2\}:)\{5\}[0-9a-fA-F]\{2\}$` <br />Required: \{\} <br /> |
+
+
+#### FabricBUMSpec
+
+
+
+FabricBUMSpec defines how BUM (Broadcast, Unknown unicast, Multicast) traffic
+is forwarded across the fabric.
+
+
+
+_Appears in:_
+- [FabricSpec](#fabricspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `type` _[BUMType](#bumtype)_ | type selects the BUM forwarding mechanism. |  | Enum: [Multicast] <br />Required: \{\} <br /> |
+| `pim` _[FabricPIMSpec](#fabricpimspec)_ | pim configures PIM sparse mode when type is Multicast. |  | Optional: \{\} <br /> |
+
+
+#### FabricIBGPSpec
+
+
+
+FabricIBGPSpec configures the iBGP overlay control plane.
+
+
+
+_Appears in:_
+- [FabricOverlaySpec](#fabricoverlayspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | asNumber is the BGP autonomous system number shared by all devices in the<br />iBGP fabric. Supports both plain format (1-4294967295) and dotted notation<br />(1-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
+| `routeReflectors` _[RouteReflectorGroup](#routereflectorgroup) array_ | routeReflectors lists the route reflector groups that provide iBGP scalability.<br />Each group designates a set of reflectors and their client devices. |  | MinItems: 1 <br />Required: \{\} <br /> |
+
+
+#### FabricLoopbacksSpec
+
+
+
+FabricLoopbacksSpec configures IP address allocation for loopback interfaces.
+
+
+
+_Appears in:_
+- [FabricSpec](#fabricspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `ipAddressPoolRef` _[LocalObjectReference](#localobjectreference)_ | ipAddressPoolRef references the IPAddressPool from which loopback addresses<br />are allocated for devices in the fabric. |  | Required: \{\} <br /> |
+
+
+#### FabricOverlaySpec
+
+
+
+FabricOverlaySpec defines the overlay control-plane configuration.
+
+
+
+_Appears in:_
+- [FabricSpec](#fabricspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `protocol` _[OverlayProtocol](#overlayprotocol)_ | protocol is the control-plane protocol used for the EVPN overlay. |  | Enum: [IBGP] <br />Required: \{\} <br /> |
+| `ibgp` _[FabricIBGPSpec](#fabricibgpspec)_ | ibgp configures the iBGP overlay when protocol is IBGP. |  | Optional: \{\} <br /> |
+
+
+#### FabricPIMSpec
+
+
+
+FabricPIMSpec configures PIM sparse mode for BUM traffic.
+
+
+
+_Appears in:_
+- [FabricBUMSpec](#fabricbumspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `anycastRendezvousPoints` _[AnycastRendezvousPoint](#anycastrendezvouspoint) array_ | anycastRendezvousPoints lists the anycast rendezvous point groups used for<br />PIM sparse mode. Anycast RPs share the same IP address across multiple<br />devices for redundancy. |  | MinItems: 1 <br />Required: \{\} <br /> |
+
+
+#### FabricSpec
+
+
+
+FabricSpec defines the desired state of Fabric.
+
+
+
+_Appears in:_
+- [Fabric](#fabric)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#labelselector-v1-meta)_ | deviceSelector identifies which devices are members of this fabric.<br />All devices whose labels match this selector will be enrolled.<br />A device must not match the deviceSelector of more than one Fabric;<br />overlapping selectors lead to undefined behaviour as both controllers<br />will compete for ownership of the device's sub-resources. |  | Required: \{\} <br /> |
+| `loopbacks` _[FabricLoopbacksSpec](#fabricloopbacksspec)_ | loopbacks configures IP address allocation for loopback interfaces on<br />fabric devices. |  | Required: \{\} <br /> |
+| `underlay` _[FabricUnderlaySpec](#fabricunderlayspec)_ | underlay defines the underlay routing configuration for the fabric. |  | Required: \{\} <br /> |
+| `overlay` _[FabricOverlaySpec](#fabricoverlayspec)_ | overlay defines the overlay control-plane configuration for the fabric. |  | Required: \{\} <br /> |
+| `bum` _[FabricBUMSpec](#fabricbumspec)_ | bum defines how BUM traffic is forwarded across the fabric. |  | Required: \{\} <br /> |
+| `vtep` _[FabricVTEPSpec](#fabricvtepspec)_ | vtep identifies the VTEP devices and configures their anycast gateway. |  | Required: \{\} <br /> |
+
+
+#### FabricStatus
+
+
+
+FabricStatus defines the observed state of Fabric.
+
+
+
+_Appears in:_
+- [Fabric](#fabric)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the Fabric resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+
+
+#### FabricUnderlayAddressingSpec
+
+
+
+FabricUnderlayAddressingSpec configures how IP addresses are assigned to
+underlay point-to-point links.
+
+
+
+_Appears in:_
+- [FabricUnderlaySpec](#fabricunderlayspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `ipPrefixPoolRef` _[LocalObjectReference](#localobjectreference)_ | ipPrefixPoolRef references the IPPrefixPool from which point-to-point<br />prefixes are allocated for underlay interfaces. |  | Optional: \{\} <br /> |
+| `unnumbered` _boolean_ | unnumbered controls whether underlay interfaces use unnumbered addressing<br />(borrowing from loopback0) instead of dedicated point-to-point addresses. | false | Optional: \{\} <br /> |
+
+
+#### FabricUnderlaySpec
+
+
+
+FabricUnderlaySpec defines the underlay network configuration.
+
+
+
+_Appears in:_
+- [FabricSpec](#fabricspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `protocol` _[UnderlayProtocol](#underlayprotocol)_ | protocol is the routing protocol used to build IP reachability across the<br />fabric underlay. |  | Enum: [OSPF ISIS] <br />Required: \{\} <br /> |
+| `interfaceSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#labelselector-v1-meta)_ | interfaceSelector identifies which interfaces participate in the underlay.<br />Interfaces on fabric devices matching these labels will be enrolled in the<br />underlay routing process. |  | Required: \{\} <br /> |
+| `addressing` _[FabricUnderlayAddressingSpec](#fabricunderlayaddressingspec)_ | addressing configures how IP addresses are assigned to underlay interfaces. |  | Required: \{\} <br /> |
+
+
+#### FabricVTEPSpec
+
+
+
+FabricVTEPSpec identifies which devices act as VXLAN Tunnel Endpoints (VTEPs)
+and optionally configures their shared anycast gateway.
+
+
+
+_Appears in:_
+- [FabricSpec](#fabricspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#labelselector-v1-meta)_ | deviceSelector identifies which devices are configured as VTEPs. |  | Required: \{\} <br /> |
+| `anycastGateway` _[FabricAnycastGatewaySpec](#fabricanycastgatewayspec)_ | anycastGateway configures the anycast gateway shared across all VTEP devices. |  | Optional: \{\} <br /> |
+
+
+#### OverlayProtocol
+
+_Underlying type:_ _string_
+
+OverlayProtocol is the control-plane protocol used for the overlay network.
+
+_Validation:_
+- Enum: [IBGP]
+
+_Appears in:_
+- [FabricOverlaySpec](#fabricoverlayspec)
+
+| Field | Description |
+| --- | --- |
+| `IBGP` | OverlayProtocolIBGP uses iBGP EVPN for the overlay control plane.<br /> |
+
+
+#### RouteReflectorGroup
+
+
+
+RouteReflectorGroup defines a set of BGP route reflectors and their clients.
+
+
+
+_Appears in:_
+- [FabricIBGPSpec](#fabricibgpspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | name is a unique identifier for this route reflector group within the fabric. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `deviceSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#labelselector-v1-meta)_ | deviceSelector identifies which devices act as route reflectors in this group. |  | Required: \{\} <br /> |
+| `clientDeviceSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#labelselector-v1-meta)_ | clientDeviceSelector identifies the devices that are route reflector clients<br />for this group. |  | Required: \{\} <br /> |
+
+
+#### UnderlayProtocol
+
+_Underlying type:_ _string_
+
+UnderlayProtocol is the routing protocol used for the underlay network.
+
+_Validation:_
+- Enum: [OSPF ISIS]
+
+_Appears in:_
+- [FabricUnderlaySpec](#fabricunderlayspec)
+
+| Field | Description |
+| --- | --- |
+| `OSPF` | UnderlayProtocolOSPF uses OSPF for underlay routing.<br /> |
+| `ISIS` | UnderlayProtocolISIS uses IS-IS for underlay routing.<br /> |
+
+
+
 ## networking.metal.ironcore.dev/v1alpha1
+
 
 Package v1alpha1 contains API Schema definitions for the networking.metal.ironcore.dev v1alpha1 API group.
 
-SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
-SPDX-License-Identifier: Apache-2.0
 
 ### Resource Types
+- [AAA](#aaa)
 - [BGP](#bgp)
 - [BGPPeer](#bgppeer)
 - [Banner](#banner)
 - [Certificate](#certificate)
+- [ConfigBackup](#configbackup)
+- [DHCPRelay](#dhcprelay)
 - [DNS](#dns)
 - [Device](#device)
 - [EVPNInstance](#evpninstance)
+- [EthernetSegment](#ethernetsegment)
 - [ISIS](#isis)
 - [Interface](#interface)
 - [LLDP](#lldp)
@@ -38,6 +353,242 @@ SPDX-License-Identifier: Apache-2.0
 - [VLAN](#vlan)
 - [VRF](#vrf)
 
+
+
+#### AAA
+
+
+
+AAA is the Schema for the aaa API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `AAA` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[AAASpec](#aaaspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[AAAStatus](#aaastatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### AAAAccounting
+
+
+
+AAAAccounting defines the AAA accounting method list.
+
+
+
+_Appears in:_
+- [AAASpec](#aaaspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `methods` _[AAAMethod](#aaamethod) array_ | Methods is the ordered list of accounting methods.<br />Methods are tried in order until one succeeds or all fail. |  | MaxItems: 4 <br />MinItems: 1 <br />Required: \{\} <br /> |
+
+
+#### AAAAuthentication
+
+
+
+AAAAuthentication defines the AAA authentication method list.
+
+
+
+_Appears in:_
+- [AAASpec](#aaaspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `methods` _[AAAMethod](#aaamethod) array_ | Methods is the ordered list of authentication methods.<br />Methods are tried in order until one succeeds or all fail. |  | MaxItems: 4 <br />MinItems: 1 <br />Required: \{\} <br /> |
+
+
+#### AAAAuthorization
+
+
+
+AAAAuthorization defines the AAA authorization method list.
+
+
+
+_Appears in:_
+- [AAASpec](#aaaspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `methods` _[AAAMethod](#aaamethod) array_ | Methods is the ordered list of authorization methods.<br />Methods are tried in order until one succeeds or all fail. |  | MaxItems: 4 <br />MinItems: 1 <br />Required: \{\} <br /> |
+
+
+#### AAAMethod
+
+
+
+AAAMethod represents an AAA method.
+
+
+
+_Appears in:_
+- [AAAAccounting](#aaaaccounting)
+- [AAAAuthentication](#aaaauthentication)
+- [AAAAuthorization](#aaaauthorization)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `type` _[AAAMethodType](#aaamethodtype)_ | Type is the type of AAA method. |  | Enum: [Group Local None] <br />Required: \{\} <br /> |
+| `groupName` _string_ | GroupName is the name of the server group when Type is Group. |  | MaxLength: 63 <br />Optional: \{\} <br /> |
+
+
+#### AAAMethodType
+
+_Underlying type:_ _string_
+
+AAAMethodType defines the type of AAA method.
+
+_Validation:_
+- Enum: [Group Local None]
+
+_Appears in:_
+- [AAAMethod](#aaamethod)
+
+| Field | Description |
+| --- | --- |
+| `Group` | AAAMethodTypeGroup uses a server group (e.g., TACACS+ group).<br /> |
+| `Local` | AAAMethodTypeLocal uses the local user database.<br /> |
+| `None` | AAAMethodTypeNone allows access without authentication.<br /> |
+
+
+#### AAAServer
+
+
+
+AAAServer represents a single AAA server within a group.
+
+
+
+_Appears in:_
+- [AAAServerGroup](#aaaservergroup)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `address` _string_ | Address is the IP address or hostname of the server. |  | MaxLength: 253 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `timeout` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | Timeout is the response timeout for this server. |  | Optional: \{\} <br /> |
+| `tacacs` _[AAAServerTACACS](#aaaservertacacs)_ | TACACS contains TACACS+ specific server configuration.<br />Required when the parent server group type is TACACS. |  | Optional: \{\} <br /> |
+| `radius` _[AAAServerRADIUS](#aaaserverradius)_ | RADIUS contains RADIUS specific server configuration.<br />Required when the parent server group type is RADIUS. |  | Optional: \{\} <br /> |
+
+
+#### AAAServerGroup
+
+
+
+AAAServerGroup represents a named group of AAA servers.
+
+
+
+_Appears in:_
+- [AAASpec](#aaaspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name is the name of the server group. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `type` _[AAAServerGroupType](#aaaservergrouptype)_ | Type is the protocol type of this server group. |  | Enum: [TACACS RADIUS] <br />Required: \{\} <br /> |
+| `servers` _[AAAServer](#aaaserver) array_ | Servers is the list of servers in this group. |  | MaxItems: 16 <br />MinItems: 1 <br />Required: \{\} <br /> |
+| `vrfName` _string_ | VrfName is the VRF to use for communication with the servers in this group. |  | MaxLength: 63 <br />Optional: \{\} <br /> |
+| `sourceInterfaceName` _string_ | SourceInterfaceName is the source interface to use for communication with the servers. |  | MaxLength: 63 <br />Optional: \{\} <br /> |
+
+
+#### AAAServerGroupType
+
+_Underlying type:_ _string_
+
+AAAServerGroupType defines the protocol type of an AAA server group.
+
+_Validation:_
+- Enum: [TACACS RADIUS]
+
+_Appears in:_
+- [AAAServerGroup](#aaaservergroup)
+
+| Field | Description |
+| --- | --- |
+| `TACACS` | AAAServerGroupTypeTACACS is a TACACS+ server group.<br /> |
+| `RADIUS` | AAAServerGroupTypeRADIUS is a RADIUS server group.<br /> |
+
+
+#### AAAServerRADIUS
+
+
+
+AAAServerRADIUS contains RADIUS specific server configuration.
+
+
+
+_Appears in:_
+- [AAAServer](#aaaserver)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `authenticationPort` _integer_ | AuthenticationPort is the UDP port for RADIUS authentication requests.<br />Defaults to 1812 if not specified. | 1812 | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `accountingPort` _integer_ | AccountingPort is the UDP port for RADIUS accounting requests.<br />Defaults to 1813 if not specified. | 1813 | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `keySecretRef` _[SecretKeySelector](#secretkeyselector)_ | KeySecretRef is a reference to a secret containing the plain text shared key for this RADIUS server.<br />The secret must contain a key specified in the SecretKeySelector. |  | Required: \{\} <br /> |
+
+
+#### AAAServerTACACS
+
+
+
+AAAServerTACACS contains TACACS+ specific server configuration.
+
+
+
+_Appears in:_
+- [AAAServer](#aaaserver)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `port` _integer_ | Port is the TCP port of the TACACS+ server.<br />Defaults to 49 if not specified. | 49 | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `keySecretRef` _[SecretKeySelector](#secretkeyselector)_ | KeySecretRef is a reference to a secret containing the plain text shared key for this TACACS+ server.<br />The secret must contain a key specified in the SecretKeySelector. |  | Required: \{\} <br /> |
+
+
+#### AAASpec
+
+
+
+AAASpec defines the desired state of AAA.
+
+It models the Authentication, Authorization, and Accounting (AAA) configuration on a network device.
+
+
+
+_Appears in:_
+- [AAA](#aaa)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this AAA.<br />This reference is used to link the AAA to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `serverGroups` _[AAAServerGroup](#aaaservergroup) array_ | ServerGroups is the list of AAA server groups. |  | MaxItems: 8 <br />Optional: \{\} <br /> |
+| `authentication` _[AAAAuthentication](#aaaauthentication)_ | Authentication defines the AAA authentication method list. |  | Optional: \{\} <br /> |
+| `authorization` _[AAAAuthorization](#aaaauthorization)_ | Authorization defines the AAA authorization method list. |  | Optional: \{\} <br /> |
+| `accounting` _[AAAAccounting](#aaaaccounting)_ | Accounting defines the AAA accounting method list. |  | Optional: \{\} <br /> |
+
+
+#### AAAStatus
+
+
+
+AAAStatus defines the observed state of AAA.
+
+
+
+_Appears in:_
+- [AAA](#aaa)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the AAA. |  | Optional: \{\} <br /> |
 
 
 #### ACLAction
@@ -171,6 +722,24 @@ _Appears in:_
 | `multichassis` _[MultiChassis](#multichassis)_ | Multichassis defines the multichassis configuration for the aggregate interface. |  | Optional: \{\} <br /> |
 
 
+#### AllowedVlansMode
+
+_Underlying type:_ _string_
+
+AllowedVlansMode defines how trunk allowed VLANs are managed.
+
+_Validation:_
+- Enum: [Exact Unmanaged]
+
+_Appears in:_
+- [Switchport](#switchport)
+
+| Field | Description |
+| --- | --- |
+| `Exact` | AllowedVlansModeExact means the operator owns the complete trunk allow-list.<br /> |
+| `Unmanaged` | AllowedVlansModeUnmanaged means the operator leaves the trunk allow-list unchanged.<br /> |
+
+
 #### AnycastGateway
 
 
@@ -240,8 +809,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `ipv4Unicast` _[BGPAddressFamily](#bgpaddressfamily)_ | Ipv4Unicast configures IPv4 unicast address family support.<br />Enables exchange of IPv4 unicast routes between BGP peers. |  | Optional: \{\} <br /> |
-| `ipv6Unicast` _[BGPAddressFamily](#bgpaddressfamily)_ | Ipv6Unicast configures IPv6 unicast address family support.<br />Enables exchange of IPv6 unicast routes between BGP peers. |  | Optional: \{\} <br /> |
+| `ipv4Unicast` _[BGPUnicastAddressFamily](#bgpunicastaddressfamily)_ | Ipv4Unicast configures IPv4 unicast address family support.<br />Enables exchange of IPv4 unicast routes between BGP peers. |  | Optional: \{\} <br /> |
+| `ipv6Unicast` _[BGPUnicastAddressFamily](#bgpunicastaddressfamily)_ | Ipv6Unicast configures IPv6 unicast address family support.<br />Enables exchange of IPv6 unicast routes between BGP peers. |  | Optional: \{\} <br /> |
 | `l2vpnEvpn` _[BGPL2vpnEvpn](#bgpl2vpnevpn)_ | L2vpnEvpn configures L2VPN EVPN address family support.<br />Enables exchange of Ethernet VPN routes for overlay network services. |  | Optional: \{\} <br /> |
 
 
@@ -254,8 +823,8 @@ BGPAddressFamily defines common configuration for a BGP address family.
 
 
 _Appears in:_
-- [BGPAddressFamilies](#bgpaddressfamilies)
 - [BGPL2vpnEvpn](#bgpl2vpnevpn)
+- [BGPUnicastAddressFamily](#bgpunicastaddressfamily)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -330,6 +899,7 @@ BGPMultipath defines the configuration for BGP multipath behavior.
 _Appears in:_
 - [BGPAddressFamily](#bgpaddressfamily)
 - [BGPL2vpnEvpn](#bgpl2vpnevpn)
+- [BGPUnicastAddressFamily](#bgpunicastaddressfamily)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -424,6 +994,8 @@ _Appears in:_
 | `enabled` _boolean_ | Enabled determines whether this address family is activated for this specific peer.<br />When false, the address family is not negotiated with this peer.<br />Defaults to false. |  | Optional: \{\} <br /> |
 | `sendCommunity` _[BGPCommunityType](#bgpcommunitytype)_ | SendCommunity specifies which community attributes should be sent to this BGP peer<br />for this address family. If not specified, no community attributes are sent. |  | Enum: [Standard Extended Both] <br />Optional: \{\} <br /> |
 | `routeReflectorClient` _boolean_ | RouteReflectorClient indicates whether this peer should be treated as a route reflector client<br />for this specific address family. Defaults to false. |  | Optional: \{\} <br /> |
+| `inboundRoutingPolicyRef` _[LocalObjectReference](#localobjectreference)_ | InboundRoutingPolicyRef references a RoutingPolicy applied to routes received from this peer<br />for this address family. |  | Optional: \{\} <br /> |
+| `outboundRoutingPolicyRef` _[LocalObjectReference](#localobjectreference)_ | OutboundRoutingPolicyRef references a RoutingPolicy applied to routes advertised to this peer<br />for this address family. |  | Optional: \{\} <br /> |
 
 
 #### BGPPeerLocalAddress
@@ -480,12 +1052,14 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the BGP to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `bgpRef` _[LocalObjectReference](#localobjectreference)_ | BgpRef is a reference to the BGP instance this peer belongs to.<br />The BGP object must exist in the same namespace. |  | Required: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether this BGP peer is administratively up or down.<br />When Down, the BGP session with this peer is administratively shut down. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
 | `address` _string_ | Address is the IPv4 address of the BGP peer. |  | Format: ipv4 <br />Required: \{\} <br /> |
 | `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number (ASN) of the BGP peer.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
 | `description` _string_ | Description is an optional human-readable description for this BGP peer.<br />This field is used for documentation purposes and may be displayed in management interfaces. |  | Optional: \{\} <br /> |
 | `localAddress` _[BGPPeerLocalAddress](#bgppeerlocaladdress)_ | LocalAddress specifies the local address configuration for the BGP session with this peer.<br />This determines the source address/interface for BGP packets sent to this peer. |  | Optional: \{\} <br /> |
 | `addressFamilies` _[BGPPeerAddressFamilies](#bgppeeraddressfamilies)_ | AddressFamilies configures address family specific settings for this BGP peer.<br />Controls which address families are enabled and their specific configuration. |  | Optional: \{\} <br /> |
+| `localAS` _[LocalAS](#localas)_ | LocalAS configures the local AS number and how it factors into BGP announcements for this peer. |  | Optional: \{\} <br /> |
 
 
 #### BGPPeerStatus
@@ -507,6 +1081,23 @@ _Appears in:_
 | `addressFamilies` _[AddressFamilyStatus](#addressfamilystatus) array_ | AddressFamilies contains per-address-family statistics for this peer.<br />Only address families that are enabled and negotiated with the peer are included. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | ObservedGeneration reflects the .metadata.generation that was last processed by the controller. |  | Optional: \{\} <br /> |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the BGP. |  | Optional: \{\} <br /> |
+
+
+#### BGPRedistributeDirectRoutes
+
+
+
+BGPRedistributeDirectRoutes configures redistribution of directly connected
+routes into a BGP address family.
+
+
+
+_Appears in:_
+- [BGPUnicastAddressFamily](#bgpunicastaddressfamily)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `routingPolicyRef` _[LocalObjectReference](#localobjectreference)_ | RoutingPolicyRef references a RoutingPolicy to apply during redistribution. |  | Required: \{\} <br /> |
 
 
 #### BGPRouteTargetPolicy
@@ -539,9 +1130,10 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
+| `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VrfRef is an optional reference to the VRF this BGP instance is scoped to.<br />When omitted, the BGP instance is configured in the default VRF.<br />Immutable. |  | Optional: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the BGP to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether this BGP router is administratively up or down. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
-| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number (ASN) for the BGP router.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number (ASN) for the BGP router.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.<br />Immutable. |  | Required: \{\} <br /> |
 | `routerId` _string_ | RouterID is the BGP router identifier, used in BGP messages to identify the originating router.<br />Follows dotted quad notation (IPv4 format). |  | Format: ipv4 <br />Required: \{\} <br /> |
 | `addressFamilies` _[BGPAddressFamilies](#bgpaddressfamilies)_ | AddressFamilies configures supported BGP address families and their specific settings. |  | Optional: \{\} <br /> |
 
@@ -560,6 +1152,24 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the BGP. |  | Optional: \{\} <br /> |
+
+
+#### BGPUnicastAddressFamily
+
+
+
+BGPUnicastAddressFamily defines configuration for IPv4 and IPv6 unicast address families.
+
+
+
+_Appears in:_
+- [BGPAddressFamilies](#bgpaddressfamilies)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `enabled` _boolean_ | Enabled determines whether this address family is activated for BGP sessions.<br />When false, the address family is not negotiated with peers. |  | Optional: \{\} <br /> |
+| `multipath` _[BGPMultipath](#bgpmultipath)_ | Multipath configures address family specific multipath behavior.<br />When specified, overrides global multipath settings for this address family. |  | Optional: \{\} <br /> |
+| `redistributeDirectRoutes` _[BGPRedistributeDirectRoutes](#bgpredistributedirectroutes)_ | RedistributeDirectRoutes controls redistribution of directly connected<br />routes into this BGP address family. |  | Optional: \{\} <br /> |
 
 
 #### Banner
@@ -649,6 +1259,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `setCommunity` _[SetCommunityAction](#setcommunityaction)_ | SetCommunity configures BGP standard community attributes. |  | Optional: \{\} <br /> |
 | `setExtCommunity` _[SetExtCommunityAction](#setextcommunityaction)_ | SetExtCommunity configures BGP extended community attributes. |  | Optional: \{\} <br /> |
+| `setASPath` _[SetASPathAction](#setaspathaction)_ | SetASPath configures modifications to the BGP AS path attribute. |  | Optional: \{\} <br /> |
 
 
 #### Certificate
@@ -721,6 +1332,29 @@ _Appears in:_
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the Certificate. |  | Optional: \{\} <br /> |
 
 
+#### ChassisIDType
+
+_Underlying type:_ _string_
+
+ChassisIDType represents the chassis ID subtype for LLDP neighbor information.
+See IEEE 802.1AB-2016 section 8.5.2.2 for details.
+
+
+
+_Appears in:_
+- [Neighbor](#neighbor)
+
+| Field | Description |
+| --- | --- |
+| `ChassisComponent` | ChassisIDTypeChassisComponent is `EntPhysicalAlias` when entPhysClass has a value of ‘chassis(3)’ (IETF RFC 6933)<br /> |
+| `InterfaceAlias` | ChassisIDTypeInterfaceAlias is `ifAlias` (IETF RFC 2863)<br /> |
+| `PortComponent` | ChassisIDTypePortComponent is `entPhysicalAlias` when `entPhysicalClass` has a value ‘port(10)’ or ‘backplane(4)’ (IETF RFC 6933)<br /> |
+| `MACAddress` | ChassisIDTypeMACAddress is the MAC address (IEEE Std 802)<br /> |
+| `NetworkAddress` | ChassisIDTypeNetworkAddress is an octet string representation of a particular network family and address.<br /> |
+| `InterfaceName` | ChassisIDTypeInterfaceName is `ifName` (IETF RFC 2863)<br /> |
+| `Local` | ChassisIDTypeLocal is an alphanumeric string that and is locally assigned<br /> |
+
+
 #### ChecksumType
 
 _Underlying type:_ _string_
@@ -737,6 +1371,161 @@ _Appears in:_
 | --- | --- |
 | `SHA256` |  |
 | `MD5` |  |
+
+
+#### ConfigBackup
+
+
+
+ConfigBackup is the Schema for the configbackups API.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `ConfigBackup` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[ConfigBackupSpec](#configbackupspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[ConfigBackupStatus](#configbackupstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### ConfigBackupRetention
+
+
+
+ConfigBackupRetention defines how many historical backups are kept on the device.
+
+
+
+_Appears in:_
+- [ConfigBackupSpec](#configbackupspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `keepLast` _integer_ | KeepLast is the number of most recent backups to keep for Local backups. | 1 | Maximum: 100 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+
+
+#### ConfigBackupRunStatus
+
+
+
+ConfigBackupRunStatus contains the result of a single successful backup run.
+
+
+
+_Appears in:_
+- [ConfigBackupStatus](#configbackupstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `timestamp` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | Timestamp is the time at which the backup was created on the device. |  | Required: \{\} <br /> |
+| `duration` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | Duration is the duration of the backup operation. |  | Required: \{\} <br /> |
+| `observedGeneration` _integer_ | ObservedGeneration represents the .metadata.generation that produced this backup. |  | Minimum: 0 <br />Optional: \{\} <br /> |
+| `sizeBytes` _integer_ | SizeBytes is the size in bytes of the backup artifact.<br />This only applies to Local backups, and may be unknown if the controller cannot query the device. |  | Minimum: 0 <br />Optional: \{\} <br /> |
+| `filepath` _string_ | Filepath is the device-local path of the backup artifact.<br />This only applies to Local backups, and may be unknown if the controller cannot query the device. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+
+
+#### ConfigBackupSpec
+
+
+
+ConfigBackupSpec defines the desired state of ConfigBackup.
+
+
+
+_Appears in:_
+- [ConfigBackup](#configbackup)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceRef is a reference to the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the ConfigBackup to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `schedule` _string_ | Schedule is an optional cron expression.<br />If omitted, the controller performs a one-shot backup. |  | Optional: \{\} <br /> |
+| `type` _[ConfigBackupType](#configbackuptype)_ | Type determines whether the backup is saved as a local file or as startup-config. |  | Enum: [Local Startup] <br />Required: \{\} <br /> |
+| `path` _string_ | Path is the device-local destination path for Local backups.<br />Different providers may accept different path formats, such as "bootflash:///backups/". |  | MaxLength: 255 <br />MinLength: 1 <br />Optional: \{\} <br /> |
+| `retention` _[ConfigBackupRetention](#configbackupretention)_ | Retention configures automatic cleanup of older backups for Local backups. |  | Optional: \{\} <br /> |
+| `storageThreshold` _[ConfigBackupStorageThreshold](#configbackupstoragethreshold)_ | StorageThreshold defines the minimum free space that must remain before creating a new Local backup. |  | Optional: \{\} <br /> |
+
+
+#### ConfigBackupStatus
+
+
+
+ConfigBackupStatus defines the observed state of ConfigBackup.
+
+
+
+_Appears in:_
+- [ConfigBackup](#configbackup)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | Conditions represent the current state of the ConfigBackup resource. |  | Optional: \{\} <br /> |
+| `lastBackup` _[ConfigBackupRunStatus](#configbackuprunstatus)_ | LastBackup contains details about the most recent successful backup operation.<br />This is updated only when a backup completes successfully, and may be nil if no successful backups have occurred. |  | Optional: \{\} <br /> |
+| `lastAttemptTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | LastAttemptTime is the timestamp of the most recent backup attempt, regardless of outcome.<br />This is updated whenever the controller attempts to perform a backup, even if it fails. |  | Optional: \{\} <br /> |
+| `oldestBackupTimestamp` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | OldestBackupTimestamp is the timestamp of the oldest discovered backup on the device.<br />This only applies to Local backups, and may be unknown if the controller cannot query the device. |  | Optional: \{\} <br /> |
+| `nextScheduledBackup` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | NextScheduledBackup is the next time at which the controller intends to trigger a backup.<br />This only applies to scheduled backups, and may be unknown if the controller cannot determine the next schedule. |  | Optional: \{\} <br /> |
+| `totalBackups` _integer_ | TotalBackups is the number of backups currently discovered on the device.<br />This only applies to Local backups, and may be unknown if the controller cannot query the device.<br />For Startup backups, this is always 1, since the device only maintains a single startup configuration. |  | Optional: \{\} <br /> |
+| `totalSizeBytes` _integer_ | TotalSizeBytes is the total size in bytes of the discovered backups on the device.<br />This only applies to Local backups, and may be unknown if the controller cannot query the device. |  | Optional: \{\} <br /> |
+| `storage` _[ConfigBackupStorageStatus](#configbackupstoragestatus)_ | Storage contains device-local storage statistics for the configured backup target.<br />This only applies to Local backups, and may be unknown if the controller cannot query the device. |  | Optional: \{\} <br /> |
+
+
+#### ConfigBackupStorageStatus
+
+
+
+ConfigBackupStorageStatus contains storage utilization for the configured backup target.
+
+
+
+_Appears in:_
+- [ConfigBackupStatus](#configbackupstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `totalBytes` _integer_ | TotalBytes is the total storage capacity in bytes, if known. |  | Optional: \{\} <br /> |
+| `usedBytes` _integer_ | UsedBytes is the used storage in bytes, if known. |  | Optional: \{\} <br /> |
+| `freeBytes` _integer_ | FreeBytes is the free storage in bytes, if known. |  | Optional: \{\} <br /> |
+| `freePercent` _integer_ | FreePercent is the free storage percentage, if known. |  | Optional: \{\} <br /> |
+| `thresholdBreached` _boolean_ | ThresholdBreached indicates whether the configured threshold currently blocks new backups. |  | Optional: \{\} <br /> |
+
+
+#### ConfigBackupStorageThreshold
+
+
+
+ConfigBackupStorageThreshold defines when the controller must stop writing additional backups.
+
+
+
+_Appears in:_
+- [ConfigBackupSpec](#configbackupspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `minFreeBytes` _integer_ | MinFreeBytes is the minimum number of free bytes required before a new backup can be written. |  | Minimum: 0 <br />Optional: \{\} <br /> |
+| `minFreePercent` _integer_ | MinFreePercent is the minimum percentage of free storage required before a new backup can be written. |  | Maximum: 100 <br />Minimum: 0 <br />Optional: \{\} <br /> |
+
+
+#### ConfigBackupType
+
+_Underlying type:_ _string_
+
+ConfigBackupType defines how the device should persist a configuration backup.
+
+_Validation:_
+- Enum: [Local Startup]
+
+_Appears in:_
+- [ConfigBackupSpec](#configbackupspec)
+
+| Field | Description |
+| --- | --- |
+| `Local` | ConfigBackupTypeLocal stores the running configuration in a device-local file path.<br /> |
+| `Startup` | ConfigBackupTypeStartup stores the running configuration as the device startup configuration.<br /> |
 
 
 #### ConfigMapKeySelector
@@ -789,6 +1578,82 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `mode` _[LACPMode](#lacpmode)_ | Mode defines the LACP mode for the aggregate interface. |  | Enum: [Active Passive] <br />Required: \{\} <br /> |
+
+
+#### DFElectionMode
+
+_Underlying type:_ _string_
+
+DFElectionMode defines the Designated Forwarder election algorithm.
+
+_Validation:_
+- Enum: [Default HighestRandomWeight Preference]
+
+_Appears in:_
+- [DesignatedForwarder](#designatedforwarder)
+
+| Field | Description |
+| --- | --- |
+| `Default` | DFElectionModeDefault uses the modulo-based DF election per RFC 7432 Section 8.5.<br /> |
+| `HighestRandomWeight` | DFElectionModeHighestRandomWeight uses the HRW algorithm per RFC 8584.<br /> |
+| `Preference` | DFElectionModePreference uses preference-based DF election per RFC 8584.<br /> |
+
+
+#### DHCPRelay
+
+
+
+DHCPRelay is the Schema for the DHCPRelays API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `DHCPRelay` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[DHCPRelaySpec](#dhcprelayspec)_ |  |  | Required: \{\} <br /> |
+| `status` _[DHCPRelayStatus](#dhcprelaystatus)_ |  |  | Optional: \{\} <br /> |
+
+
+#### DHCPRelaySpec
+
+
+
+DHCPRelaySpec defines the desired state of DHCPRelay.
+Only a single DHCPRelay resource should be created per Device, the controller will reject additional resources of this type with the same DeviceRef.
+
+
+
+_Appears in:_
+- [DHCPRelay](#dhcprelay)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceRef is a reference to the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration for this DHCPRelay.<br />If not specified the provider applies the target platform's default settings. |  | Optional: \{\} <br /> |
+| `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VrfRef is an optional reference to the VRF to use when relaying DHCP messages in all referenced interfaces. |  | Optional: \{\} <br /> |
+| `servers` _string array_ | Servers is a list of DHCP server addresses to which DHCP messages will be relayed.<br />Only IPv4 addresses are currently supported. |  | MinItems: 1 <br />items:Format: ipv4 <br />Required: \{\} <br /> |
+| `interfaceRefs` _[LocalObjectReference](#localobjectreference) array_ | InterfaceRefs is a list of interfaces |  | MinItems: 1 <br />Required: \{\} <br /> |
+
+
+#### DHCPRelayStatus
+
+
+
+DHCPRelayStatus defines the observed state of DHCPRelay.
+
+
+
+_Appears in:_
+- [DHCPRelay](#dhcprelay)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the DHCPRelay resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />Standard condition types include:<br />- "Available": the resource is fully functional<br />- "Progressing": the resource is being created or updated<br />- "Degraded": the resource failed to reach or maintain its desired state<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+| `configuredInterfaces` _string array_ | ConfiguredInterfaces contains the names of Interface resources that have DHCP relay configured as known by the device. |  | Optional: \{\} <br /> |
 
 
 #### DNS
@@ -845,6 +1710,23 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the DNS. |  | Optional: \{\} <br /> |
+
+
+#### DesignatedForwarder
+
+
+
+DesignatedForwarder configures the DF election parameters for an Ethernet Segment.
+
+
+
+_Appears in:_
+- [EthernetSegmentSpec](#ethernetsegmentspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `electionMode` _[DFElectionMode](#dfelectionmode)_ | ElectionMode selects the DF election algorithm. | Default | Enum: [Default HighestRandomWeight Preference] <br />Optional: \{\} <br /> |
+| `electionWaitTime` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | ElectionWaitTime is the DF election hold timer. The PE waits this<br />duration before selecting the DF based on highest preference.<br />Only applicable when ElectionMode is Preference. |  | Optional: \{\} <br /> |
 
 
 #### Device
@@ -922,6 +1804,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `paused` _boolean_ | Paused can be used to prevent controllers from processing the Device and its associated objects. | false | Optional: \{\} <br /> |
 | `endpoint` _[Endpoint](#endpoint)_ | Endpoint contains the connection information for the device. |  | Required: \{\} <br /> |
+| `provider` _string_ | Provider is the name of the provider plugin which is responsible for reconciling the CRD connected to the device |  | Optional: \{\} <br /> |
 | `provisioning` _[Provisioning](#provisioning)_ | Provisioning is an optional configuration for the device provisioning process.<br />It can be used to provide initial configuration templates or scripts that are applied during the device provisioning. |  | Optional: \{\} <br /> |
 
 
@@ -939,14 +1822,39 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `phase` _[DevicePhase](#devicephase)_ | Phase represents the current phase of the Device. | Pending | Enum: [Pending Provisioning Running Failed Provisioned] <br />Required: \{\} <br /> |
+| `hostname` _string_ | Hostname is the hostname of the Device. |  | Optional: \{\} <br /> |
 | `manufacturer` _string_ | Manufacturer is the manufacturer of the Device. |  | Optional: \{\} <br /> |
 | `model` _string_ | Model is the model identifier of the Device. |  | Optional: \{\} <br /> |
 | `serialNumber` _string_ | SerialNumber is the serial number of the Device. |  | Optional: \{\} <br /> |
 | `firmwareVersion` _string_ | FirmwareVersion is the firmware version running on the Device. |  | Optional: \{\} <br /> |
+| `lastRebootTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | LastRebootTime is the timestamp of the last reboot of the Device, if known. |  | Optional: \{\} <br /> |
 | `provisioning` _[ProvisioningInfo](#provisioninginfo) array_ | Provisioning is the list of provisioning attempts for the Device. |  | Optional: \{\} <br /> |
 | `ports` _[DevicePort](#deviceport) array_ | Ports is the list of ports on the Device. |  | Optional: \{\} <br /> |
 | `portSummary` _string_ | PortSummary shows a summary of the port configured, grouped by type, e.g. "1/4 (10g), 3/64 (100g)". |  | Optional: \{\} <br /> |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the Device. |  | Optional: \{\} <br /> |
+
+
+#### ESIType
+
+_Underlying type:_ _string_
+
+ESIType defines the ESI derivation method per RFC 7432 Section 5.
+
+_Validation:_
+- Enum: [Arbitrary LACP MST MAC RouterID AS]
+
+_Appears in:_
+- [EthernetSegmentSpec](#ethernetsegmentspec)
+- [EthernetSegmentStatus](#ethernetsegmentstatus)
+
+| Field | Description |
+| --- | --- |
+| `Arbitrary` | ESITypeArbitrary indicates an operator-configured ESI value (Type 0).<br /> |
+| `LACP` | ESITypeLACP indicates a LACP-based ESI derived from CE system MAC and port key (Type 1).<br /> |
+| `MST` | ESITypeMST indicates a bridge-protocol-based ESI derived from root bridge parameters (Type 2).<br /> |
+| `MAC` | ESITypeMAC indicates a MAC-based ESI derived from system MAC and local discriminator (Type 3).<br /> |
+| `RouterID` | ESITypeRouterID indicates a router-ID-based ESI (Type 4).<br /> |
+| `AS` | ESITypeAS indicates an AS-number-based ESI (Type 5).<br /> |
 
 
 #### EVPNInstance
@@ -989,9 +1897,10 @@ _Appears in:_
 | `vni` _integer_ | VNI is the VXLAN Network Identifier.<br />Immutable. |  | Maximum: 1.6777214e+07 <br />Minimum: 1 <br />Required: \{\} <br /> |
 | `type` _[EVPNInstanceType](#evpninstancetype)_ | Type specifies the EVPN instance type.<br />Immutable. |  | Enum: [Bridged Routed] <br />Required: \{\} <br /> |
 | `multicastGroupAddress` _string_ | MulticastGroupAddress specifies the IPv4 multicast group address used for BUM (Broadcast, Unknown unicast, Multicast) traffic.<br />The address must be in the valid multicast range (224.0.0.0 - 239.255.255.255). |  | Format: ipv4 <br />Optional: \{\} <br /> |
-| `routeDistinguisher` _string_ | RouteDistinguisher is the route distinguisher for the EVI.<br />Formats supported:<br /> - Type 0: ASN(0-65535):Number(0-4294967295)<br /> - Type 1: IPv4:Number(0-65535)<br /> - Type 2: ASN(65536-4294967295):Number(0-65535) |  | Optional: \{\} <br /> |
+| `routeDistinguisher` _string_ | RouteDistinguisher is the route distinguisher for the EVI.<br />This field is only applicable when Type is Bridged (MAC-VRF).<br />For Routed type, the route distinguisher is configured on the referenced VRF instead.<br />Set to "Auto" for automatic derivation (equivalent to "rd auto").<br />Formats supported:<br /> - "Auto" (automatic derivation)<br /> - Type 0: ASN(0-65535):Number(0-4294967295)<br /> - Type 1: IPv4:Number(0-65535)<br /> - Type 2: ASN(65536-4294967295):Number(0-65535) |  | Optional: \{\} <br /> |
 | `routeTargets` _[EVPNRouteTarget](#evpnroutetarget) array_ | RouteTargets is the list of route targets for the EVI. |  | MinItems: 1 <br />Optional: \{\} <br /> |
 | `vlanRef` _[LocalObjectReference](#localobjectreference)_ | VLANRef is a reference to a VLAN resource for which this EVPNInstance builds the MAC-VRF.<br />This field is only applicable when Type is Bridged (L2VNI).<br />The VLAN resource must exist in the same namespace.<br />Immutable. |  | Optional: \{\} <br /> |
+| `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VRFRef is a reference to a VRF resource for which this EVPNInstance provides the L3VNI.<br />This field is only applicable when Type is Routed (L3VNI).<br />The VRF resource must exist in the same namespace.<br />Immutable. |  | Optional: \{\} <br /> |
 
 
 #### EVPNInstanceStatus
@@ -1045,6 +1954,43 @@ _Appears in:_
 | `action` _[RouteTargetAction](#routetargetaction)_ | Action defines whether the route target is imported, exported, or both. |  | Enum: [Import Export Both] <br />Required: \{\} <br /> |
 
 
+#### EncapType
+
+_Underlying type:_ _string_
+
+EncapType represents the encapsulation type used for a subinterface.
+
+_Validation:_
+- Enum: [802.1q 802.1ad]
+
+_Appears in:_
+- [Encapsulation](#encapsulation)
+
+| Field | Description |
+| --- | --- |
+| `802.1q` | EncapsulationTypeDot1Q indicates IEEE 802.1Q encapsulation.<br /> |
+| `802.1ad` | EncapsulationTypeQinQ indicates IEEE 802.1ad encapsulation.<br /> |
+
+
+#### Encapsulation
+
+
+
+Encapsulation defines config for an L3 subinterface.
+
+
+
+_Appears in:_
+- [InterfaceSpec](#interfacespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `type` _[EncapType](#encaptype)_ |  |  | Enum: [802.1q 802.1ad] <br />Required: \{\} <br /> |
+| `tag` _integer_ |  |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `innerTag` _integer_ | InnerTag specifies the inner VLAN ID for QinQ encapsulation.<br />Only applicable when Type is set to "QinQ". |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `outerTag` _integer_ | OuterTag specifies the outer VLAN ID for QinQ encapsulation.<br />Only applicable when Type is set to "QinQ". |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+
+
 #### Endpoint
 
 
@@ -1077,6 +2023,70 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `fecMode` _[FECMode](#fecmode)_ | FECMode specifies the Forward Error Correction mode for the interface.<br />FEC provides error detection and correction at the physical layer, improving link reliability.<br />When not specified, the FEC mode defaults to "auto" where the device negotiates the appropriate mode. |  | Enum: [FC RS528 Disabled] <br />Optional: \{\} <br /> |
+
+
+#### EthernetSegment
+
+
+
+EthernetSegment is the Schema for the ethernetsegments API.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `EthernetSegment` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[EthernetSegmentSpec](#ethernetsegmentspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[EthernetSegmentStatus](#ethernetsegmentstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### EthernetSegmentSpec
+
+
+
+EthernetSegmentSpec defines the desired state of EthernetSegment.
+
+It models an EVPN Ethernet Segment for multihoming as defined in [RFC 7432] Section 5.
+An Ethernet Segment associates an Aggregate interface with a 10-byte Ethernet Segment
+Identifier (ESI), enabling multi-homed CE connectivity.
+[RFC 7432]: https://datatracker.ietf.org/doc/html/rfc7432
+
+
+
+_Appears in:_
+- [EthernetSegment](#ethernetsegment)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceRef is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this Ethernet Segment. |  | Optional: \{\} <br /> |
+| `interfaceRef` _[LocalObjectReference](#localobjectreference)_ | InterfaceRef is the name of the Interface this Ethernet Segment is associated with.<br />The Interface must be of type Aggregate and belong to the same Device.<br />Immutable. |  | Required: \{\} <br /> |
+| `esiType` _[ESIType](#esitype)_ | ESIType selects the ESI derivation method (RFC 7432 Section 5).<br />When Arbitrary (Type 0), ESI must be provided explicitly.<br />When LACP or MST (Types 1, 2), ESI is always auto-derived (ESI field must be omitted).<br />When MAC, RouterID, or AS (Types 3-5), ESI may be explicit or auto-derived. | Arbitrary | Enum: [Arbitrary LACP MST MAC RouterID AS] <br />Required: \{\} <br /> |
+| `esi` _string_ | ESI is the 10-byte Ethernet Segment Identifier in colon-separated hex notation<br />(e.g., "00:11:22:33:44:55:66:77:88:01"). Must not be all-zeros or all-ones (reserved per RFC 7432).<br />Required when ESIType is Arbitrary. Must be omitted when ESIType is LACP or MST.<br />Optional for MAC, RouterID, and AS types (omit to auto-derive on the device). |  | Pattern: `^([0-9a-fA-F]\{2\}:)\{9\}[0-9a-fA-F]\{2\}$` <br />Optional: \{\} <br /> |
+| `redundancyMode` _[RedundancyMode](#redundancymode)_ | RedundancyMode defines the multi-homing forwarding model for this Ethernet Segment<br />as defined in RFC 7432 Section 14.1. | AllActive | Enum: [AllActive SingleActive] <br />Optional: \{\} <br /> |
+| `designatedForwarder` _[DesignatedForwarder](#designatedforwarder)_ | DesignatedForwarder configures the Designated Forwarder election for this<br />Ethernet Segment (RFC 7432 Section 8.5, RFC 8584). |  | Optional: \{\} <br /> |
+
+
+#### EthernetSegmentStatus
+
+
+
+EthernetSegmentStatus defines the observed state of EthernetSegment.
+
+
+
+_Appears in:_
+- [EthernetSegment](#ethernetsegment)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ |  |  | Optional: \{\} <br /> |
+| `esi` _string_ | ESI is the realized 10-byte Ethernet Segment Identifier on the device,<br />in colon-separated hex notation. Populated from spec or read back from<br />device when auto-generated. |  | Optional: \{\} <br /> |
+| `esiType` _[ESIType](#esitype)_ | ESIType is the ESI derivation type parsed from the first byte of ESI. |  | Enum: [Arbitrary LACP MST MAC RouterID AS] <br />Optional: \{\} <br /> |
 
 
 #### FECMode
@@ -1130,6 +2140,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `enabled` _boolean_ | Enable or disable the gRPC server on the device.<br />If not specified, the gRPC server is enabled by default. | true | Optional: \{\} <br /> |
 | `port` _integer_ | The TCP port on which the gRPC server should listen.<br />The range of port-id is from 1024 to 65535.<br />Port 9339 is the default. | 9339 | ExclusiveMaximum: false <br />Maximum: 65535 <br />Minimum: 1024 <br />Optional: \{\} <br /> |
+| `serverName` _string_ | Name of the gRPC server instance on the device.<br />If not specified, defaults to "gnmi" on OpenConfig devices.<br />Not supported on Cisco NX-OS devices.<br />Immutable once set. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 | `certificateId` _string_ | Name of the certificate that is associated with the gRPC service.<br />The certificate is provisioned through other interfaces on the device,<br />such as e.g. the gNOI certificate management service. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 | `vrfName` _string_ | Enable the gRPC agent to accept incoming (dial-in) RPC requests from a given vrf. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 | `gnmi` _[GNMI](#gnmi)_ | Additional gNMI configuration for the gRPC server.<br />This may not be supported by all devices. | \{ keepAliveTimeout:10m maxConcurrentCall:8 \} | Optional: \{\} <br /> |
@@ -1153,6 +2164,21 @@ _Appears in:_
 | `FloodAndLearn` | HostReachabilityTypeFloodAndLearn uses data-plane learning for MAC addresses.<br /> |
 
 
+#### IPAddr
+
+
+
+IPAddr represents a single IP address (IPv4 or IPv6).
+
+_Validation:_
+- Format: ip
+- Type: string
+
+_Appears in:_
+- [IPAddressSpec](#ipaddressspec)
+
+
+
 #### IPPrefix
 
 
@@ -1166,6 +2192,10 @@ _Validation:_
 
 _Appears in:_
 - [ACLEntry](#aclentry)
+- [AnycastRendezvousPoint](#anycastrendezvouspoint)
+- [IPAddressPoolSpec](#ipaddresspoolspec)
+- [IPPrefixPoolSpec](#ipprefixpoolspec)
+- [IPPrefixSpec](#ipprefixspec)
 - [InterfaceIPv4](#interfaceipv4)
 - [MulticastGroups](#multicastgroups)
 - [PrefixEntry](#prefixentry)
@@ -1269,6 +2299,23 @@ _Appears in:_
 | `checksumType` _[ChecksumType](#checksumtype)_ | ChecksumType is the type of the checksum (e.g., sha256, md5). | MD5 | Enum: [SHA256 MD5] <br />Required: \{\} <br /> |
 
 
+#### IndexRange
+
+
+
+IndexRange represents an inclusive range of indices.
+
+_Validation:_
+- Pattern: `^[0-9]+(\.\.[0-9]+)?$`
+- Type: string
+- XIntOrString: {}
+
+_Appears in:_
+- [IndexPoolSpec](#indexpoolspec)
+- [Switchport](#switchport)
+
+
+
 #### Interface
 
 
@@ -1342,15 +2389,17 @@ _Appears in:_
 | `name` _string_ | Name is the name of the interface. |  | MaxLength: 255 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether the interface is administratively up or down. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
 | `description` _string_ | Description provides a human-readable description of the interface. |  | MaxLength: 255 <br />Optional: \{\} <br /> |
-| `type` _[InterfaceType](#interfacetype)_ | Type indicates the type of the interface. |  | Enum: [Physical Loopback Aggregate RoutedVLAN] <br />Required: \{\} <br /> |
+| `type` _[InterfaceType](#interfacetype)_ | Type indicates the type of the interface. |  | Enum: [Physical Loopback Aggregate RoutedVLAN Subinterface] <br />Required: \{\} <br /> |
 | `mtu` _integer_ | MTU (Maximum Transmission Unit) specifies the size of the largest packet that can be sent over the interface. |  | Maximum: 9216 <br />Minimum: 576 <br />Optional: \{\} <br /> |
 | `switchport` _[Switchport](#switchport)_ | Switchport defines the switchport configuration for the interface.<br />This is only applicable for Ethernet and Aggregate interfaces. |  | Optional: \{\} <br /> |
 | `ipv4` _[InterfaceIPv4](#interfaceipv4)_ | IPv4 defines the IPv4 configuration for the interface. |  | Optional: \{\} <br /> |
 | `aggregation` _[Aggregation](#aggregation)_ | Aggregation defines the aggregation (bundle) configuration for the interface.<br />This is only applicable for interfaces of type Aggregate. |  | Optional: \{\} <br /> |
 | `vlanRef` _[LocalObjectReference](#localobjectreference)_ | VlanRef is a reference to the VLAN resource that this interface provides routing for.<br />This is only applicable for interfaces of type RoutedVLAN.<br />The referenced VLAN must exist in the same namespace. |  | Optional: \{\} <br /> |
 | `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VrfRef is a reference to the VRF resource that this interface belongs to.<br />If not specified, the interface will be part of the default VRF.<br />This is only applicable for Layer 3 interfaces.<br />The referenced VRF must exist in the same namespace. |  | Optional: \{\} <br /> |
-| `bfd` _[BFD](#bfd)_ | BFD defines the Bidirectional Forwarding Detection configuration for the interface.<br />BFD is only applicable for Layer 3 interfaces (Physical, Loopback, RoutedVLAN). |  | Optional: \{\} <br /> |
+| `bfd` _[BFD](#bfd)_ | BFD defines the Bidirectional Forwarding Detection configuration for the interface.<br />BFD is only applicable for Layer 3 interfaces. |  | Optional: \{\} <br /> |
 | `ethernet` _[Ethernet](#ethernet)_ | Ethernet defines the ethernet-specific configuration for physical interfaces.<br />This configuration is only applicable to Physical interfaces.<br />When omitted, ethernet parameters use their default values (e.g., FEC mode defaults to auto). |  | Optional: \{\} <br /> |
+| `encapsulation` _[Encapsulation](#encapsulation)_ | Encapsulation defines the subinterfaces config for an L3 interface. |  | Optional: \{\} <br /> |
+| `parentInterfaceRef` _[LocalObjectReference](#localobjectreference)_ | ParentInterfaceRef is a reference to the parent interface for this subinterface.<br />Required if the interface type is Subinterface. Must not be set for other interface types. |  | Optional: \{\} <br /> |
 
 
 #### InterfaceStatus
@@ -1368,6 +2417,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the Interface. |  | Optional: \{\} <br /> |
 | `memberOf` _[LocalObjectReference](#localobjectreference)_ | MemberOf references the aggregate interface this interface is a member of, if any.<br />This field only applies to physical interfaces that are part of an aggregate interface. |  | Optional: \{\} <br /> |
+| `neighbors` _[Neighbor](#neighbor) array_ | Neighbors contains a list of neighbor interfaces connected to this interface and discovered with LLDP.<br />If a single interface has multiple neighbor adjacencies, we validate each adjacency against the same one label/annotation. |  | Optional: \{\} <br /> |
 
 
 #### InterfaceType
@@ -1377,7 +2427,7 @@ _Underlying type:_ _string_
 InterfaceType represents the type of the interface.
 
 _Validation:_
-- Enum: [Physical Loopback Aggregate RoutedVLAN]
+- Enum: [Physical Loopback Aggregate RoutedVLAN Subinterface]
 
 _Appears in:_
 - [InterfaceSpec](#interfacespec)
@@ -1388,6 +2438,7 @@ _Appears in:_
 | `Loopback` | InterfaceTypeLoopback indicates that the interface is a loopback interface.<br /> |
 | `Aggregate` | InterfaceTypeAggregate indicates that the interface is an aggregate (bundle) interface.<br /> |
 | `RoutedVLAN` | InterfaceTypeRoutedVLAN indicates that the interface is a routed VLAN interface (SVI/IRB).<br /> |
+| `Subinterface` | InterfaceTypeSubinterface indicates that the interface is a subinterface of an interface.<br /> |
 
 
 #### LACPMode
@@ -1479,6 +2530,24 @@ _Appears in:_
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the LLDP resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />Standard condition types include:<br />- "Available": the resource is fully functional<br />- "Progressing": the resource is being created or updated<br />- "Degraded": the resource failed to reach or maintain its desired state<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
 
 
+#### LocalAS
+
+
+
+LocalAS defines the local AS configuration and how it factors in BGP announcements.
+
+
+
+_Appears in:_
+- [BGPPeerSpec](#bgppeerspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber specifies a local AS number to present in BGP sessions with this peer. |  | Required: \{\} <br /> |
+| `prependLocalAS` _boolean_ | PrependLocalAS specifies whether to prepend the local AS number to updates received from this peer. | true | Optional: \{\} <br /> |
+| `prependGlobalAS` _boolean_ | PrependGlobalAS specifies whether to prepend the global AS number to updates sent to this neighbor. | true | Optional: \{\} <br /> |
+
+
 #### LocalObjectReference
 
 
@@ -1489,18 +2558,26 @@ referenced object inside the same namespace.
 
 
 _Appears in:_
+- [AAASpec](#aaaspec)
 - [AccessControlListSpec](#accesscontrollistspec)
 - [Aggregation](#aggregation)
+- [BGPPeerAddressFamily](#bgppeeraddressfamily)
 - [BGPPeerLocalAddress](#bgppeerlocaladdress)
 - [BGPPeerReference](#bgppeerreference)
 - [BGPPeerSpec](#bgppeerspec)
+- [BGPRedistributeDirectRoutes](#bgpredistributedirectroutes)
 - [BGPSpec](#bgpspec)
 - [BannerSpec](#bannerspec)
 - [BorderGatewaySpec](#bordergatewayspec)
 - [CertificateSpec](#certificatespec)
+- [ConfigBackupSpec](#configbackupspec)
+- [DHCPRelaySpec](#dhcprelayspec)
 - [DNSSpec](#dnsspec)
 - [DevicePort](#deviceport)
 - [EVPNInstanceSpec](#evpninstancespec)
+- [EthernetSegmentSpec](#ethernetsegmentspec)
+- [FabricLoopbacksSpec](#fabricloopbacksspec)
+- [FabricUnderlayAddressingSpec](#fabricunderlayaddressingspec)
 - [ISISSpec](#isisspec)
 - [InterconnectInterfaceReference](#interconnectinterfacereference)
 - [InterfaceIPv4Unnumbered](#interfaceipv4unnumbered)
@@ -1605,7 +2682,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Interface to its provider-specific configuration. |  | Optional: \{\} <br /> |
-| `grpc` _[GRPC](#grpc)_ | Configuration for the gRPC server on the device.<br />Currently, only a single "default" gRPC server is supported. | \{ enabled:true port:9339 \} | Optional: \{\} <br /> |
+| `grpc` _[GRPC](#grpc)_ | Configuration for the gRPC server on the device. | \{ enabled:true port:9339 \} | Optional: \{\} <br /> |
 | `ssh` _[SSH](#ssh)_ | Configuration for the SSH server on the device. | \{ enabled:true sessionLimit:32 timeout:10m \} | Optional: \{\} <br /> |
 
 
@@ -1765,6 +2842,51 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `address` _string_ | The Hostname or IP address of the DNS server. |  | MaxLength: 253 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `vrfName` _string_ | The name of the vrf used to communicate with the DNS server. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
+
+
+#### Neighbor
+
+
+
+Neighbor represents an LLDP neighbor discovered on an interface.
+It includes the results of the LLDP adjacency validation against the expected neighbor information from the interface's labels or annotations.
+
+
+
+_Appears in:_
+- [InterfaceStatus](#interfacestatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `chassisId` _string_ | ChassisID contains an octet string indicating the specific chassis ID of the neighbor.<br />Its semantics are defined by the ChassisIDType field. |  | Required: \{\} <br /> |
+| `chassisIdType` _[ChassisIDType](#chassisidtype)_ | ChassisIDType represents the chassis ID subtype.<br />Full list of types can be found in IEEE 802.1AB-2016 Table 8-2. |  | Enum: [ChassisComponent InterfaceAlias PortComponent MACAddress NetworkAddress InterfaceName Local] <br />Required: \{\} <br /> |
+| `portId` _string_ | PortID contains an octet string indicating the specific port ID of the neighbor.<br />Its semantics are defined by the PortIDType field. |  | Required: \{\} <br /> |
+| `portIdType` _[PortIDType](#portidtype)_ | PortIDType represents the port ID subtype.<br />Full list of types can be found in IEEE 802.1AB-2016 Table 8-3. |  | Enum: [InterfaceAlias PortComponent MACAddress NetworkAddress InterfaceName AgentCircuitID Local] <br />Required: \{\} <br /> |
+| `systemName` _string_ | SystemName is an alpha-numeric string that indicates the system’s administratively assigned name. |  | Optional: \{\} <br /> |
+| `systemDescription` _string_ | SystemDescription is a textual description of the neighbor, should include hardware and software information<br />If the device supports IETF RFC 3418, this is the `sysDescr` |  | Optional: \{\} <br /> |
+| `portDescription` _string_ | PortDescription contains the port description of the neighbor port.<br />If the device supports IETF RFC 2863, this is the `ifDescr` |  | Optional: \{\} <br /> |
+| `expirationTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | ExpirationTime is the time when the LLDP neighbor information expires.<br />It is calculated based on the TTL. |  | Required: \{\} <br /> |
+| `validation` _[NeighborValidation](#neighborvalidation)_ | Validation indicates whether the LLDP neighbor information matches the information in the label or annotations of the interface.<br />Empty when no validation source (label or annotation) is configured on the interface. |  | Enum: [NotFound Verified DeviceMismatch PortMismatch] <br />Optional: \{\} <br /> |
+
+
+#### NeighborValidation
+
+_Underlying type:_ _string_
+
+NeighborValidation represents the result of the validation of the LLDP neighbor information against the expected values from the interface's labels or annotations.
+
+_Validation:_
+- Enum: [NotFound Verified DeviceMismatch PortMismatch]
+
+_Appears in:_
+- [Neighbor](#neighbor)
+
+| Field | Description |
+| --- | --- |
+| `NotFound` | NeighborNotFound indicates that the resource referenced in the PhysicalInterfaceNeighborLabel label could not be found.<br /> |
+| `Verified` | NeighborVerified indicates that the LLDP neighbor information has been verified and matches the expected values.<br /> |
+| `DeviceMismatch` | NeighborDeviceMismatch indicates that the LLDP neighbor information does not match the expected values, indicating a potential misconfiguration or unexpected neighbor.<br /> |
+| `PortMismatch` | NeighborPortMismatch indicates that the LLDP neighbor information does not match the expected port information, indicating a potential misconfiguration or unexpected neighbor.<br /> |
 
 
 #### NetworkVirtualizationEdge
@@ -2131,6 +3253,29 @@ _Appears in:_
 | `actions` _[PolicyActions](#policyactions)_ | Actions define what to do when conditions match. |  | Required: \{\} <br /> |
 
 
+#### PortIDType
+
+_Underlying type:_ _string_
+
+PortIDType represents the port ID subtype for LLDP neighbor information.
+See IEEE 802.1AB-2016 section 8.5.3.2 for details.
+
+
+
+_Appears in:_
+- [Neighbor](#neighbor)
+
+| Field | Description |
+| --- | --- |
+| `InterfaceAlias` | PortIDTypeInterfaceAlias is `ifAlias` (IETF RFC 2863)<br /> |
+| `PortComponent` | PortIDTypePortComponent is `entPhysicalAlias` when `entPhysicalClass` has a value ‘port(10)’ or ‘backplane(4)’ (IETF RFC 6933)<br /> |
+| `MACAddress` | PortIDTypeMACAddress is the MAC address (IEEE Std 802)<br /> |
+| `NetworkAddress` | PortIDTypeNetworkAddress is an octet string representation of a particular network family and address.<br /> |
+| `InterfaceName` | PortIDTypeInterfaceName is `ifName` (IETF RFC 2863)<br /> |
+| `AgentCircuitID` | PortIDTypeAgentCircuitID is the agent circuit ID (IETF RFC 3046)<br /> |
+| `Local` | PortIDTypeLocal is an alphanumeric string that and is locally assigned<br /> |
+
+
 #### PrefixEntry
 
 
@@ -2279,6 +3424,24 @@ _Appears in:_
 | `error` _string_ |  |  | Optional: \{\} <br /> |
 
 
+
+
+#### RedundancyMode
+
+_Underlying type:_ _string_
+
+RedundancyMode defines the forwarding model for a multi-homed Ethernet Segment.
+
+_Validation:_
+- Enum: [AllActive SingleActive]
+
+_Appears in:_
+- [EthernetSegmentSpec](#ethernetsegmentspec)
+
+| Field | Description |
+| --- | --- |
+| `AllActive` | RedundancyModeAllActive enables all PE nodes in the segment to forward unicast<br />traffic simultaneously (RFC 7432 Section 14.1.2).<br /> |
+| `SingleActive` | RedundancyModeSingleActive restricts forwarding to the elected Designated Forwarder<br />only (RFC 7432 Section 14.1.1).<br /> |
 
 
 #### RendezvousPoint
@@ -2569,6 +3732,8 @@ SecretKeySelector contains enough information to select a key of a Secret.
 
 
 _Appears in:_
+- [AAAServerRADIUS](#aaaserverradius)
+- [AAAServerTACACS](#aaaservertacacs)
 - [PasswordSource](#passwordsource)
 - [SSHPublicKeySource](#sshpublickeysource)
 - [TLS](#tls)
@@ -2600,6 +3765,61 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `name` _string_ | Name is unique within a namespace to reference a secret resource. |  | MaxLength: 253 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `namespace` _string_ | Namespace defines the space within which the secret name must be unique.<br />If omitted, the namespace of the object being reconciled will be used. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
+
+
+#### SetASPathAction
+
+
+
+SetASPathAction defines actions to modify the BGP AS path attribute.
+
+
+
+_Appears in:_
+- [BgpActions](#bgpactions)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `prepend` _[SetASPathPrepend](#setaspathprepend)_ | Prepend configures prepending to the AS path. |  | Optional: \{\} <br /> |
+| `replace` _[SetASPathReplace](#setaspathreplace)_ | Replace configures replacement of AS numbers in the AS path. |  | Optional: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber sets the AS path to the specified AS number.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
+
+
+#### SetASPathPrepend
+
+
+
+SetASPathPrepend configures prepending to the BGP AS path.
+Either asNumber or useLastAS must be specified, but not both.
+
+
+
+_Appears in:_
+- [SetASPathAction](#setaspathaction)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number to prepend to the AS path.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
+| `useLastAS` _integer_ | UseLastAS prepends the last AS number in the existing AS path the specified number of times. |  | Maximum: 10 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+
+
+#### SetASPathReplace
+
+
+
+SetASPathReplace configures replacement of AS numbers in the BGP AS path.
+Either privateAS or asNumber must be specified, but not both.
+
+
+
+_Appears in:_
+- [SetASPathAction](#setaspathaction)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `privateAS` _boolean_ | PrivateAS, when set to true, targets all private AS numbers in the path for replacement. |  | Optional: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber targets a specific AS number in the path for replacement.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
+| `replacement` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | Replacement is the AS number to substitute in place of matched AS numbers.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
 
 
 #### SetCommunityAction
@@ -2675,7 +3895,8 @@ _Appears in:_
 | `mode` _[SwitchportMode](#switchportmode)_ | Mode defines the switchport mode, such as access or trunk. |  | Enum: [Access Trunk] <br />Required: \{\} <br /> |
 | `accessVlan` _integer_ | AccessVlan specifies the VLAN ID for access mode switchports.<br />Only applicable when Mode is set to "Access". |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `nativeVlan` _integer_ | NativeVlan specifies the native VLAN ID for trunk mode switchports.<br />Only applicable when Mode is set to "Trunk". |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
-| `allowedVlans` _integer array_ | AllowedVlans is a list of VLAN IDs that are allowed on the trunk port.<br />If not specified, all VLANs (1-4094) are allowed.<br />Only applicable when Mode is set to "Trunk". |  | MinItems: 1 <br />items:Maximum: 4094 <br />items:Minimum: 1 <br />Optional: \{\} <br /> |
+| `allowedVlansMode` _[AllowedVlansMode](#allowedvlansmode)_ | AllowedVlansMode defines how trunk allowed VLANs are managed.<br />When omitted, the mode is Exact.<br />Exact means the operator owns the complete allowed VLAN list.<br />Unmanaged means the operator does not change the allowed VLAN list.<br />Only applicable when Mode is set to "Trunk". | Exact | Enum: [Exact Unmanaged] <br />Optional: \{\} <br /> |
+| `allowedVlans` _[IndexRange](#indexrange) array_ | AllowedVlans is the exact list of VLAN ID ranges allowed on the trunk port.<br />Each entry is an inclusive range string like "100..200". For compatibility,<br />a single integer like 100 is also accepted and treated as "100..100".<br />If not specified and AllowedVlansMode is Exact, all VLANs (1-4094) are allowed.<br />Must be omitted when AllowedVlansMode is Unmanaged.<br />Only applicable when Mode is set to "Trunk". |  | MinItems: 1 <br />Pattern: `^[0-9]+(\.\.[0-9]+)?$` <br />Type: string <br />XIntOrString: \{\} <br />Optional: \{\} <br /> |
 
 
 #### SwitchportMode
@@ -2798,14 +4019,23 @@ typed referenced object inside the same namespace.
 
 
 _Appears in:_
+- [AAASpec](#aaaspec)
 - [AccessControlListSpec](#accesscontrollistspec)
 - [BGPPeerSpec](#bgppeerspec)
 - [BGPSpec](#bgpspec)
 - [BannerSpec](#bannerspec)
 - [CertificateSpec](#certificatespec)
+- [ClaimSpec](#claimspec)
+- [ClaimStatus](#claimstatus)
+- [ConfigBackupSpec](#configbackupspec)
+- [DHCPRelaySpec](#dhcprelayspec)
 - [DNSSpec](#dnsspec)
 - [EVPNInstanceSpec](#evpninstancespec)
+- [EthernetSegmentSpec](#ethernetsegmentspec)
+- [IPAddressSpec](#ipaddressspec)
+- [IPPrefixSpec](#ipprefixspec)
 - [ISISSpec](#isisspec)
+- [IndexSpec](#indexspec)
 - [InterfaceSpec](#interfacespec)
 - [LLDPSpec](#lldpspec)
 - [ManagementAccessSpec](#managementaccessspec)
@@ -2993,8 +4223,8 @@ _Appears in:_
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the VRF to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `name` _string_ | Name is the name of the VRF.<br />Immutable. |  | MaxLength: 32 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `description` _string_ | Description provides a human-readable description of the VRF. |  | MaxLength: 255 <br />MinLength: 1 <br />Optional: \{\} <br /> |
-| `vni` _integer_ | VNI is the VXLAN Network Identifier for the VRF (always an L3). |  | Maximum: 1.6777215e+07 <br />Minimum: 1 <br />Optional: \{\} <br /> |
-| `routeDistinguisher` _string_ | RouteDistinguisher is the route distinguisher for the VRF.<br />Formats supported:<br /> - Type 0: ASN(0-65535):Number(0-4294967295)<br /> - Type 1: IPv4:Number(0-65535)<br /> - Type 2: ASN(65536-4294967295):Number(0-65535)<br />Validation via admission webhook for the VRF type. |  | Optional: \{\} <br /> |
+| `vni` _integer_ | VNI is the VXLAN Network Identifier for the VRF (always an L3).<br />Deprecated: Use the VNI field on the EVPNInstance resource instead. This field will be removed in a future release. |  | Maximum: 1.6777215e+07 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `routeDistinguisher` _string_ | RouteDistinguisher is the route distinguisher for the VRF.<br />Set to "Auto" for automatic derivation (equivalent to "rd auto").<br />Formats supported:<br /> - "Auto" (automatic derivation)<br /> - Type 0: ASN(0-65535):Number(0-4294967295)<br /> - Type 1: IPv4:Number(0-65535)<br /> - Type 2: ASN(65536-4294967295):Number(0-65535)<br />Validation via admission webhook for the VRF type. |  | Optional: \{\} <br /> |
 | `routeTargets` _[RouteTarget](#routetarget) array_ | RouteTargets is the list of route targets for the VRF. |  | Optional: \{\} <br /> |
 
 
@@ -3020,6 +4250,7 @@ _Appears in:_
 Package v1alpha1 contains API Schema definitions for the nx.cisco.networking.metal.ironcore.dev v1alpha1 API group.
 
 ### Resource Types
+- [AAAConfig](#aaaconfig)
 - [BGPConfig](#bgpconfig)
 - [BorderGateway](#bordergateway)
 - [InterfaceConfig](#interfaceconfig)
@@ -3029,6 +4260,42 @@ Package v1alpha1 contains API Schema definitions for the nx.cisco.networking.met
 - [System](#system)
 - [VPCDomain](#vpcdomain)
 
+
+
+#### AAAConfig
+
+
+
+AAAConfig is the Schema for the aaaconfigs API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `nx.cisco.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `AAAConfig` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[AAAConfigSpec](#aaaconfigspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+
+
+#### AAAConfigSpec
+
+
+
+AAAConfigSpec defines the desired state of AAAConfig
+
+
+
+_Appears in:_
+- [AAAConfig](#aaaconfig)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `loginErrorEnable` _boolean_ | LoginErrorEnable enables login error messages. |  | Optional: \{\} <br /> |
+| `keyEncryption` _[TACACSKeyEncryption](#tacacskeyencryption)_ | KeyEncryption specifies the default encryption type for TACACS+ keys. | Type7 | Enum: [Type6 Type7 Clear] <br /> |
+| `radiusKeyEncryption` _[RADIUSKeyEncryption](#radiuskeyencryption)_ | RADIUSKeyEncryption specifies the default encryption type for RADIUS server keys. | Type7 | Enum: [Type6 Type7 Clear] <br /> |
 
 
 #### AutoRecovery
@@ -3081,6 +4348,8 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `l2vpnEvpn` _[BGPL2vpnEvpn](#bgpl2vpnevpn)_ | L2vpnEvpn configures L2VPN EVPN address family support. |  | Optional: \{\} <br /> |
+| `ipv4Unicast` _[BGPConfigUnicastAddressFamily](#bgpconfigunicastaddressfamily)_ | Ipv4Unicast configures specific IPv4 unicast address family settings. |  | Optional: \{\} <br /> |
+| `ipv6Unicast` _[BGPConfigUnicastAddressFamily](#bgpconfigunicastaddressfamily)_ | Ipv6Unicast configures specific IPv6 unicast address family settings. |  | Optional: \{\} <br /> |
 
 
 #### BGPConfigSpec
@@ -3097,6 +4366,23 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `addressFamilies` _[BGPConfigAddressFamilies](#bgpconfigaddressfamilies)_ | AddressFamilies configures supported BGP address families and their Cisco NX-OS specific settings. |  | Optional: \{\} <br /> |
+
+
+#### BGPConfigUnicastAddressFamily
+
+
+
+BGPConfigUnicastAddressFamily defines specific configuration shared
+across unicast BGP address families.
+
+
+
+_Appears in:_
+- [BGPConfigAddressFamilies](#bgpconfigaddressfamilies)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `exportGatewayIP` _boolean_ | ExportGatewayIP enables advertising the gateway IP in EVPN Type-5 routes,<br />required for symmetric IRB in VXLAN BGP EVPN topologies. |  | Optional: \{\} <br /> |
 
 
 #### BGPL2vpnEvpn
@@ -3228,7 +4514,7 @@ _Appears in:_
 
 
 
-
+Console defines the configuration for the terminal console access on the device.
 
 
 
@@ -3238,6 +4524,22 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `timeout` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | Timeout defines the inactivity timeout for console sessions.<br />If a session is inactive for the specified duration, it will be automatically disconnected.<br />The format is a string representing a duration (e.g., "10m" for 10 minutes). | 10m | Pattern: `^([0-9]+(\.[0-9]+)?(ns\|us\|µs\|ms\|s\|m\|h))+$` <br />Type: string <br />Optional: \{\} <br /> |
+
+
+#### EVPNMultihoming
+
+
+
+EVPNMultihoming defines EVPN ESI multihoming settings for an interface.
+
+
+
+_Appears in:_
+- [InterfaceConfigSpec](#interfaceconfigspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `coreTracking` _boolean_ | CoreTracking enables core-link tracking on the interface.<br />When enabled on uplink (core) interfaces, the switch shuts down<br />ESI-attached access links if all tracked core-links go down,<br />preventing traffic blackholing. |  | Required: \{\} <br /> |
 
 
 #### Enabled
@@ -3311,6 +4613,23 @@ InterfaceConfig is the Schema for the interfaceconfigs API
 | `spec` _[InterfaceConfigSpec](#interfaceconfigspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
 
 
+#### InterfaceConfigLACP
+
+
+
+InterfaceConfigLACP defines LACP options for PortChannel interfaces.
+
+
+
+_Appears in:_
+- [InterfaceConfigSpec](#interfaceconfigspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `vpcConvergence` _boolean_ | VPCConvergence enables faster LACP convergence in a vPC topology. |  | Optional: \{\} <br /> |
+| `suspendIndividual` _boolean_ | SuspendIndividual controls whether a member port is suspended when<br />LACP PDUs are not received. Set to false to keep the port forwarding. |  | Optional: \{\} <br /> |
+
+
 #### InterfaceConfigSpec
 
 
@@ -3326,6 +4645,8 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `spanningTree` _[SpanningTree](#spanningtree)_ | SpanningTree defines the spanning tree configuration for the interface. |  | Optional: \{\} <br /> |
 | `bufferBoost` _[BufferBoost](#bufferboost)_ | BufferBoost defines the buffer boost configuration for the interface.<br />Buffer boost increases the shared buffer space allocation for the interface. |  | Optional: \{\} <br /> |
+| `lacp` _[InterfaceConfigLACP](#interfaceconfiglacp)_ | LACP defines LACP options for PortChannel (Aggregate) interfaces. |  | Optional: \{\} <br /> |
+| `evpnMultihoming` _[EVPNMultihoming](#evpnmultihoming)_ | EVPNMultihoming defines EVPN ESI multihoming settings for the interface. |  | Optional: \{\} <br /> |
 
 
 #### KeepAlive
@@ -3477,6 +4798,25 @@ _Appears in:_
 | `l3router` _[Enabled](#enabled)_ | L3Router enables Layer 3 peer-router functionality on this peer. | \{ enabled:false \} | Optional: \{\} <br /> |
 
 
+#### RADIUSKeyEncryption
+
+_Underlying type:_ _string_
+
+RADIUSKeyEncryption defines the encryption type for RADIUS server keys.
+
+_Validation:_
+- Enum: [Type6 Type7 Clear]
+
+_Appears in:_
+- [AAAConfigSpec](#aaaconfigspec)
+
+| Field | Description |
+| --- | --- |
+| `Type6` | RADIUSKeyEncryptionType6 uses AES encryption (more secure).<br /> |
+| `Type7` | RADIUSKeyEncryptionType7 uses Cisco Type 7 encryption (reversible).<br /> |
+| `Clear` | RADIUSKeyEncryptionClear sends the key in cleartext.<br /> |
+
+
 #### SSH
 
 
@@ -3506,7 +4846,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `portType` _[SpanningTreePortType](#spanningtreeporttype)_ | PortType defines the spanning tree port type. |  | Enum: [Normal Edge Network] <br />Required: \{\} <br /> |
+| `portType` _[SpanningTreePortType](#spanningtreeporttype)_ | PortType defines the spanning tree port type. |  | Enum: [Normal Edge Network Trunk] <br />Required: \{\} <br /> |
 | `bpduGuard` _boolean_ | BPDUGuard enables BPDU guard on the interface.<br />When enabled, the port is shut down if a BPDU is received. |  | Optional: \{\} <br /> |
 | `bpduFilter` _boolean_ | BPDUFilter enables BPDU filter on the interface.<br />When enabled, BPDUs are not sent or received on the port. |  | Optional: \{\} <br /> |
 
@@ -3518,7 +4858,7 @@ _Underlying type:_ _string_
 SpanningTreePortType represents the spanning tree port type.
 
 _Validation:_
-- Enum: [Normal Edge Network]
+- Enum: [Normal Edge Network Trunk]
 
 _Appears in:_
 - [SpanningTree](#spanningtree)
@@ -3527,6 +4867,7 @@ _Appears in:_
 | --- | --- |
 | `Normal` | SpanningTreePortTypeNormal indicates a normal spanning tree port.<br /> |
 | `Edge` | SpanningTreePortTypeEdge indicates an edge port (connects to end devices).<br /> |
+| `Trunk` | SpanningTreePortTypeTrunk indicates a trunk port performing spanning tree calculations for multiple VLANs (connects to end devices and carries multiple VLANs).<br /> |
 | `Network` | SpanningTreePortTypeNetwork indicates a network port (connects to other switches).<br /> |
 
 
@@ -3552,7 +4893,8 @@ _Appears in:_
 
 
 
-
+StormControl defines the storm control configuration for the border gateway, allowing to rate-limit
+BUM (Broadcast, Unknown unicast, Multicast) traffic on the border gateway interface.
 
 
 
@@ -3617,6 +4959,25 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the Banner. |  | Optional: \{\} <br /> |
+
+
+#### TACACSKeyEncryption
+
+_Underlying type:_ _string_
+
+TACACSKeyEncryption defines the encryption type for TACACS+ server keys.
+
+_Validation:_
+- Enum: [Type6 Type7 Clear]
+
+_Appears in:_
+- [AAAConfigSpec](#aaaconfigspec)
+
+| Field | Description |
+| --- | --- |
+| `Type6` | TACACSKeyEncryptionType6 uses AES encryption (more secure).<br /> |
+| `Type7` | TACACSKeyEncryptionType7 uses Cisco Type 7 encryption (reversible).<br /> |
+| `Clear` | TACACSKeyEncryptionClear sends the key in cleartext.<br /> |
 
 
 #### TrafficType
@@ -3734,14 +5095,448 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | Conditions represent the latest available observations about the vPCDomain state.<br />Standard conditions include:<br />- Ready: overall readiness of the vPC domain<br />- Configured: whether the vPCDomain configuration was successfully applied to the device<br />- Operational: whether the vPC domain is operationally up. This condition is true when<br />  the status fields `PeerLinkIfOperStatus`, `KeepAliveStatus`, and `PeerStatus` are all set<br />  to `UP`.<br />For this Cisco model there is not one single unique operational property that reflects the<br />operational status of the vPC domain. The combination of peer status, keepalive status, and<br />the interface used as peer-link determine the overall health and operational condition of<br />the vPC domain. |  | Optional: \{\} <br /> |
-| `role` _[VPCDomainRole](#vpcdomainrole)_ | Role indicates the current operational role of this vPC domain peer. |  | Optional: \{\} <br /> |
-| `keepaliveStatus` _[Status](#status)_ | KeepAliveStatus indicates the status of the peer via the keepalive link. |  | Optional: \{\} <br /> |
+| `role` _[VPCDomainRole](#vpcdomainrole)_ | Role indicates the current operational role of this vPC domain peer. | Unknown | Optional: \{\} <br /> |
+| `keepaliveStatus` _[Status](#status)_ | KeepAliveStatus indicates the status of the peer via the keepalive link. | Unknown | Optional: \{\} <br /> |
 | `keepaliveStatusMsg` _string array_ | KeepAliveStatusMsg provides additional information about the keepalive status, a list of strings reported by the device. |  | Optional: \{\} <br /> |
-| `peerStatus` _[Status](#status)_ | PeerStatus indicates the status of the vPC domain peer-link in the latest consistency check with the peer. This means that if<br />the adjacency is lost, e.g., due to a shutdown link, the device will not be able to perform such check and the reported status<br />will remain unchanged (with the value of the last check). |  | Optional: \{\} <br /> |
+| `peerStatus` _[Status](#status)_ | PeerStatus indicates the status of the vPC domain peer-link in the latest consistency check with the peer. This means that if<br />the adjacency is lost, e.g., due to a shutdown link, the device will not be able to perform such check and the reported status<br />will remain unchanged (with the value of the last check). | Unknown | Optional: \{\} <br /> |
 | `peerStatusMsg` _string array_ | PeerStatusMsg provides additional information about the peer status, a list of strings reported by the device. |  | Optional: \{\} <br /> |
 | `peerUptime` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | PeerUptime indicates how long the vPC domain peer has been up and reachable via keepalive. |  | Optional: \{\} <br /> |
 | `peerLinkIf` _string_ | PeerLinkIf is the name of the interface used as the vPC domain peer-link. |  | Optional: \{\} <br /> |
-| `peerLinkIfOperStatus` _[Status](#status)_ | PeerLinkIfOperStatus is the Operational status of `PeerLinkIf`. |  | Optional: \{\} <br /> |
+| `peerLinkIfOperStatus` _[Status](#status)_ | PeerLinkIfOperStatus is the Operational status of `PeerLinkIf`. | Unknown | Optional: \{\} <br /> |
+
+
+
+## pool.networking.metal.ironcore.dev/v1alpha1
+
+Package v1alpha1 contains API Schema definitions for the pool.networking.metal.ironcore.dev v1alpha1 API group.
+
+### Resource Types
+- [Claim](#claim)
+- [IPAddress](#ipaddress)
+- [IPAddressPool](#ipaddresspool)
+- [IPPrefix](#ipprefix)
+- [IPPrefixPool](#ipprefixpool)
+- [Index](#index)
+- [IndexPool](#indexpool)
+
+
+
+
+
+#### Claim
+
+
+
+Claim is the Schema for the claims API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `pool.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `Claim` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[ClaimSpec](#claimspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[ClaimStatus](#claimstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### ClaimRef
+
+
+
+ClaimRef identifies the Claim bound to an allocation object.
+
+
+
+_Appears in:_
+- [IPAddressSpec](#ipaddressspec)
+- [IPPrefixSpec](#ipprefixspec)
+- [IndexSpec](#indexspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name is the name of the Claim. |  | Required: \{\} <br /> |
+| `uid` _[UID](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#uid-types-pkg)_ | UID is the UID of the Claim. When both name and UID match, the<br />allocation is considered fully bound. When the name matches but the<br />UID is stale or empty (e.g. after the original Claim was deleted and<br />recreated), the claim controller will only rebind if the allocation<br />carries the 'pool.networking.metal.ironcore.dev/allow-binding' annotation. |  | Required: \{\} <br /> |
+
+
+#### ClaimSpec
+
+
+
+ClaimSpec defines the desired state of Claim.
+
+
+
+_Appears in:_
+- [Claim](#claim)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `poolRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | PoolRef references the allocation pool to allocate from.<br />PoolRef is immutable once set. |  | Required: \{\} <br /> |
+
+
+#### ClaimStatus
+
+
+
+ClaimStatus defines the observed state of Claim.
+
+
+
+_Appears in:_
+- [Claim](#claim)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the Claim resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+| `allocationRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | AllocationRef references the bound allocation object (Index, IPAddress, or IPPrefix).<br />Set by the claim controller after successful binding. |  | Optional: \{\} <br /> |
+| `value` _string_ | Value is the allocated resource as a string, mirrored from the bound allocation<br />for convenient access without chasing the reference. |  | Optional: \{\} <br /> |
+
+
+#### IPAddress
+
+
+
+IPAddress is the Schema for the ipaddresses API.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `pool.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `IPAddress` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[IPAddressSpec](#ipaddressspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[IPAddressStatus](#ipaddressstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### IPAddressPool
+
+
+
+IPAddressPool is the Schema for the ipaddresspools API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `pool.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `IPAddressPool` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[IPAddressPoolSpec](#ipaddresspoolspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[IPAddressPoolStatus](#ipaddresspoolstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### IPAddressPoolSpec
+
+
+
+IPAddressPoolSpec defines the desired state of IPAddressPool
+
+
+
+_Appears in:_
+- [IPAddressPool](#ipaddresspool)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `prefixes` _[IPPrefix](#ipprefix) array_ | Prefixes defines the CIDR ranges that can be allocated. |  | Format: cidr <br />MinItems: 1 <br />Type: string <br />Required: \{\} <br /> |
+| `reclaimPolicy` _[ReclaimPolicy](#reclaimpolicy)_ | ReclaimPolicy controls what happens to an allocation when a claim is deleted.<br />Recycle returns the allocation to the pool. Retain keeps it reserved.<br />Immutable. | Recycle | Enum: [Recycle Retain] <br />Optional: \{\} <br /> |
+
+
+#### IPAddressPoolStatus
+
+
+
+IPAddressPoolStatus defines the observed state of IPAddressPool.
+
+
+
+_Appears in:_
+- [IPAddressPool](#ipaddresspool)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `allocated` _integer_ | Allocated is the number of allocated IP addresses. |  | Optional: \{\} <br /> |
+| `total` _string_ | Total is the number of allocatable IP addresses. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the IPAddressPool resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+
+
+#### IPAddressSpec
+
+
+
+IPAddressSpec defines the desired state of IPAddress.
+
+
+
+_Appears in:_
+- [IPAddress](#ipaddress)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `poolRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | PoolRef references the IPAddressPool this address was allocated from.<br />Immutable. |  | Required: \{\} <br /> |
+| `address` _[IPAddr](#ipaddr)_ | Address is the reserved IP address.<br />Immutable. |  | Format: ip <br />Type: string <br />Required: \{\} <br /> |
+| `claimRef` _[ClaimRef](#claimref)_ | ClaimRef references the Claim bound to this address.<br />Nil when the address is unbound (pre-provisioned or retained). |  | Optional: \{\} <br /> |
+
+
+#### IPAddressStatus
+
+
+
+IPAddressStatus defines the observed state of IPAddress.
+
+
+
+_Appears in:_
+- [IPAddress](#ipaddress)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the IPAddress resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+
+
+#### IPPrefix
+
+
+
+IPPrefix is the Schema for the ipprefixes API.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `pool.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `IPPrefix` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[IPPrefixSpec](#ipprefixspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[IPPrefixStatus](#ipprefixstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### IPPrefixPool
+
+
+
+IPPrefixPool is the Schema for the ipprefixpools API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `pool.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `IPPrefixPool` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[IPPrefixPoolSpec](#ipprefixpoolspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[IPPrefixPoolStatus](#ipprefixpoolstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### IPPrefixPoolSpec
+
+
+
+IPPrefixPoolSpec defines the desired state of IPPrefixPool
+
+
+
+_Appears in:_
+- [IPPrefixPool](#ipprefixpool)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `prefixes` _[IPPrefix](#ipprefix) array_ | Prefixes defines the base prefixes to allocate from. |  | Format: cidr <br />MinItems: 1 <br />Type: string <br />Required: \{\} <br /> |
+| `allocationPrefixLength` _integer_ | AllocationPrefixLength is the prefix length to allocate within each base prefix. |  | Maximum: 128 <br />Minimum: 0 <br />Required: \{\} <br /> |
+| `reclaimPolicy` _[ReclaimPolicy](#reclaimpolicy)_ | ReclaimPolicy controls what happens to an allocation when a claim is deleted.<br />Recycle returns the allocation to the pool. Retain keeps it reserved.<br />Immutable. | Recycle | Enum: [Recycle Retain] <br />Optional: \{\} <br /> |
+
+
+#### IPPrefixPoolStatus
+
+
+
+IPPrefixPoolStatus defines the observed state of IPPrefixPool.
+
+
+
+_Appears in:_
+- [IPPrefixPool](#ipprefixpool)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `allocated` _integer_ | Allocated is the number of allocated prefixes. |  | Optional: \{\} <br /> |
+| `total` _string_ | Total is the number of allocatable prefixes. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the IPPrefixPool resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+
+
+#### IPPrefixSpec
+
+
+
+IPPrefixSpec defines the desired state of IPPrefix.
+
+
+
+_Appears in:_
+- [IPPrefix](#ipprefix)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `poolRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | PoolRef references the IPPrefixPool this prefix was allocated from.<br />Immutable. |  | Required: \{\} <br /> |
+| `prefix` _[IPPrefix](#ipprefix)_ | Prefix is the reserved CIDR prefix.<br />Immutable. |  | Format: cidr <br />Type: string <br />Required: \{\} <br /> |
+| `claimRef` _[ClaimRef](#claimref)_ | ClaimRef references the Claim bound to this prefix.<br />Nil when the prefix is unbound (pre-provisioned or retained). |  | Optional: \{\} <br /> |
+
+
+#### IPPrefixStatus
+
+
+
+IPPrefixStatus defines the observed state of IPPrefix.
+
+
+
+_Appears in:_
+- [IPPrefix](#ipprefix)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the IPPrefix resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+
+
+#### Index
+
+
+
+Index is the Schema for the indices API.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `pool.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `Index` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[IndexSpec](#indexspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[IndexStatus](#indexstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### IndexPool
+
+
+
+IndexPool is the Schema for the indexpools API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `pool.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `IndexPool` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[IndexPoolSpec](#indexpoolspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[IndexPoolStatus](#indexpoolstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### IndexPoolSpec
+
+
+
+IndexPoolSpec defines the desired state of IndexPool
+
+
+
+_Appears in:_
+- [IndexPool](#indexpool)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `ranges` _[IndexRange](#indexrange) array_ | Ranges defines the inclusive index ranges that can be allocated.<br />Example: "64512..65534". |  | MinItems: 1 <br />Pattern: `^[0-9]+(\.\.[0-9]+)?$` <br />Type: string <br />XIntOrString: \{\} <br />Required: \{\} <br /> |
+| `reclaimPolicy` _[ReclaimPolicy](#reclaimpolicy)_ | ReclaimPolicy controls what happens to an allocation when a claim is deleted.<br />Recycle returns the allocation to the pool. Retain keeps it reserved.<br />Immutable. | Recycle | Enum: [Recycle Retain] <br />Optional: \{\} <br /> |
+
+
+#### IndexPoolStatus
+
+
+
+IndexPoolStatus defines the observed state of IndexPool.
+
+
+
+_Appears in:_
+- [IndexPool](#indexpool)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `allocated` _integer_ | Allocated is the number of allocated indices. |  | Optional: \{\} <br /> |
+| `total` _string_ | Total is the number of allocatable indices. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the IndexPool resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+
+
+#### IndexSpec
+
+
+
+IndexSpec defines the desired state of Index.
+
+
+
+_Appears in:_
+- [Index](#index)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `poolRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | PoolRef references the IndexPool this index was allocated from.<br />Immutable. |  | Required: \{\} <br /> |
+| `index` _integer_ | Index is the reserved value.<br />Immutable. |  | Minimum: 0 <br />Required: \{\} <br /> |
+| `claimRef` _[ClaimRef](#claimref)_ | ClaimRef references the Claim bound to this index.<br />Nil when the index is unbound (pre-provisioned or retained). |  | Optional: \{\} <br /> |
+
+
+#### IndexStatus
+
+
+
+IndexStatus defines the observed state of Index.
+
+
+
+_Appears in:_
+- [Index](#index)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the Index resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+
+
+
+
+#### ReclaimPolicy
+
+_Underlying type:_ _string_
+
+ReclaimPolicy defines how allocations are handled on claim deletion.
+
+_Validation:_
+- Enum: [Recycle Retain]
+
+_Appears in:_
+- [IPAddressPoolSpec](#ipaddresspoolspec)
+- [IPPrefixPoolSpec](#ipprefixpoolspec)
+- [IndexPoolSpec](#indexpoolspec)
+
+| Field | Description |
+| --- | --- |
+| `Recycle` |  |
+| `Retain` |  |
 
 
 

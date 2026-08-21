@@ -15,17 +15,17 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/tidwall/gjson"
 
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
 type TestCase struct {
 	name string
-	val  gnmiext.Configurable
+	val  gnmiext.DataElement
 }
 
 var tests []TestCase
 
-func Register(name string, val gnmiext.Configurable) {
+func Register(name string, val gnmiext.DataElement) {
 	tests = append(tests, TestCase{
 		name: name,
 		val:  val,
@@ -122,7 +122,7 @@ func sortSlices(v any) any {
 			if err != nil {
 				return 0
 			}
-			return strings.Compare(string(a), string(b))
+			return bytes.Compare(a, b)
 		})
 		return result
 	default:

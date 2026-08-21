@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/paused"
@@ -46,7 +47,7 @@ type VLANReconciler struct {
 
 	// Recorder is used to record events for the controller.
 	// More info: https://book.kubebuilder.io/reference/raising-events
-	Recorder record.EventRecorder
+	Recorder events.EventRecorder
 
 	// Provider is the driver that will be used to create & delete the vlan.
 	Provider provider.ProviderFunc
@@ -62,7 +63,7 @@ type VLANReconciler struct {
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vlans,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vlans/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=vlans/finalizers,verbs=update
-// +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -74,14 +75,14 @@ type VLANReconciler struct {
 // - https://ahmet.im/blog/controller-pitfalls/#reconcile-method-shape
 func (r *VLANReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
-	log.Info("Reconciling resource")
+	log.V(3).Info("Reconciling resource")
 
 	obj := new(v1alpha1.VLAN)
 	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
 		if apierrors.IsNotFound(err) {
 			// If the custom resource is not found then it usually means that it was deleted or not created
 			// In this way, we will stop the reconciliation
-			log.Info("Resource not found. Ignoring since object must be deleted")
+			log.V(3).Info("Resource not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -113,8 +114,8 @@ func (r *VLANReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 
 	if err := r.Locker.AcquireLock(ctx, device.Name, "vlan-controller"); err != nil {
 		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
-			log.Info("Device is already locked, requeuing reconciliation")
-			return ctrl.Result{RequeueAfter: time.Second}, nil
+			log.V(3).Info("Device is already locked, requeuing reconciliation")
+			return ctrl.Result{RequeueAfter: Jitter(time.Second), Priority: new(LockWaitPriorityDefault)}, nil
 		}
 		log.Error(err, "Failed to acquire device lock")
 		return ctrl.Result{}, err
@@ -159,7 +160,7 @@ func (r *VLANReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 				return ctrl.Result{}, err
 			}
 		}
-		log.Info("Resource is being deleted, skipping reconciliation")
+		log.V(3).Info("Resource is being deleted, skipping reconciliation")
 		return ctrl.Result{}, nil
 	}
 
@@ -170,13 +171,13 @@ func (r *VLANReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 			log.Error(err, "Failed to add finalizer to resource")
 			return ctrl.Result{}, err
 		}
-		log.Info("Added finalizer to resource")
+		log.V(1).Info("Added finalizer to resource")
 		return ctrl.Result{}, nil
 	}
 
 	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition, v1alpha1.OperationalCondition) {
-		log.Info("Initializing status conditions")
+		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
 
@@ -197,17 +198,16 @@ func (r *VLANReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		}
 	}()
 
-	res, err := r.reconcile(ctx, s)
-	if err != nil {
+	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, apistatus.WrapTerminalError(err)
 	}
 
-	return res, nil
+	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *VLANReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *VLANReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	if r.RequeueInterval == 0 {
 		return errors.New("requeue interval must not be 0")
 	}
@@ -220,6 +220,13 @@ func (r *VLANReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	filter, err := predicate.LabelSelectorPredicate(labelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to create label selector predicate: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.VLAN{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.VLAN)
+		return []string{o.Spec.DeviceRef.Name}
+	}); err != nil {
+		return err
 	}
 
 	bldr := ctrl.NewControllerManagedBy(mgr).
@@ -240,16 +247,13 @@ func (r *VLANReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return bldr.
 		// Watches enqueues VLANs for updates in referenced Device resources.
-		// Triggers on create, delete, and update events when the Paused spec field changes.
+		// Triggers on create, delete, and update events when the device's effective pause state changes.
 		Watches(
 			&v1alpha1.Device{},
 			handler.EnqueueRequestsFromMapFunc(r.deviceToVLANs),
 			builder.WithPredicates(predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					oldDevice := e.ObjectOld.(*v1alpha1.Device)
-					newDevice := e.ObjectNew.(*v1alpha1.Device)
-					// Only trigger when Paused spec field changes.
-					return oldDevice.Spec.Paused != newDevice.Spec.Paused
+					return paused.DevicePausedChanged(e.ObjectOld, e.ObjectNew)
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false
@@ -268,7 +272,7 @@ type vlanScope struct {
 	Provider       provider.VLANProvider
 }
 
-func (r *VLANReconciler) reconcile(ctx context.Context, s *vlanScope) (_ ctrl.Result, reterr error) {
+func (r *VLANReconciler) reconcile(ctx context.Context, s *vlanScope) (reterr error) {
 	if s.VLAN.Labels == nil {
 		s.VLAN.Labels = make(map[string]string)
 	}
@@ -278,7 +282,7 @@ func (r *VLANReconciler) reconcile(ctx context.Context, s *vlanScope) (_ ctrl.Re
 	// Ensure the VLAN is owned by the Device.
 	if !controllerutil.HasControllerReference(s.VLAN) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.VLAN, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
@@ -287,7 +291,7 @@ func (r *VLANReconciler) reconcile(ctx context.Context, s *vlanScope) (_ ctrl.Re
 	}()
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
@@ -309,7 +313,7 @@ func (r *VLANReconciler) reconcile(ctx context.Context, s *vlanScope) (_ ctrl.Re
 		ProviderConfig: s.ProviderConfig,
 	})
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get vlan status: %w", err)
+		return fmt.Errorf("failed to get vlan status: %w", err)
 	}
 
 	cond = metav1.Condition{
@@ -325,7 +329,7 @@ func (r *VLANReconciler) reconcile(ctx context.Context, s *vlanScope) (_ ctrl.Re
 	}
 	conditions.Set(s.VLAN, cond)
 
-	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
+	return nil
 }
 
 func (r *VLANReconciler) finalize(ctx context.Context, s *vlanScope) (reterr error) {
@@ -345,7 +349,7 @@ func (r *VLANReconciler) finalize(ctx context.Context, s *vlanScope) (reterr err
 }
 
 // deviceToVLANs is a [handler.MapFunc] to be used to enqueue requests for reconciliation
-// for VLANs when their referenced Device's Paused spec field changes.
+// for VLANs when their referenced Device's effective pause state changes.
 func (r *VLANReconciler) deviceToVLANs(ctx context.Context, obj client.Object) []ctrl.Request {
 	device, ok := obj.(*v1alpha1.Device)
 	if !ok {
@@ -355,9 +359,10 @@ func (r *VLANReconciler) deviceToVLANs(ctx context.Context, obj client.Object) [
 	log := ctrl.LoggerFrom(ctx, "Device", klog.KObj(device))
 
 	list := new(v1alpha1.VLANList)
-	if err := r.List(ctx, list,
+	if err := r.List(
+		ctx, list,
 		client.InNamespace(device.Namespace),
-		client.MatchingLabels{v1alpha1.DeviceLabel: device.Name},
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name},
 	); err != nil {
 		log.Error(err, "Failed to list VLANs")
 		return nil
@@ -365,7 +370,7 @@ func (r *VLANReconciler) deviceToVLANs(ctx context.Context, obj client.Object) [
 
 	requests := make([]ctrl.Request, 0, len(list.Items))
 	for _, i := range list.Items {
-		log.Info("Enqueuing VLAN for reconciliation", "VLAN", klog.KObj(&i))
+		log.V(2).Info("Enqueuing VLAN for reconciliation", "VLAN", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
 			NamespacedName: client.ObjectKey{
 				Name:      i.Name,
@@ -396,7 +401,7 @@ func (r *VLANReconciler) vlansForProviderConfig(ctx context.Context, obj client.
 			m.Spec.ProviderConfigRef.Name == obj.GetName() &&
 			m.Spec.ProviderConfigRef.Kind == gkv.Kind &&
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
-			log.Info("Enqueuing VLAN for reconciliation", "VLAN", klog.KObj(&m))
+			log.V(2).Info("Enqueuing VLAN for reconciliation", "VLAN", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      m.Name,

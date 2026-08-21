@@ -3,10 +3,76 @@
 
 package nxos
 
+import (
+	"encoding/json"
+	"testing"
+
+	corev1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+)
+
+func TestTrunkVlansJSON(t *testing.T) {
+	trunkVlans := &TrunkVlans{IfName: "eth1/10", Vlans: "10"}
+	got, err := json.Marshal(trunkVlans)
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	if string(got) != `"10"` {
+		t.Fatalf("json.Marshal() = %s, want %s", got, `"10"`)
+	}
+
+	var decoded TrunkVlans
+	if err := json.Unmarshal([]byte(`"20-30"`), &decoded); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if decoded.Vlans != "20-30" {
+		t.Fatalf("Unmarshaled Vlans = %q, want %q", decoded.Vlans, "20-30")
+	}
+}
+
+func TestRange(t *testing.T) {
+	tests := []struct {
+		name string
+		in   []corev1alpha1.IndexRange
+		want string
+	}{
+		{
+			name: "empty",
+			in:   nil,
+			want: "",
+		},
+		{
+			name: "single vlan",
+			in:   []corev1alpha1.IndexRange{corev1alpha1.MustParseIndexRange("10..10")},
+			want: "10",
+		},
+		{
+			name: "range",
+			in:   []corev1alpha1.IndexRange{corev1alpha1.MustParseIndexRange("10..20")},
+			want: "10-20",
+		},
+		{
+			name: "sorted ranges",
+			in: []corev1alpha1.IndexRange{
+				corev1alpha1.MustParseIndexRange("30..40"),
+				corev1alpha1.MustParseIndexRange("10..20"),
+			},
+			want: "10-20,30-40",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := Range(test.in); got != test.want {
+				t.Fatalf("Range() = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
 func init() {
 	Register("loopback", &Loopback{
 		ID:            "lo0",
-		Descr:         "Test",
+		Descr:         NewOption("Test"),
 		AdminSt:       AdminStUp,
 		RtvrfMbrItems: NewVrfMember("lo0", ManagementVRFName),
 	})
@@ -14,7 +80,7 @@ func init() {
 	Register("physif_rtd", &PhysIf{
 		AdminSt:       AdminStUp,
 		ID:            "eth1/1",
-		Descr:         "Leaf1 to Spine1",
+		Descr:         NewOption("Leaf1 to Spine1"),
 		FecMode:       FecModeAuto,
 		Layer:         Layer3,
 		MTU:           9216,
@@ -22,22 +88,33 @@ func init() {
 		Mode:          SwitchportModeAccess,
 		AccessVlan:    DefaultVLAN,
 		NativeVlan:    DefaultVLAN,
-		TrunkVlans:    DefaultVLANRange,
 		UserCfgdFlags: UserFlagAdminState | UserFlagAdminLayer | UserFlagAdminMTU,
 	})
 
 	Register("physif_switchport", &PhysIf{
 		AdminSt:       AdminStUp,
 		ID:            "eth1/10",
-		Descr:         "Leaf1 to Host1",
+		Descr:         NewOption("Leaf1 to Host1"),
 		FecMode:       FecModeAuto,
 		Layer:         Layer2,
+		MTU:           DefaultMTU,
 		Medium:        MediumBroadcast,
 		Mode:          SwitchportModeTrunk,
 		AccessVlan:    DefaultVLAN,
 		NativeVlan:    DefaultVLAN,
-		TrunkVlans:    "10",
 		UserCfgdFlags: UserFlagAdminState,
+	})
+
+	Register("physif_trunk_vlans", &TrunkVlans{IfName: "eth1/10", Vlans: "10"})
+
+	Register("subinterface", &EncapRoutedInterface{
+		ID:         "eth1/1.100",
+		MTU:        1500,
+		Medium:     MediumBroadcast,
+		MTUInherit: false,
+		Encap:      "100",
+		AdminSt:    AdminStUp,
+		Descr:      NewOption("L3 Subinterface on eth1/1"),
 	})
 
 	intfAddr4 := &AddrItem{ID: "lo0", Vrf: DefaultVRFName}
@@ -50,19 +127,61 @@ func init() {
 	Register("intf_addr4", intfAddr4)
 
 	pc := &PortChannel{
-		AccessVlan:    DefaultVLAN,
-		AdminSt:       AdminStUp,
-		Descr:         "vPC Leaf1 to Host1",
-		ID:            "po10",
-		Layer:         Layer2,
-		Mode:          SwitchportModeTrunk,
-		PcMode:        PortChannelModeActive,
-		NativeVlan:    DefaultVLAN,
-		TrunkVlans:    "10",
-		UserCfgdFlags: UserFlagAdminState,
+		AccessVlan:     DefaultVLAN,
+		AdminSt:        AdminStUp,
+		Descr:          NewOption("vPC Leaf1 to Host1"),
+		ID:             "po10",
+		VPCConvergence: AdminStDisable,
+		Layer:          Layer2,
+		MTU:            DefaultMTU,
+		Medium:         MediumBroadcast,
+		Mode:           SwitchportModeTrunk,
+		PcMode:         PortChannelModeActive,
+		NativeVlan:     DefaultVLAN,
+		SuspIndividual: AdminStEnable,
+		UserCfgdFlags:  UserFlagAdminState,
 	}
 	pc.RsmbrIfsItems.RsMbrIfsList.Set(NewPortChannelMember("eth1/10"))
 	Register("pc", pc)
+	Register("pc_trunk_vlans", &TrunkVlans{IfName: "po10", Vlans: "10"})
+
+	Register("pc_rtd", &PortChannel{
+		AccessVlan:     "unknown",
+		AdminSt:        AdminStUp,
+		Descr:          NewOption("L3 Port-Channel to Spine1"),
+		ID:             "po20",
+		VPCConvergence: AdminStDisable,
+		Layer:          Layer3,
+		MTU:            9216,
+		Medium:         MediumPointToPoint,
+		Mode:           SwitchportModeAccess,
+		NativeVlan:     "unknown",
+		PcMode:         PortChannelModeActive,
+		SuspIndividual: AdminStEnable,
+		UserCfgdFlags:  UserFlagAdminState | UserFlagAdminLayer | UserFlagAdminMTU,
+		RtvrfMbrItems:  NewVrfMember("po20", "default"),
+		AggrExtdItems: struct {
+			BufferBoost AdminSt4 `json:"bufferBoost,omitempty"`
+		}{BufferBoost: AdminStEnable},
+	})
+
+	pcLacp := &PortChannel{
+		AccessVlan:     DefaultVLAN,
+		AdminSt:        AdminStUp,
+		Descr:          NewOption("vPC Leaf1 to Host1 (LACP)"),
+		ID:             "po1",
+		VPCConvergence: AdminStEnable,
+		Layer:          Layer2,
+		MTU:            DefaultMTU,
+		Medium:         MediumBroadcast,
+		Mode:           SwitchportModeTrunk,
+		PcMode:         PortChannelModeActive,
+		NativeVlan:     DefaultVLAN,
+		SuspIndividual: AdminStDisable,
+		UserCfgdFlags:  UserFlagAdminState,
+	}
+	pcLacp.RsmbrIfsItems.RsMbrIfsList.Set(NewPortChannelMember("eth1/1"))
+	Register("pc_lacp", pcLacp)
 
 	svi := &SwitchVirtualInterface{
 		AdminSt: AdminStUp,
@@ -80,6 +199,21 @@ func init() {
 		Mode:    FwdModeAnycastGateway,
 	}
 	Register("fwif", fwif)
+
+	Register("physif_coretracking", &PhysIf{
+		AccessVlan:           DefaultVLAN,
+		AdminSt:              AdminStUp,
+		Descr:                NewOption("Uplink to Spine1"),
+		FecMode:              FecModeAuto,
+		ID:                   "eth1/1",
+		Layer:                Layer3,
+		MTU:                  9216,
+		Medium:               MediumPointToPoint,
+		Mode:                 SwitchportModeAccess,
+		NativeVlan:           DefaultVLAN,
+		UserCfgdFlags:        UserFlagAdminState | UserFlagAdminLayer | UserFlagAdminMTU,
+		ESICoreTrackingItems: &ESICoreTracking{CoreTracking: AdminStEnabled},
+	})
 
 	dci := &MultisiteIfTracking{IfName: "eth1/1", Tracking: MultisiteIfTrackingModeDCI}
 	Register("bgw_tracking", dci)

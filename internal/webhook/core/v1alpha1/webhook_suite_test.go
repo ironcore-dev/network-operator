@@ -107,6 +107,9 @@ var _ = BeforeSuite(func() {
 	err = SetupNetworkVirtualizationEdgeWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = SetupRoutingPolicyWebhookWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
 	// +kubebuilder:scaffold:webhook
 
 	go func() {

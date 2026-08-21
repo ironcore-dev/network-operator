@@ -8,10 +8,8 @@ import (
 	"errors"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
@@ -22,8 +20,7 @@ var interfacelog = logf.Log.WithName("interface-resource")
 
 // SetupInterfaceWebhookWithManager registers the webhook for Interfaces in the manager.
 func SetupInterfaceWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha1.Interface{}).
+	return ctrl.NewWebhookManagedBy(mgr, &v1alpha1.Interface{}).
 		WithValidator(&InterfaceCustomValidator{}).
 		Complete()
 }
@@ -34,34 +31,24 @@ func SetupInterfaceWebhookWithManager(mgr ctrl.Manager) error {
 // when it is created, updated, or deleted.
 type InterfaceCustomValidator struct{}
 
-var _ webhook.CustomValidator = &InterfaceCustomValidator{}
+var _ admission.Validator[*v1alpha1.Interface] = &InterfaceCustomValidator{}
 
-// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type Interface.
-func (v *InterfaceCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	intf, ok := obj.(*v1alpha1.Interface)
-	if !ok {
-		return nil, fmt.Errorf("expected a Interfaces object but got %T", obj)
-	}
-
+// ValidateCreate implements admission.Validator so a webhook will be registered for the type Interface.
+func (v *InterfaceCustomValidator) ValidateCreate(_ context.Context, intf *v1alpha1.Interface) (admission.Warnings, error) {
 	interfacelog.Info("Validation for Interfaces upon creation", "name", intf.GetName())
 
 	return nil, validateInterfaceSpec(intf)
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type Interface.
-func (v *InterfaceCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	intf, ok := newObj.(*v1alpha1.Interface)
-	if !ok {
-		return nil, fmt.Errorf("expected a Interfaces object for the newObj but got %T", newObj)
-	}
-
+// ValidateUpdate implements admission.Validator so a webhook will be registered for the type Interface.
+func (v *InterfaceCustomValidator) ValidateUpdate(_ context.Context, _, intf *v1alpha1.Interface) (admission.Warnings, error) {
 	interfacelog.Info("Validation for Interfaces upon update", "name", intf.GetName())
 
 	return nil, validateInterfaceSpec(intf)
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type Interface.
-func (v *InterfaceCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+// ValidateDelete implements admission.Validator so a webhook will be registered for the type Interface.
+func (v *InterfaceCustomValidator) ValidateDelete(_ context.Context, _ *v1alpha1.Interface) (admission.Warnings, error) {
 	return nil, nil
 }
 
@@ -83,6 +70,12 @@ func validateInterfaceSpec(intf *v1alpha1.Interface) error {
 
 	if intf.Spec.IPv4 != nil {
 		if err := validateInterfaceIPv4(intf.Spec.IPv4); err != nil {
+			errAgg = append(errAgg, err)
+		}
+	}
+
+	if intf.Spec.Switchport != nil {
+		if err := validateSwitchport(intf.Spec.Switchport); err != nil {
 			errAgg = append(errAgg, err)
 		}
 	}
@@ -126,6 +119,22 @@ func validatePhysicalInterfaceNeighborMutualExclusion(intf *v1alpha1.Interface) 
 	}
 
 	return nil
+}
+
+func validateSwitchport(sp *v1alpha1.Switchport) error {
+	var errAgg []error
+	for i, a := range sp.AllowedVlans {
+		if a.Start < 1 || a.End > 4094 {
+			errAgg = append(errAgg, fmt.Errorf("spec.switchport.allowedVlans[%d] (%d..%d) must be between 1 and 4094", i, a.Start, a.End))
+		}
+		for j := i + 1; j < len(sp.AllowedVlans); j++ {
+			b := sp.AllowedVlans[j]
+			if a.Start <= b.End && b.Start <= a.End {
+				errAgg = append(errAgg, fmt.Errorf("spec.switchport.allowedVlans[%d] (%d..%d) overlaps with spec.switchport.allowedVlans[%d] (%d..%d)", i, a.Start, a.End, j, b.Start, b.End))
+			}
+		}
+	}
+	return errors.Join(errAgg...)
 }
 
 // validateInterfaceIPv4 performs validation on the InterfaceIPv4 spec.

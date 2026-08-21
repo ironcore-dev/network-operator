@@ -37,10 +37,10 @@ func EnsureCondition(ctx context.Context, c client.Client, device *v1alpha1.Devi
 	switch {
 	case statusChanged && isPaused:
 		log.Info("Pausing reconciliation for this object", "reason", newCondition.Message)
-	case statusChanged && !isPaused:
+	case statusChanged && !isPaused && oldCondition != nil:
 		log.Info("Unpausing reconciliation for this object")
 	case !statusChanged && isPaused:
-		log.V(4).Info("Reconciliation is paused for this object", "reason", newCondition.Message)
+		log.V(3).Info("Reconciliation is paused for this object", "reason", newCondition.Message)
 	}
 
 	// Set Ready=Unknown while paused: the operator is no longer actively
@@ -62,15 +62,19 @@ func EnsureCondition(ctx context.Context, c client.Client, device *v1alpha1.Devi
 		return isPaused, false, nil
 	}
 
-	if err = c.Status().Patch(ctx, obj, client.MergeFrom(orig)); err != nil {
+	if err := c.Status().Patch(ctx, obj, client.MergeFrom(orig)); err != nil {
 		return isPaused, false, err
 	}
 
 	return isPaused, true, nil
 }
 
-// computeCondition builds the Paused condition based on [v1alpha1.Device.Spec.Paused]
-// and the presence of the [v1alpha1.PausedAnnotation] on the object.
+// computeCondition builds the Paused condition. A resource is paused when
+// any of the following apply (in priority order):
+//  1. device.spec.paused is true
+//  2. device.status.phase is not Running (child resources only)
+//  3. device's Reachable condition is not true (child resources only)
+//  4. the object carries [v1alpha1.PausedAnnotation]
 func computeCondition(device *v1alpha1.Device, obj Object) metav1.Condition {
 	condition := metav1.Condition{
 		Type:               v1alpha1.PausedCondition,
@@ -79,11 +83,31 @@ func computeCondition(device *v1alpha1.Device, obj Object) metav1.Condition {
 		ObservedGeneration: obj.GetGeneration(),
 	}
 
-	if device != nil && device.Spec.Paused {
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = v1alpha1.PausedReason
-		condition.Message = "Device spec.paused is set to true"
-		return condition
+	if device != nil {
+		if device.Spec.Paused {
+			condition.Status = metav1.ConditionTrue
+			condition.Reason = v1alpha1.PausedReason
+			condition.Message = "Device spec.paused is set to true"
+			return condition
+		}
+		// Phase and reachability checks only apply to child resources
+		// (device != obj). The device itself must not pause due to its
+		// own phase or reachability — it needs to keep reconciling to
+		// reach Running and to set the Reachable condition.
+		if device != obj {
+			if device.Status.Phase != v1alpha1.DevicePhaseRunning {
+				condition.Status = metav1.ConditionTrue
+				condition.Reason = v1alpha1.PausedReason
+				condition.Message = "Device is not in phase Running"
+				return condition
+			}
+			if cond := conditions.Get(device, v1alpha1.ReachableCondition); cond != nil && cond.Status != metav1.ConditionTrue {
+				condition.Status = metav1.ConditionTrue
+				condition.Reason = v1alpha1.PausedReason
+				condition.Message = "Device is not reachable: " + cond.Message
+				return condition
+			}
+		}
 	}
 
 	if _, ok := obj.GetAnnotations()[v1alpha1.PausedAnnotation]; ok {
@@ -93,4 +117,25 @@ func computeCondition(device *v1alpha1.Device, obj Object) metav1.Condition {
 	}
 
 	return condition
+}
+
+// DevicePausedChanged reports whether the device's effective pause state changed
+// between the old and new object versions. The effective pause state is
+// determined by [computeCondition].
+func DevicePausedChanged(oldObj, newObj client.Object) bool {
+	oldDevice := oldObj.(*v1alpha1.Device)
+	newDevice := newObj.(*v1alpha1.Device)
+	if oldDevice.Spec.Paused != newDevice.Spec.Paused {
+		return true
+	}
+	oldPhaseRunning := oldDevice.Status.Phase == v1alpha1.DevicePhaseRunning
+	newPhaseRunning := newDevice.Status.Phase == v1alpha1.DevicePhaseRunning
+	if oldPhaseRunning != newPhaseRunning {
+		return true
+	}
+	oldReachable := conditions.Get(oldDevice, v1alpha1.ReachableCondition)
+	newReachable := conditions.Get(newDevice, v1alpha1.ReachableCondition)
+	oldIsReachable := oldReachable == nil || oldReachable.Status == metav1.ConditionTrue
+	newIsReachable := newReachable == nil || newReachable.Status == metav1.ConditionTrue
+	return oldIsReachable != newIsReachable
 }

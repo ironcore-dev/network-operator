@@ -40,26 +40,28 @@ var _ = Describe("EVPNInstance Controller", func() {
 		})
 
 		AfterEach(func() {
-			By("Cleaning up all EVPNInstance resources")
-			Expect(k8sClient.DeleteAllOf(ctx, &v1alpha1.EVPNInstance{}, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+			By("Cleaning up the EVPNInstance resource")
+			evi := &v1alpha1.EVPNInstance{}
+			evi.Name = name
+			evi.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, evi))).To(Succeed())
 
 			By("Cleaning up test VLAN resource")
 			vlan := &v1alpha1.VLAN{}
-			if err := k8sClient.Get(ctx, key, vlan); err == nil {
-				Expect(k8sClient.Delete(ctx, vlan)).To(Succeed())
-			}
-
-			device := &v1alpha1.Device{}
-			err := k8sClient.Get(ctx, key, device)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleaning up the test Device resource")
-			Expect(k8sClient.Delete(ctx, device, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
+			vlan.Name = name
+			vlan.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, vlan))).To(Succeed())
 
 			By("Verifying the EVPNInstance is removed from the provider")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.EVIs.Has(vni)).To(BeFalse(), "Provider shouldn't have VNI configured anymore")
 			}).Should(Succeed())
+
+			By("Cleaning up the test Device resource")
+			device := &v1alpha1.Device{}
+			device.Name = name
+			device.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should successfully reconcile EVPNInstance with VLAN reference", func() {

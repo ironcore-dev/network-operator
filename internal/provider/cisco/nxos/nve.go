@@ -7,13 +7,13 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"github.com/ironcore-dev/network-operator/internal/provider/cisco/gnmiext/v2"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
 var (
-	_ gnmiext.Configurable = (*NVE)(nil)
-	_ gnmiext.Configurable = (*NVEInfraVLANs)(nil)
-	_ gnmiext.Configurable = (*FabricFwd)(nil)
+	_ gnmiext.DataElement = (*NVE)(nil)
+	_ gnmiext.DataElement = (*NVEInfraVLANs)(nil)
+	_ gnmiext.DataElement = (*FabricFwd)(nil)
 )
 
 // NVE represents the Network Virtualization Edge interface (nve1).
@@ -30,6 +30,24 @@ type NVE struct {
 	SuppressARP      bool           `json:"suppressARP"`
 }
 
+var _ json.Marshaler = (*NVE)(nil)
+
+// MarshalJSON implements [json.Marshaler].
+func (n *NVE) MarshalJSON() ([]byte, error) {
+	if n == nil {
+		return []byte("null"), nil
+	}
+	type Alias NVE
+	a := Alias(*n)
+	return json.Marshal(struct {
+		EpID int32 `json:"epId"`
+		Alias
+	}{
+		Alias: a,
+		EpID:  1,
+	})
+}
+
 type HostReachType string
 
 const (
@@ -44,38 +62,6 @@ func (*NVE) IsListItem() {}
 
 func (n *NVE) XPath() string {
 	return "System/eps-items/epId-items/Ep-list[epId=1]"
-}
-
-var (
-	_ json.Marshaler   = (*NVE)(nil)
-	_ json.Unmarshaler = (*NVE)(nil)
-)
-
-// MarshalJSON marshals the NVE struct to JSON, adding the fixed epId field with value 1.
-func (n NVE) MarshalJSON() ([]byte, error) {
-	type Copy NVE
-	cpy := Copy(n)
-	return json.Marshal(struct {
-		EpId int32 `json:"epId"`
-		Copy
-	}{
-		Copy: cpy,
-		EpId: 1,
-	})
-}
-
-// UnmarshalJSON unmarshals JSON data into the NVE struct, ignoring the epId field, which is always 1.
-func (n *NVE) UnmarshalJSON(b []byte) error {
-	type Copy NVE
-	var aux struct {
-		EpId *int32 `json:"epId,omitempty"`
-		Copy
-	}
-	if err := json.Unmarshal(b, &aux); err != nil {
-		return err
-	}
-	*n = NVE(aux.Copy)
-	return nil
 }
 
 type VNI struct {
@@ -137,7 +123,7 @@ func (*NVEOper) IsListItem() {}
 // Should use only PATCH operations: `FabricFwdIf` also modifies this model.
 type FabricFwd struct {
 	// AdminSt defines the administrative state of fabric forwarding
-	AdminSt string `json:"adminSt"`
+	AdminSt AdminSt `json:"adminSt"`
 	// Address defines the anycast gateway MAC address
 	Address string `json:"amac"`
 }

@@ -1,0 +1,17 @@
+{
+  "system-time": {
+    "clock": {
+      "day": 1,
+      "hour": 1,
+      "millisecond": 1,
+      "minute": 1,
+      "month": 1,
+      "second": 1,
+      "time-zone": "UTC",
+      "year": 1990
+    },
+    "uptime": {
+      "uptime": 123456
+    }
+  }
+}

@@ -22,6 +22,9 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the network-operator itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- aaa_admin_role.yaml
+- aaa_editor_role.yaml
+- aaa_viewer_role.yaml
 - accesscontrollist_admin_role.yaml
 - accesscontrollist_editor_role.yaml
 - accesscontrollist_viewer_role.yaml
@@ -37,12 +40,18 @@ resources:
 - certificate_admin_role.yaml
 - certificate_editor_role.yaml
 - certificate_viewer_role.yaml
+- configbackup_admin_role.yaml
+- configbackup_editor_role.yaml
+- configbackup_viewer_role.yaml
 - device_admin_role.yaml
 - device_editor_role.yaml
 - device_viewer_role.yaml
 - dns_admin_role.yaml
 - dns_editor_role.yaml
 - dns_viewer_role.yaml
+- ethernetsegment_admin_role.yaml
+- ethernetsegment_editor_role.yaml
+- ethernetsegment_viewer_role.yaml
 - evpninstance_admin_role.yaml
 - evpninstance_editor_role.yaml
 - evpninstance_viewer_role.yaml
@@ -113,6 +122,33 @@ resources:
 - cisco/nx/lldpconfig_admin_role.yaml
 - cisco/nx/lldpconfig_editor_role.yaml
 - cisco/nx/lldpconfig_viewer_role.yaml
+- cisco/nx/aaaconfig_admin_role.yaml
+- cisco/nx/aaaconfig_editor_role.yaml
+- cisco/nx/aaaconfig_viewer_role.yaml
 - cisco/nx/bgpconfig_admin_role.yaml
 - cisco/nx/bgpconfig_editor_role.yaml
 - cisco/nx/bgpconfig_viewer_role.yaml
+- claim_admin_role.yaml
+- claim_editor_role.yaml
+- claim_viewer_role.yaml
+- ipprefixpool_admin_role.yaml
+- ipprefixpool_editor_role.yaml
+- ipprefixpool_viewer_role.yaml
+- ipaddresspool_admin_role.yaml
+- ipaddresspool_editor_role.yaml
+- ipaddresspool_viewer_role.yaml
+- indexpool_admin_role.yaml
+- indexpool_editor_role.yaml
+- indexpool_viewer_role.yaml
+- ipprefix_admin_role.yaml
+- ipprefix_editor_role.yaml
+- ipprefix_viewer_role.yaml
+- ipaddress_admin_role.yaml
+- ipaddress_editor_role.yaml
+- ipaddress_viewer_role.yaml
+- index_admin_role.yaml
+- index_editor_role.yaml
+- index_viewer_role.yaml
+- evpn_fabric_admin_role.yaml
+- evpn_fabric_editor_role.yaml
+- evpn_fabric_viewer_role.yaml

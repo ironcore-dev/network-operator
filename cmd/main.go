@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,16 +20,15 @@ import (
 	// Set runtime concurrency to match CPU limit imposed by Kubernetes
 	_ "go.uber.org/automaxprocs"
 
-	"github.com/sapcc/go-api-declarations/bininfo"
 	"go.uber.org/zap/zapcore"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -43,31 +43,49 @@ import (
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	evpnv1alpha1 "github.com/ironcore-dev/network-operator/api/evpn/v1alpha1"
+	poolv1alpha1 "github.com/ironcore-dev/network-operator/api/pool/v1alpha1"
 	nxcontroller "github.com/ironcore-dev/network-operator/internal/controller/cisco/nx"
 	corecontroller "github.com/ironcore-dev/network-operator/internal/controller/core"
+	evpncontroller "github.com/ironcore-dev/network-operator/internal/controller/evpn"
+	poolcontroller "github.com/ironcore-dev/network-operator/internal/controller/pool"
+	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/provisioning"
 	"github.com/ironcore-dev/network-operator/internal/resourcelock"
+	tftpserver "github.com/ironcore-dev/network-operator/internal/tftp"
 	webhooknxv1alpha1 "github.com/ironcore-dev/network-operator/internal/webhook/cisco/nx/v1alpha1"
 	webhookv1alpha1 "github.com/ironcore-dev/network-operator/internal/webhook/core/v1alpha1"
+	webhookpoolv1alpha1 "github.com/ironcore-dev/network-operator/internal/webhook/pool/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
+
+	version   = "dev"
+	gitCommit = "none"
+	buildDate = "unknown"
 )
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(nxv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(poolv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(evpnv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
-func main() {
-	// if called with `--version`, report version and exit
-	bininfo.HandleVersionArgument()
+func main() { //nolint:gocyclo
+	if len(os.Args) > 1 && (os.Args[1] == "version" || os.Args[1] == "--version" || os.Args[1] == "-v") {
+		log.SetFlags(0)
+		log.Printf("Version:   %s", version)
+		log.Printf("Git Commit: %s", gitCommit)
+		log.Printf("Build Date: %s", buildDate)
+		os.Exit(0)
+	}
 
 	var metricsAddr string
 	var metricsCertPath, metricsCertName, metricsCertKey string
@@ -81,7 +99,11 @@ func main() {
 	var watchFilterValue string
 	var providerName string
 	var requeueInterval time.Duration
+	var heartbeatInterval time.Duration
+	var tftpPort int
+	var tftpValidateSource bool
 	var maxConcurrentReconciles int
+	var leaderElectionNamespace string
 	var lockerNamespace string
 	var lockerDuration time.Duration
 	var lockerRenewInterval time.Duration
@@ -90,6 +112,7 @@ func main() {
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&leaderElectionNamespace, "leader-election-namespace", "", "The namespace to use for leader election. If not specified, uses the namespace the manager is deployed in.")
 	flag.BoolVar(&secureMetrics, "metrics-secure", true, "If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
 	flag.StringVar(&webhookCertPath, "webhook-cert-path", "", "The directory that contains the webhook certificate.")
 	flag.StringVar(&webhookCertName, "webhook-cert-name", "tls.crt", "The name of the webhook certificate file.")
@@ -102,12 +125,15 @@ func main() {
 	flag.StringVar(&watchFilterValue, "watch-filter", "", fmt.Sprintf("Label value that the controller watches to reconcile api objects. Label key is always %q. If unspecified, the controller watches for all api objects.", v1alpha1.WatchLabel))
 	flag.StringVar(&providerName, "provider", "openconfig", "The provider to use for the controller. If not specified, the default provider is used. Available providers: "+strings.Join(provider.Providers(), ", "))
 	flag.DurationVar(&requeueInterval, "requeue-interval", time.Hour, "The interval after which Kubernetes resources should be reconciled again regardless of whether they have changed.")
+	flag.DurationVar(&heartbeatInterval, "heartbeat-interval", 30*time.Second, "The interval after which the controller retries a reachability check on each device.")
+	flag.IntVar(&tftpPort, "tftp-port", 1069, "The port on which the inline TFTP server listens. Set to 0 to disable the TFTP server.")
+	flag.BoolVar(&tftpValidateSource, "tftp-validate-source", false, "If set, the TFTP server validates the source IP and requested serial-based filename against the same Device.")
 	flag.IntVar(&maxConcurrentReconciles, "max-concurrent-reconciles", 1, "The maximum number of concurrent reconciles per controller. Defaults to 1.")
 	flag.StringVar(&lockerNamespace, "locker-namespace", "", "The namespace to use for resource locker coordination. If not specified, uses the namespace the manager is deployed in, or 'default' if undetectable.")
-	flag.DurationVar(&lockerDuration, "locker-duration", 30*time.Second, "The duration of the resource locker lease.")
-	flag.DurationVar(&lockerRenewInterval, "locker-renew-interval", 5*time.Second, "The interval at which the resource locker lease is renewed.")
+	flag.DurationVar(&lockerDuration, "locker-duration", 5*time.Second, "The duration of the resource locker lease.")
+	flag.DurationVar(&lockerRenewInterval, "locker-renew-interval", time.Second, "The interval at which the resource locker lease is renewed.")
 	flag.IntVar(&provisioningHTTPPort, "provisioning-http-port", 8080, "The port on which the provisioning HTTP server listens.")
-	flag.BoolVar(&provisioningHTTPValidateSourceIP, "provisioning-http-validate-source-ip", false, "If set, the provisioning HTTP server will validate the source IP of incoming requests against the DeviceIPLabel of Device resources.")
+	flag.BoolVar(&provisioningHTTPValidateSourceIP, "provisioning-http-validate-source-ip", false, "If set, the provisioning HTTP server will validate the source IP of incoming requests against Device.spec.endpoint.address.")
 	opts := zap.Options{
 		Development: true,
 		TimeEncoder: zapcore.ISO8601TimeEncoder,
@@ -212,14 +238,15 @@ func main() {
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Cache:                  cache.Options{ReaderFailOnMissingInformer: true, DefaultNamespaces: watchNamespaces},
-		Controller:             config.Controller{UsePriorityQueue: new(true), MaxConcurrentReconciles: maxConcurrentReconciles},
-		Scheme:                 scheme,
-		Metrics:                metricsServerOptions,
-		WebhookServer:          webhookServer,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "e799737f.ironcore.dev",
+		Cache:                   cache.Options{ReaderFailOnMissingInformer: true, DefaultNamespaces: watchNamespaces},
+		Controller:              config.Controller{MaxConcurrentReconciles: maxConcurrentReconciles},
+		Scheme:                  scheme,
+		Metrics:                 metricsServerOptions,
+		WebhookServer:           webhookServer,
+		HealthProbeBindAddress:  probeAddr,
+		LeaderElection:          enableLeaderElection,
+		LeaderElectionID:        "e799737f.ironcore.dev",
+		LeaderElectionNamespace: leaderElectionNamespace,
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -267,6 +294,14 @@ func main() {
 	}
 	setupLog.Info("Lease cache informer initialized", "namespace", lockerNamespace)
 
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.Device{}, deviceutil.DeviceEndpointIPField, func(o client.Object) []string {
+		return []string{o.(*v1alpha1.Device).EndpointIP()}
+	}); err != nil {
+		setupLog.Error(err, "unable to index Device by endpoint IP")
+		os.Exit(1)
+	}
+	setupLog.Info("Indexed Device by endpoint IP", "field", deviceutil.DeviceEndpointIPField)
+
 	// Add the ResourceLocker to the manager so it will be properly cleaned up on shutdown.
 	if err := mgr.Add(locker); err != nil {
 		setupLog.Error(err, "unable to add resource locker to manager")
@@ -274,12 +309,12 @@ func main() {
 	}
 
 	if err := (&corecontroller.DeviceReconciler{
-		Client:           mgr.GetClient(),
-		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("device-controller"),
-		WatchFilterValue: watchFilterValue,
-		Provider:         prov,
-		RequeueInterval:  requeueInterval,
+		Client:            mgr.GetClient(),
+		Scheme:            mgr.GetScheme(),
+		Recorder:          mgr.GetEventRecorder("device-controller"),
+		WatchFilterValue:  watchFilterValue,
+		Provider:          prov,
+		HeartbeatInterval: heartbeatInterval,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Device")
 		os.Exit(1)
@@ -288,7 +323,7 @@ func main() {
 	if err := (&corecontroller.InterfaceReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("interface-controller"),
+		Recorder:         mgr.GetEventRecorder("interface-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -301,11 +336,11 @@ func main() {
 	if err := (&corecontroller.BannerReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("banner-controller"),
+		Recorder:         mgr.GetEventRecorder("banner-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Banner")
 		os.Exit(1)
 	}
@@ -313,11 +348,11 @@ func main() {
 	if err := (&corecontroller.UserReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("user-controller"),
+		Recorder:         mgr.GetEventRecorder("user-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "User")
 		os.Exit(1)
 	}
@@ -325,11 +360,11 @@ func main() {
 	if err := (&corecontroller.DNSReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("dns-controller"),
+		Recorder:         mgr.GetEventRecorder("dns-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DNS")
 		os.Exit(1)
 	}
@@ -337,11 +372,11 @@ func main() {
 	if err := (&corecontroller.NTPReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("ntp-controller"),
+		Recorder:         mgr.GetEventRecorder("ntp-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "NTP")
 		os.Exit(1)
 	}
@@ -349,11 +384,11 @@ func main() {
 	if err := (&corecontroller.AccessControlListReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("acl-controller"),
+		Recorder:         mgr.GetEventRecorder("acl-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AccessControlList")
 		os.Exit(1)
 	}
@@ -361,11 +396,11 @@ func main() {
 	if err := (&corecontroller.CertificateReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("certificate-controller"),
+		Recorder:         mgr.GetEventRecorder("certificate-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Certificate")
 		os.Exit(1)
 	}
@@ -373,11 +408,11 @@ func main() {
 	if err := (&corecontroller.SNMPReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("snmp-controller"),
+		Recorder:         mgr.GetEventRecorder("snmp-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SNMP")
 		os.Exit(1)
 	}
@@ -385,11 +420,11 @@ func main() {
 	if err := (&corecontroller.SyslogReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("syslog-controller"),
+		Recorder:         mgr.GetEventRecorder("syslog-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Syslog")
 		os.Exit(1)
 	}
@@ -397,11 +432,11 @@ func main() {
 	if err := (&corecontroller.ManagementAccessReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("managementaccess-controller"),
+		Recorder:         mgr.GetEventRecorder("managementaccess-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ManagementAccess")
 		os.Exit(1)
 	}
@@ -409,12 +444,11 @@ func main() {
 	if err := (&corecontroller.ISISReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("isis-controller"),
+		Recorder:         mgr.GetEventRecorder("isis-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-		RequeueInterval:  requeueInterval,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ISIS")
 		os.Exit(1)
 	}
@@ -422,12 +456,11 @@ func main() {
 	if err := (&corecontroller.PIMReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("pim-controller"),
+		Recorder:         mgr.GetEventRecorder("pim-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-		RequeueInterval:  requeueInterval,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PIM")
 		os.Exit(1)
 	}
@@ -435,12 +468,12 @@ func main() {
 	if err := (&corecontroller.BGPReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("bgp-controller"),
+		Recorder:         mgr.GetEventRecorder("bgp-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
 		RequeueInterval:  requeueInterval,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BGP")
 		os.Exit(1)
 	}
@@ -448,12 +481,12 @@ func main() {
 	if err := (&corecontroller.BGPPeerReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("bgppeer-controller"),
+		Recorder:         mgr.GetEventRecorder("bgppeer-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
 		RequeueInterval:  requeueInterval,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BGPPeer")
 		os.Exit(1)
 	}
@@ -461,7 +494,7 @@ func main() {
 	if err := (&corecontroller.LLDPReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("lldp-controller"),
+		Recorder:         mgr.GetEventRecorder("lldp-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -474,12 +507,12 @@ func main() {
 	if err := (&corecontroller.OSPFReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("ospf-controller"),
+		Recorder:         mgr.GetEventRecorder("ospf-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
 		RequeueInterval:  requeueInterval,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OSPF")
 		os.Exit(1)
 	}
@@ -487,12 +520,12 @@ func main() {
 	if err := (&corecontroller.VLANReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("vlan-controller"),
+		Recorder:         mgr.GetEventRecorder("vlan-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
 		RequeueInterval:  requeueInterval,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VLAN")
 		os.Exit(1)
 	}
@@ -500,12 +533,11 @@ func main() {
 	if err := (&corecontroller.VRFReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("vrf-controller"),
+		Recorder:         mgr.GetEventRecorder("vrf-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-		RequeueInterval:  requeueInterval,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VRF")
 		os.Exit(1)
 	}
@@ -513,7 +545,7 @@ func main() {
 	if err := (&nxcontroller.VPCDomainReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("cisco-nx-vpcdomain-controller"),
+		Recorder:         mgr.GetEventRecorder("cisco-nx-vpcdomain-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -526,7 +558,7 @@ func main() {
 	if err := (&corecontroller.NetworkVirtualizationEdgeReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("nve-controller"),
+		Recorder:         mgr.GetEventRecorder("nve-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -539,11 +571,11 @@ func main() {
 	if err := (&nxcontroller.SystemReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("cisco-nx-system-controller"),
+		Recorder:         mgr.GetEventRecorder("cisco-nx-system-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "System")
 		os.Exit(1)
 	}
@@ -551,7 +583,7 @@ func main() {
 	if err := (&corecontroller.EVPNInstanceReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("evpn-instance-controller"),
+		Recorder:         mgr.GetEventRecorder("evpn-instance-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -560,14 +592,26 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&corecontroller.PrefixSetReconciler{
+	if err := (&corecontroller.AAAReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("prefixset-controller"),
+		Recorder:         mgr.GetEventRecorder("aaa-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
 	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "AAA")
+		os.Exit(1)
+	}
+
+	if err := (&corecontroller.PrefixSetReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorder("prefixset-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+		Locker:           locker,
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PrefixSet")
 		os.Exit(1)
 	}
@@ -575,7 +619,7 @@ func main() {
 	if err := (&corecontroller.RoutingPolicyReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("routingpolicy-controller"),
+		Recorder:         mgr.GetEventRecorder("routingpolicy-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -587,7 +631,7 @@ func main() {
 	if err := (&nxcontroller.BorderGatewayReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("cisco-nx-border-gateway-controller"),
+		Recorder:         mgr.GetEventRecorder("cisco-nx-border-gateway-controller"),
 		WatchFilterValue: watchFilterValue,
 		Provider:         prov,
 		Locker:           locker,
@@ -596,6 +640,99 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&corecontroller.DHCPRelayReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorder("dhcprelay-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+		Locker:           locker,
+		RequeueInterval:  requeueInterval,
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DHCPRelay")
+		os.Exit(1)
+	}
+
+	if err := (&corecontroller.ConfigBackupReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorder("configbackup-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+		Locker:           locker,
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ConfigBackup")
+		os.Exit(1)
+	}
+
+	if err := (&corecontroller.EthernetSegmentReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorder("ethernetsegment-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+		Locker:           locker,
+		RequeueInterval:  requeueInterval,
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "EthernetSegment")
+		os.Exit(1)
+	}
+
+	if err := (&poolcontroller.IndexPoolReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "IndexPool")
+		os.Exit(1)
+	}
+
+	if err := (&poolcontroller.IPAddressPoolReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "IPAddressPool")
+		os.Exit(1)
+	}
+
+	if err := (&poolcontroller.IPPrefixPoolReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "IPPrefixPool")
+		os.Exit(1)
+	}
+
+	if err := (&poolcontroller.ClaimReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "Claim")
+		os.Exit(1)
+	}
+
+	if err := (&poolcontroller.IndexReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "pool-index")
+		os.Exit(1)
+	}
+
+	if err := (&poolcontroller.IPAddressReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "pool-ipaddress")
+		os.Exit(1)
+	}
+
+	if err := (&poolcontroller.IPPrefixReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "pool-ipprefix")
+		os.Exit(1)
+	}
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err := webhookv1alpha1.SetupVRFWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "VRF")
@@ -627,8 +764,28 @@ func main() {
 			os.Exit(1)
 		}
 
+		if err := webhookv1alpha1.SetupRoutingPolicyWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "RoutingPolicy")
+			os.Exit(1)
+		}
+
 		if err := webhooknxv1alpha1.SetupNetworkVirtualizationEdgeConfigWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "NetworkVirtualizationEdgeConfig")
+			os.Exit(1)
+		}
+
+		if err := webhookpoolv1alpha1.SetupIndexPoolWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "IndexPool")
+			os.Exit(1)
+		}
+
+		if err := webhookpoolv1alpha1.SetupIPAddressPoolWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "IPAddressPool")
+			os.Exit(1)
+		}
+
+		if err := webhookpoolv1alpha1.SetupIPPrefixPoolWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "IPPrefixPool")
 			os.Exit(1)
 		}
 	}
@@ -641,8 +798,8 @@ func main() {
 	if provisioningHTTPPort != 0 && ok {
 		provisioningServer := &provisioning.HTTPServer{
 			Client:           mgr.GetClient(),
-			Logger:           klog.NewKlogr().WithName("provisioning"),
-			Recorder:         mgr.GetEventRecorderFor("provisioning"),
+			Logger:           ctrl.Log.WithName("provisioning"),
+			Recorder:         mgr.GetEventRecorder("provisioning"),
 			ValidateSourceIP: provisioningHTTPValidateSourceIP,
 			Provider:         provisioningProvider,
 			Port:             provisioningHTTPPort,
@@ -654,6 +811,29 @@ func main() {
 		}
 	}
 
+	// Start inline TFTP server when the configured port is non-zero.
+	if tftpPort != 0 {
+		srv := &tftpserver.Server{
+			Client:         mgr.GetClient(),
+			Logger:         ctrl.Log.WithName("provisioning"),
+			ValidateSource: tftpValidateSource,
+			Port:           tftpPort,
+		}
+		setupLog.Info("Adding inline TFTP server to manager", "port", tftpPort, "validateSource", tftpValidateSource)
+		if err := mgr.Add(srv); err != nil {
+			setupLog.Error(err, "unable to add TFTP server to manager")
+			os.Exit(1)
+		}
+	}
+
+	if err := (&evpncontroller.FabricReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorder("fabric-controller"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "Fabric")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {

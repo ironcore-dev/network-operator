@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/apistatus"
 )
 
 // Getter defines methods that an API object should implement in order to
@@ -158,8 +159,9 @@ func Sort(conditions []metav1.Condition) {
 
 // FromError creates a [v1alpha1.ConfiguredCondition] from the given error.
 // If the error is nil, it returns a condition indicating success.
-// If the error is a gRPC status error, it extracts the code and message
-// to populate the condition's Reason and Message fields.
+// If the error is an [apistatus.StatusError], its Code and formatted message
+// are used to populate the condition's Reason and Message fields.
+// If the error is a gRPC status error, its code and message are used instead.
 func FromError(err error) metav1.Condition {
 	cond := metav1.Condition{
 		Type:    v1alpha1.ConfiguredCondition,
@@ -171,6 +173,13 @@ func FromError(err error) metav1.Condition {
 		cond.Status = metav1.ConditionFalse
 		cond.Reason = v1alpha1.ErrorReason
 		cond.Message = err.Error()
+
+		// [apistatus.StatusError] takes precedence — checked before gRPC status.
+		if statusErr, ok := apistatus.FromError(err); ok {
+			cond.Reason = statusErr.Code.String()
+			cond.Message = statusErr.Error()
+			return cond
+		}
 
 		// If the error is a gRPC status error, extract the code and message
 		if statusErr, ok := grpcstatus.FromError(err); ok {

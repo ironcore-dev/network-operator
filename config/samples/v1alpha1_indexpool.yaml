@@ -1,0 +1,12 @@
+apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+kind: IndexPool
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: indexpool-sample
+spec:
+  # Reserved Autonomous System Numbers (ASN) for Private Use according to [RFC 6996](https://datatracker.ietf.org/doc/html/rfc6996)
+  ranges:
+    - 64512..65534
+    - 4200000000..4294967294

@@ -5,6 +5,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
@@ -23,6 +24,7 @@ type ManagementAccessConfigSpec struct {
 	SSH SSH `json:"ssh,omitzero"`
 }
 
+// Console defines the configuration for the terminal console access on the device.
 type Console struct {
 	// Timeout defines the inactivity timeout for console sessions.
 	// If a session is inactive for the specified duration, it will be automatically disconnected.
@@ -70,5 +72,8 @@ type ManagementAccessConfigList struct {
 
 func init() {
 	v1alpha1.RegisterManagementAccessDependency(GroupVersion.WithKind("ManagementAccessConfig"))
-	SchemeBuilder.Register(&ManagementAccessConfig{}, &ManagementAccessConfigList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &ManagementAccessConfig{}, &ManagementAccessConfigList{})
+		return nil
+	})
 }

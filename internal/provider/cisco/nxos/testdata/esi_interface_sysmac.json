@@ -1,0 +1,19 @@
+{
+  "intf-items": {
+    "aggr-items": {
+      "AggrIf-list": [
+        {
+          "id": "po10",
+          "ethernetsegment-items": {
+            "esType": "native",
+            "esi": "DME_UNSET_PROPERTY_MARKER",
+            "sysMac": "00:11:22:33:44:55",
+            "sysMacInherit": false,
+            "localIdentifier": 1,
+            "localIdentifierInherit": false
+          }
+        }
+      ]
+    }
+  }
+}

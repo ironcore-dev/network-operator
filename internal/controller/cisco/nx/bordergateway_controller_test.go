@@ -76,24 +76,22 @@ var _ = Describe("BorderGateway Controller", func() {
 		})
 
 		AfterEach(func() {
-			var resource client.Object = &nxv1alpha1.BorderGateway{}
-			err := k8sClient.Get(ctx, key, resource)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleanup the specific resource instance BorderGateway")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-
-			resource = &v1alpha1.Device{}
-			err = k8sClient.Get(ctx, key, resource)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleanup the specific resource instance Device")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+			By("Cleaning up the BorderGateway resource")
+			bg := &nxv1alpha1.BorderGateway{}
+			bg.Name = name
+			bg.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, bg))).To(Succeed())
 
 			By("Ensuring the resource is deleted from the provider")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.BorderGateway).To(BeNil(), "Provider BorderGateway settings should be reset after deletion")
 			}).Should(Succeed())
+
+			By("Cleaning up the Device resource")
+			device := &v1alpha1.Device{}
+			device.Name = name
+			device.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should successfully reconcile the resource", func() {
