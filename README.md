@@ -105,16 +105,6 @@ kubectl apply -f https://raw.githubusercontent.com/<org>/network-operator/<tag o
 
 ## Supported Providers
 
-network-operator supports multiple network device providers with varying levels of feature support:
-
-<!-- BEGIN provider-summary -->
-| Provider | Supported API Types |
-|----------|---------------------|
-| Cisco NX-OS | 22 / 22 |
-| Cisco IOS-XR | 1 / 22 |
-| OpenConfig | 1 / 22 |
-<!-- END provider-summary -->
-
 For a detailed compatibility matrix showing which API types are supported by each provider, see [Provider Compatibility Matrix](docs/provider-compatibility.md).
 
 ## Support, Feedback, Contributing
