@@ -316,14 +316,6 @@ var _ = Describe("BGPPeer Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, differentDevice)).To(Succeed())
-			DeferCleanup(func() {
-				intfList := &v1alpha1.InterfaceList{}
-				Expect(k8sClient.List(ctx, intfList, client.InNamespace(metav1.NamespaceDefault), client.MatchingLabels{v1alpha1.DeviceLabel: differentDevice.Name})).To(Succeed())
-				for i := range intfList.Items {
-					Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &intfList.Items[i]))).To(Succeed())
-				}
-				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, differentDevice))).To(Succeed())
-			})
 
 			By("Waiting for the different Device to be in Running phase")
 			Eventually(func(g Gomega) {
@@ -497,7 +489,6 @@ var _ = Describe("BGPPeer Controller", func() {
 		})
 
 		It("Should not reconcile iBGP peer if local-as is set", func() {
-			// By("Creating a BGP resource for the Device")
 			By("Creating a BGP resource for the Device")
 			bgp := &v1alpha1.BGP{
 				ObjectMeta: metav1.ObjectMeta{
