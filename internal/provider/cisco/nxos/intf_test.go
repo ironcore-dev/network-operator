@@ -3,6 +3,72 @@
 
 package nxos
 
+import (
+	"encoding/json"
+	"testing"
+
+	corev1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+)
+
+func TestTrunkVlansJSON(t *testing.T) {
+	trunkVlans := &TrunkVlans{IfName: "eth1/10", Vlans: "10"}
+	got, err := json.Marshal(trunkVlans)
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	if string(got) != `"10"` {
+		t.Fatalf("json.Marshal() = %s, want %s", got, `"10"`)
+	}
+
+	var decoded TrunkVlans
+	if err := json.Unmarshal([]byte(`"20-30"`), &decoded); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if decoded.Vlans != "20-30" {
+		t.Fatalf("Unmarshaled Vlans = %q, want %q", decoded.Vlans, "20-30")
+	}
+}
+
+func TestRange(t *testing.T) {
+	tests := []struct {
+		name string
+		in   []corev1alpha1.IndexRange
+		want string
+	}{
+		{
+			name: "empty",
+			in:   nil,
+			want: "",
+		},
+		{
+			name: "single vlan",
+			in:   []corev1alpha1.IndexRange{corev1alpha1.MustParseIndexRange("10..10")},
+			want: "10",
+		},
+		{
+			name: "range",
+			in:   []corev1alpha1.IndexRange{corev1alpha1.MustParseIndexRange("10..20")},
+			want: "10-20",
+		},
+		{
+			name: "sorted ranges",
+			in: []corev1alpha1.IndexRange{
+				corev1alpha1.MustParseIndexRange("30..40"),
+				corev1alpha1.MustParseIndexRange("10..20"),
+			},
+			want: "10-20,30-40",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := Range(test.in); got != test.want {
+				t.Fatalf("Range() = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
 func init() {
 	Register("loopback", &Loopback{
 		ID:            "lo0",
@@ -22,7 +88,6 @@ func init() {
 		Mode:          SwitchportModeAccess,
 		AccessVlan:    DefaultVLAN,
 		NativeVlan:    DefaultVLAN,
-		TrunkVlans:    DefaultVLANRange,
 		UserCfgdFlags: UserFlagAdminState | UserFlagAdminLayer | UserFlagAdminMTU,
 	})
 
@@ -37,9 +102,10 @@ func init() {
 		Mode:          SwitchportModeTrunk,
 		AccessVlan:    DefaultVLAN,
 		NativeVlan:    DefaultVLAN,
-		TrunkVlans:    "10",
 		UserCfgdFlags: UserFlagAdminState,
 	})
+
+	Register("physif_trunk_vlans", &TrunkVlans{IfName: "eth1/10", Vlans: "10"})
 
 	Register("subinterface", &EncapRoutedInterface{
 		ID:         "eth1/1.100",
@@ -73,11 +139,11 @@ func init() {
 		PcMode:         PortChannelModeActive,
 		NativeVlan:     DefaultVLAN,
 		SuspIndividual: AdminStEnable,
-		TrunkVlans:     "10",
 		UserCfgdFlags:  UserFlagAdminState,
 	}
 	pc.RsmbrIfsItems.RsMbrIfsList.Set(NewPortChannelMember("eth1/10"))
 	Register("pc", pc)
+	Register("pc_trunk_vlans", &TrunkVlans{IfName: "po10", Vlans: "10"})
 
 	Register("pc_rtd", &PortChannel{
 		AccessVlan:     "unknown",
@@ -92,7 +158,6 @@ func init() {
 		NativeVlan:     "unknown",
 		PcMode:         PortChannelModeActive,
 		SuspIndividual: AdminStEnable,
-		TrunkVlans:     DefaultVLANRange,
 		UserCfgdFlags:  UserFlagAdminState | UserFlagAdminLayer | UserFlagAdminMTU,
 		RtvrfMbrItems:  NewVrfMember("po20", "default"),
 		AggrExtdItems: struct {
@@ -113,7 +178,6 @@ func init() {
 		PcMode:         PortChannelModeActive,
 		NativeVlan:     DefaultVLAN,
 		SuspIndividual: AdminStDisable,
-		TrunkVlans:     "10",
 		UserCfgdFlags:  UserFlagAdminState,
 	}
 	pcLacp.RsmbrIfsItems.RsMbrIfsList.Set(NewPortChannelMember("eth1/1"))
@@ -147,7 +211,6 @@ func init() {
 		Medium:               MediumPointToPoint,
 		Mode:                 SwitchportModeAccess,
 		NativeVlan:           DefaultVLAN,
-		TrunkVlans:           DefaultVLANRange,
 		UserCfgdFlags:        UserFlagAdminState | UserFlagAdminLayer | UserFlagAdminMTU,
 		ESICoreTrackingItems: &ESICoreTracking{CoreTracking: AdminStEnabled},
 	})

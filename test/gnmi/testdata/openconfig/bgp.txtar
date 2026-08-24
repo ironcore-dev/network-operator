@@ -1,0 +1,69 @@
+# BGP global instance
+-- bgps/bgp --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGP
+metadata:
+  name: bgp
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  asNumber: 65000
+  routerId: 10.0.0.1
+  addressFamilies:
+    ipv4Unicast:
+      enabled: true
+    ipv6Unicast:
+      enabled: true
+
+-- state/preload --
+{}
+
+-- state/expect --
+{
+  "openconfig-network-instance:network-instances": {
+    "network-instance": [
+      {
+        "protocols": {
+          "protocol": [
+            {
+              "config": {
+                "identifier": "openconfig-policy-types:BGP",
+                "name": "BGP"
+              },
+              "bgp": {
+                "global": {
+                  "config": {
+                    "as": 65000,
+                    "router-id": "10.0.0.1"
+                  },
+                  "afi-safis": {
+                    "afi-safi": [
+                      {
+                        "afi-safi-name": "openconfig-bgp-types:IPV4_UNICAST",
+                        "config": {
+                          "afi-safi-name": "openconfig-bgp-types:IPV4_UNICAST",
+                          "enabled": true
+                        }
+                      },
+                      {
+                        "afi-safi-name": "openconfig-bgp-types:IPV6_UNICAST",
+                        "config": {
+                          "afi-safi-name": "openconfig-bgp-types:IPV6_UNICAST",
+                          "enabled": true
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+
+-- state/delete --
+{}

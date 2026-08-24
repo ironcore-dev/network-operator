@@ -30,6 +30,7 @@ type CertificateSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="ID is immutable"
+	// +kubebuilder:validation:Pattern=`^[a-zA-Z0-9]+$`
 	ID string `json:"id"`
 
 	// Secret containing the certificate source.

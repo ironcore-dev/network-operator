@@ -15,7 +15,6 @@
           "pcMode": "active",
           "nativeVlan": "vlan-1",
           "suspIndividual": "disable",
-          "trunkVlans": "10",
           "userCfgdFlags": "admin_state",
           "rsmbrIfs-items": {
             "RsMbrIfs-list": [

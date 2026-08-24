@@ -40,9 +40,6 @@ type Server struct {
 	grpcServer *grpc.Server
 	// grpcAddr is the address grpcServer is listening on, e.g., 127.0.0.1:9443
 	grpcAddr string
-	// closeOnce ensures Close only runs once, even when triggered by both
-	// context cancellation and an explicit caller.
-	closeOnce sync.Once
 }
 
 // NewTestServer starts an in-process gNMI server on a random available port.
@@ -80,15 +77,6 @@ func NewTestServer(ctx context.Context) (*Server, error) {
 		}
 	}()
 
-	go func() { //nolint:gosec // G118: ctx is already done, must use Background for shutdown timeout
-		<-ctx.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := server.Close(shutdownCtx); err != nil { //nolint:contextcheck // shutdownCtx is correctly derived from Background
-			log.Printf("Shutdown error: %v", err)
-		}
-	}()
-
 	return server, nil
 }
 
@@ -103,18 +91,12 @@ func (s *Server) State() *State {
 	return s.state
 }
 
-// Close gracefully shuts down the server. It is safe to call multiple times
-// and from multiple goroutines; only the first call performs shutdown.
-func (s *Server) Close(ctx context.Context) error {
-	var closeErr error
-	s.closeOnce.Do(func() {
-		log.Printf("Shutting down gNMI test server")
-
-		if s.grpcServer != nil {
-			s.grpcServer.GracefulStop()
-		}
-	})
-	return closeErr
+// Close gracefully shuts down the server.
+func (s *Server) Close() {
+	log.Printf("Shutting down gNMI test server")
+	if s.grpcServer != nil {
+		s.grpcServer.GracefulStop()
+	}
 }
 
 // Capabilities returns the capabilities of the gNMI server
@@ -167,7 +149,9 @@ func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, 
 			Path:      del,
 			Op:        gpb.UpdateResult_DELETE,
 		})
-		s.state.Del(del)
+		if err := s.state.Del(del); err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to delete path: %v", err)
+		}
 	}
 	for _, replace := range req.GetReplace() {
 		log.Printf("Replacing path: %v with value: %q", replace.GetPath(), replace.GetVal().GetJsonVal())
@@ -177,8 +161,12 @@ func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, 
 			Op:        gpb.UpdateResult_REPLACE,
 		})
 		// Delete the existing value at the path and set the new value.
-		s.state.Del(replace.GetPath())
-		s.state.Set(replace.GetPath(), replace.GetVal().GetJsonVal())
+		if err := s.state.Del(replace.GetPath()); err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to delete path for replace: %v", err)
+		}
+		if err := s.state.Set(replace.GetPath(), replace.GetVal().GetJsonVal()); err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to set path for replace: %v", err)
+		}
 	}
 	for _, update := range req.GetUpdate() {
 		log.Printf("Updating path: %v with value: %q", update.GetPath(), update.GetVal().GetJsonVal())
@@ -188,7 +176,9 @@ func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, 
 			Op:        gpb.UpdateResult_UPDATE,
 		})
 		// The value will automatically be merged into the existing state.
-		s.state.Set(update.GetPath(), update.GetVal().GetJsonVal())
+		if err := s.state.Set(update.GetPath(), update.GetVal().GetJsonVal()); err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to set path for update: %v", err)
+		}
 	}
 	// TODO: Handle UnionReplace
 	return &gpb.SetResponse{
@@ -263,6 +253,7 @@ type State struct {
 	Buf []byte
 }
 
+// Get retrieves the value at the specified path from the state.
 func (s *State) Get(path *gpb.Path) []byte {
 	s.RLock()
 	defer s.RUnlock()
@@ -294,9 +285,15 @@ func (s *State) Get(path *gpb.Path) []byte {
 	return []byte(res.Raw)
 }
 
-func (s *State) Set(path *gpb.Path, raw []byte) {
+// Set sets the value at the specified path in the state.
+func (s *State) Set(path *gpb.Path, raw []byte) (err error) {
 	s.Lock()
 	defer s.Unlock()
+
+	// Work on a copy to avoid partial state corruption on error
+	buf := make([]byte, len(s.Buf))
+	copy(buf, s.Buf)
+
 	var sb strings.Builder
 	for _, elem := range path.GetElem() {
 		if elem.GetName() == "" {
@@ -310,7 +307,7 @@ func (s *State) Set(path *gpb.Path, raw []byte) {
 			continue
 		}
 		var idx int
-		gjson.GetBytes(s.Buf, sb.String()).ForEach(func(_, r gjson.Result) bool {
+		gjson.GetBytes(buf, sb.String()).ForEach(func(_, r gjson.Result) bool {
 			for k, v := range elem.GetKey() {
 				if r.Get(k).String() != v {
 					idx++
@@ -322,17 +319,35 @@ func (s *State) Set(path *gpb.Path, raw []byte) {
 		sb.WriteByte('.')
 		sb.WriteString(strconv.Itoa(idx))
 		for k, v := range elem.GetKey() {
-			s.Buf, _ = sjson.SetBytes(s.Buf, sb.String()+"."+k, v) //nolint:errcheck
+			var err error
+			buf, err = sjson.SetBytes(buf, sb.String()+"."+k, v)
+			if err != nil {
+				return fmt.Errorf("sjson.SetBytes key %s: %w", k, err)
+			}
 		}
 	}
-	s.Buf, _ = sjson.SetRawBytes(s.Buf, sb.String(), raw) //nolint:errcheck
-	for k, v := range path.GetElem()[len(path.GetElem())-1].GetKey() {
-		s.Buf, _ = sjson.SetBytes(s.Buf, sb.String()+"."+k, v) //nolint:errcheck
+
+	buf, err = sjson.SetRawBytes(buf, sb.String(), raw)
+	if err != nil {
+		return fmt.Errorf("sjson.SetRawBytes: %w", err)
 	}
+
+	if elems := path.GetElem(); len(elems) > 0 {
+		for k, v := range elems[len(elems)-1].GetKey() {
+			buf, err = sjson.SetBytes(buf, sb.String()+"."+k, v)
+			if err != nil {
+				return fmt.Errorf("sjson.SetBytes final key %s: %w", k, err)
+			}
+		}
+	}
+
+	// Commit only on success
+	s.Buf = buf
+	return nil
 }
 
 // Del deletes the value at the specified path from the state.
-func (s *State) Del(path *gpb.Path) {
+func (s *State) Del(path *gpb.Path) error {
 	s.Lock()
 	defer s.Unlock()
 	var sb strings.Builder
@@ -362,11 +377,33 @@ func (s *State) Del(path *gpb.Path) {
 			return false
 		})
 		if !found {
-			return
+			return nil
 		}
 		sb.WriteByte('.')
 		sb.WriteString(strconv.Itoa(idx))
 	}
 
-	s.Buf, _ = sjson.DeleteBytes(s.Buf, sb.String()) //nolint:errcheck
+	var err error
+	s.Buf, err = sjson.DeleteBytes(s.Buf, sb.String())
+	if err != nil {
+		return fmt.Errorf("sjson.DeleteBytes: %w", err)
+	}
+	return nil
+}
+
+// SetBuf sets the entire state buffer to the provided value.
+func (s *State) SetBuf(buf []byte) {
+	s.Lock()
+	defer s.Unlock()
+	s.Buf = make([]byte, len(buf))
+	copy(s.Buf, buf)
+}
+
+// GetBuf returns a copy of the entire state buffer.
+func (s *State) GetBuf() []byte {
+	s.RLock()
+	defer s.RUnlock()
+	buf := make([]byte, len(s.Buf))
+	copy(buf, s.Buf)
+	return buf
 }

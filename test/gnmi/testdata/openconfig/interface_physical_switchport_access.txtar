@@ -1,4 +1,4 @@
-# Physical Interface with Switchport Trunk
+# Physical Interface with Switchport Access
 -- interfaces/eth1-10 --
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
@@ -9,22 +9,36 @@ spec:
   deviceRef:
     name: device
   name: eth1/10
-  description: vPC to Host1
+  description: Access port to Host
   adminState: Up
   type: Physical
   mtu: 1500
   switchport:
-    mode: Trunk
-    nativeVlan: 1
-    allowedVlans: [10]
--- state --
+    mode: Access
+    accessVlan: 10
+
+-- state/preload --
 {
+  "openconfig-system:system": {
+    "state": {
+      "boot-time": "1784731445707000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "openconfig-system:system": {
+    "state": {
+      "boot-time": "1784731445707000000"
+    }
+  },
   "openconfig-interfaces:interfaces": {
     "interface": [
       {
         "name": "eth1/10",
         "config": {
-          "description": "vPC to Host1",
+          "description": "Access port to Host",
           "enabled": true,
           "mtu": 1500,
           "name": "eth1/10",
@@ -34,13 +48,21 @@ spec:
         "openconfig-if-ethernet:ethernet": {
           "openconfig-vlan:switched-vlan": {
             "config": {
-              "interface-mode": "TRUNK",
-              "native-vlan": 1,
-              "trunk-vlans": [10]
+              "access-vlan": 10,
+              "interface-mode": "ACCESS"
             }
           }
         }
       }
     ]
+  }
+}
+
+-- state/delete --
+{
+  "openconfig-system:system": {
+    "state": {
+      "boot-time": "1784731445707000000"
+    }
   }
 }

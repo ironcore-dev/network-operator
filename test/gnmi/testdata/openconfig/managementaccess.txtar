@@ -1,0 +1,45 @@
+# ManagementAccess
+-- managementaccesses/managementaccess --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: ManagementAccess
+metadata:
+  name: managementaccess
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  grpc:
+    enabled: true
+    port: 9339
+    certificateId: mytrustpoint
+    vrfName: mgmt
+  ssh:
+    enabled: true
+    timeout: 120s
+-- state/expect --
+{
+  "openconfig-system:system": {
+    "grpc-servers": {
+      "grpc-server": [
+        {
+          "name": "gnmi",
+          "config": {
+            "name": "gnmi",
+            "enable": true,
+            "port": 9339,
+            "certificate-id": "mytrustpoint",
+            "network-instance": "mgmt"
+          }
+        }
+      ]
+    },
+    "ssh-server": {
+      "config": {
+        "enable": true,
+        "timeout": 120
+      }
+    }
+  }
+}
+-- state/delete --
+{}

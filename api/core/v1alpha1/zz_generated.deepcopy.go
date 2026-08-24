@@ -4244,8 +4244,10 @@ func (in *Switchport) DeepCopyInto(out *Switchport) {
 	*out = *in
 	if in.AllowedVlans != nil {
 		in, out := &in.AllowedVlans, &out.AllowedVlans
-		*out = make([]int32, len(*in))
-		copy(*out, *in)
+		*out = make([]IndexRange, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 }
 

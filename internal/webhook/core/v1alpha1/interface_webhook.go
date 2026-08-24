@@ -74,6 +74,12 @@ func validateInterfaceSpec(intf *v1alpha1.Interface) error {
 		}
 	}
 
+	if intf.Spec.Switchport != nil {
+		if err := validateSwitchport(intf.Spec.Switchport); err != nil {
+			errAgg = append(errAgg, err)
+		}
+	}
+
 	return errors.Join(errAgg...)
 }
 
@@ -113,6 +119,22 @@ func validatePhysicalInterfaceNeighborMutualExclusion(intf *v1alpha1.Interface) 
 	}
 
 	return nil
+}
+
+func validateSwitchport(sp *v1alpha1.Switchport) error {
+	var errAgg []error
+	for i, a := range sp.AllowedVlans {
+		if a.Start < 1 || a.End > 4094 {
+			errAgg = append(errAgg, fmt.Errorf("spec.switchport.allowedVlans[%d] (%d..%d) must be between 1 and 4094", i, a.Start, a.End))
+		}
+		for j := i + 1; j < len(sp.AllowedVlans); j++ {
+			b := sp.AllowedVlans[j]
+			if a.Start <= b.End && b.Start <= a.End {
+				errAgg = append(errAgg, fmt.Errorf("spec.switchport.allowedVlans[%d] (%d..%d) overlaps with spec.switchport.allowedVlans[%d] (%d..%d)", i, a.Start, a.End, j, b.Start, b.End))
+			}
+		}
+	}
+	return errors.Join(errAgg...)
 }
 
 // validateInterfaceIPv4 performs validation on the InterfaceIPv4 spec.

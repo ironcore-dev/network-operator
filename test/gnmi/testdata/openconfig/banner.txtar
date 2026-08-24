@@ -11,11 +11,33 @@ spec:
   type: PreLogin
   message:
     inline: "Unauthorized access is prohibited."
--- state --
+
+-- state/preload --
+{
+  "openconfig-system:system": {
+    "state": {
+      "boot-time": "1784731445707000000"
+    }
+  }
+}
+
+-- state/expect --
 {
   "openconfig-system:system": {
     "config": {
       "login-banner": "Unauthorized access is prohibited."
+    },
+    "state": {
+      "boot-time": "1784731445707000000"
+    }
+  }
+}
+
+-- state/delete --
+{
+  "openconfig-system:system": {
+    "state": {
+      "boot-time": "1784731445707000000"
     }
   }
 }

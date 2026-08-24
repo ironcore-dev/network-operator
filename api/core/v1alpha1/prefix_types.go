@@ -71,6 +71,11 @@ func (p *IPPrefix) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// Is6 reports whether the prefix contains an IPv6 address.
+func (p IPPrefix) Is6() bool {
+	return p.Addr().Is6()
+}
+
 // IsPointToPoint reports whether the prefix indicates a point-to-point link.
 // For IPv4, this means a /31 subnet mask as defined in [RFC 3021].
 // For IPv6, this means a /127 subnet mask as defined in [RFC 6164].

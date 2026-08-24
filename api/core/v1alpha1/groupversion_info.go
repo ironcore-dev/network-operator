@@ -108,6 +108,11 @@ const (
 	// device-side operations. This is useful for recovering from terminal states (e.g., Failed)
 	// after manual intervention.
 	DeviceMaintenanceResetPhase = "reset-phase"
+	// DeviceMaintenanceSkipProvisioning is for devices provisioned externally without the operator.
+	// Transitions the device from Pending (or Provisioning) directly to Running, but only if
+	// spec.provisioning is defined.
+	// The annotation is always consumed once the device reaches Running.
+	DeviceMaintenanceSkipProvisioning = "skip-provisioning"
 )
 
 // Condition types that are used across different objects.

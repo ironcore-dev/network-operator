@@ -1,0 +1,12 @@
+{
+  "intf-items": {
+    "aggr-items": {
+      "AggrIf-list": [
+        {
+          "id": "po10",
+          "trunkVlans": "10"
+        }
+      ]
+    }
+  }
+}

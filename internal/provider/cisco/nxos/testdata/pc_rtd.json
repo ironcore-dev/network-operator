@@ -15,7 +15,6 @@
           "pcMode": "active",
           "nativeVlan": "unknown",
           "suspIndividual": "enable",
-          "trunkVlans": "1-4094",
           "userCfgdFlags": "admin_layer,admin_mtu,admin_state",
           "rtvrfMbr-items": {
             "tDn": "/System/inst-items/Inst-list[name='default']"

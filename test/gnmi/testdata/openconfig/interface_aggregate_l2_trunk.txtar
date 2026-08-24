@@ -36,8 +36,29 @@ spec:
       mode: Active
     memberInterfaceRefs:
       - name: eth1-10
--- state --
+
+-- state/preload --
 {
+  "openconfig-system:system": {
+    "state": {
+      "boot-time": "1784731445707000000"
+    }
+  },
+  "openconfig-interfaces:interfaces": {
+    "interface": [
+      {"name": "eth1/10", "state": {"oper-status": "UP"}},
+      {"name": "po10", "state": {"oper-status": "UP"}}
+    ]
+  }
+}
+
+-- state/expect --
+{
+  "openconfig-system:system": {
+    "state": {
+      "boot-time": "1784731445707000000"
+    }
+  },
   "openconfig-interfaces:interfaces": {
     "interface": [
       {
@@ -79,5 +100,14 @@ spec:
         }
       }
     ]
+  }
+}
+
+-- state/delete --
+{
+  "openconfig-system:system": {
+    "state": {
+      "boot-time": "1784731445707000000"
+    }
   }
 }

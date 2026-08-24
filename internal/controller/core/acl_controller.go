@@ -294,7 +294,7 @@ func (r *AccessControlListReconciler) reconcile(ctx context.Context, s *aclScope
 	}()
 
 	// Ensure the AccessControlList is realized on the provider.
-	err := s.Provider.EnsureACL(ctx, &provider.EnsureACLRequest{
+	err := s.Provider.EnsureACL(ctx, &provider.ACLRequest{
 		ACL:            s.ACL,
 		ProviderConfig: s.ProviderConfig,
 	})
@@ -317,8 +317,8 @@ func (r *AccessControlListReconciler) finalize(ctx context.Context, s *aclScope)
 		}
 	}()
 
-	return s.Provider.DeleteACL(ctx, &provider.DeleteACLRequest{
-		Name:           s.ACL.Spec.Name,
+	return s.Provider.DeleteACL(ctx, &provider.ACLRequest{
+		ACL:            s.ACL,
 		ProviderConfig: s.ProviderConfig,
 	})
 }

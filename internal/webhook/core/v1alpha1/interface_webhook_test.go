@@ -165,5 +165,55 @@ var _ = Describe("Interface Webhook", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("cannot set both"))
 		})
+
+		It("Should allow non-overlapping allowed VLAN ranges", func() {
+			obj.Spec.Type = v1alpha1.InterfaceTypePhysical
+			obj.Spec.Switchport = &v1alpha1.Switchport{
+				Mode: v1alpha1.SwitchportModeTrunk,
+				AllowedVlans: []v1alpha1.IndexRange{
+					v1alpha1.MustParseIndexRange("10..20"),
+					v1alpha1.MustParseIndexRange("30..30"),
+				},
+			}
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("Should reject overlapping allowed VLAN ranges", func() {
+			obj.Spec.Type = v1alpha1.InterfaceTypePhysical
+			obj.Spec.Switchport = &v1alpha1.Switchport{
+				Mode: v1alpha1.SwitchportModeTrunk,
+				AllowedVlans: []v1alpha1.IndexRange{
+					v1alpha1.MustParseIndexRange("10..20"),
+					v1alpha1.MustParseIndexRange("20..30"),
+				},
+			}
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("allowedVlans"))
+			Expect(err.Error()).To(ContainSubstring("overlaps"))
+		})
+
+		It("Should reject allowed VLAN ranges below one", func() {
+			obj.Spec.Type = v1alpha1.InterfaceTypePhysical
+			obj.Spec.Switchport = &v1alpha1.Switchport{
+				Mode:         v1alpha1.SwitchportModeTrunk,
+				AllowedVlans: []v1alpha1.IndexRange{{Start: 0, End: 10}},
+			}
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("must be between 1 and 4094"))
+		})
+
+		It("Should reject allowed VLAN ranges above 4094", func() {
+			obj.Spec.Type = v1alpha1.InterfaceTypePhysical
+			obj.Spec.Switchport = &v1alpha1.Switchport{
+				Mode:         v1alpha1.SwitchportModeTrunk,
+				AllowedVlans: []v1alpha1.IndexRange{{Start: 4094, End: 4095}},
+			}
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("must be between 1 and 4094"))
+		})
 	})
 })

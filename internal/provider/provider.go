@@ -171,6 +171,8 @@ type InterfaceProvider interface {
 	GetInterfaceStatus(context.Context, *InterfaceRequest) (InterfaceStatus, error)
 	// InterfaceNameEqual reports whether two interface names refer to the same interface on the provider.
 	InterfaceNameEqual(context.Context, string, string) (bool, error)
+	// LoopbackInterfaceName returns the vendor-specific interface name for a loopback with the given numeric ID.
+	LoopbackInterfaceName(id int) (string, error)
 }
 
 type EnsureInterfaceRequest struct {
@@ -315,18 +317,13 @@ type ACLProvider interface {
 	Provider
 
 	// EnsureACL call is responsible for AccessControlList realization on the provider.
-	EnsureACL(context.Context, *EnsureACLRequest) error
+	EnsureACL(context.Context, *ACLRequest) error
 	// DeleteACL call is responsible for AccessControlList deletion on the provider.
-	DeleteACL(context.Context, *DeleteACLRequest) error
+	DeleteACL(context.Context, *ACLRequest) error
 }
 
-type EnsureACLRequest struct {
+type ACLRequest struct {
 	ACL            *v1alpha1.AccessControlList
-	ProviderConfig *ProviderConfig
-}
-
-type DeleteACLRequest struct {
-	Name           string
 	ProviderConfig *ProviderConfig
 }
 
@@ -392,12 +389,16 @@ type ManagementAccessProvider interface {
 	// EnsureManagementAccess call is responsible for ManagementAccess realization on the provider.
 	EnsureManagementAccess(context.Context, *EnsureManagementAccessRequest) error
 	// DeleteManagementAccess call is responsible for ManagementAccess deletion on the provider.
-	DeleteManagementAccess(context.Context) error
+	DeleteManagementAccess(context.Context, *DeleteManagementAccessRequest) error
 }
 
 type EnsureManagementAccessRequest struct {
 	ManagementAccess *v1alpha1.ManagementAccess
 	ProviderConfig   *ProviderConfig
+}
+
+type DeleteManagementAccessRequest struct {
+	ManagementAccess *v1alpha1.ManagementAccess
 }
 
 // ISISProvider is the interface for the realization of the ISIS objects over different providers.

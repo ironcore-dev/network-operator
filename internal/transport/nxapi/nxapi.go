@@ -34,6 +34,7 @@ func (f RoundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 type Client struct {
 	client *http.Client
 	url    url.URL
+	target string
 }
 
 // Option configures a [Client].
@@ -58,6 +59,14 @@ func WithPort(port string) Option {
 func WithTimeout(d time.Duration) Option {
 	return func(c *Client) error {
 		c.client.Timeout = d
+		return nil
+	}
+}
+
+// WithTarget sets the device target label used in metrics.
+func WithTarget(target string) Option {
+	return func(c *Client) error {
+		c.target = target
 		return nil
 	}
 }
@@ -111,8 +120,13 @@ func (c *Client) Do(ctx context.Context, r Request) ([]json.RawMessage, error) {
 		return nil, fmt.Errorf("nxapi: failed to create request: %w", err)
 	}
 
+	start := time.Now()
 	resp, err := c.client.Do(req)
 	if err != nil {
+		rpcDurationSeconds.WithLabelValues(c.target, "error").Observe(time.Since(start).Seconds())
+		for _, cmd := range r {
+			rpcCommandsTotal.WithLabelValues(c.target, cmd.Params.Cmd, "error").Inc()
+		}
 		return nil, fmt.Errorf("nxapi: failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
@@ -123,6 +137,10 @@ func (c *Client) Do(ctx context.Context, r Request) ([]json.RawMessage, error) {
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		rpcDurationSeconds.WithLabelValues(c.target, "error").Observe(time.Since(start).Seconds())
+		for _, cmd := range r {
+			rpcCommandsTotal.WithLabelValues(c.target, cmd.Params.Cmd, "error").Inc()
+		}
 		// Try to extract JSON-RPC errors from the body, but fall back to a
 		// plain HTTPError if the response is not valid JSON-RPC (e.g. a 401
 		// from an nginx reverse proxy).
@@ -138,6 +156,11 @@ func (c *Client) Do(ctx context.Context, r Request) ([]json.RawMessage, error) {
 			}
 		}
 		return nil, &HTTPError{Code: resp.StatusCode, Body: body}
+	}
+
+	rpcDurationSeconds.WithLabelValues(c.target, "success").Observe(time.Since(start).Seconds())
+	for _, cmd := range r {
+		rpcCommandsTotal.WithLabelValues(c.target, cmd.Params.Cmd, "success").Inc()
 	}
 
 	res, err := decode(body)

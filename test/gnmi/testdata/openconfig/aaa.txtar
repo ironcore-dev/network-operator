@@ -1,0 +1,44 @@
+# AAA with local authentication and accounting
+-- aaas/aaa --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: AAA
+metadata:
+  name: aaa
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  authentication:
+    methods:
+      - type: Local
+  accounting:
+    methods:
+      - type: Local
+
+-- state/preload --
+{}
+
+-- state/expect --
+{
+  "openconfig-system:system": {
+    "aaa": {
+      "authentication": {
+        "config": {
+          "authentication-method": [
+            "local"
+          ]
+        }
+      },
+      "accounting": {
+        "config": {
+          "accounting-method": [
+            "local"
+          ]
+        }
+      }
+    }
+  }
+}
+
+-- state/delete --
+{}

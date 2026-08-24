@@ -1,8 +1,15 @@
 resources:
 - ../default
+- ../prometheus
 
 patches:
  - path: manager_patch.yaml
    target:
      kind: Deployment
      name: controller-manager
+ - target:
+     kind: ServiceMonitor
+   patch: |
+     - op: replace
+       path: /metadata/namespace
+       value: network-operator-system

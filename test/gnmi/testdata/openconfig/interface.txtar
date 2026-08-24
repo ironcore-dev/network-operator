@@ -1,33 +1,46 @@
-# Physical Interface with IPv4 Address
--- interfaces/eth1-1 --
+# Loopback Interface
+-- interfaces/lo0 --
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
 metadata:
-  name: eth1-1
+  name: lo0
   namespace: default
 spec:
   deviceRef:
     name: device
-  name: eth1/1
-  description: Uplink to Spine
+  name: lo0
+  description: Router-ID Leaf1
   adminState: Up
-  type: Physical
-  mtu: 9216
+  type: Loopback
   ipv4:
     addresses:
-      - 10.0.100.1/31
--- state --
+      - 10.0.0.10/32
+
+-- state/preload --
 {
+  "openconfig-system:system": {
+    "state": {
+      "boot-time": "1784731445707000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "openconfig-system:system": {
+    "state": {
+      "boot-time": "1784731445707000000"
+    }
+  },
   "openconfig-interfaces:interfaces": {
     "interface": [
       {
-        "name": "eth1/1",
+        "name": "lo0",
         "config": {
-          "description": "Uplink to Spine",
+          "description": "Router-ID Leaf1",
           "enabled": true,
-          "mtu": 9216,
-          "name": "eth1/1",
-          "type": "iana-if-type:ethernetCsmacd"
+          "name": "lo0",
+          "type": "iana-if-type:softwareLoopback"
         },
         "subinterfaces": {
           "subinterface": [
@@ -42,11 +55,11 @@ spec:
                   "address": [
                     {
                       "config": {
-                        "ip": "10.0.100.1",
-                        "prefix-length": 31,
+                        "ip": "10.0.0.10",
+                        "prefix-length": 32,
                         "type": "PRIMARY"
                       },
-                      "ip": "10.0.100.1"
+                      "ip": "10.0.0.10"
                     }
                   ]
                 },
@@ -59,5 +72,14 @@ spec:
         }
       }
     ]
+  }
+}
+
+-- state/delete --
+{
+  "openconfig-system:system": {
+    "state": {
+      "boot-time": "1784731445707000000"
+    }
   }
 }

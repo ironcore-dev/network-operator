@@ -311,7 +311,9 @@ func (r *ManagementAccessReconciler) finalize(ctx context.Context, s *management
 		}
 	}()
 
-	return s.Provider.DeleteManagementAccess(ctx)
+	return s.Provider.DeleteManagementAccess(ctx, &provider.DeleteManagementAccessRequest{
+		ManagementAccess: s.ManagementAccess,
+	})
 }
 
 // deviceToManagementAccesses is a [handler.MapFunc] to be used to enqueue requests for reconciliation

@@ -123,6 +123,27 @@ metadata:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
     networking.metal.ironcore.dev/device-name: leaf1
+  name: eth1-11
+spec:
+  deviceRef:
+    name: leaf1
+  name: eth1/11
+  description: Host trunk with externally managed VLAN allow-list
+  adminState: Up
+  type: Physical
+  mtu: 1500
+  switchport:
+    mode: Trunk
+    nativeVlan: 1
+    allowedVlansMode: Unmanaged
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
   name: po-10
 spec:
   deviceRef:

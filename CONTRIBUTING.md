@@ -51,3 +51,28 @@ Run `git lfs install` once before cloning or pulling to ensure files are fetched
 > **NOTE:** Run `make help` for more information on all potential `make` targets
 
 More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html).
+
+## AI-Assisted Contributions
+
+AI is a great accelerator, and we encourage using it. But a PR generated
+with AI is still your PR. You own every line in it, the same as if you
+had typed it by hand.
+
+* **Understand every line.** If you cannot explain why a change is there
+  or what it does, it is not ready to submit.
+* **Double-check the model's assumptions.** AI confidently invents
+  standards, API formats, field names, and protocol details that do not
+  exist or are subtly wrong. Verify anything the model asserts against
+  the actual spec, docs, or API.
+* **Don't commit what you don't need.** Models love adding speculative
+  helpers, defensive code, and future-proofing. Strip anything the
+  change does not actually require.
+* **Verify the testing is real.** Before you open the PR, confirm the
+  tests actually exist, actually run, and actually pass.
+* **Test against real APIs.** Simulated or imagined results do not
+  count. If a change touches hardware, exercise it on real hardware or
+  in Containerlab before review.
+* **Don't outsource your verification to the reviewer.** Opening an
+  unverified PR and letting the reviewer catch mistakes is
+  disrespectful of their time. Come to review having already done your
+  own verification.

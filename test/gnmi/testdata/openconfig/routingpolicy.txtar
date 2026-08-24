@@ -1,0 +1,123 @@
+# RoutingPolicy accept-loopbacks with referenced PrefixSet
+-- prefixsets/pfx-loopbacks --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: PrefixSet
+metadata:
+  name: pfx-loopbacks
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: LOOPBACKS
+  entries:
+    - sequence: 10
+      prefix: 10.0.0.0/24
+    - sequence: 20
+      prefix: 10.1.0.0/16
+-- routingpolicies/accept-loopbacks --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: RoutingPolicy
+metadata:
+  name: accept-loopbacks
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: accept-loopbacks
+  statements:
+    - sequence: 10
+      conditions:
+        matchPrefixSet:
+          prefixSetRef:
+            name: pfx-loopbacks
+      actions:
+        routeDisposition: AcceptRoute
+    - sequence: 65535
+      actions:
+        routeDisposition: RejectRoute
+
+-- state/preload --
+{}
+
+-- state/expect --
+{
+  "openconfig-routing-policy:routing-policy": {
+    "defined-sets": {
+      "prefix-sets": {
+        "prefix-set": [
+          {
+            "config": {
+              "name": "LOOPBACKS"
+            },
+            "prefixes": {
+              "prefix": [
+                {
+                  "ip-prefix": "10.0.0.0/24",
+                  "masklength-range": "exact",
+                  "config": {
+                    "ip-prefix": "10.0.0.0/24",
+                    "masklength-range": "exact"
+                  }
+                },
+                {
+                  "ip-prefix": "10.1.0.0/16",
+                  "masklength-range": "exact",
+                  "config": {
+                    "ip-prefix": "10.1.0.0/16",
+                    "masklength-range": "exact"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "policy-definitions": {
+      "policy-definition": [
+        {
+          "config": {
+            "name": "accept-loopbacks"
+          },
+          "statements": {
+            "statement": [
+              {
+                "name": "10",
+                "config": {
+                  "name": "10"
+                },
+                "conditions": {
+                  "match-prefix-set": {
+                    "config": {
+                      "prefix-set": "LOOPBACKS",
+                      "match-set-options": "ANY"
+                    }
+                  }
+                },
+                "actions": {
+                  "config": {
+                    "policy-result": "ACCEPT_ROUTE"
+                  }
+                }
+              },
+              {
+                "name": "65535",
+                "config": {
+                  "name": "65535"
+                },
+                "actions": {
+                  "config": {
+                    "policy-result": "REJECT_ROUTE"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
+
+-- state/delete --
+{}

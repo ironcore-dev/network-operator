@@ -4,6 +4,7 @@
 package v1alpha1
 
 import (
+	"fmt"
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,6 +72,11 @@ type MaskLengthRange struct {
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=128
 	Max int8 `json:"max"`
+}
+
+// String returns the mask length range in OpenConfig dot-dot notation, e.g. "16..24".
+func (m MaskLengthRange) String() string {
+	return fmt.Sprintf("%d..%d", m.Min, m.Max)
 }
 
 // PrefixSetStatus defines the observed state of PrefixSet.

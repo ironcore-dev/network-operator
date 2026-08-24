@@ -722,6 +722,24 @@ _Appears in:_
 | `multichassis` _[MultiChassis](#multichassis)_ | Multichassis defines the multichassis configuration for the aggregate interface. |  | Optional: \{\} <br /> |
 
 
+#### AllowedVlansMode
+
+_Underlying type:_ _string_
+
+AllowedVlansMode defines how trunk allowed VLANs are managed.
+
+_Validation:_
+- Enum: [Exact Unmanaged]
+
+_Appears in:_
+- [Switchport](#switchport)
+
+| Field | Description |
+| --- | --- |
+| `Exact` | AllowedVlansModeExact means the operator owns the complete trunk allow-list.<br /> |
+| `Unmanaged` | AllowedVlansModeUnmanaged means the operator leaves the trunk allow-list unchanged.<br /> |
+
+
 #### AnycastGateway
 
 
@@ -1294,7 +1312,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Certificate to its provider-specific configuration. |  | Optional: \{\} <br /> |
-| `id` _string_ | The certificate management id.<br />Immutable. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `id` _string_ | The certificate management id.<br />Immutable. |  | MaxLength: 63 <br />MinLength: 1 <br />Pattern: `^[a-zA-Z0-9]+$` <br />Required: \{\} <br /> |
 | `secretRef` _[SecretReference](#secretreference)_ | Secret containing the certificate source.<br />The secret must be of type kubernetes.io/tls and as such contain the following keys: 'tls.crt' and 'tls.key'. |  | Required: \{\} <br /> |
 
 
@@ -1940,7 +1958,7 @@ _Appears in:_
 
 _Underlying type:_ _string_
 
-
+EncapType represents the encapsulation type used for a subinterface.
 
 _Validation:_
 - Enum: [802.1q 802.1ad]
@@ -2122,6 +2140,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `enabled` _boolean_ | Enable or disable the gRPC server on the device.<br />If not specified, the gRPC server is enabled by default. | true | Optional: \{\} <br /> |
 | `port` _integer_ | The TCP port on which the gRPC server should listen.<br />The range of port-id is from 1024 to 65535.<br />Port 9339 is the default. | 9339 | ExclusiveMaximum: false <br />Maximum: 65535 <br />Minimum: 1024 <br />Optional: \{\} <br /> |
+| `serverName` _string_ | Name of the gRPC server instance on the device.<br />If not specified, defaults to "gnmi" on OpenConfig devices.<br />Not supported on Cisco NX-OS devices.<br />Immutable once set. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 | `certificateId` _string_ | Name of the certificate that is associated with the gRPC service.<br />The certificate is provisioned through other interfaces on the device,<br />such as e.g. the gNOI certificate management service. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 | `vrfName` _string_ | Enable the gRPC agent to accept incoming (dial-in) RPC requests from a given vrf. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 | `gnmi` _[GNMI](#gnmi)_ | Additional gNMI configuration for the gRPC server.<br />This may not be supported by all devices. | \{ keepAliveTimeout:10m maxConcurrentCall:8 \} | Optional: \{\} <br /> |
@@ -2287,11 +2306,13 @@ _Appears in:_
 IndexRange represents an inclusive range of indices.
 
 _Validation:_
-- Pattern: `^[0-9]+\.\.[0-9]+$`
+- Pattern: `^[0-9]+(\.\.[0-9]+)?$`
 - Type: string
+- XIntOrString: {}
 
 _Appears in:_
 - [IndexPoolSpec](#indexpoolspec)
+- [Switchport](#switchport)
 
 
 
@@ -2661,7 +2682,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Interface to its provider-specific configuration. |  | Optional: \{\} <br /> |
-| `grpc` _[GRPC](#grpc)_ | Configuration for the gRPC server on the device.<br />Currently, only a single "default" gRPC server is supported. | \{ enabled:true port:9339 \} | Optional: \{\} <br /> |
+| `grpc` _[GRPC](#grpc)_ | Configuration for the gRPC server on the device. | \{ enabled:true port:9339 \} | Optional: \{\} <br /> |
 | `ssh` _[SSH](#ssh)_ | Configuration for the SSH server on the device. | \{ enabled:true sessionLimit:32 timeout:10m \} | Optional: \{\} <br /> |
 
 
@@ -3874,7 +3895,8 @@ _Appears in:_
 | `mode` _[SwitchportMode](#switchportmode)_ | Mode defines the switchport mode, such as access or trunk. |  | Enum: [Access Trunk] <br />Required: \{\} <br /> |
 | `accessVlan` _integer_ | AccessVlan specifies the VLAN ID for access mode switchports.<br />Only applicable when Mode is set to "Access". |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `nativeVlan` _integer_ | NativeVlan specifies the native VLAN ID for trunk mode switchports.<br />Only applicable when Mode is set to "Trunk". |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
-| `allowedVlans` _integer array_ | AllowedVlans is a list of VLAN IDs that are allowed on the trunk port.<br />If not specified, all VLANs (1-4094) are allowed.<br />Only applicable when Mode is set to "Trunk". |  | MinItems: 1 <br />items:Maximum: 4094 <br />items:Minimum: 1 <br />Optional: \{\} <br /> |
+| `allowedVlansMode` _[AllowedVlansMode](#allowedvlansmode)_ | AllowedVlansMode defines how trunk allowed VLANs are managed.<br />When omitted, the mode is Exact.<br />Exact means the operator owns the complete allowed VLAN list.<br />Unmanaged means the operator does not change the allowed VLAN list.<br />Only applicable when Mode is set to "Trunk". | Exact | Enum: [Exact Unmanaged] <br />Optional: \{\} <br /> |
+| `allowedVlans` _[IndexRange](#indexrange) array_ | AllowedVlans is the exact list of VLAN ID ranges allowed on the trunk port.<br />Each entry is an inclusive range string like "100..200". For compatibility,<br />a single integer like 100 is also accepted and treated as "100..100".<br />If not specified and AllowedVlansMode is Exact, all VLANs (1-4094) are allowed.<br />Must be omitted when AllowedVlansMode is Unmanaged.<br />Only applicable when Mode is set to "Trunk". |  | MinItems: 1 <br />Pattern: `^[0-9]+(\.\.[0-9]+)?$` <br />Type: string <br />XIntOrString: \{\} <br />Optional: \{\} <br /> |
 
 
 #### SwitchportMode
@@ -5439,7 +5461,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `ranges` _[IndexRange](#indexrange) array_ | Ranges defines the inclusive index ranges that can be allocated.<br />Example: "64512..65534". |  | MinItems: 1 <br />Required: \{\} <br /> |
+| `ranges` _[IndexRange](#indexrange) array_ | Ranges defines the inclusive index ranges that can be allocated.<br />Example: "64512..65534". |  | MinItems: 1 <br />Pattern: `^[0-9]+(\.\.[0-9]+)?$` <br />Type: string <br />XIntOrString: \{\} <br />Required: \{\} <br /> |
 | `reclaimPolicy` _[ReclaimPolicy](#reclaimpolicy)_ | ReclaimPolicy controls what happens to an allocation when a claim is deleted.<br />Recycle returns the allocation to the pool. Retain keeps it reserved.<br />Immutable. | Recycle | Enum: [Recycle Retain] <br />Optional: \{\} <br /> |
 
 

@@ -1,0 +1,87 @@
+# ACL with IPv4 permit and deny rules
+-- accesscontrollists/acl --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: AccessControlList
+metadata:
+  name: acl
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: MGMT-ACL
+  entries:
+    - sequence: 10
+      action: Permit
+      protocol: TCP
+      sourceAddress: 10.0.0.0/24
+      destinationAddress: 0.0.0.0/0
+      description: Allow management subnet
+    - sequence: 20
+      action: Deny
+      protocol: IP
+      sourceAddress: 0.0.0.0/0
+      destinationAddress: 0.0.0.0/0
+      description: Deny all other traffic
+
+-- state/preload --
+{}
+
+-- state/expect --
+{
+  "openconfig-acl:acl": {
+    "acl-sets": {
+      "acl-set": [
+        {
+          "config": {
+            "name": "MGMT-ACL",
+            "type": "openconfig-acl:ACL_IPV4"
+          },
+          "acl-entries": {
+            "acl-entry": [
+              {
+                "sequence-id": 10,
+                "config": {
+                  "sequence-id": 10,
+                  "description": "Allow management subnet"
+                },
+                "ipv4": {
+                  "config": {
+                    "source-address": "10.0.0.0/24",
+                    "destination-address": "0.0.0.0/0",
+                    "protocol": "6"
+                  }
+                },
+                "actions": {
+                  "config": {
+                    "forwarding-action": "openconfig-acl:ACCEPT"
+                  }
+                }
+              },
+              {
+                "sequence-id": 20,
+                "config": {
+                  "sequence-id": 20,
+                  "description": "Deny all other traffic"
+                },
+                "ipv4": {
+                  "config": {
+                    "source-address": "0.0.0.0/0",
+                    "destination-address": "0.0.0.0/0"
+                  }
+                },
+                "actions": {
+                  "config": {
+                    "forwarding-action": "openconfig-acl:DROP"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
+
+-- state/delete --
+{}
