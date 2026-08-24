@@ -1,0 +1,110 @@
+# BGP peer with IPv4 unicast address family
+-- bgps/bgp --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGP
+metadata:
+  name: bgp
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  asNumber: 65000
+  routerId: 10.0.0.1
+  addressFamilies:
+    ipv4Unicast:
+      enabled: true
+-- bgppeers/peer1 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGPPeer
+metadata:
+  name: peer1
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  bgpRef:
+    name: bgp
+  address: 10.0.0.2
+  asNumber: 65001
+  description: spine-1
+  addressFamilies:
+    ipv4Unicast:
+      enabled: true
+
+-- state/preload --
+{}
+
+-- state/expect --
+{
+  "openconfig-network-instance:network-instances": {
+    "network-instance": [
+      {
+        "protocols": {
+          "protocol": [
+            {
+              "config": {
+                "identifier": "openconfig-policy-types:BGP",
+                "name": "BGP"
+              },
+              "bgp": {
+                "global": {
+                  "config": {
+                    "as": 65000,
+                    "router-id": "10.0.0.1"
+                  },
+                  "afi-safis": {
+                    "afi-safi": [
+                      {
+                        "afi-safi-name": "openconfig-bgp-types:IPV4_UNICAST",
+                        "config": {
+                          "afi-safi-name": "openconfig-bgp-types:IPV4_UNICAST",
+                          "enabled": true
+                        }
+                      }
+                    ]
+                  }
+                },
+                "peer-groups": {
+                  "peer-group": [
+                    {
+                      "config": {
+                        "peer-group-name": "NETOP-DEFAULT"
+                      }
+                    }
+                  ]
+                },
+                "neighbors": {
+                  "neighbor": [
+                    {
+                      "config": {
+                        "neighbor-address": "10.0.0.2",
+                        "peer-as": 65001,
+                        "peer-group": "NETOP-DEFAULT",
+                        "enabled": true,
+                        "description": "spine-1"
+                      },
+                      "afi-safis": {
+                        "afi-safi": [
+                          {
+                            "afi-safi-name": "openconfig-bgp-types:IPV4_UNICAST",
+                            "config": {
+                              "afi-safi-name": "openconfig-bgp-types:IPV4_UNICAST",
+                              "enabled": true
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+
+-- state/delete --
+{}

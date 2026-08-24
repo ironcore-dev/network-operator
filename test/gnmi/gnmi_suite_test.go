@@ -232,6 +232,15 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 	}).SetupWithManager(ctx, mgr)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&core.AAAReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: recorder,
+		Provider: providerFn,
+		Locker:   locker,
+	}).SetupWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&core.BannerReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
