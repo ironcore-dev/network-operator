@@ -13,11 +13,13 @@ import (
 	"github.com/ironcore-dev/kubectl-net/pkg/cmd"
 )
 
+var version = "dev"
+
 func main() {
 	flags := pflag.NewFlagSet("kubectl-net", pflag.ExitOnError)
 	pflag.CommandLine = flags
 
-	root := cmd.NewCmdNet(genericiooptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
+	root := cmd.NewCmdNet(genericiooptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr}, version)
 	if err := root.Execute(); err != nil {
 		os.Exit(1)
 	}

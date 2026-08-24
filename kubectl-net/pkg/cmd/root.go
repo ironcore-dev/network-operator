@@ -17,7 +17,7 @@ type RootOptions struct {
 }
 
 // NewCmdNet returns the root "kubectl net" command with all subcommands registered.
-func NewCmdNet(streams genericiooptions.IOStreams) *cobra.Command {
+func NewCmdNet(streams genericiooptions.IOStreams, version string) *cobra.Command {
 	o := &RootOptions{
 		ConfigFlags: genericclioptions.NewConfigFlags(true),
 		IOStreams:   streams,
@@ -44,6 +44,7 @@ func NewCmdNet(streams genericiooptions.IOStreams) *cobra.Command {
 		NewCmdPause(o, true),
 		NewCmdPause(o, false),
 		NewCmdMove(o),
+		NewCmdVersion(o, version),
 		NewCmdCompletion(cmd),
 	)
 
