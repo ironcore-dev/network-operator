@@ -1,0 +1,249 @@
+-- interfaceconfigs/interface-nxconfig-edge --
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: InterfaceConfig
+metadata:
+  name: interface-nxconfig-edge
+  namespace: default
+spec:
+  bufferBoost:
+    enabled: false
+  spanningTree:
+    portType: Edge
+    bpduGuard: true
+
+-- interfaceconfigs/interface-nxconfig-po --
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: InterfaceConfig
+metadata:
+  name: interface-nxconfig-po
+  namespace: default
+spec:
+  lacp:
+    vpcConvergence: true
+    suspendIndividual: false
+  spanningTree:
+    portType: Network
+    bpduFilter: true
+
+-- interfaces/edge-port --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: edge-port
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: eth1/2
+  type: Physical
+  adminState: Up
+  mtu: 1500
+  description: "Edge port with STP and BufferBoost config"
+  providerConfigRef:
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+    kind: InterfaceConfig
+    name: interface-nxconfig-edge
+  switchport:
+    mode: Trunk
+    nativeVlan: 1
+    allowedVlans:
+      - 10
+
+-- interfaces/host-pc --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: host-pc
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: po10
+  type: Aggregate
+  adminState: Up
+  mtu: 1500
+  description: "vPC to Host with STP and LACP config"
+  providerConfigRef:
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+    kind: InterfaceConfig
+    name: interface-nxconfig-po
+  switchport:
+    mode: Trunk
+    nativeVlan: 1
+    allowedVlans:
+      - 10
+  aggregation:
+    controlProtocol:
+      mode: Active
+    memberInterfaceRefs:
+      - name: edge-port
+    multichassis:
+      enabled: true
+      id: 2
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "System": {
+    "fm-items": {
+      "lacp-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "intf-items": {
+      "aggr-items": {
+        "AggrIf-list": [
+          {
+            "accessVlan": "vlan-1",
+            "adminSt": "up",
+            "aggrExtd-items": {
+              "bufferBoost": "enable"
+            },
+            "descr": "vPC to Host with STP and LACP config",
+            "id": "po10",
+            "lacpVpcConvergence": "enable",
+            "layer": "Layer2",
+            "medium": "broadcast",
+            "mode": "trunk",
+            "mtu": 1500,
+            "nativeVlan": "vlan-1",
+            "pcMode": "active",
+            "rsmbrIfs-items": {
+              "RsMbrIfs-list": [
+                {
+                  "tDn": "/System/intf-items/phys-items/PhysIf-list[id='eth1/2']"
+                }
+              ]
+            },
+            "suspIndividual": "disable",
+            "trunkVlans": "10",
+            "userCfgdFlags": "admin_layer,admin_mtu,admin_state"
+          }
+        ]
+      },
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "accessVlan": "vlan-1",
+            "adminSt": "up",
+            "descr": "Edge port with STP and BufferBoost config",
+            "FECMode": "auto",
+            "id": "eth1/2",
+            "layer": "Layer2",
+            "medium": "broadcast",
+            "mode": "trunk",
+            "mtu": 1500,
+            "nativeVlan": "vlan-1",
+            "trunkVlans": "10",
+            "userCfgdFlags": "admin_layer,admin_mtu,admin_state",
+            "physExtd-items": {
+              "bufferBoost": "disable"
+            }
+          }
+        ]
+      }
+    },
+    "stp-items": {
+      "inst-items": {
+        "if-items": {
+          "If-list": [
+            {
+              "id": "eth1/2",
+              "mode": "edge",
+              "bpdufilter": "default",
+              "bpduguard": "enable"
+            },
+            {
+              "id": "po10",
+              "mode": "network",
+              "bpdufilter": "enable",
+              "bpduguard": "default"
+            }
+          ]
+        }
+      }
+    },
+    "vpc-items": {
+      "inst-items": {
+        "dom-items": {
+          "if-items": {
+            "If-list": [
+              {
+                "id": 2,
+                "rsvpcConf-items": {
+                  "tDn": "/System/intf-items/aggr-items/AggrIf-list[id='po10']"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/delete --
+{
+  "System": {
+    "fm-items": {
+      "lacp-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "FECMode": "auto",
+            "accessVlan": "vlan-1",
+            "id": "eth1/2",
+            "layer": "Layer2",
+            "medium": "broadcast",
+            "mode": "access",
+            "mtu": 1500,
+            "nativeVlan": "vlan-1",
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            },
+            "trunkVlans": "1-4094",
+            "userCfgdFlags": ""
+          }
+        ]
+      }
+    },
+    "stp-items": {
+      "inst-items": {
+        "if-items": {
+          "If-list": [
+            {
+              "id": "eth1/2",
+              "mode": "default",
+              "bpdufilter": "default",
+              "bpduguard": "enable"
+            },
+            {
+              "id": "po10",
+              "mode": "network",
+              "bpdufilter": "enable",
+              "bpduguard": "default"
+            }
+          ]
+        }
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

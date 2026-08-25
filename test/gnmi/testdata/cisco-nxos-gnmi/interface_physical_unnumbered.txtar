@@ -1,0 +1,207 @@
+-- interfaces/lo0 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: lo0
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: lo0
+  description: NVE/VTEP Leaf1
+  adminState: Up
+  type: Loopback
+  ipv4:
+    addresses:
+      - 10.0.0.10/32
+
+-- interfaces/eth1-1 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: eth1-1
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: eth1/1
+  description: Leaf1 to Spine1
+  adminState: Up
+  type: Physical
+  mtu: 9216
+  ipv4:
+    unnumbered:
+      interfaceRef:
+        name: lo0
+  bfd:
+    enabled: true
+    desiredMinimumTxInterval: 300ms
+    requiredMinimumReceive: 300ms
+    detectionMultiplier: 3
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "System": {
+    "bfd-items": {
+      "inst-items": {
+        "if-items": {
+          "If-list": [
+            {
+              "adminSt": "enabled",
+              "id": "eth1/1",
+              "ifka-items": {
+                "detectMult": 3,
+                "minRxIntvl": 300,
+                "minTxIntvl": 300
+              }
+            }
+          ]
+        }
+      }
+    },
+    "fm-items": {
+      "bfd-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "ctrl": "port-unreachable,redirect",
+                    "id": "lo0"
+                  },
+                  {
+                    "ctrl": "port-unreachable",
+                    "id": "eth1/1"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "intf-items": {
+      "lb-items": {
+        "LbRtdIf-list": [
+          {
+            "adminSt": "up",
+            "descr": "NVE/VTEP Leaf1",
+            "id": "lo0",
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            }
+          }
+        ]
+      },
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "FECMode": "auto",
+            "accessVlan": "unknown",
+            "adminSt": "up",
+            "descr": "Leaf1 to Spine1",
+            "id": "eth1/1",
+            "layer": "Layer3",
+            "medium": "p2p",
+            "mode": "access",
+            "mtu": 9216,
+            "nativeVlan": "unknown",
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            },
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            },
+            "userCfgdFlags": "admin_layer,admin_mtu,admin_state"
+          }
+        ]
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "addr-items": {
+                      "Addr-list": [
+                        {
+                          "addr": "10.0.0.10/32",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "primary"
+                        }
+                      ]
+                    },
+                    "id": "lo0"
+                  },
+                  {
+                    "id": "eth1/1",
+                    "unnumbered": "lo0"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/delete --
+{
+  "System": {
+    "fm-items": {
+      "bfd-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "FECMode": "auto",
+            "accessVlan": "vlan-1",
+            "id": "eth1/1",
+            "layer": "Layer2",
+            "medium": "broadcast",
+            "mode": "access",
+            "mtu": 1500,
+            "nativeVlan": "vlan-1",
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            },
+            "trunkVlans": "1-4094",
+            "userCfgdFlags": ""
+          }
+        ]
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

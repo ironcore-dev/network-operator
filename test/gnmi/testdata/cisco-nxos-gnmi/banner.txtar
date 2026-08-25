@@ -1,0 +1,51 @@
+-- banners/prelogin --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Banner
+metadata:
+  name: prelogin
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  type: PreLogin
+  message:
+    inline: "Authorized users only. All activity is monitored."
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "System": {
+    "userext-items": {
+      "preloginbanner-items": {
+        "delimiter": "^",
+        "message": "Authorized users only. All activity is monitored."
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/delete --
+{
+  "System": {
+    "userext-items": {
+      "preloginbanner-items": {
+        "delimiter": "#",
+        "message": "User Access Verification\n"
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

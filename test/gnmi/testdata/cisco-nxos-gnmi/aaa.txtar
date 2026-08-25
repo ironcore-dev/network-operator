@@ -1,0 +1,158 @@
+-- aaaconfigs/settings --
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: AAAConfig
+metadata:
+  name: settings
+  namespace: default
+spec:
+  loginErrorEnable: true
+  keyEncryption: Type6
+
+-- secrets/tacacs-keys --
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tacacs-keys
+  namespace: default
+type: Opaque
+stringData:
+  server-key: "supersecretkey"
+
+-- aaas/aaa-tacacs --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: AAA
+metadata:
+  name: aaa-tacacs
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  providerConfigRef:
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+    kind: AAAConfig
+    name: settings
+  serverGroups:
+    - name: GR_TACACS
+      type: TACACS
+      vrfName: management
+      sourceInterfaceName: mgmt0
+      servers:
+        - address: "10.16.8.142"
+          tacacs:
+            keySecretRef:
+              name: tacacs-keys
+              key: server-key
+  authentication:
+    methods:
+      - type: Group
+        groupName: GR_TACACS
+      - type: Local
+  authorization:
+    methods:
+      - type: Group
+        groupName: GR_TACACS
+      - type: Local
+  accounting:
+    methods:
+      - type: Group
+        groupName: GR_TACACS
+      - type: Local
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "System": {
+    "fm-items": {
+      "tacacsplus-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "userext-items": {
+      "tacacsext-items": {
+        "tacacsplusprovider-items": {
+          "TacacsPlusProvider-list": [
+            {
+              "name": "10.16.8.142",
+              "port": 49,
+              "key": "supersecretkey",
+              "keyEnc": "6",
+              "timeout": 0
+            }
+          ]
+        },
+        "tacacsplusprovidergroup-items": {
+          "TacacsPlusProviderGroup-list": [
+            {
+              "name": "GR_TACACS",
+              "vrf": "management",
+              "srcIf": "mgmt0",
+              "providerref-items": {
+                "ProviderRef-list": [
+                  {
+                    "name": "10.16.8.142"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "authrealm-items": {
+        "defaultauth-items": {
+          "realm": "tacacs",
+          "providerGroup": "GR_TACACS",
+          "fallback": "yes",
+          "local": "yes",
+          "errEn": true
+        },
+        "defaultauthor-items": {
+          "DefaultAuthor-list": [
+            {
+              "cmdType": "config",
+              "providerGroup": "GR_TACACS",
+              "localRbac": true
+            }
+          ]
+        },
+        "defaultacc-items": {
+          "realm": "tacacs",
+          "providerGroup": "GR_TACACS",
+          "localRbac": true
+        }
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/delete --
+{
+  "System": {
+    "userext-items": {
+      "authrealm-items": {
+        "defaultauth-items": {
+          "realm": "local",
+          "local": "yes",
+          "fallback": "yes"
+        },
+        "defaultacc-items": {
+          "realm": "local",
+          "localRbac": true
+        }
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

@@ -1,0 +1,182 @@
+-- interfaces/ethernet1 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: ethernet1
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: Ethernet1/1
+  adminState: Up
+  type: Physical
+  ipv4:
+    addresses:
+      - 10.0.1.1/30
+
+-- isises/fabric-isis --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: ISIS
+metadata:
+  name: fabric-isis
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  adminState: Up
+  instance: FABRIC
+  networkEntityTitle: "49.0001.0000.0000.0001.00"
+  type: Level2
+  addressFamilies:
+    - IPv4Unicast
+  interfaceRefs:
+    - name: ethernet1
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "System": {
+    "fm-items": {
+      "isis-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "FECMode": "auto",
+            "accessVlan": "unknown",
+            "adminSt": "up",
+            "id": "eth1/1",
+            "layer": "Layer3",
+            "medium": "broadcast",
+            "mode": "access",
+            "mtu": 1500,
+            "nativeVlan": "unknown",
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            },
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            },
+            "userCfgdFlags": "admin_layer,admin_state"
+          }
+        ]
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "if-items": {
+                "If-list": [
+                  {
+                    "addr-items": {
+                      "Addr-list": [
+                        {
+                          "addr": "10.0.1.1/30",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "primary"
+                        }
+                      ]
+                    },
+                    "id": "eth1/1"
+                  }
+                ]
+              },
+              "name": "default"
+            }
+          ]
+        }
+      }
+    },
+    "isis-items": {
+      "inst-items": {
+        "Inst-list": [
+          {
+            "adminSt": "enabled",
+            "dom-items": {
+              "Dom-list": [
+                {
+                  "af-items": {
+                    "DomAf-list": [
+                      {
+                        "type": "v4"
+                      }
+                    ]
+                  },
+                  "if-items": {
+                    "If-list": [
+                      {
+                        "id": "eth1/1",
+                        "networkTypeP2P": "on",
+                        "v4Bfd": "inheritVrf",
+                        "v4enable": true,
+                        "v6Bfd": "",
+                        "v6enable": false
+                      }
+                    ]
+                  },
+                  "isType": "l2",
+                  "name": "default",
+                  "net": "49.0001.0000.0000.0001.00",
+                  "passiveDflt": "l2"
+                }
+              ]
+            },
+            "name": "FABRIC"
+          }
+        ]
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/delete --
+{
+  "System": {
+    "fm-items": {
+      "isis-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "FECMode": "auto",
+            "accessVlan": "vlan-1",
+            "id": "eth1/1",
+            "layer": "Layer2",
+            "medium": "broadcast",
+            "mode": "access",
+            "mtu": 1500,
+            "nativeVlan": "vlan-1",
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            },
+            "trunkVlans": "1-4094",
+            "userCfgdFlags": ""
+          }
+        ]
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

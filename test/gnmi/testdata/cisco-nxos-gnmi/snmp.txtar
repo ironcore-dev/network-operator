@@ -1,0 +1,86 @@
+-- snmps/config --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: SNMP
+metadata:
+  name: config
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  contact: "admin@example.com"
+  location: "foobar"
+  sourceInterfaceName: "mgmt0"
+  hosts:
+    - address: "10.0.0.100"
+  communities:
+    - name: "public"
+      group: "network-operator"
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "System": {
+    "snmp-items": {
+      "inst-items": {
+        "community-items": {
+          "CommSecP-list": [
+            {
+              "commAcess": "unspecified",
+              "grpName": "network-operator",
+              "name": "public"
+            }
+          ]
+        },
+        "globals-items": {
+          "srcInterfaceInforms-items": {
+            "ifname": "mgmt0"
+          },
+          "srcInterfaceTraps-items": {
+            "ifname": "mgmt0"
+          }
+        },
+        "host-items": {
+          "Host-list": [
+            {
+              "hostName": "10.0.0.100",
+              "notifType": "traps",
+              "secLevel": "noauth",
+              "udpPortID": 162,
+              "version": "v2c"
+            }
+          ]
+        },
+        "sysinfo-items": {
+          "sysContact": "admin@example.com",
+          "sysLocation": "foobar"
+        },
+        "traps-items": {}
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/delete --
+{
+  "System": {
+    "snmp-items": {
+      "inst-items": {
+        "traps-items": {}
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

@@ -1,0 +1,54 @@
+-- vrfs/tenant1 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: VRF
+metadata:
+  name: tenant1
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: TENANT-1
+  description: "Tenant 1 VRF"
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "System": {
+    "inst-items": {
+      "Inst-list": [
+        {
+          "name": "TENANT-1",
+          "descr": "Tenant 1 VRF",
+          "dom-items": {
+            "Dom-list": [
+              {
+                "name": "TENANT-1",
+                "rd": "DME_UNSET_PROPERTY_MARKER"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/delete --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
