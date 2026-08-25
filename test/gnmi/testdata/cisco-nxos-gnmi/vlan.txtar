@@ -1,0 +1,50 @@
+-- vlans/vlan10 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: VLAN
+metadata:
+  name: vlan10
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  id: 10
+  name: foobar
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "System": {
+    "bd-items": {
+      "bd-items": {
+        "BD-list": [
+          {
+            "adminSt": "active",
+            "BdState": "active",
+            "fabEncap": "vlan-10",
+            "name": "foobar"
+          }
+        ]
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/delete --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

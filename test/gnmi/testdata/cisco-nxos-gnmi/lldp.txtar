@@ -1,0 +1,67 @@
+-- lldpconfigs/timers --
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: LLDPConfig
+metadata:
+  name: settings
+  namespace: default
+spec:
+  initDelay: 5
+  holdTime: 90
+
+-- lldps/config --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: LLDP
+metadata:
+  name: config
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  adminState: Up
+  providerConfigRef:
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+    kind: LLDPConfig
+    name: settings
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "System": {
+    "fm-items": {
+      "lldp-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "lldp-items": {
+      "inst-items": {
+        "holdTime": 90,
+        "initDelayTime": 5
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/delete --
+{
+  "System": {
+    "fm-items": {
+      "lldp-items": {
+        "adminSt": "disabled"
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

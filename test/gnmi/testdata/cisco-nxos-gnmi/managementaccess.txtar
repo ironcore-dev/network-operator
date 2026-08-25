@@ -1,0 +1,138 @@
+-- managementaccessconfigs/settings --
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: ManagementAccessConfig
+metadata:
+  name: settings
+  namespace: default
+spec:
+  console:
+    timeout: 15m
+  ssh:
+    accessControlListName: MGMT-ACL
+
+-- managementaccesses/config --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: ManagementAccess
+metadata:
+  name: config
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  providerConfigRef:
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+    kind: ManagementAccessConfig
+    name: settings
+  grpc:
+    enabled: true
+    port: 9339
+    vrfName: default
+    gnmi:
+      maxConcurrentCall: 8
+      keepAliveTimeout: 600s
+  ssh:
+    enabled: true
+    timeout: 10m
+    sessionLimit: 32
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "System": {
+    "acl-items": {
+      "ipv4-items": {
+        "policy-items": {
+          "ingress-items": {
+            "vty-items": {
+              "acl-items": {
+                "name": "MGMT-ACL"
+              }
+            }
+          }
+        }
+      }
+    },
+    "fm-items": {
+      "grpc-items": {
+        "adminSt": "enabled"
+      },
+      "ssh-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "grpc-items": {
+      "gnmi-items": {
+        "keepAliveTimeout": 600,
+        "maxCalls": 8
+      },
+      "port": 9339,
+      "useVrf": "default"
+    },
+    "terml-items": {
+      "ln-items": {
+        "cons-items": {
+          "execTmeout-items": {
+            "timeout": 15
+          }
+        },
+        "vty-items": {
+          "execTmeout-items": {
+            "timeout": 10
+          },
+          "ssLmt-items": {
+            "sesLmt": 32
+          }
+        }
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/delete --
+{
+  "System": {
+    "fm-items": {
+      "grpc-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "grpc-items": {
+      "gnmi-items": {
+        "keepAliveTimeout": 600,
+        "maxCalls": 8
+      },
+      "port": 50051
+    },
+    "terml-items": {
+      "ln-items": {
+        "cons-items": {
+          "execTmeout-items": {
+            "timeout": 30
+          }
+        },
+        "vty-items": {
+          "execTmeout-items": {
+            "timeout": 30
+          },
+          "ssLmt-items": {
+            "sesLmt": 32
+          }
+        }
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

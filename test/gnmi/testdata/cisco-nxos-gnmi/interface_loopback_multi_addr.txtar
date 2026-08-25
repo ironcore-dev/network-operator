@@ -1,0 +1,111 @@
+-- interfaces/lo1 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: lo1
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: lo1
+  description: Multi-address loopback
+  adminState: Up
+  type: Loopback
+  ipv4:
+    addresses:
+      - 10.0.0.20/32
+      - 10.0.0.21/32
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "System": {
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "ctrl": "port-unreachable,redirect",
+                    "id": "lo1"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "intf-items": {
+      "lb-items": {
+        "LbRtdIf-list": [
+          {
+            "adminSt": "up",
+            "descr": "Multi-address loopback",
+            "id": "lo1",
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            }
+          }
+        ]
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "addr-items": {
+                      "Addr-list": [
+                        {
+                          "addr": "10.0.0.20/32",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "primary"
+                        },
+                        {
+                          "addr": "10.0.0.21/32",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "secondary"
+                        }
+                      ]
+                    },
+                    "id": "lo1"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/delete --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

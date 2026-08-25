@@ -1,0 +1,185 @@
+-- networkvirtualizationedgeconfigs/settings --
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: NetworkVirtualizationEdgeConfig
+metadata:
+  name: settings
+  namespace: default
+spec:
+  advertiseVirtualMAC: true
+  holdDownTime: 200
+  infraVLANs:
+    - id: 3966
+
+-- interfaces/lo-nve --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: lo-nve
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: lo1
+  type: Loopback
+  adminState: Up
+  ipv4:
+    addresses:
+      - 10.0.0.1/32
+
+-- networkvirtualizationedges/nve1 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: NetworkVirtualizationEdge
+metadata:
+  name: nve1
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  adminState: Up
+  sourceInterfaceRef:
+    name: lo-nve
+  hostReachability: BGP
+  providerConfigRef:
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+    kind: NetworkVirtualizationEdgeConfig
+    name: settings
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "System": {
+    "eps-items": {
+      "epId-items": {
+        "Ep-list": [
+          {
+            "epId": 1,
+            "adminSt": "enabled",
+            "advertiseVmac": true,
+            "holdDownTime": 200,
+            "hostReach": "bgp",
+            "sourceInterface": "lo1",
+            "suppressARP": false
+          }
+        ]
+      }
+    },
+    "pltfm-items": {
+      "nve-items": {
+        "NVE-list": [
+          {
+            "id": 1,
+            "infravlan-items": {
+              "InfraVlan-list": [
+                {
+                  "id": 3966
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "fm-items": {
+      "evpn-items": {
+        "adminSt": "enabled"
+      },
+      "nvo-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "hmm-items": {
+      "fwdinst-items": {
+        "adminSt": "disabled",
+        "amac": ""
+      }
+    },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo1",
+                    "ctrl": "port-unreachable,redirect"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "intf-items": {
+      "lb-items": {
+        "LbRtdIf-list": [
+          {
+            "adminSt": "up",
+            "id": "lo1",
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            }
+          }
+        ]
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo1",
+                    "addr-items": {
+                      "Addr-list": [
+                        {
+                          "addr": "10.0.0.1/32",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "primary"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/delete --
+{
+  "System": {
+    "fm-items": {
+      "evpn-items": {
+        "adminSt": "enabled"
+      },
+      "nvo-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

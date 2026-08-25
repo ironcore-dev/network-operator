@@ -1,0 +1,96 @@
+-- vlans/evpn-vlan --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: VLAN
+metadata:
+  name: evpn-vlan
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  id: 100
+  name: EVPN-VLAN-100
+
+-- evpninstances/l2vni --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: EVPNInstance
+metadata:
+  name: l2vni
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  vni: 10100
+  type: Bridged
+  vlanRef:
+    name: evpn-vlan
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "fm-items": {
+      "evpn-items": {
+        "adminSt": "enabled"
+      },
+      "nvo-items": {
+        "adminSt": "enabled"
+      },
+      "vnsegment-items": {
+        "adminSt": "enabled"
+      }
+    }
+  }
+}
+
+-- state/expect --
+{
+  "System": {
+    "bd-items": {
+      "bd-items": {
+        "BD-list": [
+          {
+            "fabEncap": "vlan-100",
+            "accEncap": "vxlan-10100",
+            "name": "EVPN-VLAN-100"
+          }
+        ]
+      }
+    },
+    "fm-items": {
+      "evpn-items": {
+        "adminSt": "enabled"
+      },
+      "nvo-items": {
+        "adminSt": "enabled"
+      },
+      "vnsegment-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/delete --
+{
+  "System": {
+    "fm-items": {
+      "evpn-items": {
+        "adminSt": "enabled"
+      },
+      "nvo-items": {
+        "adminSt": "enabled"
+      },
+      "vnsegment-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

@@ -1,0 +1,223 @@
+# SKIP: The controller tries to get status, which is retrieved via NXAPI and not gNMI. Hence, not testable.
+
+-- interfaces/member-port --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: member-port
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: eth1/1
+  type: Physical
+  adminState: Up
+
+-- interfaces/port-channel-10 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: port-channel-10
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: po10
+  type: Aggregate
+  adminState: Up
+  switchport:
+    mode: Trunk
+  aggregation:
+    memberInterfaceRefs:
+      - name: member-port
+
+-- ethernetsegments/esi-mh --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: EthernetSegment
+metadata:
+  name: esi-mh
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  interfaceRef:
+    name: port-channel-10
+  esiType: Arbitrary
+  esi: "00:11:22:33:44:55:66:77:88:01"
+  redundancyMode: AllActive
+  designatedForwarder:
+    electionMode: Default
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "System": {
+    "eps-items": {
+      "evpnmulticast-items": {
+        "state": "enabled"
+      },
+      "multihoming-items": {
+        "dfElectionMode": "modulo",
+        "dfElectionTime": "3.0",
+        "eadEviRoute": true,
+        "state": "enabled"
+      }
+    },
+    "fm-items": {
+      "evpn-items": {
+        "adminSt": "enabled"
+      },
+      "lacp-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "intf-items": {
+      "aggr-items": {
+        "AggrIf-list": [
+          {
+            "accessVlan": "vlan-1",
+            "adminSt": "up",
+            "aggrExtd-items": {
+              "bufferBoost": "enable"
+            },
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "ethernetsegment-items": {
+              "esType": "native",
+              "esi": "0011.2233.4455.6677.8801",
+              "localIdentifier": 0,
+              "localIdentifierInherit": false,
+              "sysMac": "DME_UNSET_PROPERTY_MARKER",
+              "sysMacInherit": false
+            },
+            "id": "po10",
+            "lacpVpcConvergence": "disable",
+            "layer": "Layer2",
+            "medium": "broadcast",
+            "mode": "trunk",
+            "mtu": 1500,
+            "nativeVlan": "vlan-1",
+            "pcMode": "active",
+            "rsmbrIfs-items": {
+              "RsMbrIfs-list": [
+                {
+                  "tDn": "/System/intf-items/phys-items/PhysIf-list[id='eth1/1']"
+                }
+              ]
+            },
+            "suspIndividual": "enable",
+            "trunkVlans": "1-4094",
+            "userCfgdFlags": "admin_layer,admin_state"
+          }
+        ]
+      },
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "FECMode": "auto",
+            "accessVlan": "vlan-1",
+            "adminSt": "up",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "id": "eth1/1",
+            "layer": "Layer2",
+            "medium": "broadcast",
+            "mode": "access",
+            "mtu": 1500,
+            "nativeVlan": "vlan-1",
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            },
+            "trunkVlans": "1-4094",
+            "userCfgdFlags": "admin_layer,admin_state"
+          }
+        ]
+      }
+    },
+    "stp-items": {
+      "inst-items": {
+        "if-items": {
+          "If-list": [
+            {
+              "bpdufilter": "default",
+              "bpduguard": "default",
+              "id": "eth1/1",
+              "mode": "default"
+            },
+            {
+              "bpdufilter": "default",
+              "bpduguard": "default",
+              "id": "po10",
+              "mode": "default"
+            }
+          ]
+        }
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/delete --
+{
+  "System": {
+    "fm-items": {
+      "lacp-items": {
+        "adminSt": "disabled"
+      }
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "FECMode": "auto",
+            "accessVlan": "vlan-1",
+            "adminSt": "up",
+            "id": "eth1/1",
+            "layer": "Layer2",
+            "medium": "broadcast",
+            "mode": "access",
+            "mtu": 1500,
+            "nativeVlan": "vlan-1",
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            },
+            "trunkVlans": "1-4094",
+            "userCfgdFlags": "0"
+          }
+        ]
+      }
+    },
+    "stp-items": {
+      "inst-items": {
+        "if-items": {
+          "If-list": [
+            {
+              "bpdufilter": "default",
+              "bpduguard": "default",
+              "id": "eth1/1",
+              "mode": "default"
+            },
+            {
+              "bpdufilter": "default",
+              "bpduguard": "default",
+              "id": "po10",
+              "mode": "default"
+            }
+          ]
+        }
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

@@ -1,0 +1,224 @@
+-- interfaceconfigs/bgpconfig --
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: BGPConfig
+metadata:
+  name: settings
+  namespace: default
+spec:
+  addressFamilies:
+    l2vpnEvpn:
+      advertisePIP: true
+
+-- interfaces/loopback-vtep --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: loopback-vtep
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: lo0
+  adminState: Up
+  type: Loopback
+  ipv4:
+    addresses:
+      - 10.0.0.1/32
+
+-- bgps/evpn-bgp --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGP
+metadata:
+  name: evpn-bgp
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  asNumber: 65000
+  routerId: "10.0.0.1"
+  providerConfigRef:
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+    kind: BGPConfig
+    name: settings
+  addressFamilies:
+    l2vpnEvpn:
+      enabled: true
+      routeTargetPolicy:
+        retainAll: true
+
+-- bgppeers/spine1 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGPPeer
+metadata:
+  name: spine1
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  bgpRef:
+    name: evpn-bgp
+  address: "10.0.0.2"
+  asNumber: 65000
+  description: "EVPN peering with spine1"
+  localAddress:
+    interfaceRef:
+      name: loopback-vtep
+  addressFamilies:
+    l2vpnEvpn:
+      enabled: true
+      sendCommunity: Both
+      routeReflectorClient: true
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "System": {
+    "bgp-items": {
+      "inst-items": {
+        "adminSt": "enabled",
+        "asn": "65000",
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "rtrId": "10.0.0.1",
+              "rtrIdAuto": "disabled",
+              "af-items": {
+                "DomAf-list": [
+                  {
+                    "advPip": "enabled",
+                    "exportGwIp": "disabled",
+                    "maxEcmp": 1,
+                    "maxExtEcmp": 1,
+                    "retainRttAll": "enabled",
+                    "retainRttRtMap": "DME_UNSET_PROPERTY_MARKER",
+                    "type": "l2vpn-evpn"
+                  }
+                ]
+              },
+              "peer-items": {
+                "Peer-list": [
+                  {
+                    "addr": "10.0.0.2",
+                    "adminSt": "enabled",
+                    "asn": "65000",
+                    "asnType": "none",
+                    "name": "EVPN peering with spine1",
+                    "srcIf": "lo0",
+                    "af-items": {
+                      "PeerAf-list": [
+                        {
+                          "ctrl": "rr-client",
+                          "sendComExt": "enabled",
+                          "sendComStd": "enabled",
+                          "type": "l2vpn-evpn"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "fm-items": {
+      "bgp-items": {
+        "adminSt": "enabled"
+      },
+      "evpn-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "ctrl": "port-unreachable,redirect",
+                    "id": "lo0"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "intf-items": {
+      "lb-items": {
+        "LbRtdIf-list": [
+          {
+            "adminSt": "up",
+            "id": "lo0",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            }
+          }
+        ]
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "addr-items": {
+                      "Addr-list": [
+                        {
+                          "addr": "10.0.0.1/32",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "primary"
+                        }
+                      ]
+                    },
+                    "id": "lo0"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/delete --
+{
+  "System": {
+    "fm-items": {
+      "bgp-items": {
+        "adminSt": "enabled"
+      },
+      "evpn-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

@@ -1,0 +1,165 @@
+-- interfaces/lo-ospf --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: lo-ospf
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: lo10
+  type: Loopback
+  adminState: Up
+  ipv4:
+    addresses:
+      - 10.255.255.10/32
+
+-- ospfs/underlay --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: OSPF
+metadata:
+  name: underlay
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  adminState: Up
+  instance: UNDERLAY
+  routerId: 10.255.255.10
+  interfaceRefs:
+    - name: lo-ospf
+      area: "0.0.0.0"
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "System": {
+    "fm-items": {
+      "ospf-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo10",
+                    "ctrl": "port-unreachable,redirect"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "intf-items": {
+      "lb-items": {
+        "LbRtdIf-list": [
+          {
+            "adminSt": "up",
+            "id": "lo10",
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            }
+          }
+        ]
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo10",
+                    "addr-items": {
+                      "Addr-list": [
+                        {
+                          "addr": "10.255.255.10/32",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "primary"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "ospf-items": {
+      "inst-items": {
+        "Inst-list": [
+          {
+            "name": "UNDERLAY",
+            "adminSt": "enabled",
+            "dom-items": {
+              "Dom-list": [
+                {
+                  "name": "default",
+                  "adminSt": "enabled",
+                  "adjChangeLogLevel": "none",
+                  "bwRef": 40000,
+                  "bwRefUnit": "mbps",
+                  "ctrl": "default-passive",
+                  "dist": 110,
+                  "rtrId": "10.255.255.10",
+                  "if-items": {
+                    "If-list": [
+                      {
+                        "id": "lo10",
+                        "adminSt": "enabled",
+                        "advertiseSecondaries": true,
+                        "area": "0.0.0.0",
+                        "bfdCtrl": "unspecified",
+                        "nwT": "unspecified",
+                        "passiveCtrl": "disabled"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/delete --
+{
+  "System": {
+    "fm-items": {
+      "ospf-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
