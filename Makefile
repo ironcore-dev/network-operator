@@ -106,8 +106,8 @@ PROVIDER ?= openconfig
 GINKGO_PROCS ?= $(shell nproc 2>/dev/null || sysctl -n hw.logicalcpu)
 
 .PHONY: test-gnmi
-test-gnmi: setup-envtest ## Run gNMI tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" PROVIDER=$(PROVIDER) go test ./test/gnmi/ -v -ginkgo.v
+test-gnmi: setup-envtest ginkgo ## Run gNMI tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" PROVIDER=$(PROVIDER) $(GINKGO) --procs=$(GINKGO_PROCS) -v ./test/gnmi/
 
 .PHONY: test-lab
 test-lab: ## Run lab tests against a real network device.
@@ -262,6 +262,7 @@ GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 GOLANGCI_LINT_CUSTOM = $(LOCALBIN)/golangci-lint-custom
 GOIMPORTS ?= $(LOCALBIN)/goimports
 GOFUMPT ?= $(LOCALBIN)/gofumpt
+GINKGO ?= $(LOCALBIN)/ginkgo
 ADDLICENSE ?= $(LOCALBIN)/addlicense
 GO_LICENSES ?= $(LOCALBIN)/go-licenses
 TYPOS ?= $(LOCALBIN)/typos
@@ -278,8 +279,9 @@ ENVTEST_K8S_VERSION ?= $(shell go list -m -f "{{ .Version }}" k8s.io/api | awk -
 KUBEBUILDER_VERSION ?= v4.15.0
 CRD_REF_DOCS_VERSION ?= v0.3.0
 GOLANGCI_LINT_VERSION ?= v2.12.2
-GOIMPORTS_VERSION ?= v0.48.0
+GOIMPORTS_VERSION ?= $(shell go list -m -f "{{ .Version }}" golang.org/x/tools)
 GOFUMPT_VERSION ?= v0.10.0
+GINKGO_VERSION ?= $(shell go list -m -f "{{ .Version }}" github.com/onsi/ginkgo/v2)
 ADDLICENSE_VERSION ?= v1.2.0
 GO_LICENSES_VERSION ?= v2.0.1
 TYPOS_VERSION ?= v1.48.0
@@ -338,6 +340,11 @@ $(GOIMPORTS): $(LOCALBIN)
 gofumpt: $(GOFUMPT) ## Download gofumpt locally if necessary.
 $(GOFUMPT): $(LOCALBIN)
 	$(call go-install-tool,$(GOFUMPT),mvdan.cc/gofumpt,$(GOFUMPT_VERSION))
+
+.PHONY: ginkgo
+ginkgo: $(GINKGO) ## Download ginkgo locally if necessary.
+$(GINKGO): $(LOCALBIN)
+	$(call go-install-tool,$(GINKGO),github.com/onsi/ginkgo/v2/ginkgo,$(GINKGO_VERSION))
 
 .PHONY: addlicense
 addlicense: $(ADDLICENSE) ## Download addlicense locally if necessary.

@@ -28,12 +28,15 @@ import (
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	nxcontroller "github.com/ironcore-dev/network-operator/internal/controller/cisco/nx"
 	"github.com/ironcore-dev/network-operator/internal/controller/core"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/resourcelock"
 	testserver "github.com/ironcore-dev/network-operator/test/gnmi/server"
 
-	// Register providers so they're available via provider.Get/Providers
+	// Import all supported provider implementations.
+	_ "github.com/ironcore-dev/network-operator/internal/provider/cisco/iosxr"
+	_ "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos"
 	_ "github.com/ironcore-dev/network-operator/internal/provider/openconfig"
 )
 
@@ -134,6 +137,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			Expect(err).ToNot(HaveOccurred(), "failed to run manager")
 		}
 	}()
+
+	By("waiting for manager cache to sync")
+	Expect(mgr.GetCache().WaitForCacheSync(suiteCtx)).To(BeTrue())
 })
 
 // AfterSuite cleans up the test environment.
@@ -355,6 +361,33 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&core.ISISReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: recorder,
+		Provider: providerFn,
+		Locker:   locker,
+	}).SetupWithManager(ctx, mgr)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&nxcontroller.SystemReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: recorder,
+		Provider: providerFn,
+		Locker:   locker,
+	}).SetupWithManager(ctx, mgr)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&nxcontroller.VPCDomainReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: recorder,
+		Provider: providerFn,
+		Locker:   locker,
+	}).SetupWithManager(ctx, mgr)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&nxcontroller.BorderGatewayReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: recorder,
