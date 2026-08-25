@@ -60,10 +60,6 @@ var _ = Describe("gNMI requests tests", func() {
 		AfterEach(func(ctx SpecContext) {
 			By("deleting the test namespace")
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testNamespace}}))).To(Succeed())
-
-			By("clearing gNMI state for next test")
-			serverState := gnmiServer.State()
-			serverState.SetBuf([]byte("{}"))
 		})
 
 		// Generate individual It nodes for each test file
@@ -97,6 +93,7 @@ var _ = Describe("gNMI requests tests", func() {
 
 				By("preloading gNMI state from testdata")
 				serverState := gnmiServer.State()
+				serverState.SetBuf([]byte("{}"))
 				if len(statePre) != 0 {
 					serverState.SetBuf(statePre)
 				}
