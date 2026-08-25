@@ -10,6 +10,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-networking-metal-ironcore-dev-v1alpha1-accesscontrollist
+  failurePolicy: Fail
+  name: accesscontrollist-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - networking.metal.ironcore.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - accesscontrollist
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-networking-metal-ironcore-dev-v1alpha1-bgp
   failurePolicy: Fail
   name: bgp-v1alpha1.kb.io
