@@ -125,7 +125,7 @@ type SetASPathAction struct {
 	Replace *SetASPathReplace `json:"replace,omitempty"`
 
 	// ASNumber sets the AS path to the specified AS number.
-	// Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
+	// Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396.
 	// +optional
 	ASNumber *intstr.IntOrString `json:"asNumber,omitempty"`
 }
@@ -135,7 +135,7 @@ type SetASPathAction struct {
 // +kubebuilder:validation:XValidation:rule="has(self.asNumber) != has(self.useLastAS)",message="exactly one of asNumber or useLastAS must be specified"
 type SetASPathPrepend struct {
 	// ASNumber is the autonomous system number to prepend to the AS path.
-	// Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
+	// Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396.
 	// +optional
 	ASNumber *intstr.IntOrString `json:"asNumber,omitempty"`
 
@@ -155,12 +155,12 @@ type SetASPathReplace struct {
 	PrivateAS bool `json:"privateAS,omitempty"`
 
 	// ASNumber targets a specific AS number in the path for replacement.
-	// Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
+	// Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396.
 	// +optional
 	ASNumber *intstr.IntOrString `json:"asNumber,omitempty"`
 
 	// Replacement is the AS number to substitute in place of matched AS numbers.
-	// Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
+	// Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396.
 	// +required
 	Replacement intstr.IntOrString `json:"replacement"`
 }

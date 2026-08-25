@@ -1055,7 +1055,7 @@ _Appears in:_
 | `bgpRef` _[LocalObjectReference](#localobjectreference)_ | BgpRef is a reference to the BGP instance this peer belongs to.<br />The BGP object must exist in the same namespace. |  | Required: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether this BGP peer is administratively up or down.<br />When Down, the BGP session with this peer is administratively shut down. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
 | `address` _string_ | Address is the IPv4 address of the BGP peer. |  | Format: ipv4 <br />Required: \{\} <br /> |
-| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number (ASN) of the BGP peer.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number (ASN) of the BGP peer.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
 | `description` _string_ | Description is an optional human-readable description for this BGP peer.<br />This field is used for documentation purposes and may be displayed in management interfaces. |  | Optional: \{\} <br /> |
 | `localAddress` _[BGPPeerLocalAddress](#bgppeerlocaladdress)_ | LocalAddress specifies the local address configuration for the BGP session with this peer.<br />This determines the source address/interface for BGP packets sent to this peer. |  | Optional: \{\} <br /> |
 | `addressFamilies` _[BGPPeerAddressFamilies](#bgppeeraddressfamilies)_ | AddressFamilies configures address family specific settings for this BGP peer.<br />Controls which address families are enabled and their specific configuration. |  | Optional: \{\} <br /> |
@@ -1133,7 +1133,7 @@ _Appears in:_
 | `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VrfRef is an optional reference to the VRF this BGP instance is scoped to.<br />When omitted, the BGP instance is configured in the default VRF.<br />Immutable. |  | Optional: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the BGP to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether this BGP router is administratively up or down. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
-| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number (ASN) for the BGP router.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.<br />Immutable. |  | Required: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number (ASN) for the BGP router.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396.<br />Immutable. |  | Required: \{\} <br /> |
 | `routerId` _string_ | RouterID is the BGP router identifier, used in BGP messages to identify the originating router.<br />Follows dotted quad notation (IPv4 format). |  | Format: ipv4 <br />Required: \{\} <br /> |
 | `addressFamilies` _[BGPAddressFamilies](#bgpaddressfamilies)_ | AddressFamilies configures supported BGP address families and their specific settings. |  | Optional: \{\} <br /> |
 
@@ -3782,7 +3782,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `prepend` _[SetASPathPrepend](#setaspathprepend)_ | Prepend configures prepending to the AS path. |  | Optional: \{\} <br /> |
 | `replace` _[SetASPathReplace](#setaspathreplace)_ | Replace configures replacement of AS numbers in the AS path. |  | Optional: \{\} <br /> |
-| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber sets the AS path to the specified AS number.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber sets the AS path to the specified AS number.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
 
 
 #### SetASPathPrepend
@@ -3799,7 +3799,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number to prepend to the AS path.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number to prepend to the AS path.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
 | `useLastAS` _integer_ | UseLastAS prepends the last AS number in the existing AS path the specified number of times. |  | Maximum: 10 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 
 
@@ -3818,8 +3818,8 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `privateAS` _boolean_ | PrivateAS, when set to true, targets all private AS numbers in the path for replacement. |  | Optional: \{\} <br /> |
-| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber targets a specific AS number in the path for replacement.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
-| `replacement` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | Replacement is the AS number to substitute in place of matched AS numbers.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber targets a specific AS number in the path for replacement.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
+| `replacement` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | Replacement is the AS number to substitute in place of matched AS numbers.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
 
 
 #### SetCommunityAction
