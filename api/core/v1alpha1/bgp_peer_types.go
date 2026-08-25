@@ -42,7 +42,7 @@ type BGPPeerSpec struct {
 	Address string `json:"address"`
 
 	// ASNumber is the autonomous system number (ASN) of the BGP peer.
-	// Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
+	// Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396.
 	// +required
 	ASNumber intstr.IntOrString `json:"asNumber"`
 
