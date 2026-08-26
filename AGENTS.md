@@ -153,6 +153,13 @@ Using `omitempty` or `omitzero` JSON struct tags on gNMI payload structs is dang
 3. Diff compares device state (with defaults) against desired (without) → mismatch
 4. Operator performs a Set on every reconcile — breaking idempotency
 
+**`omitempty` guidelines:**
+
+1. **Safe:** The field's Go zero value matches the platform default or "absent" state. Omitting it from the payload is semantically equivalent to the device's default.
+2. **Safe:** The field is a pointer or slice representing "not configured" (nil) vs "configured" (non-nil). Mutually exclusive choices (e.g. `accept`/`drop`) fall into this category.
+3. **Dangerous:** The platform default is non-zero (e.g. `admin-state` defaults to `"enable"`, `port` defaults to `49`). Omitting the Go zero value would either misrepresent intent or cause a false diff on subsequent GET responses.
+4. **Unnecessary:** The field is unconditionally set to a non-zero value by the provider code. The tag never triggers, but removing it documents intent — the field is always present.
+
 **Rule:** After setting configuration once, the provider must produce no gNMI Set calls on subsequent reconciles when no user-facing configuration has changed. Test this explicitly.
 
 ## Logging
