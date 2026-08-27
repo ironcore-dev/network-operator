@@ -421,3 +421,7 @@ kind-delete: kind ## Destroys the kind cluster.
 .PHONY: tilt-up
 tilt-up: $(KUSTOMIZE) kind-create ## Start tilt and create the kind cluster if needed
 	tilt up --context kind-$(KIND_CLUSTER_NAME)
+
+.PHONY: tilt-debug-up
+tilt-debug-up: export DEBUG = true
+tilt-debug-up: tilt-up
