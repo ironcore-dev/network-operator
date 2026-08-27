@@ -409,7 +409,7 @@ func (r *FabricReconciler) reconcileLoopbackInterface(ctx context.Context, fabri
 		return nil, reconcile.TerminalError(fmt.Errorf("resolving loopback interface name for id %d: %w", loopbackID, err))
 	}
 
-	name := fmt.Sprintf("%s-%s-%s", fabric.Name, device.Name, handle)
+	name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, device.Name, loopbackID)
 	intf := &v1alpha1.Interface{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
