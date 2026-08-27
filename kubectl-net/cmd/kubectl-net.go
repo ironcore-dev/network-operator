@@ -10,7 +10,7 @@ import (
 	"k8s.io/cli-runtime/pkg/genericiooptions"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	"github.com/ironcore-dev/kubectl-net/pkg/cmd"
+	"github.com/ironcore-dev/network-operator/kubectl-net/pkg/cmd"
 )
 
 var version = "dev"
