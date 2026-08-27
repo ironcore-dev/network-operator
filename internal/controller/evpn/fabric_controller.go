@@ -125,7 +125,7 @@ func (r *FabricReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 	}
 
 	orig := fabric.DeepCopy()
-	if conditions.InitializeConditions(fabric, v1alpha1.ReadyCondition) {
+	if conditions.InitializeConditions(fabric, v1alpha1.ReadyCondition, evpnv1alpha1.UnderlayConvergedCondition, evpnv1alpha1.OverlayConvergedCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, fabric)
 	}
@@ -208,6 +208,12 @@ type ReconcileState struct {
 }
 
 func (r *FabricReconciler) reconcile(ctx context.Context, fabric *evpnv1alpha1.Fabric) (ctrl.Result, error) {
+	defer func() {
+		r.computeUnderlayConverged(ctx, fabric)
+		r.computeOverlayConverged(ctx, fabric)
+		conditions.RecomputeReady(fabric)
+	}()
+
 	state := &ReconcileState{
 		loopbacks: make(map[string][]*v1alpha1.Interface),
 		uplinks:   make(map[string][]*v1alpha1.Interface),
@@ -244,13 +250,131 @@ func (r *FabricReconciler) reconcile(ctx context.Context, fabric *evpnv1alpha1.F
 			return res, err
 		}
 	}
-	conditions.Set(fabric, metav1.Condition{
-		Type:    v1alpha1.ReadyCondition,
-		Status:  metav1.ConditionTrue,
-		Reason:  v1alpha1.ReadyReason,
-		Message: "Resource is ready",
-	})
 	return ctrl.Result{}, nil
+}
+
+// computeUnderlayConverged checks that all OSPF neighbors are in Full state (or ISIS is Operational).
+// For OSPF, convergence means every expected uplink interface has a neighbor in Full adjacency state.
+func (r *FabricReconciler) computeUnderlayConverged(ctx context.Context, fabric *evpnv1alpha1.Fabric) {
+	labelSelector := client.MatchingLabels{evpnv1alpha1.FabricLabel: fabric.Name}
+
+	ospfList := &v1alpha1.OSPFList{}
+	if err := r.List(ctx, ospfList, client.InNamespace(fabric.Namespace), labelSelector); err != nil {
+		ctrl.LoggerFrom(ctx).Error(err, "Failed to list OSPF resources for convergence check")
+		return
+	}
+
+	isisList := &v1alpha1.ISISList{}
+	if err := r.List(ctx, isisList, client.InNamespace(fabric.Namespace), labelSelector); err != nil {
+		ctrl.LoggerFrom(ctx).Error(err, "Failed to list ISIS resources for convergence check")
+		return
+	}
+
+	totalInstances := len(ospfList.Items) + len(isisList.Items)
+	if totalInstances == 0 {
+		conditions.Set(fabric, metav1.Condition{
+			Type:    evpnv1alpha1.UnderlayConvergedCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  evpnv1alpha1.NoResourcesReason,
+			Message: "No underlay IGP resources created yet",
+		})
+		return
+	}
+
+	// For OSPF: count expected non-passive interfaces (uplinks) and check each has a Full neighbor.
+	var totalAdjacencies, fullAdjacencies int
+	for i := range ospfList.Items {
+		ospf := &ospfList.Items[i]
+		// Count expected adjacencies: non-passive interface refs.
+		for _, ref := range ospf.Spec.InterfaceRefs {
+			if ref.Passive != nil && *ref.Passive {
+				continue
+			}
+			totalAdjacencies++
+		}
+		// Count actual Full adjacencies from status.
+		for _, neighbor := range ospf.Status.Neighbors {
+			if neighbor.AdjacencyState == v1alpha1.OSPFNeighborStateFull {
+				fullAdjacencies++
+			}
+		}
+	}
+
+	// For ISIS: no per-neighbor status yet; count instances and fall back to Operational condition.
+	for i := range isisList.Items {
+		isis := &isisList.Items[i]
+		totalAdjacencies++
+		if cond := conditions.Get(isis, v1alpha1.OperationalCondition); cond != nil && cond.Status == metav1.ConditionTrue {
+			fullAdjacencies++
+		}
+	}
+
+	switch {
+	case totalAdjacencies == 0:
+		conditions.Set(fabric, metav1.Condition{
+			Type:    evpnv1alpha1.UnderlayConvergedCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  evpnv1alpha1.NoResourcesReason,
+			Message: "No underlay adjacencies created yet",
+		})
+	case fullAdjacencies == totalAdjacencies:
+		conditions.Set(fabric, metav1.Condition{
+			Type:    evpnv1alpha1.UnderlayConvergedCondition,
+			Status:  metav1.ConditionTrue,
+			Reason:  evpnv1alpha1.ConvergedReason,
+			Message: fmt.Sprintf("All %d underlay adjacencies are Full", totalAdjacencies),
+		})
+	default:
+		conditions.Set(fabric, metav1.Condition{
+			Type:    evpnv1alpha1.UnderlayConvergedCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  evpnv1alpha1.NotConvergedReason,
+			Message: fmt.Sprintf("%d/%d underlay adjacencies are Full", fullAdjacencies, totalAdjacencies),
+		})
+	}
+}
+
+// computeOverlayConverged checks that all BGPPeer sessions are in Established state.
+func (r *FabricReconciler) computeOverlayConverged(ctx context.Context, fabric *evpnv1alpha1.Fabric) {
+	labelSelector := client.MatchingLabels{evpnv1alpha1.FabricLabel: fabric.Name}
+
+	peerList := &v1alpha1.BGPPeerList{}
+	if err := r.List(ctx, peerList, client.InNamespace(fabric.Namespace), labelSelector); err != nil {
+		ctrl.LoggerFrom(ctx).Error(err, "Failed to list BGPPeer resources for convergence check")
+		return
+	}
+
+	total := len(peerList.Items)
+	var established int
+	for i := range peerList.Items {
+		if peerList.Items[i].Status.SessionState == v1alpha1.BGPPeerSessionStateEstablished {
+			established++
+		}
+	}
+
+	switch {
+	case total == 0:
+		conditions.Set(fabric, metav1.Condition{
+			Type:    evpnv1alpha1.OverlayConvergedCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  evpnv1alpha1.NoResourcesReason,
+			Message: "No overlay BGP peers created yet",
+		})
+	case established == total:
+		conditions.Set(fabric, metav1.Condition{
+			Type:    evpnv1alpha1.OverlayConvergedCondition,
+			Status:  metav1.ConditionTrue,
+			Reason:  evpnv1alpha1.ConvergedReason,
+			Message: fmt.Sprintf("All %d overlay BGP sessions are Established", total),
+		})
+	default:
+		conditions.Set(fabric, metav1.Condition{
+			Type:    evpnv1alpha1.OverlayConvergedCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  evpnv1alpha1.NotConvergedReason,
+			Message: fmt.Sprintf("%d/%d overlay BGP sessions are Established", established, total),
+		})
+	}
 }
 
 func (r *FabricReconciler) finalize(ctx context.Context, fabric *evpnv1alpha1.Fabric) error {

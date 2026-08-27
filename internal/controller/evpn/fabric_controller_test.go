@@ -529,16 +529,30 @@ var _ = Describe("Fabric Controller", func() {
 				}).Should(Succeed())
 			}
 
-			By("Verifying the Fabric Ready condition is True once all phases are complete")
+			By("Verifying convergence conditions report correct state")
 			Eventually(func(g Gomega) {
 				f := &evpnv1alpha1.Fabric{}
 				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(fabric), f)).To(Succeed())
-				g.Expect(f.Status.Conditions).To(ContainElement(
-					SatisfyAll(
-						HaveField("Type", corev1alpha1.ReadyCondition),
-						HaveField("Status", metav1.ConditionTrue),
-					),
-				))
+
+				// Underlay: OSPF resources exist but no device controller sets Operational in envtest.
+				g.Expect(f.Status.Conditions).To(ContainElement(SatisfyAll(
+					HaveField("Type", evpnv1alpha1.UnderlayConvergedCondition),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", evpnv1alpha1.NotConvergedReason),
+				)))
+
+				// Overlay: BGPPeer resources exist but no device controller sets Operational in envtest.
+				g.Expect(f.Status.Conditions).To(ContainElement(SatisfyAll(
+					HaveField("Type", evpnv1alpha1.OverlayConvergedCondition),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", evpnv1alpha1.NotConvergedReason),
+				)))
+
+				// Ready is False because convergence conditions are not met.
+				g.Expect(f.Status.Conditions).To(ContainElement(SatisfyAll(
+					HaveField("Type", corev1alpha1.ReadyCondition),
+					HaveField("Status", metav1.ConditionFalse),
+				)))
 			}).Should(Succeed())
 		})
 	})
