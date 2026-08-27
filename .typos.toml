@@ -9,6 +9,7 @@ extend-ignore-re = [
 [default.extend-words]
 ser = "ser"
 otu = "otu"
+ISSU = "ISSU"
 # Typo in name used by Cisco NX-OS for a configurable property.
 # See: https://pubhub.devnetcloud.com/media/dme-docs-10-4-3/docs/System/snmp%3ACommSecP/#configurable-properties
 acess = "acess"
