@@ -3408,15 +3408,24 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) erro
 		return errors.New("nve: anycast source interface cannot be the same as source interface")
 	}
 
+	sourceInterface, err := ShortName(req.SourceInterface.Spec.Name)
+	if err != nil {
+		return fmt.Errorf("nve: invalid source interface name %q: %w", req.SourceInterface.Spec.Name, err)
+	}
+
 	n := new(NVE)
 	n.AdminSt = AdminStDisabled
 	if req.NVE.Spec.AdminState == v1alpha1.AdminStateUp {
 		n.AdminSt = AdminStEnabled
 	}
-	n.SourceInterface = req.SourceInterface.Spec.Name
+	n.SourceInterface = sourceInterface
 
 	if req.AnycastSourceInterface != nil {
-		n.AnycastInterface = NewOption(req.AnycastSourceInterface.Spec.Name)
+		anycastInterface, err := ShortName(req.AnycastSourceInterface.Spec.Name)
+		if err != nil {
+			return fmt.Errorf("nve: invalid anycast source interface name %q: %w", req.AnycastSourceInterface.Spec.Name, err)
+		}
+		n.AnycastInterface = NewOption(anycastInterface)
 	}
 	if req.NVE.Spec.MulticastGroups != nil && req.NVE.Spec.MulticastGroups.L2 != nil {
 		n.McastGroupL2 = NewOption(req.NVE.Spec.MulticastGroups.L2.Addr().String())
