@@ -203,5 +203,5 @@ func (p *Provider) InterfaceNameEqual(_ context.Context, a, b string) (bool, err
 }
 
 func (p *Provider) LoopbackInterfaceName(id int) (string, error) {
-	return fmt.Sprintf("lo%d", id), nil
+	return fmt.Sprintf("Loopback%d", id), nil
 }
