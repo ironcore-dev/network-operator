@@ -4,6 +4,8 @@
 package evpn
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -241,6 +243,15 @@ var _ = Describe("Fabric Controller", func() {
 					))
 				}).Should(Succeed())
 			}
+
+			By("Verifying lo0 addresses are allocated in device name order")
+			Eventually(func(g Gomega) {
+				for i, d := range []*corev1alpha1.Device{leaf1, leaf2, spine1, spine2} {
+					claim := &poolv1alpha1.Claim{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-lo0", Namespace: metav1.NamespaceDefault}, claim)).To(Succeed())
+					g.Expect(claim.Status.Value).To(Equal(fmt.Sprintf("10.0.0.%d", i)))
+				}
+			}).Should(Succeed())
 
 			By("Verifying lo1 and lo2 Claims are created only for leaf (VTEP) devices")
 			for _, d := range []*corev1alpha1.Device{leaf1, leaf2} {
