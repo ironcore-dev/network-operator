@@ -3,7 +3,7 @@ module github.com/ironcore-dev/kubectl-net
 go 1.26.0
 
 require (
-	github.com/ironcore-dev/network-operator v0.0.0
+	github.com/ironcore-dev/network-operator v0.0.0-20260827134819-b03d7ae72c7e
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	k8s.io/apimachinery v0.36.2
@@ -76,5 +76,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.2 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
-
-replace github.com/ironcore-dev/network-operator => ..
