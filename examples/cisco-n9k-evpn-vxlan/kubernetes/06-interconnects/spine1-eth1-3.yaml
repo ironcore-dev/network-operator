@@ -3,6 +3,7 @@ kind: Interface
 metadata:
   labels:
     networking.metal.ironcore.dev/role: fabric
+    networking.metal.ironcore.dev/interface-neighbor: leaf3-eth1-1
   name: spine1-eth1-3
 spec:
   deviceRef:
