@@ -103,8 +103,8 @@ func (t *UnixTime) UnmarshalJSON(b []byte) error {
 func Reboot(ctx context.Context, conn *grpc.ClientConn) error {
 	req := &systempb.RebootRequest{
 		Method:  systempb.RebootMethod_COLD,
-		Delay:   0,  // Unsupported on NX-OS, must be 0
-		Message: "", // Unsupported on NX-OS, must be empty
+		Delay:   5000000000, // 5 seconds in nanoseconds
+		Message: "",         // Unsupported on NX-OS, must be empty
 		Force:   true,
 	}
 	c := systempb.NewSystemClient(conn)
