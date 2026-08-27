@@ -156,8 +156,12 @@ clean: ## Remove all generated files (bin/, dist/, coverage files)
 
 ##@ Build
 
-.PHONY: docs
-docs: crd-ref-docs ## Generate API reference documentation.
+.PHONY: compatibility-matrix
+compatibility-matrix: ## Regenerate the provider compatibility matrix (docs/provider-compatibility.md).
+	go run ./hack/provider-compatibility-matrix
+
+.PHONY: api-reference
+api-reference: crd-ref-docs ## Regenerate docs/api-reference/index.md from CRD types.
 	$(CRD_REF_DOCS) --source-path=./api --config=./hack/api-reference/config.yaml --renderer=markdown --output-path=./docs/api-reference/index.md
 	@sed -i.bak \
 		-e '/^SPDX-/d' \
@@ -168,6 +172,9 @@ docs: crd-ref-docs ## Generate API reference documentation.
 	  -e 's/#xrcisconetworkingmetalironcoredevv1alpha1/#xr-cisco-networking-metal-ironcore-dev-v1alpha1/g' \
 	  docs/api-reference/index.md
 	@find . -type f -name "*.bak" -delete
+
+.PHONY: docs
+docs: api-reference compatibility-matrix ## Generate API reference and provider compatibility matrix.
 
 ROOT_DIR := $(shell pwd)
 DOCS_IMG ?= ironcore-dev/network-operator-docs:latest
