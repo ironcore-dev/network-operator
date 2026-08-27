@@ -835,6 +835,7 @@ func main() { //nolint:gocyclo
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: mgr.GetEventRecorder("fabric-controller"),
+		Provider: prov,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "Fabric")
 		os.Exit(1)
