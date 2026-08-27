@@ -276,6 +276,7 @@ func (r *FabricReconciler) reconcileSystemLoopbacks(ctx context.Context, fabric 
 	if err := r.List(ctx, devices, client.InNamespace(fabric.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
 		return ctrl.Result{}, fmt.Errorf("listing all fabric devices for system loopbacks: %w", err)
 	}
+	slices.SortFunc(devices.Items, func(a, b v1alpha1.Device) int { return cmp.Compare(a.Name, b.Name) })
 	// Range by index only — list.Items are value types; using the second loop
 	// variable would copy the entire struct on each iteration.
 	for i := range devices.Items {
@@ -305,6 +306,7 @@ func (r *FabricReconciler) reconcileVTEPLoopbacks(ctx context.Context, fabric *e
 	if err := r.List(ctx, devices, client.InNamespace(fabric.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
 		return ctrl.Result{}, fmt.Errorf("listing VTEP devices: %w", err)
 	}
+	slices.SortFunc(devices.Items, func(a, b v1alpha1.Device) int { return cmp.Compare(a.Name, b.Name) })
 	for i := range devices.Items {
 		for _, id := range []int{LoopbackVTEP, LoopbackVTEPAnycast} {
 			claimName := fmt.Sprintf("%s-%s-lo%d", fabric.Name, devices.Items[i].Name, id)
