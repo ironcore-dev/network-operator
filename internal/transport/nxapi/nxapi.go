@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"time"
 
@@ -93,8 +94,9 @@ func NewClient(conn *deviceutil.Connection, opts ...Option) (*Client, error) {
 		},
 		url: url.URL{
 			Scheme: proto,
-			Host:   conn.Address,
-			Path:   "/ins",
+			// NXAPI only uses the address for URI construction.
+			Host: netip.MustParseAddrPort(conn.Address).Addr().String(),
+			Path: "/ins",
 		},
 	}
 	for _, opt := range opts {

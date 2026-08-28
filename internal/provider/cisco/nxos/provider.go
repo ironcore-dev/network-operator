@@ -101,10 +101,7 @@ func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (er
 	if err != nil {
 		return fmt.Errorf("failed to create gnmi client: %w", err)
 	}
-	// NXAPI only uses the address for URI construction.
-	c := *conn
-	c.Address = netip.MustParseAddrPort(conn.Address).Addr().String()
-	p.nxapi, err = nxapi.NewClient(&c, nxapi.WithTimeout(timeout))
+	p.nxapi, err = nxapi.NewClient(conn, nxapi.WithTimeout(timeout))
 	if err != nil {
 		return fmt.Errorf("failed to create nxapi client: %w", err)
 	}

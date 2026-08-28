@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
@@ -22,16 +23,19 @@ func TestUri(t *testing.T) {
 	tests := []struct {
 		desc      string
 		conn      *deviceutil.Connection
+		wantAddr  string
 		wantProto string
 	}{
 		{
 			desc:      "no TLS uses http",
 			conn:      &deviceutil.Connection{Address: "10.0.0.1:80"},
+			wantAddr:  "10.0.0.1",
 			wantProto: "http",
 		},
 		{
 			desc:      "with TLS uses https",
 			conn:      &deviceutil.Connection{Address: "10.0.0.1:443", TLS: &tls.Config{MinVersion: tls.VersionTLS12}},
+			wantAddr:  "10.0.0.1",
 			wantProto: "https",
 		},
 	}
@@ -44,8 +48,8 @@ func TestUri(t *testing.T) {
 			if c.url.Scheme != test.wantProto {
 				t.Errorf("scheme = %q, want %q", c.url.Scheme, test.wantProto)
 			}
-			if c.url.Host != test.conn.Address {
-				t.Errorf("host = %q, want %q", c.url.Host, test.conn.Address)
+			if c.url.Host != test.wantAddr {
+				t.Errorf("host = %q, want %q", c.url.Host, test.wantAddr)
 			}
 			if c.url.Path != "/ins" {
 				t.Errorf("path = %q, want %q", c.url.Path, "/ins")
@@ -286,7 +290,7 @@ func TestDo(t *testing.T) {
 				Username: "admin",
 				Password: "secret",
 			}
-			c, err := NewClient(conn)
+			c, err := NewClient(conn, WithPort(strings.Split(conn.Address, ":")[1]))
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
