@@ -12,7 +12,7 @@ A [kubectl plugin](https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugi
 Install via `go install`:
 
 ```bash
-go install github.com/ironcore-dev/network-operator/kubectl-net/cmd@latest
+go install github.com/ironcore-dev/network-operator/kubectl-net@latest
 ```
 
 > Ensure your `$GOBIN` (or default `$GOPATH/bin`) is on your `$PATH`.
@@ -29,7 +29,7 @@ You can now run the plugin as `kubectl net`.
 <summary>Build from source</summary>
 
 ```bash
-go build -o kubectl-net ./cmd/kubectl-net.go
+go build -o kubectl-net .
 sudo install -m 0755 kubectl-net /usr/local/bin/kubectl-net
 kubectl plugin list | grep kubectl-net
 ```

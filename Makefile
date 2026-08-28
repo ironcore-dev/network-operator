@@ -183,7 +183,7 @@ build: manifests generate fmt vet ## Build manager binary.
 
 .PHONY: kubectl-net
 kubectl-net: ## Build kubectl-net plugin binary.
-	cd kubectl-net && CGO_ENABLED=0 go build -ldflags="-s -w -X 'main.version=$(VERSION)'" -o ../bin/kubectl-net ./cmd/kubectl-net.go
+	cd kubectl-net && CGO_ENABLED=0 go build -ldflags="-s -w -X 'main.version=$(VERSION)'" -o ../bin/kubectl-net .
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
