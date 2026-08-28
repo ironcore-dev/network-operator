@@ -170,13 +170,13 @@ func (r *FabricReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&evpnv1alpha1.Fabric{}).
 		Owns(&poolv1alpha1.Claim{}).
-		Owns(&v1alpha1.Interface{}).
-		Owns(&v1alpha1.OSPF{}).
-		Owns(&v1alpha1.ISIS{}).
-		Owns(&v1alpha1.BGP{}).
-		Owns(&v1alpha1.BGPPeer{}).
-		Owns(&v1alpha1.PIM{}).
-		Owns(&v1alpha1.NetworkVirtualizationEdge{}).
+		Owns(&v1alpha1.Interface{}, builder.MatchEveryOwner).
+		Owns(&v1alpha1.OSPF{}, builder.MatchEveryOwner).
+		Owns(&v1alpha1.ISIS{}, builder.MatchEveryOwner).
+		Owns(&v1alpha1.BGP{}, builder.MatchEveryOwner).
+		Owns(&v1alpha1.BGPPeer{}, builder.MatchEveryOwner).
+		Owns(&v1alpha1.PIM{}, builder.MatchEveryOwner).
+		Owns(&v1alpha1.NetworkVirtualizationEdge{}, builder.MatchEveryOwner).
 		// Re-reconcile when a Device's labels change so that devices newly
 		// matching a deviceSelector are enrolled into the fabric.
 		Watches(
@@ -819,7 +819,7 @@ func (r *FabricReconciler) reconcileOSPF(ctx context.Context, device *v1alpha1.D
 				Area:                 "0.0.0.0",
 			})
 		}
-		return controllerutil.SetControllerReference(fabric, ospf, r.Scheme)
+		return controllerutil.SetOwnerReference(fabric, ospf, r.Scheme)
 	})
 	if err != nil {
 		return fmt.Errorf("reconciling OSPF %s: %w", name, err)
@@ -868,7 +868,7 @@ func (r *FabricReconciler) reconcileISIS(ctx context.Context, device *v1alpha1.D
 			refs = append(refs, v1alpha1.LocalObjectReference{Name: up.Name})
 		}
 		isis.Spec.InterfaceRefs = refs
-		return controllerutil.SetControllerReference(fabric, isis, r.Scheme)
+		return controllerutil.SetOwnerReference(fabric, isis, r.Scheme)
 	})
 	if err != nil {
 		return fmt.Errorf("reconciling ISIS %s: %w", name, err)
@@ -1025,7 +1025,7 @@ func (r *FabricReconciler) reconcileBGP(ctx context.Context, device *v1alpha1.De
 				},
 			},
 		}
-		return controllerutil.SetControllerReference(fabric, bgp, r.Scheme)
+		return controllerutil.SetOwnerReference(fabric, bgp, r.Scheme)
 	})
 	if err != nil {
 		return fmt.Errorf("reconciling BGP %s: %w", name, err)
@@ -1084,7 +1084,7 @@ func (r *FabricReconciler) reconcileBGPPeer(ctx context.Context, local, remote *
 				RouteReflectorClient: rrClient,
 			},
 		}
-		return controllerutil.SetControllerReference(fabric, peer, r.Scheme)
+		return controllerutil.SetOwnerReference(fabric, peer, r.Scheme)
 	})
 	if err != nil {
 		return fmt.Errorf("reconciling BGPPeer %s: %w", name, err)
@@ -1277,7 +1277,7 @@ func (r *FabricReconciler) reconcilePIM(ctx context.Context, deviceName string, 
 		pim.Spec.AdminState = v1alpha1.AdminStateUp
 		pim.Spec.RendezvousPoints = rps
 		pim.Spec.InterfaceRefs = intfRefs
-		return controllerutil.SetControllerReference(fabric, pim, r.Scheme)
+		return controllerutil.SetOwnerReference(fabric, pim, r.Scheme)
 	})
 	if err != nil {
 		return fmt.Errorf("reconciling PIM %s: %w", name, err)
@@ -1347,7 +1347,7 @@ func (r *FabricReconciler) reconcileNVE(ctx context.Context, device *v1alpha1.De
 				VirtualMAC: fabric.Spec.VTEP.AnycastGateway.VirtualMAC,
 			}
 		}
-		return controllerutil.SetControllerReference(fabric, nve, r.Scheme)
+		return controllerutil.SetOwnerReference(fabric, nve, r.Scheme)
 	})
 	if err != nil {
 		return fmt.Errorf("reconciling NVE %s: %w", name, err)
