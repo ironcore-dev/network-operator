@@ -369,7 +369,7 @@ var _ = Describe("Fabric Controller", func() {
 					g.Expect(ospf.OwnerReferences).To(ContainElement(SatisfyAll(
 						HaveField("Kind", "Fabric"),
 						HaveField("Name", fabric.Name),
-						HaveField("Controller", HaveValue(BeTrue())),
+						HaveField("Controller", BeNil()),
 					)))
 				}).Should(Succeed())
 			}
@@ -399,7 +399,7 @@ var _ = Describe("Fabric Controller", func() {
 					g.Expect(bgp.OwnerReferences).To(ContainElement(SatisfyAll(
 						HaveField("Kind", "Fabric"),
 						HaveField("Name", fabric.Name),
-						HaveField("Controller", HaveValue(BeTrue())),
+						HaveField("Controller", BeNil()),
 					)))
 				}).Should(Succeed())
 			}
@@ -480,7 +480,7 @@ var _ = Describe("Fabric Controller", func() {
 					g.Expect(pim.OwnerReferences).To(ContainElement(SatisfyAll(
 						HaveField("Kind", "Fabric"),
 						HaveField("Name", fabric.Name),
-						HaveField("Controller", HaveValue(BeTrue())),
+						HaveField("Controller", BeNil()),
 					)))
 				}).Should(Succeed())
 			}
@@ -524,7 +524,7 @@ var _ = Describe("Fabric Controller", func() {
 					g.Expect(nve.OwnerReferences).To(ContainElement(SatisfyAll(
 						HaveField("Kind", "Fabric"),
 						HaveField("Name", fabric.Name),
-						HaveField("Controller", HaveValue(BeTrue())),
+						HaveField("Controller", BeNil()),
 					)))
 				}).Should(Succeed())
 			}
@@ -972,7 +972,7 @@ var _ = Describe("Fabric Controller", func() {
 					g.Expect(isis.OwnerReferences).To(ContainElement(SatisfyAll(
 						HaveField("Kind", "Fabric"),
 						HaveField("Name", fabric.Name),
-						HaveField("Controller", HaveValue(BeTrue())),
+						HaveField("Controller", BeNil()),
 					)))
 				}).Should(Succeed())
 			}
