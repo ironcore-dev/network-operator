@@ -7,7 +7,7 @@ tool github.com/matryer/moq
 require (
 	github.com/aws/aws-sdk-go-v2 v1.43.8
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.34
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.106.5
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.107.4
 	github.com/benjamintf1/unmarshalledmatchers v1.0.0
 	github.com/felix-kaestner/copy v0.0.0-20250930112410-8fbc5c5b74a5
 	github.com/go-crypt/crypt v0.14.15
@@ -44,14 +44,14 @@ require (
 	cel.dev/expr v0.25.2 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
-	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.16 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.35 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.35 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.36 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.15 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.28 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.35 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.36 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.19 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.39 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.39 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.40 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.18 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.32 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.39 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.40 // indirect
 	github.com/aws/smithy-go v1.27.10 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
