@@ -33,6 +33,7 @@ func init() {
 		AsnType: PeerAsnTypeNone,
 		Name:    "EVPN peering with spine",
 		SrcIf:   "lo0",
+		BfdType: BfdTypeNone,
 	}
 	bgpPeer.AfItems.PeerAfList.Set(&BGPPeerAfItem{
 		Ctrl:       Option[string]{Value: new(RouteReflectorClient)},
@@ -51,6 +52,7 @@ func init() {
 		AdminSt: AdminStEnabled,
 		Asn:     "65000",
 		AsnType: PeerAsnTypeNone,
+		BfdType: BfdTypeNone,
 	}
 	bgpPeerRpAf := &BGPPeerAfItem{
 		SendComExt: AdminStDisabled,
@@ -81,6 +83,7 @@ func init() {
 		AdminSt: AdminStEnabled,
 		Asn:     "65001",
 		AsnType: PeerAsnTypeNone,
+		BfdType: BfdTypeNone,
 	}
 	bgpPeerLocalAs.LocalAsnItems.AsnPropagate = AsnPropagateNone
 	bgpPeerLocalAs.LocalAsnItems.LocalAsn = "65002"
