@@ -241,6 +241,16 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&StaticRouteReconciler{
+		Client:          k8sManager.GetClient(),
+		Scheme:          k8sManager.GetScheme(),
+		Recorder:        recorder,
+		Provider:        prov,
+		Locker:          testLocker,
+		RequeueInterval: time.Second,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&PIMReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
@@ -439,6 +449,7 @@ var (
 	_ provider.DHCPRelayProvider        = (*Provider)(nil)
 	_ provider.EthernetSegmentProvider  = (*Provider)(nil)
 	_ provider.ConfigBackupProvider     = (*Provider)(nil)
+	_ provider.StaticRouteProvider      = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -479,6 +490,7 @@ type Provider struct {
 	StartupConfig    *v1alpha1.ConfigBackup
 	ConfigBackups    []*provider.ConfigBackupFile
 	StorageTotal     int64
+	StaticRoutes     *v1alpha1.StaticRoute
 }
 
 func NewProvider() *Provider {
@@ -1080,6 +1092,20 @@ func (p *Provider) GetEthernetSegment(name string) (string, bool) {
 	defer p.Unlock()
 	esi, ok := p.EthernetSegments[name]
 	return esi, ok
+}
+
+func (p *Provider) EnsureStaticRoute(_ context.Context, req *provider.StaticRouteRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.StaticRoutes = nil
+	return nil
+}
+
+func (p *Provider) DeleteStaticRoute(_ context.Context, req *provider.StaticRouteRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.StaticRoutes = nil
+	return nil
 }
 
 // SetLLDPNeighbor is a test helper to configure LLDP neighbor information for an interface.

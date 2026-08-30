@@ -20,13 +20,14 @@ import (
 )
 
 var (
-	_ provider.Provider          = &Provider{}
-	_ provider.DeviceProvider    = &Provider{}
-	_ provider.InterfaceProvider = &Provider{}
-	_ provider.VRFProvider       = &Provider{}
-	_ provider.BGPProvider       = &Provider{}
-	_ provider.BGPPeerProvider   = &Provider{}
-	_ provider.PrefixSetProvider = &Provider{}
+	_ provider.Provider            = &Provider{}
+	_ provider.DeviceProvider      = &Provider{}
+	_ provider.InterfaceProvider   = &Provider{}
+	_ provider.VRFProvider         = &Provider{}
+	_ provider.BGPProvider         = &Provider{}
+	_ provider.BGPPeerProvider     = &Provider{}
+	_ provider.PrefixSetProvider   = &Provider{}
+	_ provider.StaticRouteProvider = &Provider{}
 )
 
 type Provider struct {
@@ -613,6 +614,55 @@ func (p *Provider) DeletePrefixSet(ctx context.Context, req *provider.PrefixSetR
 
 func (p *Provider) LoopbackInterfaceName(id int) (string, error) {
 	return fmt.Sprintf("Loopback%d", id), nil
+}
+
+func (p *Provider) EnsureStaticRoute(ctx context.Context, req *provider.StaticRouteRequest) error {
+	prefix := Prefix{}
+
+	var nexthopAddress NexthopAddresses
+
+	prefixIP := req.StaticRoute.Spec.Prefix
+	for _, nextHop := range req.StaticRoute.Spec.NextHops {
+		if nextHop != nil {
+			adminDistance := nextHop.Metric
+			nexthopAddress.NexthopAddress = append(nexthopAddress.NexthopAddress,
+				NewNexthopAddress(nextHop.Address, adminDistance))
+		}
+
+		// ToDo: Implement support for next-hop interfaces if needed in the future
+		// Pass Interface Type as part of the request
+	}
+
+	prefix = Prefix{
+		PrefixAddress:  prefixIP.Addr().String(),
+		PrefixLength:   prefixIP.Bits(),
+		NextHopAddress: &nexthopAddress,
+		IsIpv4:         prefixIP.Addr().Is4(),
+	}
+
+	if req.VRF != nil && req.VRF.Spec.Name != "" {
+		prefix.VRFName = req.VRF.Spec.Name
+	}
+
+	return p.client.Update(ctx, &prefix)
+}
+
+func (p *Provider) DeleteStaticRoute(ctx context.Context, req *provider.StaticRouteRequest) error {
+	staticRoute := &Prefix{
+		PrefixAddress: req.StaticRoute.Spec.Prefix.Addr().String(),
+		PrefixLength:  req.StaticRoute.Spec.Prefix.Bits(),
+	}
+
+	staticRoute.IsIpv4 = true
+	if !req.StaticRoute.Spec.Prefix.Addr().Is4() {
+		staticRoute.IsIpv4 = false
+	}
+
+	if req.VRF != nil && req.VRF.Spec.Name != "" {
+		staticRoute.VRFName = req.VRF.Spec.Name
+	}
+
+	return p.client.Delete(ctx, staticRoute)
 }
 
 func init() {

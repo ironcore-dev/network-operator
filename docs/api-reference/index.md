@@ -348,6 +348,7 @@ Package v1alpha1 contains API Schema definitions for the networking.metal.ironco
 - [PrefixSet](#prefixset)
 - [RoutingPolicy](#routingpolicy)
 - [SNMP](#snmp)
+- [StaticRoute](#staticroute)
 - [Syslog](#syslog)
 - [User](#user)
 - [VLAN](#vlan)
@@ -2260,6 +2261,7 @@ _Appears in:_
 - [MulticastGroups](#multicastgroups)
 - [PrefixEntry](#prefixentry)
 - [RendezvousPoint](#rendezvouspoint)
+- [StaticRouteSpec](#staticroutespec)
 
 
 
@@ -2659,6 +2661,7 @@ _Appears in:_
 - [PrefixSetSpec](#prefixsetspec)
 - [RoutingPolicySpec](#routingpolicyspec)
 - [SNMPSpec](#snmpspec)
+- [StaticRouteSpec](#staticroutespec)
 - [SyslogSpec](#syslogspec)
 - [SystemSpec](#systemspec)
 - [UserSpec](#userspec)
@@ -3010,6 +3013,23 @@ _Appears in:_
 | `sourceInterfaceName` _string_ | SourceInterfaceName is the resolved source interface IP address used for NVE encapsulation. |  |  |
 | `anycastSourceInterfaceName` _string_ | AnycastSourceInterfaceName is the resolved anycast source interface IP address used for NVE encapsulation. |  |  |
 | `hostReachability` _string_ | HostReachability indicates the actual method used for host reachability. |  |  |
+
+
+#### NextHop
+
+
+
+
+
+
+
+_Appears in:_
+- [StaticRouteSpec](#staticroutespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `address` _string_ | Address is the IP address of the next hop for the static route. |  | Optional: \{\} <br />Required: \{\} <br /> |
+| `metric` _integer_ | Metric assigns a priority to the static route. Lower values indicate higher priority. |  | Optional: \{\} <br /> |
 
 
 #### OSPF
@@ -3941,6 +3961,68 @@ _Appears in:_
 | `Emergency` |  |
 
 
+#### StaticRoute
+
+
+
+StaticRoute is the Schema for the staticroutes API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `StaticRoute` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  | Optional: \{\} <br /> |
+| `spec` _[StaticRouteSpec](#staticroutespec)_ | spec defines the desired state of StaticRoute |  | Required: \{\} <br /> |
+| `status` _[StaticRouteStatus](#staticroutestatus)_ | status defines the observed state of StaticRoute |  | Optional: \{\} <br /> |
+
+
+#### StaticRouteSpec
+
+
+
+StaticRouteSpec defines the desired state of StaticRoute
+Static routes are used to define explicit paths for network traffic. They can be categorized into different types based on their characteristics and use cases:
+Directly Connected Routes: Only output interfaces are specified, and the next hop is directly reachable through those interfaces.
+Recursive Static Routes: In a recursive static route, only the next hop is specified. The output interface is derived from the next hop.
+Fully Specified Static Routes: Specifies both the output interfaces and the next hop, providing a complete path for the traffic.
+Floating Static Routes: These routes have a higher administrative distance than dynamic routes, allowing them to serve as backup routes that are only used when the primary route is unavailable.
+
+
+
+_Appears in:_
+- [StaticRoute](#staticroute)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Interface to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `name` _string_ | Name is the name of the static route. |  | MaxLength: 255 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `description` _string_ | Description is an optional human-readable description for this static route. |  | MaxLength: 255 <br />Optional: \{\} <br /> |
+| `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VrfRef is a reference to the VRF resource that this static route belongs to.<br />If not specified, the static route will be part of the default VRF.<br />The referenced VRF must exist in the same namespace. |  | Optional: \{\} <br /> |
+| `prefix` _[IPPrefix](#ipprefix)_ | IPPrefix is the destination IP prefix for the static route. |  | Format: cidr <br />Type: string <br />Required: \{\} <br /> |
+| `nextHops` _[NextHop](#nexthop) array_ |  |  | MinItems: 1 <br />Required: \{\} <br /> |
+
+
+#### StaticRouteStatus
+
+
+
+StaticRouteStatus defines the observed state of StaticRoute.
+
+
+
+_Appears in:_
+- [StaticRoute](#staticroute)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the StaticRoute. |  | Optional: \{\} <br /> |
+
+
 #### Switchport
 
 
@@ -4108,6 +4190,7 @@ _Appears in:_
 - [PrefixSetSpec](#prefixsetspec)
 - [RoutingPolicySpec](#routingpolicyspec)
 - [SNMPSpec](#snmpspec)
+- [StaticRouteSpec](#staticroutespec)
 - [SyslogSpec](#syslogspec)
 - [UserSpec](#userspec)
 - [VLANSpec](#vlanspec)

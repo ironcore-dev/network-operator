@@ -839,6 +839,22 @@ type EthernetSegmentStatus struct {
 	OperStatus bool
 }
 
+// StaticRouteProvider is the interface for the realization of the StaticRoute objects over different providers.
+type StaticRouteProvider interface {
+	Provider
+
+	// EnsureStaticRoute call is responsible for StaticRoute realization on the provider.
+	EnsureStaticRoute(context.Context, *StaticRouteRequest) error
+	// DeleteStaticRoute call is responsible for StaticRoute deletion on the provider.
+	DeleteStaticRoute(context.Context, *StaticRouteRequest) error
+}
+
+type StaticRouteRequest struct {
+	StaticRoute    *v1alpha1.StaticRoute
+	ProviderConfig *ProviderConfig
+	VRF            *v1alpha1.VRF
+}
+
 var mu sync.RWMutex
 
 // ProviderFunc returns a new [Provider] instance.

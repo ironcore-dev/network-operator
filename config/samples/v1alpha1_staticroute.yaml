@@ -1,0 +1,18 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: StaticRoute
+metadata:
+  labels:
+  name: str-cc-admin
+spec:
+  name: sr-cc-admin
+  description: StaticRoute for CC-ADMIN VRF
+  deviceRef:
+    name: leaf1
+  vrfRef:
+    name: vrf-cc-admin
+  prefix: "192.168.1.0/24"
+  nextHops:
+    - address: "10.8.0.1/24"
+      metric: 10
+    - address: "10.8.0.2/24"
+      metric: 20
