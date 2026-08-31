@@ -27,6 +27,8 @@ type NetworkVirtualizationEdgeConfigSpec struct {
 	HoldDownTime int16 `json:"holdDownTime,omitempty"`
 
 	// InfraVLANs specifies VLANs used by all SVI interfaces for uplink and vPC peer-links in VXLAN as infra-VLANs.
+	// Valid VLAN IDs are 1-4092 because NX-OS always reserves VLANs 4093-4095 for internal use.
+	// The provider also checks these VLANs against the device's configurable internal reserved VLAN range.
 	// The total number of VLANs configured must not exceed 512.
 	// Elements in the list must not overlap with each other.
 	// +optional
@@ -42,15 +44,15 @@ type NetworkVirtualizationEdgeConfigSpec struct {
 type VLANListItem struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=3967
+	// +kubebuilder:validation:Maximum=4092
 	ID int16 `json:"id,omitempty"`
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=3967
+	// +kubebuilder:validation:Maximum=4092
 	RangeMin int16 `json:"rangeMin,omitempty"`
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=3967
+	// +kubebuilder:validation:Maximum=4092
 	RangeMax int16 `json:"rangeMax,omitempty"`
 }
 
