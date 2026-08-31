@@ -4226,7 +4226,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this vlan.<br />This reference is used to link the VLAN to its provider-specific configuration. |  | Optional: \{\} <br /> |
-| `id` _integer_ | ID is the VLAN ID. Valid values are between 1 and 4094.<br />Immutable. |  | Maximum: 4094 <br />Minimum: 1 <br />Required: \{\} <br /> |
+| `id` _integer_ | ID is the VLAN ID. Valid values are between 1 and 4095.<br />Immutable. |  | Maximum: 4095 <br />Minimum: 1 <br />Required: \{\} <br /> |
 | `name` _string_ | Name is the name of the VLAN. |  | MaxLength: 128 <br />MinLength: 1 <br />Pattern: `^[^\s]+$` <br />Optional: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether the VLAN is administratively active or inactive/suspended. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
 
@@ -4835,7 +4835,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `advertiseVirtualMAC` _boolean_ | AdvertiseVirtualMAC controls if the NVE should advertise a virtual MAC address | false | Optional: \{\} <br /> |
 | `holdDownTime` _integer_ | HoldDownTime defines the duration for which the switch suppresses the advertisement of the NVE loopback address. | 180 | Maximum: 1500 <br />Minimum: 1 <br />Optional: \{\} <br /> |
-| `infraVLANs` _[VLANListItem](#vlanlistitem) array_ | InfraVLANs specifies VLANs used by all SVI interfaces for uplink and vPC peer-links in VXLAN as infra-VLANs.<br />The total number of VLANs configured must not exceed 512.<br />Elements in the list must not overlap with each other. |  | MaxItems: 10 <br />Optional: \{\} <br /> |
+| `infraVLANs` _[VLANListItem](#vlanlistitem) array_ | InfraVLANs specifies VLANs used by all SVI interfaces for uplink and vPC peer-links in VXLAN as infra-VLANs.<br />Valid VLAN IDs are 1-4092 because NX-OS always reserves VLANs 4093-4095 for internal use.<br />The provider also checks these VLANs against the device's configurable internal reserved VLAN range.<br />The total number of VLANs configured must not exceed 512.<br />Elements in the list must not overlap with each other. |  | MaxItems: 10 <br />Optional: \{\} <br /> |
 
 
 #### Peer
@@ -5075,9 +5075,9 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `id` _integer_ |  |  | Maximum: 3967 <br />Minimum: 1 <br />Optional: \{\} <br /> |
-| `rangeMin` _integer_ |  |  | Maximum: 3967 <br />Minimum: 1 <br />Optional: \{\} <br /> |
-| `rangeMax` _integer_ |  |  | Maximum: 3967 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `id` _integer_ |  |  | Maximum: 4092 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `rangeMin` _integer_ |  |  | Maximum: 4092 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `rangeMax` _integer_ |  |  | Maximum: 4092 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 
 
 #### VPCDomain

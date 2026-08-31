@@ -2857,7 +2857,34 @@ func (p *Provider) DeleteSyslog(ctx context.Context) error {
 	)
 }
 
+// ValidateReservedVLANs rejects VLANs reserved for internal use by NX-OS.
+func (p *Provider) ValidateReservedVLANs(ctx context.Context, vlans []int16) error {
+	reservation := new(VLANReservation)
+	if err := p.client.GetConfig(ctx, reservation); err != nil {
+		if !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+		reservation.Default()
+	}
+
+	start := int16(*reservation)
+	// NX-OS reserves a block of 128 VLANs, including the starting VLAN.
+	end := start + 127
+	for _, vlan := range vlans {
+		// VLANs 4093-4095 are always reserved for internal use.
+		// https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/106x/configuration/layer-2-switching/cisco-nexus-9000-series-nx-os-layer-2-switching-configuration-guide-106x/m-configuring-vlans.html#Cisco_Concept.dita_959060E7B6704F6B82CB6552F74458CA
+		if vlan >= start && vlan <= end || vlan >= 4093 {
+			return apistatus.NewFailedPreconditionError(fmt.Sprintf("VLAN %d is reserved for internal device use", vlan))
+		}
+	}
+	return nil
+}
+
 func (p *Provider) EnsureVLAN(ctx context.Context, req *provider.VLANRequest) error {
+	if err := p.ValidateReservedVLANs(ctx, []int16{req.VLAN.Spec.ID}); err != nil {
+		return err
+	}
+
 	v := new(VLAN)
 	v.FabEncap = fmt.Sprintf("vlan-%d", req.VLAN.Spec.ID)
 	v.AdminSt = BdStateActive
@@ -3432,6 +3459,16 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) erro
 		}
 		for i := ivList.RangeMin; i <= ivList.RangeMax; i++ {
 			iv.InfraVLANList = append(iv.InfraVLANList, &NVEInfraVLAN{ID: uint32(i)}) // #nosec G115 -- kubebuilder validation
+		}
+	}
+
+	infraVLANs := make([]int16, len(iv.InfraVLANList))
+	for i := range iv.InfraVLANList {
+		infraVLANs[i] = int16(iv.InfraVLANList[i].ID) // #nosec G115 -- kubebuilder validation
+	}
+	if len(infraVLANs) > 0 {
+		if err := p.ValidateReservedVLANs(ctx, infraVLANs); err != nil {
+			return err
 		}
 	}
 
