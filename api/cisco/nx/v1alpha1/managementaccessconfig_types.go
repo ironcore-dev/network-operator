@@ -45,6 +45,7 @@ type SSH struct {
 	AccessControlListName string `json:"accessControlListName,omitempty"`
 }
 
+// +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=managementaccessconfigs
 // +kubebuilder:resource:singular=managementaccessconfig

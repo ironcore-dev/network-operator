@@ -52,6 +52,7 @@ type BGPConfigUnicastAddressFamily struct {
 	ExportGatewayIP *bool `json:"exportGatewayIP,omitempty"`
 }
 
+// +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=bgpconfigs
 // +kubebuilder:resource:singular=bgpconfig

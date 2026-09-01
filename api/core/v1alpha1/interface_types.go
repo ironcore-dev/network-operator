@@ -561,6 +561,7 @@ const (
 	NeighborPortMismatch NeighborValidation = "PortMismatch"
 )
 
+// +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=interfaces

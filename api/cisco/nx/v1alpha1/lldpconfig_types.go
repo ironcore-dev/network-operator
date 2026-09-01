@@ -29,6 +29,7 @@ type LLDPConfigSpec struct {
 	HoldTime int16 `json:"holdTime,omitempty"`
 }
 
+// +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=lldpconfigs
 // +kubebuilder:resource:singular=lldpconfig

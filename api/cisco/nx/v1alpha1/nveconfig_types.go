@@ -56,6 +56,7 @@ type VLANListItem struct {
 	RangeMax int16 `json:"rangeMax,omitempty"`
 }
 
+// +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=networkvirtualizationedgeconfigs
 // +kubebuilder:resource:singular=networkvirtualizationedgeconfig
