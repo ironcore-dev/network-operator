@@ -774,6 +774,11 @@ func main() { //nolint:gocyclo
 			os.Exit(1)
 		}
 
+		if err := webhookv1alpha1.SetupDHCPRelayWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "DHCPRelay")
+			os.Exit(1)
+		}
+
 		if err := webhooknxv1alpha1.SetupNetworkVirtualizationEdgeConfigWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "NetworkVirtualizationEdgeConfig")
 			os.Exit(1)
