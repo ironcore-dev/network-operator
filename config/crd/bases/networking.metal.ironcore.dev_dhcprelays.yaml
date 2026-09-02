@@ -18,6 +18,12 @@ spec:
     - jsonPath: .spec.deviceRef.name
       name: Device
       type: string
+    - jsonPath: .spec.vrfRef.name
+      name: VRF
+      type: string
+    - jsonPath: .spec.servers
+      name: Servers
+      type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
@@ -48,8 +54,10 @@ spec:
             type: object
           spec:
             description: |-
-              DHCPRelaySpec defines the desired state of DHCPRelay.
-              Only a single DHCPRelay resource should be created per Device, the controller will reject additional resources of this type with the same DeviceRef.
+              DHCPRelaySpec defines the desired state of the DHCPRelay configuration for a single interface.
+              The migration path for existing DHCPRelay objects that use the deprecated InterfaceRefs field requires deleting those objects
+              and creating new ones using the new fields. Objects using the deprecated field InterfaceRefs likely replace the entire DHCPRelay tree and thus
+              would remove configuration for all interfaces, even for those that are not referenced.
             properties:
               deviceRef:
                 description: |-
@@ -70,8 +78,28 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
+              interfaceRef:
+                description: |-
+                  InterfaceRef is a reference to an interface resource on which to enable DHCP relay.
+                  Immutable.
+                  To be made non-pointer object and required once we remove the deprecated fields.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+                x-kubernetes-validations:
+                - message: InterfaceRef is immutable
+                  rule: self == oldSelf
               interfaceRefs:
-                description: InterfaceRefs is a list of interfaces
+                description: 'Deprecated: Use field Interfaces instead.'
                 items:
                   description: |-
                     LocalObjectReference contains enough information to locate a
@@ -137,7 +165,7 @@ spec:
                 x-kubernetes-list-type: atomic
               vrfRef:
                 description: VrfRef is an optional reference to the VRF to use when
-                  relaying DHCP messages in all referenced interfaces.
+                  relaying DHCP messages in the referenced interface(s).
                 properties:
                   name:
                     description: |-
@@ -152,9 +180,11 @@ spec:
                 x-kubernetes-map-type: atomic
             required:
             - deviceRef
-            - interfaceRefs
             - servers
             type: object
+            x-kubernetes-validations:
+            - message: specify either interfaceRef or interfaceRefs, but not both
+              rule: has(self.interfaceRef) != has(self.interfaceRefs)
           status:
             description: DHCPRelayStatus defines the observed state of DHCPRelay.
             properties:
@@ -227,13 +257,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              configuredInterfaces:
-                description: ConfiguredInterfaces contains the names of Interface
-                  resources that have DHCP relay configured as known by the device.
-                items:
-                  type: string
-                type: array
-                x-kubernetes-list-type: atomic
             type: object
         required:
         - metadata

@@ -168,7 +168,7 @@ k8s_resource(new_name='lldp', objects=['leaf1-lldp:lldp'], trigger_mode=TRIGGER_
 # k8s_resource(new_name='lldpconfig', objects=['leaf1-lldpconfig:lldpconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_dhcprelay.yaml')
-k8s_resource(new_name='dhcprelay', objects=['dhcprelay:dhcprelay'], resource_deps=['eth1-1'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='dhcprelays', objects=['dhcp-vrf:vrf', 'vlan100:vlan', 'vlan200:vlan', 'svi100:interface', 'svi200:interface', 'dhcprelay100:dhcprelay', 'dhcprelay200:dhcprelay'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_ethernetsegment.yaml')
 k8s_resource(new_name='ethernetsegment-sample', objects=['ethernetsegment-sample:ethernetsegment'], resource_deps=['po10'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
