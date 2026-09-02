@@ -571,6 +571,13 @@ var _ = Describe("Interface Controller", func() {
 		})
 
 		It("Should successfully reconcile an Aggregate Interface with IPv4 addresses and VRF", func() {
+			By("Waiting for Device to be running")
+			Eventually(func(g Gomega) {
+				device := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, key, device)).To(Succeed())
+				g.Expect(device.Status.Phase).To(Equal(v1alpha1.DevicePhaseRunning))
+			}).Should(Succeed())
+
 			By("Creating a VRF resource")
 			vrf := &v1alpha1.VRF{
 				Name:      name,
