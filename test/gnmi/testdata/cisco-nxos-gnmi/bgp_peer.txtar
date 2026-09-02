@@ -79,8 +79,81 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "intf-items": {
+      "lb-items": {
+        "LbRtdIf-list": [
+          {
+            "adminSt": "up",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "id": "lo0",
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            }
+          }
+        ]
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo0",
+                    "addr-items": {
+                      "Addr-list": [
+                        {
+                          "addr": "10.0.0.1/32",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "primary"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo0",
+                    "ctrl": "port-unreachable,redirect"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "fm-items": {
+      "bgp-items": {
+        "adminSt": "enabled"
+      },
+      "evpn-items": {
+        "adminSt": "enabled"
+      }
+    },
     "bgp-items": {
       "inst-items": {
         "adminSt": "enabled",
@@ -94,13 +167,13 @@ spec:
               "af-items": {
                 "DomAf-list": [
                   {
-                    "advPip": "enabled",
-                    "exportGwIp": "disabled",
                     "maxEcmp": 1,
                     "maxExtEcmp": 1,
+                    "exportGwIp": "disabled",
+                    "type": "l2vpn-evpn",
+                    "advPip": "enabled",
                     "retainRttAll": "enabled",
-                    "retainRttRtMap": "DME_UNSET_PROPERTY_MARKER",
-                    "type": "l2vpn-evpn"
+                    "retainRttRtMap": "DME_UNSET_PROPERTY_MARKER"
                   }
                 ]
               },
@@ -130,13 +203,34 @@ spec:
           ]
         }
       }
+    }
+  }
+}
+
+-- state/delete --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
     },
-    "fm-items": {
-      "bgp-items": {
-        "adminSt": "enabled"
-      },
-      "evpn-items": {
-        "adminSt": "enabled"
+    "intf-items": {
+      "lb-items": {
+        "LbRtdIf-list": []
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": []
+              }
+            }
+          ]
+        }
       }
     },
     "icmpv4-items": {
@@ -148,8 +242,8 @@ spec:
               "if-items": {
                 "If-list": [
                   {
-                    "ctrl": "port-unreachable,redirect",
-                    "id": "lo0"
+                    "id": "lo0",
+                    "ctrl": "port-unreachable,redirect"
                   }
                 ]
               }
@@ -158,57 +252,6 @@ spec:
         }
       }
     },
-    "intf-items": {
-      "lb-items": {
-        "LbRtdIf-list": [
-          {
-            "adminSt": "up",
-            "id": "lo0",
-            "descr": "DME_UNSET_PROPERTY_MARKER",
-            "rtvrfMbr-items": {
-              "tDn": "/System/inst-items/Inst-list[name='default']"
-            }
-          }
-        ]
-      }
-    },
-    "ipv4-items": {
-      "inst-items": {
-        "dom-items": {
-          "Dom-list": [
-            {
-              "name": "default",
-              "if-items": {
-                "If-list": [
-                  {
-                    "addr-items": {
-                      "Addr-list": [
-                        {
-                          "addr": "10.0.0.1/32",
-                          "pref": 0,
-                          "tag": 0,
-                          "type": "primary"
-                        }
-                      ]
-                    },
-                    "id": "lo0"
-                  }
-                ]
-              }
-            }
-          ]
-        }
-      }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
-    }
-  }
-}
-
--- state/delete --
-{
-  "System": {
     "fm-items": {
       "bgp-items": {
         "adminSt": "enabled"
@@ -217,8 +260,6 @@ spec:
         "adminSt": "enabled"
       }
     },
-    "procsys-items": {
-      "bootTime": "1700000000"
-    }
+    "bgp-items": {}
   }
 }

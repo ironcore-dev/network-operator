@@ -14,6 +14,7 @@ spec:
 {}
 
 -- state/expect --
+
 {
   "openconfig-network-instance:network-instances": {
     "network-instance": [
@@ -21,11 +22,17 @@ spec:
         "config": {
           "name": "BLUE",
           "type": "openconfig-network-instance-types:L3VRF"
-        }
+        },
+        "name": "BLUE"
       }
     ]
   }
 }
 
 -- state/delete --
-{}
+
+{
+  "openconfig-network-instance:network-instances": {
+    "network-instance": []
+  }
+}

@@ -44,6 +44,7 @@ spec:
 }
 
 -- state/expect --
+
 {
   "openconfig-system:system": {
     "state": {
@@ -53,30 +54,29 @@ spec:
   "openconfig-interfaces:interfaces": {
     "interface": [
       {
-        "name": "lo0",
         "config": {
-          "enabled": true,
           "name": "lo0",
-          "type": "iana-if-type:softwareLoopback"
+          "type": "iana-if-type:softwareLoopback",
+          "enabled": true
         },
         "subinterfaces": {
           "subinterface": [
             {
-              "config": {
-                "enabled": true,
-                "index": 0
-              },
               "index": 0,
+              "config": {
+                "index": 0,
+                "enabled": true
+              },
               "openconfig-if-ip:ipv4": {
                 "addresses": {
                   "address": [
                     {
+                      "ip": "10.0.0.10",
                       "config": {
                         "ip": "10.0.0.10",
                         "prefix-length": 32,
                         "type": "PRIMARY"
-                      },
-                      "ip": "10.0.0.10"
+                      }
                     }
                   ]
                 },
@@ -86,50 +86,73 @@ spec:
               }
             }
           ]
-        }
+        },
+        "name": "lo0"
       },
       {
-        "name": "eth1/1",
         "config": {
+          "name": "eth1/1",
+          "type": "iana-if-type:ethernetCsmacd",
           "description": "Leaf1 to Spine1",
           "enabled": true,
-          "mtu": 9216,
-          "name": "eth1/1",
-          "type": "iana-if-type:ethernetCsmacd"
+          "mtu": 9216
         },
         "subinterfaces": {
           "subinterface": [
             {
-              "config": {
-                "enabled": true,
-                "index": 0
-              },
               "index": 0,
+              "config": {
+                "index": 0,
+                "enabled": true
+              },
               "openconfig-if-ip:ipv4": {
-                "config": {
-                  "enabled": true
-                },
                 "unnumbered": {
                   "interface-ref": {
                     "config": {
                       "interface": "lo0"
                     }
                   }
+                },
+                "config": {
+                  "enabled": true
                 }
               }
             }
           ]
-        }
+        },
+        "name": "eth1/1"
       }
     ]
   }
 }
 
 -- state/delete --
+
 {
   "openconfig-system:system": {
     "state": {
       "boot-time": "1784731445707000000"
     }
+  },
+  "openconfig-interfaces:interfaces": {
+    "interface": [
+      {
+        "config": {
+          "name": "eth1/1",
+          "type": "iana-if-type:ethernetCsmacd",
+          "enabled": false
+        },
+        "name": "eth1/1",
+        "openconfig-if-ethernet:ethernet": {
+          "openconfig-vlan:switched-vlan": {
+            "config": {
+              "trunk-vlans": [
+                "1..4094"
+              ]
+            }
+          }
+        }
+      }
+    ]
   }
 }

@@ -53,6 +53,7 @@ spec:
 }
 
 -- state/expect --
+
 {
   "openconfig-system:system": {
     "state": {
@@ -62,29 +63,28 @@ spec:
   "openconfig-interfaces:interfaces": {
     "interface": [
       {
-        "name": "eth1/10",
         "config": {
+          "name": "eth1/10",
+          "type": "iana-if-type:ethernetCsmacd",
           "description": "Member of po10",
           "enabled": true,
-          "mtu": 1500,
-          "name": "eth1/10",
-          "type": "iana-if-type:ethernetCsmacd"
+          "mtu": 1500
         },
         "openconfig-if-ethernet:ethernet": {
           "config": {
             "openconfig-if-aggregate:aggregate-id": "po10"
           }
-        }
+        },
+        "name": "eth1/10"
       },
       {
-        "name": "po10",
         "config": {
+          "name": "po10",
+          "type": "iana-if-type:ieee8023adLag",
           "description": "vPC Leaf1 to Host1",
           "enabled": true,
           "mtu": 1500,
-          "name": "po10",
-          "tpid": "TPID_0X8100",
-          "type": "iana-if-type:ieee8023adLag"
+          "tpid": "TPID_0X8100"
         },
         "openconfig-if-aggregate:aggregation": {
           "config": {
@@ -94,20 +94,45 @@ spec:
             "config": {
               "interface-mode": "TRUNK",
               "native-vlan": 1,
-              "trunk-vlans": [10]
+              "trunk-vlans": [
+                10
+              ]
             }
           }
-        }
+        },
+        "name": "po10"
       }
     ]
   }
 }
 
 -- state/delete --
+
 {
   "openconfig-system:system": {
     "state": {
       "boot-time": "1784731445707000000"
     }
+  },
+  "openconfig-interfaces:interfaces": {
+    "interface": [
+      {
+        "config": {
+          "name": "eth1/10",
+          "type": "iana-if-type:ethernetCsmacd",
+          "enabled": false
+        },
+        "name": "eth1/10",
+        "openconfig-if-ethernet:ethernet": {
+          "openconfig-vlan:switched-vlan": {
+            "config": {
+              "trunk-vlans": [
+                "1..4094"
+              ]
+            }
+          }
+        }
+      }
+    ]
   }
 }

@@ -35,10 +35,12 @@ spec:
 {}
 
 -- state/expect --
+
 {
   "openconfig-network-instance:network-instances": {
     "network-instance": [
       {
+        "name": "default",
         "protocols": {
           "protocol": [
             {
@@ -69,7 +71,8 @@ spec:
                     {
                       "config": {
                         "peer-group-name": "NETOP-DEFAULT"
-                      }
+                      },
+                      "peer-group-name": "NETOP-DEFAULT"
                     }
                   ]
                 },
@@ -93,11 +96,14 @@ spec:
                             }
                           }
                         ]
-                      }
+                      },
+                      "neighbor-address": "10.0.0.2"
                     }
                   ]
                 }
-              }
+              },
+              "identifier": "openconfig-policy-types:BGP",
+              "name": "BGP"
             }
           ]
         }
@@ -107,4 +113,16 @@ spec:
 }
 
 -- state/delete --
-{}
+
+{
+  "openconfig-network-instance:network-instances": {
+    "network-instance": [
+      {
+        "name": "default",
+        "protocols": {
+          "protocol": []
+        }
+      }
+    ]
+  }
+}

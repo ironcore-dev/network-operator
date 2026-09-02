@@ -45,8 +45,93 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "fm-items": {
+      "grpc-items": {
+        "adminSt": "enabled"
+      },
+      "ssh-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "grpc-items": {
+      "port": 9339,
+      "useVrf": "default",
+      "gnmi-items": {
+        "keepAliveTimeout": 600,
+        "maxCalls": 8
+      }
+    },
+    "terml-items": {
+      "ln-items": {
+        "vty-items": {
+          "execTmeout-items": {
+            "timeout": 10
+          },
+          "ssLmt-items": {
+            "sesLmt": 32
+          }
+        },
+        "cons-items": {
+          "execTmeout-items": {
+            "timeout": 15
+          }
+        }
+      }
+    },
+    "acl-items": {
+      "ipv4-items": {
+        "policy-items": {
+          "ingress-items": {
+            "vty-items": {
+              "acl-items": {
+                "name": "MGMT-ACL"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+-- state/delete --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "fm-items": {
+      "grpc-items": {
+        "adminSt": "enabled"
+      },
+      "ssh-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "terml-items": {
+      "ln-items": {
+        "cons-items": {
+          "execTmeout-items": {
+            "timeout": 30
+          }
+        },
+        "vty-items": {
+          "execTmeout-items": {
+            "timeout": 30
+          },
+          "ssLmt-items": {
+            "sesLmt": 32
+          }
+        }
+      }
+    },
     "acl-items": {
       "ipv4-items": {
         "policy-items": {
@@ -60,79 +145,12 @@ spec:
         }
       }
     },
-    "fm-items": {
-      "grpc-items": {
-        "adminSt": "enabled"
-      },
-      "ssh-items": {
-        "adminSt": "enabled"
-      }
-    },
     "grpc-items": {
+      "port": 50051,
       "gnmi-items": {
         "keepAliveTimeout": 600,
         "maxCalls": 8
-      },
-      "port": 9339,
-      "useVrf": "default"
-    },
-    "terml-items": {
-      "ln-items": {
-        "cons-items": {
-          "execTmeout-items": {
-            "timeout": 15
-          }
-        },
-        "vty-items": {
-          "execTmeout-items": {
-            "timeout": 10
-          },
-          "ssLmt-items": {
-            "sesLmt": 32
-          }
-        }
       }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
-    }
-  }
-}
-
--- state/delete --
-{
-  "System": {
-    "fm-items": {
-      "grpc-items": {
-        "adminSt": "enabled"
-      }
-    },
-    "grpc-items": {
-      "gnmi-items": {
-        "keepAliveTimeout": 600,
-        "maxCalls": 8
-      },
-      "port": 50051
-    },
-    "terml-items": {
-      "ln-items": {
-        "cons-items": {
-          "execTmeout-items": {
-            "timeout": 30
-          }
-        },
-        "vty-items": {
-          "execTmeout-items": {
-            "timeout": 30
-          },
-          "ssLmt-items": {
-            "sesLmt": 32
-          }
-        }
-      }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }

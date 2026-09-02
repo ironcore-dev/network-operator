@@ -40,37 +40,18 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
-    "fm-items": {
-      "ospf-items": {
-        "adminSt": "enabled"
-      }
-    },
-    "icmpv4-items": {
-      "inst-items": {
-        "dom-items": {
-          "Dom-list": [
-            {
-              "name": "default",
-              "if-items": {
-                "If-list": [
-                  {
-                    "id": "lo10",
-                    "ctrl": "port-unreachable,redirect"
-                  }
-                ]
-              }
-            }
-          ]
-        }
-      }
+    "procsys-items": {
+      "bootTime": "1700000000"
     },
     "intf-items": {
       "lb-items": {
         "LbRtdIf-list": [
           {
             "adminSt": "up",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
             "id": "lo10",
             "rtvrfMbr-items": {
               "tDn": "/System/inst-items/Inst-list[name='default']"
@@ -107,33 +88,57 @@ spec:
         }
       }
     },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo10",
+                    "ctrl": "port-unreachable,redirect"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "fm-items": {
+      "ospf-items": {
+        "adminSt": "enabled"
+      }
+    },
     "ospf-items": {
       "inst-items": {
         "Inst-list": [
           {
-            "name": "UNDERLAY",
             "adminSt": "enabled",
+            "name": "UNDERLAY",
             "dom-items": {
               "Dom-list": [
                 {
-                  "name": "default",
-                  "adminSt": "enabled",
                   "adjChangeLogLevel": "none",
+                  "adminSt": "enabled",
                   "bwRef": 40000,
                   "bwRefUnit": "mbps",
                   "ctrl": "default-passive",
                   "dist": 110,
+                  "name": "default",
                   "rtrId": "10.255.255.10",
                   "if-items": {
                     "If-list": [
                       {
-                        "id": "lo10",
                         "adminSt": "enabled",
                         "advertiseSecondaries": true,
                         "area": "0.0.0.0",
-                        "bfdCtrl": "unspecified",
+                        "id": "lo10",
                         "nwT": "unspecified",
-                        "passiveCtrl": "disabled"
+                        "passiveCtrl": "disabled",
+                        "bfdCtrl": "unspecified"
                       }
                     ]
                   }
@@ -143,23 +148,64 @@ spec:
           }
         ]
       }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }
 
 -- state/delete --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "intf-items": {
+      "lb-items": {
+        "LbRtdIf-list": []
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": []
+              }
+            }
+          ]
+        }
+      }
+    },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo10",
+                    "ctrl": "port-unreachable,redirect"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
     "fm-items": {
       "ospf-items": {
         "adminSt": "enabled"
       }
     },
-    "procsys-items": {
-      "bootTime": "1700000000"
+    "ospf-items": {
+      "inst-items": {
+        "Inst-list": []
+      }
     }
   }
 }

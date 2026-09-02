@@ -19,6 +19,7 @@ spec:
 {}
 
 -- state/expect --
+
 {
   "openconfig-system:system": {
     "aaa": {
@@ -41,4 +42,7 @@ spec:
 }
 
 -- state/delete --
-{}
+
+{
+  "openconfig-system:system": {}
+}

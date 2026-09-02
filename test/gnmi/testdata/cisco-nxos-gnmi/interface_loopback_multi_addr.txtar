@@ -26,26 +26,11 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
-    "icmpv4-items": {
-      "inst-items": {
-        "dom-items": {
-          "Dom-list": [
-            {
-              "name": "default",
-              "if-items": {
-                "If-list": [
-                  {
-                    "ctrl": "port-unreachable,redirect",
-                    "id": "lo1"
-                  }
-                ]
-              }
-            }
-          ]
-        }
-      }
+    "procsys-items": {
+      "bootTime": "1700000000"
     },
     "intf-items": {
       "lb-items": {
@@ -70,6 +55,7 @@ spec:
               "if-items": {
                 "If-list": [
                   {
+                    "id": "lo1",
                     "addr-items": {
                       "Addr-list": [
                         {
@@ -85,8 +71,7 @@ spec:
                           "type": "secondary"
                         }
                       ]
-                    },
-                    "id": "lo1"
+                    }
                   }
                 ]
               }
@@ -95,17 +80,72 @@ spec:
         }
       }
     },
-    "procsys-items": {
-      "bootTime": "1700000000"
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo1",
+                    "ctrl": "port-unreachable,redirect"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
     }
   }
 }
 
 -- state/delete --
+
 {
   "System": {
     "procsys-items": {
       "bootTime": "1700000000"
+    },
+    "intf-items": {
+      "lb-items": {
+        "LbRtdIf-list": []
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": []
+              }
+            }
+          ]
+        }
+      }
+    },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo1",
+                    "ctrl": "port-unreachable,redirect"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
     }
   }
 }
