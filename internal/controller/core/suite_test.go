@@ -458,37 +458,38 @@ type Provider struct {
 	ConnectError   error // if non-nil, Connect returns this error
 	LastRebootTime time.Time
 
-	Ports            sets.Set[string]
-	User             sets.Set[string]
-	PreLoginBanner   *string
-	PostLoginBanner  *string
-	DNS              *v1alpha1.DNS
-	NTP              *v1alpha1.NTP
-	ACLs             sets.Set[string]
-	Certs            sets.Set[string]
-	SNMP             *v1alpha1.SNMP
-	Syslog           *v1alpha1.Syslog
-	Access           *v1alpha1.ManagementAccess
-	ISIS             sets.Set[string]
-	VRF              sets.Set[string]
-	PIM              *v1alpha1.PIM
-	BGP              *v1alpha1.BGP
-	BGPVRF           *v1alpha1.VRF
-	BGPPeers         sets.Set[string]
-	OSPF             sets.Set[string]
-	VLANs            sets.Set[int16]
-	EVIs             sets.Set[int32]
-	PrefixSets       sets.Set[string]
-	RoutingPolicies  sets.Set[string]
-	NVE              *v1alpha1.NetworkVirtualizationEdge
-	LLDP             *v1alpha1.LLDP
-	LLDPOperStatus   bool
-	LLDPNeighbors    map[string]*provider.LLDPAdjacency
-	DHCPRelay        *v1alpha1.DHCPRelay
-	EthernetSegments map[string]string
-	StartupConfig    *v1alpha1.ConfigBackup
-	ConfigBackups    []*provider.ConfigBackupFile
-	StorageTotal     int64
+	Ports                sets.Set[string]
+	User                 sets.Set[string]
+	PreLoginBanner       *string
+	PostLoginBanner      *string
+	DNS                  *v1alpha1.DNS
+	NTP                  *v1alpha1.NTP
+	ACLs                 sets.Set[string]
+	Certs                sets.Set[string]
+	SNMP                 *v1alpha1.SNMP
+	Syslog               *v1alpha1.Syslog
+	Access               *v1alpha1.ManagementAccess
+	ISIS                 sets.Set[string]
+	VRF                  sets.Set[string]
+	PIM                  *v1alpha1.PIM
+	BGP                  *v1alpha1.BGP
+	BGPVRF               *v1alpha1.VRF
+	BGPPeers             sets.Set[string]
+	OSPF                 sets.Set[string]
+	VLANs                sets.Set[int16]
+	EVIs                 sets.Set[int32]
+	PrefixSets           sets.Set[string]
+	RoutingPolicies      sets.Set[string]
+	NVE                  *v1alpha1.NetworkVirtualizationEdge
+	LLDP                 *v1alpha1.LLDP
+	LLDPOperStatus       bool
+	LLDPNeighbors        map[string]*provider.LLDPAdjacency
+	DHCPRelay            *v1alpha1.DHCPRelay
+	DHCPRelayDeleteCalls int
+	EthernetSegments     map[string]string
+	StartupConfig        *v1alpha1.ConfigBackup
+	ConfigBackups        []*provider.ConfigBackupFile
+	StorageTotal         int64
 }
 
 func NewProvider() *Provider {
@@ -1042,21 +1043,9 @@ func (p *Provider) EnsureDHCPRelay(_ context.Context, req *provider.DHCPRelayReq
 func (p *Provider) DeleteDHCPRelay(_ context.Context, req *provider.DHCPRelayRequest) error {
 	p.Lock()
 	defer p.Unlock()
+	p.DHCPRelayDeleteCalls++
 	p.DHCPRelay = nil
 	return nil
-}
-
-func (p *Provider) GetDHCPRelayStatus(_ context.Context, req *provider.DHCPRelayRequest) (provider.DHCPRelayStatus, error) {
-	p.Lock()
-	defer p.Unlock()
-	status := provider.DHCPRelayStatus{}
-	if p.DHCPRelay != nil {
-		// Return the interface names from the request (simulating what the device would return)
-		for _, intf := range req.Interfaces {
-			status.ConfiguredInterfaces = append(status.ConfiguredInterfaces, intf.Spec.Name)
-		}
-	}
-	return status, nil
 }
 
 func (p *Provider) EnsureEthernetSegment(_ context.Context, req *provider.EnsureEthernetSegmentRequest) error {
