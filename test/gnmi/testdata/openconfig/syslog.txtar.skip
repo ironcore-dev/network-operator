@@ -11,6 +11,10 @@ spec:
   servers:
     - address: 192.0.2.100
       severity: Info
+      vrfName: default
+  facilities:
+    - name: user
+      severity: Warning
 
 -- state/preload --
 {}

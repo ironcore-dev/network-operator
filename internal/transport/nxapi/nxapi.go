@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"time"
 
@@ -93,8 +94,9 @@ func NewClient(conn *deviceutil.Connection, opts ...Option) (*Client, error) {
 		},
 		url: url.URL{
 			Scheme: proto,
-			Host:   conn.Address,
-			Path:   "/ins",
+			// NXAPI only uses the address for URI construction.
+			Host: netip.MustParseAddrPort(conn.Address).Addr().String(),
+			Path: "/ins",
 		},
 	}
 	for _, opt := range opts {
@@ -170,7 +172,12 @@ func (c *Client) Do(ctx context.Context, r Request) ([]json.RawMessage, error) {
 
 	msg := make([]json.RawMessage, len(res))
 	for i, r := range res {
-		msg[i] = r.Body.Data
+		switch {
+		case len(r.Body.Data) > 0:
+			msg[i] = r.Body.Data
+		case len(r.Body.Msg) > 0:
+			msg[i] = r.Body.Msg
+		}
 	}
 
 	return msg, nil
@@ -185,16 +192,32 @@ func NewRequest(cmds ...string) Request {
 	for i, c := range cmds {
 		r[i] = cmd{
 			Jsonrpc: "2.0",
-			// Other possible values are "cli_ascii" and "cli_array".
-			// For now, we only support "cli" which is the default.
-			Method: "cli",
+			Method:  MethodCLI,
 			Params: params{
-				Cmd: c,
-				// Static NX-API version.
+				Cmd:     c,
 				Version: 1,
 			},
 			ID: i + 1,
 		}
+	}
+	return r
+}
+
+// Method is the NX-API command type.
+type Method string
+
+const (
+	// MethodCLI returns structured JSON output.
+	MethodCLI Method = "cli"
+	// MethodCLIASCII returns plain text output.
+	MethodCLIASCII Method = "cli_ascii"
+)
+
+// WithMethod sets the NX-API method on each command in the request.
+// Use [MethodCLIASCII] for commands that return plain text (e.g., "show running-config").
+func (r Request) WithMethod(m Method) Request {
+	for i := range r {
+		r[i].Method = m
 	}
 	return r
 }
@@ -216,7 +239,7 @@ func (r Request) Encode() ([]byte, error) {
 // cmd represents a single JSON-RPC command within a [Request].
 type cmd struct {
 	Jsonrpc  string      `json:"jsonrpc"`
-	Method   string      `json:"method"`
+	Method   Method      `json:"method"`
 	Params   params      `json:"params"`
 	ID       int         `json:"id"`
 	Rollback ErrorAction `json:"rollback,omitempty"`
@@ -242,6 +265,7 @@ type res struct {
 	Error *RPCError `json:"error"`
 	Body  struct {
 		Data json.RawMessage `json:"body"`
+		Msg  json.RawMessage `json:"msg"`
 	} `json:"result"`
 }
 

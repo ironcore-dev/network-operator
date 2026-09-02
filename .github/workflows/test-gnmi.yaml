@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+# SPDX-License-Identifier: Apache-2.0
+
+name: Test gNMI integration
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '**.go'
+      - 'hack/**'
+      - 'config/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'test/gnmi/testdata/**/*.txtar'
+
+permissions:
+  contents: read
+
+jobs:
+  test-gnmi:
+    name: gNMI Integration (${{ matrix.provider }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        provider:
+          - openconfig
+          - cisco-nxos-gnmi
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+      - name: Running gNMI tests
+        run: make test-gnmi PROVIDER=${{ matrix.provider }} GINKGO_PROCS=$(nproc)
+

@@ -4,16 +4,23 @@
 package core
 
 import (
+	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"strings"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/objectstorage"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 )
 
@@ -274,5 +281,206 @@ var _ = Describe("ConfigBackup Controller", func() {
 				g.Expect(testProvider.ConfigBackups).To(HaveLen(1))
 			}).Should(Succeed())
 		})
+
+		It("Should successfully reconcile a remote backup to S3", func() {
+			By("Creating a Secret with S3 credentials")
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "s3-creds-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Data: map[string][]byte{
+					"accessKeyID":     []byte("EXAMPLEACCESSKEY"),
+					"secretAccessKey": []byte("EXAMPLESECRETKEY"),
+				},
+			}
+			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+
+			By("Creating a Remote ConfigBackup resource")
+			backup = &v1alpha1.ConfigBackup{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test-configbackup-remote-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.ConfigBackupSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
+					Type:      v1alpha1.ConfigBackupTypeRemote,
+					Path:      "leaf-1/",
+					S3: &v1alpha1.ConfigBackupS3{
+						Endpoint:             "https://s3.example.com",
+						Bucket:               "network-config-backups",
+						CredentialsSecretRef: v1alpha1.SecretReference{Name: secret.Name},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, backup)).To(Succeed())
+
+			By("Verifying the backup status is populated")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.ConfigBackup{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(backup), resource)).To(Succeed())
+				g.Expect(resource.Status.LastBackup).NotTo(BeNil())
+				g.Expect(resource.Status.LastBackup.Filepath).To(HavePrefix("s3://network-config-backups/leaf-1/configbackup-"))
+				g.Expect(resource.Status.LastBackup.SizeBytes).NotTo(BeNil())
+				g.Expect(*resource.Status.LastBackup.SizeBytes).To(BeNumerically(">", 0))
+				g.Expect(resource.Status.LastAttemptTime.IsZero()).To(BeFalse())
+
+				cond := meta.FindStatusCondition(resource.Status.Conditions, v1alpha1.ReadyCondition)
+				g.Expect(cond).NotTo(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(cond.Reason).To(Equal(v1alpha1.BackupSuccessfulReason))
+
+				cond = meta.FindStatusCondition(resource.Status.Conditions, v1alpha1.RemoteEndpointReadyCondition)
+				g.Expect(cond).NotTo(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			}).Should(Succeed())
+
+			By("Verifying the mock S3 server received the upload")
+			Expect(testS3Store.Objects).To(HaveLen(1))
+			for key, body := range testS3Store.Objects {
+				Expect(key).To(HavePrefix("leaf-1/configbackup-"))
+				Expect(body).NotTo(BeEmpty())
+			}
+		})
+
+		It("Should successfully reconcile an encrypted remote backup to S3", func() {
+			By("Creating a Secret with S3 credentials")
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "s3-creds-enc-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Data: map[string][]byte{
+					"accessKeyID":     []byte("EXAMPLEACCESSKEY"),
+					"secretAccessKey": []byte("EXAMPLESECRETKEY"),
+				},
+			}
+			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+
+			By("Creating a Secret with a 32-byte encryption key")
+			encSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "enc-key-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Data: map[string][]byte{
+					"encryption-key": []byte("0123456789abcdef0123456789abcdef"), // 32 bytes
+				},
+			}
+			Expect(k8sClient.Create(ctx, encSecret)).To(Succeed())
+
+			By("Resetting the mock object storage")
+			testS3Store.Lock()
+			testS3Store.Objects = make(map[string][]byte)
+			testS3Store.Unlock()
+
+			By("Creating a Remote ConfigBackup resource with encryption")
+			backup = &v1alpha1.ConfigBackup{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test-configbackup-remote-enc-",
+					Namespace:    metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.ConfigBackupSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
+					Type:      v1alpha1.ConfigBackupTypeRemote,
+					Path:      "encrypted/",
+					S3: &v1alpha1.ConfigBackupS3{
+						Endpoint:             "https://s3.example.com",
+						Bucket:               "network-config-backups",
+						CredentialsSecretRef: v1alpha1.SecretReference{Name: secret.Name},
+						Encryption: &v1alpha1.ConfigBackupEncryption{
+							Algorithm: v1alpha1.EncryptionAES256GCM,
+							KeySecret: v1alpha1.SecretKeySelector{
+								SecretReference: v1alpha1.SecretReference{Name: encSecret.Name},
+								Key:             "encryption-key",
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, backup)).To(Succeed())
+
+			By("Verifying the backup status is populated")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.ConfigBackup{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(backup), resource)).To(Succeed())
+				g.Expect(resource.Status.LastBackup).NotTo(BeNil())
+				g.Expect(resource.Status.LastBackup.Filepath).To(HavePrefix("s3://network-config-backups/encrypted/configbackup-"))
+				g.Expect(resource.Status.LastBackup.SizeBytes).NotTo(BeNil())
+				g.Expect(*resource.Status.LastBackup.SizeBytes).To(BeNumerically(">", 0))
+
+				g.Expect(resource.Status.LastBackup.EncryptionAlgorithm).To(Equal(v1alpha1.EncryptionAES256GCM))
+				g.Expect(resource.Status.LastBackup.EncryptionKeySecret).To(Equal(encSecret.Name))
+
+				cond := meta.FindStatusCondition(resource.Status.Conditions, v1alpha1.ReadyCondition)
+				g.Expect(cond).NotTo(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(cond.Reason).To(Equal(v1alpha1.BackupSuccessfulReason))
+			}).Should(Succeed())
+
+			By("Verifying the uploaded data can be decrypted to the original config")
+			Expect(testS3Store.Objects).To(HaveLen(1))
+			for _, body := range testS3Store.Objects {
+				Expect(body).NotTo(BeEmpty())
+				// Decrypt using AES-256-GCM
+				block, err := aes.NewCipher([]byte("0123456789abcdef0123456789abcdef"))
+				Expect(err).NotTo(HaveOccurred())
+				gcm, err := cipher.NewGCM(block)
+				Expect(err).NotTo(HaveOccurred())
+				nonceSize := gcm.NonceSize()
+				Expect(len(body)).To(BeNumerically(">", nonceSize))
+				nonce, ciphertext := body[:nonceSize], body[nonceSize:]
+				plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(plaintext)).To(ContainSubstring("running-config mock"))
+			}
+		})
 	})
 })
+
+// mockObjectStorage is an in-memory fake implementing the ObjectStorage interface for testing.
+type mockObjectStorage struct {
+	sync.Mutex
+
+	Objects map[string][]byte // key → body
+}
+
+func NewMockObjectStorage() *mockObjectStorage {
+	return &mockObjectStorage{Objects: make(map[string][]byte)}
+}
+
+func (m *mockObjectStorage) HeadBucket(_ context.Context, _ string) error {
+	return nil
+}
+
+func (m *mockObjectStorage) PutObject(_ context.Context, obj *objectstorage.Object) error {
+	m.Lock()
+	defer m.Unlock()
+	m.Objects[obj.Key] = obj.Body
+	return nil
+}
+
+func (m *mockObjectStorage) ListObjects(_ context.Context, _, prefix string) ([]objectstorage.Object, error) {
+	m.Lock()
+	defer m.Unlock()
+	var result []objectstorage.Object
+	for k, v := range m.Objects {
+		if strings.HasPrefix(k, prefix) {
+			result = append(result, objectstorage.Object{
+				Key:          k,
+				Size:         int64(len(v)),
+				LastModified: time.Now().UTC(),
+			})
+		}
+	}
+	return result, nil
+}
+
+func (m *mockObjectStorage) DeleteObjects(_ context.Context, _ string, keys ...string) error {
+	m.Lock()
+	defer m.Unlock()
+	for _, key := range keys {
+		delete(m.Objects, key)
+	}
+	return nil
+}

@@ -46,8 +46,15 @@ provider = os.getenv('PROVIDER', 'openconfig')
 manager = kustomize('config/develop')
 manager = str(manager).replace('--provider=openconfig', '--provider={}'.format(provider))
 
+debug = os.getenv('DEBUG', '') == 'true'
+if debug:
+    # Scale the in-cluster manager to 0 so it can be run locally in a debugger.
+    manager = str(manager).replace('replicas: 1', 'replicas: 0')
+
 k8s_yaml(blob(manager))
 k8s_resource('network-operator-controller-manager', resource_deps=['controller-gen'], labels=['operator'])
+
+k8s_resource('minio', port_forwards=['9001:9001'])
 
 # Sample resources with manual trigger mode
 def device_yaml():
@@ -57,7 +64,10 @@ def device_yaml():
         decoded[0]['spec']['endpoint']['address'] = ip+':9339'
     return encode_yaml_stream(decoded)
 
-k8s_yaml(device_yaml())
+if debug:
+  k8s_yaml('./config/samples/v1alpha1_device.yaml')
+else:
+  k8s_yaml(device_yaml())
 k8s_resource(new_name='leaf1', objects=['leaf1:device', 'secret-basic-auth:secret'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_interface.yaml')
@@ -171,6 +181,7 @@ k8s_resource(new_name='aaa', objects=['aaa-tacacs:aaa', 'tacacs-server-keys:secr
 k8s_yaml('./config/samples/v1alpha1_configbackup.yaml')
 k8s_resource(new_name='local-backup', objects=['local-backup:configbackup'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='startup-backup', objects=['startup-backup:configbackup'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='remote-backup', objects=['remote-backup:configbackup', 'minio-credentials:secret', 'backup-encryption-key:secret'], resource_deps=['minio'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_indexpool.yaml')
 k8s_resource(new_name='indexpool', objects=['indexpool-sample:indexpool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])

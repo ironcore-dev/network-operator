@@ -101,10 +101,7 @@ func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (er
 	if err != nil {
 		return fmt.Errorf("failed to create gnmi client: %w", err)
 	}
-	// NXAPI only uses the address for URI construction.
-	c := *conn
-	c.Address = netip.MustParseAddrPort(conn.Address).Addr().String()
-	p.nxapi, err = nxapi.NewClient(&c, nxapi.WithTimeout(timeout))
+	p.nxapi, err = nxapi.NewClient(conn, nxapi.WithTimeout(timeout))
 	if err != nil {
 		return fmt.Errorf("failed to create nxapi client: %w", err)
 	}
@@ -254,6 +251,21 @@ func (p *Provider) GetLastRebootTime(ctx context.Context) (time.Time, error) {
 		return time.Time{}, err
 	}
 	return bt.Time, nil
+}
+
+func (p *Provider) RunningConfig(ctx context.Context) ([]byte, error) {
+	res, err := p.nxapi.Do(ctx, nxapi.NewRequest("show running-config").WithMethod(nxapi.MethodCLIASCII))
+	if err != nil {
+		return nil, err
+	}
+	if len(res) == 0 {
+		return nil, errors.New("empty response")
+	}
+	var body string
+	if err := json.Unmarshal(res[0], &body); err != nil {
+		return nil, fmt.Errorf("failed to decode running config: %w", err)
+	}
+	return []byte(body), nil
 }
 
 func (p *Provider) CreateConfigBackup(ctx context.Context, req *provider.ConfigBackupRequest) (*provider.ConfigBackupFile, error) {
@@ -2845,7 +2857,34 @@ func (p *Provider) DeleteSyslog(ctx context.Context) error {
 	)
 }
 
+// ValidateReservedVLANs rejects VLANs reserved for internal use by NX-OS.
+func (p *Provider) ValidateReservedVLANs(ctx context.Context, vlans []int16) error {
+	reservation := new(VLANReservation)
+	if err := p.client.GetConfig(ctx, reservation); err != nil {
+		if !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+		reservation.Default()
+	}
+
+	start := int16(*reservation)
+	// NX-OS reserves a block of 128 VLANs, including the starting VLAN.
+	end := start + 127
+	for _, vlan := range vlans {
+		// VLANs 4093-4095 are always reserved for internal use.
+		// https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/106x/configuration/layer-2-switching/cisco-nexus-9000-series-nx-os-layer-2-switching-configuration-guide-106x/m-configuring-vlans.html#Cisco_Concept.dita_959060E7B6704F6B82CB6552F74458CA
+		if vlan >= start && vlan <= end || vlan >= 4093 {
+			return apistatus.NewFailedPreconditionError(fmt.Sprintf("VLAN %d is reserved for internal device use", vlan))
+		}
+	}
+	return nil
+}
+
 func (p *Provider) EnsureVLAN(ctx context.Context, req *provider.VLANRequest) error {
+	if err := p.ValidateReservedVLANs(ctx, []int16{req.VLAN.Spec.ID}); err != nil {
+		return err
+	}
+
 	v := new(VLAN)
 	v.FabEncap = fmt.Sprintf("vlan-%d", req.VLAN.Spec.ID)
 	v.AdminSt = BdStateActive
@@ -3369,15 +3408,24 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) erro
 		return errors.New("nve: anycast source interface cannot be the same as source interface")
 	}
 
+	sourceInterface, err := ShortName(req.SourceInterface.Spec.Name)
+	if err != nil {
+		return fmt.Errorf("nve: invalid source interface name %q: %w", req.SourceInterface.Spec.Name, err)
+	}
+
 	n := new(NVE)
 	n.AdminSt = AdminStDisabled
 	if req.NVE.Spec.AdminState == v1alpha1.AdminStateUp {
 		n.AdminSt = AdminStEnabled
 	}
-	n.SourceInterface = req.SourceInterface.Spec.Name
+	n.SourceInterface = sourceInterface
 
 	if req.AnycastSourceInterface != nil {
-		n.AnycastInterface = NewOption(req.AnycastSourceInterface.Spec.Name)
+		anycastInterface, err := ShortName(req.AnycastSourceInterface.Spec.Name)
+		if err != nil {
+			return fmt.Errorf("nve: invalid anycast source interface name %q: %w", req.AnycastSourceInterface.Spec.Name, err)
+		}
+		n.AnycastInterface = NewOption(anycastInterface)
 	}
 	if req.NVE.Spec.MulticastGroups != nil && req.NVE.Spec.MulticastGroups.L2 != nil {
 		n.McastGroupL2 = NewOption(req.NVE.Spec.MulticastGroups.L2.Addr().String())
@@ -3420,6 +3468,16 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) erro
 		}
 		for i := ivList.RangeMin; i <= ivList.RangeMax; i++ {
 			iv.InfraVLANList = append(iv.InfraVLANList, &NVEInfraVLAN{ID: uint32(i)}) // #nosec G115 -- kubebuilder validation
+		}
+	}
+
+	infraVLANs := make([]int16, len(iv.InfraVLANList))
+	for i := range iv.InfraVLANList {
+		infraVLANs[i] = int16(iv.InfraVLANList[i].ID) // #nosec G115 -- kubebuilder validation
+	}
+	if len(infraVLANs) > 0 {
+		if err := p.ValidateReservedVLANs(ctx, infraVLANs); err != nil {
+			return err
 		}
 	}
 

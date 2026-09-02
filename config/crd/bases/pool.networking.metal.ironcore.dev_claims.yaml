@@ -11,8 +11,6 @@ spec:
     kind: Claim
     listKind: ClaimList
     plural: claims
-    shortNames:
-    - claim
     singular: claim
   scope: Namespaced
   versions:

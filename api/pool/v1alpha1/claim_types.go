@@ -88,7 +88,6 @@ type ClaimStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=claims
 // +kubebuilder:resource:singular=claim
-// +kubebuilder:resource:shortName=claim
 // +kubebuilder:printcolumn:name="Value",type=string,JSONPath=`.status.value`
 // +kubebuilder:printcolumn:name="Allocated",type=string,JSONPath=`.status.conditions[?(@.type=="Allocated")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"

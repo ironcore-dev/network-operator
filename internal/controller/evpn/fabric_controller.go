@@ -59,6 +59,8 @@ type FabricReconciler struct {
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=isis,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgp,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=bgppeers,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=pim,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=networkvirtualizationedges,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=claims,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=ipaddresspools,verbs=get;list;watch
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=ipprefixpools,verbs=get;list;watch
@@ -123,7 +125,7 @@ func (r *FabricReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 	}
 
 	orig := fabric.DeepCopy()
-	if conditions.InitializeConditions(fabric, v1alpha1.ReadyCondition) {
+	if conditions.InitializeConditions(fabric, v1alpha1.ReadyCondition, evpnv1alpha1.UnderlayConvergedCondition, evpnv1alpha1.OverlayConvergedCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, fabric)
 	}
@@ -168,11 +170,13 @@ func (r *FabricReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&evpnv1alpha1.Fabric{}).
 		Owns(&poolv1alpha1.Claim{}).
-		Owns(&v1alpha1.Interface{}).
-		Owns(&v1alpha1.OSPF{}).
-		Owns(&v1alpha1.ISIS{}).
-		Owns(&v1alpha1.BGP{}).
-		Owns(&v1alpha1.BGPPeer{}).
+		Owns(&v1alpha1.Interface{}, builder.MatchEveryOwner).
+		Owns(&v1alpha1.OSPF{}, builder.MatchEveryOwner).
+		Owns(&v1alpha1.ISIS{}, builder.MatchEveryOwner).
+		Owns(&v1alpha1.BGP{}, builder.MatchEveryOwner).
+		Owns(&v1alpha1.BGPPeer{}, builder.MatchEveryOwner).
+		Owns(&v1alpha1.PIM{}, builder.MatchEveryOwner).
+		Owns(&v1alpha1.NetworkVirtualizationEdge{}, builder.MatchEveryOwner).
 		// Re-reconcile when a Device's labels change so that devices newly
 		// matching a deviceSelector are enrolled into the fabric.
 		Watches(
@@ -204,10 +208,32 @@ type ReconcileState struct {
 }
 
 func (r *FabricReconciler) reconcile(ctx context.Context, fabric *evpnv1alpha1.Fabric) (ctrl.Result, error) {
+	defer func() {
+		r.computeUnderlayConverged(ctx, fabric)
+		r.computeOverlayConverged(ctx, fabric)
+		conditions.RecomputeReady(fabric)
+	}()
+
 	state := &ReconcileState{
 		loopbacks: make(map[string][]*v1alpha1.Interface),
 		uplinks:   make(map[string][]*v1alpha1.Interface),
 	}
+
+	// The ordering of phases is critical. Each phase may depend on resources
+	// provisioned by earlier phases:
+	//
+	//  1. reconcileSystemLoopbacks — provisions lo0 (Router-ID) Claims and Interfaces.
+	//  2. reconcileVTEPLoopbacks   — provisions lo1/lo2 (VTEP) Claims and Interfaces.
+	//  3. reconcileAnycastRPLoopbacks — provisions lo100 (PIM anycast RP) Claims and Interfaces.
+	//  4. reconcileUnderlayLinks   — patches underlay p2p Interfaces with addressing;
+	//                                 populates state.uplinks used by later phases.
+	//  5. reconcileUnderlayIGP     — requires lo0 (router-ID) and uplinks from phases 1+4.
+	//  6. reconcileOverlayBGP      — requires lo0 (router-ID, peer address) from phase 1.
+	//  7. reconcileMulticastPIM    — requires lo0, lo1, lo100, and uplinks from phases 1–4.
+	//
+	// Phases that find their prerequisites missing (e.g. Claims not yet allocated)
+	// skip the affected device and return without error. The Owns() watches on
+	// Claim and Interface will re-enqueue the Fabric once the dependency appears.
 	phases := []ReconcileFunc{
 		r.reconcileSystemLoopbacks,
 		r.reconcileVTEPLoopbacks,
@@ -215,6 +241,8 @@ func (r *FabricReconciler) reconcile(ctx context.Context, fabric *evpnv1alpha1.F
 		r.reconcileUnderlayLinks,
 		r.reconcileUnderlayIGP,
 		r.reconcileOverlayBGP,
+		r.reconcileMulticastPIM,
+		r.reconcileVTEPNVE,
 	}
 	for _, phase := range phases {
 		res, err := phase(ctx, fabric, state)
@@ -222,13 +250,131 @@ func (r *FabricReconciler) reconcile(ctx context.Context, fabric *evpnv1alpha1.F
 			return res, err
 		}
 	}
-	conditions.Set(fabric, metav1.Condition{
-		Type:    v1alpha1.ReadyCondition,
-		Status:  metav1.ConditionTrue,
-		Reason:  v1alpha1.ReadyReason,
-		Message: "Resource is ready",
-	})
 	return ctrl.Result{}, nil
+}
+
+// computeUnderlayConverged checks that all OSPF neighbors are in Full state (or ISIS is Operational).
+// For OSPF, convergence means every expected uplink interface has a neighbor in Full adjacency state.
+func (r *FabricReconciler) computeUnderlayConverged(ctx context.Context, fabric *evpnv1alpha1.Fabric) {
+	labelSelector := client.MatchingLabels{evpnv1alpha1.FabricLabel: fabric.Name}
+
+	ospfList := &v1alpha1.OSPFList{}
+	if err := r.List(ctx, ospfList, client.InNamespace(fabric.Namespace), labelSelector); err != nil {
+		ctrl.LoggerFrom(ctx).Error(err, "Failed to list OSPF resources for convergence check")
+		return
+	}
+
+	isisList := &v1alpha1.ISISList{}
+	if err := r.List(ctx, isisList, client.InNamespace(fabric.Namespace), labelSelector); err != nil {
+		ctrl.LoggerFrom(ctx).Error(err, "Failed to list ISIS resources for convergence check")
+		return
+	}
+
+	totalInstances := len(ospfList.Items) + len(isisList.Items)
+	if totalInstances == 0 {
+		conditions.Set(fabric, metav1.Condition{
+			Type:    evpnv1alpha1.UnderlayConvergedCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  evpnv1alpha1.NoResourcesReason,
+			Message: "No underlay IGP resources created yet",
+		})
+		return
+	}
+
+	// For OSPF: count expected non-passive interfaces (uplinks) and check each has a Full neighbor.
+	var totalAdjacencies, fullAdjacencies int
+	for i := range ospfList.Items {
+		ospf := &ospfList.Items[i]
+		// Count expected adjacencies: non-passive interface refs.
+		for _, ref := range ospf.Spec.InterfaceRefs {
+			if ref.Passive != nil && *ref.Passive {
+				continue
+			}
+			totalAdjacencies++
+		}
+		// Count actual Full adjacencies from status.
+		for _, neighbor := range ospf.Status.Neighbors {
+			if neighbor.AdjacencyState == v1alpha1.OSPFNeighborStateFull {
+				fullAdjacencies++
+			}
+		}
+	}
+
+	// For ISIS: no per-neighbor status yet; count instances and fall back to Operational condition.
+	for i := range isisList.Items {
+		isis := &isisList.Items[i]
+		totalAdjacencies++
+		if cond := conditions.Get(isis, v1alpha1.OperationalCondition); cond != nil && cond.Status == metav1.ConditionTrue {
+			fullAdjacencies++
+		}
+	}
+
+	switch {
+	case totalAdjacencies == 0:
+		conditions.Set(fabric, metav1.Condition{
+			Type:    evpnv1alpha1.UnderlayConvergedCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  evpnv1alpha1.NoResourcesReason,
+			Message: "No underlay adjacencies created yet",
+		})
+	case fullAdjacencies == totalAdjacencies:
+		conditions.Set(fabric, metav1.Condition{
+			Type:    evpnv1alpha1.UnderlayConvergedCondition,
+			Status:  metav1.ConditionTrue,
+			Reason:  evpnv1alpha1.ConvergedReason,
+			Message: fmt.Sprintf("All %d underlay adjacencies are Full", totalAdjacencies),
+		})
+	default:
+		conditions.Set(fabric, metav1.Condition{
+			Type:    evpnv1alpha1.UnderlayConvergedCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  evpnv1alpha1.NotConvergedReason,
+			Message: fmt.Sprintf("%d/%d underlay adjacencies are Full", fullAdjacencies, totalAdjacencies),
+		})
+	}
+}
+
+// computeOverlayConverged checks that all BGPPeer sessions are in Established state.
+func (r *FabricReconciler) computeOverlayConverged(ctx context.Context, fabric *evpnv1alpha1.Fabric) {
+	labelSelector := client.MatchingLabels{evpnv1alpha1.FabricLabel: fabric.Name}
+
+	peerList := &v1alpha1.BGPPeerList{}
+	if err := r.List(ctx, peerList, client.InNamespace(fabric.Namespace), labelSelector); err != nil {
+		ctrl.LoggerFrom(ctx).Error(err, "Failed to list BGPPeer resources for convergence check")
+		return
+	}
+
+	total := len(peerList.Items)
+	var established int
+	for i := range peerList.Items {
+		if peerList.Items[i].Status.SessionState == v1alpha1.BGPPeerSessionStateEstablished {
+			established++
+		}
+	}
+
+	switch {
+	case total == 0:
+		conditions.Set(fabric, metav1.Condition{
+			Type:    evpnv1alpha1.OverlayConvergedCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  evpnv1alpha1.NoResourcesReason,
+			Message: "No overlay BGP peers created yet",
+		})
+	case established == total:
+		conditions.Set(fabric, metav1.Condition{
+			Type:    evpnv1alpha1.OverlayConvergedCondition,
+			Status:  metav1.ConditionTrue,
+			Reason:  evpnv1alpha1.ConvergedReason,
+			Message: fmt.Sprintf("All %d overlay BGP sessions are Established", total),
+		})
+	default:
+		conditions.Set(fabric, metav1.Condition{
+			Type:    evpnv1alpha1.OverlayConvergedCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  evpnv1alpha1.NotConvergedReason,
+			Message: fmt.Sprintf("%d/%d overlay BGP sessions are Established", established, total),
+		})
+	}
 }
 
 func (r *FabricReconciler) finalize(ctx context.Context, fabric *evpnv1alpha1.Fabric) error {
@@ -254,6 +400,7 @@ func (r *FabricReconciler) reconcileSystemLoopbacks(ctx context.Context, fabric 
 	if err := r.List(ctx, devices, client.InNamespace(fabric.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
 		return ctrl.Result{}, fmt.Errorf("listing all fabric devices for system loopbacks: %w", err)
 	}
+	slices.SortFunc(devices.Items, func(a, b v1alpha1.Device) int { return cmp.Compare(a.Name, b.Name) })
 	// Range by index only — list.Items are value types; using the second loop
 	// variable would copy the entire struct on each iteration.
 	for i := range devices.Items {
@@ -283,6 +430,7 @@ func (r *FabricReconciler) reconcileVTEPLoopbacks(ctx context.Context, fabric *e
 	if err := r.List(ctx, devices, client.InNamespace(fabric.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
 		return ctrl.Result{}, fmt.Errorf("listing VTEP devices: %w", err)
 	}
+	slices.SortFunc(devices.Items, func(a, b v1alpha1.Device) int { return cmp.Compare(a.Name, b.Name) })
 	for i := range devices.Items {
 		for _, id := range []int{LoopbackVTEP, LoopbackVTEPAnycast} {
 			claimName := fmt.Sprintf("%s-%s-lo%d", fabric.Name, devices.Items[i].Name, id)
@@ -387,7 +535,7 @@ func (r *FabricReconciler) reconcileLoopbackInterface(ctx context.Context, fabri
 		return nil, reconcile.TerminalError(fmt.Errorf("resolving loopback interface name for id %d: %w", loopbackID, err))
 	}
 
-	name := fmt.Sprintf("%s-%s-%s", fabric.Name, device.Name, handle)
+	name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, device.Name, loopbackID)
 	intf := &v1alpha1.Interface{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -671,7 +819,7 @@ func (r *FabricReconciler) reconcileOSPF(ctx context.Context, device *v1alpha1.D
 				Area:                 "0.0.0.0",
 			})
 		}
-		return controllerutil.SetControllerReference(fabric, ospf, r.Scheme)
+		return controllerutil.SetOwnerReference(fabric, ospf, r.Scheme)
 	})
 	if err != nil {
 		return fmt.Errorf("reconciling OSPF %s: %w", name, err)
@@ -720,7 +868,7 @@ func (r *FabricReconciler) reconcileISIS(ctx context.Context, device *v1alpha1.D
 			refs = append(refs, v1alpha1.LocalObjectReference{Name: up.Name})
 		}
 		isis.Spec.InterfaceRefs = refs
-		return controllerutil.SetControllerReference(fabric, isis, r.Scheme)
+		return controllerutil.SetOwnerReference(fabric, isis, r.Scheme)
 	})
 	if err != nil {
 		return fmt.Errorf("reconciling ISIS %s: %w", name, err)
@@ -877,7 +1025,7 @@ func (r *FabricReconciler) reconcileBGP(ctx context.Context, device *v1alpha1.De
 				},
 			},
 		}
-		return controllerutil.SetControllerReference(fabric, bgp, r.Scheme)
+		return controllerutil.SetOwnerReference(fabric, bgp, r.Scheme)
 	})
 	if err != nil {
 		return fmt.Errorf("reconciling BGP %s: %w", name, err)
@@ -936,13 +1084,276 @@ func (r *FabricReconciler) reconcileBGPPeer(ctx context.Context, local, remote *
 				RouteReflectorClient: rrClient,
 			},
 		}
-		return controllerutil.SetControllerReference(fabric, peer, r.Scheme)
+		return controllerutil.SetOwnerReference(fabric, peer, r.Scheme)
 	})
 	if err != nil {
 		return fmt.Errorf("reconciling BGPPeer %s: %w", name, err)
 	}
 	if res == controllerutil.OperationResultCreated {
 		r.Recorder.Eventf(fabric, nil, "Normal", "BGPPeerCreated", "Reconcile", "Created overlay BGPPeer %s", name)
+	}
+	return nil
+}
+
+// reconcileMulticastPIM creates one PIM resource per device participating in any anycast
+// rendezvous point group. RP devices get anycastAddresses (peer lo0 IPs); client devices
+// get a static RP address only.
+func (r *FabricReconciler) reconcileMulticastPIM(ctx context.Context, fabric *evpnv1alpha1.Fabric, state *ReconcileState) (ctrl.Result, error) {
+	if fabric.Spec.BUM.PIM == nil {
+		return ctrl.Result{}, nil
+	}
+
+	// Collect per-device PIM config across all RP groups.
+	rendezvousPoints := make(map[string][]v1alpha1.RendezvousPoint)
+	interfaceRefs := make(map[string][]v1alpha1.PIMInterface)
+
+	for _, rpGroup := range fabric.Spec.BUM.PIM.AnycastRendezvousPoints {
+		rpSelector, err := metav1.LabelSelectorAsSelector(&rpGroup.DeviceSelector)
+		if err != nil {
+			return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("invalid deviceSelector in RP group %q: %w", rpGroup.Name, err))
+		}
+		clientSelector, err := metav1.LabelSelectorAsSelector(&rpGroup.ClientDeviceSelector)
+		if err != nil {
+			return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("invalid clientDeviceSelector in RP group %q: %w", rpGroup.Name, err))
+		}
+
+		rpDevices := &v1alpha1.DeviceList{}
+		if err := r.List(ctx, rpDevices, client.InNamespace(fabric.Namespace), client.MatchingLabelsSelector{Selector: rpSelector}); err != nil {
+			return ctrl.Result{}, fmt.Errorf("listing RP devices for group %q: %w", rpGroup.Name, err)
+		}
+		clientDevices := &v1alpha1.DeviceList{}
+		if err := r.List(ctx, clientDevices, client.InNamespace(fabric.Namespace), client.MatchingLabelsSelector{Selector: clientSelector}); err != nil {
+			return ctrl.Result{}, fmt.Errorf("listing client devices for group %q: %w", rpGroup.Name, err)
+		}
+
+		// Resolve the anycast RP IP from the first RP device's lo100.
+		if len(rpDevices.Items) == 0 {
+			r.Recorder.Eventf(fabric, nil, "Warning", "NoRPDevices", "Reconcile", "No devices matched deviceSelector for RP group %q", rpGroup.Name)
+			continue
+		}
+
+		lo100Name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, rpDevices.Items[0].Name, LoopbackAnycastRP)
+		loopbacks := state.loopbacks[rpDevices.Items[0].Name]
+
+		lo100Idx := slices.IndexFunc(loopbacks, func(intf *v1alpha1.Interface) bool { return intf.Name == lo100Name })
+		if lo100Idx < 0 {
+			ctrl.LoggerFrom(ctx).V(1).Info("Skipping PIM reconciliation: lo100 not yet allocated", "group", rpGroup.Name)
+			continue
+		}
+
+		lo100 := loopbacks[lo100Idx]
+		if lo100.Spec.IPv4 == nil || len(lo100.Spec.IPv4.Addresses) == 0 {
+			return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("lo100 interface %s has no IPv4 address", lo100Name))
+		}
+
+		anycastIP := lo100.Spec.IPv4.Addresses[0].Addr().String()
+
+		// Collect lo0 IPs of all RP devices for anycastAddresses.
+		rpLo0Addrs := make([]string, 0, len(rpDevices.Items))
+		for i := range rpDevices.Items {
+			lo0Name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, rpDevices.Items[i].Name, LoopbackRouterID)
+			loopbacks := state.loopbacks[rpDevices.Items[i].Name]
+
+			lo0Idx := slices.IndexFunc(loopbacks, func(intf *v1alpha1.Interface) bool { return intf.Name == lo0Name })
+			if lo0Idx < 0 {
+				continue
+			}
+
+			lo0 := loopbacks[lo0Idx]
+			if lo0.Spec.IPv4 == nil || len(lo0.Spec.IPv4.Addresses) == 0 {
+				r.Recorder.Eventf(fabric, nil, "Warning", "MissingIPv4", "Reconcile", "lo0 interface %s has no IPv4 address", lo0Name)
+				continue
+			}
+
+			rpLo0Addrs = append(rpLo0Addrs, lo0.Spec.IPv4.Addresses[0].Addr().String())
+		}
+
+		// Configure RP devices.
+		for i := range rpDevices.Items {
+			device := &rpDevices.Items[i]
+
+			lo0Name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, device.Name, LoopbackRouterID)
+			lo100Name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, device.Name, LoopbackAnycastRP)
+			interfaces := state.loopbacks[device.Name]
+
+			idx := slices.IndexFunc(interfaces, func(intf *v1alpha1.Interface) bool { return intf.Name == lo0Name })
+			var selfAddr string
+			if idx >= 0 && interfaces[idx].Spec.IPv4 != nil && len(interfaces[idx].Spec.IPv4.Addresses) > 0 {
+				selfAddr = interfaces[idx].Spec.IPv4.Addresses[0].Addr().String()
+			}
+
+			// Exclude self from anycastAddresses.
+			var peerAddrs []string
+			for _, addr := range rpLo0Addrs {
+				if addr != selfAddr {
+					peerAddrs = append(peerAddrs, addr)
+				}
+			}
+			slices.Sort(peerAddrs)
+
+			rendezvousPoints[device.Name] = append(rendezvousPoints[device.Name], v1alpha1.RendezvousPoint{
+				Address:          anycastIP,
+				MulticastGroups:  rpGroup.MulticastGroups,
+				AnycastAddresses: peerAddrs,
+			})
+
+			// Interface refs for RP: lo0, lo100, uplinks.
+			interfaceRefs[device.Name] = append(
+				interfaceRefs[device.Name],
+				v1alpha1.PIMInterface{LocalObjectReference: v1alpha1.LocalObjectReference{Name: lo0Name}, Mode: v1alpha1.PIMModeSparse},
+				v1alpha1.PIMInterface{LocalObjectReference: v1alpha1.LocalObjectReference{Name: lo100Name}, Mode: v1alpha1.PIMModeSparse},
+			)
+			for _, up := range state.uplinks[device.Name] {
+				interfaceRefs[device.Name] = append(interfaceRefs[device.Name], v1alpha1.PIMInterface{
+					LocalObjectReference: v1alpha1.LocalObjectReference{Name: up.Name},
+					Mode:                 v1alpha1.PIMModeSparse,
+				})
+			}
+		}
+
+		// Configure client devices.
+		for i := range clientDevices.Items {
+			device := &clientDevices.Items[i]
+
+			rendezvousPoints[device.Name] = append(rendezvousPoints[device.Name], v1alpha1.RendezvousPoint{
+				Address:         anycastIP,
+				MulticastGroups: rpGroup.MulticastGroups,
+			})
+
+			// Interface refs for client: lo0, lo1 (VTEP), uplinks.
+			lo0Name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, device.Name, LoopbackRouterID)
+			lo1Name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, device.Name, LoopbackVTEP)
+			interfaceRefs[device.Name] = append(
+				interfaceRefs[device.Name],
+				v1alpha1.PIMInterface{LocalObjectReference: v1alpha1.LocalObjectReference{Name: lo0Name}, Mode: v1alpha1.PIMModeSparse},
+				v1alpha1.PIMInterface{LocalObjectReference: v1alpha1.LocalObjectReference{Name: lo1Name}, Mode: v1alpha1.PIMModeSparse},
+			)
+			for _, up := range state.uplinks[device.Name] {
+				interfaceRefs[device.Name] = append(interfaceRefs[device.Name], v1alpha1.PIMInterface{
+					LocalObjectReference: v1alpha1.LocalObjectReference{Name: up.Name},
+					Mode:                 v1alpha1.PIMModeSparse,
+				})
+			}
+		}
+	}
+
+	// Create or update one PIM resource per device.
+	for deviceName := range rendezvousPoints {
+		if err := r.reconcilePIM(ctx, deviceName, fabric, rendezvousPoints[deviceName], interfaceRefs[deviceName]); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	return ctrl.Result{}, nil
+}
+
+// reconcilePIM creates or updates the PIM resource for a fabric device.
+func (r *FabricReconciler) reconcilePIM(ctx context.Context, deviceName string, fabric *evpnv1alpha1.Fabric, rps []v1alpha1.RendezvousPoint, refs []v1alpha1.PIMInterface) error {
+	name := fmt.Sprintf("%s-%s-multicast", fabric.Name, deviceName)
+
+	// Deduplicate interface refs (a device in multiple RP groups gets duplicates) and sort.
+	seen := sets.New[string]()
+	intfRefs := make([]v1alpha1.PIMInterface, 0, len(refs))
+	for _, ref := range refs {
+		if !seen.Has(ref.Name) {
+			seen.Insert(ref.Name)
+			intfRefs = append(intfRefs, ref)
+		}
+	}
+	slices.SortFunc(intfRefs, func(a, b v1alpha1.PIMInterface) int { return cmp.Compare(a.Name, b.Name) })
+
+	pim := &v1alpha1.PIM{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: fabric.Namespace,
+		},
+	}
+	res, err := controllerutil.CreateOrPatch(ctx, r.Client, pim, func() error {
+		if pim.Labels == nil {
+			pim.Labels = make(map[string]string)
+		}
+		pim.Labels[evpnv1alpha1.FabricLabel] = fabric.Name
+		pim.Spec.DeviceRef = v1alpha1.LocalObjectReference{Name: deviceName}
+		pim.Spec.AdminState = v1alpha1.AdminStateUp
+		pim.Spec.RendezvousPoints = rps
+		pim.Spec.InterfaceRefs = intfRefs
+		return controllerutil.SetOwnerReference(fabric, pim, r.Scheme)
+	})
+	if err != nil {
+		return fmt.Errorf("reconciling PIM %s: %w", name, err)
+	}
+	if res == controllerutil.OperationResultCreated {
+		r.Recorder.Eventf(fabric, nil, "Normal", "PIMCreated", "Reconcile", "Created multicast PIM %s", name)
+	}
+	return nil
+}
+
+// reconcileVTEPNVE creates one NetworkVirtualizationEdge resource per VTEP device.
+// The NVE references lo1 (primary VTEP) as source and lo2 (anycast VTEP) as anycast source.
+func (r *FabricReconciler) reconcileVTEPNVE(ctx context.Context, fabric *evpnv1alpha1.Fabric, state *ReconcileState) (ctrl.Result, error) {
+	selector, err := metav1.LabelSelectorAsSelector(&fabric.Spec.VTEP.DeviceSelector)
+	if err != nil {
+		return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("invalid vtep deviceSelector: %w", err))
+	}
+
+	devices := &v1alpha1.DeviceList{}
+	if err := r.List(ctx, devices, client.InNamespace(fabric.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
+		return ctrl.Result{}, fmt.Errorf("listing VTEP devices: %w", err)
+	}
+
+	for i := range devices.Items {
+		device := &devices.Items[i]
+
+		lo1Name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, device.Name, LoopbackVTEP)
+		lo2Name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, device.Name, LoopbackVTEPAnycast)
+
+		// Skip if lo1 is not yet allocated.
+		loopbacks := state.loopbacks[device.Name]
+		if !slices.ContainsFunc(loopbacks, func(intf *v1alpha1.Interface) bool { return intf.Name == lo1Name }) {
+			ctrl.LoggerFrom(ctx).V(1).Info("Skipping NVE reconciliation: lo1 not yet allocated", "device", device.Name)
+			continue
+		}
+
+		if err := r.reconcileNVE(ctx, device, fabric, lo1Name, lo2Name); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	return ctrl.Result{}, nil
+}
+
+// reconcileNVE creates or updates the NetworkVirtualizationEdge resource for a VTEP device.
+func (r *FabricReconciler) reconcileNVE(ctx context.Context, device *v1alpha1.Device, fabric *evpnv1alpha1.Fabric, lo1Name, lo2Name string) error {
+	name := fmt.Sprintf("%s-%s-nve", fabric.Name, device.Name)
+
+	nve := &v1alpha1.NetworkVirtualizationEdge{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: fabric.Namespace,
+		},
+	}
+	res, err := controllerutil.CreateOrPatch(ctx, r.Client, nve, func() error {
+		if nve.Labels == nil {
+			nve.Labels = make(map[string]string)
+		}
+		nve.Labels[evpnv1alpha1.FabricLabel] = fabric.Name
+		nve.Spec.DeviceRef = v1alpha1.LocalObjectReference{Name: device.Name}
+		nve.Spec.AdminState = v1alpha1.AdminStateUp
+		nve.Spec.HostReachability = v1alpha1.HostReachabilityTypeBGP
+		nve.Spec.SuppressARP = true
+		nve.Spec.SourceInterfaceRef = v1alpha1.LocalObjectReference{Name: lo1Name}
+		nve.Spec.AnycastSourceInterfaceRef = &v1alpha1.LocalObjectReference{Name: lo2Name}
+		if fabric.Spec.VTEP.AnycastGateway != nil {
+			nve.Spec.AnycastGateway = &v1alpha1.AnycastGateway{
+				VirtualMAC: fabric.Spec.VTEP.AnycastGateway.VirtualMAC,
+			}
+		}
+		return controllerutil.SetOwnerReference(fabric, nve, r.Scheme)
+	})
+	if err != nil {
+		return fmt.Errorf("reconciling NVE %s: %w", name, err)
+	}
+	if res == controllerutil.OperationResultCreated {
+		r.Recorder.Eventf(fabric, nil, "Normal", "NVECreated", "Reconcile", "Created NVE %s", name)
 	}
 	return nil
 }

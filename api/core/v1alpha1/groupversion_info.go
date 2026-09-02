@@ -108,6 +108,11 @@ const (
 	// device-side operations. This is useful for recovering from terminal states (e.g., Failed)
 	// after manual intervention.
 	DeviceMaintenanceResetPhase = "reset-phase"
+	// DeviceMaintenanceSkipProvisioning is for devices provisioned externally without the operator.
+	// Transitions the device from Pending (or Provisioning) directly to Running, but only if
+	// spec.provisioning is defined.
+	// The annotation is always consumed once the device reaches Running.
+	DeviceMaintenanceSkipProvisioning = "skip-provisioning"
 )
 
 // Condition types that are used across different objects.
@@ -137,6 +142,10 @@ const (
 	// This condition is set to True when the controller successfully connects to
 	// the device, and False when the connection attempt fails.
 	ReachableCondition = "Reachable"
+
+	// RemoteEndpointReadyCondition indicates whether the remote object storage
+	// endpoint is reachable and the configured bucket exists.
+	RemoteEndpointReadyCondition = "RemoteEndpointReady"
 )
 
 // Reasons that are used across different objects.
@@ -249,6 +258,12 @@ const (
 const (
 	// PrefixSetNotFoundReason indicates that a referenced PrefixSet was not found.
 	PrefixSetNotFoundReason = "PrefixSetNotFound"
+	// SecretNotFoundReason indicates that a referenced Secret was not found.
+	SecretNotFoundReason = "SecretNotFound"
+	// RemoteEndpointUnreachableReason indicates that the remote object storage endpoint is not reachable.
+	RemoteEndpointUnreachableReason = "RemoteEndpointUnreachable"
+	// EncryptionFailedReason indicates that encryption of the backup data failed.
+	EncryptionFailedReason = "EncryptionFailed"
 )
 
 // Reasons that are specific to [BGPPeer] objects.

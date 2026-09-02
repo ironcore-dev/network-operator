@@ -1,0 +1,81 @@
+-- secrets/user-creds --
+apiVersion: v1
+kind: Secret
+metadata:
+  name: user-creds
+  namespace: default
+type: Opaque
+stringData:
+  password: "foobar"
+
+-- users/john --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: User
+metadata:
+  name: john
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  username: john
+  password:
+    secretKeyRef:
+      name: user-creds
+      key: password
+  roles:
+    - name: network-admin
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "System": {
+    "userext-items": {
+      "user-items": {
+        "User-list": [
+          {
+            "allowExpired": "no",
+            "expiration": "never",
+            "name": "john",
+            "pwd": "foobar",
+            "passwordHash": "scrypt",
+            "pwdEncryptType": "clear",
+            "userdomain-items": {
+              "UserDomain-list": [
+                {
+                  "name": "all",
+                  "role-items": {
+                    "UserRole-list": [
+                      {
+                        "name": "network-admin"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/delete --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

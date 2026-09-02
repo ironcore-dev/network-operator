@@ -1,0 +1,81 @@
+-- syslogs/logging --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Syslog
+metadata:
+  name: logging
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  servers:
+    - address: "10.0.0.100"
+      severity: Warning
+      vrfName: management
+  facilities:
+    - name: Local7
+      severity: Info
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "System": {
+    "logging-items": {
+      "loglevel-items": {
+        "facility-items": {
+          "Facility-list": [
+            {
+              "facilityName": "Local7",
+              "severityLevel": "information"
+            }
+          ]
+        }
+      }
+    },
+    "syslog-items": {
+      "logginghistory-items": {
+        "level": "information",
+        "size": 500
+      },
+      "originid-items": {
+        "idtype": "string",
+        "idvalue": "logging"
+      },
+      "rdst-items": {
+        "RemoteDest-list": [
+          {
+            "forwardingFacility": "local7",
+            "host": "10.0.0.100",
+            "port": 514,
+            "severity": "warnings",
+            "transport": "udp",
+            "vrfName": "management"
+          }
+        ]
+      },
+      "source-items": {
+        "adminState": "enabled",
+        "ifName": "mgmt0"
+      }
+    },
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/delete --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

@@ -138,6 +138,100 @@ spec:
                     minimum: 1
                     type: integer
                 type: object
+              s3:
+                description: S3 configures the S3-compatible object storage destination
+                  for Remote backups.
+                properties:
+                  bucket:
+                    description: Bucket is the name of the S3 bucket.
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                  credentialsSecretRef:
+                    description: CredentialsSecretRef references a Secret containing
+                      "accessKeyID" and "secretAccessKey" keys.
+                    properties:
+                      name:
+                        description: Name is unique within a namespace to reference
+                          a secret resource.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: |-
+                          Namespace defines the space within which the secret name must be unique.
+                          If omitted, the namespace of the object being reconciled will be used.
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  encryption:
+                    description: |-
+                      Encryption configures optional encryption for backup objects, performed in the controller pod before upload.
+                      If omitted, backups are stored unencrypted.
+                    properties:
+                      algorithm:
+                        description: Algorithm is the encryption algorithm to use.
+                        enum:
+                        - AES-256-GCM
+                        - ChaCha20-Poly1305
+                        type: string
+                      keySecret:
+                        description: KeySecret references the Secret and key containing
+                          the 32-byte encryption key.
+                        properties:
+                          key:
+                            description: |-
+                              Key is the of the entry in the secret resource's `data` or `stringData`
+                              field to be used.
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                          name:
+                            description: Name is unique within a namespace to reference
+                              a secret resource.
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                          namespace:
+                            description: |-
+                              Namespace defines the space within which the secret name must be unique.
+                              If omitted, the namespace of the object being reconciled will be used.
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    required:
+                    - algorithm
+                    - keySecret
+                    type: object
+                  endpoint:
+                    description: Endpoint is the S3-compatible endpoint URL (e.g.,
+                      "https://s3.eu-central-1.amazonaws.com").
+                    maxLength: 2048
+                    minLength: 1
+                    type: string
+                    x-kubernetes-validations:
+                    - message: endpoint must be a valid URL starting with http://
+                        or https://
+                      rule: self.startsWith('https://') || self.startsWith('http://')
+                  region:
+                    description: Region is the endpoint region. Optional for S3-compatible
+                      stores that don't require it.
+                    maxLength: 63
+                    type: string
+                required:
+                - bucket
+                - credentialsSecretRef
+                - endpoint
+                type: object
               schedule:
                 description: |-
                   Schedule is an optional cron expression.
@@ -170,6 +264,7 @@ spec:
                 enum:
                 - Local
                 - Startup
+                - Remote
                 type: string
             required:
             - deviceRef
@@ -181,10 +276,14 @@ spec:
                 == 0)
             - message: path must be set for Local backups
               rule: self.type != 'Local' || (has(self.path) && size(self.path) > 0)
-            - message: retention must only be specified for Local backups
-              rule: self.type == 'Local' || !has(self.retention)
+            - message: retention must only be specified for Local or Remote backups
+              rule: self.type == 'Local' || self.type == 'Remote' || !has(self.retention)
             - message: storageThreshold must only be specified for Local backups
               rule: self.type == 'Local' || !has(self.storageThreshold)
+            - message: s3 must be specified for Remote backups
+              rule: self.type != 'Remote' || has(self.s3)
+            - message: s3 must only be specified for Remote backups
+              rule: self.type == 'Remote' || !has(self.s3)
           status:
             description: |-
               Status of the resource. This is set and updated automatically.
@@ -265,6 +364,19 @@ spec:
                 properties:
                   duration:
                     description: Duration is the duration of the backup operation.
+                    type: string
+                  encryptionAlgorithm:
+                    description: |-
+                      EncryptionAlgorithm is the encryption algorithm used for this backup, if any.
+                      Only set for encrypted Remote backups.
+                    enum:
+                    - AES-256-GCM
+                    - ChaCha20-Poly1305
+                    type: string
+                  encryptionKeySecret:
+                    description: |-
+                      EncryptionKeySecret is the name of the Secret that provided the encryption key.
+                      Only set for encrypted Remote backups.
                     type: string
                   filepath:
                     description: |-

@@ -1055,7 +1055,7 @@ _Appears in:_
 | `bgpRef` _[LocalObjectReference](#localobjectreference)_ | BgpRef is a reference to the BGP instance this peer belongs to.<br />The BGP object must exist in the same namespace. |  | Required: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether this BGP peer is administratively up or down.<br />When Down, the BGP session with this peer is administratively shut down. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
 | `address` _string_ | Address is the IPv4 address of the BGP peer. |  | Format: ipv4 <br />Required: \{\} <br /> |
-| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number (ASN) of the BGP peer.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number (ASN) of the BGP peer.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
 | `description` _string_ | Description is an optional human-readable description for this BGP peer.<br />This field is used for documentation purposes and may be displayed in management interfaces. |  | Optional: \{\} <br /> |
 | `localAddress` _[BGPPeerLocalAddress](#bgppeerlocaladdress)_ | LocalAddress specifies the local address configuration for the BGP session with this peer.<br />This determines the source address/interface for BGP packets sent to this peer. |  | Optional: \{\} <br /> |
 | `addressFamilies` _[BGPPeerAddressFamilies](#bgppeeraddressfamilies)_ | AddressFamilies configures address family specific settings for this BGP peer.<br />Controls which address families are enabled and their specific configuration. |  | Optional: \{\} <br /> |
@@ -1133,7 +1133,7 @@ _Appears in:_
 | `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VrfRef is an optional reference to the VRF this BGP instance is scoped to.<br />When omitted, the BGP instance is configured in the default VRF.<br />Immutable. |  | Optional: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the BGP to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether this BGP router is administratively up or down. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
-| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number (ASN) for the BGP router.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.<br />Immutable. |  | Required: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number (ASN) for the BGP router.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396.<br />Immutable. |  | Required: \{\} <br /> |
 | `routerId` _string_ | RouterID is the BGP router identifier, used in BGP messages to identify the originating router.<br />Follows dotted quad notation (IPv4 format). |  | Format: ipv4 <br />Required: \{\} <br /> |
 | `addressFamilies` _[BGPAddressFamilies](#bgpaddressfamilies)_ | AddressFamilies configures supported BGP address families and their specific settings. |  | Optional: \{\} <br /> |
 
@@ -1312,7 +1312,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Certificate to its provider-specific configuration. |  | Optional: \{\} <br /> |
-| `id` _string_ | The certificate management id.<br />Immutable. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `id` _string_ | The certificate management id.<br />Immutable. |  | MaxLength: 63 <br />MinLength: 1 <br />Pattern: `^[a-zA-Z0-9]+$` <br />Required: \{\} <br /> |
 | `secretRef` _[SecretReference](#secretreference)_ | Secret containing the certificate source.<br />The secret must be of type kubernetes.io/tls and as such contain the following keys: 'tls.crt' and 'tls.key'. |  | Required: \{\} <br /> |
 
 
@@ -1392,6 +1392,23 @@ ConfigBackup is the Schema for the configbackups API.
 | `status` _[ConfigBackupStatus](#configbackupstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
 
 
+#### ConfigBackupEncryption
+
+
+
+ConfigBackupEncryption configures encryption for remote backup objects, performed in the controller pod.
+
+
+
+_Appears in:_
+- [ConfigBackupS3](#configbackups3)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `algorithm` _[EncryptionAlgorithm](#encryptionalgorithm)_ | Algorithm is the encryption algorithm to use. |  | Enum: [AES-256-GCM ChaCha20-Poly1305] <br />Required: \{\} <br /> |
+| `keySecret` _[SecretKeySelector](#secretkeyselector)_ | KeySecret references the Secret and key containing the 32-byte encryption key. |  | Required: \{\} <br /> |
+
+
 #### ConfigBackupRetention
 
 
@@ -1426,6 +1443,28 @@ _Appears in:_
 | `observedGeneration` _integer_ | ObservedGeneration represents the .metadata.generation that produced this backup. |  | Minimum: 0 <br />Optional: \{\} <br /> |
 | `sizeBytes` _integer_ | SizeBytes is the size in bytes of the backup artifact.<br />This only applies to Local backups, and may be unknown if the controller cannot query the device. |  | Minimum: 0 <br />Optional: \{\} <br /> |
 | `filepath` _string_ | Filepath is the device-local path of the backup artifact.<br />This only applies to Local backups, and may be unknown if the controller cannot query the device. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `encryptionAlgorithm` _[EncryptionAlgorithm](#encryptionalgorithm)_ | EncryptionAlgorithm is the encryption algorithm used for this backup, if any.<br />Only set for encrypted Remote backups. |  | Enum: [AES-256-GCM ChaCha20-Poly1305] <br />Optional: \{\} <br /> |
+| `encryptionKeySecret` _string_ | EncryptionKeySecret is the name of the Secret that provided the encryption key.<br />Only set for encrypted Remote backups. |  | Optional: \{\} <br /> |
+
+
+#### ConfigBackupS3
+
+
+
+ConfigBackupS3 configures the S3-compatible object storage destination for Remote backups.
+
+
+
+_Appears in:_
+- [ConfigBackupSpec](#configbackupspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `endpoint` _string_ | Endpoint is the S3-compatible endpoint URL (e.g., "https://s3.eu-central-1.amazonaws.com"). |  | MaxLength: 2048 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `bucket` _string_ | Bucket is the name of the S3 bucket. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `region` _string_ | Region is the endpoint region. Optional for S3-compatible stores that don't require it. |  | MaxLength: 63 <br />Optional: \{\} <br /> |
+| `credentialsSecretRef` _[SecretReference](#secretreference)_ | CredentialsSecretRef references a Secret containing "accessKeyID" and "secretAccessKey" keys. |  | Required: \{\} <br /> |
+| `encryption` _[ConfigBackupEncryption](#configbackupencryption)_ | Encryption configures optional encryption for backup objects, performed in the controller pod before upload.<br />If omitted, backups are stored unencrypted. |  | Optional: \{\} <br /> |
 
 
 #### ConfigBackupSpec
@@ -1444,10 +1483,11 @@ _Appears in:_
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceRef is a reference to the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the ConfigBackup to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `schedule` _string_ | Schedule is an optional cron expression.<br />If omitted, the controller performs a one-shot backup. |  | Optional: \{\} <br /> |
-| `type` _[ConfigBackupType](#configbackuptype)_ | Type determines whether the backup is saved as a local file or as startup-config. |  | Enum: [Local Startup] <br />Required: \{\} <br /> |
+| `type` _[ConfigBackupType](#configbackuptype)_ | Type determines whether the backup is saved as a local file or as startup-config. |  | Enum: [Local Startup Remote] <br />Required: \{\} <br /> |
 | `path` _string_ | Path is the device-local destination path for Local backups.<br />Different providers may accept different path formats, such as "bootflash:///backups/". |  | MaxLength: 255 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 | `retention` _[ConfigBackupRetention](#configbackupretention)_ | Retention configures automatic cleanup of older backups for Local backups. |  | Optional: \{\} <br /> |
 | `storageThreshold` _[ConfigBackupStorageThreshold](#configbackupstoragethreshold)_ | StorageThreshold defines the minimum free space that must remain before creating a new Local backup. |  | Optional: \{\} <br /> |
+| `s3` _[ConfigBackupS3](#configbackups3)_ | S3 configures the S3-compatible object storage destination for Remote backups. |  | Optional: \{\} <br /> |
 
 
 #### ConfigBackupStatus
@@ -1517,7 +1557,7 @@ _Underlying type:_ _string_
 ConfigBackupType defines how the device should persist a configuration backup.
 
 _Validation:_
-- Enum: [Local Startup]
+- Enum: [Local Startup Remote]
 
 _Appears in:_
 - [ConfigBackupSpec](#configbackupspec)
@@ -1526,6 +1566,7 @@ _Appears in:_
 | --- | --- |
 | `Local` | ConfigBackupTypeLocal stores the running configuration in a device-local file path.<br /> |
 | `Startup` | ConfigBackupTypeStartup stores the running configuration as the device startup configuration.<br /> |
+| `Remote` | ConfigBackupTypeRemote uploads the running configuration to an S3-compatible object store.<br /> |
 
 
 #### ConfigMapKeySelector
@@ -1989,6 +2030,25 @@ _Appears in:_
 | `tag` _integer_ |  |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `innerTag` _integer_ | InnerTag specifies the inner VLAN ID for QinQ encapsulation.<br />Only applicable when Type is set to "QinQ". |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `outerTag` _integer_ | OuterTag specifies the outer VLAN ID for QinQ encapsulation.<br />Only applicable when Type is set to "QinQ". |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+
+
+#### EncryptionAlgorithm
+
+_Underlying type:_ _string_
+
+EncryptionAlgorithm defines the supported encryption algorithms for remote backups.
+
+_Validation:_
+- Enum: [AES-256-GCM ChaCha20-Poly1305]
+
+_Appears in:_
+- [ConfigBackupEncryption](#configbackupencryption)
+- [ConfigBackupRunStatus](#configbackuprunstatus)
+
+| Field | Description |
+| --- | --- |
+| `AES-256-GCM` | EncryptionAES256GCM uses AES-256 in GCM mode. Key must be 32 bytes.<br /> |
+| `ChaCha20-Poly1305` | EncryptionChaCha20Poly1305 uses ChaCha20-Poly1305. Key must be 32 bytes.<br /> |
 
 
 #### Endpoint
@@ -3734,6 +3794,7 @@ SecretKeySelector contains enough information to select a key of a Secret.
 _Appears in:_
 - [AAAServerRADIUS](#aaaserverradius)
 - [AAAServerTACACS](#aaaservertacacs)
+- [ConfigBackupEncryption](#configbackupencryption)
 - [PasswordSource](#passwordsource)
 - [SSHPublicKeySource](#sshpublickeysource)
 - [TLS](#tls)
@@ -3758,6 +3819,7 @@ in any namespace.
 _Appears in:_
 - [CertificateSource](#certificatesource)
 - [CertificateSpec](#certificatespec)
+- [ConfigBackupS3](#configbackups3)
 - [Endpoint](#endpoint)
 - [SecretKeySelector](#secretkeyselector)
 
@@ -3782,7 +3844,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `prepend` _[SetASPathPrepend](#setaspathprepend)_ | Prepend configures prepending to the AS path. |  | Optional: \{\} <br /> |
 | `replace` _[SetASPathReplace](#setaspathreplace)_ | Replace configures replacement of AS numbers in the AS path. |  | Optional: \{\} <br /> |
-| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber sets the AS path to the specified AS number.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber sets the AS path to the specified AS number.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
 
 
 #### SetASPathPrepend
@@ -3799,7 +3861,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number to prepend to the AS path.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number to prepend to the AS path.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
 | `useLastAS` _integer_ | UseLastAS prepends the last AS number in the existing AS path the specified number of times. |  | Maximum: 10 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 
 
@@ -3818,8 +3880,8 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `privateAS` _boolean_ | PrivateAS, when set to true, targets all private AS numbers in the path for replacement. |  | Optional: \{\} <br /> |
-| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber targets a specific AS number in the path for replacement.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
-| `replacement` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | Replacement is the AS number to substitute in place of matched AS numbers.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber targets a specific AS number in the path for replacement.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
+| `replacement` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | Replacement is the AS number to substitute in place of matched AS numbers.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
 
 
 #### SetCommunityAction
@@ -4164,7 +4226,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this vlan.<br />This reference is used to link the VLAN to its provider-specific configuration. |  | Optional: \{\} <br /> |
-| `id` _integer_ | ID is the VLAN ID. Valid values are between 1 and 4094.<br />Immutable. |  | Maximum: 4094 <br />Minimum: 1 <br />Required: \{\} <br /> |
+| `id` _integer_ | ID is the VLAN ID. Valid values are between 1 and 4095.<br />Immutable. |  | Maximum: 4095 <br />Minimum: 1 <br />Required: \{\} <br /> |
 | `name` _string_ | Name is the name of the VLAN. |  | MaxLength: 128 <br />MinLength: 1 <br />Pattern: `^[^\s]+$` <br />Optional: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether the VLAN is administratively active or inactive/suspended. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
 
@@ -4773,7 +4835,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `advertiseVirtualMAC` _boolean_ | AdvertiseVirtualMAC controls if the NVE should advertise a virtual MAC address | false | Optional: \{\} <br /> |
 | `holdDownTime` _integer_ | HoldDownTime defines the duration for which the switch suppresses the advertisement of the NVE loopback address. | 180 | Maximum: 1500 <br />Minimum: 1 <br />Optional: \{\} <br /> |
-| `infraVLANs` _[VLANListItem](#vlanlistitem) array_ | InfraVLANs specifies VLANs used by all SVI interfaces for uplink and vPC peer-links in VXLAN as infra-VLANs.<br />The total number of VLANs configured must not exceed 512.<br />Elements in the list must not overlap with each other. |  | MaxItems: 10 <br />Optional: \{\} <br /> |
+| `infraVLANs` _[VLANListItem](#vlanlistitem) array_ | InfraVLANs specifies VLANs used by all SVI interfaces for uplink and vPC peer-links in VXLAN as infra-VLANs.<br />Valid VLAN IDs are 1-4092 because NX-OS always reserves VLANs 4093-4095 for internal use.<br />The provider also checks these VLANs against the device's configurable internal reserved VLAN range.<br />The total number of VLANs configured must not exceed 512.<br />Elements in the list must not overlap with each other. |  | MaxItems: 10 <br />Optional: \{\} <br /> |
 
 
 #### Peer
@@ -5013,9 +5075,9 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `id` _integer_ |  |  | Maximum: 3967 <br />Minimum: 1 <br />Optional: \{\} <br /> |
-| `rangeMin` _integer_ |  |  | Maximum: 3967 <br />Minimum: 1 <br />Optional: \{\} <br /> |
-| `rangeMax` _integer_ |  |  | Maximum: 3967 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `id` _integer_ |  |  | Maximum: 4092 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `rangeMin` _integer_ |  |  | Maximum: 4092 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `rangeMax` _integer_ |  |  | Maximum: 4092 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 
 
 #### VPCDomain
