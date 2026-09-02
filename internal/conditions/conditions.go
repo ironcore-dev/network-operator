@@ -161,8 +161,6 @@ func Sort(conditions []metav1.Condition) {
 // If the error is nil, it returns a condition indicating success.
 // If the error is an [apistatus.StatusError], its Code and formatted message
 // are used to populate the condition's Reason and Message fields.
-// [apistatus.CodeIgnoredField] errors are treated as success — the condition
-// status is True but the message carries the ignored field warnings.
 // If the error is a gRPC status error, its code and message are used instead.
 func FromError(err error) metav1.Condition {
 	cond := metav1.Condition{
@@ -180,11 +178,6 @@ func FromError(err error) metav1.Condition {
 		if statusErr, ok := apistatus.FromError(err); ok {
 			cond.Reason = statusErr.Code.String()
 			cond.Message = statusErr.Error()
-			// IgnoredField is not a failure — resource was configured successfully
-			// but some fields were silently skipped by the provider.
-			if statusErr.Code == apistatus.CodeIgnoredField {
-				cond.Status = metav1.ConditionTrue
-			}
 			return cond
 		}
 

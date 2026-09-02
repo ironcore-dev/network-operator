@@ -1,0 +1,69 @@
+# User with password, role and ssh-key
+-- secrets/user-password --
+apiVersion: v1
+kind: Secret
+metadata:
+  name: user-password
+  namespace: default
+type: Opaque
+stringData:
+  password: Test1234!
+
+-- secrets/user-ssh-key --
+apiVersion: v1
+kind: Secret
+metadata:
+  name: user-ssh-key
+  namespace: default
+type: Opaque
+stringData:
+  ssh-publickey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAQQDSGgsAKZn/hxPMKyfwKboiOEeuL9bTqW79QfEQ8h0kpGhkFJJEWR1e3BvXpdT9KYQOaKQnNw32atULweSQQNGh6 IronCore Test"
+
+-- users/user --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: User
+metadata:
+  name: user
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  username: testplan
+  password:
+    secretKeyRef:
+      name: user-password
+      key: password
+  roles:
+    - name: superuser
+  sshPublicKey:
+    secretKeyRef:
+      name: user-ssh-key
+      key: ssh-publickey
+
+-- state/preload --
+{}
+
+-- state/expect --
+{
+  "openconfig-system:system": {
+    "aaa": {
+      "authentication": {
+        "users": {
+          "user": [
+            {
+              "config": {
+                "role": "superuser",
+                "ssh-key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAQQDSGgsAKZn/hxPMKyfwKboiOEeuL9bTqW79QfEQ8h0kpGhkFJJEWR1e3BvXpdT9KYQOaKQnNw32atULweSQQNGh6 IronCore Test",
+                "username": "testplan"
+              },
+              "username": "testplan"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+-- state/delete --
+{}
