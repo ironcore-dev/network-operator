@@ -10,6 +10,7 @@ spec:
   contact: "admin@example.com"
   location: "foobar"
   sourceInterfaceName: "mgmt0"
+  enforceEncryption: true
   hosts:
     - address: "10.0.0.100"
   communities:
@@ -39,6 +40,7 @@ spec:
           "sysLocation": "foobar"
         },
         "globals-items": {
+          "enforcePrivacy": "yes",
           "srcInterfaceTraps-items": {
             "ifname": "mgmt0"
           },
@@ -82,7 +84,6 @@ spec:
     },
     "snmp-items": {
       "inst-items": {
-        "globals-items": {},
         "traps-items": {}
       }
     }

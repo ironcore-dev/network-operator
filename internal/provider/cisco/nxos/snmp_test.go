@@ -25,9 +25,6 @@ func init() {
 	items.CommSecPList.Set(comm)
 	Register("snmp_comm", items)
 
-	srcIf := &SNMPSrcIf{Type: Traps, Ifname: NewOption("mgmt0")}
-	Register("snmp_srcif", srcIf)
-
 	info := &SNMPSysInfo{SysContact: NewOption("johndoe@example.com"), SysLocation: NewOption("rack123")}
 	Register("snmp_sysinfo", info)
 
@@ -37,4 +34,10 @@ func init() {
 	traps := &SNMPTrapsItems{}
 	traps.CfsItems.StatechangenotifItems = &SNMPTraps{Trapstatus: AdminStEnable}
 	Register("snmp_traps", traps)
+
+	globals := &SNMPGlobals{}
+	globals.EnforcePriv = NewOption(AdminStYes)
+	globals.InformsSrcIf.Ifname = NewOption("mgmt0")
+	globals.TrapsSrcIf.Ifname = NewOption("mgmt0")
+	Register("snmp_globals", globals)
 }

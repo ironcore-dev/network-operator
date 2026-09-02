@@ -12,6 +12,7 @@ spec:
   contact: IronCore
   location: rack1
   sourceInterfaceName: mgmt0
+  enforceEncryption: true
   communities:
     - name: snmpcollector
       group: network-operator
