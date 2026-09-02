@@ -21,31 +21,33 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
     "userext-items": {
       "preloginbanner-items": {
         "delimiter": "^",
         "message": "Authorized users only. All activity is monitored."
       }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }
 
 -- state/delete --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
     "userext-items": {
       "preloginbanner-items": {
         "delimiter": "#",
         "message": "User Access Verification\n"
       }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }

@@ -54,77 +54,18 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
-    "eps-items": {
-      "epId-items": {
-        "Ep-list": [
-          {
-            "epId": 1,
-            "adminSt": "enabled",
-            "advertiseVmac": true,
-            "holdDownTime": 200,
-            "hostReach": "bgp",
-            "sourceInterface": "lo1",
-            "suppressARP": false
-          }
-        ]
-      }
-    },
-    "pltfm-items": {
-      "nve-items": {
-        "NVE-list": [
-          {
-            "id": 1,
-            "infravlan-items": {
-              "InfraVlan-list": [
-                {
-                  "id": 3966
-                }
-              ]
-            }
-          }
-        ]
-      }
-    },
-    "fm-items": {
-      "evpn-items": {
-        "adminSt": "enabled"
-      },
-      "nvo-items": {
-        "adminSt": "enabled"
-      }
-    },
-    "hmm-items": {
-      "fwdinst-items": {
-        "adminSt": "disabled",
-        "amac": ""
-      }
-    },
-    "icmpv4-items": {
-      "inst-items": {
-        "dom-items": {
-          "Dom-list": [
-            {
-              "name": "default",
-              "if-items": {
-                "If-list": [
-                  {
-                    "id": "lo1",
-                    "ctrl": "port-unreachable,redirect"
-                  }
-                ]
-              }
-            }
-          ]
-        }
-      }
+    "procsys-items": {
+      "bootTime": "1700000000"
     },
     "intf-items": {
       "lb-items": {
         "LbRtdIf-list": [
           {
             "adminSt": "up",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
             "id": "lo1",
             "rtvrfMbr-items": {
               "tDn": "/System/inst-items/Inst-list[name='default']"
@@ -161,15 +102,25 @@ spec:
         }
       }
     },
-    "procsys-items": {
-      "bootTime": "1700000000"
-    }
-  }
-}
-
--- state/delete --
-{
-  "System": {
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo1",
+                    "ctrl": "port-unreachable,redirect"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
     "fm-items": {
       "evpn-items": {
         "adminSt": "enabled"
@@ -178,8 +129,116 @@ spec:
         "adminSt": "enabled"
       }
     },
+    "eps-items": {
+      "epId-items": {
+        "Ep-list": [
+          {
+            "epId": 1,
+            "adminSt": "enabled",
+            "advertiseVmac": true,
+            "sourceInterface": "lo1",
+            "anycastIntf": "DME_UNSET_PROPERTY_MARKER",
+            "holdDownTime": 200,
+            "hostReach": "bgp",
+            "mcastGroupL2": "DME_UNSET_PROPERTY_MARKER",
+            "mcastGroupL3": "DME_UNSET_PROPERTY_MARKER",
+            "suppressARP": false
+          }
+        ]
+      }
+    },
+    "pltfm-items": {
+      "nve-items": {
+        "NVE-list": [
+          {
+            "id": 1,
+            "infravlan-items": {
+              "InfraVlan-list": [
+                {
+                  "id": 3966
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "hmm-items": {
+      "fwdinst-items": {
+        "adminSt": "disabled",
+        "amac": ""
+      }
+    }
+  }
+}
+
+-- state/delete --
+
+{
+  "System": {
     "procsys-items": {
       "bootTime": "1700000000"
-    }
+    },
+    "intf-items": {
+      "lb-items": {
+        "LbRtdIf-list": []
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": []
+              }
+            }
+          ]
+        }
+      }
+    },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo1",
+                    "ctrl": "port-unreachable,redirect"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "fm-items": {
+      "evpn-items": {
+        "adminSt": "enabled"
+      },
+      "nvo-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "eps-items": {
+      "epId-items": {
+        "Ep-list": []
+      }
+    },
+    "pltfm-items": {
+      "nve-items": {
+        "NVE-list": [
+          {
+            "id": 1
+          }
+        ]
+      }
+    },
+    "hmm-items": {}
   }
 }

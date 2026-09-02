@@ -26,10 +26,26 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
     "snmp-items": {
       "inst-items": {
+        "sysinfo-items": {
+          "sysContact": "admin@example.com",
+          "sysLocation": "foobar"
+        },
+        "globals-items": {
+          "srcInterfaceTraps-items": {
+            "ifname": "mgmt0"
+          },
+          "srcInterfaceInforms-items": {
+            "ifname": "mgmt0"
+          }
+        },
         "community-items": {
           "CommSecP-list": [
             {
@@ -39,17 +55,11 @@ spec:
             }
           ]
         },
-        "globals-items": {
-          "srcInterfaceInforms-items": {
-            "ifname": "mgmt0"
-          },
-          "srcInterfaceTraps-items": {
-            "ifname": "mgmt0"
-          }
-        },
+        "traps-items": {},
         "host-items": {
           "Host-list": [
             {
+              "commName": "DME_UNSET_PROPERTY_MARKER",
               "hostName": "10.0.0.100",
               "notifType": "traps",
               "secLevel": "noauth",
@@ -57,30 +67,24 @@ spec:
               "version": "v2c"
             }
           ]
-        },
-        "sysinfo-items": {
-          "sysContact": "admin@example.com",
-          "sysLocation": "foobar"
-        },
-        "traps-items": {}
+        }
       }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }
 
 -- state/delete --
+
 {
   "System": {
-    "snmp-items": {
-      "inst-items": {
-        "traps-items": {}
-      }
-    },
     "procsys-items": {
       "bootTime": "1700000000"
+    },
+    "snmp-items": {
+      "inst-items": {
+        "globals-items": {},
+        "traps-items": {}
+      }
     }
   }
 }

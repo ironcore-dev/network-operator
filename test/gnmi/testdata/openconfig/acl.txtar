@@ -27,6 +27,7 @@ spec:
 {}
 
 -- state/expect --
+
 {
   "openconfig-acl:acl": {
     "acl-sets": {
@@ -76,7 +77,9 @@ spec:
                 }
               }
             ]
-          }
+          },
+          "name": "MGMT-ACL",
+          "type": "openconfig-acl:ACL_IPV4"
         }
       ]
     }
@@ -84,4 +87,61 @@ spec:
 }
 
 -- state/delete --
-{}
+
+{
+  "openconfig-acl:acl": {
+    "acl-sets": {
+      "acl-set": [
+        {
+          "config": {
+            "name": "MGMT-ACL",
+            "type": "openconfig-acl:ACL_IPV4"
+          },
+          "acl-entries": {
+            "acl-entry": [
+              {
+                "sequence-id": 10,
+                "config": {
+                  "sequence-id": 10,
+                  "description": "Allow management subnet"
+                },
+                "ipv4": {
+                  "config": {
+                    "source-address": "10.0.0.0/24",
+                    "destination-address": "0.0.0.0/0",
+                    "protocol": "6"
+                  }
+                },
+                "actions": {
+                  "config": {
+                    "forwarding-action": "openconfig-acl:ACCEPT"
+                  }
+                }
+              },
+              {
+                "sequence-id": 20,
+                "config": {
+                  "sequence-id": 20,
+                  "description": "Deny all other traffic"
+                },
+                "ipv4": {
+                  "config": {
+                    "source-address": "0.0.0.0/0",
+                    "destination-address": "0.0.0.0/0"
+                  }
+                },
+                "actions": {
+                  "config": {
+                    "forwarding-action": "openconfig-acl:DROP"
+                  }
+                }
+              }
+            ]
+          },
+          "name": "MGMT-ACL",
+          "type": "openconfig-acl:ACL_IPV4"
+        }
+      ]
+    }
+  }
+}

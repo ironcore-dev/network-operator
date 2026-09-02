@@ -19,10 +19,12 @@ spec:
 {}
 
 -- state/expect --
+
 {
   "openconfig-network-instance:network-instances": {
     "network-instance": [
       {
+        "name": "default",
         "protocols": {
           "protocol": [
             {
@@ -53,7 +55,9 @@ spec:
                     ]
                   }
                 }
-              }
+              },
+              "identifier": "openconfig-policy-types:ISIS",
+              "name": "DEFAULT"
             }
           ]
         }
@@ -63,4 +67,16 @@ spec:
 }
 
 -- state/delete --
-{}
+
+{
+  "openconfig-network-instance:network-instances": {
+    "network-instance": [
+      {
+        "name": "default",
+        "protocols": {
+          "protocol": []
+        }
+      }
+    ]
+  }
+}

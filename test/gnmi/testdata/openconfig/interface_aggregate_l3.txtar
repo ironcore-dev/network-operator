@@ -52,6 +52,7 @@ spec:
 }
 
 -- state/expect --
+
 {
   "openconfig-system:system": {
     "state": {
@@ -61,52 +62,31 @@ spec:
   "openconfig-interfaces:interfaces": {
     "interface": [
       {
-        "name": "eth1/3",
         "config": {
-          "description": "Member of po20",
-          "enabled": true,
-          "mtu": 9216,
-          "name": "eth1/3",
-          "type": "iana-if-type:ethernetCsmacd"
-        },
-        "openconfig-if-ethernet:ethernet": {
-          "config": {
-            "openconfig-if-aggregate:aggregate-id": "po20"
-          }
-        }
-      },
-      {
-        "name": "po20",
-        "config": {
+          "name": "po20",
+          "type": "iana-if-type:ieee8023adLag",
           "description": "L3 Port-Channel",
           "enabled": true,
-          "mtu": 9216,
-          "name": "po20",
-          "type": "iana-if-type:ieee8023adLag"
-        },
-        "openconfig-if-aggregate:aggregation": {
-          "config": {
-            "lag-type": "LACP"
-          }
+          "mtu": 9216
         },
         "subinterfaces": {
           "subinterface": [
             {
-              "config": {
-                "enabled": true,
-                "index": 0
-              },
               "index": 0,
+              "config": {
+                "index": 0,
+                "enabled": true
+              },
               "openconfig-if-ip:ipv4": {
                 "addresses": {
                   "address": [
                     {
+                      "ip": "10.0.100.0",
                       "config": {
                         "ip": "10.0.100.0",
                         "prefix-length": 31,
                         "type": "PRIMARY"
-                      },
-                      "ip": "10.0.100.0"
+                      }
                     }
                   ]
                 },
@@ -116,17 +96,60 @@ spec:
               }
             }
           ]
-        }
+        },
+        "openconfig-if-aggregate:aggregation": {
+          "config": {
+            "lag-type": "LACP"
+          }
+        },
+        "name": "po20"
+      },
+      {
+        "config": {
+          "name": "eth1/3",
+          "type": "iana-if-type:ethernetCsmacd",
+          "description": "Member of po20",
+          "enabled": true,
+          "mtu": 9216
+        },
+        "openconfig-if-ethernet:ethernet": {
+          "config": {
+            "openconfig-if-aggregate:aggregate-id": "po20"
+          }
+        },
+        "name": "eth1/3"
       }
     ]
   }
 }
 
 -- state/delete --
+
 {
   "openconfig-system:system": {
     "state": {
       "boot-time": "1784731445707000000"
     }
+  },
+  "openconfig-interfaces:interfaces": {
+    "interface": [
+      {
+        "config": {
+          "name": "eth1/3",
+          "type": "iana-if-type:ethernetCsmacd",
+          "enabled": false
+        },
+        "name": "eth1/3",
+        "openconfig-if-ethernet:ethernet": {
+          "openconfig-vlan:switched-vlan": {
+            "config": {
+              "trunk-vlans": [
+                "1..4094"
+              ]
+            }
+          }
+        }
+      }
+    ]
   }
 }

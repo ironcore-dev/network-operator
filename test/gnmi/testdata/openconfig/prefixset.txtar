@@ -19,6 +19,7 @@ spec:
 {}
 
 -- state/expect --
+
 {
   "openconfig-routing-policy:routing-policy": {
     "defined-sets": {
@@ -47,7 +48,8 @@ spec:
                   }
                 }
               ]
-            }
+            },
+            "name": "LOOPBACKS"
           }
         ]
       }
@@ -56,4 +58,13 @@ spec:
 }
 
 -- state/delete --
-{}
+
+{
+  "openconfig-routing-policy:routing-policy": {
+    "defined-sets": {
+      "prefix-sets": {
+        "prefix-set": []
+      }
+    }
+  }
+}

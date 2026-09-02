@@ -20,8 +20,12 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
     "bd-items": {
       "bd-items": {
         "BD-list": [
@@ -33,18 +37,21 @@ spec:
           }
         ]
       }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }
 
 -- state/delete --
+
 {
   "System": {
     "procsys-items": {
       "bootTime": "1700000000"
+    },
+    "bd-items": {
+      "bd-items": {
+        "BD-list": []
+      }
     }
   }
 }

@@ -16,6 +16,7 @@ spec:
 {}
 
 -- state/expect --
+
 {
   "openconfig-system:system": {
     "dns": {
@@ -45,4 +46,7 @@ spec:
 }
 
 -- state/delete --
-{}
+
+{
+  "openconfig-system:system": {}
+}

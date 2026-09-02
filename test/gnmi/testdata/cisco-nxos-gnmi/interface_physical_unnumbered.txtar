@@ -49,52 +49,11 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
-    "bfd-items": {
-      "inst-items": {
-        "if-items": {
-          "If-list": [
-            {
-              "adminSt": "enabled",
-              "id": "eth1/1",
-              "ifka-items": {
-                "detectMult": 3,
-                "minRxIntvl": 300,
-                "minTxIntvl": 300
-              }
-            }
-          ]
-        }
-      }
-    },
-    "fm-items": {
-      "bfd-items": {
-        "adminSt": "enabled"
-      }
-    },
-    "icmpv4-items": {
-      "inst-items": {
-        "dom-items": {
-          "Dom-list": [
-            {
-              "name": "default",
-              "if-items": {
-                "If-list": [
-                  {
-                    "ctrl": "port-unreachable,redirect",
-                    "id": "lo0"
-                  },
-                  {
-                    "ctrl": "port-unreachable",
-                    "id": "eth1/1"
-                  }
-                ]
-              }
-            }
-          ]
-        }
-      }
+    "procsys-items": {
+      "bootTime": "1700000000"
     },
     "intf-items": {
       "lb-items": {
@@ -112,23 +71,23 @@ spec:
       "phys-items": {
         "PhysIf-list": [
           {
-            "FECMode": "auto",
             "accessVlan": "unknown",
             "adminSt": "up",
             "descr": "Leaf1 to Spine1",
+            "FECMode": "auto",
             "id": "eth1/1",
             "layer": "Layer3",
+            "mtu": 9216,
             "medium": "p2p",
             "mode": "access",
-            "mtu": 9216,
             "nativeVlan": "unknown",
-            "physExtd-items": {
-              "bufferBoost": "enable"
-            },
+            "userCfgdFlags": "admin_layer,admin_mtu,admin_state",
             "rtvrfMbr-items": {
               "tDn": "/System/inst-items/Inst-list[name='default']"
             },
-            "userCfgdFlags": "admin_layer,admin_mtu,admin_state"
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            }
           }
         ]
       }
@@ -142,6 +101,7 @@ spec:
               "if-items": {
                 "If-list": [
                   {
+                    "id": "lo0",
                     "addr-items": {
                       "Addr-list": [
                         {
@@ -151,8 +111,7 @@ spec:
                           "type": "primary"
                         }
                       ]
-                    },
-                    "id": "lo0"
+                    }
                   },
                   {
                     "id": "eth1/1",
@@ -165,43 +124,130 @@ spec:
         }
       }
     },
-    "procsys-items": {
-      "bootTime": "1700000000"
-    }
-  }
-}
-
--- state/delete --
-{
-  "System": {
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo0",
+                    "ctrl": "port-unreachable,redirect"
+                  },
+                  {
+                    "id": "eth1/1",
+                    "ctrl": "port-unreachable"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
     "fm-items": {
       "bfd-items": {
         "adminSt": "enabled"
       }
     },
+    "bfd-items": {
+      "inst-items": {
+        "if-items": {
+          "If-list": [
+            {
+              "id": "eth1/1",
+              "adminSt": "enabled",
+              "ifka-items": {
+                "detectMult": 3,
+                "minRxIntvl": 300,
+                "minTxIntvl": 300
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+-- state/delete --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
     "intf-items": {
+      "lb-items": {
+        "LbRtdIf-list": []
+      },
       "phys-items": {
         "PhysIf-list": [
           {
-            "FECMode": "auto",
             "accessVlan": "vlan-1",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "FECMode": "auto",
             "id": "eth1/1",
             "layer": "Layer2",
+            "mtu": 1500,
             "medium": "broadcast",
             "mode": "access",
-            "mtu": 1500,
             "nativeVlan": "vlan-1",
+            "userCfgdFlags": "",
             "physExtd-items": {
               "bufferBoost": "enable"
             },
-            "trunkVlans": "1-4094",
-            "userCfgdFlags": ""
+            "trunkVlans": "1-4094"
           }
         ]
       }
     },
-    "procsys-items": {
-      "bootTime": "1700000000"
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": []
+              }
+            }
+          ]
+        }
+      }
+    },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo0",
+                    "ctrl": "port-unreachable,redirect"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "fm-items": {
+      "bfd-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "bfd-items": {
+      "inst-items": {
+        "if-items": {
+          "If-list": []
+        }
+      }
     }
   }
 }

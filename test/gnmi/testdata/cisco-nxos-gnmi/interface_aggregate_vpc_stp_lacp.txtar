@@ -91,44 +91,13 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
-    "fm-items": {
-      "lacp-items": {
-        "adminSt": "enabled"
-      }
+    "procsys-items": {
+      "bootTime": "1700000000"
     },
     "intf-items": {
-      "aggr-items": {
-        "AggrIf-list": [
-          {
-            "accessVlan": "vlan-1",
-            "adminSt": "up",
-            "aggrExtd-items": {
-              "bufferBoost": "enable"
-            },
-            "descr": "vPC to Host with STP and LACP config",
-            "id": "po10",
-            "lacpVpcConvergence": "enable",
-            "layer": "Layer2",
-            "medium": "broadcast",
-            "mode": "trunk",
-            "mtu": 1500,
-            "nativeVlan": "vlan-1",
-            "pcMode": "active",
-            "rsmbrIfs-items": {
-              "RsMbrIfs-list": [
-                {
-                  "tDn": "/System/intf-items/phys-items/PhysIf-list[id='eth1/2']"
-                }
-              ]
-            },
-            "suspIndividual": "disable",
-            "trunkVlans": "10",
-            "userCfgdFlags": "admin_layer,admin_mtu,admin_state"
-          }
-        ]
-      },
       "phys-items": {
         "PhysIf-list": [
           {
@@ -138,15 +107,45 @@ spec:
             "FECMode": "auto",
             "id": "eth1/2",
             "layer": "Layer2",
+            "mtu": 1500,
             "medium": "broadcast",
             "mode": "trunk",
-            "mtu": 1500,
             "nativeVlan": "vlan-1",
-            "trunkVlans": "10",
             "userCfgdFlags": "admin_layer,admin_mtu,admin_state",
             "physExtd-items": {
               "bufferBoost": "disable"
-            }
+            },
+            "trunkVlans": "10"
+          }
+        ]
+      },
+      "aggr-items": {
+        "AggrIf-list": [
+          {
+            "accessVlan": "vlan-1",
+            "adminSt": "up",
+            "descr": "vPC to Host with STP and LACP config",
+            "id": "po10",
+            "lacpVpcConvergence": "enable",
+            "layer": "Layer2",
+            "mtu": 1500,
+            "medium": "broadcast",
+            "mode": "trunk",
+            "pcMode": "active",
+            "nativeVlan": "vlan-1",
+            "suspIndividual": "disable",
+            "userCfgdFlags": "admin_layer,admin_mtu,admin_state",
+            "rsmbrIfs-items": {
+              "RsMbrIfs-list": [
+                {
+                  "tDn": "/System/intf-items/phys-items/PhysIf-list[id='eth1/2']"
+                }
+              ]
+            },
+            "aggrExtd-items": {
+              "bufferBoost": "enable"
+            },
+            "trunkVlans": "10"
           }
         ]
       }
@@ -156,19 +155,24 @@ spec:
         "if-items": {
           "If-list": [
             {
-              "id": "eth1/2",
               "mode": "edge",
               "bpdufilter": "default",
-              "bpduguard": "enable"
+              "bpduguard": "enable",
+              "id": "eth1/2"
             },
             {
-              "id": "po10",
               "mode": "network",
               "bpdufilter": "enable",
-              "bpduguard": "default"
+              "bpduguard": "default",
+              "id": "po10"
             }
           ]
         }
+      }
+    },
+    "fm-items": {
+      "lacp-items": {
+        "adminSt": "enabled"
       }
     },
     "vpc-items": {
@@ -186,40 +190,40 @@ spec:
           }
         }
       }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }
 
 -- state/delete --
+
 {
   "System": {
-    "fm-items": {
-      "lacp-items": {
-        "adminSt": "enabled"
-      }
+    "procsys-items": {
+      "bootTime": "1700000000"
     },
     "intf-items": {
       "phys-items": {
         "PhysIf-list": [
           {
-            "FECMode": "auto",
             "accessVlan": "vlan-1",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "FECMode": "auto",
             "id": "eth1/2",
             "layer": "Layer2",
+            "mtu": 1500,
             "medium": "broadcast",
             "mode": "access",
-            "mtu": 1500,
             "nativeVlan": "vlan-1",
+            "userCfgdFlags": "",
             "physExtd-items": {
               "bufferBoost": "enable"
             },
-            "trunkVlans": "1-4094",
-            "userCfgdFlags": ""
+            "trunkVlans": "1-4094"
           }
         ]
+      },
+      "aggr-items": {
+        "AggrIf-list": []
       }
     },
     "stp-items": {
@@ -227,23 +231,34 @@ spec:
         "if-items": {
           "If-list": [
             {
-              "id": "eth1/2",
-              "mode": "default",
-              "bpdufilter": "default",
-              "bpduguard": "enable"
-            },
-            {
-              "id": "po10",
               "mode": "network",
               "bpdufilter": "enable",
-              "bpduguard": "default"
+              "bpduguard": "default",
+              "id": "po10"
+            },
+            {
+              "mode": "default",
+              "bpdufilter": "default",
+              "bpduguard": "enable",
+              "id": "eth1/2"
             }
           ]
         }
       }
     },
-    "procsys-items": {
-      "bootTime": "1700000000"
+    "fm-items": {
+      "lacp-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "vpc-items": {
+      "inst-items": {
+        "dom-items": {
+          "if-items": {
+            "If-list": []
+          }
+        }
+      }
     }
   }
 }

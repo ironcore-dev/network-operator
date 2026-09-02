@@ -61,33 +61,49 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
-    "fm-items": {
-      "lacp-items": {
-        "adminSt": "enabled"
-      },
-      "vpc-items": {
-        "adminSt": "enabled"
-      }
+    "procsys-items": {
+      "bootTime": "1700000000"
     },
     "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "accessVlan": "vlan-1",
+            "adminSt": "up",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "FECMode": "auto",
+            "id": "eth1/1",
+            "layer": "Layer2",
+            "mtu": 1500,
+            "medium": "broadcast",
+            "mode": "access",
+            "nativeVlan": "vlan-1",
+            "userCfgdFlags": "admin_layer,admin_state",
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            }
+          }
+        ]
+      },
       "aggr-items": {
         "AggrIf-list": [
           {
-            "id": "po1",
-            "adminSt": "up",
             "accessVlan": "vlan-1",
-            "aggrExtd-items": {
-              "bufferBoost": "enable"
-            },
+            "adminSt": "up",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "id": "po1",
             "lacpVpcConvergence": "disable",
             "layer": "Layer2",
+            "mtu": 1500,
             "medium": "broadcast",
             "mode": "access",
-            "mtu": 1500,
-            "nativeVlan": "vlan-1",
             "pcMode": "active",
+            "nativeVlan": "vlan-1",
+            "suspIndividual": "enable",
+            "userCfgdFlags": "admin_layer,admin_state",
             "rsmbrIfs-items": {
               "RsMbrIfs-list": [
                 {
@@ -95,27 +111,9 @@ spec:
                 }
               ]
             },
-            "suspIndividual": "enable",
-            "userCfgdFlags": "admin_layer,admin_state"
-          }
-        ]
-      },
-      "phys-items": {
-        "PhysIf-list": [
-          {
-            "id": "eth1/1",
-            "FECMode": "auto",
-            "accessVlan": "vlan-1",
-            "adminSt": "up",
-            "layer": "Layer2",
-            "medium": "broadcast",
-            "mode": "access",
-            "mtu": 1500,
-            "nativeVlan": "vlan-1",
-            "physExtd-items": {
+            "aggrExtd-items": {
               "bufferBoost": "enable"
-            },
-            "userCfgdFlags": "admin_layer,admin_state"
+            }
           }
         ]
       }
@@ -125,57 +123,21 @@ spec:
         "if-items": {
           "If-list": [
             {
-              "id": "eth1/1",
+              "mode": "default",
               "bpdufilter": "default",
               "bpduguard": "default",
-              "mode": "default"
+              "id": "eth1/1"
             },
             {
-              "id": "po1",
+              "mode": "default",
               "bpdufilter": "default",
               "bpduguard": "default",
-              "mode": "default"
+              "id": "po1"
             }
           ]
         }
       }
     },
-    "vpc-items": {
-      "inst-items": {
-        "dom-items": {
-          "id": 100,
-          "adminSt": "enabled",
-          "autoRecovery": "disabled",
-          "autoRecoveryIntvl": 240,
-          "delayRestoreSVI": 10,
-          "delayRestoreVPC": 30,
-          "fastConvergence": "disabled",
-          "keepalive-items": {
-            "destIp": "10.0.0.2",
-            "srcIp": "10.0.0.1",
-            "vrf": "management",
-            "peerlink-items": {
-              "adminSt": "enabled",
-              "id": "po1"
-            }
-          },
-          "l3PeerRouter": "disabled",
-          "peerGw": "disabled",
-          "peerSwitch": "disabled",
-          "rolePrio": 32667,
-          "sysPrio": 32667
-        }
-      }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
-    }
-  }
-}
-
--- state/delete --
-{
-  "System": {
     "fm-items": {
       "lacp-items": {
         "adminSt": "enabled"
@@ -184,28 +146,98 @@ spec:
         "adminSt": "enabled"
       }
     },
+    "vpc-items": {
+      "inst-items": {
+        "dom-items": {
+          "adminSt": "enabled",
+          "autoRecovery": "disabled",
+          "autoRecoveryIntvl": 240,
+          "delayRestoreSVI": 10,
+          "delayRestoreVPC": 30,
+          "fastConvergence": "disabled",
+          "id": 100,
+          "l3PeerRouter": "disabled",
+          "peerGw": "disabled",
+          "peerSwitch": "disabled",
+          "rolePrio": 32667,
+          "sysPrio": 32667,
+          "keepalive-items": {
+            "destIp": "10.0.0.2",
+            "srcIp": "10.0.0.1",
+            "vrf": "management",
+            "peerlink-items": {
+              "adminSt": "enabled",
+              "id": "po1"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+-- state/delete --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
     "intf-items": {
       "phys-items": {
         "PhysIf-list": [
           {
-            "id": "eth1/1",
-            "FECMode": "auto",
             "accessVlan": "vlan-1",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "FECMode": "auto",
+            "id": "eth1/1",
             "layer": "Layer2",
+            "mtu": 1500,
             "medium": "broadcast",
             "mode": "access",
-            "mtu": 1500,
             "nativeVlan": "vlan-1",
+            "userCfgdFlags": "",
             "physExtd-items": {
               "bufferBoost": "enable"
             },
-            "userCfgdFlags": ""
+            "trunkVlans": "1-4094"
           }
         ]
+      },
+      "aggr-items": {
+        "AggrIf-list": []
       }
     },
-    "procsys-items": {
-      "bootTime": "1700000000"
+    "stp-items": {
+      "inst-items": {
+        "if-items": {
+          "If-list": [
+            {
+              "mode": "default",
+              "bpdufilter": "default",
+              "bpduguard": "default",
+              "id": "po1"
+            },
+            {
+              "mode": "default",
+              "bpdufilter": "default",
+              "bpduguard": "default",
+              "id": "eth1/1"
+            }
+          ]
+        }
+      }
+    },
+    "fm-items": {
+      "lacp-items": {
+        "adminSt": "enabled"
+      },
+      "vpc-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "vpc-items": {
+      "inst-items": {}
     }
   }
 }

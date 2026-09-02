@@ -21,29 +21,51 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "vlanmgr-items": {
+      "inst-items": {
+        "longName": false
+      }
+    },
+    "bd-items": {
+      "resvlan-items": {
+        "sysVlan": 3968
+      }
+    },
     "ethpm-items": {
       "inst-items": {
         "systemJumboMtu": 9214
       }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }
 
 -- state/delete --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "vlanmgr-items": {
+      "inst-items": {
+        "longName": false
+      }
+    },
+    "bd-items": {
+      "resvlan-items": {
+        "sysVlan": 3968
+      }
+    },
     "ethpm-items": {
       "inst-items": {
         "systemJumboMtu": 9216
       }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }

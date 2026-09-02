@@ -24,8 +24,12 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
     "fm-items": {
       "ntpd-items": {
         "adminSt": "enabled"
@@ -50,16 +54,17 @@ spec:
       "srcIf-items": {
         "srcIf": "mgmt0"
       }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }
 
 -- state/delete --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
     "fm-items": {
       "ntpd-items": {
         "adminSt": "disabled"
@@ -68,9 +73,6 @@ spec:
     "time-items": {
       "adminSt": "disabled",
       "logging": "disabled"
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }

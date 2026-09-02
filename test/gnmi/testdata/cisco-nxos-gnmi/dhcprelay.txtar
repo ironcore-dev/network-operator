@@ -166,13 +166,62 @@ spec:
 -- state/delete --
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "bd-items": {
+      "bd-items": {
+        "BD-list": []
+      }
+    },
     "fm-items": {
       "ifvlan-items": {
         "adminSt": "enabled"
+      },
+      "dhcp-items": {
+        "adminSt": "enabled"
       }
     },
-    "procsys-items": {
-      "bootTime": "1700000000"
+    "intf-items": {
+      "svi-items": {
+        "If-list": []
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": []
+              }
+            }
+          ]
+        }
+      }
+    },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "vlan100",
+                    "ctrl": "port-unreachable"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "dhcp-items": {
+      "inst-items": {}
     }
   }
 }
