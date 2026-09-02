@@ -96,6 +96,7 @@ kubectl --context <context> logs -n network-operator-system deployment/network-o
 ```
 
 - **Use** `metav1.Condition` for status (not custom string fields)
+- **Place enum validation on enum types**: Put `// +kubebuilder:validation:Enum=...` on named enum type definitions (for example, `type T string`), not on fields using those types
 - **Use predefined types**: `metav1.Time` instead of `string` for dates
 - **Follow K8s API conventions**: Standard field names (`spec`, `status`, `metadata`)
 
