@@ -63,17 +63,26 @@ func init() {
 	Register("bgp_dom_rp", bgpPeerRp)
 
 	bgpDomRdst := &BGPDom{Name: "CC-CLOUD01", RtrID: "1.1.1.1", RtrIDAuto: AdminStDisabled}
-	rdstItem := &BGPDomAfItem{Type: AddressFamilyIPv4Unicast, ExportGwIP: AdminStDisabled}
+	rdstItem := &BGPDomAfItem{Type: AddressFamilyIPv4Unicast, ExportGwIP: AdminStDisabled, AdvertL2vpnEvpn: AdminStDisabled}
 	rdstItem.InterLeakPItems.InterLeakPList.Set(NewInterLeakPDirect("ROUTE_MAP"))
 	bgpDomRdst.AfItems.DomAfList.Set(rdstItem)
 	Register("bgp_dom_rdst", bgpDomRdst)
 
 	bgpDomExp := &BGPDom{Name: "CC-CLOUD01", RtrID: "1.1.1.1", RtrIDAuto: AdminStDisabled}
 	bgpDomExp.AfItems.DomAfList.Set(&BGPDomAfItem{
-		Type:       AddressFamilyIPv4Unicast,
-		ExportGwIP: AdminStEnabled,
+		Type:            AddressFamilyIPv4Unicast,
+		ExportGwIP:      AdminStEnabled,
+		AdvertL2vpnEvpn: AdminStDisabled,
 	})
 	Register("bgp_dom_exp", bgpDomExp)
+
+	bgpDomAdvL2vpnEvpn := &BGPDom{Name: "CC-CLOUD01", RtrID: "1.1.1.1", RtrIDAuto: AdminStDisabled}
+	bgpDomAdvL2vpnEvpn.AfItems.DomAfList.Set(&BGPDomAfItem{
+		Type:            AddressFamilyIPv4Unicast,
+		ExportGwIP:      AdminStDisabled,
+		AdvertL2vpnEvpn: AdminStEnabled,
+	})
+	Register("bgp_dom_advl2vpnevpn", bgpDomAdvL2vpnEvpn)
 
 	bgpPeerLocalAs := &BGPPeer{
 		VRFName: DefaultVRFName,

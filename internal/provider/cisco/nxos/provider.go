@@ -619,6 +619,14 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 	if req.VRF != nil {
 		dom.Name = req.VRF.Spec.Name
 	}
+
+	if dom.Name == DefaultVRFName && (cfg.Spec.AddressFamilies.Ipv4UnicastAdvertiseL2vpnEvpn() || cfg.Spec.AddressFamilies.Ipv6UnicastAdvertiseL2vpnEvpn()) {
+		return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+			Field:       "providerConfig.addressFamilies.advertiseL2vpnEvpn",
+			Description: "'advertise l2vpn evpn' cannot be configured under the default VRF",
+		})
+	}
+
 	dom.RtrID = req.BGP.Spec.RouterID
 	dom.RtrIDAuto = AdminStDisabled
 	sb.Patch(dom)
@@ -640,11 +648,12 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 				item.InterLeakPItems.InterLeakPList.Set(NewInterLeakPDirect(rp.Spec.Name))
 			}
 			item.ExportGwIP = AdminStDisabled
-			if cfg.Spec.AddressFamilies != nil &&
-				cfg.Spec.AddressFamilies.Ipv4Unicast != nil &&
-				cfg.Spec.AddressFamilies.Ipv4Unicast.ExportGatewayIP != nil &&
-				*cfg.Spec.AddressFamilies.Ipv4Unicast.ExportGatewayIP {
+			if cfg.Spec.AddressFamilies.Ipv4UnicastExportGatewayIP() {
 				item.ExportGwIP = AdminStEnabled
+			}
+			item.AdvertL2vpnEvpn = AdminStDisabled
+			if cfg.Spec.AddressFamilies.Ipv4UnicastAdvertiseL2vpnEvpn() {
+				item.AdvertL2vpnEvpn = AdminStEnabled
 			}
 			dom.AfItems.DomAfList.Set(item)
 		}
@@ -659,16 +668,23 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 				item.InterLeakPItems.InterLeakPList.Set(NewInterLeakPDirect(rp.Spec.Name))
 			}
 			item.ExportGwIP = AdminStDisabled
-			if cfg.Spec.AddressFamilies != nil &&
-				cfg.Spec.AddressFamilies.Ipv6Unicast != nil &&
-				cfg.Spec.AddressFamilies.Ipv6Unicast.ExportGatewayIP != nil &&
-				*cfg.Spec.AddressFamilies.Ipv6Unicast.ExportGatewayIP {
+			if cfg.Spec.AddressFamilies.Ipv6UnicastExportGatewayIP() {
 				item.ExportGwIP = AdminStEnabled
+			}
+			item.AdvertL2vpnEvpn = AdminStDisabled
+			if cfg.Spec.AddressFamilies.Ipv6UnicastAdvertiseL2vpnEvpn() {
+				item.AdvertL2vpnEvpn = AdminStEnabled
 			}
 			dom.AfItems.DomAfList.Set(item)
 		}
 
 		if af := req.BGP.Spec.AddressFamilies.L2vpnEvpn; af != nil && af.Enabled {
+			if dom.Name != DefaultVRFName {
+				return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+					Field:       "spec.addressFamilies.l2vpnEvpn",
+					Description: "L2VPN EVPN address family is not supported under a non-default VRF",
+				})
+			}
 			item := new(BGPDomAfItem)
 			item.Type = AddressFamilyL2EVPN
 			if err := item.SetMultipath(af.Multipath); err != nil {

@@ -12,18 +12,8 @@
               "DomAf-list": [
                 {
                   "exportGwIp": "disabled",
-                  "advertL2vpnEvpn": "disabled",
-                  "type": "ipv4-ucast",
-                  "interleak-items": {
-                    "InterLeakP-list": [
-                      {
-                        "asn": "none",
-                        "inst": "none",
-                        "proto": "direct",
-                        "rtMap": "ROUTE_MAP"
-                      }
-                    ]
-                  }
+                  "advertL2vpnEvpn": "enabled",
+                  "type": "ipv4-ucast"
                 }
               ]
             }

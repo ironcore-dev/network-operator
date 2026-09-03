@@ -170,6 +170,7 @@ spec:
                     "maxEcmp": 1,
                     "maxExtEcmp": 1,
                     "exportGwIp": "disabled",
+                    "advertL2vpnEvpn": "disabled",
                     "type": "l2vpn-evpn",
                     "advPip": "enabled",
                     "retainRttAll": "enabled",

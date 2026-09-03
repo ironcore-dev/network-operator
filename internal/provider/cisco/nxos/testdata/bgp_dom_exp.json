@@ -12,6 +12,7 @@
               "DomAf-list": [
                 {
                   "exportGwIp": "enabled",
+                  "advertL2vpnEvpn": "disabled",
                   "type": "ipv4-ucast"
                 }
               ]
