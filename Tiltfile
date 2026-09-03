@@ -99,6 +99,9 @@ k8s_resource(new_name='dns', objects=['dns:dns'], trigger_mode=TRIGGER_MODE_MANU
 k8s_yaml('./config/samples/v1alpha1_ntp.yaml')
 k8s_resource(new_name='ntp', objects=['ntp:ntp'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
+k8s_yaml('./config/samples/nokia/srlinux/v1alpha1_ntp.yaml')
+k8s_resource(new_name='ntp-srlinux', objects=['ntp-srlinux:ntp'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['srlinux'])
+
 k8s_yaml('./config/samples/v1alpha1_acl.yaml')
 k8s_resource(new_name='acl', objects=['acl:accesscontrollist'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
