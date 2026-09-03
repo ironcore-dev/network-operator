@@ -1,0 +1,3 @@
+snmp-server globalEnforcePriv yes
+snmp-server source-interface informs mgmt0
+snmp-server source-interface traps mgmt0

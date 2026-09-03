@@ -3912,6 +3912,7 @@ _Appears in:_
 | `communities` _[SNMPCommunity](#snmpcommunity) array_ | SNMP communities for SNMPv1 or SNMPv2c. |  | MaxItems: 16 <br />MinItems: 1 <br />Optional: \{\} <br /> |
 | `hosts` _[SNMPHosts](#snmphosts) array_ | SNMP destination hosts for SNMP traps or informs messages. |  | MaxItems: 16 <br />MinItems: 1 <br />Required: \{\} <br /> |
 | `traps` _string array_ | The list of trap notifications to enable. |  | MinItems: 1 <br />Optional: \{\} <br /> |
+| `enforceEncryption` _boolean_ | EnforceEncryption enforces SNMP message encryption for all users. |  | Optional: \{\} <br /> |
 
 
 #### SNMPStatus

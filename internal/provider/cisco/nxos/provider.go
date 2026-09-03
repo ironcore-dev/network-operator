@@ -2682,13 +2682,14 @@ func (p *Provider) EnsureSNMP(ctx context.Context, req *provider.EnsureSNMPReque
 	sysInfo.SysContact = NewOption(req.SNMP.Spec.Contact)
 	sysInfo.SysLocation = NewOption(req.SNMP.Spec.Location)
 
-	trapsSrcIf := new(SNMPSrcIf)
-	trapsSrcIf.Type = Traps
-	trapsSrcIf.Ifname = NewOption(req.SNMP.Spec.SourceInterfaceName)
-
-	informsSrcIf := new(SNMPSrcIf)
-	informsSrcIf.Type = Informs
-	informsSrcIf.Ifname = NewOption(req.SNMP.Spec.SourceInterfaceName)
+	globals := new(SNMPGlobals)
+	enforcePriv := AdminStNo
+	if req.SNMP.Spec.EnforceEncryption {
+		enforcePriv = AdminStYes
+	}
+	globals.EnforcePriv = NewOption(enforcePriv)
+	globals.InformsSrcIf.Ifname = NewOption(req.SNMP.Spec.SourceInterfaceName)
+	globals.TrapsSrcIf.Ifname = NewOption(req.SNMP.Spec.SourceInterfaceName)
 
 	communities := new(SNMPCommunityItems)
 	for _, c := range req.SNMP.Spec.Communities {
@@ -2751,7 +2752,7 @@ func (p *Provider) EnsureSNMP(ctx context.Context, req *provider.EnsureSNMPReque
 		rv.Set(reflect.ValueOf(&SNMPTraps{Trapstatus: AdminStEnable}))
 	}
 
-	return p.client.Update(ctx, sysInfo, trapsSrcIf, informsSrcIf, communities, hosts, traps)
+	return p.client.Update(ctx, sysInfo, globals, communities, hosts, traps)
 }
 
 func (p *Provider) DeleteSNMP(ctx context.Context, req *provider.DeleteSNMPRequest) error {
@@ -2760,15 +2761,8 @@ func (p *Provider) DeleteSNMP(ctx context.Context, req *provider.DeleteSNMPReque
 	traps := new(SNMPTrapsItems)
 	sb.Update(traps)
 
-	trapsSrcIf := new(SNMPSrcIf)
-	trapsSrcIf.Type = Traps
-
-	informsSrcIf := new(SNMPSrcIf)
-	informsSrcIf.Type = Informs
-
 	sb.Delete(
-		trapsSrcIf,
-		informsSrcIf,
+		new(SNMPGlobals),
 		new(SNMPSysInfo),
 		new(SNMPCommunityItems),
 		new(SNMPHostItems),

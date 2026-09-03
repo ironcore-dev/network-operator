@@ -11,7 +11,7 @@ import (
 
 var (
 	_ gnmiext.DataElement = (*SNMPSysInfo)(nil)
-	_ gnmiext.DataElement = (*SNMPSrcIf)(nil)
+	_ gnmiext.DataElement = (*SNMPGlobals)(nil)
 	_ gnmiext.DataElement = (*SNMPUser)(nil)
 	_ gnmiext.DataElement = (*SNMPHostItems)(nil)
 	_ gnmiext.DataElement = (*SNMPHost)(nil)
@@ -29,14 +29,19 @@ func (*SNMPSysInfo) XPath() string {
 	return "System/snmp-items/inst-items/sysinfo-items"
 }
 
-// SNMPSrcIf represents the SNMP source interface configuration on a NX-OS device.
-type SNMPSrcIf struct {
-	Type   MessageType    `json:"-"`
-	Ifname Option[string] `json:"ifname"`
+// SNMPGlobals represents the SNMP global configuration on a NX-OS device.
+type SNMPGlobals struct {
+	EnforcePriv  Option[AdminSt5] `json:"enforcePrivacy"`
+	InformsSrcIf struct {
+		Ifname Option[string] `json:"ifname"`
+	} `json:"srcInterfaceInforms-items"`
+	TrapsSrcIf struct {
+		Ifname Option[string] `json:"ifname"`
+	} `json:"srcInterfaceTraps-items"`
 }
 
-func (s *SNMPSrcIf) XPath() string {
-	return "System/snmp-items/inst-items/globals-items/srcInterface" + string(s.Type) + "-items"
+func (*SNMPGlobals) XPath() string {
+	return "System/snmp-items/inst-items/globals-items"
 }
 
 // SNMPUser represents an SNMP local user configuration on a NX-OS device.

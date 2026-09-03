@@ -35,6 +35,14 @@ const (
 	AdminStDisable AdminSt4 = "disable"
 )
 
+// AdminSt5 represents the administrative state of a component ("yes" or "no").
+type AdminSt5 string
+
+const (
+	AdminStYes AdminSt5 = "yes"
+	AdminStNo  AdminSt5 = "no"
+)
+
 // OperSt represents the operational state of a component.
 type OperSt string
 

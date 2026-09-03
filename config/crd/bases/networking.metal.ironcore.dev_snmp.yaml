@@ -110,6 +110,10 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
+              enforceEncryption:
+                description: EnforceEncryption enforces SNMP message encryption for
+                  all users.
+                type: boolean
               hosts:
                 description: SNMP destination hosts for SNMP traps or informs messages.
                 items:
