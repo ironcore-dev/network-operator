@@ -1,0 +1,23 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Device
+metadata:
+  labels:
+    topology.kubernetes.io/zone: qa-de-1a
+    networking.metal.ironcore.dev/role: evpn-leaf
+  name: leaf1-clab
+spec:
+  endpoint:
+    address: 192.168.65.254:57400 # IP of host.docker.internal
+    secretRef:
+      name: srlinux-credentials
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: srlinux-credentials
+type: kubernetes.io/basic-auth
+stringData:
+  username: admin
+  password: NokiaSrl1!

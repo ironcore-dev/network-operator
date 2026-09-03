@@ -137,8 +137,9 @@ spec:
                         or not.
                       type: boolean
                     vrfName:
-                      description: The name of the vrf used to communicate with the
-                        NTP server.
+                      description: |-
+                        The name of the vrf used to communicate with the NTP server.
+                        Maps to NetworkInstance in Openconfig. If empty, will be set to `mgmt`.
                       maxLength: 63
                       minLength: 1
                       type: string
@@ -150,15 +151,24 @@ spec:
                 x-kubernetes-list-map-keys:
                 - address
                 x-kubernetes-list-type: map
+              sourceAddress:
+                description: |-
+                  Source IP address for all NTP traffic.
+                  For Cisco, either SourceInterfaceName or SourceAddress must be defined.
+                maxLength: 63
+                minLength: 1
+                type: string
               sourceInterfaceName:
-                description: Source interface for all NTP traffic.
+                description: |-
+                  Source interface for all NTP traffic.
+                  For Cisco, either SourceInterfaceName or SourceAddress must be defined.
+                  SourceInterfaceName is not supported by the Openconfig provider.
                 maxLength: 63
                 minLength: 1
                 type: string
             required:
             - deviceRef
             - servers
-            - sourceInterfaceName
             type: object
           status:
             description: |-

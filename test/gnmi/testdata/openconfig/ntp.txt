@@ -1,0 +1,43 @@
+# Banner PreLogin
+-- ntp/ntp --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: NTP
+metadata:
+  name: ntp
+spec:
+  deviceRef:
+    name: leaf1
+  sourceAddress: 192.168.65.254
+  servers:
+    - address: de.pool.ntp.org
+      prefer: true
+      vrfName: mgmt
+    - address: pool.ntp.org
+      prefer: false
+      vrfName: mgmt
+-- state --
+{
+  "config": {
+    "enabled": true,
+  }
+  "servers": {
+    "server": [
+      {
+        "address": "de.pool.ntp.org",
+        "config": {
+          "address": "de.pool.ntp.org",
+          "prefer": true,
+          "network-instance": "mgmt"
+        }
+      },
+      {
+        "address": "pool.ntp.org",
+        "config": {
+          "address": "pool.ntp.org",
+          "prefer": false,
+          "network-instance": "mgmt"
+        }
+      }
+    ]
+  }
+}

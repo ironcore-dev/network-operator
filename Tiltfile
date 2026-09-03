@@ -200,6 +200,12 @@ k8s_resource(new_name='claim-prefix', objects=['claim-prefix:claim'], resource_d
 k8s_yaml('./config/samples/v1alpha1_fabric.yaml')
 k8s_resource(new_name='fabric', objects=['fabric:fabric', 'loopback-pool:ipaddresspool', 'underlay-p2p-pool:ipprefixpool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
+k8s_yaml('./examples/openconfig-containerlab/kubernetes/01-devices/leaf1-clab.yaml')
+k8s_resource(new_name='leaf1-clab', objects=['leaf1-clab:device', 'srlinux-credentials:secret'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['containerlab'])
+
+k8s_yaml('./examples/openconfig-containerlab/kubernetes/01-devices/v1alpha1-leaf1-clab-ntp.yaml')
+k8s_resource(new_name='ntp-clab', objects=['ntp-clab:ntp'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['containerlab'])
+
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')
 print('👉 Tilt will automatically rebuild and redeploy when changes are detected')

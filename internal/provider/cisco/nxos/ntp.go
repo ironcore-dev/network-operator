@@ -20,6 +20,9 @@ type NTP struct {
 	SrcIfItems struct {
 		SrcIf string `json:"srcIf,omitempty"`
 	} `json:"srcIf-items,omitzero"`
+	SrcIpItems struct {
+		SrcIp string `json:"srcIp,omitempty"`
+	} `json:"srcIp-items,omitzero"`
 }
 
 func (*NTP) XPath() string {

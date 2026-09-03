@@ -2106,6 +2106,19 @@ func (p *Provider) EnsureNTP(ctx context.Context, req *provider.EnsureNTPRequest
 		}
 	}
 
+	if req.NTP.Spec.SourceInterfaceName == "" && req.NTP.Spec.SourceAddress == "" {
+		var violations []apistatus.FieldViolation
+		violations = append(violations, apistatus.FieldViolation{
+			Field:       "spec.sourceInterfaceName",
+			Description: "At least one of fields (spec.sourceInterfaceName, spec.sourceAddress) must be defined",
+		})
+		violations = append(violations, apistatus.FieldViolation{
+			Field:       "spec.sourceAddress",
+			Description: "At least one of fields (spec.sourceInterfaceName, spec.sourceAddress) must be defined",
+		})
+		return apistatus.NewInvalidArgumentError(violations...)
+	}
+
 	n := new(NTP)
 	n.AdminSt = AdminStEnabled
 	if req.NTP.Spec.AdminState == v1alpha1.AdminStateDown {
@@ -2130,6 +2143,7 @@ func (p *Provider) EnsureNTP(ctx context.Context, req *provider.EnsureNTPRequest
 		n.ProvItems.NtpProviderList.Set(prov)
 	}
 	n.SrcIfItems.SrcIf = req.NTP.Spec.SourceInterfaceName
+	n.SrcIpItems.SrcIp = req.NTP.Spec.SourceAddress
 	sb.Update(n)
 
 	return p.Do(ctx, sb)
