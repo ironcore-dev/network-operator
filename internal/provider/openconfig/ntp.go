@@ -38,6 +38,7 @@ func (p *Provider) EnsureNTP(ctx context.Context, req *provider.EnsureNTPRequest
 			n.Servers.Server.Set(&NTPServer{
 				Address: s.Address,
 				Config: &NTPServerConfig{
+					Address:         s.Address,
 					Prefer:          s.Prefer,
 					NetworkInstance: networkInstance,
 					SourceAddress:   spec.SourceAddress,
