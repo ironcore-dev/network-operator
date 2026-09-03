@@ -1,0 +1,19 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: NTP
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1-clab
+  name: ntp-clab
+spec:
+  deviceRef:
+    name: leaf1-clab
+  sourceInterfaceName: mgmt0
+  servers:
+    - address: de.pool.ntp.org
+      prefer: true
+      vrfName: management
+    - address: pool.ntp.org
+      prefer: false
+      vrfName: management

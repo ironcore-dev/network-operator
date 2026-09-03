@@ -1,0 +1,14 @@
+name: nav-srl
+
+topology:
+  nodes:
+    leaf1:
+      kind: nokia_srlinux
+      image: ghcr.io/nokia/srlinux:26.7.1
+      mgmt-ipv4: 172.20.20.100
+      startup-config: |-
+        system name host-name srl
+        system grpc-server mgmt yang-models openconfig
+      ports:
+        - 57022:22
+        - 57400:57400
