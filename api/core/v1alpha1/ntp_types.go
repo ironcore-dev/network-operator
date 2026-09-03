@@ -30,10 +30,19 @@ type NTPSpec struct {
 	AdminState AdminState `json:"adminState,omitempty"`
 
 	// Source interface for all NTP traffic.
-	// +required
+	// For Cisco, either SourceInterfaceName or SourceAddress must be defined.
+	// SourceInterfaceName is not supported by the Openconfig provider.
+	// +optional
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63
-	SourceInterfaceName string `json:"sourceInterfaceName"`
+	SourceInterfaceName string `json:"sourceInterfaceName,omitempty"`
+
+	// Source IP address for all NTP traffic.
+	// For Cisco, either SourceInterfaceName or SourceAddress must be defined.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	SourceAddress string `json:"sourceAddress,omitempty"`
 
 	// NTP servers.
 	// +required
@@ -56,6 +65,7 @@ type NTPServer struct {
 	Prefer bool `json:"prefer,omitempty"`
 
 	// The name of the vrf used to communicate with the NTP server.
+	// Maps to NetworkInstance in Openconfig. If empty, will be set to `mgmt`.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63
