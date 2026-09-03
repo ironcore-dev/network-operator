@@ -327,6 +327,7 @@ Package v1alpha1 contains API Schema definitions for the networking.metal.ironco
 
 ### Resource Types
 - [AAA](#aaa)
+- [AccessControlList](#accesscontrollist)
 - [BGP](#bgp)
 - [BGPPeer](#bgppeer)
 - [Banner](#banner)
@@ -630,8 +631,59 @@ _Appears in:_
 | `description` _string_ | Description provides a human-readable description of the ACL entry. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 
 
+#### AccessControlList
 
 
+
+AccessControlList is the Schema for the accesscontrollists API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `AccessControlList` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[AccessControlListSpec](#accesscontrollistspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[AccessControlListStatus](#accesscontrolliststatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### AccessControlListSpec
+
+
+
+AccessControlListSpec defines the desired state of AccessControlList
+
+
+
+_Appears in:_
+- [AccessControlList](#accesscontrollist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the AccessControlList to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `name` _string_ | Name is the identifier of the AccessControlList on the device.<br />Immutable. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `entries` _[ACLEntry](#aclentry) array_ | A list of rules/entries to apply. |  | MaxItems: 100 <br />MinItems: 1 <br />Required: \{\} <br /> |
+
+
+#### AccessControlListStatus
+
+
+
+AccessControlListStatus defines the observed state of AccessControlList.
+
+
+
+_Appears in:_
+- [AccessControlList](#accesscontrollist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `entriesSummary` _string_ | EntriesSummary provides a human-readable summary of the number of ACL entries. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the AccessControlList. |  | Optional: \{\} <br /> |
 
 
 #### AddressFamily
