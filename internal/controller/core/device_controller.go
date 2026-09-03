@@ -6,9 +6,11 @@ package core
 import (
 	"cmp"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"net/url"
 	"regexp"
 	"slices"
 	"strings"
@@ -246,6 +248,12 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 	}
 
 	if err := r.reconcileMaintenance(ctx, obj, conn); err != nil {
+		// ErrUpgradeInProgress signals that a long-running maintenance step was
+		// issued and the operation must be resumed on a subsequent reconcile, so
+		// it must requeue rather than terminate.
+		if errors.Is(err, provider.ErrUpgradeInProgress) {
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{}, reconcile.TerminalError(err)
 	}
 
@@ -468,7 +476,8 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 
 	case v1alpha1.DeviceMaintenanceReboot,
 		v1alpha1.DeviceMaintenanceFactoryReset,
-		v1alpha1.DeviceMaintenanceReprovision:
+		v1alpha1.DeviceMaintenanceReprovision,
+		v1alpha1.DeviceMaintenanceFirmwareUpgrade:
 
 		prov := r.Provider()
 		if err := prov.Connect(ctx, conn); err != nil {
@@ -538,6 +547,39 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 				return fmt.Errorf("failed to prepare device for reprovisioning: %w", err)
 			}
 			obj.Status.Phase = v1alpha1.DevicePhasePending
+
+		case v1alpha1.DeviceMaintenanceFirmwareUpgrade:
+			mp, ok := prov.(provider.MaintenanceProvider)
+			if !ok {
+				r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceUnsupported", "Maintenance", "Provider does not support firmware upgrade operation: %s", action)
+				return nil
+			}
+			targetFirmware, err := r.getTargetFirmware(obj)
+			if err != nil {
+				return err
+			}
+
+			err = mp.UpgradeFirmware(ctx, conn, targetFirmware)
+			if errors.Is(err, provider.ErrUpgradeInProgress) {
+				conditions.Set(obj, metav1.Condition{
+					Type:    v1alpha1.ReadyCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  v1alpha1.MaintenanceInProgressReason,
+					Message: "Firmware upgrade in progress",
+				})
+				r.Recorder.Eventf(obj, nil, "Normal", "FirmwareUpgradeInProgress", "Maintenance", "Device firmware upgrade is in progress")
+				return err
+			}
+			if err != nil {
+				conditions.Set(obj, metav1.Condition{
+					Type:    v1alpha1.ReadyCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  v1alpha1.MaintenanceFailedReason,
+					Message: fmt.Sprintf("Failed to upgrade firmware: %v", err),
+				})
+				r.Recorder.Eventf(obj, nil, "Warning", "FirmwareUpgradeFailed", "Maintenance", "Device firmware upgrade has failed: %v", err)
+				return fmt.Errorf("failed to upgrade firmware: %w", err)
+			}
 		}
 
 	default:
@@ -549,6 +591,53 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 	// failed actions are retried on the next reconciliation.
 	delete(obj.Annotations, v1alpha1.DeviceMaintenanceAnnotation)
 	return nil
+}
+
+// getTargetFirmware retrieves the target firmware information from the device's annotations
+func (r *DeviceReconciler) getTargetFirmware(obj *v1alpha1.Device) (provider.TargetFirmware, error) {
+	targetFirmwareJSON, ok := obj.Annotations[v1alpha1.DeviceMaintenanceFirmwareTargetAnnotation]
+	if !ok {
+		r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceMissingFirmwareTarget", "Maintenance", "Firmware upgrade requested but no target firmware specified")
+		return provider.TargetFirmware{}, errors.New("firmware upgrade requested but no target firmware specified")
+	}
+
+	var targetFirmware provider.TargetFirmware
+	if err := json.Unmarshal([]byte(targetFirmwareJSON), &targetFirmware); err != nil {
+		r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceInvalidFirmwareTarget", "Maintenance", "Invalid firmware target specified: %v", err)
+		return provider.TargetFirmware{}, fmt.Errorf("failed to parse firmware target: %w", err)
+	}
+
+	// Validate the URL to ensure it is a well-formed absolute HTTP(S) URL and reject
+	// characters commonly used for shell/control injection if this value is later passed on.
+	parsedURL, err := url.ParseRequestURI(targetFirmware.URL)
+	if err != nil {
+		r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceInvalidFirmwareTarget", "Maintenance", "Invalid firmware target specified: url is invalid: %v", err)
+		return provider.TargetFirmware{}, fmt.Errorf("invalid firmware target: url is invalid: %w", err)
+	}
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceInvalidFirmwareTarget", "Maintenance", "Invalid firmware target specified: url scheme must be http or https")
+		return provider.TargetFirmware{}, errors.New("invalid firmware target: url scheme must be http or https")
+	}
+	if parsedURL.Host == "" {
+		r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceInvalidFirmwareTarget", "Maintenance", "Invalid firmware target specified: url host is required")
+		return provider.TargetFirmware{}, errors.New("invalid firmware target: url host is required")
+	}
+	if parsedURL.User != nil {
+		r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceInvalidFirmwareTarget", "Maintenance", "Invalid firmware target specified: url must not contain user info")
+		return provider.TargetFirmware{}, errors.New("invalid firmware target: url must not contain user info")
+	}
+	if strings.ContainsAny(targetFirmware.URL, "\r\n\t`$\\<>|;&()") {
+		r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceInvalidFirmwareTarget", "Maintenance", "Invalid firmware target specified: url contains forbidden characters")
+		return provider.TargetFirmware{}, errors.New("invalid firmware target: url contains forbidden characters")
+	}
+
+	// Validate the MD5 checksum if provided. It must be alphanumeric.
+	if targetFirmware.MD5 != "" && !regexp.MustCompile(`^[a-zA-Z0-9]+$`).MatchString(targetFirmware.MD5) {
+		r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceInvalidFirmwareTarget", "Maintenance", "Invalid firmware target specified: md5 must be alphanumeric")
+		return provider.TargetFirmware{}, errors.New("invalid firmware target: md5 must be alphanumeric")
+	}
+
+	return targetFirmware, nil
 }
 
 // secretToDevices is a [handler.MapFunc] to be used to enqueue requests for reconciliation

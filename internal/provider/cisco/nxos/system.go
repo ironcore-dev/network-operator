@@ -68,6 +68,13 @@ func (*FirmwareVersion) XPath() string {
 	return "System/showversion-items/nxosVersion"
 }
 
+// BootImage is the boot image filename of the device, e.g. "bootflash://nxos.10.4.3.bin".
+type BootImage string
+
+func (*BootImage) XPath() string {
+	return "System/showversion-items/nxosImageFile"
+}
+
 type BootTime UnixTime
 
 func (*BootTime) XPath() string {

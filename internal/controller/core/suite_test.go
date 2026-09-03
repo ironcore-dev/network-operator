@@ -446,6 +446,7 @@ type Provider struct {
 	sync.Mutex
 
 	ConnectError   error // if non-nil, Connect returns this error
+	UpgradeError   error // if non-nil, UpgradeFirmware returns this error
 	LastRebootTime time.Time
 
 	Ports            sets.Set[string]
@@ -566,6 +567,20 @@ func (p *Provider) Reboot(ctx context.Context, conn *deviceutil.Connection) erro
 
 func (p *Provider) FactoryReset(ctx context.Context, conn *deviceutil.Connection) error {
 	return nil
+}
+
+func (p *Provider) UpgradeFirmware(ctx context.Context, conn *deviceutil.Connection, target provider.TargetFirmware) error {
+	p.Lock()
+	defer p.Unlock()
+	return p.UpgradeError
+}
+
+// SetUpgradeError sets the error that UpgradeFirmware returns on subsequent
+// calls. Pass nil to clear it.
+func (p *Provider) SetUpgradeError(err error) {
+	p.Lock()
+	defer p.Unlock()
+	p.UpgradeError = err
 }
 
 func (p *Provider) Reprovision(ctx context.Context, conn *deviceutil.Connection) (reterr error) {
