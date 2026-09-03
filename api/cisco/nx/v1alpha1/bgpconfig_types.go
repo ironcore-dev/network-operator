@@ -34,6 +34,26 @@ type BGPConfigAddressFamilies struct {
 	Ipv6Unicast *BGPConfigUnicastAddressFamily `json:"ipv6Unicast,omitempty"`
 }
 
+// Ipv4UnicastExportGatewayIP reports whether export gateway IP is enabled for the IPv4 unicast address family.
+func (af *BGPConfigAddressFamilies) Ipv4UnicastExportGatewayIP() bool {
+	return af != nil && af.Ipv4Unicast != nil && af.Ipv4Unicast.ExportGatewayIP != nil && *af.Ipv4Unicast.ExportGatewayIP
+}
+
+// Ipv6UnicastExportGatewayIP reports whether export gateway IP is enabled for the IPv6 unicast address family.
+func (af *BGPConfigAddressFamilies) Ipv6UnicastExportGatewayIP() bool {
+	return af != nil && af.Ipv6Unicast != nil && af.Ipv6Unicast.ExportGatewayIP != nil && *af.Ipv6Unicast.ExportGatewayIP
+}
+
+// Ipv4UnicastAdvertiseL2vpnEvpn reports whether advertise l2vpn evpn is enabled for the IPv4 unicast address family.
+func (af *BGPConfigAddressFamilies) Ipv4UnicastAdvertiseL2vpnEvpn() bool {
+	return af != nil && af.Ipv4Unicast != nil && af.Ipv4Unicast.AdvertiseL2vpnEvpn != nil && *af.Ipv4Unicast.AdvertiseL2vpnEvpn
+}
+
+// Ipv6UnicastAdvertiseL2vpnEvpn reports whether advertise l2vpn evpn is enabled for the IPv6 unicast address family.
+func (af *BGPConfigAddressFamilies) Ipv6UnicastAdvertiseL2vpnEvpn() bool {
+	return af != nil && af.Ipv6Unicast != nil && af.Ipv6Unicast.AdvertiseL2vpnEvpn != nil && *af.Ipv6Unicast.AdvertiseL2vpnEvpn
+}
+
 // BGPL2vpnEvpn defines the configuration for L2VPN EVPN address family.
 type BGPL2vpnEvpn struct {
 	// AdvertisePIP controls whether the BGP EVPN address-family should advertise the primary IP address (PIP) as the next-hop
@@ -50,6 +70,12 @@ type BGPConfigUnicastAddressFamily struct {
 	// required for symmetric IRB in VXLAN BGP EVPN topologies.
 	// +optional
 	ExportGatewayIP *bool `json:"exportGatewayIP,omitempty"`
+
+	// AdvertiseL2vpnEvpn enables advertising EVPN routes within the VRF
+	// unicast address family. Required on border gateway nodes for cross-site
+	// EVPN Type-5 IP prefix route advertisement.
+	// +optional
+	AdvertiseL2vpnEvpn *bool `json:"advertiseL2vpnEvpn,omitempty"`
 }
 
 // +kubebuilder:object:root=true

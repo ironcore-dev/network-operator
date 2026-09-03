@@ -4681,6 +4681,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `exportGatewayIP` _boolean_ | ExportGatewayIP enables advertising the gateway IP in EVPN Type-5 routes,<br />required for symmetric IRB in VXLAN BGP EVPN topologies. |  | Optional: \{\} <br /> |
+| `advertiseL2vpnEvpn` _boolean_ | AdvertiseL2vpnEvpn enables advertising EVPN routes within the VRF<br />unicast address family. Required on border gateway nodes for cross-site<br />EVPN Type-5 IP prefix route advertisement. |  | Optional: \{\} <br /> |
 
 
 #### BGPL2vpnEvpn
