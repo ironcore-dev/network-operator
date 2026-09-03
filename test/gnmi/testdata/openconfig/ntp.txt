@@ -7,13 +7,14 @@ metadata:
 spec:
   deviceRef:
     name: leaf1
+  sourceAddress: 192.168.65.254
   servers:
     - address: de.pool.ntp.org
       prefer: true
-      vrfName: management
+      vrfName: mgmt
     - address: pool.ntp.org
       prefer: false
-      vrfName: management
+      vrfName: mgmt
 -- state --
 {
   "config": {
@@ -26,7 +27,7 @@ spec:
         "config": {
           "address": "de.pool.ntp.org",
           "prefer": true,
-          "network-instance": "management"
+          "network-instance": "mgmt"
         }
       },
       {
@@ -34,7 +35,7 @@ spec:
         "config": {
           "address": "pool.ntp.org",
           "prefer": false,
-          "network-instance": "management"
+          "network-instance": "mgmt"
         }
       }
     ]
