@@ -64,8 +64,8 @@ func TestControllers(t *testing.T) {
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	SetDefaultEventuallyTimeout(time.Minute)
-	SetDefaultEventuallyPollingInterval(time.Second)
+	SetDefaultEventuallyTimeout(90 * time.Second)
+	SetDefaultEventuallyPollingInterval(200 * time.Millisecond)
 
 	ctx, cancel = context.WithCancel(ctrl.SetupSignalHandler())
 
