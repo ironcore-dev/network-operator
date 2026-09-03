@@ -2848,7 +2848,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `address` _string_ | Hostname/IP address of the NTP server. |  | MaxLength: 253 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `prefer` _boolean_ | Indicates whether this server should be preferred or not. | false | Optional: \{\} <br /> |
-| `vrfName` _string_ | The name of the vrf used to communicate with the NTP server. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
+| `vrfName` _string_ | The name of the vrf used to communicate with the NTP server.<br />Maps to NetworkInstance in Openconfig. If empty, will be set to `mgmt`. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 
 
 #### NTPSpec
@@ -2867,7 +2867,8 @@ _Appears in:_
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the NTP to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether NTP is administratively up or down. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
-| `sourceInterfaceName` _string_ | Source interface for all NTP traffic. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `sourceInterfaceName` _string_ | Source interface for all NTP traffic.<br />For Cisco, either SourceInterfaceName or SourceAddress must be defined.<br />SourceInterfaceName is not supported by the Openconfig provider. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
+| `sourceAddress` _string_ | Source IP address for all NTP traffic.<br />For Cisco, either SourceInterfaceName or SourceAddress must be defined. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 | `servers` _[NTPServer](#ntpserver) array_ | NTP servers. |  | MinItems: 1 <br />Required: \{\} <br /> |
 
 
