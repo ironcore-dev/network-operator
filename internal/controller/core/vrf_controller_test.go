@@ -115,11 +115,13 @@ var _ = Describe("VRF Controller", func() {
 			By("Updating the resource status")
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, key, vrf)).To(Succeed())
-				g.Expect(vrf.Status.Conditions).To(HaveLen(2))
+				g.Expect(vrf.Status.Conditions).To(HaveLen(3))
 				g.Expect(vrf.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(vrf.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
-				g.Expect(vrf.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
-				g.Expect(vrf.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(vrf.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(vrf.Status.Conditions[1].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(vrf.Status.Conditions[2].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(vrf.Status.Conditions[2].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 
 			By("Ensuring the VRF is created in the provider")

@@ -176,7 +176,7 @@ func (r *BannerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 	}
 
 	orig := obj.DeepCopy()
-	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
@@ -287,6 +287,10 @@ func (r *BannerReconciler) reconcile(ctx context.Context, s *bannerScope) (reter
 
 	s.Banner.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
+	defer func() {
+		conditions.RecomputeReady(s.Banner)
+	}()
+
 	// Ensure the Banner is owned by the Device.
 	if !controllerutil.HasControllerReference(s.Banner) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.Banner, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
@@ -316,8 +320,6 @@ func (r *BannerReconciler) reconcile(ctx context.Context, s *bannerScope) (reter
 	})
 
 	cond := conditions.FromError(err)
-	// As this resource is configuration only, we use the Configured condition as top-level Ready condition.
-	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.Banner, cond)
 
 	return err

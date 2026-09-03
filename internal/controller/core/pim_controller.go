@@ -173,7 +173,7 @@ func (r *PIMReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 	}
 
 	orig := obj.DeepCopy()
-	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
@@ -290,6 +290,10 @@ func (r *PIMReconciler) reconcile(ctx context.Context, s *pimScope) (reterr erro
 
 	s.PIM.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
+	defer func() {
+		conditions.RecomputeReady(s.PIM)
+	}()
+
 	// Ensure the PIM is owned by the Device.
 	if !controllerutil.HasControllerReference(s.PIM) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.PIM, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
@@ -303,7 +307,7 @@ func (r *PIMReconciler) reconcile(ctx context.Context, s *pimScope) (reterr erro
 		if err := r.Get(ctx, client.ObjectKey{Name: intf.Name, Namespace: s.PIM.Namespace}, res); err != nil {
 			if apierrors.IsNotFound(err) {
 				conditions.Set(s.PIM, metav1.Condition{
-					Type:    v1alpha1.ReadyCondition,
+					Type:    v1alpha1.ConfiguredCondition,
 					Status:  metav1.ConditionFalse,
 					Reason:  v1alpha1.InterfaceNotFoundReason,
 					Message: fmt.Sprintf("interface %q not found", intf.Name),
@@ -315,7 +319,7 @@ func (r *PIMReconciler) reconcile(ctx context.Context, s *pimScope) (reterr erro
 
 		if !conditions.IsConfigured(res) {
 			conditions.Set(s.PIM, metav1.Condition{
-				Type:    v1alpha1.ReadyCondition,
+				Type:    v1alpha1.ConfiguredCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  v1alpha1.WaitingForDependenciesReason,
 				Message: "Waiting for referenced interfaces to become configured",
@@ -346,8 +350,6 @@ func (r *PIMReconciler) reconcile(ctx context.Context, s *pimScope) (reterr erro
 	})
 
 	cond := conditions.FromError(err)
-	// As this resource is configuration only, we use the Configured condition as top-level Ready condition.
-	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.PIM, cond)
 
 	return err

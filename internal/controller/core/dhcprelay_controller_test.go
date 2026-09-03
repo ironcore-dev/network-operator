@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/conditions"
 )
 
 var _ = Describe("DHCPRelay Controller", func() {
@@ -191,9 +192,13 @@ var _ = Describe("DHCPRelay Controller", func() {
 				dhcprelay = &v1alpha1.DHCPRelay{}
 				g.Expect(k8sClient.Get(ctx, resourceKey, dhcprelay)).To(Succeed())
 
-				cond := meta.FindStatusCondition(dhcprelay.Status.Conditions, v1alpha1.ReadyCondition)
-				g.Expect(cond).ToNot(BeNil())
-				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(dhcprelay.Status.Conditions).To(HaveLen(3))
+				g.Expect(dhcprelay.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(dhcprelay.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(dhcprelay.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(dhcprelay.Status.Conditions[1].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(dhcprelay.Status.Conditions[2].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(dhcprelay.Status.Conditions[2].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 
 			By("Verifying the status contains configured interface refs")
@@ -1122,6 +1127,13 @@ var _ = Describe("DHCPRelay Controller", func() {
 			resourceName = dhcprelay.Name
 			resourceKey = client.ObjectKey{Name: resourceName, Namespace: metav1.NamespaceDefault}
 
+			By("Waiting for DHCPRelay's condition to be fully consistent")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.DHCPRelay{}
+				g.Expect(k8sClient.Get(ctx, resourceKey, resource)).To(Succeed())
+				g.Expect(conditions.IsConfigured(resource)).To(BeFalse()) // checks ObservedGeneration too
+			}).Should(Succeed())
+
 			By("Verifying DHCPRelay is not ready due to non-configured Interface")
 			Eventually(func(g Gomega) {
 				err := k8sClient.Get(ctx, resourceKey, dhcprelay)
@@ -1153,6 +1165,13 @@ var _ = Describe("DHCPRelay Controller", func() {
 				cond := meta.FindStatusCondition(intf.Status.Conditions, v1alpha1.ConfiguredCondition)
 				g.Expect(cond).ToNot(BeNil())
 				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			}).Should(Succeed())
+
+			By("Waiting for Interface's condition to be fully consistent")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, interfaceKey, intf)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(conditions.IsConfigured(intf)).To(BeTrue()) // checks ObservedGeneration too
 			}).Should(Succeed())
 
 			By("Verifying DHCPRelay becomes ready after Interface is configured (watch triggered re-reconciliation)")

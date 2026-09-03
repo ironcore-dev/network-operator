@@ -98,11 +98,13 @@ var _ = Describe("PIM Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.PIM{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(2))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
-				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
-				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 
 			By("Ensuring the resource is created in the provider")
@@ -150,7 +152,7 @@ var _ = Describe("PIM Controller", func() {
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
-		It("Should set ReadyCondition to false when interfaceRef does not exist", func() {
+		It("Should set ConfiguredCondition to false when interfaceRef does not exist", func() {
 			By("Creating a PIM resource with a non-existent interfaceRef")
 			pim := &v1alpha1.PIM{
 				ObjectMeta: metav1.ObjectMeta{
@@ -169,12 +171,12 @@ var _ = Describe("PIM Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, pim)).To(Succeed())
 
-			By("Verifying the controller sets ReadyCondition to false")
+			By("Verifying the controller sets ConfiguredCondition to false")
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.PIM{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
 
-				ready := meta.FindStatusCondition(resource.Status.Conditions, v1alpha1.ReadyCondition)
+				ready := meta.FindStatusCondition(resource.Status.Conditions, v1alpha1.ConfiguredCondition)
 				g.Expect(ready).NotTo(BeNil())
 				g.Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(ready.Reason).To(Equal(v1alpha1.InterfaceNotFoundReason))

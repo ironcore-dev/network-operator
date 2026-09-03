@@ -185,7 +185,7 @@ func (r *BGPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 	}
 
 	orig := obj.DeepCopy()
-	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
@@ -308,7 +308,7 @@ func (r *BGPReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					oldVRF := e.ObjectOld.(*v1alpha1.VRF)
 					newVRF := e.ObjectNew.(*v1alpha1.VRF)
-					return conditions.IsReady(oldVRF) != conditions.IsReady(newVRF)
+					return conditions.IsConfigured(oldVRF) != conditions.IsConfigured(newVRF)
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false
@@ -347,6 +347,10 @@ func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (reterr erro
 	}
 
 	s.BGP.Labels[v1alpha1.DeviceLabel] = s.Device.Name
+
+	defer func() {
+		conditions.RecomputeReady(s.BGP)
+	}()
 
 	// Ensure the BGP is owned by the Device.
 	if !controllerutil.HasControllerReference(s.BGP) {
@@ -390,8 +394,6 @@ func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (reterr erro
 	})
 
 	cond := conditions.FromError(err)
-	// As this resource is configuration only, we use the Configured condition as top-level Ready condition.
-	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.BGP, cond)
 
 	return err
@@ -443,7 +445,7 @@ func (r *BGPReconciler) reconcileVRF(ctx context.Context, bgp *v1alpha1.BGP, dev
 	}, vrf); err != nil {
 		if apierrors.IsNotFound(err) {
 			conditions.Set(bgp, metav1.Condition{
-				Type:    v1alpha1.ReadyCondition,
+				Type:    v1alpha1.ConfiguredCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  v1alpha1.VRFNotFoundReason,
 				Message: fmt.Sprintf("VRF %s not found", bgp.Spec.VrfRef.Name),
@@ -454,7 +456,7 @@ func (r *BGPReconciler) reconcileVRF(ctx context.Context, bgp *v1alpha1.BGP, dev
 	}
 	if vrf.Spec.DeviceRef.Name != device.Name {
 		conditions.Set(bgp, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
+			Type:    v1alpha1.ConfiguredCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  v1alpha1.CrossDeviceReferenceReason,
 			Message: fmt.Sprintf("VRF %s belongs to device %s, not %s", bgp.Spec.VrfRef.Name, vrf.Spec.DeviceRef.Name, device.Name),
@@ -462,10 +464,10 @@ func (r *BGPReconciler) reconcileVRF(ctx context.Context, bgp *v1alpha1.BGP, dev
 		return nil, reconcile.TerminalError(fmt.Errorf("vrf %s belongs to different device", bgp.Spec.VrfRef.Name))
 	}
 
-	if !conditions.IsReady(vrf) {
+	if !conditions.IsConfigured(vrf) {
 		// VRF uses ReadyCondition as its top-level configured state (no separate ConfiguredCondition).
 		conditions.Set(bgp, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
+			Type:    v1alpha1.ConfiguredCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  v1alpha1.WaitingForDependenciesReason,
 			Message: fmt.Sprintf("Waiting for VRF %s to become ready", bgp.Spec.VrfRef.Name),
@@ -497,7 +499,7 @@ func (r *BGPReconciler) reconcileRedistributeDirectPolicies(ctx context.Context,
 		if err := r.Get(ctx, types.NamespacedName{Name: ref.Name, Namespace: bgp.Namespace}, rp); err != nil {
 			if apierrors.IsNotFound(err) {
 				conditions.Set(bgp, metav1.Condition{
-					Type:    v1alpha1.ReadyCondition,
+					Type:    v1alpha1.ConfiguredCondition,
 					Status:  metav1.ConditionFalse,
 					Reason:  v1alpha1.WaitingForDependenciesReason,
 					Message: fmt.Sprintf("RoutingPolicy %s not found", ref.Name),
@@ -509,7 +511,7 @@ func (r *BGPReconciler) reconcileRedistributeDirectPolicies(ctx context.Context,
 
 		if rp.Spec.DeviceRef.Name != device.Name {
 			conditions.Set(bgp, metav1.Condition{
-				Type:    v1alpha1.ReadyCondition,
+				Type:    v1alpha1.ConfiguredCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  v1alpha1.CrossDeviceReferenceReason,
 				Message: fmt.Sprintf("RoutingPolicy %s belongs to device %s, not %s", ref.Name, rp.Spec.DeviceRef.Name, device.Name),

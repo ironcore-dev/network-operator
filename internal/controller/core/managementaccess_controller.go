@@ -172,7 +172,7 @@ func (r *ManagementAccessReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	orig := obj.DeepCopy()
-	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
@@ -271,6 +271,10 @@ func (r *ManagementAccessReconciler) reconcile(ctx context.Context, s *managemen
 
 	s.ManagementAccess.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
+	defer func() {
+		conditions.RecomputeReady(s.ManagementAccess)
+	}()
+
 	// Ensure the ManagementAccess is owned by the Device.
 	if !controllerutil.HasControllerReference(s.ManagementAccess) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.ManagementAccess, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
@@ -294,8 +298,6 @@ func (r *ManagementAccessReconciler) reconcile(ctx context.Context, s *managemen
 	})
 
 	cond := conditions.FromError(err)
-	// As this resource is configuration only, we use the Configured condition as top-level Ready condition.
-	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.ManagementAccess, cond)
 
 	return err

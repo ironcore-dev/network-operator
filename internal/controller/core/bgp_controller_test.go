@@ -33,6 +33,12 @@ var _ = Describe("BGP Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+
+			By("Waiting for the Device to be created")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(device), resource)).To(Succeed())
+			}).Should(Succeed())
 		})
 
 		AfterEach(func() {
@@ -115,11 +121,13 @@ var _ = Describe("BGP Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.BGP{}
 				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgp), resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(2))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
-				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
-				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 
 			By("Ensuring the resource is created in the provider")
@@ -144,11 +152,18 @@ var _ = Describe("BGP Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, bgp)).To(Succeed())
 
-			By("Expecting ReadyCondition to be False with VRFNotFoundReason reason")
+			By("Waiting for BGP's condition to be fully consistent")
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.BGP{}
 				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgp), resource)).To(Succeed())
-				cond := conditions.Get(resource, v1alpha1.ReadyCondition)
+				g.Expect(conditions.IsConfigured(resource)).To(BeFalse()) // checks ObservedGeneration too
+			}).Should(Succeed())
+
+			By("Expecting ConfiguredCondition to be False with VRFNotFoundReason reason")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.BGP{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgp), resource)).To(Succeed())
+				cond := conditions.Get(resource, v1alpha1.ConfiguredCondition)
 				g.Expect(cond).ToNot(BeNil())
 				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(cond.Reason).To(Equal(v1alpha1.VRFNotFoundReason))
@@ -223,11 +238,11 @@ var _ = Describe("BGP Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, bgp)).To(Succeed())
 
-			By("Expecting ReadyCondition to be False with WaitingForDependencies reason")
+			By("Expecting ConfiguredCondition to be False with WaitingForDependencies reason")
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.BGP{}
 				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgp), resource)).To(Succeed())
-				cond := conditions.Get(resource, v1alpha1.ReadyCondition)
+				cond := conditions.Get(resource, v1alpha1.ConfiguredCondition)
 				g.Expect(cond).ToNot(BeNil())
 				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(cond.Reason).To(Equal(v1alpha1.WaitingForDependenciesReason))
