@@ -114,6 +114,127 @@ Users can just run kubectl apply -f <URL for YAML BUNDLE> to install the project
 kubectl apply -f https://raw.githubusercontent.com/<org>/network-operator/<tag or branch>/dist/install.yaml
 ```
 
+## Claude Code Skills
+
+This project includes [Claude Code](https://claude.ai/code) skills for interactive development workflows. Skills are located in `.claude/skills/` and invoked via slash commands.
+
+### `/netop-setup`
+
+Set up the full test environment (colima VM, kind cluster, cert-manager, containerlab device):
+
+```
+/netop-setup
+```
+
+Say `no vm` or `skip vm` to skip VM provisioning if it's already running. Supports colima and multipass.
+
+**Example — Nokia SRL:**
+
+```
+/netop-setup
+```
+
+```
+  Colima VM network-operator — arm64, 4 CPU, 8 GB, 60 GB, running
+  Kind cluster network-operator — Kubernetes v1.36.1, node Ready
+  cert-manager v1.18.2 — all deployments available
+  Nokia SRL — clab-srlceos01-srl running at 172.20.20.2
+
+  Next step: run /netop-test.
+```
+
+**Example — Cisco device accessible on `127.0.0.1:57400`:**
+
+```
+/netop-setup cisco device accessible on 127.0.0.1:57400 with user admin and password admin
+```
+
+```
+  Colima VM network-operator — arm64, 4 CPU, 8 GB, 60 GB, running
+  Kind cluster network-operator — Kubernetes v1.36.1, node Ready
+  cert-manager v1.18.2 — all deployments available
+  Cisco device — reachable from VM at 192.168.5.2:57400 (Mac host IP as seen from VM — use this instead of 127.0.0.1)
+
+  Next step: run /netop-test with GNMI_TARGET=192.168.5.2:57400.
+```
+
+### `/netop-test`
+
+Build, deploy and test the operator against a real containerlab device:
+
+```
+/netop-test
+```
+
+You can pass CR files and expected results directly:
+
+```
+/netop-test @config/samples/v1alpha1_banner.yaml
+/netop-test @test/gnmi/testdata/openconfig/banner.txt
+/netop-test @my-cr.yaml @my-expected.json
+```
+
+- **`config/samples/`** — ready-made sample CRs for all supported resource types
+- **`test/gnmi/testdata/`** — testdata files containing both the CR YAML and expected gnmic state in one file (parsed automatically)
+- **Custom files** — pass any CR YAML and optionally a JSON file with the expected gnmic state
+
+You can also ask the skill to inspect the environment or show device capabilities in natural language:
+
+```
+/netop-test show me the device topology
+/netop-test show me device capabilities
+/netop-test show me device configuration openconfig-system:system/dns
+```
+
+- `show me the device topology` → runs `containerlab inspect -a` to list all running labs and their node IPs
+- `show me device capabilities` → runs `gnmic capabilities` to show supported YANG models, encodings, and gNMI version
+- `show me device configuration <xpath>` → runs `gnmic get --path <xpath>` and prints the full JSON response
+
+**Example output:**
+
+```
+  Test Report
+
+  ┌──────────────┬──────────────┬───────────┬───────┬──────────────────────────────────────────────┬─────────────────┐
+  │   CR Name    │     Kind     │ Namespace │ Ready │                  gNMI Path                   │     Result      │
+  ├──────────────┼──────────────┼───────────┼───────┼──────────────────────────────────────────────┼─────────────────┤
+  │ banner       │ Banner       │ default   │ True  │ openconfig-system:system/config/login-banner  │ ✓ value matches │
+  └──────────────┴──────────────┴───────────┴───────┴──────────────────────────────────────────────┴─────────────────┘
+
+  gnmic get openconfig-system:system/config/login-banner
+  ──────────────────────────────────────────────────────
+  {
+    "openconfig-system:system": {
+      "config": {
+        "login-banner": "###################################################\n#   WARNING: Unauthorized access is prohibited.   #\n###################################################\n"
+      }
+    }
+  }
+```
+
+### `/netop-check`
+
+Run local checks before committing or opening a PR:
+
+```
+/netop-check
+```
+
+Runs `go vet`, `golangci-lint`, unit tests (`make test`), and gNMI integration tests (`make test-gnmi`). If lint fails, offers to run `make fmt` or `make lint-fix` to auto-fix issues. Prints a summary report at the end.
+
+**Example output:**
+
+```
+  Local Dev Report
+  ────────────────────────────────────────────────────────
+  Vet:         ✓ passed
+  Lint:        ✓ passed
+  Unit tests:  ✓ 15 packages passed, 0 failed
+  gNMI tests:  ✓ N passed, 0 failed
+  ────────────────────────────────────────────────────────
+  Overall:     ✓ all checks passed
+```
+
 ## Support, Feedback, Contributing
 
 This project is open to feature requests/suggestions, bug reports etc. via [GitHub issues](https://github.com/ironcore-dev/network-operator/issues). Contribution and feedback are encouraged and always welcome. For more information about how to contribute, the project structure, as well as additional contribution information, see our [Contribution Guidelines](CONTRIBUTING.md).
