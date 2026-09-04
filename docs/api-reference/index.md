@@ -2848,7 +2848,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `address` _string_ | Hostname/IP address of the NTP server. |  | MaxLength: 253 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `prefer` _boolean_ | Indicates whether this server should be preferred or not. | false | Optional: \{\} <br /> |
-| `vrfName` _string_ | The name of the vrf used to communicate with the NTP server.<br />Maps to NetworkInstance in Openconfig. If empty, will be set to `mgmt`. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
+| `vrfName` _string_ | The name of the vrf used to communicate with the NTP server.<br />Maps to network-instance in Openconfig |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 
 
 #### NTPSpec

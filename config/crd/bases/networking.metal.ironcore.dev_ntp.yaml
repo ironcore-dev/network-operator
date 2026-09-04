@@ -139,7 +139,7 @@ spec:
                     vrfName:
                       description: |-
                         The name of the vrf used to communicate with the NTP server.
-                        Maps to NetworkInstance in Openconfig. If empty, will be set to `mgmt`.
+                        Maps to network-instance in Openconfig
                       maxLength: 63
                       minLength: 1
                       type: string

@@ -29,11 +29,7 @@ func (p *Provider) EnsureNTP(ctx context.Context, req *provider.EnsureNTPRequest
 	if len(spec.Servers) > 0 {
 		n.Servers = &NTPServers{}
 		for _, s := range spec.Servers {
-			// If VrfName was not specified, we need to pass the correct default - the `mgmt` network instance
 			networkInstance := s.VrfName
-			if networkInstance == "" {
-				networkInstance = "mgmt"
-			}
 
 			n.Servers.Server.Set(&NTPServer{
 				Address: s.Address,
@@ -73,26 +69,26 @@ var _ gnmiext.DataElement = (*NTP)(nil)
 
 // DNS represents the OpenConfig /system/ntp container.
 type NTP struct {
-	Config  *NTPConfig  `json:"config,omitempty"`
-	Servers *NTPServers `json:"servers,omitempty"`
+	Config  *NTPConfig  `json:"config"`
+	Servers *NTPServers `json:"servers"`
 }
 
 func (*NTP) XPath() string { return "openconfig-system:system/ntp" }
 
 // NTPConfig holds the config container for NTP.
 type NTPConfig struct {
-	Enabled bool `json:"enabled"` // Maps to AdminState
+	Enabled bool `json:"enabled"`
 }
 
 // NTPServers holds the servers container for NTP.
 type NTPServers struct {
-	Server gnmiext.List[string, *NTPServer] `json:"server,omitempty"`
+	Server gnmiext.List[string, *NTPServer] `json:"server"`
 }
 
 // NTPServer represents a single NTP server entry.
 type NTPServer struct {
 	Address string           `json:"address"`
-	Config  *NTPServerConfig `json:"config,omitempty"`
+	Config  *NTPServerConfig `json:"config"`
 }
 
 func (s *NTPServer) Key() string { return s.Address }
