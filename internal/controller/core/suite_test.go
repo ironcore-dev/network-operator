@@ -1046,19 +1046,6 @@ func (p *Provider) DeleteDHCPRelay(_ context.Context, req *provider.DHCPRelayReq
 	return nil
 }
 
-func (p *Provider) GetDHCPRelayStatus(_ context.Context, req *provider.DHCPRelayRequest) (provider.DHCPRelayStatus, error) {
-	p.Lock()
-	defer p.Unlock()
-	status := provider.DHCPRelayStatus{}
-	if p.DHCPRelay != nil {
-		// Return the interface names from the request (simulating what the device would return)
-		for _, intf := range req.Interfaces {
-			status.ConfiguredInterfaces = append(status.ConfiguredInterfaces, intf.Spec.Name)
-		}
-	}
-	return status, nil
-}
-
 func (p *Provider) EnsureEthernetSegment(_ context.Context, req *provider.EnsureEthernetSegmentRequest) error {
 	p.Lock()
 	defer p.Unlock()

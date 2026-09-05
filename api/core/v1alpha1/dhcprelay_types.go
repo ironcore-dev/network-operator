@@ -11,8 +11,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// DHCPRelaySpec defines the desired state of DHCPRelay.
-// Only a single DHCPRelay resource should be created per Device, the controller will reject additional resources of this type with the same DeviceRef.
+// DHCPRelaySpec defines the desired state of the DHCPRelay configuration for a single interface.
+// The migration path for existing DHCPRelay objects that use the deprecated InterfaceRefs field requires deleting those objects
+// and creating new ones using the new fields. Objects using the deprecated field InterfaceRefs likely replace the entire DHCPRelay tree and thus
+// would remove configuration for all interfaces, even for those that are not referenced.
+// +kubebuilder:validation:XValidation:rule="has(self.interfaceRef) != has(self.interfaceRefs)",message="specify either interfaceRef or interfaceRefs, but not both"
 type DHCPRelaySpec struct {
 	// DeviceRef is a reference to the Device this object belongs to. The Device object must exist in the same namespace.
 	// Immutable.
@@ -25,7 +28,14 @@ type DHCPRelaySpec struct {
 	// +optional
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
 
-	// VrfRef is an optional reference to the VRF to use when relaying DHCP messages in all referenced interfaces.
+	// InterfaceRef is a reference to an interface resource on which to enable DHCP relay.
+	// Immutable.
+	// To be made non-pointer object and required once we remove the deprecated fields.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="InterfaceRef is immutable"
+	InterfaceRef *LocalObjectReference `json:"interfaceRef,omitempty"`
+
+	// VrfRef is an optional reference to the VRF to use when relaying DHCP messages in the referenced interface(s).
 	// +optional
 	VrfRef *LocalObjectReference `json:"vrfRef,omitempty"`
 
@@ -37,8 +47,8 @@ type DHCPRelaySpec struct {
 	// +kubebuilder:validation:MinItems=1
 	Servers []string `json:"servers"`
 
-	// InterfaceRefs is a list of interfaces
-	// +required
+	// Deprecated: Use field Interfaces instead.
+	// +optional
 	// +listType=atomic
 	// +kubebuilder:validation:MinItems=1
 	InterfaceRefs []LocalObjectReference `json:"interfaceRefs,omitempty"`
@@ -62,11 +72,6 @@ type DHCPRelayStatus struct {
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-
-	// ConfiguredInterfaces contains the names of Interface resources that have DHCP relay configured as known by the device.
-	// +optional
-	// +listType=atomic
-	ConfiguredInterfaces []string `json:"configuredInterfaces,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -74,6 +79,8 @@ type DHCPRelayStatus struct {
 // +kubebuilder:resource:path=dhcprelays
 // +kubebuilder:resource:singular=dhcprelay
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
+// +kubebuilder:printcolumn:name="VRF",type=string,JSONPath=`.spec.vrfRef.name`
+// +kubebuilder:printcolumn:name="Servers",type=string,JSONPath=`.spec.servers`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

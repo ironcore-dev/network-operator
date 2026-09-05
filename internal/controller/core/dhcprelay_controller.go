@@ -230,22 +230,41 @@ func (r *DHCPRelayReconciler) reconcile(ctx context.Context, s *dhcprelayScope) 
 		}
 	}
 
-	if err := r.validateUniqueResourcePerDevice(ctx, s); err != nil {
-		return err
-	}
+	defer func() {
+		conditions.RecomputeReady(s.DHCPRelay)
+	}()
 
 	if err := r.validateProviderConfigRef(ctx, s); err != nil {
 		return err
 	}
 
-	interfaces, err := r.reconcileInterfaceRefs(ctx, s)
-	if err != nil {
+	req := provider.DHCPRelayRequest{
+		DHCPRelay:      s.DHCPRelay,
+		ProviderConfig: s.ProviderConfig,
+	}
+
+	var err error
+	if s.DHCPRelay.Spec.VrfRef != nil {
+		if req.VRF, err = r.reconcileVRFRef(ctx, *s.DHCPRelay.Spec.VrfRef, s); err != nil {
+			return err
+		}
+	}
+
+	if err := r.validateUniqueResource(ctx, s); err != nil {
 		return err
 	}
 
-	var vrf *v1alpha1.VRF
-	if s.DHCPRelay.Spec.VrfRef != nil {
-		vrf, err = r.reconcileVRFRef(ctx, s)
+	// preferred path, TODO: remove guard after removing deprecated fields
+	if s.DHCPRelay.Spec.InterfaceRef != nil {
+		req.Interface, err = r.reconcileInterfaceRef(ctx, *s.DHCPRelay.Spec.InterfaceRef, s)
+		if err != nil {
+			return err
+		}
+	}
+
+	// deprecated
+	if len(s.DHCPRelay.Spec.InterfaceRefs) > 0 { //nolint:staticcheck
+		req.Interfaces, err = r.reconcileInterfaceRefs(ctx, s)
 		if err != nil {
 			return err
 		}
@@ -262,35 +281,13 @@ func (r *DHCPRelayReconciler) reconcile(ctx context.Context, s *dhcprelayScope) 
 	}()
 
 	// Ensure the DHCPRelay is realized on the remote device.
-	err = s.Provider.EnsureDHCPRelay(ctx, &provider.DHCPRelayRequest{
-		DHCPRelay:      s.DHCPRelay,
-		ProviderConfig: s.ProviderConfig,
-		Interfaces:     interfaces,
-		VRF:            vrf,
-	})
+	err = s.Provider.EnsureDHCPRelay(ctx, &req)
 
 	cond := conditions.FromError(err)
-	// As this resource is configuration only, we use the Configured condition as top-level Ready condition.
-	cond.Type = v1alpha1.ReadyCondition
+	cond.Type = v1alpha1.ConfiguredCondition
 	conditions.Set(s.DHCPRelay, cond)
 
-	if err != nil {
-		return err
-	}
-
-	// Retrieve and update the status from the device; this include the list of interfaces that are actually configured on the device.
-	status, err := s.Provider.GetDHCPRelayStatus(ctx, &provider.DHCPRelayRequest{
-		DHCPRelay:      s.DHCPRelay,
-		ProviderConfig: s.ProviderConfig,
-		Interfaces:     interfaces,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to get DHCP relay status: %w", err)
-	}
-
-	s.DHCPRelay.Status.ConfiguredInterfaces = status.ConfiguredInterfaces
-
-	return nil
+	return err
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -377,8 +374,7 @@ func (r *DHCPRelayReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					oldVRF := e.ObjectOld.(*v1alpha1.VRF)
 					newVRF := e.ObjectNew.(*v1alpha1.VRF)
-					// Only trigger when Configured condition changes (not operational status).
-					return conditions.IsConfigured(oldVRF) != conditions.IsConfigured(newVRF)
+					return conditions.IsReady(oldVRF) != conditions.IsReady(newVRF)
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false
@@ -406,7 +402,6 @@ func (r *DHCPRelayReconciler) validateProviderConfigRef(_ context.Context, s *dh
 	}
 
 	gvk := gv.WithKind(s.DHCPRelay.Spec.ProviderConfigRef.Kind)
-
 	if ok := slices.Contains(v1alpha1.DHCPRelayDependencies, gvk); !ok {
 		conditions.Set(s.DHCPRelay, metav1.Condition{
 			Type:    v1alpha1.ConfiguredCondition,
@@ -420,19 +415,58 @@ func (r *DHCPRelayReconciler) validateProviderConfigRef(_ context.Context, s *dh
 	return nil
 }
 
+// validateUniqueResource checks that there is only one DHCPRelay resource per interface
+// It also checks if another resource with the deprecated InterfaceRefs field exists on the same device
+func (r *DHCPRelayReconciler) validateUniqueResource(ctx context.Context, s *dhcprelayScope) error {
+	var list v1alpha1.DHCPRelayList
+	if err := r.List(
+		ctx, &list,
+		client.InNamespace(s.DHCPRelay.Namespace),
+		client.MatchingFields{v1alpha1.DeviceRefIndexKey: s.Device.Name},
+	); err != nil {
+		return err
+	}
+
+	for _, dhcprelay := range list.Items {
+		// refuse to reconcile if another DHCPRelay exists that uses deprecated paths exists ont he same device
+		if dhcprelay.Name != s.DHCPRelay.Name &&
+			len(dhcprelay.Spec.InterfaceRefs) > 0 && s.DHCPRelay.Spec.DeviceRef.Name == dhcprelay.Spec.DeviceRef.Name { //nolint:staticcheck
+			conditions.Set(s.DHCPRelay, metav1.Condition{
+				Type:    v1alpha1.ConfiguredCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.DuplicateResourceOnDevice,
+				Message: fmt.Sprintf("Another DHCPRelay (%s) using deprecated field .spec.InterfaceRefs already exists for interface %s, this migration path is not supported.", dhcprelay.Name, s.DHCPRelay.Spec.InterfaceRef.Name),
+			})
+			return reconcile.TerminalError(fmt.Errorf("only one DHCPRelay resource allowed per interface (%s)", s.DHCPRelay.Spec.InterfaceRef.Name))
+		}
+		if dhcprelay.Name != s.DHCPRelay.Name && s.DHCPRelay.Spec.InterfaceRef != nil &&
+			dhcprelay.Spec.InterfaceRef.Name == s.DHCPRelay.Spec.InterfaceRef.Name {
+			conditions.Set(s.DHCPRelay, metav1.Condition{
+				Type:    v1alpha1.ConfiguredCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.DuplicateResourceOnDevice,
+				Message: fmt.Sprintf("Another DHCPRelay (%s) already exists for interface %s", dhcprelay.Name, s.DHCPRelay.Spec.InterfaceRef.Name),
+			})
+			return reconcile.TerminalError(fmt.Errorf("only one DHCPRelay resource allowed per interface (%s)", s.DHCPRelay.Spec.InterfaceRef.Name))
+		}
+	}
+	return nil
+}
+
 // reconcileInterfaceRefs fetches all referenced interfaces and validates them
-func (r *DHCPRelayReconciler) reconcileInterfaceRefs(ctx context.Context, s *dhcprelayScope) ([]*v1alpha1.Interface, error) {
-	if len(s.DHCPRelay.Spec.InterfaceRefs) == 0 {
+// used for the deprecated InterfaceRefs field
+func (r *DHCPRelayReconciler) reconcileInterfaceRefs(ctx context.Context, s *dhcprelayScope) ([]v1alpha1.Interface, error) {
+	if len(s.DHCPRelay.Spec.InterfaceRefs) == 0 { //nolint:staticcheck
 		return nil, nil
 	}
 
-	interfaces := make([]*v1alpha1.Interface, 0, len(s.DHCPRelay.Spec.InterfaceRefs))
-	for _, ifRef := range s.DHCPRelay.Spec.InterfaceRefs {
+	interfaces := make([]v1alpha1.Interface, 0, len(s.DHCPRelay.Spec.InterfaceRefs)) //nolint:staticcheck
+	for _, ifRef := range s.DHCPRelay.Spec.InterfaceRefs {                           //nolint:staticcheck
 		iface, err := r.reconcileInterfaceRef(ctx, ifRef, s)
 		if err != nil {
 			return nil, err
 		}
-		interfaces = append(interfaces, iface)
+		interfaces = append(interfaces, *iface)
 	}
 
 	return interfaces, nil
@@ -506,10 +540,10 @@ func (r *DHCPRelayReconciler) reconcileInterfaceRef(ctx context.Context, interfa
 	return intf, nil
 }
 
-func (r *DHCPRelayReconciler) reconcileVRFRef(ctx context.Context, s *dhcprelayScope) (*v1alpha1.VRF, error) {
+func (r *DHCPRelayReconciler) reconcileVRFRef(ctx context.Context, vrfRef v1alpha1.LocalObjectReference, s *dhcprelayScope) (*v1alpha1.VRF, error) {
 	vrf := new(v1alpha1.VRF)
 	if err := r.Get(ctx, types.NamespacedName{
-		Name:      s.DHCPRelay.Spec.VrfRef.Name,
+		Name:      vrfRef.Name,
 		Namespace: s.DHCPRelay.Namespace,
 	}, vrf); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -517,11 +551,11 @@ func (r *DHCPRelayReconciler) reconcileVRFRef(ctx context.Context, s *dhcprelayS
 				Type:    v1alpha1.ConfiguredCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  v1alpha1.WaitingForDependenciesReason,
-				Message: fmt.Sprintf("VRF %s not found", s.DHCPRelay.Spec.VrfRef.Name),
+				Message: fmt.Sprintf("VRF %s not found", vrfRef.Name),
 			})
-			return nil, reconcile.TerminalError(fmt.Errorf("vrf %s not found", s.DHCPRelay.Spec.VrfRef.Name))
+			return nil, reconcile.TerminalError(fmt.Errorf("vrf %s not found", vrfRef.Name))
 		}
-		return nil, fmt.Errorf("failed to get VRF %s: %w", s.DHCPRelay.Spec.VrfRef.Name, err)
+		return nil, fmt.Errorf("failed to get VRF %s: %w", vrfRef.Name, err)
 	}
 
 	// Verify the VRF belongs to the same device
@@ -530,46 +564,23 @@ func (r *DHCPRelayReconciler) reconcileVRFRef(ctx context.Context, s *dhcprelayS
 			Type:    v1alpha1.ConfiguredCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  v1alpha1.CrossDeviceReferenceReason,
-			Message: fmt.Sprintf("VRF %s belongs to device %s, not %s", s.DHCPRelay.Spec.VrfRef.Name, vrf.Spec.DeviceRef.Name, s.Device.Name),
+			Message: fmt.Sprintf("VRF %s belongs to device %s, not %s", vrfRef.Name, vrf.Spec.DeviceRef.Name, s.Device.Name),
 		})
-		return nil, reconcile.TerminalError(fmt.Errorf("vrf %s belongs to different device", s.DHCPRelay.Spec.VrfRef.Name))
+		return nil, reconcile.TerminalError(fmt.Errorf("vrf %s belongs to different device", vrfRef.Name))
 	}
 
-	// Verify the VRF is ready (configured) on the device
+	// Verify the VRF is configured on the device
 	if !conditions.IsReady(vrf) {
 		conditions.Set(s.DHCPRelay, metav1.Condition{
 			Type:    v1alpha1.ConfiguredCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  v1alpha1.WaitingForDependenciesReason,
-			Message: fmt.Sprintf("VRF %s is not configured on the device", s.DHCPRelay.Spec.VrfRef.Name),
+			Message: fmt.Sprintf("VRF %s is not configured on the device", vrfRef.Name),
 		})
-		return nil, reconcile.TerminalError(fmt.Errorf("vrf %s is not configured", s.DHCPRelay.Spec.VrfRef.Name))
+		return nil, reconcile.TerminalError(fmt.Errorf("vrf %s is not configured", vrfRef.Name))
 	}
 
 	return vrf, nil
-}
-
-func (r *DHCPRelayReconciler) validateUniqueResourcePerDevice(ctx context.Context, s *dhcprelayScope) error {
-	var list v1alpha1.DHCPRelayList
-	if err := r.List(
-		ctx, &list,
-		client.InNamespace(s.DHCPRelay.Namespace),
-		client.MatchingFields{v1alpha1.DeviceRefIndexKey: s.Device.Name},
-	); err != nil {
-		return err
-	}
-	for _, dhcprelay := range list.Items {
-		if dhcprelay.Name != s.DHCPRelay.Name {
-			conditions.Set(s.DHCPRelay, metav1.Condition{
-				Type:    v1alpha1.ConfiguredCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  v1alpha1.DuplicateResourceOnDevice,
-				Message: fmt.Sprintf("Another DHCPRelay (%s) already exists for device %s", dhcprelay.Name, s.DHCPRelay.Spec.DeviceRef.Name),
-			})
-			return reconcile.TerminalError(fmt.Errorf("only one DHCPRelay resource allowed per device (%s)", s.DHCPRelay.Spec.DeviceRef.Name))
-		}
-	}
-	return nil
 }
 
 func (r *DHCPRelayReconciler) mapProviderConfigToDHCPRelay(ctx context.Context, obj client.Object) []reconcile.Request {
@@ -611,10 +622,33 @@ func (r *DHCPRelayReconciler) finalize(ctx context.Context, s *dhcprelayScope) (
 		}
 	}()
 
-	return s.Provider.DeleteDHCPRelay(ctx, &provider.DHCPRelayRequest{
+	req := provider.DHCPRelayRequest{
 		DHCPRelay:      s.DHCPRelay,
 		ProviderConfig: s.ProviderConfig,
-	})
+	}
+
+	// deprecated path
+	if len(s.DHCPRelay.Spec.InterfaceRefs) > 0 { //nolint:staticcheck
+		return s.Provider.DeleteDHCPRelay(ctx, &req)
+	}
+
+	intf := new(v1alpha1.Interface)
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      s.DHCPRelay.Spec.InterfaceRef.Name,
+		Namespace: s.DHCPRelay.Namespace,
+	}, intf); err != nil {
+		if apierrors.IsNotFound(err) {
+			// If the interface no longer exists, there is no device config to clean up
+			return nil
+		}
+		return fmt.Errorf("failed to get referenced interface: %w", err)
+	}
+
+	return s.Provider.DeleteDHCPRelay(ctx, new(provider.DHCPRelayRequest{
+		DHCPRelay:      s.DHCPRelay,
+		ProviderConfig: s.ProviderConfig,
+		Interface:      intf,
+	}))
 }
 
 // deviceToDHCPRelays is a [handler.MapFunc] to be used to enqueue requests for reconciliation
@@ -671,7 +705,19 @@ func (r *DHCPRelayReconciler) interfaceToDHCPRelays(ctx context.Context, obj cli
 
 	var requests []ctrl.Request
 	for _, dhcpRelay := range list.Items {
-		for _, ifRef := range dhcpRelay.Spec.InterfaceRefs {
+		if dhcpRelay.Spec.InterfaceRef != nil && dhcpRelay.Spec.InterfaceRef.Name == intf.Name {
+			log.V(2).Info("Enqueuing DHCPRelay for reconciliation", "DHCPRelay", klog.KObj(&dhcpRelay))
+			requests = append(requests, ctrl.Request{
+				NamespacedName: client.ObjectKey{
+					Name:      dhcpRelay.Name,
+					Namespace: dhcpRelay.Namespace,
+				},
+			})
+			break
+		}
+
+		// deprecated path
+		for _, ifRef := range dhcpRelay.Spec.InterfaceRefs { //nolint:staticcheck // deprecated field for backward compatibility
 			if ifRef.Name == intf.Name {
 				log.V(2).Info("Enqueuing DHCPRelay for reconciliation", "DHCPRelay", klog.KObj(&dhcpRelay))
 				requests = append(requests, ctrl.Request{

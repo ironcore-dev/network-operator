@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	. "github.com/benjamintf1/unmarshalledmatchers"
@@ -20,11 +19,9 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
-	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
 
@@ -116,9 +113,13 @@ var _ = Describe("gNMI requests tests", func() {
 				device.Status.Phase = v1alpha1.DevicePhaseRunning
 				Expect(k8sClient.Status().Update(ctx, device)).To(Succeed())
 
+				// Fixture resources must be declared from dependencies to dependents.
+				// Cleanup deletes them in reverse order.
 				By(fmt.Sprintf("creating %d resource(s) from testdata", len(resources)))
+				createdResources := make([]client.Object, 0, len(resources))
 				for _, res := range resources {
 					obj := createResourceFromTxtar(ctx, k8sClient, res, device.Name, testNamespace)
+					createdResources = append(createdResources, obj)
 					waitForResource(ctx, k8sClient, obj)
 				}
 
@@ -131,8 +132,8 @@ var _ = Describe("gNMI requests tests", func() {
 					g.Expect(stateJSON).To(MatchUnorderedJSON(statePost), "gNMI state does not match expected JSON")
 				}).Should(Succeed())
 
-				By("deleting all intermeadiate test resources created in test")
-				cleanupAllResources(k8sClient, testNamespace)
+				By("deleting all intermediate test resources created in test")
+				cleanupAllResources(k8sClient, createdResources)
 
 				By("verifying gNMI state is empty after resource deletion")
 				Eventually(func(g Gomega) {
@@ -227,76 +228,26 @@ func extractConditions(obj *unstructured.Unstructured) ([]metav1.Condition, erro
 	return conditions, json.Unmarshal(data, &conditions)
 }
 
-// cleanupAllResources deletes all test resources in the proper order.
+// cleanupAllResources deletes fixture resources in reverse creation order.
 //
 // This is an envtest workaround. In a real cluster, namespace deletion cascades to
 // all resources and the garbage collector handles ordering. But envtest runs without
 // kube-controller-manager, so there's no garbage collector and namespace deletion
 // just marks the namespace as Terminating without actually deleting anything.
 // See: https://book.kubebuilder.io/reference/envtest.html#testing-considerations
-//
-// The function:
-//  1. Deletes resources with finalizers first and waits for their controllers
-//     to process the finalizers (cleaning up gNMI state) while Device still exists.
-//  2. Deletes config-only resources (no finalizer, no controller)
-//     without waiting.
-func cleanupAllResources(c client.Client, namespace string) {
+func cleanupAllResources(c client.Client, createdResources []client.Object) {
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	allResources := listAllNetworkOperatorResources(cleanupCtx, c, namespace)
-
-	var withFinalizers, withoutFinalizers []unstructured.Unstructured
-	for _, r := range allResources {
-		if len(r.GetFinalizers()) > 0 {
-			withFinalizers = append(withFinalizers, r)
-		} else {
-			withoutFinalizers = append(withoutFinalizers, r)
-		}
-	}
-
-	// Delete resources with finalizers first and wait for controller to process
-	for i := range withFinalizers {
-		item := &withFinalizers[i]
+	for i := len(createdResources) - 1; i >= 0; i-- {
+		item := createdResources[i]
 		Expect(client.IgnoreNotFound(c.Delete(cleanupCtx, item))).To(Succeed())
-	}
-	for _, item := range withFinalizers {
 		Eventually(func(g Gomega) {
 			var check unstructured.Unstructured
-			check.SetGroupVersionKind(item.GroupVersionKind())
-			err := c.Get(cleanupCtx, client.ObjectKeyFromObject(&item), &check)
+			check.SetGroupVersionKind(item.GetObjectKind().GroupVersionKind())
+			err := c.Get(cleanupCtx, client.ObjectKeyFromObject(item), &check)
+			g.Expect(err).To(HaveOccurred())
 			g.Expect(client.IgnoreNotFound(err)).To(Succeed())
-			g.Expect(apimeta.IsNoMatchError(err) || err != nil).To(BeTrue())
 		}).WithContext(cleanupCtx).Should(Succeed())
 	}
-
-	// Delete config resources without finalizers (no wait needed)
-	for i := range withoutFinalizers {
-		item := &withoutFinalizers[i]
-		Expect(client.IgnoreNotFound(c.Delete(cleanupCtx, item))).To(Succeed())
-	}
-}
-
-// listAllNetworkOperatorResources lists all network-operator CRD instances in a namespace.
-func listAllNetworkOperatorResources(ctx context.Context, c client.Client, namespace string) []unstructured.Unstructured {
-	var all []unstructured.Unstructured
-
-	for gvk := range scheme.Scheme.AllKnownTypes() {
-		if strings.HasSuffix(gvk.Kind, "List") || gvk.Kind == "Device" {
-			continue
-		}
-		if gvk.Group != v1alpha1.GroupVersion.Group && gvk.Group != nxv1alpha1.GroupVersion.Group {
-			continue
-		}
-
-		list := &unstructured.UnstructuredList{}
-		list.SetGroupVersionKind(gvk.GroupVersion().WithKind(gvk.Kind + "List"))
-		err := c.List(ctx, list, client.InNamespace(namespace))
-		if apimeta.IsNoMatchError(err) {
-			continue
-		}
-		Expect(err).NotTo(HaveOccurred())
-		all = append(all, list.Items...)
-	}
-	return all
 }

@@ -173,12 +173,7 @@ spec:
             {
               "name": "default",
               "if-items": {
-                "If-list": [
-                  {
-                    "id": "vlan10",
-                    "ctrl": "port-unreachable"
-                  }
-                ]
+                "If-list": []
               }
             }
           ]

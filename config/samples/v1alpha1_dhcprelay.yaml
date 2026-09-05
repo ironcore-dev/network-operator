@@ -1,16 +1,115 @@
 apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: VRF
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: dhcp-vrf
+spec:
+  deviceRef:
+    name: leaf1
+  name: DHCP-VRF-GREEN
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: VLAN
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: vlan100
+spec:
+  deviceRef:
+    name: leaf1
+  id: 100
+  name: DHCP-VLAN1
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: VLAN
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: vlan200
+spec:
+  deviceRef:
+    name: leaf1
+  id: 200
+  name: DHCP-VLAN2
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: svi100
+spec:
+  deviceRef:
+    name: leaf1
+  name: Vlan100
+  adminState: Up
+  type: RoutedVLAN
+  vlanRef:
+    name: vlan100
+  ipv4:
+    addresses:
+      - 192.168.100.1/24
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: svi200
+spec:
+  deviceRef:
+    name: leaf1
+  name: Vlan200
+  adminState: Up
+  type: RoutedVLAN
+  vlanRef:
+    name: vlan200
+  ipv4:
+    addresses:
+      - 192.168.101.1/24
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: DHCPRelay
 metadata:
   labels:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
     networking.metal.ironcore.dev/device-name: leaf1
-  name: dhcprelay
+  name: dhcprelay100
 spec:
   deviceRef:
     name: leaf1
+  interfaceRef:
+    name: svi100
   servers:
-    - 192.168.1.3
-    - 192.168.1.4
-  interfaceRefs:
-    - name: eth1-1
+    - "10.0.0.10"
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: DHCPRelay
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: dhcprelay200
+spec:
+  deviceRef:
+    name: leaf1
+  interfaceRef:
+    name: svi200
+  vrfRef:
+    name: dhcp-vrf
+  servers:
+    - "10.0.0.10"
+    - "10.0.1.10"

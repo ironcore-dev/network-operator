@@ -1664,8 +1664,10 @@ DHCPRelay is the Schema for the DHCPRelays API
 
 
 
-DHCPRelaySpec defines the desired state of DHCPRelay.
-Only a single DHCPRelay resource should be created per Device, the controller will reject additional resources of this type with the same DeviceRef.
+DHCPRelaySpec defines the desired state of the DHCPRelay configuration for a single interface.
+The migration path for existing DHCPRelay objects that use the deprecated InterfaceRefs field requires deleting those objects
+and creating new ones using the new fields. Objects using the deprecated field InterfaceRefs likely replace the entire DHCPRelay tree and thus
+would remove configuration for all interfaces, even for those that are not referenced.
 
 
 
@@ -1676,9 +1678,10 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceRef is a reference to the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration for this DHCPRelay.<br />If not specified the provider applies the target platform's default settings. |  | Optional: \{\} <br /> |
-| `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VrfRef is an optional reference to the VRF to use when relaying DHCP messages in all referenced interfaces. |  | Optional: \{\} <br /> |
+| `interfaceRef` _[LocalObjectReference](#localobjectreference)_ | InterfaceRef is a reference to an interface resource on which to enable DHCP relay.<br />Immutable.<br />To be made non-pointer object and required once we remove the deprecated fields. |  | Optional: \{\} <br /> |
+| `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VrfRef is an optional reference to the VRF to use when relaying DHCP messages in the referenced interface(s). |  | Optional: \{\} <br /> |
 | `servers` _string array_ | Servers is a list of DHCP server addresses to which DHCP messages will be relayed.<br />Only IPv4 addresses are currently supported. |  | MinItems: 1 <br />items:Format: ipv4 <br />Required: \{\} <br /> |
-| `interfaceRefs` _[LocalObjectReference](#localobjectreference) array_ | InterfaceRefs is a list of interfaces |  | MinItems: 1 <br />Required: \{\} <br /> |
+| `interfaceRefs` _[LocalObjectReference](#localobjectreference) array_ | Deprecated: Use field Interfaces instead. |  | MinItems: 1 <br />Optional: \{\} <br /> |
 
 
 #### DHCPRelayStatus
@@ -1695,7 +1698,6 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the DHCPRelay resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />Standard condition types include:<br />- "Available": the resource is fully functional<br />- "Progressing": the resource is being created or updated<br />- "Degraded": the resource failed to reach or maintain its desired state<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
-| `configuredInterfaces` _string array_ | ConfiguredInterfaces contains the names of Interface resources that have DHCP relay configured as known by the device. |  | Optional: \{\} <br /> |
 
 
 #### DNS

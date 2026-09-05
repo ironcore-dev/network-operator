@@ -113,6 +113,9 @@ var _ = BeforeSuite(func() {
 	err = SetupAccessControlListWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = SetupDHCPRelayWebhookWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
 	// +kubebuilder:scaffold:webhook
 
 	go func() {
