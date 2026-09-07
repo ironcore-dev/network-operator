@@ -4,8 +4,8 @@ github.com/Masterminds/semver/v3 v3.4.0 h1:Zog+i5UMtVoCU8oKka5P7i9q9HgrJeGzI9SA1
 github.com/Masterminds/semver/v3 v3.4.0/go.mod h1:4V+yj/TJE1HU9XfppCwVMZq3I84lprf4nC11bSS5beM=
 github.com/antlr4-go/antlr/v4 v4.13.1 h1:SqQKkuVZ+zWkMMNkjy5FZe5mr5WURWnlpmOuzYWrPrQ=
 github.com/antlr4-go/antlr/v4 v4.13.1/go.mod h1:GKmUxMtwp6ZgGwZSva4eWPC5mS6vUAmOABFgjdkM7Nw=
-github.com/aws/aws-sdk-go-v2 v1.45.1 h1:iIoG3NaLhV6UZpPXyPXlDj2I9oS8tV/nMcMnITCC6Ks=
-github.com/aws/aws-sdk-go-v2 v1.45.1/go.mod h1:bttEH6JqnUL8LepvDVfdrds/fZ5bCIxzpe3abyUrhDU=
+github.com/aws/aws-sdk-go-v2 v1.46.0 h1:1kt7m/EKcEHt5mlyyxx9cSlMddRPIKbjb6DIQsu4HPk=
+github.com/aws/aws-sdk-go-v2 v1.46.0/go.mod h1:bttEH6JqnUL8LepvDVfdrds/fZ5bCIxzpe3abyUrhDU=
 github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.19 h1:56S0VBF43Kvy2YiWkZe65Uj5rpvW1LLnHBUBg8jlxuQ=
 github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.19/go.mod h1:n1TtGWnXCj/kl11tMcNN2aeS95u01phKYgE39N5HHfM=
 github.com/aws/aws-sdk-go-v2/credentials v1.20.2 h1:VQjZODPNfdikCX2ZZrltw4zNLkcwjyUFDUl2vT9yTwg=
