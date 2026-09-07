@@ -1,10 +1,13 @@
 - op: replace
+  path: /spec/template/spec/containers/0/image
+  value: ${IMG}
+- op: replace
   path: /spec/template/spec/containers/0/args
   value:
     - --leader-elect=false
     - --health-probe-bind-address=:8081
     - --metrics-bind-address=:8443
-    - --provider=openconfig
+    - --provider=${PROVIDER}
     - --requeue-interval=30s
     - --max-concurrent-reconciles=5
     - --zap-log-level=3
