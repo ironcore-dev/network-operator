@@ -142,6 +142,10 @@ const (
 	// This condition is set to True when the controller successfully connects to
 	// the device, and False when the connection attempt fails.
 	ReachableCondition = "Reachable"
+
+	// RemoteEndpointReadyCondition indicates whether the remote object storage
+	// endpoint is reachable and the configured bucket exists.
+	RemoteEndpointReadyCondition = "RemoteEndpointReady"
 )
 
 // Reasons that are used across different objects.
@@ -208,6 +212,18 @@ const (
 	StorageThresholdExceededReason = "StorageThresholdExceeded"
 )
 
+// Reasons that are specific to [Probe] objects.
+const (
+	// ProbeSuccessfulReason indicates that the probe assertion passed.
+	ProbeSuccessfulReason = "ProbeSuccessful"
+
+	// ProbeFailedReason indicates that the probe assertion did not pass.
+	ProbeFailedReason = "ProbeFailed"
+
+	// ProbeErrorReason indicates that the probe could not be executed.
+	ProbeErrorReason = "ProbeError"
+)
+
 // Reasons that are specific to [Interface] objects.
 const (
 	// InterfaceNotFoundReason indicates that a referenced interface was not found.
@@ -254,6 +270,12 @@ const (
 const (
 	// PrefixSetNotFoundReason indicates that a referenced PrefixSet was not found.
 	PrefixSetNotFoundReason = "PrefixSetNotFound"
+	// SecretNotFoundReason indicates that a referenced Secret was not found.
+	SecretNotFoundReason = "SecretNotFound"
+	// RemoteEndpointUnreachableReason indicates that the remote object storage endpoint is not reachable.
+	RemoteEndpointUnreachableReason = "RemoteEndpointUnreachable"
+	// EncryptionFailedReason indicates that encryption of the backup data failed.
+	EncryptionFailedReason = "EncryptionFailed"
 )
 
 // Reasons that are specific to [BGPPeer] objects.

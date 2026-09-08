@@ -7,7 +7,7 @@ spec:
     name: leaf1
   schedule: "* * * * *"
   type: Local
-  path: "bootflash:///backups/"
+  path: "bootflash:///backups/" # vendor-specific device path (Cisco NX-OS)
   retention:
     keepLast: 5
   storageThreshold:
@@ -21,3 +21,34 @@ spec:
   deviceRef:
     name: leaf1
   type: Startup
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: ConfigBackup
+metadata:
+  name: remote-backup
+spec:
+  deviceRef:
+    name: leaf1
+  schedule: "* * * * *"
+  type: Remote
+  path: "leaf-1/"
+  retention:
+    keepLast: 10
+  s3:
+    endpoint: "http://minio.default.svc:9000"
+    bucket: config-backups
+    credentialsSecretRef:
+      name: minio-credentials
+    encryption:
+      algorithm: AES-256-GCM
+      keySecret:
+        name: backup-encryption-key
+        key: encryption-key
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backup-encryption-key
+type: Opaque
+stringData:
+  encryption-key: "EXAMPLE_KEY_MUST_BE_EXACTLY_32B!"

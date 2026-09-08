@@ -110,6 +110,9 @@ var _ = BeforeSuite(func() {
 	err = SetupRoutingPolicyWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = SetupAccessControlListWebhookWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
 	// +kubebuilder:scaffold:webhook
 
 	go func() {

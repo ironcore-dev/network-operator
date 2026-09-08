@@ -93,8 +93,8 @@ func validateASNumber(asn intstr.IntOrString) error {
 	if err != nil {
 		return fmt.Errorf("invalid AS number dotted notation %q: high part is not a valid number: %w", asnStr, err)
 	}
-	if high < 1 || high > math.MaxUint16 {
-		return fmt.Errorf("invalid AS number dotted notation %q: high part %d is out of valid range (1-65535)", asnStr, high)
+	if high < 0 || high > math.MaxUint16 {
+		return fmt.Errorf("invalid AS number dotted notation %q: high part %d is out of valid range (0-65535)", asnStr, high)
 	}
 
 	low, err := strconv.ParseInt(parts[1], 10, 64)
@@ -103,6 +103,11 @@ func validateASNumber(asn intstr.IntOrString) error {
 	}
 	if low < 0 || low > math.MaxUint16 {
 		return fmt.Errorf("invalid AS number dotted notation %q: low part %d is out of valid range (0-65535)", asnStr, low)
+	}
+
+	// The combined value must be a valid ASN (>= 1)
+	if high == 0 && low == 0 {
+		return fmt.Errorf("invalid AS number dotted notation %q: AS number 0.0 is reserved", asnStr)
 	}
 
 	return nil

@@ -1,0 +1,205 @@
+-- interfaces/ethernet1 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: ethernet1
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: Ethernet1/1
+  adminState: Up
+  type: Physical
+  ipv4:
+    addresses:
+      - 10.0.1.1/30
+
+-- isises/fabric-isis --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: ISIS
+metadata:
+  name: fabric-isis
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  adminState: Up
+  instance: FABRIC
+  networkEntityTitle: "49.0001.0000.0000.0001.00"
+  type: Level2
+  addressFamilies:
+    - IPv4Unicast
+  interfaceRefs:
+    - name: ethernet1
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "accessVlan": "unknown",
+            "adminSt": "up",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "FECMode": "auto",
+            "id": "eth1/1",
+            "layer": "Layer3",
+            "mtu": 1500,
+            "medium": "broadcast",
+            "mode": "access",
+            "nativeVlan": "unknown",
+            "userCfgdFlags": "admin_layer,admin_state",
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            },
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            }
+          }
+        ]
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "eth1/1",
+                    "addr-items": {
+                      "Addr-list": [
+                        {
+                          "addr": "10.0.1.1/30",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "primary"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "fm-items": {
+      "isis-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "isis-items": {
+      "inst-items": {
+        "Inst-list": [
+          {
+            "adminSt": "enabled",
+            "name": "FABRIC",
+            "dom-items": {
+              "Dom-list": [
+                {
+                  "isType": "l2",
+                  "name": "default",
+                  "net": "49.0001.0000.0000.0001.00",
+                  "passiveDflt": "l2",
+                  "af-items": {
+                    "DomAf-list": [
+                      {
+                        "type": "v4"
+                      }
+                    ]
+                  },
+                  "if-items": {
+                    "If-list": [
+                      {
+                        "id": "eth1/1",
+                        "networkTypeP2P": "on",
+                        "v4Bfd": "inheritVrf",
+                        "v4enable": true,
+                        "v6Bfd": "",
+                        "v6enable": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}
+
+-- state/delete --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "accessVlan": "vlan-1",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "FECMode": "auto",
+            "id": "eth1/1",
+            "layer": "Layer2",
+            "mtu": 1500,
+            "medium": "broadcast",
+            "mode": "access",
+            "nativeVlan": "vlan-1",
+            "userCfgdFlags": "",
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            },
+            "trunkVlans": "1-4094"
+          }
+        ]
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": []
+              }
+            }
+          ]
+        }
+      }
+    },
+    "fm-items": {
+      "isis-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "isis-items": {
+      "inst-items": {
+        "Inst-list": []
+      }
+    }
+  }
+}

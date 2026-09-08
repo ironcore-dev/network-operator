@@ -1,0 +1,203 @@
+-- interfaces/lo-pim --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: lo-pim
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: lo20
+  type: Loopback
+  adminState: Up
+  ipv4:
+    addresses:
+      - 10.255.255.20/32
+
+-- pims/multicast --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: PIM
+metadata:
+  name: multicast
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  adminState: Up
+  interfaceRefs:
+    - name: lo-pim
+      mode: Sparse
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "intf-items": {
+      "lb-items": {
+        "LbRtdIf-list": [
+          {
+            "adminSt": "up",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "id": "lo20",
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            }
+          }
+        ]
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo20",
+                    "addr-items": {
+                      "Addr-list": [
+                        {
+                          "addr": "10.255.255.20/32",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "primary"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo20",
+                    "ctrl": "port-unreachable,redirect"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "fm-items": {
+      "pim-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "pim-items": {
+      "adminSt": "enabled",
+      "inst-items": {
+        "adminSt": "enabled",
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "adminSt": "enabled",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo20",
+                    "pimSparseMode": true
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+-- state/delete --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "intf-items": {
+      "lb-items": {
+        "LbRtdIf-list": []
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": []
+              }
+            }
+          ]
+        }
+      }
+    },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo20",
+                    "ctrl": "port-unreachable,redirect"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "fm-items": {
+      "pim-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "pim-items": {
+      "adminSt": "disabled",
+      "inst-items": {
+        "adminSt": "disabled",
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "adminSt": "disabled"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

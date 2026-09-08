@@ -346,6 +346,7 @@ Package v1alpha1 contains API Schema definitions for the networking.metal.ironco
 - [OSPF](#ospf)
 - [PIM](#pim)
 - [PrefixSet](#prefixset)
+- [Probe](#probe)
 - [RoutingPolicy](#routingpolicy)
 - [SNMP](#snmp)
 - [Syslog](#syslog)
@@ -1055,7 +1056,7 @@ _Appears in:_
 | `bgpRef` _[LocalObjectReference](#localobjectreference)_ | BgpRef is a reference to the BGP instance this peer belongs to.<br />The BGP object must exist in the same namespace. |  | Required: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether this BGP peer is administratively up or down.<br />When Down, the BGP session with this peer is administratively shut down. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
 | `address` _string_ | Address is the IPv4 address of the BGP peer. |  | Format: ipv4 <br />Required: \{\} <br /> |
-| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number (ASN) of the BGP peer.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number (ASN) of the BGP peer.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
 | `description` _string_ | Description is an optional human-readable description for this BGP peer.<br />This field is used for documentation purposes and may be displayed in management interfaces. |  | Optional: \{\} <br /> |
 | `localAddress` _[BGPPeerLocalAddress](#bgppeerlocaladdress)_ | LocalAddress specifies the local address configuration for the BGP session with this peer.<br />This determines the source address/interface for BGP packets sent to this peer. |  | Optional: \{\} <br /> |
 | `addressFamilies` _[BGPPeerAddressFamilies](#bgppeeraddressfamilies)_ | AddressFamilies configures address family specific settings for this BGP peer.<br />Controls which address families are enabled and their specific configuration. |  | Optional: \{\} <br /> |
@@ -1133,7 +1134,7 @@ _Appears in:_
 | `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VrfRef is an optional reference to the VRF this BGP instance is scoped to.<br />When omitted, the BGP instance is configured in the default VRF.<br />Immutable. |  | Optional: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the BGP to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether this BGP router is administratively up or down. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
-| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number (ASN) for the BGP router.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.<br />Immutable. |  | Required: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number (ASN) for the BGP router.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396.<br />Immutable. |  | Required: \{\} <br /> |
 | `routerId` _string_ | RouterID is the BGP router identifier, used in BGP messages to identify the originating router.<br />Follows dotted quad notation (IPv4 format). |  | Format: ipv4 <br />Required: \{\} <br /> |
 | `addressFamilies` _[BGPAddressFamilies](#bgpaddressfamilies)_ | AddressFamilies configures supported BGP address families and their specific settings. |  | Optional: \{\} <br /> |
 
@@ -1392,6 +1393,23 @@ ConfigBackup is the Schema for the configbackups API.
 | `status` _[ConfigBackupStatus](#configbackupstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
 
 
+#### ConfigBackupEncryption
+
+
+
+ConfigBackupEncryption configures encryption for remote backup objects, performed in the controller pod.
+
+
+
+_Appears in:_
+- [ConfigBackupS3](#configbackups3)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `algorithm` _[EncryptionAlgorithm](#encryptionalgorithm)_ | Algorithm is the encryption algorithm to use. |  | Enum: [AES-256-GCM ChaCha20-Poly1305] <br />Required: \{\} <br /> |
+| `keySecret` _[SecretKeySelector](#secretkeyselector)_ | KeySecret references the Secret and key containing the 32-byte encryption key. |  | Required: \{\} <br /> |
+
+
 #### ConfigBackupRetention
 
 
@@ -1426,6 +1444,28 @@ _Appears in:_
 | `observedGeneration` _integer_ | ObservedGeneration represents the .metadata.generation that produced this backup. |  | Minimum: 0 <br />Optional: \{\} <br /> |
 | `sizeBytes` _integer_ | SizeBytes is the size in bytes of the backup artifact.<br />This only applies to Local backups, and may be unknown if the controller cannot query the device. |  | Minimum: 0 <br />Optional: \{\} <br /> |
 | `filepath` _string_ | Filepath is the device-local path of the backup artifact.<br />This only applies to Local backups, and may be unknown if the controller cannot query the device. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `encryptionAlgorithm` _[EncryptionAlgorithm](#encryptionalgorithm)_ | EncryptionAlgorithm is the encryption algorithm used for this backup, if any.<br />Only set for encrypted Remote backups. |  | Enum: [AES-256-GCM ChaCha20-Poly1305] <br />Optional: \{\} <br /> |
+| `encryptionKeySecret` _string_ | EncryptionKeySecret is the name of the Secret that provided the encryption key.<br />Only set for encrypted Remote backups. |  | Optional: \{\} <br /> |
+
+
+#### ConfigBackupS3
+
+
+
+ConfigBackupS3 configures the S3-compatible object storage destination for Remote backups.
+
+
+
+_Appears in:_
+- [ConfigBackupSpec](#configbackupspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `endpoint` _string_ | Endpoint is the S3-compatible endpoint URL (e.g., "https://s3.eu-central-1.amazonaws.com"). |  | MaxLength: 2048 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `bucket` _string_ | Bucket is the name of the S3 bucket. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `region` _string_ | Region is the endpoint region. Optional for S3-compatible stores that don't require it. |  | MaxLength: 63 <br />Optional: \{\} <br /> |
+| `credentialsSecretRef` _[SecretReference](#secretreference)_ | CredentialsSecretRef references a Secret containing "accessKeyID" and "secretAccessKey" keys. |  | Required: \{\} <br /> |
+| `encryption` _[ConfigBackupEncryption](#configbackupencryption)_ | Encryption configures optional encryption for backup objects, performed in the controller pod before upload.<br />If omitted, backups are stored unencrypted. |  | Optional: \{\} <br /> |
 
 
 #### ConfigBackupSpec
@@ -1444,10 +1484,11 @@ _Appears in:_
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceRef is a reference to the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the ConfigBackup to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `schedule` _string_ | Schedule is an optional cron expression.<br />If omitted, the controller performs a one-shot backup. |  | Optional: \{\} <br /> |
-| `type` _[ConfigBackupType](#configbackuptype)_ | Type determines whether the backup is saved as a local file or as startup-config. |  | Enum: [Local Startup] <br />Required: \{\} <br /> |
+| `type` _[ConfigBackupType](#configbackuptype)_ | Type determines whether the backup is saved as a local file or as startup-config. |  | Enum: [Local Startup Remote] <br />Required: \{\} <br /> |
 | `path` _string_ | Path is the device-local destination path for Local backups.<br />Different providers may accept different path formats, such as "bootflash:///backups/". |  | MaxLength: 255 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 | `retention` _[ConfigBackupRetention](#configbackupretention)_ | Retention configures automatic cleanup of older backups for Local backups. |  | Optional: \{\} <br /> |
 | `storageThreshold` _[ConfigBackupStorageThreshold](#configbackupstoragethreshold)_ | StorageThreshold defines the minimum free space that must remain before creating a new Local backup. |  | Optional: \{\} <br /> |
+| `s3` _[ConfigBackupS3](#configbackups3)_ | S3 configures the S3-compatible object storage destination for Remote backups. |  | Optional: \{\} <br /> |
 
 
 #### ConfigBackupStatus
@@ -1517,7 +1558,7 @@ _Underlying type:_ _string_
 ConfigBackupType defines how the device should persist a configuration backup.
 
 _Validation:_
-- Enum: [Local Startup]
+- Enum: [Local Startup Remote]
 
 _Appears in:_
 - [ConfigBackupSpec](#configbackupspec)
@@ -1526,6 +1567,7 @@ _Appears in:_
 | --- | --- |
 | `Local` | ConfigBackupTypeLocal stores the running configuration in a device-local file path.<br /> |
 | `Startup` | ConfigBackupTypeStartup stores the running configuration as the device startup configuration.<br /> |
+| `Remote` | ConfigBackupTypeRemote uploads the running configuration to an S3-compatible object store.<br /> |
 
 
 #### ConfigMapKeySelector
@@ -1991,6 +2033,25 @@ _Appears in:_
 | `outerTag` _integer_ | OuterTag specifies the outer VLAN ID for QinQ encapsulation.<br />Only applicable when Type is set to "QinQ". |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 
 
+#### EncryptionAlgorithm
+
+_Underlying type:_ _string_
+
+EncryptionAlgorithm defines the supported encryption algorithms for remote backups.
+
+_Validation:_
+- Enum: [AES-256-GCM ChaCha20-Poly1305]
+
+_Appears in:_
+- [ConfigBackupEncryption](#configbackupencryption)
+- [ConfigBackupRunStatus](#configbackuprunstatus)
+
+| Field | Description |
+| --- | --- |
+| `AES-256-GCM` | EncryptionAES256GCM uses AES-256 in GCM mode. Key must be 32 bytes.<br /> |
+| `ChaCha20-Poly1305` | EncryptionChaCha20Poly1305 uses ChaCha20-Poly1305. Key must be 32 bytes.<br /> |
+
+
 #### Endpoint
 
 
@@ -2176,6 +2237,7 @@ _Validation:_
 
 _Appears in:_
 - [IPAddressSpec](#ipaddressspec)
+- [PingProbe](#pingprobe)
 
 
 
@@ -2200,6 +2262,7 @@ _Appears in:_
 - [MulticastGroups](#multicastgroups)
 - [PrefixEntry](#prefixentry)
 - [RendezvousPoint](#rendezvouspoint)
+- [RoutePresenceProbe](#routepresenceprobe)
 
 
 
@@ -2369,6 +2432,24 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `interfaceRef` _[LocalObjectReference](#localobjectreference)_ | InterfaceRef is a reference to the interface from which to borrow the IP address.<br />The referenced interface must exist and have at least one IPv4 address configured. |  | Required: \{\} <br /> |
+
+
+#### InterfaceSource
+
+
+
+InterfaceSource identifies a interface either by literal name or by reference to a managed Interface resource.
+Exactly one of Name or InterfaceRef must be specified.
+
+
+
+_Appears in:_
+- [PingProbe](#pingprobe)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name is the literal interface name on the device (e.g., "mgmt0", "Loopback0").<br />Use this for interfaces that are not managed as Interface resources. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
+| `interfaceRef` _[LocalObjectReference](#localobjectreference)_ | InterfaceRef references a managed Interface resource in the same namespace.<br />The controller resolves the device interface name from this resource. |  | Optional: \{\} <br /> |
 
 
 #### InterfaceSpec
@@ -2581,6 +2662,7 @@ _Appears in:_
 - [ISISSpec](#isisspec)
 - [InterconnectInterfaceReference](#interconnectinterfacereference)
 - [InterfaceIPv4Unnumbered](#interfaceipv4unnumbered)
+- [InterfaceSource](#interfacesource)
 - [InterfaceSpec](#interfacespec)
 - [InterfaceStatus](#interfacestatus)
 - [KeepAlive](#keepalive)
@@ -2597,14 +2679,17 @@ _Appears in:_
 - [Peer](#peer)
 - [PrefixSetMatchCondition](#prefixsetmatchcondition)
 - [PrefixSetSpec](#prefixsetspec)
+- [ProbeSpec](#probespec)
 - [RoutingPolicySpec](#routingpolicyspec)
 - [SNMPSpec](#snmpspec)
 - [SyslogSpec](#syslogspec)
 - [SystemSpec](#systemspec)
 - [UserSpec](#userspec)
+- [VLANSource](#vlansource)
 - [VLANSpec](#vlanspec)
 - [VLANStatus](#vlanstatus)
 - [VPCDomainSpec](#vpcdomainspec)
+- [VRFSource](#vrfsource)
 - [VRFSpec](#vrfspec)
 
 | Field | Description | Default | Validation |
@@ -2646,6 +2731,23 @@ _Appears in:_
 | `severity` _[Severity](#severity)_ | The servity level of the log messages sent to the server. |  | Enum: [Debug Info Notice Warning Error Critical Alert Emergency] <br />Required: \{\} <br /> |
 | `vrfName` _string_ | The name of the vrf used to reach the log server. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `port` _integer_ | The destination port number for syslog UDP messages to<br />the server. The default is 514. | 514 | Optional: \{\} <br /> |
+
+
+#### MACTableEntryProbe
+
+
+
+MACTableEntryProbe asserts that a specific MAC address exists in the device's forwarding table.
+
+
+
+_Appears in:_
+- [ProbeSpec](#probespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `macAddress` _string_ | MACAddress is the MAC address to look for in the device's MAC table. |  | Pattern: `^([0-9a-fA-F]\{2\}:)\{5\}[0-9a-fA-F]\{2\}$` <br />Required: \{\} <br /> |
+| `vlan` _[VLANSource](#vlansource)_ | VLAN constrains the lookup to a specific VLAN. |  | Optional: \{\} <br /> |
 
 
 #### ManagementAccess
@@ -3202,6 +3304,47 @@ _Appears in:_
 | `secretKeyRef` _[SecretKeySelector](#secretkeyselector)_ | Selects a key of a secret. |  | Required: \{\} <br /> |
 
 
+#### PingProbe
+
+
+
+PingProbe configures an ICMP echo probe from the device to a target address.
+
+
+
+_Appears in:_
+- [ProbeSpec](#probespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `address` _[IPAddr](#ipaddr)_ | Address is the target IPv4 or IPv6 address to ping. |  | Format: ip <br />Type: string <br />Required: \{\} <br /> |
+| `sourceInterface` _[InterfaceSource](#interfacesource)_ | SourceInterface selects the source interface for the ping.<br />The provider uses an address on this interface with the same IP family as Address.<br />If omitted, the device selects the source interface automatically. |  | Optional: \{\} <br /> |
+| `vrf` _[VRFSource](#vrfsource)_ | VRF selects the VRF context in which to execute the ping.<br />If omitted, the ping is executed in the default/global routing table. |  | Optional: \{\} <br /> |
+| `count` _integer_ | Count is the number of ICMP echo requests to send. | 3 | Maximum: 100 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `packetSize` _integer_ | PacketSize is the ICMP payload size in bytes.<br />Useful for detecting MTU issues in VXLAN overlays. |  | Maximum: 65507 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `timeout` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | Timeout is the maximum time to wait for a reply per echo request. |  | Optional: \{\} <br /> |
+
+
+#### PingProbeResult
+
+
+
+PingProbeResult contains the result of a Ping probe execution.
+
+
+
+_Appears in:_
+- [ProbeStatus](#probestatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `sent` _integer_ | Sent is the number of ICMP echo requests sent. |  | Optional: \{\} <br /> |
+| `received` _integer_ | Received is the number of ICMP echo replies received. |  | Optional: \{\} <br /> |
+| `minTime` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | MinTime is the minimum round-trip time. |  | Optional: \{\} <br /> |
+| `avgTime` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | AvgTime is the average round-trip time. |  | Optional: \{\} <br /> |
+| `maxTime` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | MaxTime is the maximum round-trip time. |  | Optional: \{\} <br /> |
+
+
 #### PolicyActions
 
 
@@ -3365,6 +3508,87 @@ _Appears in:_
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the PrefixSet. |  | Optional: \{\} <br /> |
 
 
+#### Probe
+
+
+
+Probe is the Schema for the probes API.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `Probe` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[ProbeSpec](#probespec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[ProbeStatus](#probestatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### ProbeSpec
+
+
+
+ProbeSpec defines the desired state of Probe.
+
+
+
+_Appears in:_
+- [Probe](#probe)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceRef is a reference to the Device this probe targets.<br />The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this probe.<br />This reference is used to link the Probe to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `schedule` _string_ | Schedule is an optional cron expression (e.g., "*/5 * * * *").<br />If omitted, the controller performs a one-shot probe execution only once<br />for the Probe resource; it does not re-execute on subsequent reconciliations.<br />If set, the controller executes the probe periodically according to the schedule. |  | Optional: \{\} <br /> |
+| `type` _[ProbeType](#probetype)_ | Type selects which probe assertion to execute. |  | Enum: [Ping MACTableEntry RoutePresence VTEPPeerConnectivity] <br />Required: \{\} <br /> |
+| `ping` _[PingProbe](#pingprobe)_ | Ping configures an ICMP echo probe.<br />Required when type is Ping, must be omitted otherwise. |  | Optional: \{\} <br /> |
+| `macTableEntry` _[MACTableEntryProbe](#mactableentryprobe)_ | MACTableEntry configures a MAC address table lookup probe.<br />Required when type is MACTableEntry, must be omitted otherwise. |  | Optional: \{\} <br /> |
+| `routePresence` _[RoutePresenceProbe](#routepresenceprobe)_ | RoutePresence configures a routing table prefix lookup probe.<br />Required when type is RoutePresence, must be omitted otherwise. |  | Optional: \{\} <br /> |
+| `vtepPeerConnectivity` _[VTEPPeerConnectivityProbe](#vteppeerconnectivityprobe)_ | VTEPPeerConnectivity configures a VTEP peer connectivity probe.<br />Required when type is VTEPPeerConnectivity, must be omitted otherwise. |  | Optional: \{\} <br /> |
+
+
+#### ProbeStatus
+
+
+
+ProbeStatus defines the observed state of Probe.
+
+
+
+_Appears in:_
+- [Probe](#probe)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `lastRunTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | LastRunTime is the timestamp of the most recent probe execution,<br />regardless of outcome. |  | Optional: \{\} <br /> |
+| `nextRunTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | NextRunTime is the next time at which the controller intends to<br />execute the probe. Only set when Schedule is configured. |  | Optional: \{\} <br /> |
+| `ping` _[PingProbeResult](#pingproberesult)_ | Ping contains the result of the last Ping probe execution.<br />Only set when the probe type is Ping. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | Conditions represent the current state of the Probe resource.<br />The Ready condition indicates whether the probe assertion passed (True) or failed (False). |  | Optional: \{\} <br /> |
+
+
+#### ProbeType
+
+_Underlying type:_ _string_
+
+ProbeType selects which assertion a Probe executes.
+
+_Validation:_
+- Enum: [Ping MACTableEntry RoutePresence VTEPPeerConnectivity]
+
+_Appears in:_
+- [ProbeSpec](#probespec)
+
+| Field | Description |
+| --- | --- |
+| `Ping` | ProbeTypePing sends ICMP echo requests from the device to a target address.<br /> |
+| `MACTableEntry` | ProbeTypeMACTableEntry asserts that a specific MAC address exists in the device's MAC table.<br /> |
+| `RoutePresence` | ProbeTypeRoutePresence asserts that an IP prefix exists in a routing table.<br /> |
+| `VTEPPeerConnectivity` | ProbeTypeVTEPPeerConnectivity asserts that expected remote VTEP peers are present and up.<br /> |
+
+
 #### Protocol
 
 _Underlying type:_ _string_
@@ -3478,6 +3702,23 @@ _Appears in:_
 | --- | --- |
 | `AcceptRoute` | AcceptRoute permits the route and applies any configured actions.<br /> |
 | `RejectRoute` | RejectRoute denies the route immediately.<br /> |
+
+
+#### RoutePresenceProbe
+
+
+
+RoutePresenceProbe asserts that an IP prefix exists in the device's routing table.
+
+
+
+_Appears in:_
+- [ProbeSpec](#probespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `prefix` _[IPPrefix](#ipprefix)_ | Prefix is the IP prefix to check for (e.g., "10.100.0.0/16", "2001:db8::/32"). |  | Format: cidr <br />Type: string <br />Required: \{\} <br /> |
+| `vrf` _[VRFSource](#vrfsource)_ | VRF selects the VRF routing table to check.<br />If omitted, the default/global routing table is checked. |  | Optional: \{\} <br /> |
 
 
 #### RouteTarget
@@ -3671,6 +3912,7 @@ _Appears in:_
 | `communities` _[SNMPCommunity](#snmpcommunity) array_ | SNMP communities for SNMPv1 or SNMPv2c. |  | MaxItems: 16 <br />MinItems: 1 <br />Optional: \{\} <br /> |
 | `hosts` _[SNMPHosts](#snmphosts) array_ | SNMP destination hosts for SNMP traps or informs messages. |  | MaxItems: 16 <br />MinItems: 1 <br />Required: \{\} <br /> |
 | `traps` _string array_ | The list of trap notifications to enable. |  | MinItems: 1 <br />Optional: \{\} <br /> |
+| `enforceEncryption` _boolean_ | EnforceEncryption enforces SNMP message encryption for all users. |  | Optional: \{\} <br /> |
 
 
 #### SNMPStatus
@@ -3734,6 +3976,7 @@ SecretKeySelector contains enough information to select a key of a Secret.
 _Appears in:_
 - [AAAServerRADIUS](#aaaserverradius)
 - [AAAServerTACACS](#aaaservertacacs)
+- [ConfigBackupEncryption](#configbackupencryption)
 - [PasswordSource](#passwordsource)
 - [SSHPublicKeySource](#sshpublickeysource)
 - [TLS](#tls)
@@ -3758,6 +4001,7 @@ in any namespace.
 _Appears in:_
 - [CertificateSource](#certificatesource)
 - [CertificateSpec](#certificatespec)
+- [ConfigBackupS3](#configbackups3)
 - [Endpoint](#endpoint)
 - [SecretKeySelector](#secretkeyselector)
 
@@ -3782,7 +4026,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `prepend` _[SetASPathPrepend](#setaspathprepend)_ | Prepend configures prepending to the AS path. |  | Optional: \{\} <br /> |
 | `replace` _[SetASPathReplace](#setaspathreplace)_ | Replace configures replacement of AS numbers in the AS path. |  | Optional: \{\} <br /> |
-| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber sets the AS path to the specified AS number.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber sets the AS path to the specified AS number.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
 
 
 #### SetASPathPrepend
@@ -3799,7 +4043,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number to prepend to the AS path.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number to prepend to the AS path.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
 | `useLastAS` _integer_ | UseLastAS prepends the last AS number in the existing AS path the specified number of times. |  | Maximum: 10 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 
 
@@ -3818,8 +4062,8 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `privateAS` _boolean_ | PrivateAS, when set to true, targets all private AS numbers in the path for replacement. |  | Optional: \{\} <br /> |
-| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber targets a specific AS number in the path for replacement.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
-| `replacement` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | Replacement is the AS number to substitute in place of matched AS numbers.<br />Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber targets a specific AS number in the path for replacement.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396. |  | Optional: \{\} <br /> |
+| `replacement` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | Replacement is the AS number to substitute in place of matched AS numbers.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
 
 
 #### SetCommunityAction
@@ -4044,6 +4288,7 @@ _Appears in:_
 - [OSPFSpec](#ospfspec)
 - [PIMSpec](#pimspec)
 - [PrefixSetSpec](#prefixsetspec)
+- [ProbeSpec](#probespec)
 - [RoutingPolicySpec](#routingpolicyspec)
 - [SNMPSpec](#snmpspec)
 - [SyslogSpec](#syslogspec)
@@ -4149,6 +4394,24 @@ VLAN is the Schema for the vlans API
 | `status` _[VLANStatus](#vlanstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
 
 
+#### VLANSource
+
+
+
+VLANSource identifies a VLAN either by literal ID or by reference to a managed VLAN resource.
+Exactly one of ID or VLANRef must be specified.
+
+
+
+_Appears in:_
+- [MACTableEntryProbe](#mactableentryprobe)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `id` _integer_ | ID is the literal VLAN ID on the device (1-4094).<br />Use this for VLANs that are not managed as VLAN resources. |  | Maximum: 4094 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `vlanRef` _[LocalObjectReference](#localobjectreference)_ | VLANRef references a managed VLAN resource in the same namespace.<br />The controller resolves the VLAN ID from this resource. |  | Optional: \{\} <br /> |
+
+
 #### VLANSpec
 
 
@@ -4164,7 +4427,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this vlan.<br />This reference is used to link the VLAN to its provider-specific configuration. |  | Optional: \{\} <br /> |
-| `id` _integer_ | ID is the VLAN ID. Valid values are between 1 and 4094.<br />Immutable. |  | Maximum: 4094 <br />Minimum: 1 <br />Required: \{\} <br /> |
+| `id` _integer_ | ID is the VLAN ID. Valid values are between 1 and 4095.<br />Immutable. |  | Maximum: 4095 <br />Minimum: 1 <br />Required: \{\} <br /> |
 | `name` _string_ | Name is the name of the VLAN. |  | MaxLength: 128 <br />MinLength: 1 <br />Pattern: `^[^\s]+$` <br />Optional: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether the VLAN is administratively active or inactive/suspended. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
 
@@ -4206,6 +4469,25 @@ VRF is the Schema for the vrfs API
 | `status` _[VRFStatus](#vrfstatus)_ | status of the resource. This is set and updated automatically.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
 
 
+#### VRFSource
+
+
+
+VRFSource identifies a VRF/NetworkIntance either by literal name or by reference to a managed VRF resource.
+Exactly one of Name or VRFRef must be specified.
+
+
+
+_Appears in:_
+- [PingProbe](#pingprobe)
+- [RoutePresenceProbe](#routepresenceprobe)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name is the literal VRF name on the device (e.g., "management", "default").<br />Use this for VRFs that are not managed as VRF resources. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
+| `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VRFRef references a managed VRF resource in the same namespace.<br />The controller resolves the device VRF name from this resource. |  | Optional: \{\} <br /> |
+
+
 #### VRFSpec
 
 
@@ -4242,6 +4524,22 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the VRF. |  | Optional: \{\} <br /> |
+
+
+#### VTEPPeerConnectivityProbe
+
+
+
+VTEPPeerConnectivityProbe asserts that expected remote VTEP peers are present and operationally up.
+
+
+
+_Appears in:_
+- [ProbeSpec](#probespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `expectedPeers` _string array_ | ExpectedPeers lists remote VTEP IP addresses that must be present and up on the device. |  | MaxItems: 256 <br />MinItems: 1 <br />Required: \{\} <br /> |
 
 
 
@@ -4383,6 +4681,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `exportGatewayIP` _boolean_ | ExportGatewayIP enables advertising the gateway IP in EVPN Type-5 routes,<br />required for symmetric IRB in VXLAN BGP EVPN topologies. |  | Optional: \{\} <br /> |
+| `advertiseL2vpnEvpn` _boolean_ | AdvertiseL2vpnEvpn enables advertising EVPN routes within the VRF<br />unicast address family. Required on border gateway nodes for cross-site<br />EVPN Type-5 IP prefix route advertisement. |  | Optional: \{\} <br /> |
 
 
 #### BGPL2vpnEvpn
@@ -4773,7 +5072,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `advertiseVirtualMAC` _boolean_ | AdvertiseVirtualMAC controls if the NVE should advertise a virtual MAC address | false | Optional: \{\} <br /> |
 | `holdDownTime` _integer_ | HoldDownTime defines the duration for which the switch suppresses the advertisement of the NVE loopback address. | 180 | Maximum: 1500 <br />Minimum: 1 <br />Optional: \{\} <br /> |
-| `infraVLANs` _[VLANListItem](#vlanlistitem) array_ | InfraVLANs specifies VLANs used by all SVI interfaces for uplink and vPC peer-links in VXLAN as infra-VLANs.<br />The total number of VLANs configured must not exceed 512.<br />Elements in the list must not overlap with each other. |  | MaxItems: 10 <br />Optional: \{\} <br /> |
+| `infraVLANs` _[VLANListItem](#vlanlistitem) array_ | InfraVLANs specifies VLANs used by all SVI interfaces for uplink and vPC peer-links in VXLAN as infra-VLANs.<br />Valid VLAN IDs are 1-4092 because NX-OS always reserves VLANs 4093-4095 for internal use.<br />The provider also checks these VLANs against the device's configurable internal reserved VLAN range.<br />The total number of VLANs configured must not exceed 512.<br />Elements in the list must not overlap with each other. |  | MaxItems: 10 <br />Optional: \{\} <br /> |
 
 
 #### Peer
@@ -5013,9 +5312,9 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `id` _integer_ |  |  | Maximum: 3967 <br />Minimum: 1 <br />Optional: \{\} <br /> |
-| `rangeMin` _integer_ |  |  | Maximum: 3967 <br />Minimum: 1 <br />Optional: \{\} <br /> |
-| `rangeMax` _integer_ |  |  | Maximum: 3967 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `id` _integer_ |  |  | Maximum: 4092 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `rangeMin` _integer_ |  |  | Maximum: 4092 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `rangeMax` _integer_ |  |  | Maximum: 4092 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 
 
 #### VPCDomain

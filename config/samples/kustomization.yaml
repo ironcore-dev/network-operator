@@ -35,6 +35,7 @@ resources:
 - v1alpha1_ipprefix.yaml
 - v1alpha1_claim.yaml
 - v1alpha1_fabric.yaml
+- v1alpha1_probe.yaml
 - cisco/nx/v1alpha1_bordergateway.yaml
 - cisco/nx/v1alpha1_managementaccessconfig.yaml
 - cisco/nx/v1alpha1_nveconfig.yaml

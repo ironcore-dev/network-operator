@@ -4,6 +4,8 @@
 package evpn
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -242,6 +244,15 @@ var _ = Describe("Fabric Controller", func() {
 				}).Should(Succeed())
 			}
 
+			By("Verifying lo0 addresses are allocated in device name order")
+			Eventually(func(g Gomega) {
+				for i, d := range []*corev1alpha1.Device{leaf1, leaf2, spine1, spine2} {
+					claim := &poolv1alpha1.Claim{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-lo0", Namespace: metav1.NamespaceDefault}, claim)).To(Succeed())
+					g.Expect(claim.Status.Value).To(Equal(fmt.Sprintf("10.0.0.%d", i)))
+				}
+			}).Should(Succeed())
+
 			By("Verifying lo1 and lo2 Claims are created only for leaf (VTEP) devices")
 			for _, d := range []*corev1alpha1.Device{leaf1, leaf2} {
 				for _, id := range []string{"lo1", "lo2"} {
@@ -265,7 +276,7 @@ var _ = Describe("Fabric Controller", func() {
 					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-lo0", Namespace: metav1.NamespaceDefault}, intf)).To(Succeed())
 					g.Expect(intf.Spec.Type).To(Equal(corev1alpha1.InterfaceTypeLoopback))
 					g.Expect(intf.Spec.DeviceRef.Name).To(Equal(d.Name))
-					g.Expect(intf.Spec.Name).To(Equal("lo0"))
+					g.Expect(intf.Spec.Name).To(Equal("Loopback0"))
 					g.Expect(intf.Spec.AdminState).To(Equal(corev1alpha1.AdminStateUp))
 					g.Expect(intf.Spec.Description).To(Equal("Router-ID, BGP Source"))
 					g.Expect(intf.Spec.IPv4).NotTo(BeNil())
@@ -282,7 +293,7 @@ var _ = Describe("Fabric Controller", func() {
 						g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-" + id, Namespace: metav1.NamespaceDefault}, intf)).To(Succeed())
 						g.Expect(intf.Spec.Type).To(Equal(corev1alpha1.InterfaceTypeLoopback))
 						g.Expect(intf.Spec.DeviceRef.Name).To(Equal(d.Name))
-						g.Expect(intf.Spec.Name).To(Equal(id))
+						g.Expect(intf.Spec.Name).To(Equal("Loopback" + id[2:]))
 						g.Expect(intf.Spec.AdminState).To(Equal(corev1alpha1.AdminStateUp))
 						g.Expect(intf.Spec.Description).To(Equal(descriptions[loIdx]))
 						g.Expect(intf.Spec.IPv4).NotTo(BeNil())
@@ -298,7 +309,7 @@ var _ = Describe("Fabric Controller", func() {
 					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-lo100", Namespace: metav1.NamespaceDefault}, intf)).To(Succeed())
 					g.Expect(intf.Spec.Type).To(Equal(corev1alpha1.InterfaceTypeLoopback))
 					g.Expect(intf.Spec.DeviceRef.Name).To(Equal(d.Name))
-					g.Expect(intf.Spec.Name).To(Equal("lo100"))
+					g.Expect(intf.Spec.Name).To(Equal("Loopback100"))
 					g.Expect(intf.Spec.AdminState).To(Equal(corev1alpha1.AdminStateUp))
 					g.Expect(intf.Spec.Description).To(Equal("Rendezvous Point"))
 					g.Expect(intf.Spec.IPv4).NotTo(BeNil())
@@ -358,7 +369,7 @@ var _ = Describe("Fabric Controller", func() {
 					g.Expect(ospf.OwnerReferences).To(ContainElement(SatisfyAll(
 						HaveField("Kind", "Fabric"),
 						HaveField("Name", fabric.Name),
-						HaveField("Controller", HaveValue(BeTrue())),
+						HaveField("Controller", BeNil()),
 					)))
 				}).Should(Succeed())
 			}
@@ -388,7 +399,7 @@ var _ = Describe("Fabric Controller", func() {
 					g.Expect(bgp.OwnerReferences).To(ContainElement(SatisfyAll(
 						HaveField("Kind", "Fabric"),
 						HaveField("Name", fabric.Name),
-						HaveField("Controller", HaveValue(BeTrue())),
+						HaveField("Controller", BeNil()),
 					)))
 				}).Should(Succeed())
 			}
@@ -469,7 +480,7 @@ var _ = Describe("Fabric Controller", func() {
 					g.Expect(pim.OwnerReferences).To(ContainElement(SatisfyAll(
 						HaveField("Kind", "Fabric"),
 						HaveField("Name", fabric.Name),
-						HaveField("Controller", HaveValue(BeTrue())),
+						HaveField("Controller", BeNil()),
 					)))
 				}).Should(Succeed())
 			}
@@ -513,21 +524,35 @@ var _ = Describe("Fabric Controller", func() {
 					g.Expect(nve.OwnerReferences).To(ContainElement(SatisfyAll(
 						HaveField("Kind", "Fabric"),
 						HaveField("Name", fabric.Name),
-						HaveField("Controller", HaveValue(BeTrue())),
+						HaveField("Controller", BeNil()),
 					)))
 				}).Should(Succeed())
 			}
 
-			By("Verifying the Fabric Ready condition is True once all phases are complete")
+			By("Verifying convergence conditions report correct state")
 			Eventually(func(g Gomega) {
 				f := &evpnv1alpha1.Fabric{}
 				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(fabric), f)).To(Succeed())
-				g.Expect(f.Status.Conditions).To(ContainElement(
-					SatisfyAll(
-						HaveField("Type", corev1alpha1.ReadyCondition),
-						HaveField("Status", metav1.ConditionTrue),
-					),
-				))
+
+				// Underlay: OSPF resources exist but no device controller sets Operational in envtest.
+				g.Expect(f.Status.Conditions).To(ContainElement(SatisfyAll(
+					HaveField("Type", evpnv1alpha1.UnderlayConvergedCondition),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", evpnv1alpha1.NotConvergedReason),
+				)))
+
+				// Overlay: BGPPeer resources exist but no device controller sets Operational in envtest.
+				g.Expect(f.Status.Conditions).To(ContainElement(SatisfyAll(
+					HaveField("Type", evpnv1alpha1.OverlayConvergedCondition),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", evpnv1alpha1.NotConvergedReason),
+				)))
+
+				// Ready is False because convergence conditions are not met.
+				g.Expect(f.Status.Conditions).To(ContainElement(SatisfyAll(
+					HaveField("Type", corev1alpha1.ReadyCondition),
+					HaveField("Status", metav1.ConditionFalse),
+				)))
 			}).Should(Succeed())
 		})
 	})
@@ -947,7 +972,7 @@ var _ = Describe("Fabric Controller", func() {
 					g.Expect(isis.OwnerReferences).To(ContainElement(SatisfyAll(
 						HaveField("Kind", "Fabric"),
 						HaveField("Name", fabric.Name),
-						HaveField("Controller", HaveValue(BeTrue())),
+						HaveField("Controller", BeNil()),
 					)))
 				}).Should(Succeed())
 			}

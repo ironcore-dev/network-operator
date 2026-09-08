@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
@@ -22,16 +23,19 @@ func TestUri(t *testing.T) {
 	tests := []struct {
 		desc      string
 		conn      *deviceutil.Connection
+		wantAddr  string
 		wantProto string
 	}{
 		{
 			desc:      "no TLS uses http",
 			conn:      &deviceutil.Connection{Address: "10.0.0.1:80"},
+			wantAddr:  "10.0.0.1",
 			wantProto: "http",
 		},
 		{
 			desc:      "with TLS uses https",
 			conn:      &deviceutil.Connection{Address: "10.0.0.1:443", TLS: &tls.Config{MinVersion: tls.VersionTLS12}},
+			wantAddr:  "10.0.0.1",
 			wantProto: "https",
 		},
 	}
@@ -44,8 +48,8 @@ func TestUri(t *testing.T) {
 			if c.url.Scheme != test.wantProto {
 				t.Errorf("scheme = %q, want %q", c.url.Scheme, test.wantProto)
 			}
-			if c.url.Host != test.conn.Address {
-				t.Errorf("host = %q, want %q", c.url.Host, test.conn.Address)
+			if c.url.Host != test.wantAddr {
+				t.Errorf("host = %q, want %q", c.url.Host, test.wantAddr)
 			}
 			if c.url.Path != "/ins" {
 				t.Errorf("path = %q, want %q", c.url.Path, "/ins")
@@ -56,13 +60,15 @@ func TestUri(t *testing.T) {
 
 func TestEncode(t *testing.T) {
 	tests := []struct {
-		desc string
-		cmds []string
-		want string
+		desc   string
+		cmds   []string
+		method Method
+		want   string
 	}{
 		{
-			desc: "single show command",
-			cmds: []string{"show crypto ca certificates"},
+			desc:   "single show command",
+			cmds:   []string{"show crypto ca certificates"},
+			method: MethodCLI,
 			want: `
 [
   {
@@ -77,8 +83,9 @@ func TestEncode(t *testing.T) {
 ]`,
 		},
 		{
-			desc: "multiple conf commands",
-			cmds: []string{"crypto ca trustpoint mytrustpoint", "crypto ca import mytrustpoint pkcs12 bootflash:server.pfx cisco123"},
+			desc:   "multiple conf commands",
+			cmds:   []string{"crypto ca trustpoint mytrustpoint", "crypto ca import mytrustpoint pkcs12 bootflash:server.pfx cisco123"},
+			method: MethodCLI,
 			want: `
 [
   {
@@ -101,10 +108,27 @@ func TestEncode(t *testing.T) {
   }
 ]`,
 		},
+		{
+			desc:   "cli_ascii method",
+			cmds:   []string{"show running-config"},
+			method: MethodCLIASCII,
+			want: `
+[
+  {
+    "jsonrpc": "2.0",
+    "method": "cli_ascii",
+    "params": {
+      "cmd": "show running-config",
+      "version": 1
+    },
+    "id": 1
+  }
+]`,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			r := NewRequest(test.cmds...)
+			r := NewRequest(test.cmds...).WithMethod(test.method)
 			b, err := r.Encode()
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -172,6 +196,7 @@ func TestDo(t *testing.T) {
 		statusCode     int
 		serverResponse string
 		wantResultLen  int
+		wantResult     string // if set, check first result content
 		wantRPCErrors  int
 		wantHTTPError  bool
 	}{
@@ -195,6 +220,13 @@ func TestDo(t *testing.T) {
 			statusCode:     http.StatusOK,
 			serverResponse: `{"jsonrpc":"2.0","result":null,"id":1}`,
 			wantResultLen:  1,
+		},
+		{
+			desc:           "2xx cli_ascii result with msg field",
+			statusCode:     http.StatusOK,
+			serverResponse: `{"jsonrpc":"2.0","result":{"msg":"\nhostname leaf1\nfeature bgp\n"},"id":1}`,
+			wantResultLen:  1,
+			wantResult:     `"\nhostname leaf1\nfeature bgp\n"`,
 		},
 		{
 			desc:           "non-2xx single RPC error",
@@ -258,7 +290,7 @@ func TestDo(t *testing.T) {
 				Username: "admin",
 				Password: "secret",
 			}
-			c, err := NewClient(conn)
+			c, err := NewClient(conn, WithPort(strings.Split(conn.Address, ":")[1]))
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -294,6 +326,11 @@ func TestDo(t *testing.T) {
 			}
 			if len(results) != test.wantResultLen {
 				t.Fatalf("len(results) = %d, want %d", len(results), test.wantResultLen)
+			}
+			if test.wantResult != "" {
+				if got := string(results[0]); got != test.wantResult {
+					t.Errorf("result[0] = %q, want %q", got, test.wantResult)
+				}
 			}
 		})
 	}

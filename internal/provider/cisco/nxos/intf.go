@@ -258,11 +258,11 @@ func (b *BFD) Validate() error {
 	if b.IfkaItems.DetectMult < 1 || b.IfkaItems.DetectMult > 50 {
 		return fmt.Errorf("bfd: invalid detect-mult %d: must be between 1 and 50", b.IfkaItems.DetectMult)
 	}
-	if b.IfkaItems.MinRxIntvlMs < 100 || b.IfkaItems.MinRxIntvlMs > 999 {
-		return fmt.Errorf("bfd: invalid min-rx-intvl %d: must be between 100 and 999", b.IfkaItems.MinRxIntvlMs)
+	if b.IfkaItems.MinRxIntvlMs < 50 || b.IfkaItems.MinRxIntvlMs > 999 {
+		return fmt.Errorf("bfd: invalid min-rx-intvl %d: must be between 50 and 999", b.IfkaItems.MinRxIntvlMs)
 	}
-	if b.IfkaItems.MinTxIntvlMs < 100 || b.IfkaItems.MinTxIntvlMs > 999 {
-		return fmt.Errorf("bfd: invalid min-tx-intvl %d: must be between 100 and 999", b.IfkaItems.MinTxIntvlMs)
+	if b.IfkaItems.MinTxIntvlMs < 50 || b.IfkaItems.MinTxIntvlMs > 999 {
+		return fmt.Errorf("bfd: invalid min-tx-intvl %d: must be between 50 and 999", b.IfkaItems.MinTxIntvlMs)
 	}
 	return nil
 }

@@ -264,7 +264,7 @@ func (r *OSPFReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 			}),
 		).
 		// Watches enqueues OSPFs for updates in referenced Interface resources.
-		// Only triggers on create, delete and update events when the Configured condition changes.
+		// Updates trigger when IPv4 availability or the Configured condition changes.
 		Watches(
 			&v1alpha1.Interface{},
 			handler.EnqueueRequestsFromMapFunc(r.interfaceToOSPF),
@@ -274,7 +274,9 @@ func (r *OSPFReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 					newInterface := e.ObjectNew.(*v1alpha1.Interface)
 					oldConfigured := conditions.Get(oldInterface, v1alpha1.ConfiguredCondition)
 					newConfigured := conditions.Get(newInterface, v1alpha1.ConfiguredCondition)
-					return ((oldConfigured == nil) != (newConfigured == nil)) || (newConfigured != nil && oldConfigured.Status != newConfigured.Status)
+					return oldInterface.HasIPv4() != newInterface.HasIPv4() ||
+						((oldConfigured == nil) != (newConfigured == nil)) ||
+						(newConfigured != nil && oldConfigured.Status != newConfigured.Status)
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false
@@ -325,6 +327,26 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (reterr er
 				return reconcile.TerminalError(fmt.Errorf("interface %q not found", ref.Name))
 			}
 			return err
+		}
+
+		if intf.Spec.DeviceRef.Name != s.Device.Name {
+			conditions.Set(s.OSPF, metav1.Condition{
+				Type:    v1alpha1.ConfiguredCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.CrossDeviceReferenceReason,
+				Message: fmt.Sprintf("interface %q belongs to device %q, not %q", ref.Name, intf.Spec.DeviceRef.Name, s.Device.Name),
+			})
+			return reconcile.TerminalError(fmt.Errorf("interface %q belongs to a different device", ref.Name))
+		}
+
+		if !intf.HasIPv4() {
+			conditions.Set(s.OSPF, metav1.Condition{
+				Type:    v1alpha1.ConfiguredCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.IPAddressingNotFoundReason,
+				Message: fmt.Sprintf("interface %q has no IPv4 configuration", ref.Name),
+			})
+			return reconcile.TerminalError(fmt.Errorf("interface %q has no IPv4 configuration", ref.Name))
 		}
 
 		if !conditions.IsConfigured(intf) {

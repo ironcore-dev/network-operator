@@ -27,6 +27,7 @@ spec:
 }
 
 -- state/expect --
+
 {
   "openconfig-system:system": {
     "state": {
@@ -36,39 +37,38 @@ spec:
   "openconfig-interfaces:interfaces": {
     "interface": [
       {
-        "name": "lo1",
         "config": {
-          "description": "NVE/VTEP Leaf1",
-          "enabled": true,
           "name": "lo1",
-          "type": "iana-if-type:softwareLoopback"
+          "type": "iana-if-type:softwareLoopback",
+          "description": "NVE/VTEP Leaf1",
+          "enabled": true
         },
         "subinterfaces": {
           "subinterface": [
             {
-              "config": {
-                "enabled": true,
-                "index": 0
-              },
               "index": 0,
+              "config": {
+                "index": 0,
+                "enabled": true
+              },
               "openconfig-if-ip:ipv4": {
                 "addresses": {
                   "address": [
                     {
+                      "ip": "10.0.1.10",
                       "config": {
                         "ip": "10.0.1.10",
                         "prefix-length": 32,
                         "type": "PRIMARY"
-                      },
-                      "ip": "10.0.1.10"
+                      }
                     },
                     {
+                      "ip": "10.1.0.10",
                       "config": {
                         "ip": "10.1.0.10",
                         "prefix-length": 32,
                         "type": "SECONDARY"
-                      },
-                      "ip": "10.1.0.10"
+                      }
                     }
                   ]
                 },
@@ -78,17 +78,22 @@ spec:
               }
             }
           ]
-        }
+        },
+        "name": "lo1"
       }
     ]
   }
 }
 
 -- state/delete --
+
 {
   "openconfig-system:system": {
     "state": {
       "boot-time": "1784731445707000000"
     }
+  },
+  "openconfig-interfaces:interfaces": {
+    "interface": []
   }
 }

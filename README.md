@@ -83,6 +83,17 @@ make uninstall
 make undeploy
 ```
 
+## kubectl Plugin
+
+The `kubectl-net` plugin extends kubectl with shorthand flags and resource lifecycle operations tailored to network-operator.
+
+```bash
+kubectl net get interfaces --device leaf1
+kubectl net pause devices leaf1 --recursive
+```
+
+See [kubectl-net/README.md](kubectl-net/README.md) for installation and full usage documentation.
+
 ## Project Distribution
 
 Following are the steps to build the installer and distribute this project to users.

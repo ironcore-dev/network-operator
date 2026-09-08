@@ -1,0 +1,71 @@
+-- systems/system-config --
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: System
+metadata:
+  name: system-config
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  jumboMtu: 9214
+  reservedVlan: 3968
+  vlanLongName: false
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "vlanmgr-items": {
+      "inst-items": {
+        "longName": false
+      }
+    },
+    "bd-items": {
+      "resvlan-items": {
+        "sysVlan": 3968
+      }
+    },
+    "ethpm-items": {
+      "inst-items": {
+        "systemJumboMtu": 9214
+      }
+    }
+  }
+}
+
+-- state/delete --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "vlanmgr-items": {
+      "inst-items": {
+        "longName": false
+      }
+    },
+    "bd-items": {
+      "resvlan-items": {
+        "sysVlan": 3968
+      }
+    },
+    "ethpm-items": {
+      "inst-items": {
+        "systemJumboMtu": 9216
+      }
+    }
+  }
+}

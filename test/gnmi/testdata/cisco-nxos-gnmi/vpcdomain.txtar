@@ -1,0 +1,243 @@
+-- interfaces/eth1 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: eth1
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: eth1/1
+  type: Physical
+  adminState: Up
+
+-- interfaces/vpc-peerlink --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: vpc-peerlink
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: po1
+  type: Aggregate
+  adminState: Up
+  aggregation:
+    memberInterfaceRefs:
+      - name: eth1
+    controlProtocol:
+      mode: Active
+
+-- vpcdomains/vpc1 --
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: VPCDomain
+metadata:
+  name: vpc1
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  domainId: 100
+  adminState: Up
+  rolePriority: 32667
+  systemPriority: 32667
+  peer:
+    adminState: Up
+    interfaceRef:
+      name: vpc-peerlink
+    keepalive:
+      destination: 10.0.0.2
+      source: 10.0.0.1
+      vrfName: management
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "accessVlan": "vlan-1",
+            "adminSt": "up",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "FECMode": "auto",
+            "id": "eth1/1",
+            "layer": "Layer2",
+            "mtu": 1500,
+            "medium": "broadcast",
+            "mode": "access",
+            "nativeVlan": "vlan-1",
+            "userCfgdFlags": "admin_layer,admin_state",
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            }
+          }
+        ]
+      },
+      "aggr-items": {
+        "AggrIf-list": [
+          {
+            "accessVlan": "vlan-1",
+            "adminSt": "up",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "id": "po1",
+            "lacpVpcConvergence": "disable",
+            "layer": "Layer2",
+            "mtu": 1500,
+            "medium": "broadcast",
+            "mode": "access",
+            "pcMode": "active",
+            "nativeVlan": "vlan-1",
+            "suspIndividual": "enable",
+            "userCfgdFlags": "admin_layer,admin_state",
+            "rsmbrIfs-items": {
+              "RsMbrIfs-list": [
+                {
+                  "tDn": "/System/intf-items/phys-items/PhysIf-list[id='eth1/1']"
+                }
+              ]
+            },
+            "aggrExtd-items": {
+              "bufferBoost": "enable"
+            }
+          }
+        ]
+      }
+    },
+    "stp-items": {
+      "inst-items": {
+        "if-items": {
+          "If-list": [
+            {
+              "mode": "default",
+              "bpdufilter": "default",
+              "bpduguard": "default",
+              "id": "eth1/1"
+            },
+            {
+              "mode": "default",
+              "bpdufilter": "default",
+              "bpduguard": "default",
+              "id": "po1"
+            }
+          ]
+        }
+      }
+    },
+    "fm-items": {
+      "lacp-items": {
+        "adminSt": "enabled"
+      },
+      "vpc-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "vpc-items": {
+      "inst-items": {
+        "dom-items": {
+          "adminSt": "enabled",
+          "autoRecovery": "disabled",
+          "autoRecoveryIntvl": 240,
+          "delayRestoreSVI": 10,
+          "delayRestoreVPC": 30,
+          "fastConvergence": "disabled",
+          "id": 100,
+          "l3PeerRouter": "disabled",
+          "peerGw": "disabled",
+          "peerSwitch": "disabled",
+          "rolePrio": 32667,
+          "sysPrio": 32667,
+          "keepalive-items": {
+            "destIp": "10.0.0.2",
+            "srcIp": "10.0.0.1",
+            "vrf": "management",
+            "peerlink-items": {
+              "adminSt": "enabled",
+              "id": "po1"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+-- state/delete --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "accessVlan": "vlan-1",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "FECMode": "auto",
+            "id": "eth1/1",
+            "layer": "Layer2",
+            "mtu": 1500,
+            "medium": "broadcast",
+            "mode": "access",
+            "nativeVlan": "vlan-1",
+            "userCfgdFlags": "",
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            },
+            "trunkVlans": "1-4094"
+          }
+        ]
+      },
+      "aggr-items": {
+        "AggrIf-list": []
+      }
+    },
+    "stp-items": {
+      "inst-items": {
+        "if-items": {
+          "If-list": [
+            {
+              "mode": "default",
+              "bpdufilter": "default",
+              "bpduguard": "default",
+              "id": "po1"
+            },
+            {
+              "mode": "default",
+              "bpdufilter": "default",
+              "bpduguard": "default",
+              "id": "eth1/1"
+            }
+          ]
+        }
+      }
+    },
+    "fm-items": {
+      "lacp-items": {
+        "adminSt": "enabled"
+      },
+      "vpc-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "vpc-items": {
+      "inst-items": {}
+    }
+  }
+}

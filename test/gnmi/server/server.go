@@ -285,6 +285,16 @@ func (s *State) Get(path *gpb.Path) []byte {
 	return []byte(res.Raw)
 }
 
+// setKey writes a gNMI list key into the JSON buffer at path. Keys that parse
+// as integers are stored as JSON numbers like. Get relies on gjson to transform
+// numbers back to strings when matching #(key=="value").
+func setKey(buf []byte, path, v string) ([]byte, error) {
+	if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+		return sjson.SetBytes(buf, path, n)
+	}
+	return sjson.SetBytes(buf, path, v)
+}
+
 // Set sets the value at the specified path in the state.
 func (s *State) Set(path *gpb.Path, raw []byte) (err error) {
 	s.Lock()
@@ -319,9 +329,7 @@ func (s *State) Set(path *gpb.Path, raw []byte) (err error) {
 		sb.WriteByte('.')
 		sb.WriteString(strconv.Itoa(idx))
 		for k, v := range elem.GetKey() {
-			var err error
-			buf, err = sjson.SetBytes(buf, sb.String()+"."+k, v)
-			if err != nil {
+			if buf, err = setKey(buf, sb.String()+"."+k, v); err != nil {
 				return fmt.Errorf("sjson.SetBytes key %s: %w", k, err)
 			}
 		}
@@ -334,8 +342,7 @@ func (s *State) Set(path *gpb.Path, raw []byte) (err error) {
 
 	if elems := path.GetElem(); len(elems) > 0 {
 		for k, v := range elems[len(elems)-1].GetKey() {
-			buf, err = sjson.SetBytes(buf, sb.String()+"."+k, v)
-			if err != nil {
+			if buf, err = setKey(buf, sb.String()+"."+k, v); err != nil {
 				return fmt.Errorf("sjson.SetBytes final key %s: %w", k, err)
 			}
 		}

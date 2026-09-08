@@ -595,6 +595,11 @@ type Interface struct {
 	Status InterfaceStatus `json:"status,omitempty,omitzero"`
 }
 
+// HasIPv4 reports whether the Interface is configured as a routed IPv4 interface.
+func (in *Interface) HasIPv4() bool {
+	return in.Spec.Switchport == nil && in.Spec.IPv4 != nil
+}
+
 // GetConditions implements conditions.Getter.
 func (in *Interface) GetConditions() []metav1.Condition {
 	return in.Status.Conditions

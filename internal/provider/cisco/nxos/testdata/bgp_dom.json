@@ -11,6 +11,7 @@
               "DomAf-list": [
                 {
                   "exportGwIp": "disabled",
+                  "advertL2vpnEvpn": "disabled",
                   "type": "l2vpn-evpn",
                   "retainRttAll": "enabled",
                   "retainRttRtMap": "DME_UNSET_PROPERTY_MARKER"

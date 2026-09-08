@@ -114,8 +114,14 @@ var _ = Describe("BGP Webhook", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("Should deny creation with invalid dotted notation - high part is zero", func() {
+		It("Should allow creation with valid dotted notation - high part is zero", func() {
 			obj.Spec.ASNumber = intstr.FromString("0.100")
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("Should deny creation with dotted notation 0.0 - reserved AS number", func() {
+			obj.Spec.ASNumber = intstr.FromString("0.0")
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
 		})

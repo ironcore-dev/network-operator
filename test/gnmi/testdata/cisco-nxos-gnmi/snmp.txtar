@@ -1,0 +1,91 @@
+-- snmps/config --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: SNMP
+metadata:
+  name: config
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  contact: "admin@example.com"
+  location: "foobar"
+  sourceInterfaceName: "mgmt0"
+  enforceEncryption: true
+  hosts:
+    - address: "10.0.0.100"
+  communities:
+    - name: "public"
+      group: "network-operator"
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "snmp-items": {
+      "inst-items": {
+        "sysinfo-items": {
+          "sysContact": "admin@example.com",
+          "sysLocation": "foobar"
+        },
+        "globals-items": {
+          "enforcePrivacy": "yes",
+          "srcInterfaceTraps-items": {
+            "ifname": "mgmt0"
+          },
+          "srcInterfaceInforms-items": {
+            "ifname": "mgmt0"
+          }
+        },
+        "community-items": {
+          "CommSecP-list": [
+            {
+              "commAcess": "unspecified",
+              "grpName": "network-operator",
+              "name": "public"
+            }
+          ]
+        },
+        "traps-items": {},
+        "host-items": {
+          "Host-list": [
+            {
+              "commName": "DME_UNSET_PROPERTY_MARKER",
+              "hostName": "10.0.0.100",
+              "notifType": "traps",
+              "secLevel": "noauth",
+              "udpPortID": 162,
+              "version": "v2c"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+-- state/delete --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "snmp-items": {
+      "inst-items": {
+        "traps-items": {}
+      }
+    }
+  }
+}

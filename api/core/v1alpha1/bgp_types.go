@@ -38,7 +38,7 @@ type BGPSpec struct {
 	AdminState AdminState `json:"adminState,omitempty"`
 
 	// ASNumber is the autonomous system number (ASN) for the BGP router.
-	// Supports both plain format (1-4294967295) and dotted notation (1-65535.0-65535) as per RFC 5396.
+	// Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396.
 	// Immutable.
 	// +required
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="ASNumber is immutable"

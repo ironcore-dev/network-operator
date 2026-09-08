@@ -31,3 +31,24 @@ const (
 	// with the value set to the owning Fabric's name.
 	FabricLabel = "evpn.networking.metal.ironcore.dev/fabric"
 )
+
+// Fabric condition types.
+const (
+	// UnderlayConvergedCondition reports whether all underlay IGP adjacencies are formed.
+	UnderlayConvergedCondition = "UnderlayConverged"
+
+	// OverlayConvergedCondition reports whether all overlay BGP sessions are established.
+	OverlayConvergedCondition = "OverlayConverged"
+)
+
+// Fabric condition reasons.
+const (
+	// ConvergedReason indicates all child resources report Operational=True.
+	ConvergedReason = "Converged"
+
+	// NotConvergedReason indicates one or more child resources are not yet operational.
+	NotConvergedReason = "NotConverged"
+
+	// NoResourcesReason indicates no child resources exist yet for this condition.
+	NoResourcesReason = "NoResources"
+)

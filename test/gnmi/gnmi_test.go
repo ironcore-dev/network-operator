@@ -60,10 +60,6 @@ var _ = Describe("gNMI requests tests", func() {
 		AfterEach(func(ctx SpecContext) {
 			By("deleting the test namespace")
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testNamespace}}))).To(Succeed())
-
-			By("clearing gNMI state for next test")
-			serverState := gnmiServer.State()
-			serverState.SetBuf([]byte("{}"))
 		})
 
 		// Generate individual It nodes for each test file
@@ -97,6 +93,7 @@ var _ = Describe("gNMI requests tests", func() {
 
 				By("preloading gNMI state from testdata")
 				serverState := gnmiServer.State()
+				serverState.SetBuf([]byte("{}"))
 				if len(statePre) != 0 {
 					serverState.SetBuf(statePre)
 				}
@@ -131,7 +128,7 @@ var _ = Describe("gNMI requests tests", func() {
 					if len(stateJSON) == 0 {
 						stateJSON = []byte("{}")
 					}
-					g.Expect(stateJSON).To(ContainUnorderedJSON(statePost), "gNMI state does not match expected JSON")
+					g.Expect(stateJSON).To(MatchUnorderedJSON(statePost), "gNMI state does not match expected JSON")
 				}).Should(Succeed())
 
 				By("deleting all intermeadiate test resources created in test")
@@ -143,7 +140,7 @@ var _ = Describe("gNMI requests tests", func() {
 					if len(stateJSON) == 0 {
 						stateJSON = []byte("{}")
 					}
-					g.Expect(stateJSON).To(ContainUnorderedJSON(stateDelete), "gNMI state does not match expected JSON")
+					g.Expect(stateJSON).To(MatchUnorderedJSON(stateDelete), "gNMI state does not match expected JSON")
 				}).Should(Succeed())
 
 				By("deleting the test device")

@@ -1,0 +1,138 @@
+-- interfaceconfigs/interface-nxconfig-edge --
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: InterfaceConfig
+metadata:
+  name: interface-nxconfig-edge
+  namespace: default
+spec:
+  bufferBoost:
+    enabled: false
+  spanningTree:
+    portType: Edge
+    bpduGuard: true
+
+-- interfaces/eth1-10 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: eth1-10
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: eth1/2
+  type: Physical
+  adminState: Up
+  mtu: 1500
+  description: "Edge port with STP and BufferBoost config"
+  providerConfigRef:
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+    kind: InterfaceConfig
+    name: interface-nxconfig-edge
+  switchport:
+    mode: Trunk
+    nativeVlan: 1
+    allowedVlans:
+      - 10
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "accessVlan": "vlan-1",
+            "adminSt": "up",
+            "descr": "Edge port with STP and BufferBoost config",
+            "FECMode": "auto",
+            "id": "eth1/2",
+            "layer": "Layer2",
+            "mtu": 1500,
+            "medium": "broadcast",
+            "mode": "trunk",
+            "nativeVlan": "vlan-1",
+            "userCfgdFlags": "admin_layer,admin_mtu,admin_state",
+            "physExtd-items": {
+              "bufferBoost": "disable"
+            },
+            "trunkVlans": "10"
+          }
+        ]
+      }
+    },
+    "stp-items": {
+      "inst-items": {
+        "if-items": {
+          "If-list": [
+            {
+              "mode": "edge",
+              "bpdufilter": "default",
+              "bpduguard": "enable",
+              "id": "eth1/2"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+-- state/delete --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "accessVlan": "vlan-1",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "FECMode": "auto",
+            "id": "eth1/2",
+            "layer": "Layer2",
+            "mtu": 1500,
+            "medium": "broadcast",
+            "mode": "access",
+            "nativeVlan": "vlan-1",
+            "userCfgdFlags": "",
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            },
+            "trunkVlans": "1-4094"
+          }
+        ]
+      }
+    },
+    "stp-items": {
+      "inst-items": {
+        "if-items": {
+          "If-list": [
+            {
+              "mode": "default",
+              "bpdufilter": "default",
+              "bpduguard": "enable",
+              "id": "eth1/2"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

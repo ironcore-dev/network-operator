@@ -48,7 +48,7 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	SetDefaultEventuallyTimeout(time.Minute)
-	SetDefaultEventuallyPollingInterval(time.Second)
+	SetDefaultEventuallyPollingInterval(200 * time.Millisecond)
 
 	ctx, cancel = context.WithCancel(ctrl.SetupSignalHandler())
 

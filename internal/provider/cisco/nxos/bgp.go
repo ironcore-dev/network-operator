@@ -91,9 +91,10 @@ type BGPDomAfItem struct {
 	// Maximum number of equal-cost paths for iBGP
 	MaxEcmp int8 `json:"maxEcmp,omitempty"`
 	// Maximum number of equal-cost paths for eBGP
-	MaxExtEcmp int8          `json:"maxExtEcmp,omitempty"`
-	ExportGwIP AdminSt       `json:"exportGwIp"`
-	Type       AddressFamily `json:"type"`
+	MaxExtEcmp      int8          `json:"maxExtEcmp,omitempty"`
+	ExportGwIP      AdminSt       `json:"exportGwIp"`
+	AdvertL2vpnEvpn AdminSt       `json:"advertL2vpnEvpn"`
+	Type            AddressFamily `json:"type"`
 
 	// The fields below are only valid for the l2vpn-evpn address family.
 	// For other address families, these fields will be omitted in the JSON
@@ -121,6 +122,7 @@ func (af BGPDomAfItem) MarshalJSON() ([]byte, error) {
 			MaxEcmp         int8          `json:"maxEcmp,omitempty"`
 			MaxExtEcmp      int8          `json:"maxExtEcmp,omitempty"`
 			ExportGwIP      AdminSt       `json:"exportGwIp"`
+			AdvertL2vpnEvpn AdminSt       `json:"advertL2vpnEvpn"`
 			Type            AddressFamily `json:"type"`
 			InterLeakPItems struct {
 				InterLeakPList gnmiext.List[InterLeakPKey, *InterLeakP] `json:"InterLeakP-list,omitzero"`
@@ -129,12 +131,14 @@ func (af BGPDomAfItem) MarshalJSON() ([]byte, error) {
 			MaxEcmp:         af.MaxEcmp,
 			MaxExtEcmp:      af.MaxExtEcmp,
 			ExportGwIP:      af.ExportGwIP,
+			AdvertL2vpnEvpn: af.AdvertL2vpnEvpn,
 			Type:            af.Type,
 			InterLeakPItems: af.InterLeakPItems,
 		})
 	}
-	// ExportGwIP is not valid for l2vpn-evpn; set it to disabled.
+	// ExportGwIP and AdvertL2vpnEvpn are not valid for l2vpn-evpn; set to disabled.
 	cpy.ExportGwIP = AdminStDisabled
+	cpy.AdvertL2vpnEvpn = AdminStDisabled
 	return json.Marshal(cpy)
 }
 
@@ -150,6 +154,9 @@ func (af *BGPDomAfItem) UnmarshalJSON(v []byte) error {
 		af.AdvPip = ""
 		af.RetainRttAll = ""
 		af.RetainRttRtMap = Option[string]{}
+	} else {
+		af.ExportGwIP = ""
+		af.AdvertL2vpnEvpn = ""
 	}
 	return nil
 }

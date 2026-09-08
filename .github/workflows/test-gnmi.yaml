@@ -28,6 +28,7 @@ jobs:
       matrix:
         provider:
           - openconfig
+          - cisco-nxos-gnmi
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7

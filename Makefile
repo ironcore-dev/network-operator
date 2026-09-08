@@ -48,14 +48,14 @@ help: ## Display this help.
 
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) crd rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) crd rbac:roleName=manager-role webhook paths="{./api/...,./internal/...}" output:crd:artifacts:config=config/crd/bases
 
 YEAR ?= $(shell date +%Y)
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt",year="$(YEAR)" paths="./..."
-	$(CONTROLLER_GEN) applyconfiguration:headerFile="hack/boilerplate.go.txt" paths="./..."
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt",year="$(YEAR)" paths="{./api/...,./internal/...}"
+	$(CONTROLLER_GEN) applyconfiguration:headerFile="hack/boilerplate.go.txt" paths="{./api/...,./internal/...}"
 
 .PHONY: fmt
 fmt: goimports gofumpt ## Run goimports and gofumpt against code.
@@ -106,8 +106,8 @@ PROVIDER ?= openconfig
 GINKGO_PROCS ?= $(shell nproc 2>/dev/null || sysctl -n hw.logicalcpu)
 
 .PHONY: test-gnmi
-test-gnmi: setup-envtest ## Run gNMI tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" PROVIDER=$(PROVIDER) go test ./test/gnmi/ -v -ginkgo.v
+test-gnmi: setup-envtest ginkgo ## Run gNMI tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" PROVIDER=$(PROVIDER) $(GINKGO) --procs=$(GINKGO_PROCS) -v ./test/gnmi/
 
 .PHONY: test-lab
 test-lab: ## Run lab tests against a real network device.
@@ -180,6 +180,10 @@ run-docs:
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
 	CGO_ENABLED=0 go build $(LDFLAGS) -o bin/manager cmd/main.go
+
+.PHONY: kubectl-net
+kubectl-net: ## Build kubectl-net plugin binary.
+	cd kubectl-net && CGO_ENABLED=0 go build -ldflags="-s -w -X 'main.version=$(VERSION)'" -o ../bin/kubectl-net .
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
@@ -270,6 +274,7 @@ GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 GOLANGCI_LINT_CUSTOM = $(LOCALBIN)/golangci-lint-custom
 GOIMPORTS ?= $(LOCALBIN)/goimports
 GOFUMPT ?= $(LOCALBIN)/gofumpt
+GINKGO ?= $(LOCALBIN)/ginkgo
 ADDLICENSE ?= $(LOCALBIN)/addlicense
 GO_LICENSES ?= $(LOCALBIN)/go-licenses
 TYPOS ?= $(LOCALBIN)/typos
@@ -286,8 +291,9 @@ ENVTEST_K8S_VERSION ?= $(shell go list -m -f "{{ .Version }}" k8s.io/api | awk -
 KUBEBUILDER_VERSION ?= v4.15.0
 CRD_REF_DOCS_VERSION ?= v0.3.0
 GOLANGCI_LINT_VERSION ?= v2.12.2
-GOIMPORTS_VERSION ?= v0.48.0
+GOIMPORTS_VERSION ?= $(shell go list -m -f "{{ .Version }}" golang.org/x/tools)
 GOFUMPT_VERSION ?= v0.10.0
+GINKGO_VERSION ?= $(shell go list -m -f "{{ .Version }}" github.com/onsi/ginkgo/v2)
 ADDLICENSE_VERSION ?= v1.2.0
 GO_LICENSES_VERSION ?= v2.0.1
 TYPOS_VERSION ?= v1.48.0
@@ -346,6 +352,11 @@ $(GOIMPORTS): $(LOCALBIN)
 gofumpt: $(GOFUMPT) ## Download gofumpt locally if necessary.
 $(GOFUMPT): $(LOCALBIN)
 	$(call go-install-tool,$(GOFUMPT),mvdan.cc/gofumpt,$(GOFUMPT_VERSION))
+
+.PHONY: ginkgo
+ginkgo: $(GINKGO) ## Download ginkgo locally if necessary.
+$(GINKGO): $(LOCALBIN)
+	$(call go-install-tool,$(GINKGO),github.com/onsi/ginkgo/v2/ginkgo,$(GINKGO_VERSION))
 
 .PHONY: addlicense
 addlicense: $(ADDLICENSE) ## Download addlicense locally if necessary.
@@ -429,3 +440,7 @@ kind-delete: kind ## Destroys the kind cluster.
 .PHONY: tilt-up
 tilt-up: $(KUSTOMIZE) kind-create ## Start tilt and create the kind cluster if needed
 	tilt up --context kind-$(KIND_CLUSTER_NAME)
+
+.PHONY: tilt-debug-up
+tilt-debug-up: export DEBUG = true
+tilt-debug-up: tilt-up

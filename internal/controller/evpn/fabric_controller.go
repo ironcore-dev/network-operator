@@ -125,7 +125,7 @@ func (r *FabricReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 	}
 
 	orig := fabric.DeepCopy()
-	if conditions.InitializeConditions(fabric, v1alpha1.ReadyCondition) {
+	if conditions.InitializeConditions(fabric, v1alpha1.ReadyCondition, evpnv1alpha1.UnderlayConvergedCondition, evpnv1alpha1.OverlayConvergedCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, fabric)
 	}
@@ -170,13 +170,13 @@ func (r *FabricReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&evpnv1alpha1.Fabric{}).
 		Owns(&poolv1alpha1.Claim{}).
-		Owns(&v1alpha1.Interface{}).
-		Owns(&v1alpha1.OSPF{}).
-		Owns(&v1alpha1.ISIS{}).
-		Owns(&v1alpha1.BGP{}).
-		Owns(&v1alpha1.BGPPeer{}).
-		Owns(&v1alpha1.PIM{}).
-		Owns(&v1alpha1.NetworkVirtualizationEdge{}).
+		Owns(&v1alpha1.Interface{}, builder.MatchEveryOwner).
+		Owns(&v1alpha1.OSPF{}, builder.MatchEveryOwner).
+		Owns(&v1alpha1.ISIS{}, builder.MatchEveryOwner).
+		Owns(&v1alpha1.BGP{}, builder.MatchEveryOwner).
+		Owns(&v1alpha1.BGPPeer{}, builder.MatchEveryOwner).
+		Owns(&v1alpha1.PIM{}, builder.MatchEveryOwner).
+		Owns(&v1alpha1.NetworkVirtualizationEdge{}, builder.MatchEveryOwner).
 		// Re-reconcile when a Device's labels change so that devices newly
 		// matching a deviceSelector are enrolled into the fabric.
 		Watches(
@@ -208,6 +208,12 @@ type ReconcileState struct {
 }
 
 func (r *FabricReconciler) reconcile(ctx context.Context, fabric *evpnv1alpha1.Fabric) (ctrl.Result, error) {
+	defer func() {
+		r.computeUnderlayConverged(ctx, fabric)
+		r.computeOverlayConverged(ctx, fabric)
+		conditions.RecomputeReady(fabric)
+	}()
+
 	state := &ReconcileState{
 		loopbacks: make(map[string][]*v1alpha1.Interface),
 		uplinks:   make(map[string][]*v1alpha1.Interface),
@@ -244,13 +250,131 @@ func (r *FabricReconciler) reconcile(ctx context.Context, fabric *evpnv1alpha1.F
 			return res, err
 		}
 	}
-	conditions.Set(fabric, metav1.Condition{
-		Type:    v1alpha1.ReadyCondition,
-		Status:  metav1.ConditionTrue,
-		Reason:  v1alpha1.ReadyReason,
-		Message: "Resource is ready",
-	})
 	return ctrl.Result{}, nil
+}
+
+// computeUnderlayConverged checks that all OSPF neighbors are in Full state (or ISIS is Operational).
+// For OSPF, convergence means every expected uplink interface has a neighbor in Full adjacency state.
+func (r *FabricReconciler) computeUnderlayConverged(ctx context.Context, fabric *evpnv1alpha1.Fabric) {
+	labelSelector := client.MatchingLabels{evpnv1alpha1.FabricLabel: fabric.Name}
+
+	ospfList := &v1alpha1.OSPFList{}
+	if err := r.List(ctx, ospfList, client.InNamespace(fabric.Namespace), labelSelector); err != nil {
+		ctrl.LoggerFrom(ctx).Error(err, "Failed to list OSPF resources for convergence check")
+		return
+	}
+
+	isisList := &v1alpha1.ISISList{}
+	if err := r.List(ctx, isisList, client.InNamespace(fabric.Namespace), labelSelector); err != nil {
+		ctrl.LoggerFrom(ctx).Error(err, "Failed to list ISIS resources for convergence check")
+		return
+	}
+
+	totalInstances := len(ospfList.Items) + len(isisList.Items)
+	if totalInstances == 0 {
+		conditions.Set(fabric, metav1.Condition{
+			Type:    evpnv1alpha1.UnderlayConvergedCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  evpnv1alpha1.NoResourcesReason,
+			Message: "No underlay IGP resources created yet",
+		})
+		return
+	}
+
+	// For OSPF: count expected non-passive interfaces (uplinks) and check each has a Full neighbor.
+	var totalAdjacencies, fullAdjacencies int
+	for i := range ospfList.Items {
+		ospf := &ospfList.Items[i]
+		// Count expected adjacencies: non-passive interface refs.
+		for _, ref := range ospf.Spec.InterfaceRefs {
+			if ref.Passive != nil && *ref.Passive {
+				continue
+			}
+			totalAdjacencies++
+		}
+		// Count actual Full adjacencies from status.
+		for _, neighbor := range ospf.Status.Neighbors {
+			if neighbor.AdjacencyState == v1alpha1.OSPFNeighborStateFull {
+				fullAdjacencies++
+			}
+		}
+	}
+
+	// For ISIS: no per-neighbor status yet; count instances and fall back to Operational condition.
+	for i := range isisList.Items {
+		isis := &isisList.Items[i]
+		totalAdjacencies++
+		if cond := conditions.Get(isis, v1alpha1.OperationalCondition); cond != nil && cond.Status == metav1.ConditionTrue {
+			fullAdjacencies++
+		}
+	}
+
+	switch {
+	case totalAdjacencies == 0:
+		conditions.Set(fabric, metav1.Condition{
+			Type:    evpnv1alpha1.UnderlayConvergedCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  evpnv1alpha1.NoResourcesReason,
+			Message: "No underlay adjacencies created yet",
+		})
+	case fullAdjacencies == totalAdjacencies:
+		conditions.Set(fabric, metav1.Condition{
+			Type:    evpnv1alpha1.UnderlayConvergedCondition,
+			Status:  metav1.ConditionTrue,
+			Reason:  evpnv1alpha1.ConvergedReason,
+			Message: fmt.Sprintf("All %d underlay adjacencies are Full", totalAdjacencies),
+		})
+	default:
+		conditions.Set(fabric, metav1.Condition{
+			Type:    evpnv1alpha1.UnderlayConvergedCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  evpnv1alpha1.NotConvergedReason,
+			Message: fmt.Sprintf("%d/%d underlay adjacencies are Full", fullAdjacencies, totalAdjacencies),
+		})
+	}
+}
+
+// computeOverlayConverged checks that all BGPPeer sessions are in Established state.
+func (r *FabricReconciler) computeOverlayConverged(ctx context.Context, fabric *evpnv1alpha1.Fabric) {
+	labelSelector := client.MatchingLabels{evpnv1alpha1.FabricLabel: fabric.Name}
+
+	peerList := &v1alpha1.BGPPeerList{}
+	if err := r.List(ctx, peerList, client.InNamespace(fabric.Namespace), labelSelector); err != nil {
+		ctrl.LoggerFrom(ctx).Error(err, "Failed to list BGPPeer resources for convergence check")
+		return
+	}
+
+	total := len(peerList.Items)
+	var established int
+	for i := range peerList.Items {
+		if peerList.Items[i].Status.SessionState == v1alpha1.BGPPeerSessionStateEstablished {
+			established++
+		}
+	}
+
+	switch {
+	case total == 0:
+		conditions.Set(fabric, metav1.Condition{
+			Type:    evpnv1alpha1.OverlayConvergedCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  evpnv1alpha1.NoResourcesReason,
+			Message: "No overlay BGP peers created yet",
+		})
+	case established == total:
+		conditions.Set(fabric, metav1.Condition{
+			Type:    evpnv1alpha1.OverlayConvergedCondition,
+			Status:  metav1.ConditionTrue,
+			Reason:  evpnv1alpha1.ConvergedReason,
+			Message: fmt.Sprintf("All %d overlay BGP sessions are Established", total),
+		})
+	default:
+		conditions.Set(fabric, metav1.Condition{
+			Type:    evpnv1alpha1.OverlayConvergedCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  evpnv1alpha1.NotConvergedReason,
+			Message: fmt.Sprintf("%d/%d overlay BGP sessions are Established", established, total),
+		})
+	}
 }
 
 func (r *FabricReconciler) finalize(ctx context.Context, fabric *evpnv1alpha1.Fabric) error {
@@ -276,6 +400,7 @@ func (r *FabricReconciler) reconcileSystemLoopbacks(ctx context.Context, fabric 
 	if err := r.List(ctx, devices, client.InNamespace(fabric.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
 		return ctrl.Result{}, fmt.Errorf("listing all fabric devices for system loopbacks: %w", err)
 	}
+	slices.SortFunc(devices.Items, func(a, b v1alpha1.Device) int { return cmp.Compare(a.Name, b.Name) })
 	// Range by index only — list.Items are value types; using the second loop
 	// variable would copy the entire struct on each iteration.
 	for i := range devices.Items {
@@ -305,6 +430,7 @@ func (r *FabricReconciler) reconcileVTEPLoopbacks(ctx context.Context, fabric *e
 	if err := r.List(ctx, devices, client.InNamespace(fabric.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
 		return ctrl.Result{}, fmt.Errorf("listing VTEP devices: %w", err)
 	}
+	slices.SortFunc(devices.Items, func(a, b v1alpha1.Device) int { return cmp.Compare(a.Name, b.Name) })
 	for i := range devices.Items {
 		for _, id := range []int{LoopbackVTEP, LoopbackVTEPAnycast} {
 			claimName := fmt.Sprintf("%s-%s-lo%d", fabric.Name, devices.Items[i].Name, id)
@@ -409,7 +535,7 @@ func (r *FabricReconciler) reconcileLoopbackInterface(ctx context.Context, fabri
 		return nil, reconcile.TerminalError(fmt.Errorf("resolving loopback interface name for id %d: %w", loopbackID, err))
 	}
 
-	name := fmt.Sprintf("%s-%s-%s", fabric.Name, device.Name, handle)
+	name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, device.Name, loopbackID)
 	intf := &v1alpha1.Interface{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -693,7 +819,7 @@ func (r *FabricReconciler) reconcileOSPF(ctx context.Context, device *v1alpha1.D
 				Area:                 "0.0.0.0",
 			})
 		}
-		return controllerutil.SetControllerReference(fabric, ospf, r.Scheme)
+		return controllerutil.SetOwnerReference(fabric, ospf, r.Scheme)
 	})
 	if err != nil {
 		return fmt.Errorf("reconciling OSPF %s: %w", name, err)
@@ -742,7 +868,7 @@ func (r *FabricReconciler) reconcileISIS(ctx context.Context, device *v1alpha1.D
 			refs = append(refs, v1alpha1.LocalObjectReference{Name: up.Name})
 		}
 		isis.Spec.InterfaceRefs = refs
-		return controllerutil.SetControllerReference(fabric, isis, r.Scheme)
+		return controllerutil.SetOwnerReference(fabric, isis, r.Scheme)
 	})
 	if err != nil {
 		return fmt.Errorf("reconciling ISIS %s: %w", name, err)
@@ -899,7 +1025,7 @@ func (r *FabricReconciler) reconcileBGP(ctx context.Context, device *v1alpha1.De
 				},
 			},
 		}
-		return controllerutil.SetControllerReference(fabric, bgp, r.Scheme)
+		return controllerutil.SetOwnerReference(fabric, bgp, r.Scheme)
 	})
 	if err != nil {
 		return fmt.Errorf("reconciling BGP %s: %w", name, err)
@@ -958,7 +1084,7 @@ func (r *FabricReconciler) reconcileBGPPeer(ctx context.Context, local, remote *
 				RouteReflectorClient: rrClient,
 			},
 		}
-		return controllerutil.SetControllerReference(fabric, peer, r.Scheme)
+		return controllerutil.SetOwnerReference(fabric, peer, r.Scheme)
 	})
 	if err != nil {
 		return fmt.Errorf("reconciling BGPPeer %s: %w", name, err)
@@ -1151,7 +1277,7 @@ func (r *FabricReconciler) reconcilePIM(ctx context.Context, deviceName string, 
 		pim.Spec.AdminState = v1alpha1.AdminStateUp
 		pim.Spec.RendezvousPoints = rps
 		pim.Spec.InterfaceRefs = intfRefs
-		return controllerutil.SetControllerReference(fabric, pim, r.Scheme)
+		return controllerutil.SetOwnerReference(fabric, pim, r.Scheme)
 	})
 	if err != nil {
 		return fmt.Errorf("reconciling PIM %s: %w", name, err)
@@ -1221,7 +1347,7 @@ func (r *FabricReconciler) reconcileNVE(ctx context.Context, device *v1alpha1.De
 				VirtualMAC: fabric.Spec.VTEP.AnycastGateway.VirtualMAC,
 			}
 		}
-		return controllerutil.SetControllerReference(fabric, nve, r.Scheme)
+		return controllerutil.SetOwnerReference(fabric, nve, r.Scheme)
 	})
 	if err != nil {
 		return fmt.Errorf("reconciling NVE %s: %w", name, err)

@@ -105,9 +105,9 @@ spec:
                   rule: self == oldSelf
               id:
                 description: |-
-                  ID is the VLAN ID. Valid values are between 1 and 4094.
+                  ID is the VLAN ID. Valid values are between 1 and 4095.
                   Immutable.
-                maximum: 4094
+                maximum: 4095
                 minimum: 1
                 type: integer
                 x-kubernetes-validations:

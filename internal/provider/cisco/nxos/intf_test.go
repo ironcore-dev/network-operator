@@ -29,6 +29,17 @@ func TestTrunkVlansJSON(t *testing.T) {
 	}
 }
 
+func TestBFDValidateAcceptsNXOSDefaults(t *testing.T) {
+	bfd := &BFD{}
+	bfd.IfkaItems.DetectMult = 3
+	bfd.IfkaItems.MinRxIntvlMs = 50
+	bfd.IfkaItems.MinTxIntvlMs = 50
+
+	if err := bfd.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+}
+
 func TestRange(t *testing.T) {
 	tests := []struct {
 		name string

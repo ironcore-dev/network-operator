@@ -1,0 +1,70 @@
+-- dnses/config --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: DNS
+metadata:
+  name: config
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  adminState: Up
+  domain: example.com
+  servers:
+    - address: 10.10.10.10
+      vrfName: management
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "dns-items": {
+      "adminSt": "enabled",
+      "prof-items": {
+        "Prof-list": [
+          {
+            "name": "default",
+            "vrf-items": {
+              "Vrf-list": [
+                {
+                  "name": "management",
+                  "prov-items": {
+                    "Provider-list": [
+                      {
+                        "addr": "10.10.10.10"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "dom-items": {
+              "name": "example.com"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
+
+-- state/delete --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}

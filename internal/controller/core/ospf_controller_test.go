@@ -4,6 +4,8 @@
 package core
 
 import (
+	"net/netip"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -12,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/conditions"
 )
 
 var _ = Describe("OSPF Controller", func() {
@@ -114,6 +117,87 @@ var _ = Describe("OSPF Controller", func() {
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.OSPF.Has("UNDERLAY")).To(BeTrue(), "Provider should have OSPF instance configured")
+			}).Should(Succeed())
+		})
+	})
+
+	Context("When a referenced interface has no IPv4 configuration", func() {
+		var (
+			name string
+			key  client.ObjectKey
+		)
+
+		BeforeEach(func() {
+			device := &v1alpha1.Device{
+				ObjectMeta: metav1.ObjectMeta{GenerateName: "test-ospf-l2-intf-", Namespace: metav1.NamespaceDefault},
+				Spec:       v1alpha1.DeviceSpec{Endpoint: v1alpha1.Endpoint{Address: "192.168.10.4:9339"}},
+			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+			name = device.Name
+			key = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
+
+			intf := &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
+					Name:       "eth1",
+					AdminState: v1alpha1.AdminStateUp,
+					Type:       v1alpha1.InterfaceTypePhysical,
+				},
+			}
+			Expect(k8sClient.Create(ctx, intf)).To(Succeed())
+			Eventually(func(g Gomega) {
+				current := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, key, current)).To(Succeed())
+				g.Expect(conditions.IsConfigured(current)).To(BeTrue())
+			}).Should(Succeed())
+
+			ospf := &v1alpha1.OSPF{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault},
+				Spec: v1alpha1.OSPFSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
+					Instance:  "UNDERLAY",
+					RouterID:  "10.0.0.10",
+					InterfaceRefs: []v1alpha1.OSPFInterface{{
+						LocalObjectReference: v1alpha1.LocalObjectReference{Name: name},
+						Area:                 "0.0.0.0",
+					}},
+				},
+			}
+			Expect(k8sClient.Create(ctx, ospf)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &v1alpha1.OSPF{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault}}))).To(Succeed())
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &v1alpha1.Interface{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault}}))).To(Succeed())
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &v1alpha1.Device{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault}}))).To(Succeed())
+		})
+
+		It("Should recover after IPv4 configuration is added", func() {
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.OSPF{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				configured := meta.FindStatusCondition(resource.Status.Conditions, v1alpha1.ConfiguredCondition)
+				g.Expect(configured).NotTo(BeNil())
+				g.Expect(configured.Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(configured.Reason).To(Equal(v1alpha1.IPAddressingNotFoundReason))
+			}).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				intf := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, key, intf)).To(Succeed())
+				intf.Spec.IPv4 = &v1alpha1.InterfaceIPv4{
+					Addresses: []v1alpha1.IPPrefix{{Prefix: netip.MustParsePrefix("10.0.0.1/31")}},
+				}
+				g.Expect(k8sClient.Update(ctx, intf)).To(Succeed())
+			}).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.OSPF{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				configured := meta.FindStatusCondition(resource.Status.Conditions, v1alpha1.ConfiguredCondition)
+				g.Expect(configured).NotTo(BeNil())
+				g.Expect(configured.Status).To(Equal(metav1.ConditionTrue))
 			}).Should(Succeed())
 		})
 	})

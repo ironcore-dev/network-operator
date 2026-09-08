@@ -523,6 +523,18 @@ func zeroUnknownFields(b []byte, rv reflect.Value) {
 				}
 			}
 		}
+	case reflect.Slice:
+		var items []json.RawMessage
+		if json.Unmarshal(b, &items) != nil {
+			return
+		}
+		for i := range rv.Len() {
+			var b []byte
+			if i < len(items) {
+				b = items[i]
+			}
+			zeroUnknownFields(b, rv.Index(i))
+		}
 	default:
 		return
 	}

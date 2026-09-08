@@ -769,6 +769,11 @@ func main() { //nolint:gocyclo
 			os.Exit(1)
 		}
 
+		if err := webhookv1alpha1.SetupAccessControlListWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "AccessControlList")
+			os.Exit(1)
+		}
+
 		if err := webhooknxv1alpha1.SetupNetworkVirtualizationEdgeConfigWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "NetworkVirtualizationEdgeConfig")
 			os.Exit(1)
@@ -830,10 +835,24 @@ func main() { //nolint:gocyclo
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: mgr.GetEventRecorder("fabric-controller"),
+		Provider: prov,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "Fabric")
 		os.Exit(1)
 	}
+
+	if err := (&corecontroller.ProbeReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorder("probe-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+		Locker:           locker,
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Probe")
+		os.Exit(1)
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {

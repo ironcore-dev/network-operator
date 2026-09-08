@@ -57,6 +57,8 @@ spec:
               infraVLANs:
                 description: |-
                   InfraVLANs specifies VLANs used by all SVI interfaces for uplink and vPC peer-links in VXLAN as infra-VLANs.
+                  Valid VLAN IDs are 1-4092 because NX-OS always reserves VLANs 4093-4095 for internal use.
+                  The provider also checks these VLANs against the device's configurable internal reserved VLAN range.
                   The total number of VLANs configured must not exceed 512.
                   Elements in the list must not overlap with each other.
                 items:
@@ -65,15 +67,15 @@ spec:
                     and rangeMax must be set.
                   properties:
                     id:
-                      maximum: 3967
+                      maximum: 4092
                       minimum: 1
                       type: integer
                     rangeMax:
-                      maximum: 3967
+                      maximum: 4092
                       minimum: 1
                       type: integer
                     rangeMin:
-                      maximum: 3967
+                      maximum: 4092
                       minimum: 1
                       type: integer
                   type: object

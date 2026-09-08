@@ -24,11 +24,11 @@ type VLANSpec struct {
 	// +optional
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
 
-	// ID is the VLAN ID. Valid values are between 1 and 4094.
+	// ID is the VLAN ID. Valid values are between 1 and 4095.
 	// Immutable.
 	// +required
 	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=4094
+	// +kubebuilder:validation:Maximum=4095
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Name is immutable"
 	ID int16 `json:"id"`
 
