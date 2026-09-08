@@ -16,6 +16,10 @@ on:
       - 'Makefile'
       - 'test/gnmi/testdata/**/*.txtar'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
