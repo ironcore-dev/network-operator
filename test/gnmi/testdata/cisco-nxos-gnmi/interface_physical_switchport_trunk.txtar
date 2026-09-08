@@ -45,8 +45,12 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
     "intf-items": {
       "phys-items": {
         "PhysIf-list": [
@@ -57,15 +61,15 @@ spec:
             "FECMode": "auto",
             "id": "eth1/2",
             "layer": "Layer2",
+            "mtu": 1500,
             "medium": "broadcast",
             "mode": "trunk",
-            "mtu": 1500,
             "nativeVlan": "vlan-1",
-            "trunkVlans": "10",
             "userCfgdFlags": "admin_layer,admin_mtu,admin_state",
             "physExtd-items": {
               "bufferBoost": "disable"
-            }
+            },
+            "trunkVlans": "10"
           }
         ]
       }
@@ -75,41 +79,43 @@ spec:
         "if-items": {
           "If-list": [
             {
-              "id": "eth1/2",
               "mode": "edge",
               "bpdufilter": "default",
-              "bpduguard": "enable"
+              "bpduguard": "enable",
+              "id": "eth1/2"
             }
           ]
         }
       }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }
 
 -- state/delete --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
     "intf-items": {
       "phys-items": {
         "PhysIf-list": [
           {
-            "FECMode": "auto",
             "accessVlan": "vlan-1",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "FECMode": "auto",
             "id": "eth1/2",
             "layer": "Layer2",
+            "mtu": 1500,
             "medium": "broadcast",
             "mode": "access",
-            "mtu": 1500,
             "nativeVlan": "vlan-1",
+            "userCfgdFlags": "",
             "physExtd-items": {
               "bufferBoost": "enable"
             },
-            "trunkVlans": "1-4094",
-            "userCfgdFlags": ""
+            "trunkVlans": "1-4094"
           }
         ]
       }
@@ -119,17 +125,14 @@ spec:
         "if-items": {
           "If-list": [
             {
-              "id": "eth1/2",
               "mode": "default",
               "bpdufilter": "default",
-              "bpduguard": "enable"
+              "bpduguard": "enable",
+              "id": "eth1/2"
             }
           ]
         }
       }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }

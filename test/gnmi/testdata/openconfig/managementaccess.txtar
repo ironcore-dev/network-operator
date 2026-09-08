@@ -17,6 +17,7 @@ spec:
     enabled: true
     timeout: 120s
 -- state/expect --
+
 {
   "openconfig-system:system": {
     "grpc-servers": {
@@ -41,5 +42,18 @@ spec:
     }
   }
 }
+
 -- state/delete --
-{}
+
+{
+  "openconfig-system:system": {
+    "grpc-servers": {
+      "grpc-server": [
+        {
+          "name": "gnmi"
+        }
+      ]
+    },
+    "ssh-server": {}
+  }
+}

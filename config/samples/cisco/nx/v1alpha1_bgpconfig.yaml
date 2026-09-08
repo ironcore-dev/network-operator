@@ -21,3 +21,17 @@ spec:
   addressFamilies:
     ipv4Unicast:
       exportGatewayIP: true
+---
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: BGPConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: bgpconfig-adv-l2vpn-evpn
+spec:
+  addressFamilies:
+    ipv4Unicast:
+      advertiseL2vpnEvpn: true
+    ipv6Unicast:
+      advertiseL2vpnEvpn: true

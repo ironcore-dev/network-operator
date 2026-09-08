@@ -126,6 +126,7 @@ k8s_resource(new_name='bgp-rdst', objects=['bgp-rdst:bgp'], resource_deps=['bgp-
 k8s_yaml('./config/samples/cisco/nx/v1alpha1_bgpconfig.yaml')
 k8s_resource(new_name='bgpconfig-adv-pip', objects=['bgpconfig-adv-pip:bgpconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='bgpconfig-export-gw', objects=['bgpconfig-export-gw:bgpconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='bgpconfig-adv-l2vpn-evpn', objects=['bgpconfig-adv-l2vpn-evpn:bgpconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_bgppeer.yaml')
 k8s_resource(new_name='peer-spine1', objects=['leaf1-spine1:bgppeer'], resource_deps=['bgp', 'lo0'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
@@ -199,6 +200,12 @@ k8s_resource(new_name='claim-prefix', objects=['claim-prefix:claim'], resource_d
 
 k8s_yaml('./config/samples/v1alpha1_fabric.yaml')
 k8s_resource(new_name='fabric', objects=['fabric:fabric', 'loopback-pool:ipaddresspool', 'underlay-p2p-pool:ipprefixpool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
+k8s_yaml('./config/samples/v1alpha1_probe.yaml')
+k8s_resource(new_name='ping-peer', objects=['ping-peer:probe'], resource_deps=['lo0'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='mac-entry', objects=['mac-entry:probe'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='route-prefix', objects=['route-prefix:probe'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='vtep-peers', objects=['vtep-peers:probe'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')

@@ -128,7 +128,7 @@ var _ = Describe("gNMI requests tests", func() {
 					if len(stateJSON) == 0 {
 						stateJSON = []byte("{}")
 					}
-					g.Expect(stateJSON).To(ContainUnorderedJSON(statePost), "gNMI state does not match expected JSON")
+					g.Expect(stateJSON).To(MatchUnorderedJSON(statePost), "gNMI state does not match expected JSON")
 				}).Should(Succeed())
 
 				By("deleting all intermeadiate test resources created in test")
@@ -140,7 +140,7 @@ var _ = Describe("gNMI requests tests", func() {
 					if len(stateJSON) == 0 {
 						stateJSON = []byte("{}")
 					}
-					g.Expect(stateJSON).To(ContainUnorderedJSON(stateDelete), "gNMI state does not match expected JSON")
+					g.Expect(stateJSON).To(MatchUnorderedJSON(stateDelete), "gNMI state does not match expected JSON")
 				}).Should(Succeed())
 
 				By("deleting the test device")

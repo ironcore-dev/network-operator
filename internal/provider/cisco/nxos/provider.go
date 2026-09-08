@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"math"
 	"net/netip"
@@ -27,6 +28,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/go-logr/logr"
+	systempb "github.com/openconfig/gnoi/system"
 	"google.golang.org/grpc"
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
@@ -70,6 +72,7 @@ var (
 	_ provider.EthernetSegmentProvider  = (*Provider)(nil)
 	_ provider.AAAProvider              = (*Provider)(nil)
 	_ provider.ConfigBackupProvider     = (*Provider)(nil)
+	_ provider.ProbeProvider            = (*Provider)(nil)
 )
 
 // maxSetOperations is the maximum number of operations per gNMI Set RPC.
@@ -616,6 +619,14 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 	if req.VRF != nil {
 		dom.Name = req.VRF.Spec.Name
 	}
+
+	if dom.Name == DefaultVRFName && (cfg.Spec.AddressFamilies.Ipv4UnicastAdvertiseL2vpnEvpn() || cfg.Spec.AddressFamilies.Ipv6UnicastAdvertiseL2vpnEvpn()) {
+		return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+			Field:       "providerConfig.addressFamilies.advertiseL2vpnEvpn",
+			Description: "'advertise l2vpn evpn' cannot be configured under the default VRF",
+		})
+	}
+
 	dom.RtrID = req.BGP.Spec.RouterID
 	dom.RtrIDAuto = AdminStDisabled
 	sb.Patch(dom)
@@ -637,11 +648,12 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 				item.InterLeakPItems.InterLeakPList.Set(NewInterLeakPDirect(rp.Spec.Name))
 			}
 			item.ExportGwIP = AdminStDisabled
-			if cfg.Spec.AddressFamilies != nil &&
-				cfg.Spec.AddressFamilies.Ipv4Unicast != nil &&
-				cfg.Spec.AddressFamilies.Ipv4Unicast.ExportGatewayIP != nil &&
-				*cfg.Spec.AddressFamilies.Ipv4Unicast.ExportGatewayIP {
+			if cfg.Spec.AddressFamilies.Ipv4UnicastExportGatewayIP() {
 				item.ExportGwIP = AdminStEnabled
+			}
+			item.AdvertL2vpnEvpn = AdminStDisabled
+			if cfg.Spec.AddressFamilies.Ipv4UnicastAdvertiseL2vpnEvpn() {
+				item.AdvertL2vpnEvpn = AdminStEnabled
 			}
 			dom.AfItems.DomAfList.Set(item)
 		}
@@ -656,16 +668,23 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 				item.InterLeakPItems.InterLeakPList.Set(NewInterLeakPDirect(rp.Spec.Name))
 			}
 			item.ExportGwIP = AdminStDisabled
-			if cfg.Spec.AddressFamilies != nil &&
-				cfg.Spec.AddressFamilies.Ipv6Unicast != nil &&
-				cfg.Spec.AddressFamilies.Ipv6Unicast.ExportGatewayIP != nil &&
-				*cfg.Spec.AddressFamilies.Ipv6Unicast.ExportGatewayIP {
+			if cfg.Spec.AddressFamilies.Ipv6UnicastExportGatewayIP() {
 				item.ExportGwIP = AdminStEnabled
+			}
+			item.AdvertL2vpnEvpn = AdminStDisabled
+			if cfg.Spec.AddressFamilies.Ipv6UnicastAdvertiseL2vpnEvpn() {
+				item.AdvertL2vpnEvpn = AdminStEnabled
 			}
 			dom.AfItems.DomAfList.Set(item)
 		}
 
 		if af := req.BGP.Spec.AddressFamilies.L2vpnEvpn; af != nil && af.Enabled {
+			if dom.Name != DefaultVRFName {
+				return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+					Field:       "spec.addressFamilies.l2vpnEvpn",
+					Description: "L2VPN EVPN address family is not supported under a non-default VRF",
+				})
+			}
 			item := new(BGPDomAfItem)
 			item.Type = AddressFamilyL2EVPN
 			if err := item.SetMultipath(af.Multipath); err != nil {
@@ -2679,13 +2698,14 @@ func (p *Provider) EnsureSNMP(ctx context.Context, req *provider.EnsureSNMPReque
 	sysInfo.SysContact = NewOption(req.SNMP.Spec.Contact)
 	sysInfo.SysLocation = NewOption(req.SNMP.Spec.Location)
 
-	trapsSrcIf := new(SNMPSrcIf)
-	trapsSrcIf.Type = Traps
-	trapsSrcIf.Ifname = NewOption(req.SNMP.Spec.SourceInterfaceName)
-
-	informsSrcIf := new(SNMPSrcIf)
-	informsSrcIf.Type = Informs
-	informsSrcIf.Ifname = NewOption(req.SNMP.Spec.SourceInterfaceName)
+	globals := new(SNMPGlobals)
+	enforcePriv := AdminStNo
+	if req.SNMP.Spec.EnforceEncryption {
+		enforcePriv = AdminStYes
+	}
+	globals.EnforcePriv = NewOption(enforcePriv)
+	globals.InformsSrcIf.Ifname = NewOption(req.SNMP.Spec.SourceInterfaceName)
+	globals.TrapsSrcIf.Ifname = NewOption(req.SNMP.Spec.SourceInterfaceName)
 
 	communities := new(SNMPCommunityItems)
 	for _, c := range req.SNMP.Spec.Communities {
@@ -2748,7 +2768,7 @@ func (p *Provider) EnsureSNMP(ctx context.Context, req *provider.EnsureSNMPReque
 		rv.Set(reflect.ValueOf(&SNMPTraps{Trapstatus: AdminStEnable}))
 	}
 
-	return p.client.Update(ctx, sysInfo, trapsSrcIf, informsSrcIf, communities, hosts, traps)
+	return p.client.Update(ctx, sysInfo, globals, communities, hosts, traps)
 }
 
 func (p *Provider) DeleteSNMP(ctx context.Context, req *provider.DeleteSNMPRequest) error {
@@ -2757,15 +2777,8 @@ func (p *Provider) DeleteSNMP(ctx context.Context, req *provider.DeleteSNMPReque
 	traps := new(SNMPTrapsItems)
 	sb.Update(traps)
 
-	trapsSrcIf := new(SNMPSrcIf)
-	trapsSrcIf.Type = Traps
-
-	informsSrcIf := new(SNMPSrcIf)
-	informsSrcIf.Type = Informs
-
 	sb.Delete(
-		trapsSrcIf,
-		informsSrcIf,
+		new(SNMPGlobals),
 		new(SNMPSysInfo),
 		new(SNMPCommunityItems),
 		new(SNMPHostItems),
@@ -4065,6 +4078,259 @@ func (p *Provider) DeleteAAA(ctx context.Context, req *provider.DeleteAAARequest
 	sb.Update(&Feature{Name: "tacacsplus", AdminSt: AdminStDisabled})
 
 	return p.Do(ctx, sb)
+}
+
+// InterfaceIPAddr retrieves an IP address of the requested family associated with the specified interface and VRF.
+// If the interface is not found or does not have an IP address of that family assigned, an error is returned.
+func (p *Provider) InterfaceIPAddr(ctx context.Context, name, vrf string, isIPv6 bool) (string, error) {
+	short, err := ShortName(name)
+	if err != nil {
+		return "", err
+	}
+	if vrf == "" {
+		vrf = DefaultVRFName
+	}
+	addr := &AddrItem{ID: short, Vrf: vrf, Is6: isIPv6}
+	if err := p.client.GetConfig(ctx, addr); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return "", fmt.Errorf("failed to get IP address for interface %q in VRF %q: %w", name, vrf, err)
+	}
+	if !isIPv6 && addr.Unnumbered != "" {
+		return p.InterfaceIPAddr(ctx, addr.Unnumbered, vrf, false)
+	}
+	for _, a := range addr.AddrItems.AddrList {
+		if a.Type == IntfAddrTypePrimary {
+			ip, _, _ := strings.Cut(a.Addr, "/")
+			return ip, nil
+		}
+	}
+	family := "IPv4"
+	if isIPv6 {
+		family = "IPv6"
+	}
+	return "", apistatus.NewFailedPreconditionError(fmt.Sprintf("interface %q in VRF %q has no %s address configured", name, vrf, family))
+}
+
+func (p *Provider) Ping(ctx context.Context, req *provider.PingRequest) (*provider.PingStats, error) {
+	r := &systempb.PingRequest{
+		Destination: req.Address,
+	}
+	if req.SourceInterface != "" {
+		destination, err := netip.ParseAddr(req.Address)
+		if err != nil {
+			return nil, fmt.Errorf("invalid ping destination %q: %w", req.Address, err)
+		}
+		addr, err := p.InterfaceIPAddr(ctx, req.SourceInterface, req.VRF, destination.Is6())
+		if err != nil {
+			return nil, err
+		}
+		r.Source = addr
+	}
+	if req.VRF != "" {
+		r.NetworkInstance = req.VRF
+	}
+	if req.Count > 0 {
+		r.Count = req.Count
+	}
+	if req.PacketSize > 0 {
+		r.Size = req.PacketSize
+	}
+	if req.Timeout > 0 {
+		r.Wait = req.Timeout.Nanoseconds()
+	}
+	stream, err := systempb.NewSystemClient(p.conn).Ping(ctx, r, grpc.WaitForReady(true))
+	if err != nil {
+		return nil, err
+	}
+	// The gNOI Ping RPC is server-streaming. Each message is either a per-packet
+	// response or a final summary, so we read until the stream is closed and return
+	// use the last message for the statistics. As per the gNOI spec, the response
+	// must contain at least one message and provide summary statistics.
+	// See: https://github.com/openconfig/gnoi/blob/main/system/system.proto#L37-L41
+	var res *systempb.PingResponse
+	for {
+		resp, err := stream.Recv()
+		// gRPC returns io.EOF when the server closes the stream successfully.
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		res = resp
+	}
+	if res == nil {
+		return nil, fmt.Errorf("ping to %s returned no response", req.Address)
+	}
+	return &provider.PingStats{
+		Sent:     res.GetSent(),
+		Received: res.GetReceived(),
+		MinTime:  time.Duration(res.GetMinTime()),
+		AvgTime:  time.Duration(res.GetAvgTime()),
+		MaxTime:  time.Duration(res.GetMaxTime()),
+	}, nil
+}
+
+func (p *Provider) GetMACTable(ctx context.Context, req *provider.MACTableRequest) ([]provider.MACTableEntry, error) {
+	cmd := "show mac address-table"
+	if req.VLAN > 0 {
+		cmd = fmt.Sprintf("show mac address-table vlan %d", req.VLAN)
+	}
+	res, err := p.nxapi.Do(ctx, nxapi.NewRequest(cmd))
+	if err != nil {
+		return nil, err
+	}
+	if len(res) == 0 {
+		return nil, nil
+	}
+	var raw struct {
+		Table struct {
+			Row macTableRows `json:"ROW_mac_address"`
+		} `json:"TABLE_mac_address"`
+	}
+	if err := json.Unmarshal(res[0], &raw); err != nil {
+		return nil, err
+	}
+	entries := make([]provider.MACTableEntry, len(raw.Table.Row))
+	for i, row := range raw.Table.Row {
+		entries[i] = provider.MACTableEntry{
+			MACAddress: NormalizeMACAddress(row.MACAddr),
+		}
+	}
+	return entries, nil
+}
+
+func (p *Provider) GetRouteTable(ctx context.Context, req *provider.RouteTableRequest) ([]provider.RouteEntry, error) {
+	cmd := "show ip route"
+	if req.VRF != "" {
+		cmd = "show ip route vrf " + req.VRF
+	}
+	res, err := p.nxapi.Do(ctx, nxapi.NewRequest(cmd))
+	if err != nil {
+		return nil, err
+	}
+	if len(res) == 0 {
+		return nil, nil
+	}
+	var raw struct {
+		Table struct {
+			Row routeVRFRow `json:"ROW_vrf"`
+		} `json:"TABLE_vrf"`
+	}
+	if err := json.Unmarshal(res[0], &raw); err != nil {
+		return nil, err
+	}
+	var entries []provider.RouteEntry
+	for _, prefix := range raw.Table.Row.AddrFamily.Row.Prefixes.Row {
+		entries = append(entries, provider.RouteEntry{
+			Prefix: prefix.Prefix,
+		})
+	}
+	return entries, nil
+}
+
+func (p *Provider) GetVTEPPeers(ctx context.Context, _ *provider.VTEPPeersRequest) ([]provider.VTEPPeer, error) {
+	res, err := p.nxapi.Do(ctx, nxapi.NewRequest("show nve peers"))
+	if err != nil {
+		return nil, err
+	}
+	if len(res) == 0 {
+		return nil, nil
+	}
+	var raw struct {
+		Table struct {
+			Row nvePeerRows `json:"ROW_nve_peers"`
+		} `json:"TABLE_nve_peers"`
+	}
+	if err := json.Unmarshal(res[0], &raw); err != nil {
+		return nil, err
+	}
+	peers := make([]provider.VTEPPeer, 0, len(raw.Table.Row))
+	for _, row := range raw.Table.Row {
+		peers = append(peers, provider.VTEPPeer{
+			PeerIP:     row.PeerIP,
+			OperStatus: row.PeerState == "Up",
+		})
+	}
+	return peers, nil
+}
+
+type macTableRow struct {
+	MACAddr string `json:"disp_mac_addr"`
+}
+
+type macTableRows []macTableRow
+
+func (r *macTableRows) UnmarshalJSON(data []byte) error {
+	if len(data) > 0 && data[0] == '{' {
+		var single macTableRow
+		if err := json.Unmarshal(data, &single); err != nil {
+			return err
+		}
+		*r = []macTableRow{single}
+		return nil
+	}
+	return json.Unmarshal(data, (*[]macTableRow)(r))
+}
+
+type routeVRFRow struct {
+	AddrFamily struct {
+		Row routeAddrFamilyRow `json:"ROW_addrf"`
+	} `json:"TABLE_addrf"`
+}
+
+type routeAddrFamilyRow struct {
+	Prefixes struct {
+		Row routePrefixRows `json:"ROW_prefix"`
+	} `json:"TABLE_prefix"`
+}
+
+type routePrefixRow struct {
+	Prefix string `json:"ipprefix"`
+}
+
+type routePrefixRows []routePrefixRow
+
+func (r *routePrefixRows) UnmarshalJSON(data []byte) error {
+	if len(data) > 0 && data[0] == '{' {
+		var single routePrefixRow
+		if err := json.Unmarshal(data, &single); err != nil {
+			return err
+		}
+		*r = []routePrefixRow{single}
+		return nil
+	}
+	return json.Unmarshal(data, (*[]routePrefixRow)(r))
+}
+
+type nvePeerRow struct {
+	PeerIP    string `json:"peer-ip"`
+	PeerState string `json:"peer-state"`
+}
+
+type nvePeerRows []nvePeerRow
+
+func (r *nvePeerRows) UnmarshalJSON(data []byte) error {
+	if len(data) > 0 && data[0] == '{' {
+		var single nvePeerRow
+		if err := json.Unmarshal(data, &single); err != nil {
+			return err
+		}
+		*r = []nvePeerRow{single}
+		return nil
+	}
+	return json.Unmarshal(data, (*[]nvePeerRow)(r))
+}
+
+// NormalizeMACAddress converts a MAC address from NX-OS dotted format
+// (e.g., "0000.0000.0001") to colon-separated format (e.g., "00:00:00:00:00:01").
+func NormalizeMACAddress(mac string) string {
+	h := strings.ReplaceAll(mac, ".", "")
+	h = strings.ReplaceAll(h, ":", "")
+	h = strings.ReplaceAll(h, "-", "")
+	if len(h) != 12 {
+		return mac
+	}
+	return fmt.Sprintf("%s:%s:%s:%s:%s:%s", h[0:2], h[2:4], h[4:6], h[6:8], h[8:10], h[10:12])
 }
 
 func init() {

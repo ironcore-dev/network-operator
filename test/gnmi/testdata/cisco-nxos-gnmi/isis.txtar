@@ -42,33 +42,33 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
-    "fm-items": {
-      "isis-items": {
-        "adminSt": "enabled"
-      }
+    "procsys-items": {
+      "bootTime": "1700000000"
     },
     "intf-items": {
       "phys-items": {
         "PhysIf-list": [
           {
-            "FECMode": "auto",
             "accessVlan": "unknown",
             "adminSt": "up",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "FECMode": "auto",
             "id": "eth1/1",
             "layer": "Layer3",
+            "mtu": 1500,
             "medium": "broadcast",
             "mode": "access",
-            "mtu": 1500,
             "nativeVlan": "unknown",
-            "physExtd-items": {
-              "bufferBoost": "enable"
-            },
+            "userCfgdFlags": "admin_layer,admin_state",
             "rtvrfMbr-items": {
               "tDn": "/System/inst-items/Inst-list[name='default']"
             },
-            "userCfgdFlags": "admin_layer,admin_state"
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            }
           }
         ]
       }
@@ -78,9 +78,11 @@ spec:
         "dom-items": {
           "Dom-list": [
             {
+              "name": "default",
               "if-items": {
                 "If-list": [
                   {
+                    "id": "eth1/1",
                     "addr-items": {
                       "Addr-list": [
                         {
@@ -90,15 +92,18 @@ spec:
                           "type": "primary"
                         }
                       ]
-                    },
-                    "id": "eth1/1"
+                    }
                   }
                 ]
-              },
-              "name": "default"
+              }
             }
           ]
         }
+      }
+    },
+    "fm-items": {
+      "isis-items": {
+        "adminSt": "enabled"
       }
     },
     "isis-items": {
@@ -106,9 +111,14 @@ spec:
         "Inst-list": [
           {
             "adminSt": "enabled",
+            "name": "FABRIC",
             "dom-items": {
               "Dom-list": [
                 {
+                  "isType": "l2",
+                  "name": "default",
+                  "net": "49.0001.0000.0000.0001.00",
+                  "passiveDflt": "l2",
                   "af-items": {
                     "DomAf-list": [
                       {
@@ -127,56 +137,69 @@ spec:
                         "v6enable": false
                       }
                     ]
-                  },
-                  "isType": "l2",
-                  "name": "default",
-                  "net": "49.0001.0000.0000.0001.00",
-                  "passiveDflt": "l2"
+                  }
                 }
               ]
-            },
-            "name": "FABRIC"
+            }
           }
         ]
       }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }
 
 -- state/delete --
+
 {
   "System": {
-    "fm-items": {
-      "isis-items": {
-        "adminSt": "enabled"
-      }
+    "procsys-items": {
+      "bootTime": "1700000000"
     },
     "intf-items": {
       "phys-items": {
         "PhysIf-list": [
           {
-            "FECMode": "auto",
             "accessVlan": "vlan-1",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "FECMode": "auto",
             "id": "eth1/1",
             "layer": "Layer2",
+            "mtu": 1500,
             "medium": "broadcast",
             "mode": "access",
-            "mtu": 1500,
             "nativeVlan": "vlan-1",
+            "userCfgdFlags": "",
             "physExtd-items": {
               "bufferBoost": "enable"
             },
-            "trunkVlans": "1-4094",
-            "userCfgdFlags": ""
+            "trunkVlans": "1-4094"
           }
         ]
       }
     },
-    "procsys-items": {
-      "bootTime": "1700000000"
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": []
+              }
+            }
+          ]
+        }
+      }
+    },
+    "fm-items": {
+      "isis-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "isis-items": {
+      "inst-items": {
+        "Inst-list": []
+      }
     }
   }
 }

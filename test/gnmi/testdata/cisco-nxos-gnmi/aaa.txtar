@@ -68,8 +68,12 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
     "fm-items": {
       "tacacsplus-items": {
         "adminSt": "enabled"
@@ -113,6 +117,13 @@ spec:
           "local": "yes",
           "errEn": true
         },
+        "consoleauth-items": {
+          "realm": "local",
+          "providerGroup": "",
+          "fallback": "yes",
+          "local": "yes",
+          "errEn": false
+        },
         "defaultauthor-items": {
           "DefaultAuthor-list": [
             {
@@ -128,31 +139,65 @@ spec:
           "localRbac": true
         }
       }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }
 
 -- state/delete --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "fm-items": {
+      "tacacsplus-items": {
+        "adminSt": "disabled"
+      }
+    },
     "userext-items": {
+      "tacacsext-items": {},
       "authrealm-items": {
-        "defaultauth-items": {
+        "consoleauth-items": {
           "realm": "local",
+          "providerGroup": "",
+          "fallback": "yes",
           "local": "yes",
-          "fallback": "yes"
+          "errEn": false
+        },
+        "defaultauthor-items": {
+          "DefaultAuthor-list": [
+            {
+              "cmdType": "config",
+              "providerGroup": "",
+              "localRbac": true
+            }
+          ]
         },
         "defaultacc-items": {
           "realm": "local",
+          "providerGroup": "",
           "localRbac": true
+        },
+        "defaultauth-items": {
+          "realm": "local",
+          "providerGroup": "",
+          "fallback": "yes",
+          "local": "yes",
+          "errEn": false
+        }
+      },
+      "radiusext-items": {
+        "radiusprovidergroup-items": {
+          "RadiusProviderGroup-list": [
+            {
+              "name": "radius",
+              "vrf": "default",
+              "srcIf": "DME_UNSET_PROPERTY_MARKER"
+            }
+          ]
         }
       }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }

@@ -45,46 +45,13 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
-    "fm-items": {
-      "lacp-items": {
-        "adminSt": "enabled"
-      }
+    "procsys-items": {
+      "bootTime": "1700000000"
     },
     "intf-items": {
-      "aggr-items": {
-        "AggrIf-list": [
-          {
-            "accessVlan": "unknown",
-            "adminSt": "up",
-            "aggrExtd-items": {
-              "bufferBoost": "enable"
-            },
-            "descr": "L3 Port-Channel to Spine1",
-            "id": "po20",
-            "lacpVpcConvergence": "disable",
-            "layer": "Layer3",
-            "medium": "broadcast",
-            "mode": "access",
-            "mtu": 9216,
-            "nativeVlan": "unknown",
-            "pcMode": "active",
-            "rsmbrIfs-items": {
-              "RsMbrIfs-list": [
-                {
-                  "tDn": "/System/intf-items/phys-items/PhysIf-list[id='eth1/3']"
-                }
-              ]
-            },
-            "rtvrfMbr-items": {
-              "tDn": "/System/inst-items/Inst-list[name='default']"
-            },
-            "suspIndividual": "enable",
-            "userCfgdFlags": "admin_layer,admin_mtu,admin_state"
-          }
-        ]
-      },
       "phys-items": {
         "PhysIf-list": [
           {
@@ -94,19 +61,70 @@ spec:
             "FECMode": "auto",
             "id": "eth1/3",
             "layer": "Layer3",
+            "mtu": 1500,
             "medium": "broadcast",
             "mode": "access",
-            "mtu": 1500,
             "nativeVlan": "unknown",
-            "physExtd-items": {
-              "bufferBoost": "enable"
-            },
+            "userCfgdFlags": "admin_layer,admin_state",
             "rtvrfMbr-items": {
               "tDn": "/System/inst-items/Inst-list[name='default']"
             },
-            "userCfgdFlags": "admin_layer,admin_state"
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            }
           }
         ]
+      },
+      "aggr-items": {
+        "AggrIf-list": [
+          {
+            "accessVlan": "unknown",
+            "adminSt": "up",
+            "descr": "L3 Port-Channel to Spine1",
+            "id": "po20",
+            "lacpVpcConvergence": "disable",
+            "layer": "Layer3",
+            "mtu": 9216,
+            "medium": "broadcast",
+            "mode": "access",
+            "pcMode": "active",
+            "nativeVlan": "unknown",
+            "suspIndividual": "enable",
+            "userCfgdFlags": "admin_layer,admin_mtu,admin_state",
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            },
+            "rsmbrIfs-items": {
+              "RsMbrIfs-list": [
+                {
+                  "tDn": "/System/intf-items/phys-items/PhysIf-list[id='eth1/3']"
+                }
+              ]
+            },
+            "aggrExtd-items": {
+              "bufferBoost": "enable"
+            }
+          }
+        ]
+      }
+    },
+    "stp-items": {
+      "inst-items": {
+        "if-items": {
+          "If-list": [
+            {
+              "mode": "default",
+              "bpdufilter": "default",
+              "bpduguard": "default",
+              "id": "eth1/3"
+            }
+          ]
+        }
+      }
+    },
+    "fm-items": {
+      "lacp-items": {
+        "adminSt": "enabled"
       }
     },
     "ipv4-items": {
@@ -118,6 +136,7 @@ spec:
               "if-items": {
                 "If-list": [
                   {
+                    "id": "po20",
                     "addr-items": {
                       "Addr-list": [
                         {
@@ -127,8 +146,7 @@ spec:
                           "type": "primary"
                         }
                       ]
-                    },
-                    "id": "po20"
+                    }
                   }
                 ]
               }
@@ -136,54 +154,40 @@ spec:
           ]
         }
       }
-    },
-    "stp-items": {
-      "inst-items": {
-        "if-items": {
-          "If-list": [
-            {
-              "id": "eth1/3",
-              "mode": "default",
-              "bpdufilter": "default",
-              "bpduguard": "default"
-            }
-          ]
-        }
-      }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }
 
 -- state/delete --
+
 {
   "System": {
-    "fm-items": {
-      "lacp-items": {
-        "adminSt": "enabled"
-      }
+    "procsys-items": {
+      "bootTime": "1700000000"
     },
     "intf-items": {
       "phys-items": {
         "PhysIf-list": [
           {
             "accessVlan": "vlan-1",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
             "FECMode": "auto",
             "id": "eth1/3",
             "layer": "Layer2",
+            "mtu": 1500,
             "medium": "broadcast",
             "mode": "access",
-            "mtu": 1500,
             "nativeVlan": "vlan-1",
+            "userCfgdFlags": "",
             "physExtd-items": {
               "bufferBoost": "enable"
             },
-            "trunkVlans": "1-4094",
-            "userCfgdFlags": ""
+            "trunkVlans": "1-4094"
           }
         ]
+      },
+      "aggr-items": {
+        "AggrIf-list": []
       }
     },
     "stp-items": {
@@ -191,17 +195,33 @@ spec:
         "if-items": {
           "If-list": [
             {
-              "id": "eth1/3",
               "mode": "default",
               "bpdufilter": "default",
-              "bpduguard": "default"
+              "bpduguard": "default",
+              "id": "eth1/3"
             }
           ]
         }
       }
     },
-    "procsys-items": {
-      "bootTime": "1700000000"
+    "fm-items": {
+      "lacp-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": []
+              }
+            }
+          ]
+        }
+      }
     }
   }
 }

@@ -38,37 +38,18 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
-    "fm-items": {
-      "pim-items": {
-        "adminSt": "enabled"
-      }
-    },
-    "icmpv4-items": {
-      "inst-items": {
-        "dom-items": {
-          "Dom-list": [
-            {
-              "name": "default",
-              "if-items": {
-                "If-list": [
-                  {
-                    "id": "lo20",
-                    "ctrl": "port-unreachable,redirect"
-                  }
-                ]
-              }
-            }
-          ]
-        }
-      }
+    "procsys-items": {
+      "bootTime": "1700000000"
     },
     "intf-items": {
       "lb-items": {
         "LbRtdIf-list": [
           {
             "adminSt": "up",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
             "id": "lo20",
             "rtvrfMbr-items": {
               "tDn": "/System/inst-items/Inst-list[name='default']"
@@ -105,6 +86,30 @@ spec:
         }
       }
     },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo20",
+                    "ctrl": "port-unreachable,redirect"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "fm-items": {
+      "pim-items": {
+        "adminSt": "enabled"
+      }
+    },
     "pim-items": {
       "adminSt": "enabled",
       "inst-items": {
@@ -126,23 +131,73 @@ spec:
           ]
         }
       }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }
 
 -- state/delete --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "intf-items": {
+      "lb-items": {
+        "LbRtdIf-list": []
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": []
+              }
+            }
+          ]
+        }
+      }
+    },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo20",
+                    "ctrl": "port-unreachable,redirect"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
     "fm-items": {
       "pim-items": {
         "adminSt": "enabled"
       }
     },
-    "procsys-items": {
-      "bootTime": "1700000000"
+    "pim-items": {
+      "adminSt": "disabled",
+      "inst-items": {
+        "adminSt": "disabled",
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "adminSt": "disabled"
+            }
+          ]
+        }
+      }
     }
   }
 }

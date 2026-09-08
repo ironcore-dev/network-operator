@@ -62,8 +62,12 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
     "rpm-items": {
       "pfxlistv4-items": {
         "RuleV4-list": [
@@ -140,18 +144,27 @@ spec:
           }
         ]
       }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }
 
 -- state/delete --
+
 {
   "System": {
     "procsys-items": {
       "bootTime": "1700000000"
+    },
+    "rpm-items": {
+      "pfxlistv4-items": {
+        "RuleV4-list": []
+      },
+      "pfxlistv6-items": {
+        "RuleV6-list": []
+      },
+      "rtmap-items": {
+        "Rule-list": []
+      }
     }
   }
 }

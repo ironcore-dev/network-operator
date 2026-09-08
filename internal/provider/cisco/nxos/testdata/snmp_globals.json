@@ -2,6 +2,10 @@
   "snmp-items": {
     "inst-items": {
       "globals-items": {
+        "enforcePrivacy": "yes",
+        "srcInterfaceInforms-items": {
+          "ifname": "mgmt0"
+        },
         "srcInterfaceTraps-items": {
           "ifname": "mgmt0"
         }

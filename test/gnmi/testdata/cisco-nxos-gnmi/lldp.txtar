@@ -33,8 +33,12 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
     "fm-items": {
       "lldp-items": {
         "adminSt": "enabled"
@@ -45,23 +49,27 @@ spec:
         "holdTime": 90,
         "initDelayTime": 5
       }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }
 
 -- state/delete --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
     "fm-items": {
       "lldp-items": {
         "adminSt": "disabled"
       }
     },
-    "procsys-items": {
-      "bootTime": "1700000000"
+    "lldp-items": {
+      "inst-items": {
+        "holdTime": 90,
+        "initDelayTime": 5
+      }
     }
   }
 }

@@ -23,17 +23,18 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
     "dns-items": {
       "adminSt": "enabled",
       "prof-items": {
         "Prof-list": [
           {
             "name": "default",
-            "dom-items": {
-              "name": "example.com"
-            },
             "vrf-items": {
               "Vrf-list": [
                 {
@@ -47,18 +48,19 @@ spec:
                   }
                 }
               ]
+            },
+            "dom-items": {
+              "name": "example.com"
             }
           }
         ]
       }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }
 
 -- state/delete --
+
 {
   "System": {
     "procsys-items": {

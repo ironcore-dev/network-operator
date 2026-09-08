@@ -20,10 +20,12 @@ spec:
 {}
 
 -- state/expect --
+
 {
   "openconfig-network-instance:network-instances": {
     "network-instance": [
       {
+        "name": "default",
         "protocols": {
           "protocol": [
             {
@@ -56,7 +58,9 @@ spec:
                     ]
                   }
                 }
-              }
+              },
+              "identifier": "openconfig-policy-types:BGP",
+              "name": "BGP"
             }
           ]
         }
@@ -66,4 +70,16 @@ spec:
 }
 
 -- state/delete --
-{}
+
+{
+  "openconfig-network-instance:network-instances": {
+    "network-instance": [
+      {
+        "name": "default",
+        "protocols": {
+          "protocol": []
+        }
+      }
+    ]
+  }
+}

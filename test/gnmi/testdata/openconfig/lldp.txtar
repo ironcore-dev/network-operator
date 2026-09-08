@@ -14,6 +14,7 @@ spec:
 {}
 
 -- state/expect --
+
 {
   "openconfig-lldp:lldp": {
     "config": {
@@ -23,6 +24,7 @@ spec:
 }
 
 -- state/delete --
+
 {
   "openconfig-lldp:lldp": {
     "config": {

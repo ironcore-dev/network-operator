@@ -52,6 +52,12 @@ spec:
                     description: Ipv4Unicast configures specific IPv4 unicast address
                       family settings.
                     properties:
+                      advertiseL2vpnEvpn:
+                        description: |-
+                          AdvertiseL2vpnEvpn enables advertising EVPN routes within the VRF
+                          unicast address family. Required on border gateway nodes for cross-site
+                          EVPN Type-5 IP prefix route advertisement.
+                        type: boolean
                       exportGatewayIP:
                         description: |-
                           ExportGatewayIP enables advertising the gateway IP in EVPN Type-5 routes,
@@ -62,6 +68,12 @@ spec:
                     description: Ipv6Unicast configures specific IPv6 unicast address
                       family settings.
                     properties:
+                      advertiseL2vpnEvpn:
+                        description: |-
+                          AdvertiseL2vpnEvpn enables advertising EVPN routes within the VRF
+                          unicast address family. Required on border gateway nodes for cross-site
+                          EVPN Type-5 IP prefix route advertisement.
+                        type: boolean
                       exportGatewayIP:
                         description: |-
                           ExportGatewayIP enables advertising the gateway IP in EVPN Type-5 routes,

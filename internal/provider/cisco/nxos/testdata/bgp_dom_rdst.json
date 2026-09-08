@@ -12,6 +12,7 @@
               "DomAf-list": [
                 {
                   "exportGwIp": "disabled",
+                  "advertL2vpnEvpn": "disabled",
                   "type": "ipv4-ucast",
                   "interleak-items": {
                     "InterLeakP-list": [

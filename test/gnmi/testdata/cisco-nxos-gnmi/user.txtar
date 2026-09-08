@@ -35,8 +35,12 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
     "userext-items": {
       "user-items": {
         "User-list": [
@@ -64,18 +68,21 @@ spec:
           }
         ]
       }
-    },
-    "procsys-items": {
-      "bootTime": "1700000000"
     }
   }
 }
 
 -- state/delete --
+
 {
   "System": {
     "procsys-items": {
       "bootTime": "1700000000"
+    },
+    "userext-items": {
+      "user-items": {
+        "User-list": []
+      }
     }
   }
 }

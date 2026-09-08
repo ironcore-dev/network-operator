@@ -25,28 +25,24 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
-    "logging-items": {
-      "loglevel-items": {
-        "facility-items": {
-          "Facility-list": [
-            {
-              "facilityName": "Local7",
-              "severityLevel": "information"
-            }
-          ]
-        }
-      }
+    "procsys-items": {
+      "bootTime": "1700000000"
     },
     "syslog-items": {
-      "logginghistory-items": {
-        "level": "information",
-        "size": 500
-      },
       "originid-items": {
         "idtype": "string",
         "idvalue": "logging"
+      },
+      "source-items": {
+        "adminState": "enabled",
+        "ifName": "mgmt0"
+      },
+      "logginghistory-items": {
+        "level": "information",
+        "size": 500
       },
       "rdst-items": {
         "RemoteDest-list": [
@@ -59,23 +55,33 @@ spec:
             "vrfName": "management"
           }
         ]
-      },
-      "source-items": {
-        "adminState": "enabled",
-        "ifName": "mgmt0"
       }
     },
-    "procsys-items": {
-      "bootTime": "1700000000"
+    "logging-items": {
+      "loglevel-items": {
+        "facility-items": {
+          "Facility-list": [
+            {
+              "facilityName": "Local7",
+              "severityLevel": "information"
+            }
+          ]
+        }
+      }
     }
   }
 }
 
 -- state/delete --
+
 {
   "System": {
     "procsys-items": {
       "bootTime": "1700000000"
+    },
+    "syslog-items": {},
+    "logging-items": {
+      "loglevel-items": {}
     }
   }
 }

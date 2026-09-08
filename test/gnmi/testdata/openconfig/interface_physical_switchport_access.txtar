@@ -27,6 +27,7 @@ spec:
 }
 
 -- state/expect --
+
 {
   "openconfig-system:system": {
     "state": {
@@ -36,33 +37,55 @@ spec:
   "openconfig-interfaces:interfaces": {
     "interface": [
       {
-        "name": "eth1/10",
         "config": {
+          "name": "eth1/10",
+          "type": "iana-if-type:ethernetCsmacd",
           "description": "Access port to Host",
           "enabled": true,
           "mtu": 1500,
-          "name": "eth1/10",
-          "tpid": "TPID_0X8100",
-          "type": "iana-if-type:ethernetCsmacd"
+          "tpid": "TPID_0X8100"
         },
         "openconfig-if-ethernet:ethernet": {
           "openconfig-vlan:switched-vlan": {
             "config": {
-              "access-vlan": 10,
-              "interface-mode": "ACCESS"
+              "interface-mode": "ACCESS",
+              "access-vlan": 10
             }
           }
-        }
+        },
+        "name": "eth1/10"
       }
     ]
   }
 }
 
 -- state/delete --
+
 {
   "openconfig-system:system": {
     "state": {
       "boot-time": "1784731445707000000"
     }
+  },
+  "openconfig-interfaces:interfaces": {
+    "interface": [
+      {
+        "config": {
+          "name": "eth1/10",
+          "type": "iana-if-type:ethernetCsmacd",
+          "enabled": false
+        },
+        "name": "eth1/10",
+        "openconfig-if-ethernet:ethernet": {
+          "openconfig-vlan:switched-vlan": {
+            "config": {
+              "trunk-vlans": [
+                "1..4094"
+              ]
+            }
+          }
+        }
+      }
+    ]
   }
 }

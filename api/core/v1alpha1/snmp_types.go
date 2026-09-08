@@ -63,6 +63,10 @@ type SNMPSpec struct {
 	// +listType=set
 	// +kubebuilder:validation:MinItems=1
 	Traps []string `json:"traps,omitempty"`
+
+	// EnforceEncryption enforces SNMP message encryption for all users.
+	// +optional
+	EnforceEncryption bool `json:"enforceEncryption,omitempty"`
 }
 
 type SNMPCommunity struct {

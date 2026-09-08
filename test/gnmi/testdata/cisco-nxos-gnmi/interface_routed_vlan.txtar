@@ -40,8 +40,12 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
     "bd-items": {
       "bd-items": {
         "BD-list": [
@@ -57,25 +61,6 @@ spec:
     "fm-items": {
       "ifvlan-items": {
         "adminSt": "enabled"
-      }
-    },
-    "icmpv4-items": {
-      "inst-items": {
-        "dom-items": {
-          "Dom-list": [
-            {
-              "name": "default",
-              "if-items": {
-                "If-list": [
-                  {
-                    "ctrl": "port-unreachable",
-                    "id": "vlan10"
-                  }
-                ]
-              }
-            }
-          ]
-        }
       }
     },
     "intf-items": {
@@ -104,6 +89,7 @@ spec:
               "if-items": {
                 "If-list": [
                   {
+                    "id": "vlan10",
                     "addr-items": {
                       "Addr-list": [
                         {
@@ -113,8 +99,7 @@ spec:
                           "type": "primary"
                         }
                       ]
-                    },
-                    "id": "vlan10"
+                    }
                   }
                 ]
               }
@@ -123,22 +108,82 @@ spec:
         }
       }
     },
-    "procsys-items": {
-      "bootTime": "1700000000"
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "vlan10",
+                    "ctrl": "port-unreachable"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
     }
   }
 }
 
 -- state/delete --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "bd-items": {
+      "bd-items": {
+        "BD-list": []
+      }
+    },
     "fm-items": {
       "ifvlan-items": {
         "adminSt": "enabled"
       }
     },
-    "procsys-items": {
-      "bootTime": "1700000000"
+    "intf-items": {
+      "svi-items": {
+        "If-list": []
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": []
+              }
+            }
+          ]
+        }
+      }
+    },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "vlan10",
+                    "ctrl": "port-unreachable"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
     }
   }
 }
