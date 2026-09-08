@@ -1,0 +1,15 @@
+{
+  "pim-items": {
+    "inst-items": {
+      "dom-items": {
+        "Dom-list": [
+          {
+            "name": "default",
+            "adminSt": "enabled",
+            "logNbhChng": true
+          }
+        ]
+      }
+    }
+  }
+}

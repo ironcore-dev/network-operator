@@ -3268,6 +3268,7 @@ _Appears in:_
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the PIM to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether the PIM instance is administratively up or down. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
+| `logNeighborChanges` _boolean_ | LogNeighborChanges enables logging when a PIM neighbor is added or removed. |  | Optional: \{\} <br /> |
 | `rendezvousPoints` _[RendezvousPoint](#rendezvouspoint) array_ | RendezvousPoints defines the list of rendezvous points for sparse mode multicast. |  | MinItems: 1 <br />Optional: \{\} <br /> |
 | `interfaceRefs` _[PIMInterface](#piminterface) array_ | InterfaceRefs is a list of interfaces that are part of the PIM instance. |  | MinItems: 1 <br />Optional: \{\} <br /> |
 
