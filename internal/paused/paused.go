@@ -107,7 +107,7 @@ func computeCondition(device *v1alpha1.Device, obj Object) metav1.Condition {
 				condition.Message = "Device is not reachable: " + cond.Message
 				return condition
 			}
-			if device.GetAnnotations()[v1alpha1.DeviceMaintenanceAnnotation] == v1alpha1.DeviceMaintenanceFirmwareUpgrade {
+			if _, ok := device.GetAnnotations()[v1alpha1.DeviceMaintenanceAnnotation]; ok {
 				condition.Status = metav1.ConditionTrue
 				condition.Reason = v1alpha1.PausedReason
 				condition.Message = "Device is in maintenance"

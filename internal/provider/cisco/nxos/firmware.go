@@ -16,34 +16,27 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/transport/nxapi"
 )
 
-// upgradeTimeout is the NX-API client timeout for long-running firmware
-// commands (copy and install), which block synchronously for minutes.
-const upgradeTimeout = 20 * time.Minute
-
 const (
-	// nxosDefaultSessionTimeout is the default NX-API session timeout in seconds.
-	nxosDefaultSessionTimeout = 300
-	// nxosFirmwareSessionTimeout is an increased timeout for long-running firmware operations (copy and install) to avoid NX-API session expiration.
-	nxosFirmwareSessionTimeout = 1200
+	// upgradeTimeout is the NX-API client timeout for long-running firmware
+	// commands (copy and install), which block synchronously for minutes.
+	upgradeTimeout = 20 * time.Minute
+	// defaultSessionTimeout is the default NX-API session timeout in seconds.
+	defaultSessionTimeout = 300
+	// firmwareSessionTimeout is an increased timeout for long-running firmware operations (copy and install) to avoid NX-API session expiration.
+	firmwareSessionTimeout = 1200
 )
 
 func (p *Provider) UpgradeFirmware(ctx context.Context, _ *deviceutil.Connection, target provider.TargetFirmware) error {
 	logger := logr.FromContextOrDiscard(ctx)
 
-	upgraded, err := p.isUpgraded(ctx, target)
-	switch {
-	case err != nil:
+	if upgraded, err := p.isUpgraded(ctx, target); err != nil || upgraded {
 		return err
-	case upgraded:
-		return nil
 	}
 
 	// The copy and install commands block for several minutes, so they run on a
@@ -55,9 +48,8 @@ func (p *Provider) UpgradeFirmware(ctx context.Context, _ *deviceutil.Connection
 
 	// Disable POAP and extend NX-API session timeouts before long-running commands.
 	if _, err := p.nxapi.Do(ctx, nxapi.NewRequest(
-		"configure",
 		"no boot poap enable",
-		fmt.Sprintf("system server session cmd-timeout %d", nxosFirmwareSessionTimeout),
+		fmt.Sprintf("system server session cmd-timeout %d", firmwareSessionTimeout),
 	).WithRollback(nxapi.Stop)); err != nil {
 		return fmt.Errorf("nxos firmware: prepare upgrade: %w", err)
 	}
@@ -79,7 +71,7 @@ func (p *Provider) UpgradeFirmware(ctx context.Context, _ *deviceutil.Connection
 	if _, err := p.nxapi.Do(ctx, nxapi.NewRequest("reload")); err != nil && !nxapi.IsTransportError(err) {
 		return fmt.Errorf("nxos firmware: reload failed: %w", err)
 	}
-	return provider.ErrUpgradeInProgress
+	return provider.ErrMaintenanceInProgress
 }
 
 // isUpgraded checks whether the device is already running the target firmware.
@@ -92,10 +84,6 @@ func (p *Provider) isUpgraded(ctx context.Context, target provider.TargetFirmwar
 	// state rather than a failure, so signal the caller to requeue.
 	bootImage := new(BootImage)
 	if err := p.client.GetState(ctx, bootImage); err != nil {
-		if isDeviceUnreachable(err) {
-			logger.V(1).Info("Device unreachable during firmware completion check; treating as in progress")
-			return false, provider.ErrUpgradeInProgress
-		}
 		return false, fmt.Errorf("nxos firmware: failed to read running version: %w", err)
 	}
 
@@ -103,8 +91,7 @@ func (p *Provider) isUpgraded(ctx context.Context, target provider.TargetFirmwar
 	if path.Base(string(*bootImage)) == targetFileName {
 		logger.V(1).Info("Device already running target firmware", "filename", targetFileName)
 		if _, err := p.nxapi.Do(ctx, nxapi.NewRequest(
-			"configure",
-			fmt.Sprintf("system server session cmd-timeout %d", nxosDefaultSessionTimeout),
+			fmt.Sprintf("system server session cmd-timeout %d", defaultSessionTimeout),
 		).WithRollback(nxapi.Stop)); err != nil {
 			return false, fmt.Errorf("nxos firmware: reset session timeout: %w", err)
 		}
@@ -117,70 +104,67 @@ func (p *Provider) isUpgraded(ctx context.Context, target provider.TargetFirmwar
 func (p *Provider) ensureFirmwareImage(ctx context.Context, c *nxapi.Client, target provider.TargetFirmware, targetFileName string) error {
 	logger := logr.FromContextOrDiscard(ctx)
 
-	haveValidImage := false
 	sum, err := p.fileMD5(ctx, targetFileName)
 	if err != nil {
 		return fmt.Errorf("nxos firmware: check existing image: %w", err)
 	}
-	switch {
-	case sum == "":
-		// absent — copy below.
-	case target.MD5 == "":
-		haveValidImage = true // no checksum to compare; presence is enough.
-	case strings.EqualFold(sum, target.MD5):
-		haveValidImage = true
-	default:
+
+	if sum != "" && target.MD5 != "" && !strings.EqualFold(sum, target.MD5) {
 		logger.V(1).Info("Stale image on bootflash, deleting", "file", targetFileName)
-		if _, err := p.nxapi.Do(ctx, nxapi.NewRequest("delete bootflash:"+targetFileName+" no-prompt")); err != nil {
+		if _, err := p.nxapi.Do(ctx, nxapi.NewRequest("delete bootflash:///"+targetFileName+" no-prompt")); err != nil {
 			return fmt.Errorf("nxos firmware: delete stale image: %w", err)
 		}
+		sum = "" // force re-copy
 	}
 
-	if haveValidImage {
+	if sum == "" {
+		size, err := remoteImageSize(ctx, target.URL)
+		if err != nil {
+			return err
+		}
+		dir, err := p.ListDirectory(ctx, "bootflash:")
+		if err != nil {
+			return fmt.Errorf("nxos firmware: dir bootflash: failed: %w", err)
+		}
+		if size > dir.Bytesfree {
+			// TODO: Check if more than the current target and the current running image are present on the bootflash and delete them to free up space.
+			return fmt.Errorf("nxos firmware: image (%d bytes) does not fit in bootflash free space (%d bytes)", size, dir.Bytesfree)
+		}
+
+		// The NX-OS `copy https://...` command unconditionally prompts
+		// "Enter username:", which NX-API cannot answer. Depending on the
+		// endpoint a dummy username results in 403 and http is not supported.
+		// Downloading via `run bash wget` avoids the prompt entirely; bootflash
+		// is mounted at /bootflash inside the bash shell. The management VRF is
+		// a Linux netns, so wget must run inside it to reach the image server.
+		dest := "/bootflash/" + targetFileName
+		logger.V(1).Info("Copying firmware image to bootflash", "file", targetFileName)
+		if _, err := c.Do(ctx, nxapi.NewRequest(
+			"feature bash-shell",
+			//nolint:dupword // NX-OS requires `run bash bash -c` here.
+			`run bash bash -c 'ip netns exec management wget --no-verbose --output-document="$1" "$2"' -- `+strconv.Quote(dest)+` `+
+				strconv.Quote(target.URL),
+		).WithRollback(nxapi.Stop)); err != nil {
+			return fmt.Errorf("nxos firmware: copy image: %w", err)
+		}
+
+		sum, err = p.fileMD5(ctx, targetFileName)
+		if err != nil {
+			return fmt.Errorf("nxos firmware: verify md5 after copy: %w", err)
+		}
+	}
+
+	switch {
+	case sum == "":
+		return errors.New("nxos firmware: unexpected missing MD5 checksum")
+	case target.MD5 == "":
+		return nil // no checksum provided, so we cannot verify the image
+	case !strings.EqualFold(sum, target.MD5):
+		return fmt.Errorf("nxos firmware: md5 mismatch after copy: got %s want %s", sum, target.MD5)
+	default:
+		logger.V(1).Info("Firmware image copied and verified")
 		return nil
 	}
-
-	size, err := remoteImageSize(ctx, target.URL)
-	if err != nil {
-		return err
-	}
-	dir, err := p.ListDirectory(ctx, "bootflash:")
-	if err != nil {
-		return fmt.Errorf("nxos firmware: dir bootflash: failed: %w", err)
-	}
-	if size > dir.Bytesfree {
-		// TODO: Check if more than the current target and the current running image are present on the bootflash and delete them to free up space.
-		return fmt.Errorf("nxos firmware: image (%d bytes) does not fit in bootflash free space (%d bytes)", size, dir.Bytesfree)
-	}
-
-	// The NX-OS `copy https://...` command unconditionally prompts
-	// "Enter username:", which NX-API cannot answer. Depending on the
-	// endpoint a dummy username results in 403 and http is not supported.
-	// Downloading via `run bash wget` avoids the prompt entirely; bootflash
-	// is mounted at /bootflash inside the bash shell. The management VRF is
-	// a Linux netns, so wget must run inside it to reach the image server.
-	dest := "/bootflash/" + targetFileName
-	logger.V(1).Info("Copying firmware image to bootflash", "file", targetFileName)
-	if _, err := c.Do(ctx, nxapi.NewRequest(
-		"feature bash-shell",
-		//nolint:dupword // NX-OS requires `run bash bash -c` here.
-		`run bash bash -c 'ip netns exec management wget --no-verbose --output-document="$1" "$2"' -- `+strconv.Quote(dest)+` `+
-			strconv.Quote(target.URL),
-	).WithRollback(nxapi.Stop)); err != nil {
-		return fmt.Errorf("nxos firmware: copy image: %w", err)
-	}
-
-	if target.MD5 != "" {
-		sum, err := p.fileMD5(ctx, targetFileName)
-		if err != nil {
-			return fmt.Errorf("nxos firmware: verify md5: %w", err)
-		}
-		if !strings.EqualFold(sum, target.MD5) {
-			return fmt.Errorf("nxos firmware: md5 mismatch after copy: got %s want %s", sum, target.MD5)
-		}
-	}
-	logger.V(1).Info("Firmware image copied and verified")
-	return nil
 }
 
 // checkCompatibility runs the software compatibility and install impact checks
@@ -206,7 +190,7 @@ func (p *Provider) checkCompatibility(ctx context.Context, c *nxapi.Client, targ
 }
 
 // doUpgrade saves the running config, installs the firmware without
-// reload, and resets the session timeout to the default.
+// reload.
 func (p *Provider) doUpgrade(ctx context.Context, c *nxapi.Client, targetFileName string) error {
 	logger := logr.FromContextOrDiscard(ctx)
 	if _, err := p.nxapi.Do(ctx, nxapi.NewRequest(
@@ -260,25 +244,6 @@ func isFileNotFound(err error) bool {
 	}
 	msg := strings.ToLower(rpcErr.Error())
 	return strings.Contains(msg, "no such file") || strings.Contains(msg, "not found")
-}
-
-// isDeviceUnreachable reports whether err indicates the device is temporarily
-// unreachable (as opposed to a logical error), covering both NX-API transport
-// errors and gNMI/gRPC unavailability. This is expected while the device is
-// rebooting after an install and should be treated as an in-progress state.
-func isDeviceUnreachable(err error) bool {
-	if err == nil {
-		return false
-	}
-	if nxapi.IsTransportError(err) {
-		return true
-	}
-	switch status.Code(err) {
-	case codes.Unavailable, codes.DeadlineExceeded:
-		return true
-	default:
-		return false
-	}
 }
 
 // remoteImageSize issues an HTTP HEAD to the firmware URL and returns its

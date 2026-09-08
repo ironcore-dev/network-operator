@@ -14,9 +14,6 @@ import (
 	"strings"
 	"testing"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
@@ -34,38 +31,30 @@ func TestCleanCLIOutput(t *testing.T) {
 	}
 }
 
-// fakeGNMI is a minimal gnmiext.Client that returns a canned running version.
-type fakeGNMI struct {
-	gnmiext.Client
-	version   string
-	bootImage string
-	// getStateErr, when non-nil, is returned by GetState to simulate an
-	// unreachable device (e.g. mid-reload).
-	getStateErr error
-}
-
-func (f *fakeGNMI) GetState(_ context.Context, elems ...gnmiext.DataElement) error {
-	if f.getStateErr != nil {
-		return f.getStateErr
+// mockGNMI returns a gnmiext.ClientMock that reports the given running version
+// and boot image on GetState and a canned hostname on GetConfig.
+func mockGNMI(version, bootImage string) *gnmiext.ClientMock {
+	return &gnmiext.ClientMock{
+		GetStateFunc: func(_ context.Context, elems ...gnmiext.DataElement) error {
+			for _, e := range elems {
+				switch v := e.(type) {
+				case *FirmwareVersion:
+					*v = FirmwareVersion(version)
+				case *BootImage:
+					*v = BootImage(bootImage)
+				}
+			}
+			return nil
+		},
+		GetConfigFunc: func(_ context.Context, elems ...gnmiext.DataElement) error {
+			for _, e := range elems {
+				if h, ok := e.(*Hostname); ok {
+					*h = Hostname("test-switch")
+				}
+			}
+			return nil
+		},
 	}
-	for _, e := range elems {
-		switch v := e.(type) {
-		case *FirmwareVersion:
-			*v = FirmwareVersion(f.version)
-		case *BootImage:
-			*v = BootImage(f.bootImage)
-		}
-	}
-	return nil
-}
-
-func (f *fakeGNMI) GetConfig(_ context.Context, elems ...gnmiext.DataElement) error {
-	for _, e := range elems {
-		if h, ok := e.(*Hostname); ok {
-			*h = Hostname("test-switch")
-		}
-	}
-	return nil
 }
 
 func TestUpgradeFirmwareAlreadyOnTarget(t *testing.T) {
@@ -76,24 +65,13 @@ func TestUpgradeFirmwareAlreadyOnTarget(t *testing.T) {
 		}
 		return bodies
 	})
-	p := &Provider{client: &fakeGNMI{bootImage: "bootflash://nxos64-cs.10.6.3.F.bin"}, nxapi: client}
+	p := &Provider{client: mockGNMI("", "bootflash://nxos64-cs.10.6.3.F.bin"), nxapi: client}
 	target := provider.TargetFirmware{
 		URL: "https://repo.example/nxos64-cs.10.6.3.F.bin",
 		MD5: "48c0db0a564c442f123eba8724ef352f",
 	}
 	if err := p.UpgradeFirmware(t.Context(), conn, target); err != nil {
 		t.Fatalf("expected nil (already upgraded), got %v", err)
-	}
-}
-
-func TestUpgradeFirmwareUnreachableDuringProbe(t *testing.T) {
-	// Device unreachable during the completion check (e.g. mid-reload) must be
-	// treated as in progress so the reconcile requeues instead of failing.
-	p := &Provider{client: &fakeGNMI{getStateErr: status.Error(codes.Unavailable, "connection refused")}}
-	target := provider.TargetFirmware{URL: "https://repo.example/nxos64-cs.10.6.3.F.bin"}
-	err := p.UpgradeFirmware(t.Context(), &deviceutil.Connection{}, target)
-	if !errors.Is(err, provider.ErrUpgradeInProgress) {
-		t.Fatalf("expected ErrUpgradeInProgress for unreachable device, got %v", err)
 	}
 }
 
@@ -292,7 +270,7 @@ func TestUpgradeFirmwareCopyStep(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	p := &Provider{
-		client: &fakeGNMI{bootImage: "bootflash://nxos64-cs.10.6.2.F.bin"},
+		client: mockGNMI("", "bootflash://nxos64-cs.10.6.2.F.bin"),
 		nxapi:  client,
 	}
 	target := provider.TargetFirmware{
@@ -300,7 +278,7 @@ func TestUpgradeFirmwareCopyStep(t *testing.T) {
 		MD5: "48c0db0a564c442f123eba8724ef352f",
 	}
 	err := p.UpgradeFirmware(t.Context(), conn, target)
-	if !errors.Is(err, provider.ErrUpgradeInProgress) {
+	if !errors.Is(err, provider.ErrMaintenanceInProgress) {
 		t.Fatalf("expected ErrUpgradeInProgress, got %v", err)
 	}
 	joined := strings.Join(got, "|")
@@ -332,10 +310,10 @@ func TestUpgradeFirmwareInsufficientSpace(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	p := &Provider{client: &fakeGNMI{version: "10.6(2)"}, nxapi: client}
+	p := &Provider{client: mockGNMI("10.6(2)", ""), nxapi: client}
 	target := provider.TargetFirmware{URL: srv.URL + "/nxos64-cs.10.6.3.F.bin", MD5: "abc"}
 	err := p.UpgradeFirmware(t.Context(), conn, target)
-	if err == nil || errors.Is(err, provider.ErrUpgradeInProgress) {
+	if err == nil || errors.Is(err, provider.ErrMaintenanceInProgress) {
 		t.Fatalf("expected hard error for insufficient space, got %v", err)
 	}
 }
@@ -388,10 +366,10 @@ func TestUpgradeFirmwareInstallAndReload(t *testing.T) {
 		t.Fatalf("new client: %v", err)
 	}
 
-	p := &Provider{client: &fakeGNMI{version: "10.6(2)"}, nxapi: client}
+	p := &Provider{client: mockGNMI("10.6(2)", ""), nxapi: client}
 	target := provider.TargetFirmware{URL: "https://repo.example/nxos64-cs.10.6.3.F.bin", MD5: "48c0db0a564c442f123eba8724ef352f"}
 	err = p.UpgradeFirmware(t.Context(), conn, target)
-	if !errors.Is(err, provider.ErrUpgradeInProgress) {
+	if !errors.Is(err, provider.ErrMaintenanceInProgress) {
 		t.Fatalf("expected ErrUpgradeInProgress after reload, got %v", err)
 	}
 	joined := strings.Join(got, "|")

@@ -248,11 +248,11 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 	}
 
 	if err := r.reconcileMaintenance(ctx, obj, conn); err != nil {
-		// ErrUpgradeInProgress signals that a long-running maintenance step was
+		// ErrMaintenanceInProgress signals that a long-running maintenance step was
 		// issued and the operation must be resumed on a subsequent reconcile, so
 		// it must requeue rather than terminate.
-		if errors.Is(err, provider.ErrUpgradeInProgress) {
-			return ctrl.Result{}, err
+		if errors.Is(err, provider.ErrMaintenanceInProgress) {
+			return ctrl.Result{RequeueAfter: Jitter(r.HeartbeatInterval)}, nil
 		}
 		return ctrl.Result{}, reconcile.TerminalError(err)
 	}
@@ -481,7 +481,8 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 
 		prov := r.Provider()
 		if err := prov.Connect(ctx, conn); err != nil {
-			return fmt.Errorf("failed to connect to device: %w", err)
+			r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceFailed", "Maintenance", "Failed to connect to device for maintenance operation: %v", err)
+			return provider.ErrMaintenanceInProgress
 		}
 		defer prov.Disconnect(ctx, conn) //nolint:errcheck
 
@@ -560,7 +561,7 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 			}
 
 			err = mp.UpgradeFirmware(ctx, conn, targetFirmware)
-			if errors.Is(err, provider.ErrUpgradeInProgress) {
+			if errors.Is(err, provider.ErrMaintenanceInProgress) {
 				conditions.Set(obj, metav1.Condition{
 					Type:    v1alpha1.ReadyCondition,
 					Status:  metav1.ConditionFalse,

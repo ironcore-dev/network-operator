@@ -76,7 +76,6 @@ type DevicePort struct {
 }
 
 // TargetFirmware represents the firmware image to be applied to the device, including its URL and optional checksum.
-// This JSON is passed as the value of the DeviceMaintenanceFirmwareTargetAnnotation on the Device resource
 type TargetFirmware struct {
 	// URL is the URL of the firmware image to be applied to the device.
 	URL string `json:"url"`
@@ -84,11 +83,10 @@ type TargetFirmware struct {
 	MD5 string `json:"md5,omitempty"`
 }
 
-// ErrUpgradeInProgress is returned by MaintenanceProvider.UpgradeFirmware when it
-// has advanced a step (e.g. issued the image copy or the reload) but the device is
-// not yet running the target version. The controller treats this as a signal to
+// ErrMaintenanceInProgress is returned by MaintenanceProvider when it fails to fully complete
+// a maintenance operation. The controller treats this as a signal to
 // requeue and re-invoke rather than a hard failure.
-var ErrUpgradeInProgress = errors.New("provider: firmware upgrade in progress")
+var ErrMaintenanceInProgress = errors.New("provider: maintenance in progress")
 
 type DeviceInfo struct {
 	// Hostname is the hostname of the device.
