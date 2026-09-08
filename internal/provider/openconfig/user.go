@@ -100,6 +100,6 @@ func (u *User) XPath() string {
 type UserConfig struct {
 	Username       string `json:"username"`
 	Role           string `json:"role,omitempty"`
-	PasswordHashed string `json:"password-hashed,omitempty"`
+	PasswordHashed string `json:"password-hashed"`
 	SSHKey         string `json:"ssh-key,omitempty"`
 }

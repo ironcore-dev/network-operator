@@ -8,10 +8,9 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/go-crypt/crypt/algorithm/shacrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"github.com/go-crypt/crypt/algorithm/shacrypt"
 
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
