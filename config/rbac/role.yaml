@@ -180,6 +180,7 @@ rules:
   - lldpconfigs
   - managementaccessconfigs
   - networkvirtualizationedgeconfigs
+  - pimconfigs
   verbs:
   - get
   - list
