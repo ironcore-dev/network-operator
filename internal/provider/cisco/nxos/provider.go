@@ -639,9 +639,11 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 	marker := &BGPPeerGroup{VRFName: DefaultVRFName, Name: ownershipMarkerName(dom.Name)}
 	sb.Patch(marker)
 
+	var safis gnmiext.List[AddressFamily, *BGPDomAfItem]
 	if req.BGP.Spec.AddressFamilies != nil {
 		if af := req.BGP.Spec.AddressFamilies.Ipv4Unicast; af != nil && af.Enabled {
 			item := new(BGPDomAfItem)
+			item.VRFName = dom.Name
 			item.Type = AddressFamilyIPv4Unicast
 			if err := item.SetMultipath(af.Multipath); err != nil {
 				return err
@@ -657,11 +659,12 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 			if cfg.Spec.AddressFamilies.Ipv4UnicastAdvertiseL2vpnEvpn() {
 				item.AdvertL2vpnEvpn = AdminStEnabled
 			}
-			dom.AfItems.DomAfList.Set(item)
+			safis.Set(item)
 		}
 
 		if af := req.BGP.Spec.AddressFamilies.Ipv6Unicast; af != nil && af.Enabled {
 			item := new(BGPDomAfItem)
+			item.VRFName = dom.Name
 			item.Type = AddressFamilyIPv6Unicast
 			if err := item.SetMultipath(af.Multipath); err != nil {
 				return err
@@ -677,7 +680,7 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 			if cfg.Spec.AddressFamilies.Ipv6UnicastAdvertiseL2vpnEvpn() {
 				item.AdvertL2vpnEvpn = AdminStEnabled
 			}
-			dom.AfItems.DomAfList.Set(item)
+			safis.Set(item)
 		}
 
 		if af := req.BGP.Spec.AddressFamilies.L2vpnEvpn; af != nil && af.Enabled {
@@ -688,6 +691,7 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 				})
 			}
 			item := new(BGPDomAfItem)
+			item.VRFName = dom.Name
 			item.Type = AddressFamilyL2EVPN
 			if err := item.SetMultipath(af.Multipath); err != nil {
 				return err
@@ -699,7 +703,23 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 			if cfg.Spec.AddressFamilies != nil && cfg.Spec.AddressFamilies.L2vpnEvpn != nil && cfg.Spec.AddressFamilies.L2vpnEvpn.AdvertisePIP {
 				item.AdvPip = AdminStEnabled
 			}
-			dom.AfItems.DomAfList.Set(item)
+			safis.Set(item)
+		}
+	}
+
+	// Patch desired entries and delete stale ones because parent patches only merge lists.
+	current := &BGPDomAfItems{Name: dom.Name}
+	if err := p.client.GetConfig(ctx, current); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	for _, item := range safis {
+		sb.Patch(item)
+	}
+	for _, item := range current.DomAfList {
+		if _, ok := safis.Get(item.Key()); !ok {
+			// Restore the parent key required to build the delete XPath.
+			item.VRFName = dom.Name
+			sb.Delete(item)
 		}
 	}
 
@@ -1260,6 +1280,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	}
 
 	var addr *AddrItem
+	var addrs gnmiext.List[string, *IntfAddr]
 	if req.IPv4 != nil {
 		addr = new(AddrItem)
 		addr.ID = name
@@ -1273,10 +1294,12 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 					nth = IntfAddrTypeSecondary
 				}
 				ip := &IntfAddr{
+					ID:   name,
+					Vrf:  vrf,
 					Addr: p.String(),
 					Type: nth,
 				}
-				addr.AddrItems.AddrList.Set(ip)
+				addrs.Set(ip)
 			}
 
 		case provider.IPv4Unnumbered:
@@ -1287,6 +1310,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 	}
 	var ipv6Addr *AddrItem
+	var ipv6Addrs gnmiext.List[string, *IntfAddr]
 	if req.IPv6 != nil {
 		ipv6Addr = new(AddrItem)
 		ipv6Addr.ID = name
@@ -1301,7 +1325,13 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			// Unlike IPv4, IPv6 has no primary/secondary distinction: an
 			// interface simply carries multiple equal addresses.
 			for _, p := range v {
-				ipv6Addr.AddrItems.AddrList.Set(&IntfAddr{Addr: p.String(), Type: IntfAddrTypePrimary})
+				ipv6Addrs.Set(&IntfAddr{
+					ID:   name,
+					Vrf:  vrf,
+					Is6:  true,
+					Addr: p.String(),
+					Type: IntfAddrTypePrimary,
+				})
 			}
 
 		case provider.IPv6LinkLocalOnly:
@@ -1309,20 +1339,20 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 	}
 
-	addrs := new(AddrList)
-	if err := p.client.GetConfig(ctx, addrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+	current := new(AddrList)
+	if err := p.client.GetConfig(ctx, current); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 		return err
 	}
-	for _, a := range addrs.GetAddrItemsByInterface(name) {
+	for _, a := range current.GetAddrItemsByInterface(name) {
 		if addr == nil || a.Vrf != vrf {
 			sb.Delete(a)
 		}
 	}
-	ipv6Addrs := &AddrList{Is6: true}
-	if err := p.client.GetConfig(ctx, ipv6Addrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+	currentIPv6 := &AddrList{Is6: true}
+	if err := p.client.GetConfig(ctx, currentIPv6); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 		return err
 	}
-	for _, a := range ipv6Addrs.GetAddrItemsByInterface(name) {
+	for _, a := range currentIPv6.GetAddrItemsByInterface(name) {
 		if ipv6Addr == nil || a.Vrf != vrf {
 			sb.Delete(a)
 		}
@@ -1504,12 +1534,15 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		}
 
+		var members gnmiext.List[string, *PortChannelMember]
 		for _, member := range req.Members {
 			n, err := ShortNamePhysicalInterface(member.Spec.Name)
 			if err != nil {
 				return err
 			}
-			pc.RsmbrIfsItems.RsMbrIfsList.Set(NewPortChannelMember(n))
+			m := NewPortChannelMember(n)
+			m.PortChannelID = name
+			members.Set(m)
 		}
 
 		v := new(VPCIfItems)
@@ -1540,6 +1573,22 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 
 		sb.Patch(pc)
+
+		// Patch desired entries and delete stale ones because parent patches only merge lists.
+		current := &PortChannelMemberItems{ID: name}
+		if err := p.client.GetConfig(ctx, current); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+		for _, m := range members {
+			sb.Patch(m)
+		}
+		for _, m := range current.RsMbrIfsList {
+			if _, ok := members.Get(m.Key()); !ok {
+				// Restore the parent key required to build the delete XPath.
+				m.PortChannelID = name
+				sb.Delete(m)
+			}
+		}
 
 		if req.MultiChassisID != nil {
 			v := new(VPCIf)
@@ -1670,9 +1719,42 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	// Add the address items last, as they depend on the interface being created first.
 	if addr != nil {
 		sb.Patch(addr)
+		for _, a := range addrs {
+			sb.Patch(a)
+		}
+		// Patch desired entries and delete stale ones because parent patches only merge lists.
+		currentAddrs := &IntfAddrItems{ID: name, Vrf: vrf}
+		if err := p.client.GetConfig(ctx, currentAddrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+		for _, a := range currentAddrs.AddrList {
+			if _, ok := addrs.Get(a.Key()); !ok {
+				// Restore parent keys required to build the delete XPath.
+				a.ID = name
+				a.Vrf = vrf
+				sb.Delete(a)
+			}
+		}
 	}
 	if ipv6Addr != nil {
 		sb.Patch(ipv6Addr)
+		for _, a := range ipv6Addrs {
+			sb.Patch(a)
+		}
+		// Patch desired entries and delete stale ones because parent patches only merge lists.
+		currentIPv6Addrs := &IntfAddrItems{ID: name, Vrf: vrf, Is6: true}
+		if err := p.client.GetConfig(ctx, currentIPv6Addrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+		for _, a := range currentIPv6Addrs.AddrList {
+			if _, ok := ipv6Addrs.Get(a.Key()); !ok {
+				// Restore parent keys required to build the delete XPath.
+				a.ID = name
+				a.Vrf = vrf
+				a.Is6 = true
+				sb.Delete(a)
+			}
+		}
 	}
 
 	switch {
@@ -2682,14 +2764,10 @@ func (p *Provider) EnsureUser(ctx context.Context, req *provider.EnsureUserReque
 	u.Name = req.Username
 	u.SshauthItems.Data = req.SSHKey
 
-	d := new(UserDomain)
-	d.Name = "all"
+	var roles gnmiext.List[string, *UserRole]
 	for _, role := range req.Roles {
-		r := new(UserRole)
-		r.Name = role
-		d.RoleItems.UserRoleList.Set(r)
+		roles.Set(&UserRole{Username: req.Username, Name: role})
 	}
-	u.UserdomainItems.UserDomainList.Set(d)
 
 	// If the user already exists and the password matches, retain the existing
 	// password hash to avoid unnecessary updates.
@@ -2720,7 +2798,24 @@ func (p *Provider) EnsureUser(ctx context.Context, req *provider.EnsureUserReque
 		}
 	}
 
-	return p.client.Patch(ctx, u)
+	sb := new(gnmiext.SetBuilder)
+	sb.Patch(u)
+
+	current := &UserRoleItems{Username: req.Username}
+	if err := p.client.GetConfig(ctx, current); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	for _, r := range roles {
+		sb.Patch(r)
+	}
+	for _, r := range current.UserRoleList {
+		if _, ok := roles.Get(r.Key()); !ok {
+			r.Username = req.Username
+			sb.Delete(r)
+		}
+	}
+
+	return p.client.Do(ctx, sb)
 }
 
 func (p *Provider) DeleteUser(ctx context.Context, req *provider.DeleteUserRequest) error {
@@ -3531,17 +3626,17 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) erro
 	iv := new(NVEInfraVLANs)
 	for _, ivList := range vc.Spec.InfraVLANs {
 		if ivList.ID != 0 {
-			iv.InfraVLANList = append(iv.InfraVLANList, &NVEInfraVLAN{ID: uint32(ivList.ID)}) // #nosec G115 -- kubebuilder validation
+			iv.InfraVLANList.Set(&NVEInfraVLAN{ID: uint32(ivList.ID)}) // #nosec G115 -- kubebuilder validation
 			continue
 		}
 		for i := ivList.RangeMin; i <= ivList.RangeMax; i++ {
-			iv.InfraVLANList = append(iv.InfraVLANList, &NVEInfraVLAN{ID: uint32(i)}) // #nosec G115 -- kubebuilder validation
+			iv.InfraVLANList.Set(&NVEInfraVLAN{ID: uint32(i)}) // #nosec G115 -- kubebuilder validation
 		}
 	}
 
-	infraVLANs := make([]int16, len(iv.InfraVLANList))
-	for i := range iv.InfraVLANList {
-		infraVLANs[i] = int16(iv.InfraVLANList[i].ID) // #nosec G115 -- kubebuilder validation
+	infraVLANs := make([]int16, 0, iv.InfraVLANList.Len())
+	for _, vlan := range iv.InfraVLANList {
+		infraVLANs = append(infraVLANs, int16(vlan.ID)) // #nosec G115 -- kubebuilder validation
 	}
 	if len(infraVLANs) > 0 {
 		if err := p.ValidateReservedVLANs(ctx, infraVLANs); err != nil {
@@ -3549,15 +3644,18 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) erro
 		}
 	}
 
-	if len(iv.InfraVLANList) == 0 {
-		if err := p.client.GetConfig(ctx, iv); err != nil && !errors.Is(err, gnmiext.ErrNil) {
-			return err
+	// Patch desired entries and delete stale ones because parent patches only merge lists.
+	current := new(NVEInfraVLANs)
+	if err := p.client.GetConfig(ctx, current); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	for _, vlan := range iv.InfraVLANList {
+		sb.Patch(vlan)
+	}
+	for _, vlan := range current.InfraVLANList {
+		if _, ok := iv.InfraVLANList.Get(vlan.Key()); !ok {
+			sb.Delete(vlan)
 		}
-		if len(iv.InfraVLANList) != 0 {
-			sb.Delete(iv)
-		}
-	} else {
-		sb.Patch(iv)
 	}
 
 	ag := new(FabricFwd)
@@ -3649,12 +3747,14 @@ func (p *Provider) EnsureLLDP(ctx context.Context, req *provider.LLDPRequest) er
 			l.HoldTime = uint16(cfg.Spec.HoldTime) //nolint:gosec
 		}
 	}
+	sb.Patch(l)
 
 	interfaceMap := make(map[string]*v1alpha1.Interface, len(req.Interfaces))
 	for _, intf := range req.Interfaces {
 		interfaceMap[intf.Name] = intf
 	}
 
+	var desired gnmiext.List[string, *LLDPIfItem]
 	for _, ifRef := range req.LLDP.Spec.InterfaceRefs {
 		intf, ok := interfaceMap[ifRef.Name]
 		if !ok {
@@ -3678,9 +3778,22 @@ func (p *Provider) EnsureLLDP(ctx context.Context, req *provider.LLDPRequest) er
 			item.AdminTxSt = NewOption(AdminStDisabled)
 		}
 
-		l.IfItems.IfList.Set(item)
+		desired.Set(item)
 	}
-	sb.Patch(l)
+
+	// Patch desired entries and delete stale ones because parent patches only merge lists.
+	current := new(LLDPIfItems)
+	if err := p.client.GetConfig(ctx, current); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	for _, item := range desired {
+		sb.Patch(item)
+	}
+	for _, item := range current.IfList {
+		if _, ok := desired.Get(item.Key()); !ok {
+			sb.Delete(item)
+		}
+	}
 
 	return p.Do(ctx, sb)
 }
@@ -4162,7 +4275,11 @@ func (p *Provider) InterfaceIPAddr(ctx context.Context, name, vrf string, isIPv6
 	if !isIPv6 && addr.Unnumbered != "" {
 		return p.InterfaceIPAddr(ctx, addr.Unnumbered, vrf, false)
 	}
-	for _, a := range addr.AddrItems.AddrList {
+	items := &IntfAddrItems{ID: short, Vrf: vrf, Is6: isIPv6}
+	if err := p.client.GetConfig(ctx, items); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return "", fmt.Errorf("failed to get IP address for interface %q in VRF %q: %w", name, vrf, err)
+	}
+	for _, a := range items.AddrList {
 		if a.Type == IntfAddrTypePrimary {
 			ip, _, _ := strings.Cut(a.Addr, "/")
 			return ip, nil

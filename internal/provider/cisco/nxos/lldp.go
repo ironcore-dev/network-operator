@@ -13,6 +13,8 @@ const (
 var (
 	_ gnmiext.DataElement = (*LLDP)(nil)
 	_ gnmiext.Defaultable = (*LLDP)(nil)
+	_ gnmiext.DataElement = (*LLDPIfItems)(nil)
+	_ gnmiext.DataElement = (*LLDPIfItem)(nil)
 )
 
 type LLDP struct {
@@ -20,17 +22,22 @@ type LLDP struct {
 	HoldTime uint16 `json:"holdTime"`
 	// InitDelay is the number of seconds for LLDP to initialize on any interface.
 	InitDelay uint16 `json:"initDelayTime"`
-	// IfItems contains the per-interface LLDP configuration.
-	IfItems struct {
-		IfList gnmiext.List[string, *LLDPIfItem] `json:"If-list,omitzero"`
-	} `json:"if-items,omitzero"`
 }
+
+func (*LLDP) IsListItem() {}
 
 func (*LLDP) XPath() string {
 	return "System/lldp-items/inst-items"
 }
 
-func (*LLDP) IsListItem() {}
+// LLDPIfItems is the list container for fetching per-interface LLDP configuration.
+type LLDPIfItems struct {
+	IfList gnmiext.List[string, *LLDPIfItem] `json:"If-list,omitzero"`
+}
+
+func (*LLDPIfItems) XPath() string {
+	return "System/lldp-items/inst-items/if-items"
+}
 
 func (l *LLDP) Default() {
 	l.HoldTime = defaultLLDPHoldTime
@@ -44,6 +51,12 @@ type LLDPIfItem struct {
 }
 
 func (i *LLDPIfItem) Key() string { return i.InterfaceName }
+
+func (*LLDPIfItem) IsListItem() {}
+
+func (i *LLDPIfItem) XPath() string {
+	return "System/lldp-items/inst-items/if-items/If-list[id=" + i.InterfaceName + "]"
+}
 
 type LLDPOper struct {
 	OperSt OperSt `json:"operSt"`

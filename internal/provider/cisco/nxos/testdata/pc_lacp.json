@@ -15,14 +15,7 @@
           "pcMode": "active",
           "nativeVlan": "vlan-1",
           "suspIndividual": "disable",
-          "userCfgdFlags": "admin_state",
-          "rsmbrIfs-items": {
-            "RsMbrIfs-list": [
-              {
-                "tDn": "/System/intf-items/phys-items/PhysIf-list[id='eth1/1']"
-              }
-            ]
-          }
+          "userCfgdFlags": "admin_state"
         }
       ]
     }

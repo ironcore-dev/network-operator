@@ -104,13 +104,6 @@ spec:
             "nativeVlan": "vlan-1",
             "suspIndividual": "enable",
             "userCfgdFlags": "admin_layer,admin_state",
-            "rsmbrIfs-items": {
-              "RsMbrIfs-list": [
-                {
-                  "tDn": "/System/intf-items/phys-items/PhysIf-list[id='eth1/1']"
-                }
-              ]
-            },
             "aggrExtd-items": {
               "bufferBoost": "enable"
             }

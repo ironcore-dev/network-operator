@@ -1,3 +1,2 @@
 interface Loopback0
- ipv6 address 2001:db8:1::1/64
- ipv6 address 2001:db8:2::1/64
+ no ipv6 address use-link-local-only
