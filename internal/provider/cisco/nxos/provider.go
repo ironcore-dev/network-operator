@@ -1117,6 +1117,14 @@ func (p *Provider) EnsureEVPNInstance(ctx context.Context, req *provider.EVPNIns
 	if req.EVPNInstance.Spec.MulticastGroupAddress != "" {
 		vni.McastGroup = NewOption(req.EVPNInstance.Spec.MulticastGroupAddress)
 	}
+	switch {
+	case req.EVPNInstance.Spec.SuppressARP == nil:
+		vni.SuppressARP = suppressARPOff
+	case *req.EVPNInstance.Spec.SuppressARP:
+		vni.SuppressARP = suppressARPEnabled
+	default:
+		vni.SuppressARP = suppressARPDisabled
+	}
 	sb.Update(vni)
 
 	switch req.EVPNInstance.Spec.Type {
