@@ -86,7 +86,8 @@ spec:
                   {
                     "associateVrfFlag": false,
                     "mcastGroup": "DME_UNSET_PROPERTY_MARKER",
-                    "vni": 10100
+                    "vni": 10100,
+                    "suppressARP": "DME_UNSET_PROPERTY_MARKER"
                   }
                 ]
               }
