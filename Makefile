@@ -50,11 +50,9 @@ help: ## Display this help.
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) crd rbac:roleName=manager-role webhook paths="{./api/...,./internal/...}" output:crd:artifacts:config=config/crd/bases
 
-YEAR ?= $(shell date +%Y)
-
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt",year="$(YEAR)" paths="{./api/...,./internal/...}"
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="{./api/...,./internal/...}"
 	$(CONTROLLER_GEN) applyconfiguration:headerFile="hack/boilerplate.go.txt" paths="{./api/...,./internal/...}"
 
 .PHONY: fmt

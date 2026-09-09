@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 // generate-resources walks the network-operator API directory for *_types.go

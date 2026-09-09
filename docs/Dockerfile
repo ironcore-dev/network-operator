@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+# SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 # SPDX-License-Identifier: Apache-2.0
 
 FROM node:26-alpine3.22
