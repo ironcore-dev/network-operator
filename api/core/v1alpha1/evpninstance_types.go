@@ -85,6 +85,11 @@ type EVPNInstanceSpec struct {
 	// +optional
 	// +kubebuilder:validation:XValidation:rule="self.name == oldSelf.name",message="VRFRef is immutable"
 	VRFRef *LocalObjectReference `json:"vrfRef,omitempty"`
+
+	// SuppressARP overrides the NVE-level ARP suppression setting for this VNI.
+	// When unset, the NVE-level SuppressARP setting takes precedence.
+	// +optional
+	SuppressARP *bool `json:"suppressARP,omitempty"`
 }
 
 // EVPNInstanceType defines the type of EVPN instance.

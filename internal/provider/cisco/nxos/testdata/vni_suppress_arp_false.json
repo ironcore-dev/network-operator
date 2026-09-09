@@ -9,9 +9,9 @@
               "Nw-list": [
                 {
                   "associateVrfFlag": false,
-                  "mcastGroup": "239.1.1.100",
-                  "vni": 100010,
-                  "suppressARP": "DME_UNSET_PROPERTY_MARKER"
+                  "mcastGroup": "DME_UNSET_PROPERTY_MARKER",
+                  "vni": 100012,
+                  "suppressARP": false
                 }
               ]
             }
