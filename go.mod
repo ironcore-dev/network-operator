@@ -1,6 +1,6 @@
 module github.com/ironcore-dev/network-operator
 
-go 1.26.0
+go 1.27.0
 
 tool github.com/matryer/moq
 
