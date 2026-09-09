@@ -24,13 +24,10 @@ func init() {
 	}
 	Register("vni", vni)
 
-	nveInfraVLANs := &NVEInfraVLANs{
-		InfraVLANList: []*NVEInfraVLAN{
-			{ID: 4052},
-			{ID: 4092},
-		},
-	}
-	Register("infra_vlans", nveInfraVLANs)
+	infraVLANs := &NVEInfraVLANs{}
+	infraVLANs.InfraVLANList.Set(&NVEInfraVLAN{ID: 4052})
+	infraVLANs.InfraVLANList.Set(&NVEInfraVLAN{ID: 4092})
+	Register("infra_vlans", infraVLANs)
 
 	ffw := &FabricFwd{
 		AdminSt: "enabled",

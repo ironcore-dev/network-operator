@@ -1,15 +1,16 @@
 {
-  "ipv6-items": {
+  "bgp-items": {
     "inst-items": {
       "dom-items": {
         "Dom-list": [
           {
             "name": "default",
-            "if-items": {
-              "If-list": [
+            "af-items": {
+              "DomAf-list": [
                 {
-                  "id": "lo0",
-                  "useLinkLocalAddr": "disabled"
+                  "exportGwIp": "disabled",
+                  "advertL2vpnEvpn": "disabled",
+                  "type": "ipv4-ucast"
                 }
               ]
             }
