@@ -32,11 +32,15 @@ var (
 	_ gnmiext.DataElement = (*ICMPIf)(nil)
 	_ gnmiext.DataElement = (*PortChannel)(nil)
 	_ gnmiext.DataElement = (*PortChannelOperItems)(nil)
+	_ gnmiext.DataElement = (*PortChannelMemberItems)(nil)
+	_ gnmiext.DataElement = (*PortChannelMember)(nil)
 	_ gnmiext.DataElement = (*SwitchVirtualInterface)(nil)
 	_ gnmiext.DataElement = (*SwitchVirtualInterfaceOperItems)(nil)
 	_ gnmiext.DataElement = (*EncapRoutedInterface)(nil)
 	_ gnmiext.DataElement = (*EncapRoutedInterfaceOperItems)(nil)
 	_ gnmiext.DataElement = (*AddrItem)(nil)
+	_ gnmiext.DataElement = (*IntfAddrItems)(nil)
+	_ gnmiext.DataElement = (*IntfAddr)(nil)
 	_ gnmiext.DataElement = (*FabricFwdIf)(nil)
 )
 
@@ -294,17 +298,31 @@ type PortChannel struct {
 	SuspIndividual AdminSt4        `json:"suspIndividual"`
 	UserCfgdFlags  UserFlags       `json:"userCfgdFlags"`
 	RtvrfMbrItems  *VrfMember      `json:"rtvrfMbr-items,omitempty"`
-	RsmbrIfsItems  struct {
-		RsMbrIfsList gnmiext.List[string, *PortChannelMember] `json:"RsMbrIfs-list,omitzero"`
-	} `json:"rsmbrIfs-items,omitzero"`
-	AggrExtdItems struct {
+	AggrExtdItems  struct {
 		BufferBoost AdminSt4 `json:"bufferBoost,omitempty"`
 	} `json:"aggrExtd-items,omitzero"`
 }
 
+func (*PortChannel) IsListItem() {}
+
+func (p *PortChannel) XPath() string {
+	return "System/intf-items/aggr-items/AggrIf-list[id=" + p.ID + "]"
+}
+
+// PortChannelMemberItems is the list container for fetching port-channel members.
+type PortChannelMemberItems struct {
+	ID           string                                   `json:"-"`
+	RsMbrIfsList gnmiext.List[string, *PortChannelMember] `json:"RsMbrIfs-list,omitzero"`
+}
+
+func (m *PortChannelMemberItems) XPath() string {
+	return "System/intf-items/aggr-items/AggrIf-list[id=" + m.ID + "]/rsmbrIfs-items"
+}
+
 type PortChannelMember struct {
-	TDn   string `json:"tDn"`
-	Force bool   `json:"isMbrForce,omitempty"`
+	PortChannelID string `json:"-"`
+	TDn           string `json:"tDn"`
+	Force         bool   `json:"isMbrForce,omitempty"`
 }
 
 func NewPortChannelMember(name string) *PortChannelMember {
@@ -316,10 +334,13 @@ func NewPortChannelMember(name string) *PortChannelMember {
 
 func (m *PortChannelMember) Key() string { return m.TDn }
 
-func (*PortChannel) IsListItem() {}
+func (*PortChannelMember) IsListItem() {}
 
-func (p *PortChannel) XPath() string {
-	return "System/intf-items/aggr-items/AggrIf-list[id=" + p.ID + "]"
+func (m *PortChannelMember) XPath() string {
+	// Escape brackets in tDn so ygot.StringToStructuredPath does not
+	// treat them as key delimiters.
+	tDn := strings.NewReplacer("[", `\[`, "]", `\]`).Replace(m.TDn)
+	return "System/intf-items/aggr-items/AggrIf-list[id=" + m.PortChannelID + "]/rsmbrIfs-items/RsMbrIfs-list[tDn=" + tDn + "]"
 }
 
 type PortChannelOperItems struct {
@@ -406,9 +427,6 @@ func (d *AddrDom) Key() string { return d.Name }
 type AddrItem struct {
 	ID         string `json:"id"`
 	Unnumbered string `json:"unnumbered,omitempty"`
-	AddrItems  struct {
-		AddrList gnmiext.List[string, *IntfAddr] `json:"Addr-list,omitzero"`
-	} `json:"addr-items,omitzero"`
 
 	// Is6 indicates whether the addresses are IPv6 (true) or IPv4 (false).
 	// This field is not serialized to JSON and is only used internally to
@@ -432,7 +450,25 @@ func (a *AddrItem) XPath() string {
 	return "System/ipv4-items/inst-items/dom-items/Dom-list[name=" + a.Vrf + "]/if-items/If-list[id=" + a.ID + "]"
 }
 
+// IntfAddrItems is the list container for fetching addresses on an interface.
+type IntfAddrItems struct {
+	ID       string                          `json:"-"`
+	Vrf      string                          `json:"-"`
+	Is6      bool                            `json:"-"`
+	AddrList gnmiext.List[string, *IntfAddr] `json:"Addr-list,omitzero"`
+}
+
+func (a *IntfAddrItems) XPath() string {
+	if a.Is6 {
+		return "System/ipv6-items/inst-items/dom-items/Dom-list[name=" + a.Vrf + "]/if-items/If-list[id=" + a.ID + "]/addr-items"
+	}
+	return "System/ipv4-items/inst-items/dom-items/Dom-list[name=" + a.Vrf + "]/if-items/If-list[id=" + a.ID + "]/addr-items"
+}
+
 type IntfAddr struct {
+	ID   string       `json:"-"`
+	Vrf  string       `json:"-"`
+	Is6  bool         `json:"-"`
 	Addr string       `json:"addr"`
 	Pref int          `json:"pref"`
 	Tag  int          `json:"tag"`
@@ -440,6 +476,15 @@ type IntfAddr struct {
 }
 
 func (a *IntfAddr) Key() string { return a.Addr }
+
+func (*IntfAddr) IsListItem() {}
+
+func (a *IntfAddr) XPath() string {
+	if a.Is6 {
+		return "System/ipv6-items/inst-items/dom-items/Dom-list[name=" + a.Vrf + "]/if-items/If-list[id=" + a.ID + "]/addr-items/Addr-list[addr=" + a.Addr + "]"
+	}
+	return "System/ipv4-items/inst-items/dom-items/Dom-list[name=" + a.Vrf + "]/if-items/If-list[id=" + a.ID + "]/addr-items/Addr-list[addr=" + a.Addr + "]"
+}
 
 type IntfAddrType string
 
