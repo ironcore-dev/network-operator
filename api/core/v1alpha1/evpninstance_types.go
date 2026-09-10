@@ -27,7 +27,7 @@ type EVPNInstanceSpec struct {
 	DeviceRef LocalObjectReference `json:"deviceRef"`
 
 	// ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
-	// This reference is used to link the BGP to its provider-specific configuration.
+	// This reference is used to link the EVPNInstance to its provider-specific configuration.
 	// +optional
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
 
