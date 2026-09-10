@@ -56,7 +56,6 @@ type NTPServer struct {
 	Prefer bool `json:"prefer,omitempty"`
 
 	// The name of the vrf used to communicate with the NTP server.
-	// Maps to network-instance in Openconfig
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63

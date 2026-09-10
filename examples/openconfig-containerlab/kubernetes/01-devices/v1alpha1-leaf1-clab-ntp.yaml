@@ -4,7 +4,7 @@ metadata:
   labels:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
-    networking.metal.ironcore.dev/device-name: leaf1-clab
+    networking.metal.ironcore.dev/device-name: leaf1
   name: ntp-clab
 spec:
   deviceRef:

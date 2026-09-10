@@ -140,9 +140,8 @@ spec:
                         or not.
                       type: boolean
                     vrfName:
-                      description: |-
-                        The name of the vrf used to communicate with the NTP server.
-                        Maps to network-instance in Openconfig
+                      description: The name of the vrf used to communicate with the
+                        NTP server.
                       maxLength: 63
                       minLength: 1
                       type: string

@@ -85,7 +85,7 @@ func (s *NTPServer) Key() string { return s.Address }
 // NTPServerConfig holds the config container for a NTP server.
 type NTPServerConfig struct {
 	Address         string `json:"address"`
-	Prefer          bool   `json:"prefer,omitempty"`
+	Prefer          bool   `json:"prefer"`
 	NetworkInstance string `json:"network-instance,omitempty"` // Maps to VrfName
 	SourceAddress   string `json:"source-address,omitempty"`
 }

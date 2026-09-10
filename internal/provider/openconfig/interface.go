@@ -680,12 +680,12 @@ func (p *Provider) interfaceIPAddr(ctx context.Context, name string) (string, er
 	addrs := &interfaceAddrs{ifName: name}
 	if err := p.client.GetState(ctx, addrs); err != nil {
 		if errors.Is(err, gnmiext.ErrNil) {
-			return "", apistatus.NewFailedPreconditionError(fmt.Sprintf("interface %q has no IPv4 address A", name))
+			return "", apistatus.NewFailedPreconditionError(fmt.Sprintf("interface %q has no IPv4 address", name))
 		}
 		return "", fmt.Errorf("failed to get IPv4 address for interface %q: %w", name, err)
 	}
 	for _, a := range addrs.Address {
 		return a.IP, nil
 	}
-	return "", apistatus.NewFailedPreconditionError(fmt.Sprintf("interface %q has no IPv4 address B", name))
+	return "", apistatus.NewFailedPreconditionError(fmt.Sprintf("interface %q has no IPv4 address", name))
 }
