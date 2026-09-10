@@ -145,9 +145,8 @@ func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, 
 	for _, del := range req.GetDelete() {
 		log.Printf("Deleting path: %v", del)
 		res = append(res, &gpb.UpdateResult{
-			Timestamp: time.Now().UnixNano(),
-			Path:      del,
-			Op:        gpb.UpdateResult_DELETE,
+			Path: del,
+			Op:   gpb.UpdateResult_DELETE,
 		})
 		if err := s.state.Del(del); err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to delete path: %v", err)
@@ -156,9 +155,8 @@ func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, 
 	for _, replace := range req.GetReplace() {
 		log.Printf("Replacing path: %v with value: %q", replace.GetPath(), replace.GetVal().GetJsonVal())
 		res = append(res, &gpb.UpdateResult{
-			Timestamp: time.Now().UnixNano(),
-			Path:      replace.GetPath(),
-			Op:        gpb.UpdateResult_REPLACE,
+			Path: replace.GetPath(),
+			Op:   gpb.UpdateResult_REPLACE,
 		})
 		// Delete the existing value at the path and set the new value.
 		if err := s.state.Del(replace.GetPath()); err != nil {
@@ -171,9 +169,8 @@ func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, 
 	for _, update := range req.GetUpdate() {
 		log.Printf("Updating path: %v with value: %q", update.GetPath(), update.GetVal().GetJsonVal())
 		res = append(res, &gpb.UpdateResult{
-			Timestamp: time.Now().UnixNano(),
-			Path:      update.GetPath(),
-			Op:        gpb.UpdateResult_UPDATE,
+			Path: update.GetPath(),
+			Op:   gpb.UpdateResult_UPDATE,
 		})
 		// The value will automatically be merged into the existing state.
 		if err := s.state.Set(update.GetPath(), update.GetVal().GetJsonVal()); err != nil {
