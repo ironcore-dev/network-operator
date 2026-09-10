@@ -1,0 +1,100 @@
+# User with password, role and ssh-key
+-- secrets/user-password --
+apiVersion: v1
+kind: Secret
+metadata:
+  name: user-password
+  namespace: default
+type: Opaque
+stringData:
+  password: Test1234!
+
+-- secrets/user-ssh-key --
+apiVersion: v1
+kind: Secret
+metadata:
+  name: user-ssh-key
+  namespace: default
+type: Opaque
+stringData:
+  ssh-publickey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAQQDSGgsAKZn/hxPMKyfwKboiOEeuL9bTqW79QfEQ8h0kpGhkFJJEWR1e3BvXpdT9KYQOaKQnNw32atULweSQQNGh6 IronCore Test"
+
+-- users/user --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: User
+metadata:
+  name: user
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  username: testplan
+  password:
+    secretKeyRef:
+      name: user-password
+      key: password
+  roles:
+    - name: superuser
+  sshPublicKey:
+    secretKeyRef:
+      name: user-ssh-key
+      key: ssh-publickey
+
+-- state/preload --
+{
+  "openconfig-system:system": {
+    "aaa": {
+      "authentication": {
+        "users": {
+          "user": [
+            {
+              "config": {
+                "password-hashed": "$6$rounds=500000$testsalt12345678$cA/6tQxdty8SGL9isyhA6zjpPa94WfLXhHQan/nZEM2e8y.QLOfX/W7/dQ2GAA0OhvImEVbdKT5Hm9npdKVoE1",
+                "role": "superuser",
+                "ssh-key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAQQDSGgsAKZn/hxPMKyfwKboiOEeuL9bTqW79QfEQ8h0kpGhkFJJEWR1e3BvXpdT9KYQOaKQnNw32atULweSQQNGh6 IronCore Test",
+                "username": "testplan"
+              },
+              "username": "testplan"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+-- state/expect --
+{
+  "openconfig-system:system": {
+    "aaa": {
+      "authentication": {
+        "users": {
+          "user": [
+            {
+              "config": {
+                "password-hashed": "$6$rounds=500000$testsalt12345678$cA/6tQxdty8SGL9isyhA6zjpPa94WfLXhHQan/nZEM2e8y.QLOfX/W7/dQ2GAA0OhvImEVbdKT5Hm9npdKVoE1",
+                "role": "superuser",
+                "ssh-key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAQQDSGgsAKZn/hxPMKyfwKboiOEeuL9bTqW79QfEQ8h0kpGhkFJJEWR1e3BvXpdT9KYQOaKQnNw32atULweSQQNGh6 IronCore Test",
+                "username": "testplan"
+              },
+              "username": "testplan"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+-- state/delete --
+{
+  "openconfig-system:system": {
+    "aaa": {
+      "authentication": {
+        "users": {
+          "user": []
+        }
+      }
+    }
+  }
+}
