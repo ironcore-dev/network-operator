@@ -33,7 +33,7 @@ func (o Option[T]) MarshalJSON() ([]byte, error) {
 }
 
 func (o *Option[T]) UnmarshalJSON(b []byte) error {
-	if len(b) == 0 || string(b) == `null` {
+	if len(b) == 0 || string(b) == `null` || string(b) == `"DME_UNSET_PROPERTY_MARKER"` {
 		o.Value = nil
 		return nil
 	}
