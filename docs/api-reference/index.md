@@ -1052,7 +1052,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
-| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the BGP to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the BGPPeer to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `bgpRef` _[LocalObjectReference](#localobjectreference)_ | BgpRef is a reference to the BGP instance this peer belongs to.<br />The BGP object must exist in the same namespace. |  | Required: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether this BGP peer is administratively up or down.<br />When Down, the BGP session with this peer is administratively shut down. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
 | `address` _string_ | Address is the IPv4 address of the BGP peer. |  | Format: ipv4 <br />Required: \{\} <br /> |
@@ -1935,7 +1935,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
-| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the BGP to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the EVPNInstance to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `vni` _integer_ | VNI is the VXLAN Network Identifier.<br />Immutable. |  | Maximum: 1.6777214e+07 <br />Minimum: 1 <br />Required: \{\} <br /> |
 | `type` _[EVPNInstanceType](#evpninstancetype)_ | Type specifies the EVPN instance type.<br />Immutable. |  | Enum: [Bridged Routed] <br />Required: \{\} <br /> |
 | `multicastGroupAddress` _string_ | MulticastGroupAddress specifies the IPv4 multicast group address used for BUM (Broadcast, Unknown unicast, Multicast) traffic.<br />The address must be in the valid multicast range (224.0.0.0 - 239.255.255.255). |  | Format: ipv4 <br />Optional: \{\} <br /> |
@@ -2318,7 +2318,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
-| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Interface to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the ISIS to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether the ISIS instance is administratively up or down. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
 | `instance` _string_ | Instance is the name of the ISIS instance. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `networkEntityTitle` _string_ | NetworkEntityTitle is the NET of the ISIS instance. |  | Pattern: `^[a-fA-F0-9]\{2\}(\.[a-fA-F0-9]\{4\})\{3,9\}\.[a-fA-F0-9]\{2\}$` <br />Required: \{\} <br /> |
@@ -2783,7 +2783,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
-| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Interface to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the ManagementAccess to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `grpc` _[GRPC](#grpc)_ | Configuration for the gRPC server on the device. | \{ enabled:true port:9339 \} | Optional: \{\} <br /> |
 | `ssh` _[SSH](#ssh)_ | Configuration for the SSH server on the device. | \{ enabled:true sessionLimit:32 timeout:10m \} | Optional: \{\} <br /> |
 
@@ -3152,7 +3152,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
-| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Interface to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the OSPF to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether the OSPF instance is administratively up or down. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
 | `instance` _string_ | Instance is the process tag of the OSPF instance. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `routerId` _string_ | RouterID is the OSPF router identifier, used in OSPF messages to identify the originating router.<br />Follows dotted quad notation (IPv4 format). |  | Format: ipv4 <br />Required: \{\} <br /> |
@@ -3486,7 +3486,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
-| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Banner to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the PrefixSet to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `name` _string_ | Name is the name of the PrefixSet.<br />Immutable. |  | MaxLength: 32 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `entries` _[PrefixEntry](#prefixentry) array_ | A list of entries to apply.<br />The address families (IPv4, IPv6) of all prefixes in the list must match. |  | MaxItems: 100 <br />MinItems: 1 <br />Required: \{\} <br /> |
 
@@ -3812,7 +3812,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
-| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Banner to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the RoutingPolicy to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `name` _string_ | Name is the identifier of the RoutingPolicy on the device.<br />Immutable. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `statements` _[PolicyStatement](#policystatement) array_ | A list of policy statements to apply. |  | MaxItems: 100 <br />MinItems: 1 <br />Required: \{\} <br /> |
 
@@ -4194,7 +4194,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
-| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Interface to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Syslog to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `servers` _[LogServer](#logserver) array_ | Servers is a list of remote log servers to which the device will send logs. |  | MaxItems: 16 <br />MinItems: 1 <br />Required: \{\} <br /> |
 | `facilities` _[LogFacility](#logfacility) array_ | Facilities is a list of log facilities to configure on the device. |  | MaxItems: 64 <br />MinItems: 1 <br />Required: \{\} <br /> |
 

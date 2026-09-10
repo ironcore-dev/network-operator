@@ -20,7 +20,7 @@ type SyslogSpec struct {
 	DeviceRef LocalObjectReference `json:"deviceRef"`
 
 	// ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
-	// This reference is used to link the Interface to its provider-specific configuration.
+	// This reference is used to link the Syslog to its provider-specific configuration.
 	// +optional
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
 
