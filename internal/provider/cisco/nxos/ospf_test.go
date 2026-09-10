@@ -32,7 +32,7 @@ func init() {
 	}
 	dom.MaxlsapItems.Action = MaxLSAActionReject
 	dom.MaxlsapItems.MaxLsa = 12000
-	dom.InterleakItems.InterLeakPList.Set(&InterLeakP{InterLeakPKey: InterLeakPKey{Proto: RtLeakProtoDirect, Asn: "none", Inst: "none"}, RtMap: "REDIST-ALL"})
+	dom.InterleakItems.InterLeakPList.Set(&InterLeakP{Proto: RtLeakProtoDirect, Asn: "none", Inst: "none", RtMap: "REDIST-ALL"})
 	dom.DefrtleakItems.Always = "no"
 
 	ospf := &OSPF{Name: "UNDERLAY", AdminSt: AdminStEnabled}

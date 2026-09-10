@@ -476,10 +476,8 @@ func (r *VPCDomainReconciler) mapInterfaceToVPCDomain(ctx context.Context, obj c
 	requests := make([]reconcile.Request, 0, len(list.Items))
 	for _, i := range list.Items {
 		requests = append(requests, reconcile.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 
@@ -522,10 +520,8 @@ func (r *VPCDomainReconciler) deviceToVPCDomains(ctx context.Context, obj client
 	for _, i := range list.Items {
 		log.V(2).Info("Enqueuing VPCDomain for reconciliation", "VPCDomain", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 

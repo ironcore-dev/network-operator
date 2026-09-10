@@ -22,10 +22,8 @@ var _ = Describe("BGP Controller", func() {
 		BeforeEach(func() {
 			By("Creating a Device resource for testing")
 			device = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgp-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgp-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -76,10 +74,8 @@ var _ = Describe("BGP Controller", func() {
 		It("Should successfully reconcile the resource", func() {
 			By("Creating the custom resource for the Kind BGP")
 			bgp := &v1alpha1.BGP{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgp-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgp-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.BGPSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					ASNumber:  intstr.FromInt(65000),
@@ -131,10 +127,8 @@ var _ = Describe("BGP Controller", func() {
 		It("Should set ReadyCondition=False when vrfRef points to a non-existent VRF", func() {
 			By("Creating a BGP with a vrfRef pointing to a non-existent VRF")
 			bgp := &v1alpha1.BGP{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgp-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgp-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.BGPSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					ASNumber:  intstr.FromInt(65000),
@@ -158,10 +152,8 @@ var _ = Describe("BGP Controller", func() {
 		It("Should pass VRF to the provider when vrfRef is set", func() {
 			By("Creating a VRF")
 			vrf := &v1alpha1.VRF{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-vrf-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-vrf-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.VRFSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					Name:      "CC-MGMT",
@@ -171,10 +163,8 @@ var _ = Describe("BGP Controller", func() {
 
 			By("Creating a BGP with the vrfRef set")
 			bgp := &v1alpha1.BGP{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgp-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgp-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.BGPSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					ASNumber:  intstr.FromInt(65000),
@@ -203,17 +193,15 @@ var _ = Describe("BGP Controller", func() {
 		It("Should reconcile BGP when a referenced RoutingPolicy is created", func() {
 			By("Creating a BGP with a redistributeDirectRoutes ref pointing to a non-existent RoutingPolicy")
 			bgp := &v1alpha1.BGP{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgp-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgp-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.BGPSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					ASNumber:  intstr.FromInt(65000),
 					RouterID:  "10.0.0.20",
 					AddressFamilies: &v1alpha1.BGPAddressFamilies{
 						Ipv4Unicast: &v1alpha1.BGPUnicastAddressFamily{
-							BGPAddressFamily: v1alpha1.BGPAddressFamily{Enabled: true},
+							Enabled: true,
 							RedistributeDirectRoutes: &v1alpha1.BGPRedistributeDirectRoutes{
 								RoutingPolicyRef: v1alpha1.LocalObjectReference{Name: "test-policy"},
 							},
@@ -235,10 +223,8 @@ var _ = Describe("BGP Controller", func() {
 
 			By("Creating the RoutingPolicy")
 			rp := &v1alpha1.RoutingPolicy{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-policy",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-policy",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.RoutingPolicySpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					Name:      "test-policy",
@@ -267,10 +253,8 @@ var _ = Describe("BGP Controller", func() {
 		It("Should reject VrfRef changes via the API server", func() {
 			By("Creating the custom resource for the Kind BGP")
 			bgp := &v1alpha1.BGP{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgp-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgp-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.BGPSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					ASNumber:  intstr.FromInt(65000),

@@ -167,11 +167,9 @@ func (af *BGPDomAfItem) Key() AddressFamily { return af.Type }
 // connected routes into a BGP address family.
 func NewInterLeakPDirect(rtMap string) *InterLeakP {
 	return &InterLeakP{
-		InterLeakPKey: InterLeakPKey{
-			Asn:   "none",
-			Inst:  "none",
-			Proto: RtLeakProtoDirect,
-		},
+		Asn:   "none",
+		Inst:  "none",
+		Proto: RtLeakProtoDirect,
 		RtMap: rtMap,
 	}
 }

@@ -13,7 +13,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
@@ -472,10 +471,8 @@ func (r *ClaimReconciler) claimsForPoolRef(gvk schema.GroupVersionKind) handler.
 		for _, claim := range claims.Items {
 			log.Info("Enqueuing Claim for reconciliation", "Claim", klog.KObj(&claim))
 			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      claim.Name,
-					Namespace: claim.Namespace,
-				},
+				Name:      claim.Name,
+				Namespace: claim.Namespace,
 			})
 		}
 
@@ -494,10 +491,8 @@ func (r *ClaimReconciler) claimForAllocation(_ context.Context, obj client.Objec
 		return nil
 	}
 	return []reconcile.Request{{
-		NamespacedName: types.NamespacedName{
-			Name:      ref.Name,
-			Namespace: obj.GetNamespace(),
-		},
+		Name:      ref.Name,
+		Namespace: obj.GetNamespace(),
 	}}
 }
 

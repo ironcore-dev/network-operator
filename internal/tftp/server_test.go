@@ -54,11 +54,9 @@ func TestServer(t *testing.T) {
 		{
 			name: "serve bootscript by serial",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: metav1.NamespaceDefault,
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "test-serial-001"},
-				},
+				Name:      "test-device",
+				Namespace: metav1.NamespaceDefault,
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "test-serial-001"},
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint:     v1alpha1.Endpoint{Address: "127.0.0.1:9339"},
 					Provisioning: &v1alpha1.Provisioning{BootScript: v1alpha1.TemplateSource{Inline: new("#!/bin/sh\necho hello")}},
@@ -70,11 +68,9 @@ func TestServer(t *testing.T) {
 		{
 			name: "unknown serial returns error",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: metav1.NamespaceDefault,
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "test-serial-001"},
-				},
+				Name:      "test-device",
+				Namespace: metav1.NamespaceDefault,
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "test-serial-001"},
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint:     v1alpha1.Endpoint{Address: "127.0.0.1:9339"},
 					Provisioning: &v1alpha1.Provisioning{BootScript: v1alpha1.TemplateSource{Inline: new("#!/bin/sh\necho hello")}},
@@ -86,11 +82,9 @@ func TestServer(t *testing.T) {
 		{
 			name: "empty bootscript returns error",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "no-script-device",
-					Namespace: metav1.NamespaceDefault,
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "test-serial-001"},
-				},
+				Name:      "no-script-device",
+				Namespace: metav1.NamespaceDefault,
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "test-serial-001"},
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: "127.0.0.1:9339"},
 				},
@@ -101,11 +95,9 @@ func TestServer(t *testing.T) {
 		{
 			name: "verify mode: matching IP and serial passes",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: metav1.NamespaceDefault,
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "test-serial-001"},
-				},
+				Name:      "test-device",
+				Namespace: metav1.NamespaceDefault,
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "test-serial-001"},
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint:     v1alpha1.Endpoint{Address: "127.0.0.1:9339"},
 					Provisioning: &v1alpha1.Provisioning{BootScript: v1alpha1.TemplateSource{Inline: new("#!/bin/sh\necho hello")}},
@@ -119,11 +111,9 @@ func TestServer(t *testing.T) {
 		{
 			name: "verify mode: IP mismatch rejected",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: metav1.NamespaceDefault,
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "test-serial-001"},
-				},
+				Name:      "test-device",
+				Namespace: metav1.NamespaceDefault,
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "test-serial-001"},
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint:     v1alpha1.Endpoint{Address: "10.0.0.99:9339"},
 					Provisioning: &v1alpha1.Provisioning{BootScript: v1alpha1.TemplateSource{Inline: new("#!/bin/sh\necho hello")}},
@@ -137,11 +127,9 @@ func TestServer(t *testing.T) {
 		{
 			name: "verify mode: serial mismatch rejected",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: metav1.NamespaceDefault,
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "test-serial-001"},
-				},
+				Name:      "test-device",
+				Namespace: metav1.NamespaceDefault,
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "test-serial-001"},
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint:     v1alpha1.Endpoint{Address: "127.0.0.1:9339"},
 					Provisioning: &v1alpha1.Provisioning{BootScript: v1alpha1.TemplateSource{Inline: new("#!/bin/sh\necho hello")}},

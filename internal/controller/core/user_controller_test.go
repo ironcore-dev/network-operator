@@ -25,10 +25,8 @@ var _ = Describe("User Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-user-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-user-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -41,10 +39,8 @@ var _ = Describe("User Controller", func() {
 
 			By("Creating the custom resource for the Kind Secret")
 			resource := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				StringData: map[string]string{
 					corev1.BasicAuthPasswordKey: "P@ssw0rd!",
 				},
@@ -53,10 +49,8 @@ var _ = Describe("User Controller", func() {
 
 			By("Creating the custom resource for the Kind User")
 			user := &v1alpha1.User{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.UserSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Username:  username,

@@ -23,10 +23,8 @@ var _ = Describe("ISIS Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-isis-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-isis-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -39,10 +37,8 @@ var _ = Describe("ISIS Controller", func() {
 
 			By("Creating the custom resource for the Kind ISIS")
 			resource := &v1alpha1.ISIS{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.ISISSpec{
 					DeviceRef:          v1alpha1.LocalObjectReference{Name: name},
 					Instance:           "UNDERLAY",
@@ -128,10 +124,8 @@ var _ = Describe("ISIS Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-isis-missing-intf-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-isis-missing-intf-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -160,10 +154,8 @@ var _ = Describe("ISIS Controller", func() {
 		It("Should set ConfiguredCondition to false when interfaceRef does not exist", func() {
 			By("Creating an ISIS resource with a non-existent interfaceRef")
 			isis := &v1alpha1.ISIS{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.ISISSpec{
 					DeviceRef:          v1alpha1.LocalObjectReference{Name: name},
 					Instance:           "UNDERLAY",

@@ -338,10 +338,8 @@ func (r *AAAReconciler) secretToAAA(ctx context.Context, obj client.Object) []ct
 					(server.RADIUS != nil && server.RADIUS.KeySecretRef.Name == secret.Name && a.Namespace == secret.Namespace) {
 					log.V(2).Info("Enqueuing AAA for reconciliation", "AAA", klog.KObj(&a))
 					requests = append(requests, ctrl.Request{
-						NamespacedName: client.ObjectKey{
-							Name:      a.Name,
-							Namespace: a.Namespace,
-						},
+						Name:      a.Name,
+						Namespace: a.Namespace,
 					})
 					found = true
 					break

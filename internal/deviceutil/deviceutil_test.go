@@ -21,10 +21,8 @@ func TestGetDeviceFromMetadata(t *testing.T) {
 	g := NewWithT(t)
 
 	device := &v1alpha1.Device{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-device",
-			Namespace: metav1.NamespaceDefault,
-		},
+		Name:      "test-device",
+		Namespace: metav1.NamespaceDefault,
 	}
 
 	client := fake.NewClientBuilder().
@@ -79,10 +77,8 @@ func TestGetOwnerDevice(t *testing.T) {
 	g := NewWithT(t)
 
 	device := &v1alpha1.Device{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-device",
-			Namespace: metav1.NamespaceDefault,
-		},
+		Name:      "test-device",
+		Namespace: metav1.NamespaceDefault,
 	}
 
 	client := fake.NewClientBuilder().
@@ -134,10 +130,8 @@ func TestGetDeviceByName(t *testing.T) {
 	g := NewWithT(t)
 
 	device := &v1alpha1.Device{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-device",
-			Namespace: metav1.NamespaceDefault,
-		},
+		Name:      "test-device",
+		Namespace: metav1.NamespaceDefault,
 	}
 
 	client := fake.NewClientBuilder().
@@ -158,11 +152,9 @@ func TestGetDeviceBySerial(t *testing.T) {
 	g := NewWithT(t)
 
 	device := &v1alpha1.Device{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-device",
-			Namespace: metav1.NamespaceDefault,
-			Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "SER-001"},
-		},
+		Name:      "test-device",
+		Namespace: metav1.NamespaceDefault,
+		Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "SER-001"},
 	}
 
 	client := fake.NewClientBuilder().
@@ -183,11 +175,9 @@ func TestGetDeviceByEndpointIP(t *testing.T) {
 	g := NewWithT(t)
 
 	device := &v1alpha1.Device{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-device",
-			Namespace: metav1.NamespaceDefault,
-		},
-		Spec: v1alpha1.DeviceSpec{Endpoint: v1alpha1.Endpoint{Address: "10.0.0.10:22"}},
+		Name:      "test-device",
+		Namespace: metav1.NamespaceDefault,
+		Spec:      v1alpha1.DeviceSpec{Endpoint: v1alpha1.Endpoint{Address: "10.0.0.10:22"}},
 	}
 
 	client := fake.NewClientBuilder().

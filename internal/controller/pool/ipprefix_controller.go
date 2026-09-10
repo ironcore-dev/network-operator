@@ -11,7 +11,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -163,10 +162,8 @@ func (r *IPPrefixReconciler) ipPrefixesForPool(ctx context.Context, obj client.O
 	for i, pfx := range prefixes.Items {
 		log.Info("Enqueuing IPPrefix for reconciliation", "IPPrefix", klog.KObj(&pfx))
 		requests[i] = reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      pfx.Name,
-				Namespace: pfx.Namespace,
-			},
+			Name:      pfx.Name,
+			Namespace: pfx.Namespace,
 		}
 	}
 	return requests

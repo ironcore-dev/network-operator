@@ -23,10 +23,8 @@ var _ = Describe("Banner Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-banner-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-banner-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -61,10 +59,8 @@ var _ = Describe("Banner Controller", func() {
 		It("Should successfully reconcile a PreLogin Banner", func() {
 			By("Creating a PreLogin Banner")
 			banner := &v1alpha1.Banner{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.BannerSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Type:      v1alpha1.BannerTypePreLogin,
@@ -122,10 +118,8 @@ var _ = Describe("Banner Controller", func() {
 		It("Should successfully reconcile a PostLogin Banner", func() {
 			By("Creating a PostLogin Banner")
 			banner := &v1alpha1.Banner{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.BannerSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Type:      v1alpha1.BannerTypePostLogin,

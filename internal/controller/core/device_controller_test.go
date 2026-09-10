@@ -27,10 +27,8 @@ var _ = Describe("Device Controller", func() {
 		BeforeEach(func() {
 			By("Creating the endpoint credentials as a Secret")
 			secret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-device-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-device-",
+				Namespace:    metav1.NamespaceDefault,
 				Data: map[string][]byte{
 					corev1.BasicAuthUsernameKey: []byte("user"),
 					corev1.BasicAuthPasswordKey: []byte("password"),
@@ -62,10 +60,8 @@ var _ = Describe("Device Controller", func() {
 		It("Should successfully reconcile the resource", func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -94,10 +90,8 @@ var _ = Describe("Device Controller", func() {
 
 			By("Creating the custom resource for the Kind Interface")
 			iface := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:   v1alpha1.LocalObjectReference{Name: name},
 					Name:        "eth1/1",
@@ -150,10 +144,8 @@ var _ = Describe("Device Controller", func() {
 		It("Should transition from Pending to Provisioning when provisioning is configured", func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -194,10 +186,8 @@ var _ = Describe("Device Controller", func() {
 		It("Should keep the device provisioning before timeout", func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -251,10 +241,8 @@ var _ = Describe("Device Controller", func() {
 		It("Should fail provisioning after the timeout threshold", func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -308,12 +296,10 @@ var _ = Describe("Device Controller", func() {
 		It("Should keep an existing mismatched serial label", func() {
 			By("Creating the custom resource for the Kind Device with a pre-set serial label")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-					Labels: map[string]string{
-						v1alpha1.DeviceSerialLabel: "manual-serial",
-					},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
+				Labels: map[string]string{
+					v1alpha1.DeviceSerialLabel: "manual-serial",
 				},
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
@@ -339,10 +325,8 @@ var _ = Describe("Device Controller", func() {
 		It("Should transition from ProvisioningCompleted to Running", func() {
 			By("Creating a Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.5:9339",
@@ -401,10 +385,8 @@ var _ = Describe("Device Controller", func() {
 
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -449,10 +431,8 @@ var _ = Describe("Device Controller", func() {
 		It("Should reset to Pending when Spec.Provisioning is removed before provisioning agent makes a request", func() {
 			By("Creating a Device with provisioning configured")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -502,10 +482,8 @@ var _ = Describe("Device Controller", func() {
 		It("Should close the active provisioning entry and transition to Running when Spec.Provisioning is removed after provisioning agent made a request", func() {
 			By("Creating a Device with provisioning configured")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -568,10 +546,8 @@ var _ = Describe("Device Controller", func() {
 		It("Should update LastRebootTime in status when the device reboots", func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -608,10 +584,8 @@ var _ = Describe("Device Controller", func() {
 		It("Should transition from Running to Provisioning once the reset-phase annotation is set", func() {
 			By("Creating a Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      key.Name,
-					Namespace: key.Namespace,
-				},
+				Name:      key.Name,
+				Namespace: key.Namespace,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.5:9339",
@@ -688,12 +662,10 @@ var _ = Describe("Device Controller", func() {
 		It("Should skip provisioning and transition from Pending to Running when skip-provisioning annotation is set", func() {
 			By("Creating a Device with provisioning configured and skip-provisioning annotation")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: name,
-					Namespace:    metav1.NamespaceDefault,
-					Annotations: map[string]string{
-						v1alpha1.DeviceMaintenanceAnnotation: v1alpha1.DeviceMaintenanceSkipProvisioning,
-					},
+				GenerateName: name,
+				Namespace:    metav1.NamespaceDefault,
+				Annotations: map[string]string{
+					v1alpha1.DeviceMaintenanceAnnotation: v1alpha1.DeviceMaintenanceSkipProvisioning,
 				},
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
@@ -732,10 +704,8 @@ var _ = Describe("Device Controller", func() {
 		It("Should close active provisioning entry and transition to Running when skip-provisioning annotation is set during Provisioning phase", func() {
 			By("Creating a Device with provisioning configured")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: name,
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: name,
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.7:9339",

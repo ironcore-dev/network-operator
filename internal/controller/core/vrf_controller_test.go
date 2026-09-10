@@ -25,10 +25,8 @@ var _ = Describe("VRF Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-vrf-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-vrf-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -41,10 +39,8 @@ var _ = Describe("VRF Controller", func() {
 
 			By("Creating the custom resource for the Kind VRF")
 			vrf = &v1alpha1.VRF{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.VRFSpec{
 					DeviceRef:          v1alpha1.LocalObjectReference{Name: name},
 					Name:               "CC-ADMIN-TEST",

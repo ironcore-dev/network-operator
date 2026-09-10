@@ -19,10 +19,8 @@ var _ = Describe("IPAddressPool Controller", func() {
 
 	BeforeEach(func() {
 		pool = &poolv1alpha1.IPAddressPool{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "ipaddresspool-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "ipaddresspool-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IPAddressPoolSpec{
 				Prefixes: []corev1alpha1.IPPrefix{
 					corev1alpha1.MustParsePrefix("10.0.0.0/24"),
@@ -60,10 +58,8 @@ var _ = Describe("IPAddressPool Controller", func() {
 	It("Should set Available=False when the pool is exhausted", func() {
 		By("Creating a pool with a single address so it can be exhausted")
 		singlePool := &poolv1alpha1.IPAddressPool{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "ipaddresspool-single-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "ipaddresspool-single-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IPAddressPoolSpec{
 				Prefixes: []corev1alpha1.IPPrefix{
 					corev1alpha1.MustParsePrefix("10.9.9.1/32"),
@@ -84,10 +80,8 @@ var _ = Describe("IPAddressPool Controller", func() {
 
 		By("Creating an IPAddress object to fill the single slot")
 		ipa := &poolv1alpha1.IPAddress{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "ipa-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "ipa-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IPAddressSpec{
 				PoolRef: corev1alpha1.TypedLocalObjectReference{
 					APIVersion: poolv1alpha1.GroupVersion.String(),

@@ -49,9 +49,7 @@ var _ = Describe("gNMI requests tests", func() {
 		BeforeEach(func(ctx SpecContext) {
 			By("creating dedicated test namespace")
 			ns := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "reconcile-gnmi-test-",
-				},
+				GenerateName: "reconcile-gnmi-test-",
 			}
 			Expect(k8sClient.Create(ctx, ns)).To(Succeed())
 			testNamespace = ns.Name
@@ -59,7 +57,7 @@ var _ = Describe("gNMI requests tests", func() {
 
 		AfterEach(func(ctx SpecContext) {
 			By("deleting the test namespace")
-			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testNamespace}}))).To(Succeed())
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &corev1.Namespace{Name: testNamespace}))).To(Succeed())
 		})
 
 		// Generate individual It nodes for each test file
@@ -100,10 +98,8 @@ var _ = Describe("gNMI requests tests", func() {
 
 				By("creating test device")
 				device := &v1alpha1.Device{
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "test-device-",
-						Namespace:    testNamespace,
-					},
+					GenerateName: "test-device-",
+					Namespace:    testNamespace,
 					Spec: v1alpha1.DeviceSpec{
 						Endpoint: v1alpha1.Endpoint{
 							Address: gnmiServer.GRPCAddr(),

@@ -232,7 +232,7 @@ func TestIPPrefixPool_Allocate(t *testing.T) {
 		},
 	}
 
-	claim := &Claim{ObjectMeta: metav1.ObjectMeta{Name: "test-claim", UID: "test-uid"}}
+	claim := &Claim{Name: "test-claim", UID: "test-uid"}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			allocs := make([]Allocation, len(test.existing))

@@ -311,10 +311,8 @@ func (r *SystemReconciler) deviceToSystems(ctx context.Context, obj client.Objec
 	for _, i := range list.Items {
 		log.V(2).Info("Enqueuing System for reconciliation", "System", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 

@@ -11,7 +11,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -163,10 +162,8 @@ func (r *IPAddressReconciler) ipAddressesForPool(ctx context.Context, obj client
 	for i, ipa := range addresses.Items {
 		log.Info("Enqueuing IPAddress for reconciliation", "IPAddress", klog.KObj(&ipa))
 		requests[i] = reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      ipa.Name,
-				Namespace: ipa.Namespace,
-			},
+			Name:      ipa.Name,
+			Namespace: ipa.Namespace,
 		}
 	}
 	return requests

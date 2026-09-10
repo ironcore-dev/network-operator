@@ -16,7 +16,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
@@ -393,10 +392,8 @@ func (r *PIMReconciler) deviceToPIMs(ctx context.Context, obj client.Object) []c
 	for _, i := range list.Items {
 		log.V(2).Info("Enqueuing PIM for reconciliation", "PIM", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 
@@ -429,10 +426,8 @@ func (r *PIMReconciler) interfaceToPIM(ctx context.Context, obj client.Object) [
 		}) {
 			log.V(2).Info("Enqueuing PIM for reconciliation", "PIM", klog.KObj(&i))
 			requests = append(requests, reconcile.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      i.Name,
-					Namespace: i.Namespace,
-				},
+				Name:      i.Name,
+				Namespace: i.Namespace,
 			})
 		}
 	}
@@ -461,10 +456,8 @@ func (r *PIMReconciler) pimForProviderConfig(ctx context.Context, obj client.Obj
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
 			log.V(2).Info("Enqueuing PIM for reconciliation", "PIM", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      m.Name,
-					Namespace: m.Namespace,
-				},
+				Name:      m.Name,
+				Namespace: m.Namespace,
 			})
 		}
 	}

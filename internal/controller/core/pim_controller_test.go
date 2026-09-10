@@ -24,10 +24,8 @@ var _ = Describe("PIM Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-pim-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-pim-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -40,10 +38,8 @@ var _ = Describe("PIM Controller", func() {
 
 			By("Creating the custom resource for the Kind PIM")
 			resource := &v1alpha1.PIM{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.PIMSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 				},
@@ -121,10 +117,8 @@ var _ = Describe("PIM Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-pim-missing-intf-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-pim-missing-intf-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -153,16 +147,14 @@ var _ = Describe("PIM Controller", func() {
 		It("Should set ReadyCondition to false when interfaceRef does not exist", func() {
 			By("Creating a PIM resource with a non-existent interfaceRef")
 			pim := &v1alpha1.PIM{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.PIMSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					InterfaceRefs: []v1alpha1.PIMInterface{
 						{
-							LocalObjectReference: v1alpha1.LocalObjectReference{Name: "non-existing-interface"},
-							Mode:                 v1alpha1.PIMModeSparse,
+							Name: "non-existing-interface",
+							Mode: v1alpha1.PIMModeSparse,
 						},
 					},
 				},

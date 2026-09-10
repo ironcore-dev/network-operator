@@ -29,10 +29,8 @@ var _ = Describe("LLDP Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "testlldp-device-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "testlldp-device-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -73,10 +71,8 @@ var _ = Describe("LLDP Controller", func() {
 		It("Should successfully reconcile the resource", func() {
 			By("Creating the custom resource for the Kind LLDP")
 			lldp = &v1alpha1.LLDP{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      deviceName + "-lldp",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      deviceName + "-lldp",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.LLDPSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					AdminState: "Up",
@@ -138,10 +134,8 @@ var _ = Describe("LLDP Controller", func() {
 		It("Should successfully reconcile the resource with AdminState Down", func() {
 			By("Creating the custom resource for the Kind LLDP with AdminState Down")
 			lldp = &v1alpha1.LLDP{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      deviceName + "-lldp",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      deviceName + "-lldp",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.LLDPSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					AdminState: v1alpha1.AdminStateDown,
@@ -179,10 +173,8 @@ var _ = Describe("LLDP Controller", func() {
 		It("Should reject duplicate LLDP resources on the same device", func() {
 			By("Creating the first LLDP resource")
 			lldp = &v1alpha1.LLDP{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      deviceName + "-lldp",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      deviceName + "-lldp",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.LLDPSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					AdminState: v1alpha1.AdminStateUp,
@@ -203,10 +195,8 @@ var _ = Describe("LLDP Controller", func() {
 			duplicateName := deviceName + "-lldp-duplicate"
 			duplicateKey := client.ObjectKey{Name: duplicateName, Namespace: metav1.NamespaceDefault}
 			duplicateLLDP := &v1alpha1.LLDP{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      duplicateName,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      duplicateName,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.LLDPSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					AdminState: v1alpha1.AdminStateUp,
@@ -232,10 +222,8 @@ var _ = Describe("LLDP Controller", func() {
 		It("Should properly handle deletion and cleanup", func() {
 			By("Creating the custom resource for the Kind LLDP")
 			lldp = &v1alpha1.LLDP{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      deviceName + "-lldp",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      deviceName + "-lldp",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.LLDPSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					AdminState: v1alpha1.AdminStateUp,
@@ -287,10 +275,8 @@ var _ = Describe("LLDP Controller", func() {
 		It("Should not add finalizer when Device does not exist", func() {
 			By("Creating LLDP referencing a non-existent Device")
 			lldp := &v1alpha1.LLDP{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "testlldp-nodevice-lldp-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "testlldp-nodevice-lldp-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.LLDPSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: "non-existent-device"},
 					AdminState: v1alpha1.AdminStateUp,
@@ -320,10 +306,8 @@ var _ = Describe("LLDP Controller", func() {
 		BeforeEach(func() {
 			By("Creating the Device resource")
 			device = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "testlldp-paused-device-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "testlldp-paused-device-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.6:9339",
@@ -364,10 +348,8 @@ var _ = Describe("LLDP Controller", func() {
 		It("Should skip reconciliation when Device is paused", func() {
 			By("Creating LLDP resource")
 			lldp = &v1alpha1.LLDP{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      deviceName + "-lldp",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      deviceName + "-lldp",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.LLDPSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					AdminState: v1alpha1.AdminStateUp,
@@ -444,10 +426,8 @@ var _ = Describe("LLDP Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "testlldp-provider-device-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "testlldp-provider-device-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -488,10 +468,8 @@ var _ = Describe("LLDP Controller", func() {
 		It("Should handle missing ProviderConfigRef", func() {
 			By("Creating LLDP with a non-existent ProviderConfigRef")
 			lldp = &v1alpha1.LLDP{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      deviceName + "-lldp",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      deviceName + "-lldp",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.LLDPSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					AdminState: v1alpha1.AdminStateUp,
@@ -519,10 +497,8 @@ var _ = Describe("LLDP Controller", func() {
 		It("Should handle invalid ProviderConfigRef API version", func() {
 			By("Creating LLDP with invalid API version in ProviderConfigRef")
 			lldp = &v1alpha1.LLDP{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      deviceName + "-lldp",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      deviceName + "-lldp",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.LLDPSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					AdminState: v1alpha1.AdminStateUp,
@@ -550,10 +526,8 @@ var _ = Describe("LLDP Controller", func() {
 		It("Should handle unsupported ProviderConfigRef Kind", func() {
 			By("Creating LLDP with unsupported Kind in ProviderConfigRef")
 			lldp = &v1alpha1.LLDP{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      deviceName + "-lldp",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      deviceName + "-lldp",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.LLDPSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					AdminState: v1alpha1.AdminStateUp,
@@ -591,10 +565,8 @@ var _ = Describe("LLDP Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "testlldp-intfref-device-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "testlldp-intfref-device-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.3:9339",
@@ -635,16 +607,14 @@ var _ = Describe("LLDP Controller", func() {
 		It("Should handle missing InterfaceRef", func() {
 			By("Creating LLDP with a non-existent InterfaceRef")
 			lldp = &v1alpha1.LLDP{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      deviceName + "-lldp",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      deviceName + "-lldp",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.LLDPSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					AdminState: v1alpha1.AdminStateUp,
 					InterfaceRefs: []v1alpha1.LLDPInterface{{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "non-existent-interface"},
-						AdminState:           v1alpha1.AdminStateUp,
+						Name:       "non-existent-interface",
+						AdminState: v1alpha1.AdminStateUp,
 					}},
 				},
 			}
@@ -674,10 +644,8 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Creating another Device")
 			otherDevice := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      otherDeviceName,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      otherDeviceName,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.99:9339",
@@ -688,10 +656,8 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Creating an Interface on the other Device")
 			otherInterface := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      otherInterfaceName,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      otherInterfaceName,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: otherDeviceName},
 					Name:       "Ethernet1/1",
@@ -703,16 +669,14 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Creating LLDP referencing an Interface from a different device")
 			lldp = &v1alpha1.LLDP{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      deviceName + "-lldp",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      deviceName + "-lldp",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.LLDPSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					AdminState: v1alpha1.AdminStateUp,
 					InterfaceRefs: []v1alpha1.LLDPInterface{{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: otherInterfaceName},
-						AdminState:           v1alpha1.AdminStateUp,
+						Name:       otherInterfaceName,
+						AdminState: v1alpha1.AdminStateUp,
 					}},
 				},
 			}
@@ -742,10 +706,8 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Creating the first Interface")
 			intf1 := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      interface1Name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      interface1Name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					Name:       "Ethernet1/1",
@@ -757,10 +719,8 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Creating the second Interface")
 			intf2 := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      interface2Name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      interface2Name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					Name:       "Ethernet1/2",
@@ -772,21 +732,19 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Creating LLDP with multiple InterfaceRefs")
 			lldp = &v1alpha1.LLDP{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      deviceName + "-lldp",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      deviceName + "-lldp",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.LLDPSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					AdminState: v1alpha1.AdminStateUp,
 					InterfaceRefs: []v1alpha1.LLDPInterface{
 						{
-							LocalObjectReference: v1alpha1.LocalObjectReference{Name: interface1Name},
-							AdminState:           v1alpha1.AdminStateUp,
+							Name:       interface1Name,
+							AdminState: v1alpha1.AdminStateUp,
 						},
 						{
-							LocalObjectReference: v1alpha1.LocalObjectReference{Name: interface2Name},
-							AdminState:           v1alpha1.AdminStateDown,
+							Name:       interface2Name,
+							AdminState: v1alpha1.AdminStateDown,
 						},
 					},
 				},
@@ -825,10 +783,8 @@ var _ = Describe("LLDP Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "testlldp-update-device-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "testlldp-update-device-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.4:9339",
@@ -869,10 +825,8 @@ var _ = Describe("LLDP Controller", func() {
 		It("Should handle AdminState update from Up to Down", func() {
 			By("Creating LLDP with AdminState Up")
 			lldp = &v1alpha1.LLDP{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      deviceName + "-lldp",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      deviceName + "-lldp",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.LLDPSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					AdminState: v1alpha1.AdminStateUp,
@@ -916,10 +870,8 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Creating an Interface")
 			intf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      interfaceName,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      interfaceName,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					Name:       "Ethernet1/1",
@@ -931,10 +883,8 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Creating LLDP without InterfaceRefs")
 			lldp = &v1alpha1.LLDP{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      deviceName + "-lldp",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      deviceName + "-lldp",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.LLDPSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					AdminState: v1alpha1.AdminStateUp,
@@ -957,8 +907,8 @@ var _ = Describe("LLDP Controller", func() {
 				err := k8sClient.Get(ctx, resourceKey, lldp)
 				g.Expect(err).NotTo(HaveOccurred())
 				lldp.Spec.InterfaceRefs = []v1alpha1.LLDPInterface{{
-					LocalObjectReference: v1alpha1.LocalObjectReference{Name: interfaceName},
-					AdminState:           v1alpha1.AdminStateUp,
+					Name:       interfaceName,
+					AdminState: v1alpha1.AdminStateUp,
 				}}
 				g.Expect(k8sClient.Update(ctx, lldp)).To(Succeed())
 			}).Should(Succeed())
@@ -984,10 +934,8 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Creating an Interface")
 			intf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      interfaceName,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      interfaceName,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					Name:       "Ethernet1/1",
@@ -999,16 +947,14 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Creating LLDP with InterfaceRefs")
 			lldp = &v1alpha1.LLDP{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      deviceName + "-lldp",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      deviceName + "-lldp",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.LLDPSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					AdminState: v1alpha1.AdminStateUp,
 					InterfaceRefs: []v1alpha1.LLDPInterface{{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: interfaceName},
-						AdminState:           v1alpha1.AdminStateUp,
+						Name:       interfaceName,
+						AdminState: v1alpha1.AdminStateUp,
 					}},
 				},
 			}
@@ -1066,10 +1012,8 @@ var _ = Describe("LLDP Controller", func() {
 		BeforeEach(func() {
 			By("Creating the Device resource")
 			device = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "testlldp-watch-device-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "testlldp-watch-device-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.7:9339",
@@ -1122,16 +1066,14 @@ var _ = Describe("LLDP Controller", func() {
 		It("Should re-reconcile LLDP when referenced Interface is created", func() {
 			By("Creating LLDP with InterfaceRef to non-existent Interface")
 			lldp = &v1alpha1.LLDP{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      deviceName + "-lldp",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      deviceName + "-lldp",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.LLDPSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					AdminState: v1alpha1.AdminStateUp,
 					InterfaceRefs: []v1alpha1.LLDPInterface{{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: interfaceName},
-						AdminState:           v1alpha1.AdminStateUp,
+						Name:       interfaceName,
+						AdminState: v1alpha1.AdminStateUp,
 					}},
 				},
 			}
@@ -1150,10 +1092,8 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Creating the referenced Interface")
 			intf = &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      interfaceName,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      interfaceName,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					Name:       "Ethernet1/1",
@@ -1181,10 +1121,8 @@ var _ = Describe("LLDP Controller", func() {
 		It("Should re-reconcile LLDP when referenced Interface is deleted", func() {
 			By("Creating the Interface first")
 			intf = &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      interfaceName,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      interfaceName,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					Name:       "Ethernet1/1",
@@ -1196,16 +1134,14 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Creating LLDP with InterfaceRef")
 			lldp = &v1alpha1.LLDP{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      deviceName + "-lldp",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      deviceName + "-lldp",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.LLDPSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					AdminState: v1alpha1.AdminStateUp,
 					InterfaceRefs: []v1alpha1.LLDPInterface{{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: interfaceName},
-						AdminState:           v1alpha1.AdminStateUp,
+						Name:       interfaceName,
+						AdminState: v1alpha1.AdminStateUp,
 					}},
 				},
 			}
@@ -1255,10 +1191,8 @@ var _ = Describe("LLDP Controller", func() {
 		BeforeEach(func() {
 			By("Creating the Device resource")
 			device = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "testlldp-oper-device-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "testlldp-oper-device-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.8:9339",
@@ -1309,10 +1243,8 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Creating LLDP resource")
 			lldp = &v1alpha1.LLDP{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      deviceName + "-lldp",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      deviceName + "-lldp",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.LLDPSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					AdminState: v1alpha1.AdminStateUp,
@@ -1351,10 +1283,8 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Creating LLDP resource")
 			lldp = &v1alpha1.LLDP{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      deviceName + "-lldp",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      deviceName + "-lldp",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.LLDPSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					AdminState: v1alpha1.AdminStateUp,

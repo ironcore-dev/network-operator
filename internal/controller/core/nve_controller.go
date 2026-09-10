@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
@@ -501,10 +500,8 @@ func (r *NetworkVirtualizationEdgeReconciler) interfaceToNVE(ctx context.Context
 			(i.Spec.AnycastSourceInterfaceRef != nil && i.Spec.AnycastSourceInterfaceRef.Name == intf.Spec.Name) {
 			log.V(2).Info("Enqueuing NVE for reconciliation", "NVE", klog.KObj(&i))
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      i.Name,
-					Namespace: i.Namespace,
-				},
+				Name:      i.Name,
+				Namespace: i.Namespace,
 			})
 		}
 	}
@@ -535,10 +532,8 @@ func (r *NetworkVirtualizationEdgeReconciler) deviceToNVEs(ctx context.Context, 
 	for _, i := range list.Items {
 		log.V(2).Info("Enqueuing NVE for reconciliation", "NVE", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 
@@ -566,10 +561,8 @@ func (r *NetworkVirtualizationEdgeReconciler) nvesForProviderConfig(ctx context.
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
 			log.V(2).Info("Enqueuing NVE for reconciliation", "NVE", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      m.Name,
-					Namespace: m.Namespace,
-				},
+				Name:      m.Name,
+				Namespace: m.Namespace,
 			})
 		}
 	}

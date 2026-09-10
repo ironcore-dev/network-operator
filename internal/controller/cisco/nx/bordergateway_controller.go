@@ -537,10 +537,8 @@ func (r *BorderGatewayReconciler) sourceInterfaceToBorderGateway(ctx context.Con
 		if bg.Spec.SourceInterfaceRef.Name == intf.Name {
 			log.V(2).Info("Enqueuing BorderGateway for reconciliation", "BorderGateway", klog.KObj(&bg))
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      bg.Name,
-					Namespace: bg.Namespace,
-				},
+				Name:      bg.Name,
+				Namespace: bg.Namespace,
 			})
 		}
 	}
@@ -571,10 +569,8 @@ func (r *BorderGatewayReconciler) interconnectInterfaceToBorderGateway(ctx conte
 		}) {
 			log.V(2).Info("Enqueuing BorderGateway for reconciliation", "BorderGateway", klog.KObj(&bg))
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      bg.Name,
-					Namespace: bg.Namespace,
-				},
+				Name:      bg.Name,
+				Namespace: bg.Namespace,
 			})
 		}
 	}
@@ -605,10 +601,8 @@ func (r *BorderGatewayReconciler) bgpPeerToBorderGateway(ctx context.Context, ob
 		}) {
 			log.V(2).Info("Enqueuing BorderGateway for reconciliation", "BorderGateway", klog.KObj(&bg))
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      bg.Name,
-					Namespace: bg.Namespace,
-				},
+				Name:      bg.Name,
+				Namespace: bg.Namespace,
 			})
 		}
 	}
@@ -640,10 +634,8 @@ func (r *BorderGatewayReconciler) deviceToBorderGateways(ctx context.Context, ob
 	for _, i := range list.Items {
 		log.V(2).Info("Enqueuing BorderGateway for reconciliation", "BorderGateway", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 

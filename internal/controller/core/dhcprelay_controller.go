@@ -591,10 +591,8 @@ func (r *DHCPRelayReconciler) mapProviderConfigToDHCPRelay(ctx context.Context, 
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
 			log.V(2).Info("Found matching DHCPRelay for provider config change, enqueuing for reconciliation", "DHCPRelay", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      m.Name,
-					Namespace: m.Namespace,
-				},
+				Name:      m.Name,
+				Namespace: m.Namespace,
 			})
 		}
 	}
@@ -640,10 +638,8 @@ func (r *DHCPRelayReconciler) deviceToDHCPRelays(ctx context.Context, obj client
 	for _, i := range list.Items {
 		log.V(2).Info("Enqueuing DHCPRelay for reconciliation", "DHCPRelay", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 
@@ -675,10 +671,8 @@ func (r *DHCPRelayReconciler) interfaceToDHCPRelays(ctx context.Context, obj cli
 			if ifRef.Name == intf.Name {
 				log.V(2).Info("Enqueuing DHCPRelay for reconciliation", "DHCPRelay", klog.KObj(&dhcpRelay))
 				requests = append(requests, ctrl.Request{
-					NamespacedName: client.ObjectKey{
-						Name:      dhcpRelay.Name,
-						Namespace: dhcpRelay.Namespace,
-					},
+					Name:      dhcpRelay.Name,
+					Namespace: dhcpRelay.Namespace,
 				})
 				break
 			}
@@ -712,10 +706,8 @@ func (r *DHCPRelayReconciler) vrfToDHCPRelays(ctx context.Context, obj client.Ob
 		if dhcpRelay.Spec.VrfRef != nil && dhcpRelay.Spec.VrfRef.Name == vrf.Name {
 			log.V(2).Info("Enqueuing DHCPRelay for reconciliation", "DHCPRelay", klog.KObj(&dhcpRelay))
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      dhcpRelay.Name,
-					Namespace: dhcpRelay.Namespace,
-				},
+				Name:      dhcpRelay.Name,
+				Namespace: dhcpRelay.Namespace,
 			})
 		}
 	}

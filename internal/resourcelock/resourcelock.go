@@ -70,10 +70,8 @@ func (rl *ResourceLocker) AcquireLock(ctx context.Context, name, lockerID string
 
 		// Lease doesn't exist, create it
 		lease = &coordinationv1.Lease{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: rl.namespace,
-			},
+			Name:      name,
+			Namespace: rl.namespace,
 			Spec: coordinationv1.LeaseSpec{
 				HolderIdentity:       &lockerID,
 				LeaseDurationSeconds: &rl.leaseDurationSeconds,

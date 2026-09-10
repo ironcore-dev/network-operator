@@ -574,10 +574,8 @@ func (r *DeviceReconciler) secretToDevices(ctx context.Context, obj client.Objec
 		}) {
 			log.V(2).Info("Enqueuing Device for reconciliation", "Device", klog.KObj(&dev))
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      dev.Name,
-					Namespace: dev.Namespace,
-				},
+				Name:      dev.Name,
+				Namespace: dev.Namespace,
 			})
 		}
 	}

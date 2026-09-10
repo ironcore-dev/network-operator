@@ -23,10 +23,8 @@ var _ = Describe("BGPPeer Controller", func() {
 		BeforeEach(func() {
 			By("Creating a Device resource for testing")
 			device = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgppeer-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgppeer-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -77,10 +75,8 @@ var _ = Describe("BGPPeer Controller", func() {
 		It("Should successfully reconcile a BGP peer", func() {
 			By("Creating a BGP resource for the Device")
 			bgp := &v1alpha1.BGP{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgppeer-bgp-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgppeer-bgp-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.BGPSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					ASNumber:  intstr.FromInt(65000),
@@ -98,10 +94,8 @@ var _ = Describe("BGPPeer Controller", func() {
 
 			By("Creating a BGPPeer resource")
 			bgppeer := &v1alpha1.BGPPeer{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgppeer-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgppeer-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.BGPPeerSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					BgpRef:    v1alpha1.LocalObjectReference{Name: bgp.Name},
@@ -158,10 +152,8 @@ var _ = Describe("BGPPeer Controller", func() {
 		It("Should successfully reconcile a BGP peer with local address", func() {
 			By("Creating a BGP resource for the Device")
 			bgp := &v1alpha1.BGP{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgppeer-bgp-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgppeer-bgp-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.BGPSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					ASNumber:  intstr.FromInt(65000),
@@ -179,10 +171,8 @@ var _ = Describe("BGPPeer Controller", func() {
 
 			By("Creating a Loopback Interface resource on the same device")
 			intf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgppeer-intf-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgppeer-intf-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: device.Name},
 					Name:       "Loopback0",
@@ -194,10 +184,8 @@ var _ = Describe("BGPPeer Controller", func() {
 
 			By("Creating a BGPPeer resource with LocalAddress pointing to the Interface")
 			bgppeer := &v1alpha1.BGPPeer{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgppeer-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgppeer-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.BGPPeerSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					BgpRef:    v1alpha1.LocalObjectReference{Name: bgp.Name},
@@ -234,10 +222,8 @@ var _ = Describe("BGPPeer Controller", func() {
 		It("Should handle local address reference to non-existing Interface", func() {
 			By("Creating a BGP resource for the Device")
 			bgp := &v1alpha1.BGP{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgppeer-bgp-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgppeer-bgp-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.BGPSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					ASNumber:  intstr.FromInt(65000),
@@ -255,10 +241,8 @@ var _ = Describe("BGPPeer Controller", func() {
 
 			By("Creating a BGPPeer resource with LocalAddress pointing to a non-existent Interface")
 			bgppeer := &v1alpha1.BGPPeer{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgppeer-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgppeer-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.BGPPeerSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					BgpRef:    v1alpha1.LocalObjectReference{Name: bgp.Name},
@@ -299,10 +283,8 @@ var _ = Describe("BGPPeer Controller", func() {
 		It("Should reject local address reference to Interface on different device", func() {
 			By("Creating a BGP resource for the Device")
 			bgp := &v1alpha1.BGP{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgppeer-bgp-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgppeer-bgp-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.BGPSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					ASNumber:  intstr.FromInt(65000),
@@ -320,10 +302,8 @@ var _ = Describe("BGPPeer Controller", func() {
 
 			By("Creating a Loopback Interface resource on a different device")
 			intf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgppeer-intf-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgppeer-intf-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: "different-device"},
 					Name:       "Loopback0",
@@ -335,10 +315,8 @@ var _ = Describe("BGPPeer Controller", func() {
 
 			By("Creating a BGPPeer resource with LocalAddress pointing to the cross-device Interface")
 			bgppeer := &v1alpha1.BGPPeer{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgppeer-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgppeer-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.BGPPeerSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					BgpRef:    v1alpha1.LocalObjectReference{Name: bgp.Name},
@@ -371,10 +349,8 @@ var _ = Describe("BGPPeer Controller", func() {
 		It("Should set Configured=False with BGPNotFoundReason when bgpRef points to a non-existent BGP", func() {
 			By("Creating a BGPPeer with a non-existent bgpRef")
 			bgppeer := &v1alpha1.BGPPeer{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgppeer-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgppeer-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.BGPPeerSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					BgpRef:    v1alpha1.LocalObjectReference{Name: "does-not-exist"},
@@ -409,12 +385,10 @@ var _ = Describe("BGPPeer Controller", func() {
 		It("Should set Configured=False with WaitingForDependenciesReason when BGP exists but is not configured", func() {
 			By("Creating a paused BGP resource (will not be configured)")
 			pausedBGP := &v1alpha1.BGP{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgppeer-paused-bgp-",
-					Namespace:    metav1.NamespaceDefault,
-					Annotations: map[string]string{
-						v1alpha1.PausedAnnotation: "true",
-					},
+				GenerateName: "test-bgppeer-paused-bgp-",
+				Namespace:    metav1.NamespaceDefault,
+				Annotations: map[string]string{
+					v1alpha1.PausedAnnotation: "true",
 				},
 				Spec: v1alpha1.BGPSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
@@ -426,10 +400,8 @@ var _ = Describe("BGPPeer Controller", func() {
 
 			By("Creating a BGPPeer referencing the paused BGP")
 			bgppeer := &v1alpha1.BGPPeer{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgppeer-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgppeer-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.BGPPeerSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					BgpRef:    v1alpha1.LocalObjectReference{Name: pausedBGP.Name},
@@ -465,10 +437,8 @@ var _ = Describe("BGPPeer Controller", func() {
 			By("Creating a BGP resource for the Device")
 			By("Creating a BGP resource for the Device")
 			bgp := &v1alpha1.BGP{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgppeer-bgp-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgppeer-bgp-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.BGPSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					ASNumber:  intstr.FromInt(65000),
@@ -486,10 +456,8 @@ var _ = Describe("BGPPeer Controller", func() {
 
 			By("Creating a BGPPeer resource")
 			bgppeer := &v1alpha1.BGPPeer{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgppeer-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgppeer-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.BGPPeerSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					BgpRef:    v1alpha1.LocalObjectReference{Name: bgp.Name},

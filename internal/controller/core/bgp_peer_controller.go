@@ -730,10 +730,8 @@ func (r *BGPPeerReconciler) deviceToBGPPeers(ctx context.Context, obj client.Obj
 	for _, i := range list.Items {
 		log.V(2).Info("Enqueuing BGPPeer for reconciliation", "BGPPeer", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 
@@ -761,10 +759,8 @@ func (r *BGPPeerReconciler) bgpPeersForProviderConfig(ctx context.Context, obj c
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
 			log.V(2).Info("Enqueuing BGPPeer for reconciliation", "BGPPeer", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      m.Name,
-					Namespace: m.Namespace,
-				},
+				Name:      m.Name,
+				Namespace: m.Namespace,
 			})
 		}
 	}
@@ -796,10 +792,8 @@ func (r *BGPPeerReconciler) bgpToBGPPeers(ctx context.Context, obj client.Object
 	for _, i := range list.Items {
 		log.V(2).Info("Enqueuing BGPPeer for reconciliation", "BGPPeer", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 
@@ -841,10 +835,8 @@ func (r *BGPPeerReconciler) vrfToBGPPeers(ctx context.Context, obj client.Object
 		for _, p := range peerList.Items {
 			log.V(2).Info("Enqueuing BGPPeer for reconciliation", "BGPPeer", klog.KObj(&p))
 			requests = append(requests, ctrl.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      p.Name,
-					Namespace: p.Namespace,
-				},
+				Name:      p.Name,
+				Namespace: p.Namespace,
 			})
 		}
 	}
@@ -876,10 +868,8 @@ func (r *BGPPeerReconciler) routingPolicyToBGPPeers(ctx context.Context, obj cli
 	for _, p := range list.Items {
 		log.V(2).Info("Enqueuing BGPPeer for reconciliation", "BGPPeer", klog.KObj(&p))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      p.Name,
-				Namespace: p.Namespace,
-			},
+			Name:      p.Name,
+			Namespace: p.Namespace,
 		})
 	}
 

@@ -16,7 +16,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
@@ -370,10 +369,8 @@ func (r *UserReconciler) secretToUser(ctx context.Context, obj client.Object) []
 		if u.Spec.Password.SecretKeyRef.Name == secret.Name && u.Namespace == secret.Namespace {
 			log.V(2).Info("Enqueuing User for reconciliation", "User", klog.KObj(&u))
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      u.Name,
-					Namespace: u.Namespace,
-				},
+				Name:      u.Name,
+				Namespace: u.Namespace,
 			})
 			continue
 		}
@@ -381,10 +378,8 @@ func (r *UserReconciler) secretToUser(ctx context.Context, obj client.Object) []
 		if u.Spec.SSHPublicKey != nil && u.Spec.SSHPublicKey.SecretKeyRef.Name == secret.Name && u.Namespace == secret.Namespace {
 			log.V(2).Info("Enqueuing User for reconciliation", "User", klog.KObj(&u))
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      u.Name,
-					Namespace: u.Namespace,
-				},
+				Name:      u.Name,
+				Namespace: u.Namespace,
 			})
 		}
 	}
@@ -416,10 +411,8 @@ func (r *UserReconciler) deviceToUsers(ctx context.Context, obj client.Object) [
 	for _, i := range list.Items {
 		log.V(2).Info("Enqueuing User for reconciliation", "User", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 
@@ -447,10 +440,8 @@ func (r *UserReconciler) usersForProviderConfig(ctx context.Context, obj client.
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
 			log.V(2).Info("Enqueuing User for reconciliation", "User", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      m.Name,
-					Namespace: m.Namespace,
-				},
+				Name:      m.Name,
+				Namespace: m.Namespace,
 			})
 		}
 	}

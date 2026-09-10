@@ -6,7 +6,6 @@ package v1alpha1
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
@@ -20,10 +19,8 @@ var _ = Describe("PrefixSet Webhook", func() {
 
 	BeforeEach(func() {
 		obj = &v1alpha1.PrefixSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-prefix-set",
-				Namespace: "default",
-			},
+			Name:      "test-prefix-set",
+			Namespace: "default",
 			Spec: v1alpha1.PrefixSetSpec{
 				DeviceRef: v1alpha1.LocalObjectReference{Name: "test-device"},
 				Name:      "TEST",

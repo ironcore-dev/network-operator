@@ -17,10 +17,8 @@ import (
 var _ = Describe("Index Controller", func() {
 	It("sets Valid=True when the index value is within the pool range", func() {
 		pool := &poolv1alpha1.IndexPool{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "idxpool-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "idxpool-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IndexPoolSpec{
 				Ranges: []corev1alpha1.IndexRange{
 					corev1alpha1.MustParseIndexRange("1..10"),
@@ -33,10 +31,8 @@ var _ = Describe("Index Controller", func() {
 		})
 
 		idx := &poolv1alpha1.Index{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "idx-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "idx-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IndexSpec{
 				PoolRef: corev1alpha1.TypedLocalObjectReference{
 					APIVersion: poolv1alpha1.GroupVersion.String(),
@@ -63,10 +59,8 @@ var _ = Describe("Index Controller", func() {
 
 	It("sets Valid=False when the index value is outside the pool range", func() {
 		pool := &poolv1alpha1.IndexPool{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "idxpool-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "idxpool-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IndexPoolSpec{
 				Ranges: []corev1alpha1.IndexRange{
 					corev1alpha1.MustParseIndexRange("1..10"),
@@ -79,10 +73,8 @@ var _ = Describe("Index Controller", func() {
 		})
 
 		idx := &poolv1alpha1.Index{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "idx-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "idx-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IndexSpec{
 				PoolRef: corev1alpha1.TypedLocalObjectReference{
 					APIVersion: poolv1alpha1.GroupVersion.String(),

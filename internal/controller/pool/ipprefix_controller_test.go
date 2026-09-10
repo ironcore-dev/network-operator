@@ -17,10 +17,8 @@ import (
 var _ = Describe("IPPrefix Controller", func() {
 	It("sets Valid=True when the prefix is within the pool", func() {
 		pool := &poolv1alpha1.IPPrefixPool{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "pfxpool-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "pfxpool-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IPPrefixPoolSpec{
 				Prefixes:               []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.0.0.0/24")},
 				AllocationPrefixLength: 26,
@@ -32,10 +30,8 @@ var _ = Describe("IPPrefix Controller", func() {
 		})
 
 		pfx := &poolv1alpha1.IPPrefix{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "pfx-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "pfx-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IPPrefixSpec{
 				PoolRef: corev1alpha1.TypedLocalObjectReference{
 					APIVersion: poolv1alpha1.GroupVersion.String(),
@@ -62,10 +58,8 @@ var _ = Describe("IPPrefix Controller", func() {
 
 	It("sets Valid=False when the prefix is outside the pool", func() {
 		pool := &poolv1alpha1.IPPrefixPool{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "pfxpool-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "pfxpool-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IPPrefixPoolSpec{
 				Prefixes:               []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.0.0.0/24")},
 				AllocationPrefixLength: 26,
@@ -77,10 +71,8 @@ var _ = Describe("IPPrefix Controller", func() {
 		})
 
 		pfx := &poolv1alpha1.IPPrefix{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "pfx-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "pfx-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IPPrefixSpec{
 				PoolRef: corev1alpha1.TypedLocalObjectReference{
 					APIVersion: poolv1alpha1.GroupVersion.String(),

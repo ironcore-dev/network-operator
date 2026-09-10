@@ -15,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
@@ -500,10 +499,8 @@ func (r *EthernetSegmentReconciler) deviceToEthernetSegments(ctx context.Context
 	for _, i := range list.Items {
 		log.V(2).Info("Enqueuing EthernetSegment for reconciliation", "EthernetSegment", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 
@@ -531,10 +528,8 @@ func (r *EthernetSegmentReconciler) ethernetsegmentsForProviderConfig(ctx contex
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
 			log.V(2).Info("Enqueuing EthernetSegment for reconciliation", "EthernetSegment", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      m.Name,
-					Namespace: m.Namespace,
-				},
+				Name:      m.Name,
+				Namespace: m.Namespace,
 			})
 		}
 	}
@@ -562,10 +557,8 @@ func (r *EthernetSegmentReconciler) interfaceToEthernetSegments(ctx context.Cont
 	for _, i := range list.Items {
 		log.V(2).Info("Enqueuing EthernetSegment for reconciliation", "EthernetSegment", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 
