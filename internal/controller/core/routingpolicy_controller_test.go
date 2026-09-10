@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/conditions"
 )
 
 var _ = Describe("RoutingPolicy Controller", func() {
@@ -114,11 +115,13 @@ var _ = Describe("RoutingPolicy Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.RoutingPolicy{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(2))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
-				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
-				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 
 			By("Ensuring the resource is created in the provider")
@@ -181,15 +184,24 @@ var _ = Describe("RoutingPolicy Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, rp)).To(Succeed())
 
+			By("Waiting for RoutingPolicy's condition to be fully consistent")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.RoutingPolicy{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(conditions.IsConfigured(resource)).To(BeFalse()) // checks ObservedGeneration too
+			}).Should(Succeed())
+
 			By("Verifying the controller sets successful status conditions")
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.RoutingPolicy{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(2))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
-				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
-				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 
 			By("Verifying the RoutingPolicy is configured in the provider")
@@ -229,12 +241,14 @@ var _ = Describe("RoutingPolicy Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.RoutingPolicy{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(2))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionFalse))
-				g.Expect(resource.Status.Conditions[0].Reason).To(Equal(v1alpha1.PrefixSetNotFoundReason))
-				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
 				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Reason).To(Equal(v1alpha1.PrefixSetNotFoundReason))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 		})
 
@@ -334,11 +348,13 @@ var _ = Describe("RoutingPolicy Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.RoutingPolicy{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(2))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
-				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
-				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 
 			By("Verifying the RoutingPolicy is configured in the provider")
@@ -397,12 +413,14 @@ var _ = Describe("RoutingPolicy Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.RoutingPolicy{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(2))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionFalse))
-				g.Expect(resource.Status.Conditions[0].Reason).To(Equal(v1alpha1.CrossDeviceReferenceReason))
-				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
 				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Reason).To(Equal(v1alpha1.CrossDeviceReferenceReason))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 		})
 	})

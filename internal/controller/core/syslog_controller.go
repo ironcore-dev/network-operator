@@ -172,7 +172,7 @@ func (r *SyslogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 	}
 
 	orig := obj.DeepCopy()
-	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
@@ -271,6 +271,10 @@ func (r *SyslogReconciler) reconcile(ctx context.Context, s *syslogScope) (reter
 
 	s.Syslog.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
+	defer func() {
+		conditions.RecomputeReady(s.Syslog)
+	}()
+
 	// Ensure the Syslog is owned by the Device.
 	if !controllerutil.HasControllerReference(s.Syslog) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.Syslog, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
@@ -300,8 +304,6 @@ func (r *SyslogReconciler) reconcile(ctx context.Context, s *syslogScope) (reter
 	})
 
 	cond := conditions.FromError(err)
-	// As this resource is configuration only, we use the Configured condition as top-level Ready condition.
-	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.Syslog, cond)
 
 	return err

@@ -175,7 +175,7 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	orig := obj.DeepCopy()
-	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
@@ -280,6 +280,10 @@ func (r *CertificateReconciler) reconcile(ctx context.Context, s *certificateSco
 
 	s.Certificate.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
+	defer func() {
+		conditions.RecomputeReady(s.Certificate)
+	}()
+
 	// Ensure the Certificate is owned by the Device.
 	if !controllerutil.HasControllerReference(s.Certificate) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.Certificate, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
@@ -309,8 +313,6 @@ func (r *CertificateReconciler) reconcile(ctx context.Context, s *certificateSco
 	})
 
 	cond := conditions.FromError(err)
-	// As this resource is configuration only, we use the Configured condition as top-level Ready condition.
-	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.Certificate, cond)
 
 	return err

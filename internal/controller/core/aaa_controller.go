@@ -170,7 +170,7 @@ func (r *AAAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 	}
 
 	orig := obj.DeepCopy()
-	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
@@ -242,6 +242,10 @@ func (r *AAAReconciler) reconcile(ctx context.Context, s *aaaScope) (reterr erro
 
 	s.AAA.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
+	defer func() {
+		conditions.RecomputeReady(s.AAA)
+	}()
+
 	// Ensure the AAA is owned by the Device.
 	if !controllerutil.HasControllerReference(s.AAA) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.AAA, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
@@ -290,8 +294,6 @@ func (r *AAAReconciler) reconcile(ctx context.Context, s *aaaScope) (reterr erro
 	})
 
 	cond := conditions.FromError(err)
-	// As this resource is configuration only, we use the Configured condition as top-level Ready condition.
-	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.AAA, cond)
 
 	return err

@@ -172,7 +172,7 @@ func (r *SNMPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 	}
 
 	orig := obj.DeepCopy()
-	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
@@ -271,6 +271,10 @@ func (r *SNMPReconciler) reconcile(ctx context.Context, s *snmpScope) (reterr er
 
 	s.SNMP.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
+	defer func() {
+		conditions.RecomputeReady(s.SNMP)
+	}()
+
 	// Ensure the SNMP is owned by the Device.
 	if !controllerutil.HasControllerReference(s.SNMP) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.SNMP, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
@@ -294,8 +298,6 @@ func (r *SNMPReconciler) reconcile(ctx context.Context, s *snmpScope) (reterr er
 	})
 
 	cond := conditions.FromError(err)
-	// As this resource is configuration only, we use the Configured condition as top-level Ready condition.
-	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.SNMP, cond)
 
 	return err

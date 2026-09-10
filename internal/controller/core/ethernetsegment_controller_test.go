@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/conditions"
 )
 
 var _ = Describe("EthernetSegment Controller", func() {
@@ -65,6 +66,12 @@ var _ = Describe("EthernetSegment Controller", func() {
 			intf.Namespace = metav1.NamespaceDefault
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed())
 
+			By("Cleaning up test member Interface resource")
+			memberIntf := &v1alpha1.Interface{}
+			memberIntf.Name = name + "-member"
+			memberIntf.Namespace = metav1.NamespaceDefault
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, memberIntf))).To(Succeed())
+
 			By("Cleaning up the test Device resource")
 			device := &v1alpha1.Device{}
 			device.Name = name
@@ -73,6 +80,21 @@ var _ = Describe("EthernetSegment Controller", func() {
 		})
 
 		It("Should successfully reconcile an EthernetSegment", func() {
+			By("Creating a Physical member Interface")
+			memberIntf := &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name + "-member",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
+					Name:       "eth1",
+					Type:       v1alpha1.InterfaceTypePhysical,
+					AdminState: v1alpha1.AdminStateUp,
+				},
+			}
+			Expect(k8sClient.Create(ctx, memberIntf)).To(Succeed())
+
 			By("Creating an Aggregate Interface with switchport config")
 			intf := &v1alpha1.Interface{
 				ObjectMeta: metav1.ObjectMeta{
@@ -88,12 +110,19 @@ var _ = Describe("EthernetSegment Controller", func() {
 						Mode: v1alpha1.SwitchportModeTrunk,
 					},
 					Aggregation: &v1alpha1.Aggregation{
-						MemberInterfaceRefs: []v1alpha1.LocalObjectReference{{Name: "eth1"}},
+						MemberInterfaceRefs: []v1alpha1.LocalObjectReference{{Name: name + "-member"}},
 						ControlProtocol:     v1alpha1.ControlProtocol{Mode: v1alpha1.LACPModeActive},
 					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, intf)).To(Succeed())
+
+			By("Waiting for the Interface to be configured")
+			Eventually(func(g Gomega) {
+				i := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(intf), i)).To(Succeed())
+				g.Expect(conditions.IsConfigured(i)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Creating an EthernetSegment")
 			es := &v1alpha1.EthernetSegment{
@@ -305,6 +334,21 @@ var _ = Describe("EthernetSegment Controller", func() {
 		})
 
 		It("Should handle EthernetSegment referencing Interface without switchport", func() {
+			By("Creating a Physical member Interface")
+			memberIntf := &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name + "-member",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
+					Name:       "eth1",
+					Type:       v1alpha1.InterfaceTypePhysical,
+					AdminState: v1alpha1.AdminStateUp,
+				},
+			}
+			Expect(k8sClient.Create(ctx, memberIntf)).To(Succeed())
+
 			By("Creating an Aggregate Interface without switchport config")
 			intf := &v1alpha1.Interface{
 				ObjectMeta: metav1.ObjectMeta{
@@ -317,12 +361,19 @@ var _ = Describe("EthernetSegment Controller", func() {
 					Type:       v1alpha1.InterfaceTypeAggregate,
 					AdminState: v1alpha1.AdminStateUp,
 					Aggregation: &v1alpha1.Aggregation{
-						MemberInterfaceRefs: []v1alpha1.LocalObjectReference{{Name: "eth1"}},
+						MemberInterfaceRefs: []v1alpha1.LocalObjectReference{{Name: name + "-member"}},
 						ControlProtocol:     v1alpha1.ControlProtocol{Mode: v1alpha1.LACPModeActive},
 					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, intf)).To(Succeed())
+
+			By("Waiting for the Interface to be configured")
+			Eventually(func(g Gomega) {
+				i := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(intf), i)).To(Succeed())
+				g.Expect(conditions.IsConfigured(i)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Creating an EthernetSegment referencing the Interface")
 			es := &v1alpha1.EthernetSegment{
@@ -356,6 +407,21 @@ var _ = Describe("EthernetSegment Controller", func() {
 			}).Should(Succeed())
 		})
 		It("Should auto-derive ESI when ESIType is MAC and ESI is omitted", func() {
+			By("Creating a Physical member Interface")
+			memberIntf := &v1alpha1.Interface{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name + "-member",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
+					Name:       "eth1",
+					Type:       v1alpha1.InterfaceTypePhysical,
+					AdminState: v1alpha1.AdminStateUp,
+				},
+			}
+			Expect(k8sClient.Create(ctx, memberIntf)).To(Succeed())
+
 			By("Creating an Aggregate Interface with switchport config")
 			intf := &v1alpha1.Interface{
 				ObjectMeta: metav1.ObjectMeta{
@@ -371,12 +437,19 @@ var _ = Describe("EthernetSegment Controller", func() {
 						Mode: v1alpha1.SwitchportModeTrunk,
 					},
 					Aggregation: &v1alpha1.Aggregation{
-						MemberInterfaceRefs: []v1alpha1.LocalObjectReference{{Name: "eth1"}},
+						MemberInterfaceRefs: []v1alpha1.LocalObjectReference{{Name: name + "-member"}},
 						ControlProtocol:     v1alpha1.ControlProtocol{Mode: v1alpha1.LACPModeActive},
 					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, intf)).To(Succeed())
+
+			By("Waiting for the Interface to be configured")
+			Eventually(func(g Gomega) {
+				i := &v1alpha1.Interface{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(intf), i)).To(Succeed())
+				g.Expect(conditions.IsConfigured(i)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Creating an EthernetSegment with ESIType MAC and no explicit ESI")
 			es := &v1alpha1.EthernetSegment{
