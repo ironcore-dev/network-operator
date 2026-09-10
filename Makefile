@@ -241,9 +241,17 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster.
 	fi
 	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
 
+.PHONY: deploy-dev
+deploy-dev: manifests kustomize ## Deploy controller using config/develop overlay. Use PROVIDER to set the provider (default: openconfig).
+	IMG=$(IMG) PROVIDER=$(PROVIDER) $(KUSTOMIZE) build config/develop | envsubst | $(KUBECTL) apply -f -
+
 .PHONY: undeploy
 undeploy: kustomize ## Undeploy controller from the K8s cluster. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/default | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
+
+.PHONY: undeploy-dev
+undeploy-dev: kustomize ## Undeploy controller using config/develop overlay.
+	PROVIDER=$(PROVIDER) $(KUSTOMIZE) build config/develop | envsubst | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
 ##@ Dependencies
 
