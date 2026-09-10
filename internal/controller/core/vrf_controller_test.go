@@ -42,8 +42,9 @@ var _ = Describe("VRF Controller", func() {
 				Name:      name,
 				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.VRFSpec{
-					DeviceRef:          v1alpha1.LocalObjectReference{Name: name},
-					Name:               "CC-ADMIN-TEST",
+					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
+					Name:      "CC-ADMIN-TEST",
+					//nolint:staticcheck // Verifies legacy VRF VNI compatibility.
 					VNI:                100,
 					RouteDistinguisher: "127.0.0.1:30004",
 					RouteTargets: []v1alpha1.RouteTarget{

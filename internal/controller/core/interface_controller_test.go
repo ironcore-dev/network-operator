@@ -577,7 +577,8 @@ var _ = Describe("Interface Controller", func() {
 				Spec: v1alpha1.VRFSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Name:      "PROD",
-					VNI:       1000,
+					//nolint:staticcheck // Verifies legacy VRF VNI compatibility.
+					VNI: 1000,
 				},
 			}
 			Expect(k8sClient.Create(ctx, vrf)).To(Succeed())
@@ -1054,7 +1055,8 @@ var _ = Describe("Interface Controller", func() {
 				Spec: v1alpha1.VRFSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Name:      "test-vrf",
-					VNI:       1000,
+					//nolint:staticcheck // Verifies legacy VRF VNI compatibility.
+					VNI: 1000,
 				},
 			}
 			Expect(k8sClient.Create(ctx, vrf)).To(Succeed())
@@ -1148,7 +1150,8 @@ var _ = Describe("Interface Controller", func() {
 				Spec: v1alpha1.VRFSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: "different-device"},
 					Name:      "test-vrf",
-					VNI:       1000,
+					//nolint:staticcheck // Verifies legacy VRF VNI compatibility.
+					VNI: 1000,
 				},
 			}
 			Expect(k8sClient.Create(ctx, vrf)).To(Succeed())
