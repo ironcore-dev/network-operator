@@ -128,7 +128,7 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Verifying the resource has been deleted")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.DHCPRelay).To(BeNil(), "Provider should have no DHCPRelay configured")
+				g.Expect(testDevices.StateFor(deviceName).DHCPRelay).To(BeNil(), "Provider should have no DHCPRelay configured")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -197,9 +197,9 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Ensuring the DHCPRelay is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.DHCPRelay).ToNot(BeNil(), "Provider DHCPRelay should not be nil")
-				if testProvider.DHCPRelay != nil {
-					g.Expect(testProvider.DHCPRelay.GetName()).To(Equal(resourceName), "Provider should have DHCPRelay configured")
+				g.Expect(testDevices.StateFor(deviceName).DHCPRelay).ToNot(BeNil(), "Provider DHCPRelay should not be nil")
+				if testDevices.StateFor(deviceName).DHCPRelay != nil {
+					g.Expect(testDevices.StateFor(deviceName).DHCPRelay.GetName()).To(Equal(resourceName), "Provider should have DHCPRelay configured")
 				}
 			}).Should(Succeed())
 		})
@@ -288,7 +288,7 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Verifying DHCPRelay is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.DHCPRelay).ToNot(BeNil())
+				g.Expect(testDevices.StateFor(deviceName).DHCPRelay).ToNot(BeNil())
 			}).Should(Succeed())
 
 			By("Deleting the DHCPRelay resource")
@@ -296,7 +296,7 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Verifying the DHCPRelay is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.DHCPRelay).To(BeNil(), "Provider should have no DHCPRelay configured after deletion")
+				g.Expect(testDevices.StateFor(deviceName).DHCPRelay).To(BeNil(), "Provider should have no DHCPRelay configured after deletion")
 			}).Should(Succeed())
 
 			By("Verifying the resource is fully deleted")
@@ -857,7 +857,7 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Verifying the provider has been cleaned up")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.DHCPRelay).To(BeNil(), "Provider should have no DHCPRelay configured")
+				g.Expect(testDevices.StateFor(deviceName).DHCPRelay).To(BeNil(), "Provider should have no DHCPRelay configured")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -903,7 +903,7 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Ensuring the DHCPRelay is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.DHCPRelay).ToNot(BeNil(), "Provider DHCPRelay should not be nil")
+				g.Expect(testDevices.StateFor(deviceName).DHCPRelay).ToNot(BeNil(), "Provider DHCPRelay should not be nil")
 			}).Should(Succeed())
 		})
 	})

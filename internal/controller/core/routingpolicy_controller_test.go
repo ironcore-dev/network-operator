@@ -54,7 +54,7 @@ var _ = Describe("RoutingPolicy Controller", func() {
 
 			By("Verifying the RoutingPolicy is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.RoutingPolicies.Has(name)).To(BeFalse(), "Provider shouldn't have RoutingPolicy configured anymore")
+				g.Expect(testDevices.StateFor(name).RoutingPolicies.Has(name)).To(BeFalse(), "Provider shouldn't have RoutingPolicy configured anymore")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -119,7 +119,7 @@ var _ = Describe("RoutingPolicy Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.RoutingPolicies.Has(name)).To(BeTrue(), "Provider should have RoutingPolicy configured")
+				g.Expect(testDevices.StateFor(name).RoutingPolicies.Has(name)).To(BeTrue(), "Provider should have RoutingPolicy configured")
 			}).Should(Succeed())
 		})
 
@@ -186,7 +186,7 @@ var _ = Describe("RoutingPolicy Controller", func() {
 
 			By("Verifying the RoutingPolicy is configured in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.RoutingPolicies.Has(name)).To(BeTrue(), "Provider should have RoutingPolicy configured")
+				g.Expect(testDevices.StateFor(name).RoutingPolicies.Has(name)).To(BeTrue(), "Provider should have RoutingPolicy configured")
 			}).Should(Succeed())
 		})
 
@@ -331,7 +331,7 @@ var _ = Describe("RoutingPolicy Controller", func() {
 
 			By("Verifying the RoutingPolicy is configured in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.RoutingPolicies.Has(name)).To(BeTrue(), "Provider should have RoutingPolicy configured")
+				g.Expect(testDevices.StateFor(name).RoutingPolicies.Has(name)).To(BeTrue(), "Provider should have RoutingPolicy configured")
 			}).Should(Succeed())
 		})
 
