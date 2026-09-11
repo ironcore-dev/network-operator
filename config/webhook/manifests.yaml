@@ -70,6 +70,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-networking-metal-ironcore-dev-v1alpha1-dhcprelay
+  failurePolicy: Fail
+  name: dhcprelay-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - networking.metal.ironcore.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - dhcprelays
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-networking-metal-ironcore-dev-v1alpha1-interface
   failurePolicy: Fail
   name: interface-v1alpha1.kb.io

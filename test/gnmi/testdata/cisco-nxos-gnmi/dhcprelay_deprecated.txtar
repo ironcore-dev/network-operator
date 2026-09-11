@@ -70,38 +70,22 @@ spec:
     addresses:
       - 192.168.101.1/24
 
-
--- dhcprelays/relay100 --
+-- dhcprelays/relay --
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: DHCPRelay
 metadata:
-  name: relay100
+  name: relay
   namespace: default
 spec:
   deviceRef:
     name: device
-  interfaceRef:
-    name: svi100
   servers:
     - "10.0.0.10"
-
-
--- dhcprelays/relay200 --
-apiVersion: networking.metal.ironcore.dev/v1alpha1
-kind: DHCPRelay
-metadata:
-  name: relay200
-  namespace: default
-spec:
-  deviceRef:
-    name: device
-  interfaceRef:
-    name: svi200
+  interfaceRefs:
+    - name: svi100
+    - name: svi200
   vrfRef:
     name: vrf-1
-  servers:
-    - "10.0.0.10"
-    - "10.0.1.10"
 
 -- state/preload --
 {
@@ -148,20 +132,18 @@ spec:
                 "RelayAddr-list": [
                   {
                     "address": "10.0.0.10",
-                    "vrf": "!unspecified"
+                    "vrf": "VRF-PURPLE"
                   }
                 ]
-              },
-              "id": "vlan100"
+              }
             },
             {
               "addr-items": {
-                "RelayAddr-list": [
-                  {"address": "10.0.0.10", "vrf": "VRF-PURPLE"},
-                  {"address": "10.0.1.10", "vrf": "VRF-PURPLE"}
-                ]
-              },
-              "id": "vlan200"
+                "RelayAddr-list": [{
+                  "address": "10.0.0.10",
+                  "vrf": "VRF-PURPLE"
+                }]
+              }
             }
           ]
         }
@@ -327,11 +309,7 @@ spec:
       }
     },
     "dhcp-items": {
-      "inst-items": {
-        "relayif-items": {
-          "RelayIf-list": []
-        }
-      }
+      "inst-items": {}
     }
   }
 }
