@@ -64,7 +64,7 @@ var _ = Describe("ISIS Controller", func() {
 
 			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.ISIS.Has("UNDERLAY")).To(BeFalse(), "Provider should not have ISIS instance configured")
+				g.Expect(testDevices.StateFor(name).ISIS.Has("UNDERLAY")).To(BeFalse(), "Provider should not have ISIS instance configured")
 			}).Should(Succeed())
 
 			By("Cleanup the Device resource")
@@ -111,7 +111,7 @@ var _ = Describe("ISIS Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.ISIS.Has("UNDERLAY")).To(BeTrue(), "Provider should have ISIS instance configured")
+				g.Expect(testDevices.StateFor(name).ISIS.Has("UNDERLAY")).To(BeTrue(), "Provider should have ISIS instance configured")
 			}).Should(Succeed())
 		})
 	})
