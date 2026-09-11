@@ -112,6 +112,10 @@ spec:
                 minItems: 1
                 type: array
                 x-kubernetes-list-type: atomic
+              logNeighborChanges:
+                description: LogNeighborChanges enables logging when a PIM neighbor
+                  is added or removed.
+                type: boolean
               providerConfigRef:
                 description: |-
                   ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.

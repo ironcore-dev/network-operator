@@ -24,6 +24,7 @@ spec:
   deviceRef:
     name: device
   adminState: Up
+  logNeighborChanges: true
   interfaceRefs:
     - name: lo-pim
       mode: Sparse
@@ -119,6 +120,7 @@ spec:
             {
               "name": "default",
               "adminSt": "enabled",
+              "logNbhChng": true,
               "if-items": {
                 "If-list": [
                   {
