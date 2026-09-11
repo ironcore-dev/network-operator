@@ -393,10 +393,10 @@ var _ = Describe("Device Controller", func() {
 
 		It("Should set Reachable=False and Ready=Unknown when the device is unreachable", func() {
 			By("Making the provider return a connect error")
-			testProvider.SetConnectError(errors.New("connection refused"))
+			testDevices.StateFor(name).SetConnectFailure(errors.New("connection refused"))
 
 			DeferCleanup(func() {
-				testProvider.SetConnectError(nil)
+				testDevices.StateFor(name).SetConnectFailure(nil)
 			})
 
 			By("Creating the custom resource for the Kind Device")
@@ -433,7 +433,7 @@ var _ = Describe("Device Controller", func() {
 			}).Should(Succeed())
 
 			By("Clearing the connect error to simulate recovery")
-			testProvider.SetConnectError(nil)
+			testDevices.StateFor(name).SetConnectFailure(nil)
 
 			By("Verifying Reachable=True and Ready=True after recovery")
 			Eventually(func(g Gomega) {
@@ -592,9 +592,9 @@ var _ = Describe("Device Controller", func() {
 
 			By("Advancing the reboot time in the provider to simulate a device reboot")
 			newRebootTime := lastRebootTime.Add(time.Hour)
-			testProvider.SetLastRebootTime(newRebootTime)
+			testDevices.StateFor(name).SetLastRebootTime(newRebootTime)
 			DeferCleanup(func() {
-				testProvider.SetLastRebootTime(lastRebootTime)
+				testDevices.StateFor(name).SetLastRebootTime(lastRebootTime)
 			})
 
 			By("Verifying LastRebootTime in status is updated to the new value")

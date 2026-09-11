@@ -60,7 +60,7 @@ var _ = Describe("PIM Controller", func() {
 
 			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.PIM).To(BeNil(), "Provider should not have PIM instance configured")
+				g.Expect(testDevices.StateFor(name).PIM).To(BeNil(), "Provider should not have PIM instance configured")
 			}).Should(Succeed())
 
 			By("Cleanup the Device resource")
@@ -107,7 +107,7 @@ var _ = Describe("PIM Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.PIM).ToNot(BeNil(), "Provider should have PIM instance configured")
+				g.Expect(testDevices.StateFor(name).PIM).ToNot(BeNil(), "Provider should have PIM instance configured")
 			}).Should(Succeed())
 		})
 	})

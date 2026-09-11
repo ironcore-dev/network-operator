@@ -95,7 +95,7 @@ var _ = Describe("Certificate Controller", func() {
 
 			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.Certs.Has("cert1")).To(BeFalse(), "Certificate should be deleted from the provider")
+				g.Expect(testDevices.StateFor(name).Certs.Has("cert1")).To(BeFalse(), "Certificate should be deleted from the provider")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -142,7 +142,7 @@ var _ = Describe("Certificate Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.Certs.Has("cert1")).To(BeTrue(), "Certificate should be present in the provider")
+				g.Expect(testDevices.StateFor(name).Certs.Has("cert1")).To(BeTrue(), "Certificate should be present in the provider")
 			}).Should(Succeed())
 		})
 	})

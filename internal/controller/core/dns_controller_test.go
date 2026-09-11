@@ -66,7 +66,7 @@ var _ = Describe("DNS Controller", func() {
 
 			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.DNS).To(BeNil(), "Provider DNS should be nil")
+				g.Expect(testDevices.StateFor(name).DNS).To(BeNil(), "Provider DNS should be nil")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -113,9 +113,9 @@ var _ = Describe("DNS Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.DNS).ToNot(BeNil(), "Provider DNS should not be nil")
-				if testProvider.DNS != nil {
-					g.Expect(testProvider.DNS.Spec.Domain).To(Equal("example.com"))
+				g.Expect(testDevices.StateFor(name).DNS).ToNot(BeNil(), "Provider DNS should not be nil")
+				if testDevices.StateFor(name).DNS != nil {
+					g.Expect(testDevices.StateFor(name).DNS.Spec.Domain).To(Equal("example.com"))
 				}
 			}).Should(Succeed())
 		})

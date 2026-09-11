@@ -64,7 +64,7 @@ var _ = Describe("ManagementAccess Controller", func() {
 
 			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.Access).To(BeNil(), "Provider should not have ManagementAccess configured")
+				g.Expect(testDevices.StateFor(name).Access).To(BeNil(), "Provider should not have ManagementAccess configured")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -111,7 +111,7 @@ var _ = Describe("ManagementAccess Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.Access).ToNot(BeNil(), "Provider should have ManagementAccess configured")
+				g.Expect(testDevices.StateFor(name).Access).ToNot(BeNil(), "Provider should have ManagementAccess configured")
 			}).Should(Succeed())
 		})
 	})

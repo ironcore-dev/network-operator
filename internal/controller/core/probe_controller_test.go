@@ -64,8 +64,8 @@ var _ = Describe("Probe Controller", func() {
 		})
 
 		It("Should wait for its Device to become reachable", func() {
-			testProvider.SetConnectError(errors.New("device unreachable"))
-			DeferCleanup(func() { testProvider.SetConnectError(nil) })
+			testDevices.StateFor(name).SetConnectFailure(errors.New("device unreachable"))
+			DeferCleanup(func() { testDevices.StateFor(name).SetConnectFailure(nil) })
 
 			Eventually(func(g Gomega) {
 				device := &v1alpha1.Device{}
@@ -102,7 +102,7 @@ var _ = Describe("Probe Controller", func() {
 				)))
 			}).Should(Succeed())
 
-			testProvider.SetConnectError(nil)
+			testDevices.StateFor(name).SetConnectFailure(nil)
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.Probe{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())

@@ -47,8 +47,8 @@ var _ = Describe("Banner Controller", func() {
 
 			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.PreLoginBanner).To(BeNil(), "Provider PreLogin Banner should be nil")
-				g.Expect(testProvider.PostLoginBanner).To(BeNil(), "Provider PostLogin Banner should be nil")
+				g.Expect(testDevices.StateFor(name).PreLoginBanner).To(BeNil(), "Provider PreLogin Banner should be nil")
+				g.Expect(testDevices.StateFor(name).PostLoginBanner).To(BeNil(), "Provider PostLogin Banner should be nil")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -111,10 +111,10 @@ var _ = Describe("Banner Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.PreLoginBanner).ToNot(BeNil(), "Provider Banner should not be nil")
-				g.Expect(testProvider.PostLoginBanner).To(BeNil(), "Provider PostLogin Banner should be nil")
-				if testProvider.PreLoginBanner != nil {
-					g.Expect(*testProvider.PreLoginBanner).To(Equal("Test Banner"))
+				g.Expect(testDevices.StateFor(name).PreLoginBanner).ToNot(BeNil(), "Provider Banner should not be nil")
+				g.Expect(testDevices.StateFor(name).PostLoginBanner).To(BeNil(), "Provider PostLogin Banner should be nil")
+				if testDevices.StateFor(name).PreLoginBanner != nil {
+					g.Expect(*testDevices.StateFor(name).PreLoginBanner).To(Equal("Test Banner"))
 				}
 			}).Should(Succeed())
 		})
@@ -172,10 +172,10 @@ var _ = Describe("Banner Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.PreLoginBanner).To(BeNil(), "Provider PreLogin Banner should be nil")
-				g.Expect(testProvider.PostLoginBanner).ToNot(BeNil(), "Provider PostLogin Banner should not be nil")
-				if testProvider.PostLoginBanner != nil {
-					g.Expect(*testProvider.PostLoginBanner).To(Equal("Test Banner"))
+				g.Expect(testDevices.StateFor(name).PreLoginBanner).To(BeNil(), "Provider PreLogin Banner should be nil")
+				g.Expect(testDevices.StateFor(name).PostLoginBanner).ToNot(BeNil(), "Provider PostLogin Banner should not be nil")
+				if testDevices.StateFor(name).PostLoginBanner != nil {
+					g.Expect(*testDevices.StateFor(name).PostLoginBanner).To(Equal("Test Banner"))
 				}
 			}).Should(Succeed())
 		})

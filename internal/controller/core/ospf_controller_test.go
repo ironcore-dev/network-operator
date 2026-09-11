@@ -65,7 +65,7 @@ var _ = Describe("OSPF Controller", func() {
 
 			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.OSPF.Has("UNDERLAY")).ToNot(BeTrue(), "Provider should not have OSPF instance configured")
+				g.Expect(testDevices.StateFor(name).OSPF.Has("UNDERLAY")).ToNot(BeTrue(), "Provider should not have OSPF instance configured")
 			}).Should(Succeed())
 
 			By("Cleanup the Device resource")
@@ -116,7 +116,7 @@ var _ = Describe("OSPF Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.OSPF.Has("UNDERLAY")).To(BeTrue(), "Provider should have OSPF instance configured")
+				g.Expect(testDevices.StateFor(name).OSPF.Has("UNDERLAY")).To(BeTrue(), "Provider should have OSPF instance configured")
 			}).Should(Succeed())
 		})
 	})

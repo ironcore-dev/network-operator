@@ -67,7 +67,7 @@ var _ = Describe("NTP Controller", func() {
 
 			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.NTP).To(BeNil(), "Provider NTP should be nil")
+				g.Expect(testDevices.StateFor(name).NTP).To(BeNil(), "Provider NTP should be nil")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -114,9 +114,9 @@ var _ = Describe("NTP Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.NTP).ToNot(BeNil(), "Provider NTP should not be nil")
-				if testProvider.NTP != nil {
-					g.Expect(testProvider.NTP.Spec.SourceInterfaceName).To(Equal("mgmt0"))
+				g.Expect(testDevices.StateFor(name).NTP).ToNot(BeNil(), "Provider NTP should not be nil")
+				if testDevices.StateFor(name).NTP != nil {
+					g.Expect(testDevices.StateFor(name).NTP.Spec.SourceInterfaceName).To(Equal("mgmt0"))
 				}
 			}).Should(Succeed())
 		})

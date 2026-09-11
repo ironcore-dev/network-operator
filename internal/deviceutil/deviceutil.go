@@ -107,6 +107,8 @@ func GetDeviceBySerial(ctx context.Context, r client.Reader, serial string) (*v1
 
 // Connection holds the necessary information to connect to a device's API.
 type Connection struct {
+	// DeviceName is the name of the Device object this connection belongs to.
+	DeviceName string
 	// Address is the API address of the device, in the format "host:port".
 	Address string
 	// Username for basic authentication. Might be empty if the device does not require authentication.
@@ -156,9 +158,10 @@ func GetDeviceConnection(ctx context.Context, r client.Reader, obj *v1alpha1.Dev
 	}
 
 	return &Connection{
-		Address:  obj.Spec.Endpoint.Address,
-		Username: string(user),
-		Password: string(pass),
-		TLS:      conf,
+		DeviceName: obj.Name,
+		Address:    obj.Spec.Endpoint.Address,
+		Username:   string(user),
+		Password:   string(pass),
+		TLS:        conf,
 	}, nil
 }
