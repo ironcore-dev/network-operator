@@ -16,6 +16,10 @@ on:
       - 'Makefile'
       - 'test/gnmi/testdata/**/*.txtar'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 permissions:
   contents: read
 
@@ -36,4 +40,3 @@ jobs:
           go-version-file: 'go.mod'
       - name: Running gNMI tests
         run: make test-gnmi PROVIDER=${{ matrix.provider }} GINKGO_PROCS=$(nproc)
-
