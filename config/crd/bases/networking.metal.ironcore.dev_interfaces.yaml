@@ -177,7 +177,8 @@ spec:
                     minimum: 1
                     type: integer
                   enabled:
-                    description: Enabled indicates whether BFD is enabled on the interface.
+                    description: Enabled indicates whether BFD is enabled on the network
+                      object.
                     type: boolean
                   requiredMinimumReceive:
                     description: |-

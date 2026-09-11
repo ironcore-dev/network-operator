@@ -12,6 +12,8 @@
                   "adminSt": "enabled",
                   "asn": "65000",
                   "asnType": "none",
+                  "ctrl": "DME_UNSET_PROPERTY_MARKER",
+                  "bfdType": "none",
                   "name": "EVPN peering with spine",
                   "srcIf": "lo0",
                   "af-items": {
