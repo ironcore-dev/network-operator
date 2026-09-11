@@ -90,6 +90,7 @@ spec:
             "address": "pool.ntp.org",
             "config": {
               "address": "pool.ntp.org",
+              "prefer": false,
               "network-instance": "mgmt",
               "source-address": "172.20.20.2"
             }
