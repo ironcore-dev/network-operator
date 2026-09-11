@@ -5,6 +5,7 @@ package provider
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"maps"
 	"net/netip"
@@ -47,6 +48,9 @@ type MaintenanceProvider interface {
 	Reboot(context.Context, *deviceutil.Connection) error
 	// FactoryReset performs a factory reset of the device.
 	FactoryReset(context.Context, *deviceutil.Connection) error
+	// UpgradeFirmware initiates a firmware upgrade on the device.
+	// The provider is responsible for applying the new firmware and rebooting the device as necessary.
+	UpgradeFirmware(context.Context, *deviceutil.Connection, TargetFirmware) error
 }
 
 // ProvisioningProvider is the interface for the realization of the provisioning-related operations over different providers.
@@ -70,6 +74,19 @@ type DevicePort struct {
 	// Trasceiver is the type of transceiver present on the port, e.g. "SFP" or "QSFP", if any.
 	Transceiver string
 }
+
+// TargetFirmware represents the firmware image to be applied to the device, including its URL and optional checksum.
+type TargetFirmware struct {
+	// URL is the URL of the firmware image to be applied to the device.
+	URL string `json:"url"`
+	// MD5 is the MD5 checksum of the firmware image, if available.
+	MD5 string `json:"md5,omitempty"`
+}
+
+// ErrMaintenanceInProgress is returned by MaintenanceProvider when it fails to fully complete
+// a maintenance operation. The controller treats this as a signal to
+// requeue and re-invoke rather than a hard failure.
+var ErrMaintenanceInProgress = errors.New("provider: maintenance in progress")
 
 type DeviceInfo struct {
 	// Hostname is the hostname of the device.

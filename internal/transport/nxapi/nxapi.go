@@ -107,6 +107,23 @@ func NewClient(conn *deviceutil.Connection, opts ...Option) (*Client, error) {
 	return c, nil
 }
 
+// Clone returns a copy of the client with the given options applied, leaving
+// the original untouched. The copy keeps the resolved endpoint URL and shares
+// the underlying HTTP transport, so it stays reachable at the same address and
+// reuses pooled connections. Use it to derive a client that differs only in
+// request behaviour, e.g. a longer timeout for long-running commands.
+func (c *Client) Clone(opts ...Option) (*Client, error) {
+	clone := *c
+	httpClient := *c.client
+	clone.client = &httpClient
+	for _, opt := range opts {
+		if err := opt(&clone); err != nil {
+			return nil, err
+		}
+	}
+	return &clone, nil
+}
+
 // Do sends a Request to the device and returns one [json.RawMessage] per
 // command, in the same order as the request. If any command fails, Do returns
 // an [RPCErrors] containing one [RPCError] per failed command; transport and
