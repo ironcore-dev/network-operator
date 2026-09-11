@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package core
@@ -69,13 +69,13 @@ var _ = Describe("DHCPRelay Controller with deprecated API fields", func() {
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, relay))).To(Succeed())
 			Eventually(func(g Gomega) {
 				g.Expect(errors.IsNotFound(k8sClient.Get(ctx, relayKey, &v1alpha1.DHCPRelay{}))).To(BeTrue())
-				g.Expect(testProvider.DHCPRelay).To(BeNil())
+				g.Expect(testDevices.StateFor(device.Name).DHCPRelay).To(BeNil())
 			}).Should(Succeed())
 		})
 
 		Eventually(func(g Gomega) {
-			g.Expect(testProvider.DHCPRelay).ToNot(BeNil())
-			g.Expect(testProvider.DHCPRelay.GetName()).To(Equal(relay.Name))
+			g.Expect(testDevices.StateFor(device.Name).DHCPRelay).ToNot(BeNil())
+			g.Expect(testDevices.StateFor(device.Name).DHCPRelay.GetName()).To(Equal(relay.Name))
 		}).Should(Succeed())
 
 		Eventually(func(g Gomega) {
