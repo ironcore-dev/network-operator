@@ -6,6 +6,7 @@ package openconfig
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
@@ -663,4 +664,28 @@ type SubinterfaceVlanDoubleTagged struct {
 type SubinterfaceVlanDoubleTaggedConfig struct {
 	InnerVlanID uint16 `json:"inner-vlan-id,omitempty"`
 	OuterVlanID uint16 `json:"outer-vlan-id,omitempty"`
+}
+
+type interfaceAddrs struct {
+	ifName  string
+	Address gnmiext.List[string, *IPv4Address] `json:"address"`
+}
+
+func (a *interfaceAddrs) XPath() string {
+	return fmt.Sprintf("openconfig-interfaces:interfaces/interface[name=%s]/subinterfaces/subinterface[index=0]/openconfig-if-ip:ipv4/addresses", a.ifName)
+}
+
+// interfaceIPAddr retrieves the first IPv4 address from the state of the named interface.
+func (p *Provider) interfaceIPAddr(ctx context.Context, name string) (string, error) {
+	addrs := &interfaceAddrs{ifName: name}
+	if err := p.client.GetState(ctx, addrs); err != nil {
+		if errors.Is(err, gnmiext.ErrNil) {
+			return "", apistatus.NewFailedPreconditionError(fmt.Sprintf("interface %q has no IPv4 address", name))
+		}
+		return "", fmt.Errorf("failed to get IPv4 address for interface %q: %w", name, err)
+	}
+	for _, a := range addrs.Address {
+		return a.IP, nil
+	}
+	return "", apistatus.NewFailedPreconditionError(fmt.Sprintf("interface %q has no IPv4 address", name))
 }
