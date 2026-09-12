@@ -67,7 +67,7 @@ var _ = Describe("BGPPeer Controller", func() {
 
 			By("Verifying BGP peer is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.BGPPeers.Len()).To(Equal(0), "Provider should not have any BGP peers configured")
+				g.Expect(testDevices.StateFor(device.Name).BGPPeers.Len()).To(Equal(0), "Provider should not have any BGP peers configured")
 			}).Should(Succeed())
 
 			By("Deleting the Device resource")
@@ -151,7 +151,7 @@ var _ = Describe("BGPPeer Controller", func() {
 
 			By("Verifying the BGP peer is configured in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.BGPPeers.Has(host)).To(BeTrue(), "Provider should have BGP peer configured")
+				g.Expect(testDevices.StateFor(device.Name).BGPPeers.Has(host)).To(BeTrue(), "Provider should have BGP peer configured")
 			}).Should(Succeed())
 		})
 
@@ -227,7 +227,7 @@ var _ = Describe("BGPPeer Controller", func() {
 
 			By("Verifying the BGP peer is configured in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.BGPPeers.Has(host)).To(BeTrue(), "Provider should have BGP peer configured")
+				g.Expect(testDevices.StateFor(device.Name).BGPPeers.Has(host)).To(BeTrue(), "Provider should have BGP peer configured")
 			}).Should(Succeed())
 		})
 
@@ -402,7 +402,7 @@ var _ = Describe("BGPPeer Controller", func() {
 
 			By("Verifying the BGP peer is NOT configured in the provider")
 			Consistently(func(g Gomega) {
-				g.Expect(testProvider.BGPPeers.Has(host)).To(BeFalse(), "Provider should not have BGP peer configured")
+				g.Expect(testDevices.StateFor(device.Name).BGPPeers.Has(host)).To(BeFalse(), "Provider should not have BGP peer configured")
 			}).Should(Succeed())
 		})
 
@@ -457,7 +457,7 @@ var _ = Describe("BGPPeer Controller", func() {
 
 			By("Verifying the BGP peer is NOT configured in the provider")
 			Consistently(func(g Gomega) {
-				g.Expect(testProvider.BGPPeers.Has("10.0.0.3")).To(BeFalse(), "Provider should not have BGP peer configured")
+				g.Expect(testDevices.StateFor(device.Name).BGPPeers.Has("10.0.0.3")).To(BeFalse(), "Provider should not have BGP peer configured")
 			}).Should(Succeed())
 		})
 

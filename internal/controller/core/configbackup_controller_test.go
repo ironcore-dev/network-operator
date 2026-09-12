@@ -54,10 +54,10 @@ var _ = Describe("ConfigBackup Controller", func() {
 			}).Should(Succeed())
 
 			By("Resetting the test provider state")
-			testProvider.Lock()
-			testProvider.ConfigBackups = nil
-			testProvider.StartupConfig = nil
-			testProvider.Unlock()
+			testDevices.StateFor(device.Name).Lock()
+			testDevices.StateFor(device.Name).ConfigBackups = nil
+			testDevices.StateFor(device.Name).StartupConfig = nil
+			testDevices.StateFor(device.Name).Unlock()
 		})
 
 		AfterEach(func() {
@@ -162,22 +162,22 @@ var _ = Describe("ConfigBackup Controller", func() {
 
 			By("Verifying the provider received the startup backup")
 			Eventually(func(g Gomega) {
-				testProvider.Lock()
-				defer testProvider.Unlock()
-				g.Expect(testProvider.StartupConfig).NotTo(BeNil())
+				testDevices.StateFor(device.Name).Lock()
+				defer testDevices.StateFor(device.Name).Unlock()
+				g.Expect(testDevices.StateFor(device.Name).StartupConfig).NotTo(BeNil())
 			}).Should(Succeed())
 		})
 
 		It("Should rotate old backups according to retention policy", func() {
 			By("Pre-seeding the provider with existing backups")
-			testProvider.Lock()
+			testDevices.StateFor(device.Name).Lock()
 			size := int64(1024)
-			testProvider.ConfigBackups = []*provider.ConfigBackupFile{
+			testDevices.StateFor(device.Name).ConfigBackups = []*provider.ConfigBackupFile{
 				{Path: "bootflash:///backups/configbackup-old-1", SizeBytes: &size, CreatedAt: time.Date(2026, time.April, 10, 2, 0, 0, 0, time.UTC)},
 				{Path: "bootflash:///backups/configbackup-old-2", SizeBytes: &size, CreatedAt: time.Date(2026, time.April, 11, 2, 0, 0, 0, time.UTC)},
 				{Path: "bootflash:///backups/configbackup-old-3", SizeBytes: &size, CreatedAt: time.Date(2026, time.April, 12, 2, 0, 0, 0, time.UTC)},
 			}
-			testProvider.Unlock()
+			testDevices.StateFor(device.Name).Unlock()
 
 			By("Creating a ConfigBackup with retention keepLast: 2")
 			backup = &v1alpha1.ConfigBackup{
@@ -196,10 +196,10 @@ var _ = Describe("ConfigBackup Controller", func() {
 
 			By("Verifying old backups are rotated")
 			Eventually(func(g Gomega) {
-				testProvider.Lock()
-				defer testProvider.Unlock()
+				testDevices.StateFor(device.Name).Lock()
+				defer testDevices.StateFor(device.Name).Unlock()
 				// 3 pre-seeded + 1 new = 4, keepLast=2 means 2 oldest deleted → 2 remain
-				g.Expect(testProvider.ConfigBackups).To(HaveLen(2))
+				g.Expect(testDevices.StateFor(device.Name).ConfigBackups).To(HaveLen(2))
 			}).Should(Succeed())
 
 			By("Verifying the status reflects the retained count")
@@ -213,13 +213,13 @@ var _ = Describe("ConfigBackup Controller", func() {
 
 		It("Should block backup when storage threshold is exceeded", func() {
 			By("Pre-seeding the provider to simulate full storage")
-			testProvider.Lock()
+			testDevices.StateFor(device.Name).Lock()
 			size := int64(95)
-			testProvider.ConfigBackups = []*provider.ConfigBackupFile{
+			testDevices.StateFor(device.Name).ConfigBackups = []*provider.ConfigBackupFile{
 				{Path: "bootflash:///backups/existing-file", SizeBytes: &size, CreatedAt: time.Now()},
 			}
-			testProvider.StorageTotal = 100
-			testProvider.Unlock()
+			testDevices.StateFor(device.Name).StorageTotal = 100
+			testDevices.StateFor(device.Name).Unlock()
 
 			By("Creating a ConfigBackup with a storage threshold")
 			minFreeBytes := int64(10)
@@ -276,9 +276,9 @@ var _ = Describe("ConfigBackup Controller", func() {
 
 			By("Verifying the provider only has one backup (no re-runs)")
 			Consistently(func(g Gomega) {
-				testProvider.Lock()
-				defer testProvider.Unlock()
-				g.Expect(testProvider.ConfigBackups).To(HaveLen(1))
+				testDevices.StateFor(device.Name).Lock()
+				defer testDevices.StateFor(device.Name).Unlock()
+				g.Expect(testDevices.StateFor(device.Name).ConfigBackups).To(HaveLen(1))
 			}).Should(Succeed())
 		})
 

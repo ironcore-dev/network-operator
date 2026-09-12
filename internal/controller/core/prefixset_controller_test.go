@@ -71,7 +71,7 @@ var _ = Describe("PrefixSet Controller", func() {
 
 			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.PrefixSets.Has(set)).To(BeFalse(), "Provider should not have PrefixSet configured")
+				g.Expect(testDevices.StateFor(name).PrefixSets.Has(set)).To(BeFalse(), "Provider should not have PrefixSet configured")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -118,7 +118,7 @@ var _ = Describe("PrefixSet Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.PrefixSets.Has(set)).To(BeTrue(), "Provider should have PrefixSet configured")
+				g.Expect(testDevices.StateFor(name).PrefixSets.Has(set)).To(BeTrue(), "Provider should have PrefixSet configured")
 			}).Should(Succeed())
 		})
 	})

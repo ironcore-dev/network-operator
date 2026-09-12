@@ -108,7 +108,7 @@ var _ = Describe("NVE Controller", func() {
 			}).Should(BeTrue())
 
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.NVE).To(BeNil(), "Provider NVE should be empty")
+				g.Expect(testDevices.StateFor(name).NVE).To(BeNil(), "Provider NVE should be empty")
 			}).Should(Succeed())
 		})
 
@@ -149,13 +149,13 @@ var _ = Describe("NVE Controller", func() {
 
 			By("Ensuring the NVE is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.NVE).ToNot(BeNil(), "Provider NVE should not be nil")
-				g.Expect(testProvider.NVE.Spec.AdminState).To(BeEquivalentTo(v1alpha1.AdminStateUp))
-				g.Expect(testProvider.NVE.Spec.SuppressARP).To(BeTrue())
-				g.Expect(testProvider.NVE.Spec.HostReachability).To(BeEquivalentTo("BGP"))
-				g.Expect(testProvider.NVE.Spec.SourceInterfaceRef.Name).To(Equal(name + "-lo0"))
-				g.Expect(testProvider.NVE.Spec.MulticastGroups).ToNot(BeNil())
-				g.Expect(testProvider.NVE.Spec.MulticastGroups.L2).To(HaveValue(Equal(v1alpha1.MustParsePrefix("234.0.0.0/8"))))
+				g.Expect(testDevices.StateFor(name).NVE).ToNot(BeNil(), "Provider NVE should not be nil")
+				g.Expect(testDevices.StateFor(name).NVE.Spec.AdminState).To(BeEquivalentTo(v1alpha1.AdminStateUp))
+				g.Expect(testDevices.StateFor(name).NVE.Spec.SuppressARP).To(BeTrue())
+				g.Expect(testDevices.StateFor(name).NVE.Spec.HostReachability).To(BeEquivalentTo("BGP"))
+				g.Expect(testDevices.StateFor(name).NVE.Spec.SourceInterfaceRef.Name).To(Equal(name + "-lo0"))
+				g.Expect(testDevices.StateFor(name).NVE.Spec.MulticastGroups).ToNot(BeNil())
+				g.Expect(testDevices.StateFor(name).NVE.Spec.MulticastGroups.L2).To(HaveValue(Equal(v1alpha1.MustParsePrefix("234.0.0.0/8"))))
 			}).Should(Succeed())
 
 			By("Verifying referenced interfaces exist and are loopbacks")
@@ -277,7 +277,7 @@ var _ = Describe("NVE Controller", func() {
 			}).Should(BeTrue())
 
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.NVE).To(BeNil(), "Provider NVE should be empty")
+				g.Expect(testDevices.StateFor(name).NVE).To(BeNil(), "Provider NVE should be empty")
 			}).Should(Succeed())
 		})
 
@@ -288,9 +288,9 @@ var _ = Describe("NVE Controller", func() {
 
 			By("Verifying reconciliation modifies provider and status")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.NVE).ToNot(BeNil())
-				g.Expect(testProvider.NVE.Spec.SourceInterfaceRef.Name).To(Equal(name + "-lo1"))
-				g.Expect(testProvider.NVE.Status.SourceInterfaceName).To(Equal(name + "-lo1"))
+				g.Expect(testDevices.StateFor(name).NVE).ToNot(BeNil())
+				g.Expect(testDevices.StateFor(name).NVE.Spec.SourceInterfaceRef.Name).To(Equal(name + "-lo1"))
+				g.Expect(testDevices.StateFor(name).NVE.Status.SourceInterfaceName).To(Equal(name + "-lo1"))
 			}).Should(Succeed())
 		})
 
@@ -301,10 +301,10 @@ var _ = Describe("NVE Controller", func() {
 
 			By("Verifying reconciliation modifies provider and status")
 			Eventually(func(g Gomega) {
-				if testProvider.NVE != nil {
-					g.Expect(testProvider.NVE).ToNot(BeNil())
-					g.Expect(testProvider.NVE.Spec.AnycastSourceInterfaceRef.Name).To(Equal(name + "-lo2"))
-					g.Expect(testProvider.NVE.Status.AnycastSourceInterfaceName).To(Equal(name + "-lo2"))
+				if testDevices.StateFor(name).NVE != nil {
+					g.Expect(testDevices.StateFor(name).NVE).ToNot(BeNil())
+					g.Expect(testDevices.StateFor(name).NVE.Spec.AnycastSourceInterfaceRef.Name).To(Equal(name + "-lo2"))
+					g.Expect(testDevices.StateFor(name).NVE.Status.AnycastSourceInterfaceName).To(Equal(name + "-lo2"))
 				}
 			}, 5*time.Second, 100*time.Millisecond).Should(Succeed())
 		})
@@ -364,7 +364,7 @@ var _ = Describe("NVE Controller", func() {
 			}).Should(BeTrue())
 
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.NVE).To(BeNil(), "Provider NVE should be empty")
+				g.Expect(testDevices.StateFor(name).NVE).To(BeNil(), "Provider NVE should be empty")
 			}).Should(Succeed())
 		})
 
@@ -458,14 +458,14 @@ var _ = Describe("NVE Controller", func() {
 			}).Should(BeTrue())
 
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.NVE).To(BeNil(), "Provider NVE should be empty")
+				g.Expect(testDevices.StateFor(name).NVE).To(BeNil(), "Provider NVE should be empty")
 			}).Should(Succeed())
 		})
 
 		It("Should reconcile with nil anycast and empty status AnycastSourceInterfaceName", func() {
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.NVE).NotTo(BeNil())
-				g.Expect(testProvider.NVE.Spec.AnycastSourceInterfaceRef).To(BeNil())
+				g.Expect(testDevices.StateFor(name).NVE).NotTo(BeNil())
+				g.Expect(testDevices.StateFor(name).NVE.Spec.AnycastSourceInterfaceRef).To(BeNil())
 			}).Should(Succeed())
 
 			Eventually(func(g Gomega) {
@@ -572,7 +572,7 @@ var _ = Describe("NVE Controller", func() {
 			}).Should(BeTrue())
 
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.NVE).To(BeNil(), "Provider NVE should be empty")
+				g.Expect(testDevices.StateFor(name).NVE).To(BeNil(), "Provider NVE should be empty")
 			}).Should(Succeed())
 		})
 
@@ -672,7 +672,7 @@ var _ = Describe("NVE Controller", func() {
 			}).Should(BeTrue())
 
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.NVE).To(BeNil(), "Provider NVE should be empty")
+				g.Expect(testDevices.StateFor(name).NVE).To(BeNil(), "Provider NVE should be empty")
 			}).Should(Succeed())
 		})
 
@@ -792,7 +792,7 @@ var _ = Describe("NVE Controller", func() {
 			}).Should(BeTrue())
 
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.NVE).To(BeNil(), "Provider NVE should be empty")
+				g.Expect(testDevices.StateFor(name).NVE).To(BeNil(), "Provider NVE should be empty")
 			}).Should(Succeed())
 		})
 
@@ -896,7 +896,7 @@ var _ = Describe("NVE Controller", func() {
 			}).Should(BeTrue())
 
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.NVE).To(BeNil(), "Provider NVE should be empty")
+				g.Expect(testDevices.StateFor(name).NVE).To(BeNil(), "Provider NVE should be empty")
 			}).Should(Succeed())
 		})
 

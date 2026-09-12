@@ -54,7 +54,7 @@ var _ = Describe("EVPNInstance Controller", func() {
 
 			By("Verifying the EVPNInstance is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.EVIs.Has(vni)).To(BeFalse(), "Provider shouldn't have VNI configured anymore")
+				g.Expect(testDevices.StateFor(name).EVIs.Has(vni)).To(BeFalse(), "Provider shouldn't have VNI configured anymore")
 			}).Should(Succeed())
 
 			By("Cleaning up the test Device resource")
@@ -154,7 +154,7 @@ var _ = Describe("EVPNInstance Controller", func() {
 
 			By("Verifying the EVPNInstance is configured in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.EVIs.Has(vni)).To(BeTrue(), "Provider should have VNI configured")
+				g.Expect(testDevices.StateFor(name).EVIs.Has(vni)).To(BeTrue(), "Provider should have VNI configured")
 			}).Should(Succeed())
 		})
 

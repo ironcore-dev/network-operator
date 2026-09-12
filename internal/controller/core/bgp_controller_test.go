@@ -66,7 +66,7 @@ var _ = Describe("BGP Controller", func() {
 
 			By("Verifying BGP is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.BGP).To(BeNil(), "Provider should not have BGP instance configured")
+				g.Expect(testDevices.StateFor(device.Name).BGP).To(BeNil(), "Provider should not have BGP instance configured")
 			}).Should(Succeed())
 
 			By("Deleting the Device resource")
@@ -124,7 +124,7 @@ var _ = Describe("BGP Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.BGP).ToNot(BeNil(), "Provider should have BGP instance configured")
+				g.Expect(testDevices.StateFor(device.Name).BGP).ToNot(BeNil(), "Provider should have BGP instance configured")
 			}).Should(Succeed())
 		})
 
@@ -186,8 +186,8 @@ var _ = Describe("BGP Controller", func() {
 
 			By("Ensuring the provider receives the VRF")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.BGPVRF).ToNot(BeNil())
-				g.Expect(testProvider.BGPVRF.Spec.Name).To(Equal("CC-MGMT"))
+				g.Expect(testDevices.StateFor(device.Name).BGPVRF).ToNot(BeNil())
+				g.Expect(testDevices.StateFor(device.Name).BGPVRF.Spec.Name).To(Equal("CC-MGMT"))
 			}).Should(Succeed())
 
 			By("Ensuring ReadyCondition is True")

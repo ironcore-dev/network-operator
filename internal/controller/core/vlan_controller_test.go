@@ -63,7 +63,7 @@ var _ = Describe("VLAN Controller", func() {
 
 			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.VLANs.Has(id)).To(BeFalse(), "Provider VLAN should not exist")
+				g.Expect(testDevices.StateFor(name).VLANs.Has(id)).To(BeFalse(), "Provider VLAN should not exist")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -114,7 +114,7 @@ var _ = Describe("VLAN Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.VLANs.Has(id)).To(BeTrue(), "Provider VLAN should exist")
+				g.Expect(testDevices.StateFor(name).VLANs.Has(id)).To(BeTrue(), "Provider VLAN should exist")
 			}).Should(Succeed())
 		})
 	})

@@ -73,7 +73,7 @@ var _ = Describe("Syslog Controller", func() {
 
 			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.Syslog).To(BeNil(), "Provider should not have Syslog configured")
+				g.Expect(testDevices.StateFor(name).Syslog).To(BeNil(), "Provider should not have Syslog configured")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -120,7 +120,7 @@ var _ = Describe("Syslog Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.Syslog).NotTo(BeNil(), "Provider should have Syslog configured")
+				g.Expect(testDevices.StateFor(name).Syslog).NotTo(BeNil(), "Provider should have Syslog configured")
 			}).Should(Succeed())
 		})
 	})

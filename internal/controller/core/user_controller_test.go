@@ -83,7 +83,7 @@ var _ = Describe("User Controller", func() {
 
 			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.User.Has(username)).To(BeFalse(), "User should not exist")
+				g.Expect(testDevices.StateFor(name).User.Has(username)).To(BeFalse(), "User should not exist")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -130,7 +130,7 @@ var _ = Describe("User Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.User.Has(username)).To(BeTrue(), "User should exist")
+				g.Expect(testDevices.StateFor(name).User.Has(username)).To(BeTrue(), "User should exist")
 			}).Should(Succeed())
 		})
 	})

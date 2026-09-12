@@ -55,7 +55,7 @@ var _ = Describe("EthernetSegment Controller", func() {
 
 			By("Verifying the EthernetSegment is removed from the provider")
 			Eventually(func(g Gomega) {
-				_, exists := testProvider.GetEthernetSegment(name)
+				_, exists := testDevices.StateFor(name).GetEthernetSegment(name)
 				g.Expect(exists).To(BeFalse(), "Provider shouldn't have ESI configured anymore")
 			}).Should(Succeed())
 
@@ -151,7 +151,7 @@ var _ = Describe("EthernetSegment Controller", func() {
 
 			By("Verifying the EthernetSegment is configured in the provider")
 			Eventually(func(g Gomega) {
-				storedESI, exists := testProvider.GetEthernetSegment(name)
+				storedESI, exists := testDevices.StateFor(name).GetEthernetSegment(name)
 				g.Expect(exists).To(BeTrue(), "Provider should have ESI configured")
 				g.Expect(storedESI).To(Equal(esi))
 			}).Should(Succeed())

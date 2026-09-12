@@ -60,7 +60,7 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Verifying the resource has been deleted")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.LLDP).To(BeNil(), "Provider should have no LLDP configured")
+				g.Expect(testDevices.StateFor(deviceName).LLDP).To(BeNil(), "Provider should have no LLDP configured")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -128,9 +128,9 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Ensuring the LLDP is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.LLDP).ToNot(BeNil(), "Provider LLDP should not be nil")
-				if testProvider.LLDP != nil {
-					g.Expect(testProvider.LLDP.GetName()).To(Equal(deviceName+"-lldp"), "Provider should have LLDP configured")
+				g.Expect(testDevices.StateFor(deviceName).LLDP).ToNot(BeNil(), "Provider LLDP should not be nil")
+				if testDevices.StateFor(deviceName).LLDP != nil {
+					g.Expect(testDevices.StateFor(deviceName).LLDP.GetName()).To(Equal(deviceName+"-lldp"), "Provider should have LLDP configured")
 				}
 			}).Should(Succeed())
 		})
@@ -169,9 +169,9 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Ensuring the LLDP is created in the provider with AdminState Down")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.LLDP).ToNot(BeNil())
-				if testProvider.LLDP != nil {
-					g.Expect(testProvider.LLDP.Spec.AdminState).To(Equal(v1alpha1.AdminStateDown))
+				g.Expect(testDevices.StateFor(deviceName).LLDP).ToNot(BeNil())
+				if testDevices.StateFor(deviceName).LLDP != nil {
+					g.Expect(testDevices.StateFor(deviceName).LLDP.Spec.AdminState).To(Equal(v1alpha1.AdminStateDown))
 				}
 			}).Should(Succeed())
 		})
@@ -254,7 +254,7 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Verifying LLDP is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.LLDP).ToNot(BeNil())
+				g.Expect(testDevices.StateFor(deviceName).LLDP).ToNot(BeNil())
 			}).Should(Succeed())
 
 			By("Deleting the LLDP resource")
@@ -262,7 +262,7 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Verifying the LLDP is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.LLDP).To(BeNil(), "Provider should have no LLDP configured after deletion")
+				g.Expect(testDevices.StateFor(deviceName).LLDP).To(BeNil(), "Provider should have no LLDP configured after deletion")
 			}).Should(Succeed())
 
 			By("Verifying the resource is fully deleted")
@@ -351,7 +351,7 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Verifying the provider has been cleaned up")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.LLDP).To(BeNil(), "Provider should have no LLDP configured")
+				g.Expect(testDevices.StateFor(deviceName).LLDP).To(BeNil(), "Provider should have no LLDP configured")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -412,8 +412,8 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Verifying the provider still has AdminState Up (reconciliation was skipped)")
 			Consistently(func(g Gomega) {
-				g.Expect(testProvider.LLDP).ToNot(BeNil())
-				g.Expect(testProvider.LLDP.Spec.AdminState).To(Equal(v1alpha1.AdminStateUp))
+				g.Expect(testDevices.StateFor(deviceName).LLDP).ToNot(BeNil())
+				g.Expect(testDevices.StateFor(deviceName).LLDP.Spec.AdminState).To(Equal(v1alpha1.AdminStateUp))
 			}).Should(Succeed())
 
 			By("Unpausing the Device")
@@ -426,8 +426,8 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Verifying the provider now has AdminState Down (reconciliation resumed)")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.LLDP).ToNot(BeNil())
-				g.Expect(testProvider.LLDP.Spec.AdminState).To(Equal(v1alpha1.AdminStateDown))
+				g.Expect(testDevices.StateFor(deviceName).LLDP).ToNot(BeNil())
+				g.Expect(testDevices.StateFor(deviceName).LLDP.Spec.AdminState).To(Equal(v1alpha1.AdminStateDown))
 			}).Should(Succeed())
 		})
 	})
@@ -475,7 +475,7 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Verifying the resource has been deleted")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.LLDP).To(BeNil(), "Provider should have no LLDP configured")
+				g.Expect(testDevices.StateFor(deviceName).LLDP).To(BeNil(), "Provider should have no LLDP configured")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -622,7 +622,7 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Verifying the resource has been deleted")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.LLDP).To(BeNil(), "Provider should have no LLDP configured")
+				g.Expect(testDevices.StateFor(deviceName).LLDP).To(BeNil(), "Provider should have no LLDP configured")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -856,7 +856,7 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Verifying the resource has been deleted")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.LLDP).To(BeNil(), "Provider should have no LLDP configured")
+				g.Expect(testDevices.StateFor(deviceName).LLDP).To(BeNil(), "Provider should have no LLDP configured")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -892,8 +892,8 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Verifying provider has AdminState Up")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.LLDP).ToNot(BeNil())
-				g.Expect(testProvider.LLDP.Spec.AdminState).To(Equal(v1alpha1.AdminStateUp))
+				g.Expect(testDevices.StateFor(deviceName).LLDP).ToNot(BeNil())
+				g.Expect(testDevices.StateFor(deviceName).LLDP.Spec.AdminState).To(Equal(v1alpha1.AdminStateUp))
 			}).Should(Succeed())
 
 			By("Updating AdminState to Down")
@@ -906,8 +906,8 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Verifying provider has AdminState Down")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.LLDP).ToNot(BeNil())
-				g.Expect(testProvider.LLDP.Spec.AdminState).To(Equal(v1alpha1.AdminStateDown))
+				g.Expect(testDevices.StateFor(deviceName).LLDP).ToNot(BeNil())
+				g.Expect(testDevices.StateFor(deviceName).LLDP.Spec.AdminState).To(Equal(v1alpha1.AdminStateDown))
 			}).Should(Succeed())
 		})
 
@@ -1109,7 +1109,7 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Verifying the provider has been cleaned up")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.LLDP).To(BeNil(), "Provider should have no LLDP configured")
+				g.Expect(testDevices.StateFor(deviceName).LLDP).To(BeNil(), "Provider should have no LLDP configured")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -1273,9 +1273,9 @@ var _ = Describe("LLDP Controller", func() {
 
 		AfterEach(func() {
 			By("Resetting provider LLDP operational status to true")
-			testProvider.Lock()
-			testProvider.LLDPOperStatus = true
-			testProvider.Unlock()
+			testDevices.StateFor(deviceName).Lock()
+			testDevices.StateFor(deviceName).LLDPOperStatus = true
+			testDevices.StateFor(deviceName).Unlock()
 
 			By("Cleaning up the LLDP resource")
 			lldp = &v1alpha1.LLDP{}
@@ -1291,7 +1291,7 @@ var _ = Describe("LLDP Controller", func() {
 
 			By("Verifying the provider has been cleaned up")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.LLDP).To(BeNil(), "Provider should have no LLDP configured")
+				g.Expect(testDevices.StateFor(deviceName).LLDP).To(BeNil(), "Provider should have no LLDP configured")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -1303,9 +1303,9 @@ var _ = Describe("LLDP Controller", func() {
 
 		It("Should set OperationalCondition to False when LLDP is operationally down", func() {
 			By("Setting provider to return operational status down")
-			testProvider.Lock()
-			testProvider.LLDPOperStatus = false
-			testProvider.Unlock()
+			testDevices.StateFor(deviceName).Lock()
+			testDevices.StateFor(deviceName).LLDPOperStatus = false
+			testDevices.StateFor(deviceName).Unlock()
 
 			By("Creating LLDP resource")
 			lldp = &v1alpha1.LLDP{
@@ -1345,9 +1345,9 @@ var _ = Describe("LLDP Controller", func() {
 
 		It("Should recover when LLDP becomes operationally up", func() {
 			By("Setting provider to return operational status down")
-			testProvider.Lock()
-			testProvider.LLDPOperStatus = false
-			testProvider.Unlock()
+			testDevices.StateFor(deviceName).Lock()
+			testDevices.StateFor(deviceName).LLDPOperStatus = false
+			testDevices.StateFor(deviceName).Unlock()
 
 			By("Creating LLDP resource")
 			lldp = &v1alpha1.LLDP{
@@ -1373,9 +1373,9 @@ var _ = Describe("LLDP Controller", func() {
 			}).Should(Succeed())
 
 			By("Setting provider to return operational status up")
-			testProvider.Lock()
-			testProvider.LLDPOperStatus = true
-			testProvider.Unlock()
+			testDevices.StateFor(deviceName).Lock()
+			testDevices.StateFor(deviceName).LLDPOperStatus = true
+			testDevices.StateFor(deviceName).Unlock()
 
 			By("Verifying OperationalCondition becomes True after requeue")
 			Eventually(func(g Gomega) {
