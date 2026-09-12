@@ -8,7 +8,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
@@ -23,10 +22,8 @@ var _ = Describe("BGP Webhook", func() {
 
 	BeforeEach(func() {
 		obj = &v1alpha1.BGP{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-bgp",
-				Namespace: "default",
-			},
+			Name:      "test-bgp",
+			Namespace: "default",
 			Spec: v1alpha1.BGPSpec{
 				DeviceRef: v1alpha1.LocalObjectReference{
 					Name: "test-device",

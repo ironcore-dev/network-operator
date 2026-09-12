@@ -105,8 +105,9 @@ func (r *VPCDomainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	if isPaused, requeue, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || requeue || err != nil {
-		return ctrl.Result{Requeue: requeue}, err
+	orig := obj.DeepCopy()
+	if isPaused, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || err != nil {
+		return ctrl.Result{}, err
 	}
 
 	if err := r.Locker.AcquireLock(ctx, device.Name, "cisco-nx-vpcdomain-controller"); err != nil {
@@ -162,7 +163,6 @@ func (r *VPCDomainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition, v1alpha1.OperationalCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
@@ -476,10 +476,8 @@ func (r *VPCDomainReconciler) mapInterfaceToVPCDomain(ctx context.Context, obj c
 	requests := make([]reconcile.Request, 0, len(list.Items))
 	for _, i := range list.Items {
 		requests = append(requests, reconcile.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 
@@ -522,10 +520,8 @@ func (r *VPCDomainReconciler) deviceToVPCDomains(ctx context.Context, obj client
 	for _, i := range list.Items {
 		log.V(2).Info("Enqueuing VPCDomain for reconciliation", "VPCDomain", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 

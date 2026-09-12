@@ -19,10 +19,8 @@ import (
 var _ = Describe("Claim Controller", func() {
 	It("allocates an index from the referenced pool", func() {
 		pool := &poolv1alpha1.IndexPool{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "index-pool-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "index-pool-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IndexPoolSpec{
 				Ranges: []corev1alpha1.IndexRange{corev1alpha1.MustParseIndexRange("100..101")},
 			},
@@ -33,10 +31,8 @@ var _ = Describe("Claim Controller", func() {
 		})
 
 		claim := &poolv1alpha1.Claim{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "claim-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "claim-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.ClaimSpec{
 				PoolRef: corev1alpha1.TypedLocalObjectReference{
 					APIVersion: poolv1alpha1.GroupVersion.String(),
@@ -79,10 +75,8 @@ var _ = Describe("Claim Controller", func() {
 
 	It("allocates an ip address from the referenced pool", func() {
 		pool := &poolv1alpha1.IPAddressPool{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "ip-pool-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "ip-pool-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IPAddressPoolSpec{
 				Prefixes: []corev1alpha1.IPPrefix{
 					corev1alpha1.MustParsePrefix("10.0.0.0/30"),
@@ -95,10 +89,8 @@ var _ = Describe("Claim Controller", func() {
 		})
 
 		claim := &poolv1alpha1.Claim{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "claim-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "claim-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.ClaimSpec{
 				PoolRef: corev1alpha1.TypedLocalObjectReference{
 					APIVersion: poolv1alpha1.GroupVersion.String(),
@@ -140,10 +132,8 @@ var _ = Describe("Claim Controller", func() {
 
 	It("allocates a prefix from the referenced pool", func() {
 		pool := &poolv1alpha1.IPPrefixPool{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "prefix-pool-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "prefix-pool-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IPPrefixPoolSpec{
 				Prefixes:               []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.1.0.0/24")},
 				AllocationPrefixLength: 26,
@@ -155,10 +145,8 @@ var _ = Describe("Claim Controller", func() {
 		})
 
 		claim := &poolv1alpha1.Claim{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "claim-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "claim-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.ClaimSpec{
 				PoolRef: corev1alpha1.TypedLocalObjectReference{
 					APIVersion: poolv1alpha1.GroupVersion.String(),
@@ -200,10 +188,8 @@ var _ = Describe("Claim Controller", func() {
 
 	It("sets an invalid condition for unsupported pool references", func() {
 		claim := &poolv1alpha1.Claim{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "claim-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "claim-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.ClaimSpec{
 				PoolRef: corev1alpha1.TypedLocalObjectReference{
 					APIVersion: "unsupported.example.io/v1alpha1",
@@ -230,10 +216,8 @@ var _ = Describe("Claim Controller", func() {
 
 	It("sets a not found condition when the referenced pool does not exist", func() {
 		claim := &poolv1alpha1.Claim{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "claim-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "claim-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.ClaimSpec{
 				PoolRef: corev1alpha1.TypedLocalObjectReference{
 					APIVersion: poolv1alpha1.GroupVersion.String(),
@@ -261,10 +245,8 @@ var _ = Describe("Claim Controller", func() {
 
 	It("sets an exhausted condition when the pool has no allocations left", func() {
 		pool := &poolv1alpha1.IndexPool{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "exhausted-index-pool-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "exhausted-index-pool-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IndexPoolSpec{
 				Ranges: []corev1alpha1.IndexRange{corev1alpha1.MustParseIndexRange("42..42")},
 			},
@@ -275,10 +257,8 @@ var _ = Describe("Claim Controller", func() {
 		})
 
 		firstClaim := &poolv1alpha1.Claim{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "claim-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "claim-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.ClaimSpec{
 				PoolRef: corev1alpha1.TypedLocalObjectReference{
 					APIVersion: poolv1alpha1.GroupVersion.String(),
@@ -300,10 +280,8 @@ var _ = Describe("Claim Controller", func() {
 		}).Should(Succeed())
 
 		secondClaim := &poolv1alpha1.Claim{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "claim-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "claim-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.ClaimSpec{
 				PoolRef: corev1alpha1.TypedLocalObjectReference{
 					APIVersion: poolv1alpha1.GroupVersion.String(),
@@ -331,10 +309,8 @@ var _ = Describe("Claim Controller", func() {
 
 	It("releases allocations back to recycle pools on claim deletion", func() {
 		pool := &poolv1alpha1.IPAddressPool{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "recycle-ip-pool-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "recycle-ip-pool-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IPAddressPoolSpec{
 				Prefixes: []corev1alpha1.IPPrefix{
 					corev1alpha1.MustParsePrefix("10.2.0.1/32"),
@@ -348,10 +324,8 @@ var _ = Describe("Claim Controller", func() {
 		})
 
 		claim := &poolv1alpha1.Claim{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "claim-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "claim-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.ClaimSpec{
 				PoolRef: corev1alpha1.TypedLocalObjectReference{
 					APIVersion: poolv1alpha1.GroupVersion.String(),
@@ -395,10 +369,8 @@ var _ = Describe("Claim Controller", func() {
 
 	It("retains allocations on claim deletion when the pool reclaim policy is retain", func() {
 		pool := &poolv1alpha1.IndexPool{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "retain-index-pool-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "retain-index-pool-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IndexPoolSpec{
 				Ranges:        []corev1alpha1.IndexRange{corev1alpha1.MustParseIndexRange("500..500")},
 				ReclaimPolicy: poolv1alpha1.ReclaimPolicyRetain,
@@ -410,10 +382,8 @@ var _ = Describe("Claim Controller", func() {
 		})
 
 		claim := &poolv1alpha1.Claim{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "claim-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "claim-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.ClaimSpec{
 				PoolRef: corev1alpha1.TypedLocalObjectReference{
 					APIVersion: poolv1alpha1.GroupVersion.String(),
@@ -460,10 +430,8 @@ var _ = Describe("Claim Controller", func() {
 
 	It("sets pool as owner of both the claim and the allocation", func() {
 		pool := &poolv1alpha1.IndexPool{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "owner-pool-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "owner-pool-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IndexPoolSpec{
 				Ranges: []corev1alpha1.IndexRange{corev1alpha1.MustParseIndexRange("1..10")},
 			},
@@ -474,10 +442,8 @@ var _ = Describe("Claim Controller", func() {
 		})
 
 		claim := &poolv1alpha1.Claim{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "claim-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "claim-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.ClaimSpec{
 				PoolRef: corev1alpha1.TypedLocalObjectReference{
 					APIVersion: poolv1alpha1.GroupVersion.String(),
@@ -517,10 +483,8 @@ var _ = Describe("Claim Controller", func() {
 
 	It("transitions pool Available condition on allocation and release", func() {
 		pool := &poolv1alpha1.IndexPool{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "avail-pool-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "avail-pool-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IndexPoolSpec{
 				Ranges: []corev1alpha1.IndexRange{corev1alpha1.MustParseIndexRange("99..99")},
 			},
@@ -541,10 +505,8 @@ var _ = Describe("Claim Controller", func() {
 		}).Should(Succeed())
 
 		claim := &poolv1alpha1.Claim{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "claim-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "claim-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.ClaimSpec{
 				PoolRef: corev1alpha1.TypedLocalObjectReference{
 					APIVersion: poolv1alpha1.GroupVersion.String(),
@@ -586,10 +548,8 @@ var _ = Describe("Claim Controller", func() {
 
 	It("stores the correct claim UID in the allocation claimRef", func() {
 		pool := &poolv1alpha1.IPAddressPool{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "uid-pool-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "uid-pool-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IPAddressPoolSpec{
 				Prefixes: []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.5.0.0/30")},
 			},
@@ -600,10 +560,8 @@ var _ = Describe("Claim Controller", func() {
 		})
 
 		claim := &poolv1alpha1.Claim{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "claim-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "claim-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.ClaimSpec{
 				PoolRef: corev1alpha1.TypedLocalObjectReference{
 					APIVersion: poolv1alpha1.GroupVersion.String(),
@@ -635,10 +593,8 @@ var _ = Describe("Claim Controller", func() {
 
 	It("does not create duplicate allocations on re-reconciliation", func() {
 		pool := &poolv1alpha1.IndexPool{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "idem-pool-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "idem-pool-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IndexPoolSpec{
 				Ranges: []corev1alpha1.IndexRange{corev1alpha1.MustParseIndexRange("200..210")},
 			},
@@ -649,10 +605,8 @@ var _ = Describe("Claim Controller", func() {
 		})
 
 		claim := &poolv1alpha1.Claim{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "claim-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "claim-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.ClaimSpec{
 				PoolRef: corev1alpha1.TypedLocalObjectReference{
 					APIVersion: poolv1alpha1.GroupVersion.String(),
@@ -701,10 +655,8 @@ var _ = Describe("Claim Controller", func() {
 
 	It("allocates an exhausted claim after capacity is freed", func() {
 		pool := &poolv1alpha1.IndexPool{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "retry-pool-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "retry-pool-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IndexPoolSpec{
 				Ranges: []corev1alpha1.IndexRange{corev1alpha1.MustParseIndexRange("77..77")},
 			},
@@ -716,10 +668,8 @@ var _ = Describe("Claim Controller", func() {
 
 		// Claim A takes the only slot.
 		claimA := &poolv1alpha1.Claim{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "claim-a-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "claim-a-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.ClaimSpec{
 				PoolRef: corev1alpha1.TypedLocalObjectReference{
 					APIVersion: poolv1alpha1.GroupVersion.String(),
@@ -741,10 +691,8 @@ var _ = Describe("Claim Controller", func() {
 
 		// Claim B hits exhaustion.
 		claimB := &poolv1alpha1.Claim{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "claim-b-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "claim-b-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.ClaimSpec{
 				PoolRef: corev1alpha1.TypedLocalObjectReference{
 					APIVersion: poolv1alpha1.GroupVersion.String(),

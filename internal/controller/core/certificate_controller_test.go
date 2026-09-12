@@ -34,10 +34,8 @@ var _ = Describe("Certificate Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-certificate-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-certificate-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -53,10 +51,8 @@ var _ = Describe("Certificate Controller", func() {
 
 			By("Creating the custom resource for the Kind Secret")
 			secret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Data: map[string][]byte{
 					corev1.TLSCertKey:       cert,
 					corev1.TLSPrivateKeyKey: priv,
@@ -67,10 +63,8 @@ var _ = Describe("Certificate Controller", func() {
 
 			By("Creating the custom resource for the Kind Certificate")
 			certificate := &v1alpha1.Certificate{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.CertificateSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					ID:        "cert1",

@@ -25,10 +25,8 @@ var _ = Describe("AccessControlList Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-acl-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-acl-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -41,10 +39,8 @@ var _ = Describe("AccessControlList Controller", func() {
 
 			By("Creating the custom resource for the Kind AccessControlList")
 			resource := &v1alpha1.AccessControlList{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.AccessControlListSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Name:      name,

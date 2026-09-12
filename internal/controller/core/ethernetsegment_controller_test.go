@@ -24,10 +24,8 @@ var _ = Describe("EthernetSegment Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-es-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-es-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -75,10 +73,8 @@ var _ = Describe("EthernetSegment Controller", func() {
 		It("Should successfully reconcile an EthernetSegment", func() {
 			By("Creating an Aggregate Interface with switchport config")
 			intf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       "port-channel10",
@@ -97,10 +93,8 @@ var _ = Describe("EthernetSegment Controller", func() {
 
 			By("Creating an EthernetSegment")
 			es := &v1alpha1.EthernetSegment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.EthernetSegmentSpec{
 					DeviceRef:      v1alpha1.LocalObjectReference{Name: name},
 					InterfaceRef:   v1alpha1.LocalObjectReference{Name: name},
@@ -168,10 +162,8 @@ var _ = Describe("EthernetSegment Controller", func() {
 		It("Should handle EthernetSegment referencing non-existent Interface", func() {
 			By("Creating an EthernetSegment referencing a non-existent Interface")
 			es := &v1alpha1.EthernetSegment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.EthernetSegmentSpec{
 					DeviceRef:      v1alpha1.LocalObjectReference{Name: name},
 					InterfaceRef:   v1alpha1.LocalObjectReference{Name: "non-existent-intf"},
@@ -201,10 +193,8 @@ var _ = Describe("EthernetSegment Controller", func() {
 		It("Should handle EthernetSegment referencing Interface on different device", func() {
 			By("Creating an Interface on a different device")
 			intf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: "different-device"},
 					Name:       "port-channel10",
@@ -223,10 +213,8 @@ var _ = Describe("EthernetSegment Controller", func() {
 
 			By("Creating an EthernetSegment referencing the cross-device Interface")
 			es := &v1alpha1.EthernetSegment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.EthernetSegmentSpec{
 					DeviceRef:      v1alpha1.LocalObjectReference{Name: name},
 					InterfaceRef:   v1alpha1.LocalObjectReference{Name: name},
@@ -256,10 +244,8 @@ var _ = Describe("EthernetSegment Controller", func() {
 		It("Should handle EthernetSegment referencing non-Aggregate Interface", func() {
 			By("Creating an Ethernet Interface (not Aggregate)")
 			intf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       "eth1/1",
@@ -274,10 +260,8 @@ var _ = Describe("EthernetSegment Controller", func() {
 
 			By("Creating an EthernetSegment referencing the non-Aggregate Interface")
 			es := &v1alpha1.EthernetSegment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.EthernetSegmentSpec{
 					DeviceRef:      v1alpha1.LocalObjectReference{Name: name},
 					InterfaceRef:   v1alpha1.LocalObjectReference{Name: name},
@@ -307,10 +291,8 @@ var _ = Describe("EthernetSegment Controller", func() {
 		It("Should handle EthernetSegment referencing Interface without switchport", func() {
 			By("Creating an Aggregate Interface without switchport config")
 			intf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       "port-channel10",
@@ -326,10 +308,8 @@ var _ = Describe("EthernetSegment Controller", func() {
 
 			By("Creating an EthernetSegment referencing the Interface")
 			es := &v1alpha1.EthernetSegment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.EthernetSegmentSpec{
 					DeviceRef:      v1alpha1.LocalObjectReference{Name: name},
 					InterfaceRef:   v1alpha1.LocalObjectReference{Name: name},
@@ -358,10 +338,8 @@ var _ = Describe("EthernetSegment Controller", func() {
 		It("Should auto-derive ESI when ESIType is MAC and ESI is omitted", func() {
 			By("Creating an Aggregate Interface with switchport config")
 			intf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       "port-channel20",
@@ -380,10 +358,8 @@ var _ = Describe("EthernetSegment Controller", func() {
 
 			By("Creating an EthernetSegment with ESIType MAC and no explicit ESI")
 			es := &v1alpha1.EthernetSegment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.EthernetSegmentSpec{
 					DeviceRef:      v1alpha1.LocalObjectReference{Name: name},
 					InterfaceRef:   v1alpha1.LocalObjectReference{Name: name},

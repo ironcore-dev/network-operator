@@ -38,10 +38,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.50:9339",
@@ -54,10 +52,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Creating the custom resource for the Kind VLAN")
 			vlan = &v1alpha1.VLAN{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-vlan-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-vlan-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.VLANSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName},
 					ID:        10,
@@ -70,10 +66,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Creating the custom resource for the Kind Interface")
 			intf = &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-intf-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-intf-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					Name:       "vlan10",
@@ -147,10 +141,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 		It("Should successfully reconcile the resource", func() {
 			By("Creating the custom resource for the Kind DHCPRelay")
 			dhcprelay = &v1alpha1.DHCPRelay{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DHCPRelaySpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName},
 					Servers:   []string{"192.168.1.1", "192.168.1.2"},
@@ -215,10 +207,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 		It("Should reject duplicate DHCPRelay resources on the same device", func() {
 			By("Creating the first DHCPRelay resource")
 			dhcprelay = &v1alpha1.DHCPRelay{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DHCPRelaySpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName},
 					Servers:   []string{"192.168.1.1"},
@@ -242,10 +232,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Creating a second DHCPRelay resource for the same device")
 			duplicateDHCPRelay := &v1alpha1.DHCPRelay{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-dup-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-dup-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DHCPRelaySpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName},
 					Servers:   []string{"192.168.1.1"},
@@ -275,10 +263,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 		It("Should properly handle deletion and cleanup", func() {
 			By("Creating the custom resource for the Kind DHCPRelay")
 			dhcprelay = &v1alpha1.DHCPRelay{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DHCPRelaySpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName},
 					Servers:   []string{"192.168.1.1"},
@@ -338,10 +324,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 		It("Should not add finalizer when Device does not exist", func() {
 			By("Creating DHCPRelay referencing a non-existent Device")
 			dhcprelay := &v1alpha1.DHCPRelay{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-nodev-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-nodev-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DHCPRelaySpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: "non-existent-device"},
 					Servers:   []string{"192.168.1.1"},
@@ -375,10 +359,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 		BeforeEach(func() {
 			By("Creating the Device resource")
 			device = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-noint-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-noint-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.51:9339",
@@ -411,10 +393,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 		It("Should set ConfiguredCondition to False when Interface does not exist", func() {
 			By("Creating DHCPRelay referencing a non-existent Interface")
 			dhcprelay := &v1alpha1.DHCPRelay{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-noint-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-noint-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DHCPRelaySpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName},
 					Servers:   []string{"192.168.1.1"},
@@ -461,10 +441,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 		BeforeEach(func() {
 			By("Creating the Device resource")
 			device = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-crossdev-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-crossdev-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.52:9339",
@@ -477,10 +455,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Creating another Device resource")
 			otherDevice = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-crossdev-other-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-crossdev-other-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.53:9339",
@@ -493,10 +469,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Creating a VLAN on the other Device")
 			otherVlan = &v1alpha1.VLAN{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-crossdev-vlan-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-crossdev-vlan-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.VLANSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: otherDeviceName},
 					ID:        20,
@@ -509,10 +483,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Creating an Interface on the other Device")
 			otherIntf = &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-crossdev-intf-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-crossdev-intf-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: otherDeviceName},
 					Name:       "vlan20",
@@ -566,10 +538,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 		It("Should set ConfiguredCondition to False with CrossDeviceReferenceReason", func() {
 			By("Creating DHCPRelay referencing an Interface from a different device")
 			dhcprelay := &v1alpha1.DHCPRelay{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-crossdev-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-crossdev-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DHCPRelaySpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName},
 					Servers:   []string{"192.168.1.1"},
@@ -619,10 +589,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 		BeforeEach(func() {
 			By("Creating the Device resource")
 			device = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-vrfcross-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-vrfcross-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.57:9339",
@@ -635,10 +603,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Creating another Device resource")
 			otherDevice = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-vrfcross-other-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-vrfcross-other-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.58:9339",
@@ -651,10 +617,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Creating a VLAN on the main Device")
 			vlan = &v1alpha1.VLAN{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-vrfcross-vlan-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-vrfcross-vlan-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.VLANSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName},
 					ID:        60,
@@ -667,10 +631,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Creating an Interface on the main Device")
 			intf = &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-vrfcross-intf-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-vrfcross-intf-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					Name:       "vlan60",
@@ -697,10 +659,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Creating a VRF on the other Device")
 			otherVrf = &v1alpha1.VRF{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-vrfcross-vrf-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-vrfcross-vrf-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.VRFSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: otherDeviceName},
 					Name:      "VRF-OTHER",
@@ -754,10 +714,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 		It("Should set ConfiguredCondition to False with CrossDeviceReferenceReason", func() {
 			By("Creating DHCPRelay referencing a VRF from a different device")
 			dhcprelay := &v1alpha1.DHCPRelay{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-vrfcross-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-vrfcross-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DHCPRelaySpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName},
 					Servers:   []string{"192.168.1.1"},
@@ -803,10 +761,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 		BeforeEach(func() {
 			By("Creating the Device resource")
 			device = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-unnum-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-unnum-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.54:9339",
@@ -819,10 +775,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Creating a loopback Interface with an IP address")
 			loopbackIntf = &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-unnum-lo-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-unnum-lo-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					Name:       "loopback0",
@@ -848,10 +802,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Creating an unnumbered Interface referencing the loopback")
 			unnumberedIntf = &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-unnum-intf-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-unnum-intf-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					Name:       "ethernet1/1",
@@ -918,10 +870,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 		It("Should successfully reconcile with an unnumbered Interface", func() {
 			By("Creating DHCPRelay with an unnumbered Interface")
 			dhcprelay := &v1alpha1.DHCPRelay{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-unnum-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-unnum-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DHCPRelaySpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName},
 					Servers:   []string{"192.168.1.1"},
@@ -978,10 +928,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 		BeforeEach(func() {
 			By("Creating the Device resource")
 			device = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-intfnr-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-intfnr-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.55:9339",
@@ -994,10 +942,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Creating the VLAN resource")
 			vlan = &v1alpha1.VLAN{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-intfnr-vlan-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-intfnr-vlan-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.VLANSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					ID:         40,
@@ -1011,10 +957,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Creating the Interface resource with a VRF reference to a non-existent VRF (will not become Ready)")
 			intf = &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-intfnr-intf-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-intfnr-intf-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
 					Name:       "vlan40",
@@ -1074,10 +1018,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 		It("Should set ConfiguredCondition to False with WaitingForDependenciesReason when Interface is not configured", func() {
 			By("Creating DHCPRelay referencing a non-configured Interface")
 			dhcprelay := &v1alpha1.DHCPRelay{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-intfnr-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-intfnr-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DHCPRelaySpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName},
 					Servers:   []string{"192.168.1.1"},
@@ -1106,10 +1048,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 		It("Should re-reconcile DHCPRelay when Interface becomes configured (watch trigger)", func() {
 			By("Creating DHCPRelay referencing a non-configured Interface")
 			dhcprelay := &v1alpha1.DHCPRelay{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-dhcprelay-intfnr-watch-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-dhcprelay-intfnr-watch-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DHCPRelaySpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName},
 					Servers:   []string{"192.168.1.1"},
@@ -1135,10 +1075,8 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Creating the VRF to make the Interface configured")
 			vrf := &v1alpha1.VRF{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      nonExistentVrfName,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      nonExistentVrfName,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.VRFSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName},
 					Name:      "VRF-TEST",

@@ -19,10 +19,8 @@ var _ = Describe("IndexPool Controller", func() {
 
 	BeforeEach(func() {
 		pool = &poolv1alpha1.IndexPool{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "indexpool-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "indexpool-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IndexPoolSpec{
 				Ranges: []corev1alpha1.IndexRange{
 					corev1alpha1.MustParseIndexRange("1..10"),
@@ -69,10 +67,8 @@ var _ = Describe("IndexPool Controller", func() {
 		var createdIndices []*poolv1alpha1.Index
 		for i := 1; i <= 10; i++ {
 			idx := &poolv1alpha1.Index{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "idx-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "idx-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: poolv1alpha1.IndexSpec{
 					PoolRef: corev1alpha1.TypedLocalObjectReference{
 						APIVersion: poolv1alpha1.GroupVersion.String(),

@@ -89,8 +89,9 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, err
 	}
 
-	if isPaused, requeue, err := paused.EnsureCondition(ctx, r.Client, obj, obj); isPaused || requeue || err != nil {
-		return ctrl.Result{Requeue: requeue}, err
+	orig := obj.DeepCopy()
+	if isPaused, err := paused.EnsureCondition(ctx, r.Client, obj, obj); isPaused || err != nil {
+		return ctrl.Result{}, err
 	}
 
 	conn, err := deviceutil.GetDeviceConnection(ctx, r, obj)
@@ -98,7 +99,6 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, fmt.Errorf("failed to obtain device connection: %w", err)
 	}
 
-	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ReachableCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
@@ -574,10 +574,8 @@ func (r *DeviceReconciler) secretToDevices(ctx context.Context, obj client.Objec
 		}) {
 			log.V(2).Info("Enqueuing Device for reconciliation", "Device", klog.KObj(&dev))
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      dev.Name,
-					Namespace: dev.Namespace,
-				},
+				Name:      dev.Name,
+				Namespace: dev.Namespace,
 			})
 		}
 	}

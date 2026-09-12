@@ -15,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
@@ -106,8 +105,9 @@ func (r *EVPNInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
-	if isPaused, requeue, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || requeue || err != nil {
-		return ctrl.Result{Requeue: requeue}, err
+	orig := obj.DeepCopy()
+	if isPaused, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || err != nil {
+		return ctrl.Result{}, err
 	}
 
 	if err := r.Locker.AcquireLock(ctx, device.Name, "evpn-instance-controller"); err != nil {
@@ -173,7 +173,6 @@ func (r *EVPNInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
@@ -564,10 +563,8 @@ func (r *EVPNInstanceReconciler) deviceToEVPNInstances(ctx context.Context, obj 
 	for _, i := range list.Items {
 		log.V(2).Info("Enqueuing EVPNInstance for reconciliation", "EVPNInstance", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 
@@ -596,10 +593,8 @@ func (r *EVPNInstanceReconciler) vlanToEVPNInstance(ctx context.Context, obj cli
 			log.V(2).Info("Enqueuing EVPNInstance for reconciliation", "EVPNInstance", klog.KObj(&evi))
 
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      evi.Name,
-					Namespace: evi.Namespace,
-				},
+				Name:      evi.Name,
+				Namespace: evi.Namespace,
 			})
 		}
 	}
@@ -629,10 +624,8 @@ func (r *EVPNInstanceReconciler) vrfToEVPNInstance(ctx context.Context, obj clie
 			log.V(2).Info("Enqueuing EVPNInstance for reconciliation", "EVPNInstance", klog.KObj(&evi))
 
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      evi.Name,
-					Namespace: evi.Namespace,
-				},
+				Name:      evi.Name,
+				Namespace: evi.Namespace,
 			})
 		}
 	}
@@ -661,10 +654,8 @@ func (r *EVPNInstanceReconciler) evpnInstancesForProviderConfig(ctx context.Cont
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
 			log.V(2).Info("Enqueuing EVPNInstance for reconciliation", "EVPNInstance", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      m.Name,
-					Namespace: m.Namespace,
-				},
+				Name:      m.Name,
+				Namespace: m.Namespace,
 			})
 		}
 	}

@@ -26,10 +26,8 @@ var _ = Describe("VPCDomain Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &corev1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-vpcdomain-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-vpcdomain-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: corev1.DeviceSpec{
 					Endpoint: corev1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -42,7 +40,7 @@ var _ = Describe("VPCDomain Controller", func() {
 
 			By("Creating the custom resource for the Kind Interface (Physical)")
 			Expect(k8sClient.Create(ctx, &corev1.Interface{
-				ObjectMeta: metav1.ObjectMeta{Name: name + "-phys", Namespace: metav1.NamespaceDefault},
+				Name: name + "-phys", Namespace: metav1.NamespaceDefault,
 				Spec: corev1.InterfaceSpec{
 					DeviceRef:  corev1.LocalObjectReference{Name: name},
 					Name:       name + "-phys",
@@ -53,7 +51,7 @@ var _ = Describe("VPCDomain Controller", func() {
 
 			By("Creating the custom resource for the Kind Interface (Aggregate)")
 			Expect(k8sClient.Create(ctx, &corev1.Interface{
-				ObjectMeta: metav1.ObjectMeta{Name: name + "-po", Namespace: metav1.NamespaceDefault},
+				Name: name + "-po", Namespace: metav1.NamespaceDefault,
 				Spec: corev1.InterfaceSpec{
 					DeviceRef:  corev1.LocalObjectReference{Name: name},
 					Name:       name + "-po",
@@ -70,7 +68,7 @@ var _ = Describe("VPCDomain Controller", func() {
 
 			By("Creating the custom resource for the Kind VRF")
 			Expect(k8sClient.Create(ctx, &corev1.VRF{
-				ObjectMeta: metav1.ObjectMeta{Name: name + "-vrf", Namespace: metav1.NamespaceDefault},
+				Name: name + "-vrf", Namespace: metav1.NamespaceDefault,
 				Spec: corev1.VRFSpec{
 					DeviceRef: corev1.LocalObjectReference{Name: name},
 					Name:      name + "-vrf",
@@ -79,7 +77,7 @@ var _ = Describe("VPCDomain Controller", func() {
 
 			By("Creating the custom resource for the Kind VPCDomain")
 			Expect(k8sClient.Create(ctx, &nxv1.VPCDomain{
-				ObjectMeta: metav1.ObjectMeta{Name: name + "-vpc", Namespace: metav1.NamespaceDefault},
+				Name: name + "-vpc", Namespace: metav1.NamespaceDefault,
 				Spec: nxv1.VPCDomainSpec{
 					DeviceRef:       corev1.LocalObjectReference{Name: name},
 					AdminState:      "Up",
@@ -204,24 +202,22 @@ var _ = Describe("VPCDomain Controller", func() {
 		BeforeEach(func() {
 			By("Creating Device A")
 			deviceA := &corev1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "vpc-dep-",
-					Namespace:    metav1.NamespaceDefault,
-				},
-				Spec: corev1.DeviceSpec{Endpoint: corev1.Endpoint{Address: "192.168.10.2:9339"}},
+				GenerateName: "vpc-dep-",
+				Namespace:    metav1.NamespaceDefault,
+				Spec:         corev1.DeviceSpec{Endpoint: corev1.Endpoint{Address: "192.168.10.2:9339"}},
 			}
 			Expect(k8sClient.Create(ctx, deviceA)).To(Succeed())
 			name = deviceA.Name
 
 			By("Creating Device B")
 			Expect(k8sClient.Create(ctx, &corev1.Device{
-				ObjectMeta: metav1.ObjectMeta{Name: name + "-b", Namespace: metav1.NamespaceDefault},
-				Spec:       corev1.DeviceSpec{Endpoint: corev1.Endpoint{Address: "192.168.10.3:9339"}},
+				Name: name + "-b", Namespace: metav1.NamespaceDefault,
+				Spec: corev1.DeviceSpec{Endpoint: corev1.Endpoint{Address: "192.168.10.3:9339"}},
 			})).To(Succeed())
 
 			By("Creating physical interfaces on Device A and B")
 			Expect(k8sClient.Create(ctx, &corev1.Interface{
-				ObjectMeta: metav1.ObjectMeta{Name: name + "-phys-a", Namespace: metav1.NamespaceDefault},
+				Name: name + "-phys-a", Namespace: metav1.NamespaceDefault,
 				Spec: corev1.InterfaceSpec{
 					DeviceRef:  corev1.LocalObjectReference{Name: name},
 					Name:       name + "-phys-a",
@@ -230,7 +226,7 @@ var _ = Describe("VPCDomain Controller", func() {
 				},
 			})).To(Succeed())
 			Expect(k8sClient.Create(ctx, &corev1.Interface{
-				ObjectMeta: metav1.ObjectMeta{Name: name + "-phys-b", Namespace: metav1.NamespaceDefault},
+				Name: name + "-phys-b", Namespace: metav1.NamespaceDefault,
 				Spec: corev1.InterfaceSpec{
 					DeviceRef:  corev1.LocalObjectReference{Name: name + "-b"},
 					Name:       name + "-phys-b",
@@ -241,7 +237,7 @@ var _ = Describe("VPCDomain Controller", func() {
 
 			By("Creating aggregate interfaces on Device A and B")
 			Expect(k8sClient.Create(ctx, &corev1.Interface{
-				ObjectMeta: metav1.ObjectMeta{Name: name + "-po-a", Namespace: metav1.NamespaceDefault},
+				Name: name + "-po-a", Namespace: metav1.NamespaceDefault,
 				Spec: corev1.InterfaceSpec{
 					DeviceRef:  corev1.LocalObjectReference{Name: name},
 					Name:       name + "-po-a",
@@ -254,7 +250,7 @@ var _ = Describe("VPCDomain Controller", func() {
 				},
 			})).To(Succeed())
 			Expect(k8sClient.Create(ctx, &corev1.Interface{
-				ObjectMeta: metav1.ObjectMeta{Name: name + "-po-b", Namespace: metav1.NamespaceDefault},
+				Name: name + "-po-b", Namespace: metav1.NamespaceDefault,
 				Spec: corev1.InterfaceSpec{
 					DeviceRef:  corev1.LocalObjectReference{Name: name + "-b"},
 					Name:       name + "-po-b",
@@ -269,7 +265,7 @@ var _ = Describe("VPCDomain Controller", func() {
 
 			By("Creating a loopback interface on Device A")
 			Expect(k8sClient.Create(ctx, &corev1.Interface{
-				ObjectMeta: metav1.ObjectMeta{Name: name + "-lo0", Namespace: metav1.NamespaceDefault},
+				Name: name + "-lo0", Namespace: metav1.NamespaceDefault,
 				Spec: corev1.InterfaceSpec{
 					DeviceRef:  corev1.LocalObjectReference{Name: name},
 					Name:       name + "-lo0",
@@ -280,12 +276,12 @@ var _ = Describe("VPCDomain Controller", func() {
 
 			By("Creating VRFs on Device A and B")
 			Expect(k8sClient.Create(ctx, &corev1.VRF{
-				ObjectMeta: metav1.ObjectMeta{Name: name + "-vrf-a", Namespace: metav1.NamespaceDefault},
-				Spec:       corev1.VRFSpec{DeviceRef: corev1.LocalObjectReference{Name: name}, Name: name + "-vrf-a"},
+				Name: name + "-vrf-a", Namespace: metav1.NamespaceDefault,
+				Spec: corev1.VRFSpec{DeviceRef: corev1.LocalObjectReference{Name: name}, Name: name + "-vrf-a"},
 			})).To(Succeed())
 			Expect(k8sClient.Create(ctx, &corev1.VRF{
-				ObjectMeta: metav1.ObjectMeta{Name: name + "-vrf-b", Namespace: metav1.NamespaceDefault},
-				Spec:       corev1.VRFSpec{DeviceRef: corev1.LocalObjectReference{Name: name + "-b"}, Name: name + "-vrf-b"},
+				Name: name + "-vrf-b", Namespace: metav1.NamespaceDefault,
+				Spec: corev1.VRFSpec{DeviceRef: corev1.LocalObjectReference{Name: name + "-b"}, Name: name + "-vrf-b"},
 			})).To(Succeed())
 		})
 
@@ -316,13 +312,13 @@ var _ = Describe("VPCDomain Controller", func() {
 			}).Should(Succeed())
 
 			By("Cleanup Device A and B")
-			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &corev1.Device{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault}}))).To(Succeed())
-			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &corev1.Device{ObjectMeta: metav1.ObjectMeta{Name: name + "-b", Namespace: metav1.NamespaceDefault}}))).To(Succeed())
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &corev1.Device{Name: name, Namespace: metav1.NamespaceDefault}))).To(Succeed())
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &corev1.Device{Name: name + "-b", Namespace: metav1.NamespaceDefault}))).To(Succeed())
 		})
 
 		It("reports WaitingForDependencies when peer-link interface is missing", func() {
 			vpc := &nxv1.VPCDomain{
-				ObjectMeta: metav1.ObjectMeta{GenerateName: "vpc-dep-", Namespace: metav1.NamespaceDefault},
+				GenerateName: "vpc-dep-", Namespace: metav1.NamespaceDefault,
 				Spec: nxv1.VPCDomainSpec{
 					DeviceRef:       corev1.LocalObjectReference{Name: name},
 					AdminState:      "Up",
@@ -366,7 +362,7 @@ var _ = Describe("VPCDomain Controller", func() {
 
 		It("reports InvalidInterfaceType when peer-link reference is not aggregate or physical", func() {
 			vpc := &nxv1.VPCDomain{
-				ObjectMeta: metav1.ObjectMeta{GenerateName: "vpc-dep-", Namespace: metav1.NamespaceDefault},
+				GenerateName: "vpc-dep-", Namespace: metav1.NamespaceDefault,
 				Spec: nxv1.VPCDomainSpec{
 					DeviceRef:       corev1.LocalObjectReference{Name: name},
 					AdminState:      "Up",
@@ -410,7 +406,7 @@ var _ = Describe("VPCDomain Controller", func() {
 
 		It("reports CrossDeviceReference when peer-link deviceRef mismatches VPCDomain deviceRef", func() {
 			vpc := &nxv1.VPCDomain{
-				ObjectMeta: metav1.ObjectMeta{GenerateName: "vpc-dep-", Namespace: metav1.NamespaceDefault},
+				GenerateName: "vpc-dep-", Namespace: metav1.NamespaceDefault,
 				Spec: nxv1.VPCDomainSpec{
 					DeviceRef:       corev1.LocalObjectReference{Name: name},
 					AdminState:      "Up",
@@ -454,7 +450,7 @@ var _ = Describe("VPCDomain Controller", func() {
 
 		It("reports WaitingForDependencies when KeepAlive VRF is missing", func() {
 			vpc := &nxv1.VPCDomain{
-				ObjectMeta: metav1.ObjectMeta{GenerateName: "vpc-dep-", Namespace: metav1.NamespaceDefault},
+				GenerateName: "vpc-dep-", Namespace: metav1.NamespaceDefault,
 				Spec: nxv1.VPCDomainSpec{
 					DeviceRef:       corev1.LocalObjectReference{Name: name},
 					AdminState:      "Up",
@@ -498,7 +494,7 @@ var _ = Describe("VPCDomain Controller", func() {
 
 		It("reports CrossDeviceReference when KeepAlive VRF deviceRef mismatches VPCDomain deviceRef", func() {
 			vpc := &nxv1.VPCDomain{
-				ObjectMeta: metav1.ObjectMeta{GenerateName: "vpc-dep-", Namespace: metav1.NamespaceDefault},
+				GenerateName: "vpc-dep-", Namespace: metav1.NamespaceDefault,
 				Spec: nxv1.VPCDomainSpec{
 					DeviceRef:       corev1.LocalObjectReference{Name: name},
 					AdminState:      "Up",

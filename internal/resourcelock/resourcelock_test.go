@@ -124,10 +124,8 @@ func TestAcquireLock_AlreadyOwned(t *testing.T) {
 	now := metav1.NewMicroTime(time.Now())
 	leaseDuration := int32(15)
 	lease := &coordinationv1.Lease{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      leaseName,
-			Namespace: metav1.NamespaceDefault,
-		},
+		Name:      leaseName,
+		Namespace: metav1.NamespaceDefault,
 		Spec: coordinationv1.LeaseSpec{
 			HolderIdentity:       &lockerID,
 			LeaseDurationSeconds: &leaseDuration,
@@ -160,10 +158,8 @@ func TestAcquireLock_HeldByAnother(t *testing.T) {
 	now := metav1.NewMicroTime(time.Now())
 	leaseDuration := int32(15)
 	lease := &coordinationv1.Lease{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      leaseName,
-			Namespace: metav1.NamespaceDefault,
-		},
+		Name:      leaseName,
+		Namespace: metav1.NamespaceDefault,
 		Spec: coordinationv1.LeaseSpec{
 			HolderIdentity:       &lockerID1,
 			LeaseDurationSeconds: &leaseDuration,
@@ -197,10 +193,8 @@ func TestAcquireLock_ClaimExpired(t *testing.T) {
 	expiredTime := metav1.NewMicroTime(time.Now().Add(-20 * time.Second))
 	leaseDuration := int32(15)
 	existingLease := &coordinationv1.Lease{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      leaseName,
-			Namespace: metav1.NamespaceDefault,
-		},
+		Name:      leaseName,
+		Namespace: metav1.NamespaceDefault,
 		Spec: coordinationv1.LeaseSpec{
 			HolderIdentity:       &lockerID1,
 			LeaseDurationSeconds: &leaseDuration,
@@ -243,10 +237,8 @@ func TestReleaseLock(t *testing.T) {
 	now := metav1.NewMicroTime(time.Now())
 	leaseDuration := int32(15)
 	existingLease := &coordinationv1.Lease{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      leaseName,
-			Namespace: metav1.NamespaceDefault,
-		},
+		Name:      leaseName,
+		Namespace: metav1.NamespaceDefault,
 		Spec: coordinationv1.LeaseSpec{
 			HolderIdentity:       &lockerID,
 			LeaseDurationSeconds: &leaseDuration,
@@ -286,10 +278,8 @@ func TestReleaseLock_NotOwned(t *testing.T) {
 	now := metav1.NewMicroTime(time.Now())
 	leaseDuration := int32(15)
 	existingLease := &coordinationv1.Lease{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      leaseName,
-			Namespace: metav1.NamespaceDefault,
-		},
+		Name:      leaseName,
+		Namespace: metav1.NamespaceDefault,
 		Spec: coordinationv1.LeaseSpec{
 			HolderIdentity:       &lockerID1,
 			LeaseDurationSeconds: &leaseDuration,
@@ -346,10 +336,8 @@ func TestRenewLease(t *testing.T) {
 	oldTime := metav1.NewMicroTime(time.Now().Add(-10 * time.Second))
 	leaseDuration := int32(15)
 	existingLease := &coordinationv1.Lease{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      leaseName,
-			Namespace: metav1.NamespaceDefault,
-		},
+		Name:      leaseName,
+		Namespace: metav1.NamespaceDefault,
 		Spec: coordinationv1.LeaseSpec{
 			HolderIdentity:       &lockerID,
 			LeaseDurationSeconds: &leaseDuration,
@@ -399,10 +387,8 @@ func TestRenewLease_NotOwned(t *testing.T) {
 	now := metav1.NewMicroTime(time.Now())
 	leaseDuration := int32(15)
 	existingLease := &coordinationv1.Lease{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      leaseName,
-			Namespace: metav1.NamespaceDefault,
-		},
+		Name:      leaseName,
+		Namespace: metav1.NamespaceDefault,
 		Spec: coordinationv1.LeaseSpec{
 			HolderIdentity:       &lockerID1,
 			LeaseDurationSeconds: &leaseDuration,
@@ -433,10 +419,8 @@ func TestReleaseLock_CancelsRenewalGoroutine(t *testing.T) {
 
 	leaseDuration := int32(15)
 	existingLease := &coordinationv1.Lease{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      leaseName,
-			Namespace: metav1.NamespaceDefault,
-		},
+		Name:      leaseName,
+		Namespace: metav1.NamespaceDefault,
 		Spec: coordinationv1.LeaseSpec{
 			HolderIdentity:       &lockerID,
 			LeaseDurationSeconds: &leaseDuration,

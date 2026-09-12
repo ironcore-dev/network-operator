@@ -117,8 +117,9 @@ func (r *BGPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 		return ctrl.Result{}, err
 	}
 
-	if isPaused, requeue, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || requeue || err != nil {
-		return ctrl.Result{Requeue: requeue}, err
+	orig := obj.DeepCopy()
+	if isPaused, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || err != nil {
+		return ctrl.Result{}, err
 	}
 
 	if err := r.Locker.AcquireLock(ctx, device.Name, "bgp-controller"); err != nil {
@@ -184,7 +185,6 @@ func (r *BGPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 		return ctrl.Result{}, nil
 	}
 
-	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
@@ -546,10 +546,8 @@ func (r *BGPReconciler) deviceToBGPs(ctx context.Context, obj client.Object) []c
 	for _, i := range list.Items {
 		log.V(2).Info("Enqueuing BGP for reconciliation", "BGP", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 
@@ -577,10 +575,8 @@ func (r *BGPReconciler) bgpForProviderConfig(ctx context.Context, obj client.Obj
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
 			log.V(2).Info("Enqueuing BGP for reconciliation", "BGP", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      m.Name,
-					Namespace: m.Namespace,
-				},
+				Name:      m.Name,
+				Namespace: m.Namespace,
 			})
 		}
 	}
@@ -612,10 +608,8 @@ func (r *BGPReconciler) vrfToBGPs(ctx context.Context, obj client.Object) []ctrl
 	for _, b := range list.Items {
 		log.V(2).Info("Enqueuing BGP for reconciliation", "BGP", klog.KObj(&b))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      b.Name,
-				Namespace: b.Namespace,
-			},
+			Name:      b.Name,
+			Namespace: b.Namespace,
 		})
 	}
 	return requests
@@ -645,10 +639,8 @@ func (r *BGPReconciler) routingPolicyToBGPs(ctx context.Context, obj client.Obje
 	for _, b := range list.Items {
 		log.V(2).Info("Enqueuing BGP for reconciliation", "BGP", klog.KObj(&b))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      b.Name,
-				Namespace: b.Namespace,
-			},
+			Name:      b.Name,
+			Namespace: b.Namespace,
 		})
 	}
 	return requests

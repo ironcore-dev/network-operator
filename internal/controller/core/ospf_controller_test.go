@@ -27,10 +27,8 @@ var _ = Describe("OSPF Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-ospf-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-ospf-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -43,10 +41,8 @@ var _ = Describe("OSPF Controller", func() {
 
 			By("Creating the custom resource for the Kind OSPF")
 			resource := &v1alpha1.OSPF{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.OSPFSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Instance:  "UNDERLAY",
@@ -129,15 +125,15 @@ var _ = Describe("OSPF Controller", func() {
 
 		BeforeEach(func() {
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{GenerateName: "test-ospf-l2-intf-", Namespace: metav1.NamespaceDefault},
-				Spec:       v1alpha1.DeviceSpec{Endpoint: v1alpha1.Endpoint{Address: "192.168.10.4:9339"}},
+				GenerateName: "test-ospf-l2-intf-", Namespace: metav1.NamespaceDefault,
+				Spec: v1alpha1.DeviceSpec{Endpoint: v1alpha1.Endpoint{Address: "192.168.10.4:9339"}},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
 			name = device.Name
 			key = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 
 			intf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault},
+				Name: name, Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       "eth1",
@@ -153,14 +149,14 @@ var _ = Describe("OSPF Controller", func() {
 			}).Should(Succeed())
 
 			ospf := &v1alpha1.OSPF{
-				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault},
+				Name: name, Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.OSPFSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Instance:  "UNDERLAY",
 					RouterID:  "10.0.0.10",
 					InterfaceRefs: []v1alpha1.OSPFInterface{{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: name},
-						Area:                 "0.0.0.0",
+						Name: name,
+						Area: "0.0.0.0",
 					}},
 				},
 			}
@@ -168,9 +164,9 @@ var _ = Describe("OSPF Controller", func() {
 		})
 
 		AfterEach(func() {
-			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &v1alpha1.OSPF{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault}}))).To(Succeed())
-			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &v1alpha1.Interface{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault}}))).To(Succeed())
-			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &v1alpha1.Device{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault}}))).To(Succeed())
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &v1alpha1.OSPF{Name: name, Namespace: metav1.NamespaceDefault}))).To(Succeed())
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &v1alpha1.Interface{Name: name, Namespace: metav1.NamespaceDefault}))).To(Succeed())
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &v1alpha1.Device{Name: name, Namespace: metav1.NamespaceDefault}))).To(Succeed())
 		})
 
 		It("Should recover after IPv4 configuration is added", func() {
@@ -211,10 +207,8 @@ var _ = Describe("OSPF Controller", func() {
 		BeforeEach(func() {
 			By("Creating the Device resource")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-ospf-missing-intf-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-ospf-missing-intf-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.3:9339",
@@ -243,18 +237,16 @@ var _ = Describe("OSPF Controller", func() {
 		It("Should set ConfiguredCondition to false when interfaceRef does not exist", func() {
 			By("Creating an OSPF resource with a non-existent interfaceRef")
 			ospf := &v1alpha1.OSPF{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.OSPFSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Instance:  "UNDERLAY",
 					RouterID:  "10.0.0.10",
 					InterfaceRefs: []v1alpha1.OSPFInterface{
 						{
-							LocalObjectReference: v1alpha1.LocalObjectReference{Name: "non-existing-interface"},
-							Area:                 "0.0.0.0",
+							Name: "non-existing-interface",
+							Area: "0.0.0.0",
 						},
 					},
 				},

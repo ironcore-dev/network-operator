@@ -10,7 +10,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -111,10 +110,8 @@ func (r *IPPrefixPoolReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&poolv1alpha1.IPPrefix{},
 			handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
 				return []reconcile.Request{{
-					NamespacedName: types.NamespacedName{
-						Name:      obj.(*poolv1alpha1.IPPrefix).Spec.PoolRef.Name,
-						Namespace: obj.GetNamespace(),
-					},
+					Name:      obj.(*poolv1alpha1.IPPrefix).Spec.PoolRef.Name,
+					Namespace: obj.GetNamespace(),
 				}}
 			}),
 			builder.WithPredicates(predicate.Funcs{

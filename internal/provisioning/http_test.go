@@ -31,12 +31,10 @@ import (
 
 var (
 	testDevice = &v1alpha1.Device{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-device",
-			Namespace: "default",
-			Labels: map[string]string{
-				v1alpha1.DeviceSerialLabel: "ABC123",
-			},
+		Name:      "test-device",
+		Namespace: "default",
+		Labels: map[string]string{
+			v1alpha1.DeviceSerialLabel: "ABC123",
 		},
 		Spec: v1alpha1.DeviceSpec{
 			Endpoint: v1alpha1.Endpoint{
@@ -63,11 +61,9 @@ var (
 	}
 
 	testSecret = &corev1.Secret{
-		Type: corev1.SecretTypeBasicAuth,
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-device-connection",
-			Namespace: "default",
-		},
+		Type:      corev1.SecretTypeBasicAuth,
+		Name:      "test-device-connection",
+		Namespace: "default",
 		Data: map[string][]byte{
 			"username": []byte("admin"),
 			"password": []byte("secret123"),
@@ -250,12 +246,10 @@ func TestHandleStatusReport(t *testing.T) {
 			serial:        "ABC123",
 			body:          StatusReport{Status: v1alpha1.ProvisioningScriptExecutionStarted},
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
-				},
-				Status: v1alpha1.DeviceStatus{SerialNumber: "ABC123"},
+				Name:      "test-device",
+				Namespace: "default",
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
+				Status:    v1alpha1.DeviceStatus{SerialNumber: "ABC123"},
 			},
 			expectedStatus: http.StatusPreconditionFailed,
 			expectedBody:   "no active provisioning found",
@@ -267,11 +261,9 @@ func TestHandleStatusReport(t *testing.T) {
 			serial:        "ABC123",
 			body:          StatusReport{Status: v1alpha1.ProvisioningDownloadingImage},
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
-				},
+				Name:      "test-device",
+				Namespace: "default",
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Status: v1alpha1.DeviceStatus{
 					SerialNumber: "ABC123",
 					Provisioning: []v1alpha1.ProvisioningInfo{{Token: "correcttoken", StartTime: metav1.Now()}},
@@ -287,11 +279,9 @@ func TestHandleStatusReport(t *testing.T) {
 			serial:        "ABC123",
 			body:          StatusReport{Status: v1alpha1.ProvisioningRebootingDevice, Detail: "Device is rebooting"},
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
-				},
+				Name:      "test-device",
+				Namespace: "default",
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Status: v1alpha1.DeviceStatus{
 					SerialNumber: "ABC123",
 					Provisioning: []v1alpha1.ProvisioningInfo{{Token: "validtoken", StartTime: metav1.Now()}},
@@ -311,11 +301,9 @@ func TestHandleStatusReport(t *testing.T) {
 			serial:        "ABC123",
 			body:          StatusReport{Status: v1alpha1.ProvisioningScriptExecutionFailed, Detail: "Script execution failed"},
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
-				},
+				Name:      "test-device",
+				Namespace: "default",
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Status: v1alpha1.DeviceStatus{
 					SerialNumber: "ABC123",
 					Provisioning: []v1alpha1.ProvisioningInfo{{Token: "validtoken", StartTime: metav1.Now()}},
@@ -412,11 +400,9 @@ func TestHandleProvisioningRequest(t *testing.T) {
 			serial:     "ABC123",
 			remoteAddr: "192.168.1.100:12345",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
-				},
+				Name:      "test-device",
+				Namespace: "default",
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: "192.168.1.200:22"},
 				},
@@ -431,11 +417,9 @@ func TestHandleProvisioningRequest(t *testing.T) {
 			serial:     "ABC123",
 			remoteAddr: "192.168.1.100:12345",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
-				},
+				Name:      "test-device",
+				Namespace: "default",
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.1.100:22",
@@ -447,11 +431,9 @@ func TestHandleProvisioningRequest(t *testing.T) {
 				Status: v1alpha1.DeviceStatus{SerialNumber: "ABC123", Phase: v1alpha1.DevicePhaseRunning},
 			},
 			secret: &corev1.Secret{
-				Type: corev1.SecretTypeBasicAuth,
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-secret",
-					Namespace: "default",
-				},
+				Type:      corev1.SecretTypeBasicAuth,
+				Name:      "test-secret",
+				Namespace: "default",
 				Data: map[string][]byte{
 					"username": []byte("admin"),
 					"password": []byte("secret"),
@@ -577,12 +559,10 @@ func TestGetDeviceCertificate(t *testing.T) {
 			serial:        "ABC123",
 			authorization: "Bearer validtoken",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
-				},
-				Status: v1alpha1.DeviceStatus{SerialNumber: "ABC123"},
+				Name:      "test-device",
+				Namespace: "default",
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
+				Status:    v1alpha1.DeviceStatus{SerialNumber: "ABC123"},
 			},
 			expectedStatus: http.StatusPreconditionFailed,
 			expectedBody:   "no active provisioning found",
@@ -593,11 +573,9 @@ func TestGetDeviceCertificate(t *testing.T) {
 			serial:        "ABC123",
 			authorization: "Bearer wrongtoken",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
-				},
+				Name:      "test-device",
+				Namespace: "default",
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Status: v1alpha1.DeviceStatus{
 					SerialNumber: "ABC123",
 					Provisioning: []v1alpha1.ProvisioningInfo{{Token: "validtoken", StartTime: metav1.Now()}},
@@ -612,11 +590,9 @@ func TestGetDeviceCertificate(t *testing.T) {
 			serial:        "ABC123",
 			authorization: "Bearer validtoken",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
-				},
+				Name:      "test-device",
+				Namespace: "default",
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Status: v1alpha1.DeviceStatus{
 					SerialNumber: "ABC123",
 					Provisioning: []v1alpha1.ProvisioningInfo{{Token: "validtoken", StartTime: metav1.Now()}},
@@ -631,11 +607,9 @@ func TestGetDeviceCertificate(t *testing.T) {
 			serial:        "ABC123",
 			authorization: "Bearer validtoken",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
-				},
+				Name:      "test-device",
+				Namespace: "default",
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Status: v1alpha1.DeviceStatus{
 					SerialNumber: "ABC123",
 					Provisioning: []v1alpha1.ProvisioningInfo{{Token: "validtoken", StartTime: metav1.Now()}},
@@ -643,22 +617,18 @@ func TestGetDeviceCertificate(t *testing.T) {
 			},
 			certificates: []*v1alpha1.Certificate{
 				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-device-cert-1",
-						Namespace: "default",
-						Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
-					},
+					Name:      "test-device-cert-1",
+					Namespace: "default",
+					Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
 					Spec: v1alpha1.CertificateSpec{
 						DeviceRef: v1alpha1.LocalObjectReference{Name: "test-device"},
 						SecretRef: v1alpha1.SecretReference{Name: "test-device-cert-secret-1"},
 					},
 				},
 				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-device-cert-2",
-						Namespace: "default",
-						Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
-					},
+					Name:      "test-device-cert-2",
+					Namespace: "default",
+					Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
 					Spec: v1alpha1.CertificateSpec{
 						DeviceRef: v1alpha1.LocalObjectReference{Name: "test-device"},
 						SecretRef: v1alpha1.SecretReference{Name: "test-device-cert-secret-2"},
@@ -674,11 +644,9 @@ func TestGetDeviceCertificate(t *testing.T) {
 			serial:        "ABC123",
 			authorization: "Bearer validtoken",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
-				},
+				Name:      "test-device",
+				Namespace: "default",
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Status: v1alpha1.DeviceStatus{
 					SerialNumber: "ABC123",
 					Provisioning: []v1alpha1.ProvisioningInfo{{Token: "validtoken", StartTime: metav1.Now()}},
@@ -686,11 +654,9 @@ func TestGetDeviceCertificate(t *testing.T) {
 			},
 			certificates: []*v1alpha1.Certificate{
 				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-device-cert",
-						Namespace: "default",
-						Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
-					},
+					Name:      "test-device-cert",
+					Namespace: "default",
+					Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
 					Spec: v1alpha1.CertificateSpec{
 						DeviceRef: v1alpha1.LocalObjectReference{Name: "test-device"},
 						SecretRef: v1alpha1.SecretReference{Name: "nonexistent-secret"},
@@ -706,11 +672,9 @@ func TestGetDeviceCertificate(t *testing.T) {
 			serial:        "ABC123",
 			authorization: "Bearer validtoken",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
-				},
+				Name:      "test-device",
+				Namespace: "default",
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Status: v1alpha1.DeviceStatus{
 					SerialNumber: "ABC123",
 					Provisioning: []v1alpha1.ProvisioningInfo{{Token: "validtoken", StartTime: metav1.Now()}},
@@ -718,11 +682,9 @@ func TestGetDeviceCertificate(t *testing.T) {
 			},
 			certificates: []*v1alpha1.Certificate{
 				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-device-cert",
-						Namespace: "default",
-						Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
-					},
+					Name:      "test-device-cert",
+					Namespace: "default",
+					Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
 					Spec: v1alpha1.CertificateSpec{
 						DeviceRef: v1alpha1.LocalObjectReference{Name: "test-device"},
 						SecretRef: v1alpha1.SecretReference{Name: "test-device-cert-secret"},
@@ -731,11 +693,9 @@ func TestGetDeviceCertificate(t *testing.T) {
 			},
 			certSecrets: []*corev1.Secret{
 				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-device-cert-secret",
-						Namespace: "default",
-					},
-					Type: corev1.SecretTypeTLS,
+					Name:      "test-device-cert-secret",
+					Namespace: "default",
+					Type:      corev1.SecretTypeTLS,
 					Data: map[string][]byte{
 						"tls.crt": []byte("-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----"),
 					},
@@ -750,11 +710,9 @@ func TestGetDeviceCertificate(t *testing.T) {
 			serial:        "ABC123",
 			authorization: "Bearer validtoken",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
-				},
+				Name:      "test-device",
+				Namespace: "default",
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Status: v1alpha1.DeviceStatus{
 					SerialNumber: "ABC123",
 					Provisioning: []v1alpha1.ProvisioningInfo{{Token: "validtoken", StartTime: metav1.Now()}},
@@ -762,11 +720,9 @@ func TestGetDeviceCertificate(t *testing.T) {
 			},
 			certificates: []*v1alpha1.Certificate{
 				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-device-cert",
-						Namespace: "default",
-						Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
-					},
+					Name:      "test-device-cert",
+					Namespace: "default",
+					Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
 					Spec: v1alpha1.CertificateSpec{
 						DeviceRef: v1alpha1.LocalObjectReference{Name: "test-device"},
 						SecretRef: v1alpha1.SecretReference{Name: "test-device-cert-secret"},
@@ -775,11 +731,9 @@ func TestGetDeviceCertificate(t *testing.T) {
 			},
 			certSecrets: []*corev1.Secret{
 				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-device-cert-secret",
-						Namespace: "default",
-					},
-					Type: corev1.SecretTypeTLS,
+					Name:      "test-device-cert-secret",
+					Namespace: "default",
+					Type:      corev1.SecretTypeTLS,
 					Data: map[string][]byte{
 						"tls.crt": []byte("-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----"),
 						"tls.key": []byte("-----BEGIN PRIVATE KEY-----\ntest-key\n-----END PRIVATE KEY-----"),
@@ -800,11 +754,9 @@ func TestGetDeviceCertificate(t *testing.T) {
 			serial:        "ABC123",
 			authorization: "Bearer validtoken",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
-				},
+				Name:      "test-device",
+				Namespace: "default",
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Status: v1alpha1.DeviceStatus{
 					SerialNumber: "ABC123",
 					Provisioning: []v1alpha1.ProvisioningInfo{{Token: "validtoken", StartTime: metav1.Now()}},
@@ -812,11 +764,9 @@ func TestGetDeviceCertificate(t *testing.T) {
 			},
 			certificates: []*v1alpha1.Certificate{
 				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-device-cert",
-						Namespace: "default",
-						Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
-					},
+					Name:      "test-device-cert",
+					Namespace: "default",
+					Labels:    map[string]string{v1alpha1.DeviceLabel: "test-device"},
 					Spec: v1alpha1.CertificateSpec{
 						DeviceRef: v1alpha1.LocalObjectReference{Name: "test-device"},
 						SecretRef: v1alpha1.SecretReference{Name: "test-device-cert-secret"},
@@ -825,11 +775,9 @@ func TestGetDeviceCertificate(t *testing.T) {
 			},
 			certSecrets: []*corev1.Secret{
 				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-device-cert-secret",
-						Namespace: "default",
-					},
-					Type: corev1.SecretTypeTLS,
+					Name:      "test-device-cert-secret",
+					Namespace: "default",
+					Type:      corev1.SecretTypeTLS,
 					Data: map[string][]byte{
 						"tls.crt": []byte("-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----"),
 						"tls.key": []byte("-----BEGIN PRIVATE KEY-----\ntest-key\n-----END PRIVATE KEY-----"),
@@ -945,12 +893,10 @@ func TestGetMTLSClientCA(t *testing.T) {
 			serial:        "ABC123",
 			authorization: "Bearer validtoken",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
-				},
-				Status: v1alpha1.DeviceStatus{SerialNumber: "ABC123"},
+				Name:      "test-device",
+				Namespace: "default",
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
+				Status:    v1alpha1.DeviceStatus{SerialNumber: "ABC123"},
 			},
 			expectedStatus: http.StatusPreconditionFailed,
 			expectedBody:   "no active provisioning found",
@@ -961,11 +907,9 @@ func TestGetMTLSClientCA(t *testing.T) {
 			serial:        "ABC123",
 			authorization: "Bearer wrongtoken",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
-				},
+				Name:      "test-device",
+				Namespace: "default",
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Status: v1alpha1.DeviceStatus{
 					SerialNumber: "ABC123",
 					Provisioning: []v1alpha1.ProvisioningInfo{{Token: "validtoken", StartTime: metav1.Now()}},
@@ -980,11 +924,9 @@ func TestGetMTLSClientCA(t *testing.T) {
 			serial:        "ABC123",
 			authorization: "Bearer validtoken",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
-				},
+				Name:      "test-device",
+				Namespace: "default",
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.1.100:22",
@@ -1004,11 +946,9 @@ func TestGetMTLSClientCA(t *testing.T) {
 			serial:        "ABC123",
 			authorization: "Bearer validtoken",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
-				},
+				Name:      "test-device",
+				Namespace: "default",
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.1.100:22",
@@ -1036,11 +976,9 @@ func TestGetMTLSClientCA(t *testing.T) {
 			serial:        "ABC123",
 			authorization: "Bearer validtoken",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
-				},
+				Name:      "test-device",
+				Namespace: "default",
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.1.100:22",
@@ -1067,11 +1005,9 @@ func TestGetMTLSClientCA(t *testing.T) {
 			serial:        "ABC123",
 			authorization: "Bearer validtoken",
 			device: &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-device",
-					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
-				},
+				Name:      "test-device",
+				Namespace: "default",
+				Labels:    map[string]string{v1alpha1.DeviceSerialLabel: "ABC123"},
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.1.100:22",
@@ -1090,11 +1026,9 @@ func TestGetMTLSClientCA(t *testing.T) {
 				},
 			},
 			caSecret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "operator-ca-secret",
-					Namespace: "default",
-				},
-				Type: corev1.SecretTypeTLS,
+				Name:      "operator-ca-secret",
+				Namespace: "default",
+				Type:      corev1.SecretTypeTLS,
 				Data: map[string][]byte{
 					"tls.crt": []byte("placeholder"),
 					"tls.key": []byte("placeholder"),

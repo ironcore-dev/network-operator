@@ -32,10 +32,8 @@ func TestSecret(t *testing.T) {
 		{
 			name: "valid secret",
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-secret",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-secret",
+				Namespace: metav1.NamespaceDefault,
 				Data: map[string][]byte{
 					"foobar": []byte("baz"),
 				},
@@ -44,10 +42,8 @@ func TestSecret(t *testing.T) {
 		{
 			name: "valid stringData secret",
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-secret",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-secret",
+				Namespace: metav1.NamespaceDefault,
 				StringData: map[string]string{
 					"foobar": "baz",
 				},
@@ -56,10 +52,8 @@ func TestSecret(t *testing.T) {
 		{
 			name: "missing field",
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-secret",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-secret",
+				Namespace: metav1.NamespaceDefault,
 				Data: map[string][]byte{
 					"some-other-key": []byte("unknown"),
 				},
@@ -79,10 +73,8 @@ func TestSecret(t *testing.T) {
 			c := NewClient(client, metav1.NamespaceDefault)
 
 			v, err := c.Secret(t.Context(), &v1alpha1.SecretKeySelector{
-				SecretReference: v1alpha1.SecretReference{
-					Name: "test-secret",
-				},
-				Key: "foobar",
+				Name: "test-secret",
+				Key:  "foobar",
 			})
 			if test.wantErr {
 				g.Expect(err).To(HaveOccurred())
@@ -104,10 +96,8 @@ func TestConfigMap(t *testing.T) {
 		{
 			name: "valid configmap reference",
 			cm: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-configmap",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-configmap",
+				Namespace: metav1.NamespaceDefault,
 				Data: map[string]string{
 					"foobar": "baz",
 				},
@@ -116,10 +106,8 @@ func TestConfigMap(t *testing.T) {
 		{
 			name: "valid binaryData configmap reference",
 			cm: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-configmap",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-configmap",
+				Namespace: metav1.NamespaceDefault,
 				BinaryData: map[string][]byte{
 					"foobar": []byte("baz"),
 				},
@@ -128,10 +116,8 @@ func TestConfigMap(t *testing.T) {
 		{
 			name: "missing field",
 			cm: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-configmap",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-configmap",
+				Namespace: metav1.NamespaceDefault,
 				Data: map[string]string{
 					"some-other-key": "unknown",
 				},
@@ -151,10 +137,8 @@ func TestConfigMap(t *testing.T) {
 			c := NewClient(client, metav1.NamespaceDefault)
 
 			v, err := c.ConfigMap(t.Context(), &v1alpha1.ConfigMapKeySelector{
-				ConfigMapReference: v1alpha1.ConfigMapReference{
-					Name: "test-configmap",
-				},
-				Key: "foobar",
+				Name: "test-configmap",
+				Key:  "foobar",
 			})
 			if test.wantErr {
 				g.Expect(err).To(HaveOccurred())
@@ -176,10 +160,8 @@ func TestBasicAuth(t *testing.T) {
 		{
 			name: "valid secret",
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-secret",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-secret",
+				Namespace: metav1.NamespaceDefault,
 				Data: map[string][]byte{
 					"username": []byte("testuser"),
 					"password": []byte("testpass"),
@@ -190,10 +172,8 @@ func TestBasicAuth(t *testing.T) {
 		{
 			name: "invalid type",
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-secret",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-secret",
+				Namespace: metav1.NamespaceDefault,
 				Data: map[string][]byte{
 					"username": []byte("testuser"),
 					"password": []byte("testpass"),
@@ -205,10 +185,8 @@ func TestBasicAuth(t *testing.T) {
 		{
 			name: "missing username",
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-secret",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-secret",
+				Namespace: metav1.NamespaceDefault,
 				Data: map[string][]byte{
 					"password": []byte("testpass"),
 				},
@@ -219,10 +197,8 @@ func TestBasicAuth(t *testing.T) {
 		{
 			name: "missing password",
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-secret",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-secret",
+				Namespace: metav1.NamespaceDefault,
 				Data: map[string][]byte{
 					"username": []byte("testuser"),
 				},
@@ -294,10 +270,8 @@ func TestTLSSecretPEM(t *testing.T) {
 		{
 			name: "valid TLS secret without CA",
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-certificate",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-certificate",
+				Namespace: metav1.NamespaceDefault,
 				Data: map[string][]byte{
 					corev1.TLSCertKey:       cert.Bytes(),
 					corev1.TLSPrivateKeyKey: key.Bytes(),
@@ -308,10 +282,8 @@ func TestTLSSecretPEM(t *testing.T) {
 		{
 			name: "valid TLS secret with CA",
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-certificate",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-certificate",
+				Namespace: metav1.NamespaceDefault,
 				Data: map[string][]byte{
 					corev1.TLSCertKey:       cert.Bytes(),
 					corev1.TLSPrivateKeyKey: key.Bytes(),
@@ -324,10 +296,8 @@ func TestTLSSecretPEM(t *testing.T) {
 		{
 			name: "invalid type",
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-certificate",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-certificate",
+				Namespace: metav1.NamespaceDefault,
 				Data: map[string][]byte{
 					corev1.TLSCertKey:       cert.Bytes(),
 					corev1.TLSPrivateKeyKey: key.Bytes(),
@@ -338,10 +308,8 @@ func TestTLSSecretPEM(t *testing.T) {
 		{
 			name: "missing certificate",
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-certificate",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-certificate",
+				Namespace: metav1.NamespaceDefault,
 				Data: map[string][]byte{
 					corev1.TLSPrivateKeyKey: key.Bytes(),
 				},
@@ -352,10 +320,8 @@ func TestTLSSecretPEM(t *testing.T) {
 		{
 			name: "missing private key",
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-certificate",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-certificate",
+				Namespace: metav1.NamespaceDefault,
 				Data: map[string][]byte{
 					corev1.TLSCertKey: cert.Bytes(),
 				},
@@ -431,10 +397,8 @@ func TestCertificate(t *testing.T) {
 		{
 			name: "valid certificate secret",
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-certificate",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-certificate",
+				Namespace: metav1.NamespaceDefault,
 				Data: map[string][]byte{
 					corev1.TLSCertKey:       cert.Bytes(),
 					corev1.TLSPrivateKeyKey: key.Bytes(),
@@ -445,10 +409,8 @@ func TestCertificate(t *testing.T) {
 		{
 			name: "invalid type",
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-certificate",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-certificate",
+				Namespace: metav1.NamespaceDefault,
 				Data: map[string][]byte{
 					corev1.TLSCertKey:       cert.Bytes(),
 					corev1.TLSPrivateKeyKey: key.Bytes(),
@@ -459,10 +421,8 @@ func TestCertificate(t *testing.T) {
 		{
 			name: "missing certificate",
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-certificate",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-certificate",
+				Namespace: metav1.NamespaceDefault,
 				Data: map[string][]byte{
 					corev1.TLSPrivateKeyKey: key.Bytes(),
 				},
@@ -473,10 +433,8 @@ func TestCertificate(t *testing.T) {
 		{
 			name: "missing private key",
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-certificate",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-certificate",
+				Namespace: metav1.NamespaceDefault,
 				Data: map[string][]byte{
 					corev1.TLSCertKey: cert.Bytes(),
 				},
@@ -528,20 +486,16 @@ func TestTemplate(t *testing.T) {
 		{
 			name: "secret template",
 			object: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-secret",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-secret",
+				Namespace: metav1.NamespaceDefault,
 				Data: map[string][]byte{
 					"poap.txt": []byte("secret template content"),
 				},
 			},
 			src: &v1alpha1.TemplateSource{
 				SecretRef: &v1alpha1.SecretKeySelector{
-					SecretReference: v1alpha1.SecretReference{
-						Name: "test-secret",
-					},
-					Key: "poap.txt",
+					Name: "test-secret",
+					Key:  "poap.txt",
 				},
 			},
 			want: []byte("secret template content"),
@@ -549,20 +503,16 @@ func TestTemplate(t *testing.T) {
 		{
 			name: "secret template",
 			object: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-configmap",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-configmap",
+				Namespace: metav1.NamespaceDefault,
 				Data: map[string]string{
 					"poap.txt": "configmap template content",
 				},
 			},
 			src: &v1alpha1.TemplateSource{
 				ConfigMapRef: &v1alpha1.ConfigMapKeySelector{
-					ConfigMapReference: v1alpha1.ConfigMapReference{
-						Name: "test-configmap",
-					},
-					Key: "poap.txt",
+					Name: "test-configmap",
+					Key:  "poap.txt",
 				},
 			},
 			want: []byte("configmap template content"),

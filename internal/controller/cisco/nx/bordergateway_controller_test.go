@@ -26,10 +26,8 @@ var _ = Describe("BorderGateway Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-bgw-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-bgw-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -42,10 +40,8 @@ var _ = Describe("BorderGateway Controller", func() {
 
 			By("Creating the custom resource for the Kind Interface")
 			intf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:   v1alpha1.LocalObjectReference{Name: name},
 					Name:        "lo100",
@@ -62,10 +58,8 @@ var _ = Describe("BorderGateway Controller", func() {
 
 			By("Creating the custom resource for the Kind BorderGateway")
 			bgw := &nxv1alpha1.BorderGateway{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: nxv1alpha1.BorderGatewaySpec{
 					DeviceRef:          v1alpha1.LocalObjectReference{Name: name},
 					MultisiteID:        123,

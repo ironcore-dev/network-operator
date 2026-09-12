@@ -51,10 +51,8 @@ var _ = Describe("Fabric Controller", func() {
 		BeforeEach(func() {
 			By("Creating an IPAddressPool for loopback allocation")
 			loopbackPool = &poolv1alpha1.IPAddressPool{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "loopback-pool-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "loopback-pool-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: poolv1alpha1.IPAddressPoolSpec{
 					Prefixes: []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.0.0.0/24")},
 				},
@@ -66,12 +64,10 @@ var _ = Describe("Fabric Controller", func() {
 
 			By("Creating spine-1 (route reflector, rendezvous point)")
 			spine1 = &corev1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "spine1-",
-					Namespace:    metav1.NamespaceDefault,
-					Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "spine"},
-				},
-				Spec: corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.0.1:9339"}},
+				GenerateName: "spine1-",
+				Namespace:    metav1.NamespaceDefault,
+				Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "spine"},
+				Spec:         corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.0.1:9339"}},
 			}
 			Expect(k8sClient.Create(ctx, spine1)).To(Succeed())
 			DeferCleanup(func() {
@@ -80,12 +76,10 @@ var _ = Describe("Fabric Controller", func() {
 
 			By("Creating spine-2 (route reflector, rendezvous point)")
 			spine2 = &corev1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "spine2-",
-					Namespace:    metav1.NamespaceDefault,
-					Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "spine"},
-				},
-				Spec: corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.0.2:9339"}},
+				GenerateName: "spine2-",
+				Namespace:    metav1.NamespaceDefault,
+				Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "spine"},
+				Spec:         corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.0.2:9339"}},
 			}
 			Expect(k8sClient.Create(ctx, spine2)).To(Succeed())
 			DeferCleanup(func() {
@@ -94,12 +88,10 @@ var _ = Describe("Fabric Controller", func() {
 
 			By("Creating leaf-1 (VTEP)")
 			leaf1 = &corev1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "leaf1-",
-					Namespace:    metav1.NamespaceDefault,
-					Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "leaf"},
-				},
-				Spec: corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.1.1:9339"}},
+				GenerateName: "leaf1-",
+				Namespace:    metav1.NamespaceDefault,
+				Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "leaf"},
+				Spec:         corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.1.1:9339"}},
 			}
 			Expect(k8sClient.Create(ctx, leaf1)).To(Succeed())
 			DeferCleanup(func() {
@@ -108,12 +100,10 @@ var _ = Describe("Fabric Controller", func() {
 
 			By("Creating leaf-2 (VTEP)")
 			leaf2 = &corev1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "leaf2-",
-					Namespace:    metav1.NamespaceDefault,
-					Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "leaf"},
-				},
-				Spec: corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.1.2:9339"}},
+				GenerateName: "leaf2-",
+				Namespace:    metav1.NamespaceDefault,
+				Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "leaf"},
+				Spec:         corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.1.2:9339"}},
 			}
 			Expect(k8sClient.Create(ctx, leaf2)).To(Succeed())
 			DeferCleanup(func() {
@@ -122,11 +112,9 @@ var _ = Describe("Fabric Controller", func() {
 
 			By("Creating a fabric-facing Interface on spine-1")
 			spineIntf = &corev1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: spine1.Name + "-eth0-",
-					Namespace:    metav1.NamespaceDefault,
-					Labels:       map[string]string{"role": "fabric"},
-				},
+				GenerateName: spine1.Name + "-eth0-",
+				Namespace:    metav1.NamespaceDefault,
+				Labels:       map[string]string{"role": "fabric"},
 				Spec: corev1alpha1.InterfaceSpec{
 					DeviceRef:  corev1alpha1.LocalObjectReference{Name: spine1.Name},
 					Name:       "eth0",
@@ -141,11 +129,9 @@ var _ = Describe("Fabric Controller", func() {
 
 			By("Creating a fabric-facing Interface on leaf-1")
 			leafIntf = &corev1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: leaf1.Name + "-eth0-",
-					Namespace:    metav1.NamespaceDefault,
-					Labels:       map[string]string{"role": "fabric"},
-				},
+				GenerateName: leaf1.Name + "-eth0-",
+				Namespace:    metav1.NamespaceDefault,
+				Labels:       map[string]string{"role": "fabric"},
 				Spec: corev1alpha1.InterfaceSpec{
 					DeviceRef:  corev1alpha1.LocalObjectReference{Name: leaf1.Name},
 					Name:       "eth0",
@@ -162,10 +148,8 @@ var _ = Describe("Fabric Controller", func() {
 		It("Should create lo0 Claims for all fabric devices, lo1/lo2 Claims for VTEP devices, and one lo100 Claim per RP group", func() {
 			By("Creating the Fabric resource with unnumbered addressing")
 			fabric := &evpnv1alpha1.Fabric{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "fabric-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "fabric-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: evpnv1alpha1.FabricSpec{
 					DeviceSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{"topology.kubernetes.io/zone": "test-zone"},
@@ -570,10 +554,8 @@ var _ = Describe("Fabric Controller", func() {
 		BeforeEach(func() {
 			By("Creating an IPAddressPool for loopback allocation")
 			loopbackPool = &poolv1alpha1.IPAddressPool{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "loopback-pool-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "loopback-pool-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: poolv1alpha1.IPAddressPoolSpec{
 					Prefixes: []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.0.0.0/24")},
 				},
@@ -585,10 +567,8 @@ var _ = Describe("Fabric Controller", func() {
 
 			By("Creating an IPPrefixPool for P2P link allocation")
 			prefixPool = &poolv1alpha1.IPPrefixPool{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "p2p-pool-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "p2p-pool-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: poolv1alpha1.IPPrefixPoolSpec{
 					Prefixes:               []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.1.0.0/16")},
 					AllocationPrefixLength: 31,
@@ -601,12 +581,10 @@ var _ = Describe("Fabric Controller", func() {
 
 			By("Creating spine-1")
 			spine1 = &corev1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "spine1-",
-					Namespace:    metav1.NamespaceDefault,
-					Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "spine"},
-				},
-				Spec: corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.0.1:9339"}},
+				GenerateName: "spine1-",
+				Namespace:    metav1.NamespaceDefault,
+				Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "spine"},
+				Spec:         corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.0.1:9339"}},
 			}
 			Expect(k8sClient.Create(ctx, spine1)).To(Succeed())
 			DeferCleanup(func() {
@@ -615,12 +593,10 @@ var _ = Describe("Fabric Controller", func() {
 
 			By("Creating leaf-1")
 			leaf1 = &corev1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "leaf1-",
-					Namespace:    metav1.NamespaceDefault,
-					Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "leaf"},
-				},
-				Spec: corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.1.1:9339"}},
+				GenerateName: "leaf1-",
+				Namespace:    metav1.NamespaceDefault,
+				Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "leaf"},
+				Spec:         corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.1.1:9339"}},
 			}
 			Expect(k8sClient.Create(ctx, leaf1)).To(Succeed())
 			DeferCleanup(func() {
@@ -630,11 +606,9 @@ var _ = Describe("Fabric Controller", func() {
 			By("Creating a fabric-facing Interface on spine-1 with neighbor label pointing to leaf-1's interface")
 			// Create both interfaces first, then set the neighbor labels so each points to the other.
 			spineIntf = &corev1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: spine1.Name + "-eth0-",
-					Namespace:    metav1.NamespaceDefault,
-					Labels:       map[string]string{"role": "fabric"},
-				},
+				GenerateName: spine1.Name + "-eth0-",
+				Namespace:    metav1.NamespaceDefault,
+				Labels:       map[string]string{"role": "fabric"},
 				Spec: corev1alpha1.InterfaceSpec{
 					DeviceRef:  corev1alpha1.LocalObjectReference{Name: spine1.Name},
 					Name:       "eth0",
@@ -648,11 +622,9 @@ var _ = Describe("Fabric Controller", func() {
 			})
 
 			leafIntf = &corev1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: leaf1.Name + "-eth0-",
-					Namespace:    metav1.NamespaceDefault,
-					Labels:       map[string]string{"role": "fabric"},
-				},
+				GenerateName: leaf1.Name + "-eth0-",
+				Namespace:    metav1.NamespaceDefault,
+				Labels:       map[string]string{"role": "fabric"},
 				Spec: corev1alpha1.InterfaceSpec{
 					DeviceRef:  corev1alpha1.LocalObjectReference{Name: leaf1.Name},
 					Name:       "eth0",
@@ -678,10 +650,8 @@ var _ = Describe("Fabric Controller", func() {
 		It("Should allocate one /31 prefix Claim per link and assign host addresses to both ends", func() {
 			By("Creating the Fabric resource with numbered addressing")
 			fabric := &evpnv1alpha1.Fabric{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "fabric-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "fabric-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: evpnv1alpha1.FabricSpec{
 					DeviceSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{"topology.kubernetes.io/zone": "test-zone"},
@@ -798,10 +768,8 @@ var _ = Describe("Fabric Controller", func() {
 		BeforeEach(func() {
 			By("Creating an IPAddressPool for loopback allocation")
 			loopbackPool = &poolv1alpha1.IPAddressPool{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "loopback-pool-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "loopback-pool-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: poolv1alpha1.IPAddressPoolSpec{
 					Prefixes: []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.0.0.0/24")},
 				},
@@ -813,12 +781,10 @@ var _ = Describe("Fabric Controller", func() {
 
 			By("Creating spine-1")
 			spine1 = &corev1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "spine1-",
-					Namespace:    metav1.NamespaceDefault,
-					Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "spine"},
-				},
-				Spec: corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.0.1:9339"}},
+				GenerateName: "spine1-",
+				Namespace:    metav1.NamespaceDefault,
+				Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "spine"},
+				Spec:         corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.0.1:9339"}},
 			}
 			Expect(k8sClient.Create(ctx, spine1)).To(Succeed())
 			DeferCleanup(func() {
@@ -827,12 +793,10 @@ var _ = Describe("Fabric Controller", func() {
 
 			By("Creating leaf-1")
 			leaf1 = &corev1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "leaf1-",
-					Namespace:    metav1.NamespaceDefault,
-					Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "leaf"},
-				},
-				Spec: corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.1.1:9339"}},
+				GenerateName: "leaf1-",
+				Namespace:    metav1.NamespaceDefault,
+				Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "leaf"},
+				Spec:         corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.1.1:9339"}},
 			}
 			Expect(k8sClient.Create(ctx, leaf1)).To(Succeed())
 			DeferCleanup(func() {
@@ -841,11 +805,9 @@ var _ = Describe("Fabric Controller", func() {
 
 			By("Creating a fabric-facing Interface on spine-1")
 			spineIntf = &corev1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: spine1.Name + "-eth0-",
-					Namespace:    metav1.NamespaceDefault,
-					Labels:       map[string]string{"role": "fabric"},
-				},
+				GenerateName: spine1.Name + "-eth0-",
+				Namespace:    metav1.NamespaceDefault,
+				Labels:       map[string]string{"role": "fabric"},
 				Spec: corev1alpha1.InterfaceSpec{
 					DeviceRef:  corev1alpha1.LocalObjectReference{Name: spine1.Name},
 					Name:       "eth0",
@@ -860,11 +822,9 @@ var _ = Describe("Fabric Controller", func() {
 
 			By("Creating a fabric-facing Interface on leaf-1")
 			leafIntf = &corev1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: leaf1.Name + "-eth0-",
-					Namespace:    metav1.NamespaceDefault,
-					Labels:       map[string]string{"role": "fabric"},
-				},
+				GenerateName: leaf1.Name + "-eth0-",
+				Namespace:    metav1.NamespaceDefault,
+				Labels:       map[string]string{"role": "fabric"},
 				Spec: corev1alpha1.InterfaceSpec{
 					DeviceRef:  corev1alpha1.LocalObjectReference{Name: leaf1.Name},
 					Name:       "eth0",
@@ -881,10 +841,8 @@ var _ = Describe("Fabric Controller", func() {
 		It("Should create an ISIS resource per device with Cisco EVPN-VXLAN defaults", func() {
 			By("Creating the Fabric resource with ISIS underlay")
 			fabric := &evpnv1alpha1.Fabric{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "fabric-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "fabric-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: evpnv1alpha1.FabricSpec{
 					DeviceSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{"topology.kubernetes.io/zone": "test-zone"},

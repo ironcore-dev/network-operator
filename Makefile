@@ -273,22 +273,22 @@ NETOP_PROVIDER ?= $(LOCALBIN)/netop-provider
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.8.1
-CONTROLLER_TOOLS_VERSION ?= v0.21.0
+CONTROLLER_TOOLS_VERSION ?= v0.22.0
 #ENVTEST_VERSION is the version of controller-runtime release branch to fetch the envtest setup script (i.e. release-0.20)
 ENVTEST_VERSION ?= $(shell go list -m -f "{{ .Version }}" sigs.k8s.io/controller-runtime | awk -F'[v.]' '{printf "release-%d.%d", $$2, $$3}')
 #ENVTEST_K8S_VERSION is the version of Kubernetes to use for setting up ENVTEST binaries (i.e. 1.31)
 ENVTEST_K8S_VERSION ?= $(shell go list -m -f "{{ .Version }}" k8s.io/api | awk -F'[v.]' '{printf "1.%d.%d",$$3, $$4}')
-KUBEBUILDER_VERSION ?= v4.15.0
+KUBEBUILDER_VERSION ?= v4.16.0
 CRD_REF_DOCS_VERSION ?= v0.3.0
-GOLANGCI_LINT_VERSION ?= v2.12.2
+GOLANGCI_LINT_VERSION ?= v2.13.2
 GOIMPORTS_VERSION ?= $(shell go list -m -f "{{ .Version }}" golang.org/x/tools)
-GOFUMPT_VERSION ?= v0.10.0
+GOFUMPT_VERSION ?= v0.12.0
 GINKGO_VERSION ?= $(shell go list -m -f "{{ .Version }}" github.com/onsi/ginkgo/v2)
 ADDLICENSE_VERSION ?= v1.2.0
 GO_LICENSES_VERSION ?= v2.0.1
-TYPOS_VERSION ?= v1.48.0
+TYPOS_VERSION ?= v1.50.1
 SHELLCHECK_VERSION ?= v0.11.0
-KIND_VERSION ?= v0.32.0
+KIND_VERSION ?= v0.33.0
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.

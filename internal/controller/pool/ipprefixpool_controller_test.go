@@ -19,10 +19,8 @@ var _ = Describe("IPPrefixPool Controller", func() {
 
 	BeforeEach(func() {
 		pool = &poolv1alpha1.IPPrefixPool{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "ipprefixpool-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "ipprefixpool-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IPPrefixPoolSpec{
 				Prefixes:               []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.0.0.0/24")},
 				AllocationPrefixLength: 28,
@@ -59,10 +57,8 @@ var _ = Describe("IPPrefixPool Controller", func() {
 	It("Should set Available=False when the pool is exhausted", func() {
 		By("Creating a pool with two /31 prefixes so it can be exhausted")
 		singlePool := &poolv1alpha1.IPPrefixPool{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "ipprefixpool-single-",
-				Namespace:    metav1.NamespaceDefault,
-			},
+			GenerateName: "ipprefixpool-single-",
+			Namespace:    metav1.NamespaceDefault,
 			Spec: poolv1alpha1.IPPrefixPoolSpec{
 				Prefixes:               []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.9.0.0/30")},
 				AllocationPrefixLength: 31,
@@ -83,10 +79,8 @@ var _ = Describe("IPPrefixPool Controller", func() {
 		By("Creating IPPrefix objects to fill both slots")
 		for _, cidr := range []string{"10.9.0.0/31", "10.9.0.2/31"} {
 			pfx := &poolv1alpha1.IPPrefix{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "pfx-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "pfx-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: poolv1alpha1.IPPrefixSpec{
 					PoolRef: corev1alpha1.TypedLocalObjectReference{
 						APIVersion: poolv1alpha1.GroupVersion.String(),

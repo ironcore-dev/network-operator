@@ -268,7 +268,7 @@ func (s *HTTPServer) HandleProvisioningRequest(w http.ResponseWriter, r *http.Re
 			return
 		}
 
-		deviceIP := strings.Split(device.Spec.Endpoint.Address, ":")[0]
+		deviceIP, _, _ := strings.Cut(device.Spec.Endpoint.Address, ":")
 		if deviceIP != clientIP {
 			s.Logger.Error(nil, "Source IP validation failed", "clientIP", clientIP, "deviceIP", deviceIP)
 			http.Error(w, "Source IP does not match device IP", http.StatusForbidden)

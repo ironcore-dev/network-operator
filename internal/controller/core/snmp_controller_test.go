@@ -23,10 +23,8 @@ var _ = Describe("SNMP Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-snmp-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-snmp-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
@@ -39,10 +37,8 @@ var _ = Describe("SNMP Controller", func() {
 
 			By("Creating the custom resource for the Kind SNMP")
 			resource := &v1alpha1.SNMP{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.SNMPSpec{
 					DeviceRef:           v1alpha1.LocalObjectReference{Name: name},
 					Contact:             "123",

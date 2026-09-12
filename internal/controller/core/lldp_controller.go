@@ -105,8 +105,9 @@ func (r *LLDPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		return ctrl.Result{}, err
 	}
 
-	if isPaused, requeue, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || requeue || err != nil {
-		return ctrl.Result{Requeue: requeue}, err
+	orig := obj.DeepCopy()
+	if isPaused, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || err != nil {
+		return ctrl.Result{}, err
 	}
 
 	// Prevent concurrent reconciliations of resources targeting the same device
@@ -164,7 +165,6 @@ func (r *LLDPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		return ctrl.Result{}, nil
 	}
 
-	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
@@ -494,10 +494,8 @@ func (r *LLDPReconciler) mapProviderConfigToLLDP(ctx context.Context, obj client
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
 			log.V(2).Info("Found matching LLDP for provider config change, enqueuing for reconciliation", "LLDP", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      m.Name,
-					Namespace: m.Namespace,
-				},
+				Name:      m.Name,
+				Namespace: m.Namespace,
 			})
 		}
 	}
@@ -543,10 +541,8 @@ func (r *LLDPReconciler) deviceToLLDPs(ctx context.Context, obj client.Object) [
 	for _, l := range lldps.Items {
 		log.V(2).Info("Enqueuing LLDP for reconciliation", "LLDP", klog.KObj(&l))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      l.Name,
-				Namespace: l.Namespace,
-			},
+			Name:      l.Name,
+			Namespace: l.Namespace,
 		})
 	}
 
@@ -579,10 +575,8 @@ func (r *LLDPReconciler) interfaceToLLDPs(ctx context.Context, obj client.Object
 			if ifRef.Name == intf.Name {
 				log.V(2).Info("Enqueuing LLDP for reconciliation", "LLDP", klog.KObj(&lldp))
 				requests = append(requests, ctrl.Request{
-					NamespacedName: client.ObjectKey{
-						Name:      lldp.Name,
-						Namespace: lldp.Namespace,
-					},
+					Name:      lldp.Name,
+					Namespace: lldp.Namespace,
 				})
 				break
 			}

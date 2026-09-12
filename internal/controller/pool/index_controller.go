@@ -11,7 +11,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -164,10 +163,8 @@ func (r *IndexReconciler) indicesForPool(ctx context.Context, obj client.Object)
 	for i, idx := range indices.Items {
 		log.Info("Enqueuing Index for reconciliation", "Index", klog.KObj(&idx))
 		requests[i] = reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      idx.Name,
-				Namespace: idx.Namespace,
-			},
+			Name:      idx.Name,
+			Namespace: idx.Namespace,
 		}
 	}
 	return requests

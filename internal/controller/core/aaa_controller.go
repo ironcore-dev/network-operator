@@ -102,7 +102,8 @@ func (r *AAAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 		return ctrl.Result{}, err
 	}
 
-	if isPaused, requeue, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || requeue || err != nil {
+	orig := obj.DeepCopy()
+	if isPaused, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -169,7 +170,6 @@ func (r *AAAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 		return ctrl.Result{}, nil
 	}
 
-	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
@@ -338,10 +338,8 @@ func (r *AAAReconciler) secretToAAA(ctx context.Context, obj client.Object) []ct
 					(server.RADIUS != nil && server.RADIUS.KeySecretRef.Name == secret.Name && a.Namespace == secret.Namespace) {
 					log.V(2).Info("Enqueuing AAA for reconciliation", "AAA", klog.KObj(&a))
 					requests = append(requests, ctrl.Request{
-						NamespacedName: client.ObjectKey{
-							Name:      a.Name,
-							Namespace: a.Namespace,
-						},
+						Name:      a.Name,
+						Namespace: a.Namespace,
 					})
 					found = true
 					break

@@ -33,10 +33,8 @@ var _ = Describe("ConfigBackup Controller", func() {
 		BeforeEach(func() {
 			By("Creating a Device resource")
 			device = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-configbackup-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-configbackup-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: "192.168.10.2:9339"},
 				},
@@ -73,10 +71,8 @@ var _ = Describe("ConfigBackup Controller", func() {
 		It("Should successfully reconcile a one-shot local backup", func() {
 			By("Creating a Local ConfigBackup resource")
 			backup = &v1alpha1.ConfigBackup{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-configbackup-local-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-configbackup-local-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.ConfigBackupSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					Type:      v1alpha1.ConfigBackupTypeLocal,
@@ -132,10 +128,8 @@ var _ = Describe("ConfigBackup Controller", func() {
 		It("Should successfully reconcile a startup backup", func() {
 			By("Creating a Startup ConfigBackup resource")
 			backup = &v1alpha1.ConfigBackup{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-configbackup-startup-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-configbackup-startup-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.ConfigBackupSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					Type:      v1alpha1.ConfigBackupTypeStartup,
@@ -181,10 +175,8 @@ var _ = Describe("ConfigBackup Controller", func() {
 
 			By("Creating a ConfigBackup with retention keepLast: 2")
 			backup = &v1alpha1.ConfigBackup{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-configbackup-retention-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-configbackup-retention-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.ConfigBackupSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					Type:      v1alpha1.ConfigBackupTypeLocal,
@@ -224,10 +216,8 @@ var _ = Describe("ConfigBackup Controller", func() {
 			By("Creating a ConfigBackup with a storage threshold")
 			minFreeBytes := int64(10)
 			backup = &v1alpha1.ConfigBackup{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-configbackup-threshold-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-configbackup-threshold-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.ConfigBackupSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					Type:      v1alpha1.ConfigBackupTypeLocal,
@@ -255,10 +245,8 @@ var _ = Describe("ConfigBackup Controller", func() {
 		It("Should not re-run a one-shot backup after it succeeds", func() {
 			By("Creating a Local ConfigBackup resource")
 			backup = &v1alpha1.ConfigBackup{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-configbackup-oneshot-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-configbackup-oneshot-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.ConfigBackupSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					Type:      v1alpha1.ConfigBackupTypeLocal,
@@ -285,10 +273,8 @@ var _ = Describe("ConfigBackup Controller", func() {
 		It("Should successfully reconcile a remote backup to S3", func() {
 			By("Creating a Secret with S3 credentials")
 			secret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "s3-creds-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "s3-creds-",
+				Namespace:    metav1.NamespaceDefault,
 				Data: map[string][]byte{
 					"accessKeyID":     []byte("EXAMPLEACCESSKEY"),
 					"secretAccessKey": []byte("EXAMPLESECRETKEY"),
@@ -298,10 +284,8 @@ var _ = Describe("ConfigBackup Controller", func() {
 
 			By("Creating a Remote ConfigBackup resource")
 			backup = &v1alpha1.ConfigBackup{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-configbackup-remote-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-configbackup-remote-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.ConfigBackupSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					Type:      v1alpha1.ConfigBackupTypeRemote,
@@ -346,10 +330,8 @@ var _ = Describe("ConfigBackup Controller", func() {
 		It("Should successfully reconcile an encrypted remote backup to S3", func() {
 			By("Creating a Secret with S3 credentials")
 			secret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "s3-creds-enc-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "s3-creds-enc-",
+				Namespace:    metav1.NamespaceDefault,
 				Data: map[string][]byte{
 					"accessKeyID":     []byte("EXAMPLEACCESSKEY"),
 					"secretAccessKey": []byte("EXAMPLESECRETKEY"),
@@ -359,10 +341,8 @@ var _ = Describe("ConfigBackup Controller", func() {
 
 			By("Creating a Secret with a 32-byte encryption key")
 			encSecret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "enc-key-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "enc-key-",
+				Namespace:    metav1.NamespaceDefault,
 				Data: map[string][]byte{
 					"encryption-key": []byte("0123456789abcdef0123456789abcdef"), // 32 bytes
 				},
@@ -376,10 +356,8 @@ var _ = Describe("ConfigBackup Controller", func() {
 
 			By("Creating a Remote ConfigBackup resource with encryption")
 			backup = &v1alpha1.ConfigBackup{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-configbackup-remote-enc-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-configbackup-remote-enc-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.ConfigBackupSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					Type:      v1alpha1.ConfigBackupTypeRemote,

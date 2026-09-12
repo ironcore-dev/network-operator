@@ -19,7 +19,7 @@ The project uses three types of tests:
 
 ### Prerequisites
 
-- Go 1.26+
+- Go 1.27+
 - Make
 
 ### Running Unit Tests

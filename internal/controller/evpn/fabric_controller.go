@@ -488,10 +488,8 @@ func (r *FabricReconciler) reconcileAnycastRPLoopbacks(ctx context.Context, fabr
 // Returns the Claim object so callers can pass it directly to reconcileLoopbackInterface.
 func (r *FabricReconciler) reconcileLoopbackClaim(ctx context.Context, fabric *evpnv1alpha1.Fabric, claimName string) (*poolv1alpha1.Claim, error) {
 	claim := &poolv1alpha1.Claim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      claimName,
-			Namespace: fabric.Namespace,
-		},
+		Name:      claimName,
+		Namespace: fabric.Namespace,
 	}
 	res, err := controllerutil.CreateOrPatch(ctx, r.Client, claim, func() error {
 		if claim.Labels == nil {
@@ -537,10 +535,8 @@ func (r *FabricReconciler) reconcileLoopbackInterface(ctx context.Context, fabri
 
 	name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, device.Name, loopbackID)
 	intf := &v1alpha1.Interface{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: fabric.Namespace,
-		},
+		Name:      name,
+		Namespace: fabric.Namespace,
 	}
 	res, err := controllerutil.CreateOrPatch(ctx, r.Client, intf, func() error {
 		if intf.Labels == nil {
@@ -704,10 +700,8 @@ func (r *FabricReconciler) reconcileUnderlayInterfaceNumbered(ctx context.Contex
 // reconcileUnderlayPrefixClaim ensures a Claim against an IPPrefixPool exists for the given link.
 func (r *FabricReconciler) reconcileUnderlayPrefixClaim(ctx context.Context, fabric *evpnv1alpha1.Fabric, claimName string) (*poolv1alpha1.Claim, error) {
 	claim := &poolv1alpha1.Claim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      claimName,
-			Namespace: fabric.Namespace,
-		},
+		Name:      claimName,
+		Namespace: fabric.Namespace,
 	}
 	res, err := controllerutil.CreateOrPatch(ctx, r.Client, claim, func() error {
 		if claim.Labels == nil {
@@ -790,10 +784,8 @@ func (r *FabricReconciler) reconcileUnderlayIGP(ctx context.Context, fabric *evp
 // uplinks are placed in area 0.0.0.0 as active.
 func (r *FabricReconciler) reconcileOSPF(ctx context.Context, device *v1alpha1.Device, fabric *evpnv1alpha1.Fabric, name, routerID string, loopbacks, uplinks []*v1alpha1.Interface) error {
 	ospf := &v1alpha1.OSPF{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: fabric.Namespace,
-		},
+		Name:      name,
+		Namespace: fabric.Namespace,
 	}
 	res, err := controllerutil.CreateOrPatch(ctx, r.Client, ospf, func() error {
 		if ospf.Labels == nil {
@@ -808,15 +800,15 @@ func (r *FabricReconciler) reconcileOSPF(ctx context.Context, device *v1alpha1.D
 		ospf.Spec.InterfaceRefs = make([]v1alpha1.OSPFInterface, 0, len(loopbacks)+len(uplinks))
 		for _, lo := range loopbacks {
 			ospf.Spec.InterfaceRefs = append(ospf.Spec.InterfaceRefs, v1alpha1.OSPFInterface{
-				LocalObjectReference: v1alpha1.LocalObjectReference{Name: lo.Name},
-				Area:                 "0.0.0.0",
-				Passive:              new(true),
+				Name:    lo.Name,
+				Area:    "0.0.0.0",
+				Passive: new(true),
 			})
 		}
 		for _, eth := range uplinks {
 			ospf.Spec.InterfaceRefs = append(ospf.Spec.InterfaceRefs, v1alpha1.OSPFInterface{
-				LocalObjectReference: v1alpha1.LocalObjectReference{Name: eth.Name},
-				Area:                 "0.0.0.0",
+				Name: eth.Name,
+				Area: "0.0.0.0",
 			})
 		}
 		return controllerutil.SetOwnerReference(fabric, ospf, r.Scheme)
@@ -843,10 +835,8 @@ func (r *FabricReconciler) reconcileISIS(ctx context.Context, device *v1alpha1.D
 	}
 
 	isis := &v1alpha1.ISIS{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: fabric.Namespace,
-		},
+		Name:      name,
+		Namespace: fabric.Namespace,
 	}
 	res, err := controllerutil.CreateOrPatch(ctx, r.Client, isis, func() error {
 		if isis.Labels == nil {
@@ -1003,10 +993,8 @@ func (r *FabricReconciler) reconcileOverlayBGP(ctx context.Context, fabric *evpn
 // reconcileBGP creates or updates the overlay BGP instance for a fabric device.
 func (r *FabricReconciler) reconcileBGP(ctx context.Context, device *v1alpha1.Device, fabric *evpnv1alpha1.Fabric, name, routerID string) error {
 	bgp := &v1alpha1.BGP{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: fabric.Namespace,
-		},
+		Name:      name,
+		Namespace: fabric.Namespace,
 	}
 	res, err := controllerutil.CreateOrPatch(ctx, r.Client, bgp, func() error {
 		if bgp.Labels == nil {
@@ -1019,7 +1007,7 @@ func (r *FabricReconciler) reconcileBGP(ctx context.Context, device *v1alpha1.De
 		bgp.Spec.RouterID = routerID
 		bgp.Spec.AddressFamilies = &v1alpha1.BGPAddressFamilies{
 			L2vpnEvpn: &v1alpha1.BGPL2vpnEvpn{
-				BGPAddressFamily: v1alpha1.BGPAddressFamily{Enabled: true},
+				Enabled: true,
 				RouteTargetPolicy: &v1alpha1.BGPRouteTargetPolicy{
 					RetainAll: true,
 				},
@@ -1059,10 +1047,8 @@ func (r *FabricReconciler) reconcileBGPPeer(ctx context.Context, local, remote *
 	name := fmt.Sprintf("%s-%s-%s", fabric.Name, local.Name, remote.Name)
 
 	peer := &v1alpha1.BGPPeer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: fabric.Namespace,
-		},
+		Name:      name,
+		Namespace: fabric.Namespace,
 	}
 	res, err := controllerutil.CreateOrPatch(ctx, r.Client, peer, func() error {
 		if peer.Labels == nil {
@@ -1200,13 +1186,13 @@ func (r *FabricReconciler) reconcileMulticastPIM(ctx context.Context, fabric *ev
 			// Interface refs for RP: lo0, lo100, uplinks.
 			interfaceRefs[device.Name] = append(
 				interfaceRefs[device.Name],
-				v1alpha1.PIMInterface{LocalObjectReference: v1alpha1.LocalObjectReference{Name: lo0Name}, Mode: v1alpha1.PIMModeSparse},
-				v1alpha1.PIMInterface{LocalObjectReference: v1alpha1.LocalObjectReference{Name: lo100Name}, Mode: v1alpha1.PIMModeSparse},
+				v1alpha1.PIMInterface{Name: lo0Name, Mode: v1alpha1.PIMModeSparse},
+				v1alpha1.PIMInterface{Name: lo100Name, Mode: v1alpha1.PIMModeSparse},
 			)
 			for _, up := range state.uplinks[device.Name] {
 				interfaceRefs[device.Name] = append(interfaceRefs[device.Name], v1alpha1.PIMInterface{
-					LocalObjectReference: v1alpha1.LocalObjectReference{Name: up.Name},
-					Mode:                 v1alpha1.PIMModeSparse,
+					Name: up.Name,
+					Mode: v1alpha1.PIMModeSparse,
 				})
 			}
 		}
@@ -1225,13 +1211,13 @@ func (r *FabricReconciler) reconcileMulticastPIM(ctx context.Context, fabric *ev
 			lo1Name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, device.Name, LoopbackVTEP)
 			interfaceRefs[device.Name] = append(
 				interfaceRefs[device.Name],
-				v1alpha1.PIMInterface{LocalObjectReference: v1alpha1.LocalObjectReference{Name: lo0Name}, Mode: v1alpha1.PIMModeSparse},
-				v1alpha1.PIMInterface{LocalObjectReference: v1alpha1.LocalObjectReference{Name: lo1Name}, Mode: v1alpha1.PIMModeSparse},
+				v1alpha1.PIMInterface{Name: lo0Name, Mode: v1alpha1.PIMModeSparse},
+				v1alpha1.PIMInterface{Name: lo1Name, Mode: v1alpha1.PIMModeSparse},
 			)
 			for _, up := range state.uplinks[device.Name] {
 				interfaceRefs[device.Name] = append(interfaceRefs[device.Name], v1alpha1.PIMInterface{
-					LocalObjectReference: v1alpha1.LocalObjectReference{Name: up.Name},
-					Mode:                 v1alpha1.PIMModeSparse,
+					Name: up.Name,
+					Mode: v1alpha1.PIMModeSparse,
 				})
 			}
 		}
@@ -1263,10 +1249,8 @@ func (r *FabricReconciler) reconcilePIM(ctx context.Context, deviceName string, 
 	slices.SortFunc(intfRefs, func(a, b v1alpha1.PIMInterface) int { return cmp.Compare(a.Name, b.Name) })
 
 	pim := &v1alpha1.PIM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: fabric.Namespace,
-		},
+		Name:      name,
+		Namespace: fabric.Namespace,
 	}
 	res, err := controllerutil.CreateOrPatch(ctx, r.Client, pim, func() error {
 		if pim.Labels == nil {
@@ -1326,10 +1310,8 @@ func (r *FabricReconciler) reconcileNVE(ctx context.Context, device *v1alpha1.De
 	name := fmt.Sprintf("%s-%s-nve", fabric.Name, device.Name)
 
 	nve := &v1alpha1.NetworkVirtualizationEdge{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: fabric.Namespace,
-		},
+		Name:      name,
+		Namespace: fabric.Namespace,
 	}
 	res, err := controllerutil.CreateOrPatch(ctx, r.Client, nve, func() error {
 		if nve.Labels == nil {

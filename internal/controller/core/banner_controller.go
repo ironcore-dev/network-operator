@@ -16,7 +16,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
@@ -108,8 +107,9 @@ func (r *BannerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, err
 	}
 
-	if isPaused, requeue, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || requeue || err != nil {
-		return ctrl.Result{Requeue: requeue}, err
+	orig := obj.DeepCopy()
+	if isPaused, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || err != nil {
+		return ctrl.Result{}, err
 	}
 
 	if err := r.Locker.AcquireLock(ctx, device.Name, "banner-controller"); err != nil {
@@ -175,7 +175,6 @@ func (r *BannerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, nil
 	}
 
-	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
@@ -362,10 +361,8 @@ func (r *BannerReconciler) deviceToBanners(ctx context.Context, obj client.Objec
 	for _, i := range list.Items {
 		log.V(2).Info("Enqueuing Banner for reconciliation", "Banner", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 
@@ -393,10 +390,8 @@ func (r *BannerReconciler) secretToBanner(ctx context.Context, obj client.Object
 		if b.Spec.Message.SecretRef != nil && b.Spec.Message.SecretRef.Name == secret.Name && b.Namespace == secret.Namespace {
 			log.V(2).Info("Enqueuing Banner for reconciliation", "Banner", klog.KObj(&b))
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      b.Name,
-					Namespace: b.Namespace,
-				},
+				Name:      b.Name,
+				Namespace: b.Namespace,
 			})
 		}
 	}
@@ -425,10 +420,8 @@ func (r *BannerReconciler) configMapToBanner(ctx context.Context, obj client.Obj
 		if b.Spec.Message.ConfigMapRef != nil && b.Spec.Message.ConfigMapRef.Name == cm.Name && b.Namespace == cm.Namespace {
 			log.V(2).Info("Enqueuing Banner for reconciliation", "Banner", klog.KObj(&b))
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      b.Name,
-					Namespace: b.Namespace,
-				},
+				Name:      b.Name,
+				Namespace: b.Namespace,
 			})
 		}
 	}
@@ -457,10 +450,8 @@ func (r *BannerReconciler) bannersForProviderConfig(ctx context.Context, obj cli
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
 			log.V(2).Info("Enqueuing Banner for reconciliation", "Banner", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      m.Name,
-					Namespace: m.Namespace,
-				},
+				Name:      m.Name,
+				Namespace: m.Namespace,
 			})
 		}
 	}

@@ -20,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/selection"
-	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
@@ -116,8 +115,9 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	if isPaused, requeue, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || requeue || err != nil {
-		return ctrl.Result{Requeue: requeue}, err
+	orig := obj.DeepCopy()
+	if isPaused, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || err != nil {
+		return ctrl.Result{}, err
 	}
 
 	if err := r.Locker.AcquireLock(ctx, device.Name, "interface-controller"); err != nil {
@@ -183,7 +183,6 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition, v1alpha1.OperationalCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
@@ -1192,10 +1191,8 @@ func (r *InterfaceReconciler) interfaceToUnnumbered(ctx context.Context, obj cli
 		if i.Spec.IPv4 != nil && i.Spec.IPv4.Unnumbered != nil && i.Spec.IPv4.Unnumbered.InterfaceRef.Name == intf.Name {
 			log.V(2).Info("Enqueuing Interface for reconciliation", "Interface", klog.KObj(&i))
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      i.Name,
-					Namespace: i.Namespace,
-				},
+				Name:      i.Name,
+				Namespace: i.Namespace,
 			})
 		}
 	}
@@ -1226,10 +1223,8 @@ func (r *InterfaceReconciler) interfaceToAggregate(ctx context.Context, obj clie
 		}) {
 			log.V(2).Info("Enqueuing Aggregate Interface for reconciliation", "Aggregate", klog.KObj(&i))
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      i.Name,
-					Namespace: i.Namespace,
-				},
+				Name:      i.Name,
+				Namespace: i.Namespace,
 			})
 		}
 	}
@@ -1255,10 +1250,8 @@ func (r *InterfaceReconciler) aggregateToMembers(ctx context.Context, obj client
 	for _, ref := range intf.Spec.Aggregation.MemberInterfaceRefs {
 		log.V(2).Info("Enqueuing member Interface for reconciliation", "Member", ref.Name)
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      ref.Name,
-				Namespace: intf.Namespace,
-			},
+			Name:      ref.Name,
+			Namespace: intf.Namespace,
 		})
 	}
 
@@ -1291,10 +1284,8 @@ func (r *InterfaceReconciler) parentToSubinterfaces(ctx context.Context, obj cli
 		if i.Spec.ParentInterfaceRef != nil && i.Spec.ParentInterfaceRef.Name == intf.Name {
 			log.V(2).Info("Enqueuing SubInterface for reconciliation", "SubInterface", klog.KObj(&i))
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      i.Name,
-					Namespace: i.Namespace,
-				},
+				Name:      i.Name,
+				Namespace: i.Namespace,
 			})
 		}
 	}
@@ -1324,10 +1315,8 @@ func (r *InterfaceReconciler) vlanToRoutedVLAN(ctx context.Context, obj client.O
 			log.V(2).Info("Enqueuing RoutedVLAN Interface for reconciliation", "Interface", klog.KObj(&i))
 
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      i.Name,
-					Namespace: i.Namespace,
-				},
+				Name:      i.Name,
+				Namespace: i.Namespace,
 			})
 		}
 	}
@@ -1357,10 +1346,8 @@ func (r *InterfaceReconciler) vrfToInterface(ctx context.Context, obj client.Obj
 			log.V(2).Info("Enqueuing Interface for reconciliation", "Interface", klog.KObj(&i))
 
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      i.Name,
-					Namespace: i.Namespace,
-				},
+				Name:      i.Name,
+				Namespace: i.Namespace,
 			})
 		}
 	}
@@ -1389,10 +1376,8 @@ func (r *InterfaceReconciler) interfacesForProviderConfig(ctx context.Context, o
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
 			log.V(2).Info("Enqueuing Interface for reconciliation", "Interface", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      m.Name,
-					Namespace: m.Namespace,
-				},
+				Name:      m.Name,
+				Namespace: m.Namespace,
 			})
 		}
 	}
@@ -1424,10 +1409,8 @@ func (r *InterfaceReconciler) deviceToInterfaces(ctx context.Context, obj client
 	for _, i := range interfaces.Items {
 		log.V(2).Info("Enqueuing Interface for reconciliation", "Interface", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 
@@ -1486,10 +1469,8 @@ func (r *InterfaceReconciler) dnsToNeighborInterfaces(ctx context.Context, obj c
 	for _, intf := range localInterfaces.Items {
 		log.V(2).Info("Enqueuing local Interface for reconciliation due to DNS change in neighbor device", "Interface", klog.KObj(&intf), "DNS", klog.KObj(dns))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      intf.Name,
-				Namespace: intf.Namespace,
-			},
+			Name:      intf.Name,
+			Namespace: intf.Namespace,
 		})
 	}
 

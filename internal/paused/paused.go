@@ -23,9 +23,9 @@ type Object interface {
 }
 
 // EnsureCondition computes and patches the "Paused" condition on the object.
-// It returns whether the object is paused, whether the caller should requeue,
-// and any error encountered while patching.
-func EnsureCondition(ctx context.Context, c client.Client, device *v1alpha1.Device, obj Object) (isPaused, requeue bool, err error) {
+// It returns whether reconciliation must remain paused and any error encountered
+// while patching.
+func EnsureCondition(ctx context.Context, c client.Client, device *v1alpha1.Device, obj Object) (isPaused bool, err error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	oldCondition := conditions.Get(obj, v1alpha1.PausedCondition)
@@ -59,14 +59,10 @@ func EnsureCondition(ctx context.Context, c client.Client, device *v1alpha1.Devi
 	// reconciliation status update, avoiding an unnecessary extra reconcile.
 	orig := obj.DeepCopyObject().(client.Object)
 	if changed := conditions.Set(obj, newCondition); !changed || !isPaused {
-		return isPaused, false, nil
+		return isPaused, nil
 	}
 
-	if err := c.Status().Patch(ctx, obj, client.MergeFrom(orig)); err != nil {
-		return isPaused, false, err
-	}
-
-	return isPaused, true, nil
+	return isPaused, c.Status().Patch(ctx, obj, client.MergeFrom(orig))
 }
 
 // computeCondition builds the Paused condition. A resource is paused when
