@@ -67,7 +67,7 @@ var _ = Describe("Fabric Controller", func() {
 				GenerateName: "spine1-",
 				Namespace:    metav1.NamespaceDefault,
 				Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "spine"},
-				Spec:         corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.0.1:9339"}},
+				Spec:         corev1alpha1.DeviceSpec{Provider: "test-provider", Endpoint: corev1alpha1.Endpoint{Address: "192.168.0.1:9339"}},
 			}
 			Expect(k8sClient.Create(ctx, spine1)).To(Succeed())
 			DeferCleanup(func() {
@@ -79,7 +79,7 @@ var _ = Describe("Fabric Controller", func() {
 				GenerateName: "spine2-",
 				Namespace:    metav1.NamespaceDefault,
 				Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "spine"},
-				Spec:         corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.0.2:9339"}},
+				Spec:         corev1alpha1.DeviceSpec{Provider: "test-provider", Endpoint: corev1alpha1.Endpoint{Address: "192.168.0.2:9339"}},
 			}
 			Expect(k8sClient.Create(ctx, spine2)).To(Succeed())
 			DeferCleanup(func() {
@@ -91,7 +91,7 @@ var _ = Describe("Fabric Controller", func() {
 				GenerateName: "leaf1-",
 				Namespace:    metav1.NamespaceDefault,
 				Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "leaf"},
-				Spec:         corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.1.1:9339"}},
+				Spec:         corev1alpha1.DeviceSpec{Provider: "test-provider", Endpoint: corev1alpha1.Endpoint{Address: "192.168.1.1:9339"}},
 			}
 			Expect(k8sClient.Create(ctx, leaf1)).To(Succeed())
 			DeferCleanup(func() {
@@ -103,7 +103,7 @@ var _ = Describe("Fabric Controller", func() {
 				GenerateName: "leaf2-",
 				Namespace:    metav1.NamespaceDefault,
 				Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "leaf"},
-				Spec:         corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.1.2:9339"}},
+				Spec:         corev1alpha1.DeviceSpec{Provider: "test-provider", Endpoint: corev1alpha1.Endpoint{Address: "192.168.1.2:9339"}},
 			}
 			Expect(k8sClient.Create(ctx, leaf2)).To(Succeed())
 			DeferCleanup(func() {
@@ -584,7 +584,7 @@ var _ = Describe("Fabric Controller", func() {
 				GenerateName: "spine1-",
 				Namespace:    metav1.NamespaceDefault,
 				Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "spine"},
-				Spec:         corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.0.1:9339"}},
+				Spec:         corev1alpha1.DeviceSpec{Provider: "test-provider", Endpoint: corev1alpha1.Endpoint{Address: "192.168.0.1:9339"}},
 			}
 			Expect(k8sClient.Create(ctx, spine1)).To(Succeed())
 			DeferCleanup(func() {
@@ -596,7 +596,7 @@ var _ = Describe("Fabric Controller", func() {
 				GenerateName: "leaf1-",
 				Namespace:    metav1.NamespaceDefault,
 				Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "leaf"},
-				Spec:         corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.1.1:9339"}},
+				Spec:         corev1alpha1.DeviceSpec{Provider: "test-provider", Endpoint: corev1alpha1.Endpoint{Address: "192.168.1.1:9339"}},
 			}
 			Expect(k8sClient.Create(ctx, leaf1)).To(Succeed())
 			DeferCleanup(func() {
@@ -784,7 +784,7 @@ var _ = Describe("Fabric Controller", func() {
 				GenerateName: "spine1-",
 				Namespace:    metav1.NamespaceDefault,
 				Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "spine"},
-				Spec:         corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.0.1:9339"}},
+				Spec:         corev1alpha1.DeviceSpec{Provider: "test-provider", Endpoint: corev1alpha1.Endpoint{Address: "192.168.0.1:9339"}},
 			}
 			Expect(k8sClient.Create(ctx, spine1)).To(Succeed())
 			DeferCleanup(func() {
@@ -796,7 +796,7 @@ var _ = Describe("Fabric Controller", func() {
 				GenerateName: "leaf1-",
 				Namespace:    metav1.NamespaceDefault,
 				Labels:       map[string]string{"topology.kubernetes.io/zone": "test-zone", "role": "leaf"},
-				Spec:         corev1alpha1.DeviceSpec{Endpoint: corev1alpha1.Endpoint{Address: "192.168.1.1:9339"}},
+				Spec:         corev1alpha1.DeviceSpec{Provider: "test-provider", Endpoint: corev1alpha1.Endpoint{Address: "192.168.1.1:9339"}},
 			}
 			Expect(k8sClient.Create(ctx, leaf1)).To(Succeed())
 			DeferCleanup(func() {

@@ -384,10 +384,8 @@ var _ = Describe("Device Controller", func() {
 		It("Should transition from Running to Provisioning once the reset-phase annotation is set", func() {
 			By("Creating a Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      key.Name,
-					Namespace: key.Namespace,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.5:9339",
@@ -678,6 +676,7 @@ var _ = Describe("Device Controller", func() {
 				Name:      key.Name,
 				Namespace: key.Namespace,
 				Spec: v1alpha1.DeviceSpec{
+					Provider: "test-provider",
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.5:9339",
 						SecretRef: &v1alpha1.SecretReference{
@@ -759,6 +758,7 @@ var _ = Describe("Device Controller", func() {
 					v1alpha1.DeviceMaintenanceAnnotation: v1alpha1.DeviceMaintenanceSkipProvisioning,
 				},
 				Spec: v1alpha1.DeviceSpec{
+					Provider: "test-provider",
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.6:9339",
 						SecretRef: &v1alpha1.SecretReference{
@@ -798,6 +798,7 @@ var _ = Describe("Device Controller", func() {
 				GenerateName: name,
 				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
+					Provider: "test-provider",
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.7:9339",
 						SecretRef: &v1alpha1.SecretReference{

@@ -101,6 +101,7 @@ var _ = Describe("gNMI requests tests", func() {
 					GenerateName: "test-device-",
 					Namespace:    testNamespace,
 					Spec: v1alpha1.DeviceSpec{
+						Provider: envProvider,
 						Endpoint: v1alpha1.Endpoint{
 							Address: gnmiServer.GRPCAddr(),
 						},
