@@ -6,6 +6,7 @@ package core
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -51,6 +52,12 @@ var _ = Describe("EthernetSegment Controller", func() {
 			es.Namespace = metav1.NamespaceDefault
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, es))).To(Succeed())
 
+			By("Waiting for EthernetSegment resource to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}, &v1alpha1.EthernetSegment{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
+
 			By("Verifying the EthernetSegment is removed from the provider")
 			Eventually(func(g Gomega) {
 				_, exists := testDevices.StateFor(name).GetEthernetSegment(name)
@@ -62,6 +69,12 @@ var _ = Describe("EthernetSegment Controller", func() {
 			intf.Name = name
 			intf.Namespace = metav1.NamespaceDefault
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed())
+
+			By("Waiting for Interface resource to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}, &v1alpha1.Interface{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up the test Device resource")
 			device := &v1alpha1.Device{}
