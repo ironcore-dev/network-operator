@@ -6,6 +6,7 @@ package core
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -48,6 +49,12 @@ var _ = Describe("Banner Controller", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(testDevices.StateFor(name).PreLoginBanner).To(BeNil(), "Provider PreLogin Banner should be nil")
 				g.Expect(testDevices.StateFor(name).PostLoginBanner).To(BeNil(), "Provider PostLogin Banner should be nil")
+			}).Should(Succeed())
+
+			By("Waiting for the Banner to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, &v1alpha1.Banner{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")

@@ -67,6 +67,12 @@ var _ = Describe("OSPF Controller", func() {
 				g.Expect(testDevices.StateFor(name).OSPF.Has("UNDERLAY")).ToNot(BeTrue(), "Provider should not have OSPF instance configured")
 			}).Should(Succeed())
 
+			By("Waiting for the OSPF to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, &v1alpha1.OSPF{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
+
 			By("Cleanup the Device resource")
 			device := &v1alpha1.Device{}
 			device.Name = name
@@ -153,7 +159,7 @@ var _ = Describe("OSPF Controller", func() {
 			Eventually(func(g Gomega) {
 				err := k8sClient.Get(ctx, key, new(v1alpha1.OSPF))
 				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
-				g.Expect(testProvider.OSPF.Has("UNDERLAY")).To(BeFalse())
+				g.Expect(testDevices.StateFor(name).OSPF.Has("UNDERLAY")).To(BeFalse())
 			}).Should(Succeed())
 		})
 	})
@@ -206,7 +212,15 @@ var _ = Describe("OSPF Controller", func() {
 
 		AfterEach(func() {
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &v1alpha1.OSPF{Name: name, Namespace: metav1.NamespaceDefault}))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, &v1alpha1.OSPF{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &v1alpha1.Interface{Name: name, Namespace: metav1.NamespaceDefault}))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, &v1alpha1.Interface{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &v1alpha1.Device{Name: name, Namespace: metav1.NamespaceDefault}))).To(Succeed())
 		})
 
@@ -268,6 +282,12 @@ var _ = Describe("OSPF Controller", func() {
 			ospf.Name = name
 			ospf.Namespace = metav1.NamespaceDefault
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, ospf))).To(Succeed())
+
+			By("Waiting for the OSPF to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, &v1alpha1.OSPF{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleanup the Device resource")
 			device := &v1alpha1.Device{}

@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -62,11 +63,17 @@ var _ = Describe("ConfigBackup Controller", func() {
 		AfterEach(func() {
 			if backup != nil {
 				By("Deleting the ConfigBackup resource")
-				Expect(k8sClient.Delete(ctx, backup)).To(Succeed())
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, backup))).To(Succeed())
+
+				By("Waiting for ConfigBackup to be fully deleted")
+				Eventually(func(g Gomega) {
+					err := k8sClient.Get(ctx, client.ObjectKeyFromObject(backup), &v1alpha1.ConfigBackup{})
+					g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
 				backup = nil
 			}
 			By("Deleting the Device resource")
-			Expect(k8sClient.Delete(ctx, device)).To(Succeed())
+			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
 		})
 
 		It("Should successfully reconcile a one-shot local backup", func() {
