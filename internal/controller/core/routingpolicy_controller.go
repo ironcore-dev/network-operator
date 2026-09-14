@@ -426,7 +426,7 @@ func (r *RoutingPolicyReconciler) prefixSetToRoutingPolicy(ctx context.Context, 
 	log := ctrl.LoggerFrom(ctx, "PrefixSet", klog.KObj(prefixSet))
 
 	routingPolicies := new(v1alpha1.RoutingPolicyList)
-	if err := r.List(ctx, routingPolicies, client.InNamespace(prefixSet.Namespace), client.MatchingFields{routingPolicyPrefixSetRefKey: prefixSet.Spec.Name}); err != nil {
+	if err := r.List(ctx, routingPolicies, client.InNamespace(prefixSet.Namespace), client.MatchingFields{routingPolicyPrefixSetRefKey: prefixSet.Name}); err != nil {
 		log.Error(err, "Failed to list RoutingPolicies")
 		return nil
 	}
@@ -434,7 +434,7 @@ func (r *RoutingPolicyReconciler) prefixSetToRoutingPolicy(ctx context.Context, 
 	requests := []ctrl.Request{}
 	for _, rp := range routingPolicies.Items {
 		for _, stmt := range rp.Spec.Statements {
-			if stmt.Conditions != nil && stmt.Conditions.MatchPrefixSet != nil && stmt.Conditions.MatchPrefixSet.PrefixSetRef.Name == prefixSet.Spec.Name {
+			if stmt.Conditions != nil && stmt.Conditions.MatchPrefixSet != nil && stmt.Conditions.MatchPrefixSet.PrefixSetRef.Name == prefixSet.Name {
 				log.V(2).Info("Enqueuing RoutingPolicy for reconciliation", "RoutingPolicy", klog.KObj(&rp))
 				requests = append(requests, ctrl.Request{
 					Name:      rp.Name,
