@@ -597,6 +597,18 @@ var _ = Describe("LLDP Controller", func() {
 				g.Expect(testDevices.StateFor(deviceName).LLDP).To(BeNil(), "Provider should have no LLDP configured")
 			}).Should(Succeed())
 
+			By("Cleaning up Interface resources for this device")
+			intfList := &v1alpha1.InterfaceList{}
+			Expect(k8sManager.GetClient().List(ctx, intfList, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: deviceName})).To(Succeed())
+			for i := range intfList.Items {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &intfList.Items[i]))).To(Succeed())
+			}
+			Eventually(func(g Gomega) {
+				list := &v1alpha1.InterfaceList{}
+				g.Expect(k8sManager.GetClient().List(ctx, list, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: deviceName})).To(Succeed())
+				g.Expect(list.Items).To(BeEmpty())
+			}).Should(Succeed())
+
 			By("Cleaning up the Device resource")
 			device = &v1alpha1.Device{}
 			device.Name = deviceKey.Name
@@ -813,6 +825,18 @@ var _ = Describe("LLDP Controller", func() {
 			By("Verifying the resource has been deleted")
 			Eventually(func(g Gomega) {
 				g.Expect(testDevices.StateFor(deviceName).LLDP).To(BeNil(), "Provider should have no LLDP configured")
+			}).Should(Succeed())
+
+			By("Cleaning up Interface resources for this device")
+			intfList := &v1alpha1.InterfaceList{}
+			Expect(k8sManager.GetClient().List(ctx, intfList, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: deviceName})).To(Succeed())
+			for i := range intfList.Items {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &intfList.Items[i]))).To(Succeed())
+			}
+			Eventually(func(g Gomega) {
+				list := &v1alpha1.InterfaceList{}
+				g.Expect(k8sManager.GetClient().List(ctx, list, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: deviceName})).To(Succeed())
+				g.Expect(list.Items).To(BeEmpty())
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")

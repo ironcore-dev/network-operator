@@ -9,6 +9,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -54,7 +55,7 @@ var _ = Describe("Interface Controller", func() {
 			By("Waiting for Interfaces to be fully deleted")
 			Eventually(func(g Gomega) {
 				list := &v1alpha1.InterfaceList{}
-				g.Expect(k8sClient.List(ctx, list, client.InNamespace(metav1.NamespaceDefault), client.MatchingLabels{v1alpha1.DeviceLabel: name})).To(Succeed())
+				g.Expect(k8sManager.GetClient().List(ctx, list, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: name})).To(Succeed())
 				g.Expect(list.Items).To(BeEmpty())
 			}).Should(Succeed())
 
@@ -1307,15 +1308,19 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Cleaning up DNS resource")
 			if dns != nil {
-				Expect(k8sClient.Delete(ctx, dns)).To(Succeed())
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, dns))).To(Succeed())
+				Eventually(func(g Gomega) {
+					err := k8sClient.Get(ctx, client.ObjectKeyFromObject(dns), &v1alpha1.DNS{})
+					g.Expect(errors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
 			}
 
 			By("Cleaning up Device resources")
 			if localDevice != nil {
-				Expect(k8sClient.Delete(ctx, localDevice)).To(Succeed())
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, localDevice))).To(Succeed())
 			}
 			if remoteDevice != nil {
-				Expect(k8sClient.Delete(ctx, remoteDevice)).To(Succeed())
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, remoteDevice))).To(Succeed())
 			}
 		})
 

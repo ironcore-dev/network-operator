@@ -35,23 +35,25 @@ var _ = Describe("BGPPeer Controller", func() {
 		})
 
 		AfterEach(func() {
+			// Use the manager client for MatchingFields queries — the direct k8sClient
+			// does not have the custom field indexes registered on the API server.
 			By("Cleaning up BGPPeer resources for this device")
 			peerList := &v1alpha1.BGPPeerList{}
-			Expect(k8sClient.List(ctx, peerList, client.InNamespace(metav1.NamespaceDefault), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name})).To(Succeed())
+			Expect(k8sManager.GetClient().List(ctx, peerList, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name})).To(Succeed())
 			for i := range peerList.Items {
 				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &peerList.Items[i]))).To(Succeed())
 			}
 
 			By("Cleaning up BGP resources for this device")
 			bgpList := &v1alpha1.BGPList{}
-			Expect(k8sClient.List(ctx, bgpList, client.InNamespace(metav1.NamespaceDefault), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name})).To(Succeed())
+			Expect(k8sManager.GetClient().List(ctx, bgpList, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name})).To(Succeed())
 			for i := range bgpList.Items {
 				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &bgpList.Items[i]))).To(Succeed())
 			}
 
 			By("Cleaning up Interface resources for this device")
 			intfList := &v1alpha1.InterfaceList{}
-			Expect(k8sClient.List(ctx, intfList, client.InNamespace(metav1.NamespaceDefault), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name})).To(Succeed())
+			Expect(k8sManager.GetClient().List(ctx, intfList, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name})).To(Succeed())
 			for i := range intfList.Items {
 				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &intfList.Items[i]))).To(Succeed())
 			}
@@ -59,7 +61,21 @@ var _ = Describe("BGPPeer Controller", func() {
 			By("Waiting for BGPPeer resources to be fully deleted")
 			Eventually(func(g Gomega) {
 				list := &v1alpha1.BGPPeerList{}
-				g.Expect(k8sClient.List(ctx, list, client.InNamespace(metav1.NamespaceDefault), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name})).To(Succeed())
+				g.Expect(k8sManager.GetClient().List(ctx, list, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name})).To(Succeed())
+				g.Expect(list.Items).To(BeEmpty())
+			}).Should(Succeed())
+
+			By("Waiting for BGP resources to be fully deleted")
+			Eventually(func(g Gomega) {
+				list := &v1alpha1.BGPList{}
+				g.Expect(k8sManager.GetClient().List(ctx, list, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name})).To(Succeed())
+				g.Expect(list.Items).To(BeEmpty())
+			}).Should(Succeed())
+
+			By("Waiting for Interface resources to be fully deleted")
+			Eventually(func(g Gomega) {
+				list := &v1alpha1.InterfaceList{}
+				g.Expect(k8sManager.GetClient().List(ctx, list, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name})).To(Succeed())
 				g.Expect(list.Items).To(BeEmpty())
 			}).Should(Succeed())
 
