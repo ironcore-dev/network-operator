@@ -3535,6 +3535,11 @@ func (in *PIMSpec) DeepCopyInto(out *PIMSpec) {
 		*out = new(TypedLocalObjectReference)
 		**out = **in
 	}
+	if in.LogNeighborChanges != nil {
+		in, out := &in.LogNeighborChanges, &out.LogNeighborChanges
+		*out = new(bool)
+		**out = **in
+	}
 	if in.RendezvousPoints != nil {
 		in, out := &in.RendezvousPoints, &out.RendezvousPoints
 		*out = make([]RendezvousPoint, len(*in))

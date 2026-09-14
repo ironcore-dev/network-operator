@@ -15,4 +15,11 @@ func init() {
 	rp := &StaticRP{Addr: "10.0.0.100/32"}
 	rp.RpgrplistItems.RPGrpListList.Set(&StaticRPGrp{GrpListName: "224.0.0.0/4"})
 	Register("pim_rp", rp)
+
+	logEnabled := true
+	Register("pim_dom_log", &PIMDom{
+		Name:       "default",
+		AdminSt:    AdminStEnabled,
+		LogNbhChng: &logEnabled,
+	})
 }
