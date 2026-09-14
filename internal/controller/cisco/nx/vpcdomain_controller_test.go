@@ -6,6 +6,7 @@ package nx
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -114,6 +115,12 @@ var _ = Describe("VPCDomain Controller", func() {
 
 			By("Cleanup the specific resource instance VPCDomain")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+
+			By("Waiting for VPCDomain to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, vpcdomainKey, &nxv1.VPCDomain{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Ensuring the resource is deleted from the provider")
 			Eventually(func(g Gomega) {
@@ -293,6 +300,12 @@ var _ = Describe("VPCDomain Controller", func() {
 			By("Cleanup the VPCDomain")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 
+			By("Waiting for VPCDomain to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, vpcdomainKey, &nxv1.VPCDomain{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
+
 			By("Cleanup Interface and VRF resources")
 			for _, ifName := range []string{name + "-phys", name + "-po", name + "-phys-b", name + "-po-b", name + "-lo0"} {
 				intf := &corev1.Interface{}
@@ -300,12 +313,24 @@ var _ = Describe("VPCDomain Controller", func() {
 				intf.Namespace = metav1.NamespaceDefault
 				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed())
 			}
+			Eventually(func(g Gomega) {
+				for _, ifName := range []string{name + "-phys", name + "-po", name + "-phys-b", name + "-po-b", name + "-lo0"} {
+					err := k8sClient.Get(ctx, client.ObjectKey{Name: ifName, Namespace: metav1.NamespaceDefault}, &corev1.Interface{})
+					g.Expect(errors.IsNotFound(err)).To(BeTrue())
+				}
+			}).Should(Succeed())
 			for _, vrfName := range []string{name + "-vrf-a", name + "-vrf-b"} {
 				vrf := &corev1.VRF{}
 				vrf.Name = vrfName
 				vrf.Namespace = metav1.NamespaceDefault
 				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, vrf))).To(Succeed())
 			}
+			Eventually(func(g Gomega) {
+				for _, vrfName := range []string{name + "-vrf-a", name + "-vrf-b"} {
+					err := k8sClient.Get(ctx, client.ObjectKey{Name: vrfName, Namespace: metav1.NamespaceDefault}, &corev1.VRF{})
+					g.Expect(errors.IsNotFound(err)).To(BeTrue())
+				}
+			}).Should(Succeed())
 
 			By("Ensuring the resource is deleted from the provider")
 			Eventually(func(g Gomega) {

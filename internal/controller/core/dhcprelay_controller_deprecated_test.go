@@ -20,8 +20,12 @@ var _ = Describe("DHCPRelay Controller with deprecated API fields", func() {
 	It("Should reconcile interfaceRefs", func() {
 		device := &v1alpha1.Device{GenerateName: "test-dhcprelay-deprecated-", Namespace: metav1.NamespaceDefault, Spec: v1alpha1.DeviceSpec{Endpoint: v1alpha1.Endpoint{Address: "192.168.20.50:9339"}, Provider: "test-provider"}}
 		Expect(k8sClient.Create(ctx, device)).To(Succeed())
+		deviceKey := client.ObjectKeyFromObject(device)
 		DeferCleanup(func() {
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(errors.IsNotFound(k8sClient.Get(ctx, deviceKey, &v1alpha1.Device{}))).To(BeTrue())
+			}).Should(Succeed())
 		})
 		Eventually(func(g Gomega) {
 			g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(device), device)).To(Succeed())
@@ -30,8 +34,12 @@ var _ = Describe("DHCPRelay Controller with deprecated API fields", func() {
 
 		vlan := &v1alpha1.VLAN{GenerateName: "test-dhcprelay-deprecated-vlan-", Namespace: metav1.NamespaceDefault, Spec: v1alpha1.VLANSpec{DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name}, ID: 70, Name: "vlan70"}}
 		Expect(k8sClient.Create(ctx, vlan)).To(Succeed())
+		vlanKey := client.ObjectKeyFromObject(vlan)
 		DeferCleanup(func() {
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, vlan))).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(errors.IsNotFound(k8sClient.Get(ctx, vlanKey, &v1alpha1.VLAN{}))).To(BeTrue())
+			}).Should(Succeed())
 		})
 
 		intf := &v1alpha1.Interface{
@@ -42,8 +50,12 @@ var _ = Describe("DHCPRelay Controller with deprecated API fields", func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, intf)).To(Succeed())
+		intfKey := client.ObjectKeyFromObject(intf)
 		DeferCleanup(func() {
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(errors.IsNotFound(k8sClient.Get(ctx, intfKey, &v1alpha1.Interface{}))).To(BeTrue())
+			}).Should(Succeed())
 		})
 
 		Eventually(func(g Gomega) {

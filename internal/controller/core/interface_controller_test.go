@@ -46,18 +46,15 @@ var _ = Describe("Interface Controller", func() {
 		AfterEach(func() {
 			By("Cleaning up Interface resources for this device")
 			interfaces := &v1alpha1.InterfaceList{}
-			Expect(k8sClient.List(ctx, interfaces, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+			Expect(k8sManager.GetClient().List(ctx, interfaces, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: name})).To(Succeed())
 			for i := range interfaces.Items {
-				deviceName := interfaces.Items[i].Spec.DeviceRef.Name
-				if deviceName == name || deviceName == "different-device" || deviceName == "non-existing-device" {
-					Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &interfaces.Items[i]))).To(Succeed())
-				}
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &interfaces.Items[i]))).To(Succeed())
 			}
 
 			By("Waiting for Interfaces to be fully deleted")
 			Eventually(func(g Gomega) {
 				list := &v1alpha1.InterfaceList{}
-				g.Expect(k8sClient.List(ctx, list, client.InNamespace(metav1.NamespaceDefault), client.MatchingLabels{v1alpha1.DeviceLabel: name})).To(Succeed())
+				g.Expect(k8sManager.GetClient().List(ctx, list, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: name})).To(Succeed())
 				g.Expect(list.Items).To(BeEmpty())
 			}).Should(Succeed())
 
@@ -66,12 +63,20 @@ var _ = Describe("Interface Controller", func() {
 			vlan.Name = name
 			vlan.Namespace = metav1.NamespaceDefault
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, vlan))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, &v1alpha1.VLAN{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up test VRF resource")
 			vrf := &v1alpha1.VRF{}
 			vrf.Name = name
 			vrf.Namespace = metav1.NamespaceDefault
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, vrf))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, &v1alpha1.VRF{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Verifying the Interface is removed from the provider")
 			Eventually(func(g Gomega) {
@@ -180,7 +185,7 @@ var _ = Describe("Interface Controller", func() {
 				resource := new(v1alpha1.Interface)
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
 				g.Expect(controllerutil.ContainsFinalizer(resource, v1alpha1.FinalizerName)).To(BeTrue())
-				g.Expect(testProvider.Ports.Has(name)).To(BeTrue())
+				g.Expect(testDevices.StateFor(name).Ports.Has(name)).To(BeTrue())
 			}).Should(Succeed())
 
 			By("Deleting the provider config before the Interface")
@@ -195,7 +200,7 @@ var _ = Describe("Interface Controller", func() {
 			Eventually(func(g Gomega) {
 				err := k8sClient.Get(ctx, key, new(v1alpha1.Interface))
 				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
-				g.Expect(testProvider.Ports.Has(name)).To(BeFalse())
+				g.Expect(testDevices.StateFor(name).Ports.Has(name)).To(BeFalse())
 			}).Should(Succeed())
 		})
 
@@ -263,6 +268,9 @@ var _ = Describe("Interface Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, lb)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, lb))).To(Succeed())
+			})
 
 			By("Creating a Physical Interface with unnumbered reference to the cross-device Interface")
 			eth := &v1alpha1.Interface{
@@ -475,6 +483,9 @@ var _ = Describe("Interface Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, member)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, member))).To(Succeed())
+			})
 
 			By("Creating an Aggregate Interface referencing the cross-device member")
 			aggregate := &v1alpha1.Interface{
@@ -1370,15 +1381,19 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Cleaning up DNS resource")
 			if dns != nil {
-				Expect(k8sClient.Delete(ctx, dns)).To(Succeed())
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, dns))).To(Succeed())
+				Eventually(func(g Gomega) {
+					err := k8sClient.Get(ctx, client.ObjectKeyFromObject(dns), &v1alpha1.DNS{})
+					g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
 			}
 
 			By("Cleaning up Device resources")
 			if localDevice != nil {
-				Expect(k8sClient.Delete(ctx, localDevice)).To(Succeed())
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, localDevice))).To(Succeed())
 			}
 			if remoteDevice != nil {
-				Expect(k8sClient.Delete(ctx, remoteDevice)).To(Succeed())
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, remoteDevice))).To(Succeed())
 			}
 		})
 

@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,6 +47,12 @@ var _ = Describe("Device Controller", func() {
 			device.Name = name
 			device.Namespace = metav1.NamespaceDefault
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
+
+			By("Waiting for Device to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}, &v1alpha1.Device{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleanup the specific resource instance Secret")
 			secret := &corev1.Secret{}
@@ -140,6 +147,10 @@ var _ = Describe("Device Controller", func() {
 			err := k8sClient.Get(ctx, key, intf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(k8sClient.Delete(ctx, intf)).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, &v1alpha1.Interface{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 		})
 
 		It("Should transition from Pending to Provisioning when provisioning is configured", func() {
@@ -752,8 +763,8 @@ var _ = Describe("Device Controller", func() {
 		It("Should skip provisioning and transition from Pending to Running when skip-provisioning annotation is set", func() {
 			By("Creating a Device with provisioning configured and skip-provisioning annotation")
 			device := &v1alpha1.Device{
-				GenerateName: name,
-				Namespace:    metav1.NamespaceDefault,
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Annotations: map[string]string{
 					v1alpha1.DeviceMaintenanceAnnotation: v1alpha1.DeviceMaintenanceSkipProvisioning,
 				},
@@ -778,7 +789,6 @@ var _ = Describe("Device Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
-			key := client.ObjectKeyFromObject(device)
 
 			By("Verifying the device reaches Running phase with annotation removed and SkipProvisioning event emitted")
 			Eventually(func(g Gomega) {
@@ -795,8 +805,8 @@ var _ = Describe("Device Controller", func() {
 		It("Should close active provisioning entry and transition to Running when skip-provisioning annotation is set during Provisioning phase", func() {
 			By("Creating a Device with provisioning configured")
 			device := &v1alpha1.Device{
-				GenerateName: name,
-				Namespace:    metav1.NamespaceDefault,
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Provider: "test-provider",
 					Endpoint: v1alpha1.Endpoint{
@@ -818,7 +828,6 @@ var _ = Describe("Device Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
-			key := client.ObjectKeyFromObject(device)
 
 			By("Waiting for the device to enter Provisioning phase")
 			Eventually(func(g Gomega) {

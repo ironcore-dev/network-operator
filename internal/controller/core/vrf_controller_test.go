@@ -6,10 +6,10 @@ package core
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
@@ -80,6 +80,12 @@ var _ = Describe("VRF Controller", func() {
 			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
 				g.Expect(testDevices.StateFor(name).VRF.Has("CC-ADMIN-TEST")).To(BeFalse(), "Provider should not have VRF configured anymore")
+			}).Should(Succeed())
+
+			By("Waiting for the VRF to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, &v1alpha1.VRF{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")

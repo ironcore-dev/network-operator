@@ -257,6 +257,9 @@ var _ = Describe("DHCPRelay Controller", func() {
 			vrfKey := client.ObjectKey{Name: vrf.Name, Namespace: metav1.NamespaceDefault}
 			defer func() {
 				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, vrf))).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(errors.IsNotFound(k8sClient.Get(ctx, vrfKey, &v1alpha1.VRF{}))).To(BeTrue())
+				}).Should(Succeed())
 			}()
 
 			By("Waiting for VRF to be ready")
@@ -379,8 +382,12 @@ var _ = Describe("DHCPRelay Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, otherVLAN)).To(Succeed())
+			otherVLANKey := client.ObjectKeyFromObject(otherVLAN)
 			defer func() {
 				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, otherVLAN))).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(errors.IsNotFound(k8sClient.Get(ctx, otherVLANKey, &v1alpha1.VLAN{}))).To(BeTrue())
+				}).Should(Succeed())
 			}()
 
 			otherInterface := &v1alpha1.Interface{
@@ -398,12 +405,15 @@ var _ = Describe("DHCPRelay Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, otherInterface)).To(Succeed())
+			otherInterfaceKey := client.ObjectKeyFromObject(otherInterface)
 			defer func() {
 				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, otherInterface))).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(errors.IsNotFound(k8sClient.Get(ctx, otherInterfaceKey, &v1alpha1.Interface{}))).To(BeTrue())
+				}).Should(Succeed())
 			}()
 
 			By("Waiting for the second Interface to be configured")
-			otherInterfaceKey := client.ObjectKeyFromObject(otherInterface)
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, otherInterfaceKey, otherInterface)).To(Succeed())
 				cond := meta.FindStatusCondition(otherInterface.Status.Conditions, v1alpha1.ConfiguredCondition)
@@ -698,24 +708,6 @@ var _ = Describe("DHCPRelay Controller", func() {
 			deviceKey  client.ObjectKey
 		)
 
-		cleanupObject := func(object client.Object) {
-			DeferCleanup(func() {
-				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, object))).To(Succeed())
-			})
-		}
-
-		cleanupDHCPRelay := func(dhcprelay *v1alpha1.DHCPRelay) {
-			resourceKey := client.ObjectKeyFromObject(dhcprelay)
-			DeferCleanup(func() {
-				By("Cleaning up the DHCPRelay resource")
-				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, dhcprelay))).To(Succeed())
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, resourceKey, &v1alpha1.DHCPRelay{})
-					g.Expect(errors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
-			})
-		}
-
 		BeforeEach(func() {
 			By("Creating the Device resource")
 			device := &v1alpha1.Device{
@@ -729,6 +721,9 @@ var _ = Describe("DHCPRelay Controller", func() {
 				By("Cleaning up the Device resource")
 				device := &v1alpha1.Device{Name: deviceKey.Name, Namespace: deviceKey.Namespace}
 				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(errors.IsNotFound(k8sClient.Get(ctx, deviceKey, &v1alpha1.Device{}))).To(BeTrue())
+				}).Should(Succeed())
 			})
 		})
 
@@ -739,7 +734,14 @@ var _ = Describe("DHCPRelay Controller", func() {
 				Spec: v1alpha1.DHCPRelaySpec{DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName}, InterfaceRef: &v1alpha1.LocalObjectReference{Name: "non-existent-interface"}, Servers: []string{"192.168.1.1"}},
 			}
 			Expect(k8sClient.Create(ctx, dhcprelay)).To(Succeed())
-			cleanupDHCPRelay(dhcprelay)
+			resourceKey := client.ObjectKeyFromObject(dhcprelay)
+			DeferCleanup(func() {
+				By("Cleaning up the DHCPRelay resource")
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, dhcprelay))).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(errors.IsNotFound(k8sClient.Get(ctx, resourceKey, &v1alpha1.DHCPRelay{}))).To(BeTrue())
+				}).Should(Succeed())
+			})
 
 			By("Verifying the controller sets ConfiguredCondition to False with WaitingForDependenciesReason")
 			Eventually(func(g Gomega) {
@@ -755,22 +757,47 @@ var _ = Describe("DHCPRelay Controller", func() {
 			By("Creating another Device resource")
 			otherDevice := &v1alpha1.Device{GenerateName: "test-dhcprelay-crossdev-other-", Namespace: metav1.NamespaceDefault, Spec: v1alpha1.DeviceSpec{Endpoint: v1alpha1.Endpoint{Address: "192.168.10.53:9339"}, Provider: "test-provider"}}
 			Expect(k8sClient.Create(ctx, otherDevice)).To(Succeed())
-			cleanupObject(otherDevice)
+			otherDeviceKey := client.ObjectKeyFromObject(otherDevice)
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, otherDevice))).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(errors.IsNotFound(k8sClient.Get(ctx, otherDeviceKey, &v1alpha1.Device{}))).To(BeTrue())
+				}).Should(Succeed())
+			})
 
 			By("Creating a VLAN on the other Device")
 			otherVLAN := &v1alpha1.VLAN{GenerateName: "test-dhcprelay-crossdev-vlan-", Namespace: metav1.NamespaceDefault, Spec: v1alpha1.VLANSpec{DeviceRef: v1alpha1.LocalObjectReference{Name: otherDevice.Name}, ID: 20, Name: "vlan20"}}
 			Expect(k8sClient.Create(ctx, otherVLAN)).To(Succeed())
-			cleanupObject(otherVLAN)
+			otherVLANKey := client.ObjectKeyFromObject(otherVLAN)
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, otherVLAN))).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(errors.IsNotFound(k8sClient.Get(ctx, otherVLANKey, &v1alpha1.VLAN{}))).To(BeTrue())
+				}).Should(Succeed())
+			})
 
 			By("Creating an Interface on the other Device")
 			otherInterface := &v1alpha1.Interface{GenerateName: "test-dhcprelay-crossdev-intf-", Namespace: metav1.NamespaceDefault, Spec: v1alpha1.InterfaceSpec{DeviceRef: v1alpha1.LocalObjectReference{Name: otherDevice.Name}, Name: "vlan20", Type: v1alpha1.InterfaceTypeRoutedVLAN, VlanRef: &v1alpha1.LocalObjectReference{Name: otherVLAN.Name}, AdminState: v1alpha1.AdminStateUp, IPv4: &v1alpha1.InterfaceIPv4{Addresses: []v1alpha1.IPPrefix{{Prefix: netip.MustParsePrefix("10.0.1.1/24")}}}}}
 			Expect(k8sClient.Create(ctx, otherInterface)).To(Succeed())
-			cleanupObject(otherInterface)
+			otherInterfaceKey := client.ObjectKeyFromObject(otherInterface)
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, otherInterface))).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(errors.IsNotFound(k8sClient.Get(ctx, otherInterfaceKey, &v1alpha1.Interface{}))).To(BeTrue())
+				}).Should(Succeed())
+			})
 
 			By("Creating DHCPRelay referencing an Interface from a different device")
 			dhcprelay := &v1alpha1.DHCPRelay{GenerateName: "test-dhcprelay-crossdev-", Namespace: metav1.NamespaceDefault, Spec: v1alpha1.DHCPRelaySpec{DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName}, InterfaceRef: &v1alpha1.LocalObjectReference{Name: otherInterface.Name}, Servers: []string{"192.168.1.1"}}}
 			Expect(k8sClient.Create(ctx, dhcprelay)).To(Succeed())
-			cleanupDHCPRelay(dhcprelay)
+			resourceKey := client.ObjectKeyFromObject(dhcprelay)
+			DeferCleanup(func() {
+				By("Cleaning up the DHCPRelay resource")
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, dhcprelay))).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(errors.IsNotFound(k8sClient.Get(ctx, resourceKey, &v1alpha1.DHCPRelay{}))).To(BeTrue())
+				}).Should(Succeed())
+			})
 
 			By("Verifying the controller sets ConfiguredCondition to False with CrossDeviceReferenceReason")
 			Eventually(func(g Gomega) {
@@ -786,17 +813,35 @@ var _ = Describe("DHCPRelay Controller", func() {
 			By("Creating another Device resource")
 			otherDevice := &v1alpha1.Device{GenerateName: "test-dhcprelay-vrfcross-other-", Namespace: metav1.NamespaceDefault, Spec: v1alpha1.DeviceSpec{Endpoint: v1alpha1.Endpoint{Address: "192.168.10.58:9339"}, Provider: "test-provider"}}
 			Expect(k8sClient.Create(ctx, otherDevice)).To(Succeed())
-			cleanupObject(otherDevice)
+			otherDeviceKey := client.ObjectKeyFromObject(otherDevice)
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, otherDevice))).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(errors.IsNotFound(k8sClient.Get(ctx, otherDeviceKey, &v1alpha1.Device{}))).To(BeTrue())
+				}).Should(Succeed())
+			})
 
 			By("Creating a VLAN on the main Device")
 			vlan := &v1alpha1.VLAN{GenerateName: "test-dhcprelay-vrfcross-vlan-", Namespace: metav1.NamespaceDefault, Spec: v1alpha1.VLANSpec{DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName}, ID: 60, Name: "vlan60"}}
 			Expect(k8sClient.Create(ctx, vlan)).To(Succeed())
-			cleanupObject(vlan)
+			vlanKey := client.ObjectKeyFromObject(vlan)
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, vlan))).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(errors.IsNotFound(k8sClient.Get(ctx, vlanKey, &v1alpha1.VLAN{}))).To(BeTrue())
+				}).Should(Succeed())
+			})
 
 			By("Creating an Interface on the main Device")
 			intf := &v1alpha1.Interface{GenerateName: "test-dhcprelay-vrfcross-intf-", Namespace: metav1.NamespaceDefault, Spec: v1alpha1.InterfaceSpec{DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName}, Name: "vlan60", Type: v1alpha1.InterfaceTypeRoutedVLAN, VlanRef: &v1alpha1.LocalObjectReference{Name: vlan.Name}, AdminState: v1alpha1.AdminStateUp, IPv4: &v1alpha1.InterfaceIPv4{Addresses: []v1alpha1.IPPrefix{{Prefix: netip.MustParsePrefix("10.0.6.1/24")}}}}}
 			Expect(k8sClient.Create(ctx, intf)).To(Succeed())
-			cleanupObject(intf)
+			intfKey := client.ObjectKeyFromObject(intf)
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(errors.IsNotFound(k8sClient.Get(ctx, intfKey, &v1alpha1.Interface{}))).To(BeTrue())
+				}).Should(Succeed())
+			})
 
 			By("Waiting for Interface to be configured")
 			interfaceKey := client.ObjectKeyFromObject(intf)
@@ -810,12 +855,25 @@ var _ = Describe("DHCPRelay Controller", func() {
 			By("Creating a VRF on the other Device")
 			otherVRF := &v1alpha1.VRF{GenerateName: "test-dhcprelay-vrfcross-vrf-", Namespace: metav1.NamespaceDefault, Spec: v1alpha1.VRFSpec{DeviceRef: v1alpha1.LocalObjectReference{Name: otherDevice.Name}, Name: "VRF-OTHER"}}
 			Expect(k8sClient.Create(ctx, otherVRF)).To(Succeed())
-			cleanupObject(otherVRF)
+			otherVRFKey := client.ObjectKeyFromObject(otherVRF)
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, otherVRF))).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(errors.IsNotFound(k8sClient.Get(ctx, otherVRFKey, &v1alpha1.VRF{}))).To(BeTrue())
+				}).Should(Succeed())
+			})
 
 			By("Creating DHCPRelay with a VRF from a different device")
 			dhcprelay := &v1alpha1.DHCPRelay{GenerateName: "test-dhcprelay-vrfcross-new-", Namespace: metav1.NamespaceDefault, Spec: v1alpha1.DHCPRelaySpec{DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName}, InterfaceRef: &v1alpha1.LocalObjectReference{Name: intf.Name}, VrfRef: &v1alpha1.LocalObjectReference{Name: otherVRF.Name}, Servers: []string{"192.168.1.1"}}}
 			Expect(k8sClient.Create(ctx, dhcprelay)).To(Succeed())
-			cleanupDHCPRelay(dhcprelay)
+			resourceKey := client.ObjectKeyFromObject(dhcprelay)
+			DeferCleanup(func() {
+				By("Cleaning up the DHCPRelay resource")
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, dhcprelay))).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(errors.IsNotFound(k8sClient.Get(ctx, resourceKey, &v1alpha1.DHCPRelay{}))).To(BeTrue())
+				}).Should(Succeed())
+			})
 
 			By("Verifying the controller sets ConfiguredCondition to False with CrossDeviceReferenceReason")
 			Eventually(func(g Gomega) {
@@ -833,12 +891,24 @@ var _ = Describe("DHCPRelay Controller", func() {
 			By("Creating the VLAN resource")
 			vlan := &v1alpha1.VLAN{GenerateName: "test-dhcprelay-intfnr-vlan-", Namespace: metav1.NamespaceDefault, Spec: v1alpha1.VLANSpec{DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName}, ID: 40, Name: "vlan40", AdminState: v1alpha1.AdminStateUp}}
 			Expect(k8sClient.Create(ctx, vlan)).To(Succeed())
-			cleanupObject(vlan)
+			vlanKey := client.ObjectKeyFromObject(vlan)
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, vlan))).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(errors.IsNotFound(k8sClient.Get(ctx, vlanKey, &v1alpha1.VLAN{}))).To(BeTrue())
+				}).Should(Succeed())
+			})
 
 			By("Creating an Interface resource with a VRF reference to a non-existent VRF")
 			intf := &v1alpha1.Interface{GenerateName: "test-dhcprelay-intfnr-intf-", Namespace: metav1.NamespaceDefault, Spec: v1alpha1.InterfaceSpec{DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName}, Name: "vlan40", AdminState: v1alpha1.AdminStateUp, Type: v1alpha1.InterfaceTypeRoutedVLAN, VlanRef: &v1alpha1.LocalObjectReference{Name: vlan.Name}, VrfRef: &v1alpha1.LocalObjectReference{Name: nonExistentVrfName}, IPv4: &v1alpha1.InterfaceIPv4{Addresses: []v1alpha1.IPPrefix{{Prefix: netip.MustParsePrefix("10.0.4.1/24")}}}}}
 			Expect(k8sClient.Create(ctx, intf)).To(Succeed())
-			cleanupObject(intf)
+			intfKey := client.ObjectKeyFromObject(intf)
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(errors.IsNotFound(k8sClient.Get(ctx, intfKey, &v1alpha1.Interface{}))).To(BeTrue())
+				}).Should(Succeed())
+			})
 
 			By("Verifying the Interface is NOT Ready")
 			interfaceKey := client.ObjectKeyFromObject(intf)
@@ -852,7 +922,14 @@ var _ = Describe("DHCPRelay Controller", func() {
 			By("Creating DHCPRelay referencing a non-configured Interface")
 			dhcprelay := &v1alpha1.DHCPRelay{GenerateName: "test-dhcprelay-intfnr-", Namespace: metav1.NamespaceDefault, Spec: v1alpha1.DHCPRelaySpec{DeviceRef: v1alpha1.LocalObjectReference{Name: deviceName}, InterfaceRef: &v1alpha1.LocalObjectReference{Name: intf.Name}, Servers: []string{"192.168.1.1"}}}
 			Expect(k8sClient.Create(ctx, dhcprelay)).To(Succeed())
-			cleanupDHCPRelay(dhcprelay)
+			resourceKey := client.ObjectKeyFromObject(dhcprelay)
+			DeferCleanup(func() {
+				By("Cleaning up the DHCPRelay resource")
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, dhcprelay))).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(errors.IsNotFound(k8sClient.Get(ctx, resourceKey, &v1alpha1.DHCPRelay{}))).To(BeTrue())
+				}).Should(Succeed())
+			})
 
 			By("Verifying the controller sets ConfiguredCondition to False with WaitingForDependenciesReason")
 			Eventually(func(g Gomega) {
@@ -966,12 +1043,18 @@ var _ = Describe("DHCPRelay Controller", func() {
 			i.Name = interfaceKey.Name
 			i.Namespace = interfaceKey.Namespace
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, i))).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(errors.IsNotFound(k8sClient.Get(ctx, interfaceKey, &v1alpha1.Interface{}))).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up the VLAN resource")
 			vlan := &v1alpha1.VLAN{}
 			vlan.Name = vlanKey.Name
 			vlan.Namespace = vlanKey.Namespace
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, vlan))).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(errors.IsNotFound(k8sClient.Get(ctx, vlanKey, &v1alpha1.VLAN{}))).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
 			device := &v1alpha1.Device{}
@@ -1038,6 +1121,9 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Cleaning up the VRF resource")
 			Expect(k8sClient.Delete(ctx, vrf)).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(errors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(vrf), &v1alpha1.VRF{}))).To(BeTrue())
+			}).Should(Succeed())
 		})
 	})
 })
