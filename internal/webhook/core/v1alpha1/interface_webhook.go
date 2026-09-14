@@ -74,6 +74,12 @@ func validateInterfaceSpec(intf *v1alpha1.Interface) error {
 		}
 	}
 
+	if intf.Spec.IPv6 != nil {
+		if err := validateInterfaceIPv6(intf.Spec.IPv6); err != nil {
+			errAgg = append(errAgg, err)
+		}
+	}
+
 	if intf.Spec.Switchport != nil {
 		if err := validateSwitchport(intf.Spec.Switchport); err != nil {
 			errAgg = append(errAgg, err)
@@ -148,6 +154,23 @@ func validateInterfaceIPv4(ip *v1alpha1.InterfaceIPv4) error {
 		for j := i + 1; j < len(ip.Addresses); j++ {
 			if p := ip.Addresses[j].Prefix; cidr.Overlaps(p) {
 				errAgg = append(errAgg, fmt.Errorf("invalid IPv4 address %q: overlaps with %q", cidr.String(), p.String()))
+			}
+		}
+	}
+	return errors.Join(errAgg...)
+}
+
+// validateInterfaceIPv6 performs validation on the InterfaceIPv6 spec.
+func validateInterfaceIPv6(ip *v1alpha1.InterfaceIPv6) error {
+	var errAgg []error
+	for i, cidr := range ip.Addresses {
+		if !cidr.Prefix.Addr().Is6() {
+			errAgg = append(errAgg, fmt.Errorf("invalid IPv6 address %q: address is IPv4", cidr.String()))
+			continue
+		}
+		for j := i + 1; j < len(ip.Addresses); j++ {
+			if p := ip.Addresses[j].Prefix; cidr.Overlaps(p) {
+				errAgg = append(errAgg, fmt.Errorf("invalid IPv6 address %q: overlaps with %q", cidr.String(), p.String()))
 			}
 		}
 	}

@@ -2259,6 +2259,7 @@ _Appears in:_
 - [IPPrefixPoolSpec](#ipprefixpoolspec)
 - [IPPrefixSpec](#ipprefixspec)
 - [InterfaceIPv4](#interfaceipv4)
+- [InterfaceIPv6](#interfaceipv6)
 - [MulticastGroups](#multicastgroups)
 - [PrefixEntry](#prefixentry)
 - [RendezvousPoint](#rendezvouspoint)
@@ -2434,6 +2435,22 @@ _Appears in:_
 | `interfaceRef` _[LocalObjectReference](#localobjectreference)_ | InterfaceRef is a reference to the interface from which to borrow the IP address.<br />The referenced interface must exist and have at least one IPv4 address configured. |  | Required: \{\} <br /> |
 
 
+#### InterfaceIPv6
+
+
+
+InterfaceIPv6 defines the IPv6 configuration for an interface.
+
+
+
+_Appears in:_
+- [InterfaceSpec](#interfacespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `addresses` _[IPPrefix](#ipprefix) array_ | Addresses defines the list of IPv6 addresses assigned to the interface.<br />Both global unicast and link-local addresses may be assigned. |  | Format: cidr <br />MinItems: 1 <br />Type: string <br />Optional: \{\} <br /> |
+
+
 #### InterfaceSource
 
 
@@ -2474,6 +2491,7 @@ _Appears in:_
 | `mtu` _integer_ | MTU (Maximum Transmission Unit) specifies the size of the largest packet that can be sent over the interface. |  | Maximum: 9216 <br />Minimum: 576 <br />Optional: \{\} <br /> |
 | `switchport` _[Switchport](#switchport)_ | Switchport defines the switchport configuration for the interface.<br />This is only applicable for Ethernet and Aggregate interfaces. |  | Optional: \{\} <br /> |
 | `ipv4` _[InterfaceIPv4](#interfaceipv4)_ | IPv4 defines the IPv4 configuration for the interface. |  | Optional: \{\} <br /> |
+| `ipv6` _[InterfaceIPv6](#interfaceipv6)_ | IPv6 defines the IPv6 configuration for the interface. |  | Optional: \{\} <br /> |
 | `aggregation` _[Aggregation](#aggregation)_ | Aggregation defines the aggregation (bundle) configuration for the interface.<br />This is only applicable for interfaces of type Aggregate. |  | Optional: \{\} <br /> |
 | `vlanRef` _[LocalObjectReference](#localobjectreference)_ | VlanRef is a reference to the VLAN resource that this interface provides routing for.<br />This is only applicable for interfaces of type RoutedVLAN.<br />The referenced VLAN must exist in the same namespace. |  | Optional: \{\} <br /> |
 | `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VrfRef is a reference to the VRF resource that this interface belongs to.<br />If not specified, the interface will be part of the default VRF.<br />This is only applicable for Layer 3 interfaces.<br />The referenced VRF must exist in the same namespace. |  | Optional: \{\} <br /> |

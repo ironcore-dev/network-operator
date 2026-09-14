@@ -182,6 +182,7 @@ type EnsureInterfaceRequest struct {
 	Interface      *v1alpha1.Interface
 	ProviderConfig *ProviderConfig
 	IPv4           IPv4
+	IPv6           IPv6
 
 	// Members is the list of member interfaces for aggregated interfaces.
 	// This field is only applicable if the interface type is Aggregate.
@@ -219,6 +220,14 @@ type IPv4Unnumbered struct {
 }
 
 func (IPv4Unnumbered) isIPv4() {}
+
+type IPv6 interface {
+	isIPv6()
+}
+
+type IPv6AddressList []netip.Prefix
+
+func (IPv6AddressList) isIPv6() {}
 
 type InterfaceStatus struct {
 	// OperStatus indicates whether the interface is operationally up (true) or down (false).

@@ -332,6 +332,20 @@ spec:
                   rule: '!has(self.addresses) || !has(self.unnumbered)'
                 - message: anycastGateway and unnumbered are mutually exclusive
                   rule: '!has(self.unnumbered) || !self.anycastGateway'
+              ipv6:
+                description: IPv6 defines the IPv6 configuration for the interface.
+                properties:
+                  addresses:
+                    description: |-
+                      Addresses defines the list of IPv6 addresses assigned to the interface.
+                      Both global unicast and link-local addresses may be assigned.
+                    items:
+                      format: cidr
+                      type: string
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
+                type: object
               mtu:
                 description: MTU (Maximum Transmission Unit) specifies the size of
                   the largest packet that can be sent over the interface.
@@ -515,6 +529,8 @@ spec:
             x-kubernetes-validations:
             - message: switchport and ipv4 are mutually exclusive
               rule: '!has(self.switchport) || !has(self.ipv4)'
+            - message: switchport and ipv6 are mutually exclusive
+              rule: '!has(self.switchport) || !has(self.ipv6)'
             - message: switchport must not be specified for interfaces of type Loopback
               rule: self.type != 'Loopback' || !has(self.switchport)
             - message: unnumbered ipv4 configuration can only be used for interfaces

@@ -1276,6 +1276,22 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		}
 	}
+	var ipv6Addr *AddrItem
+	if req.IPv6 != nil {
+		ipv6Addr = new(AddrItem)
+		ipv6Addr.ID = name
+		ipv6Addr.Vrf = vrf
+		ipv6Addr.Is6 = true
+		if v, ok := req.IPv6.(provider.IPv6AddressList); ok {
+			for i, p := range v {
+				nth := IntfAddrTypePrimary
+				if i > 0 {
+					nth = IntfAddrTypeSecondary
+				}
+				ipv6Addr.AddrItems.AddrList.Set(&IntfAddr{Addr: p.String(), Type: nth})
+			}
+		}
+	}
 
 	addrs := new(AddrList)
 	if err := p.client.GetConfig(ctx, addrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
@@ -1283,6 +1299,15 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	}
 	for _, a := range addrs.GetAddrItemsByInterface(name) {
 		if addr == nil || a.Vrf != vrf {
+			sb.Delete(a)
+		}
+	}
+	ipv6Addrs := &AddrList{Is6: true}
+	if err := p.client.GetConfig(ctx, ipv6Addrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	for _, a := range ipv6Addrs.GetAddrItemsByInterface(name) {
+		if ipv6Addr == nil || a.Vrf != vrf {
 			sb.Delete(a)
 		}
 	}
@@ -1323,7 +1348,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 
 		// If this Physical interface is a member of an L3 Aggregate (port-channel),
 		// it must be Layer3 on NX-OS even though it has no IP address of its own.
-		if req.IPv4 != nil || (req.AggregateParent != nil && req.AggregateParent.Spec.IPv4 != nil) {
+		if req.IPv4 != nil || req.IPv6 != nil || (req.AggregateParent != nil && (req.AggregateParent.Spec.IPv4 != nil || req.AggregateParent.Spec.IPv6 != nil)) {
 			p.Layer = Layer3
 			p.RtvrfMbrItems = NewVrfMember(name, vrf)
 			p.AccessVlan = string(AdjOperStUnknown)
@@ -1420,7 +1445,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			pc.UserCfgdFlags |= UserFlagAdminMTU
 		}
 
-		if req.IPv4 != nil {
+		if req.IPv4 != nil || req.IPv6 != nil {
 			pc.Layer = Layer3
 			pc.RtvrfMbrItems = NewVrfMember(name, vrf)
 			pc.AccessVlan = "unknown"
@@ -1577,7 +1602,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 		s.Encap = encap
 
-		if req.IPv4 != nil {
+		if req.IPv4 != nil || req.IPv6 != nil {
 			s.RtvrfMbrItems = NewVrfMember(name, vrf)
 		}
 
@@ -1595,7 +1620,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		})
 	}
 
-	if (req.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical || req.Interface.Spec.Type == v1alpha1.InterfaceTypeAggregate) && req.IPv4 == nil && (req.AggregateParent == nil || req.AggregateParent.Spec.IPv4 == nil) {
+	if (req.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical || req.Interface.Spec.Type == v1alpha1.InterfaceTypeAggregate) && req.IPv4 == nil && req.IPv6 == nil && (req.AggregateParent == nil || (req.AggregateParent.Spec.IPv4 == nil && req.AggregateParent.Spec.IPv6 == nil)) {
 		stp := new(SpanningTree)
 		stp.IfName = name
 		stp.Mode = SpanningTreeModeDefault
@@ -1631,6 +1656,9 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	// Add the address items last, as they depend on the interface being created first.
 	if addr != nil {
 		sb.Patch(addr)
+	}
+	if ipv6Addr != nil {
+		sb.Patch(ipv6Addr)
 	}
 
 	switch {
@@ -1718,6 +1746,14 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 		return err
 	}
 	for _, addr := range addrs.GetAddrItemsByInterface(name) {
+		sb.Delete(addr)
+	}
+
+	ipv6Addrs := &AddrList{Is6: true}
+	if err := p.client.GetConfig(ctx, ipv6Addrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	for _, addr := range ipv6Addrs.GetAddrItemsByInterface(name) {
 		sb.Delete(addr)
 	}
 

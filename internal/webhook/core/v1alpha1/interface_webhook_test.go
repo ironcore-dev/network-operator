@@ -66,6 +66,22 @@ var _ = Describe("Interface Webhook", func() {
 			Expect(err.Error()).To(ContainSubstring("address is IPv6"))
 		})
 
+		It("Should allow valid IPv6 addresses", func() {
+			obj.Spec.IPv6 = &v1alpha1.InterfaceIPv6{
+				Addresses: []v1alpha1.IPPrefix{v1alpha1.MustParsePrefix("fe80::1/64")},
+			}
+
+			Expect(validateInterfaceSpec(obj)).To(Succeed())
+		})
+
+		It("Should reject IPv4 addresses in IPv6 field", func() {
+			obj.Spec.IPv6 = &v1alpha1.InterfaceIPv6{
+				Addresses: []v1alpha1.IPPrefix{v1alpha1.MustParsePrefix("192.0.2.1/31")},
+			}
+
+			Expect(validateInterfaceSpec(obj)).To(MatchError(ContainSubstring("invalid IPv6 address")))
+		})
+
 		It("Should reject overlapping IPv4 addresses", func() {
 			obj.Spec.IPv4 = &v1alpha1.InterfaceIPv4{
 				Addresses: []v1alpha1.IPPrefix{
