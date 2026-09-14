@@ -68,6 +68,7 @@ type VNI struct {
 	AssociateVrfFlag bool           `json:"associateVrfFlag"`
 	McastGroup       Option[string] `json:"mcastGroup"`
 	Vni              int32          `json:"vni"`
+	SuppressARP      Option[bool]   `json:"suppressARP"`
 }
 
 func (*VNI) IsListItem() {}

@@ -168,6 +168,11 @@ spec:
                 x-kubernetes-list-map-keys:
                 - value
                 x-kubernetes-list-type: map
+              suppressARP:
+                description: |-
+                  SuppressARP overrides the NVE-level ARP suppression setting for this VNI.
+                  When unset, the NVE-level SuppressARP setting takes precedence.
+                type: boolean
               type:
                 description: |-
                   Type specifies the EVPN instance type.

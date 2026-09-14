@@ -22,6 +22,20 @@ func init() {
 		McastGroup: NewOption("239.1.1.100"),
 	}
 	Register("vni", vni)
+
+	suppressARPTrue := true
+	vniSuppressARPTrue := &VNI{
+		Vni:         100011,
+		SuppressARP: Option[bool]{Value: &suppressARPTrue},
+	}
+	Register("vni_suppress_arp_true", vniSuppressARPTrue)
+
+	suppressARPFalse := false
+	vniSuppressARPFalse := &VNI{
+		Vni:         100012,
+		SuppressARP: Option[bool]{Value: &suppressARPFalse},
+	}
+	Register("vni_suppress_arp_false", vniSuppressARPFalse)
 	nveInfraVLANs := &NVEInfraVLANs{
 		InfraVLANList: []*NVEInfraVLAN{
 			{ID: 4052},
