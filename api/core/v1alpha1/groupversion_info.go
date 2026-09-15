@@ -285,6 +285,10 @@ const (
 const (
 	// PrefixSetNotFoundReason indicates that a referenced PrefixSet was not found.
 	PrefixSetNotFoundReason = "PrefixSetNotFound"
+	// CommunitySetNotFoundReason indicates that a referenced CommunitySet was not found.
+	CommunitySetNotFoundReason = "CommunitySetNotFound"
+	// InvalidCommunitySetTypeReason indicates that a referenced CommunitySet is of the wrong type (standard vs extended).
+	InvalidCommunitySetTypeReason = "InvalidCommunitySetType"
 	// SecretNotFoundReason indicates that a referenced Secret was not found.
 	SecretNotFoundReason = "SecretNotFound"
 	// RemoteEndpointUnreachableReason indicates that the remote object storage endpoint is not reachable.

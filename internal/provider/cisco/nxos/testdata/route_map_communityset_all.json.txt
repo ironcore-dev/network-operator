@@ -1,0 +1,2 @@
+route-map RM-COMMUNITYSET-ALL permit 10
+ match community CS-BLUE exact-match
