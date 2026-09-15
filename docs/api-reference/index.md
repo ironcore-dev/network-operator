@@ -1417,6 +1417,23 @@ CommunitySet is the Schema for the communitysets API.
 | `status` _[CommunitySetStatus](#communitysetstatus)_ |  |  | Optional: \{\} <br /> |
 
 
+#### CommunitySetMatchCondition
+
+
+
+CommunitySetMatchCondition defines the condition for matching against a CommunitySet.
+
+
+
+_Appears in:_
+- [PolicyConditions](#policyconditions)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `communitySetRef` _[LocalObjectReference](#localobjectreference)_ | CommunitySetRef references a CommunitySet in the same namespace.<br />The CommunitySet must exist and belong to the same device. |  | Required: \{\} <br /> |
+| `matchSetOptions` _[MatchSetOptions](#matchsetoptions)_ | MatchSetOptions defines how a route's communities are compared against the referenced set.<br />ANY matches a route carrying at least one member of the set; ALL matches only a route<br />carrying every member of the set. | ANY | Enum: [ANY ALL] <br />Optional: \{\} <br /> |
+
+
 #### CommunitySetSpec
 
 
@@ -2918,6 +2935,7 @@ _Appears in:_
 - [BannerSpec](#bannerspec)
 - [BorderGatewaySpec](#bordergatewayspec)
 - [CertificateSpec](#certificatespec)
+- [CommunitySetMatchCondition](#communitysetmatchcondition)
 - [CommunitySetSpec](#communitysetspec)
 - [ConfigBackupSpec](#configbackupspec)
 - [ConsoleConnectionSpec](#consoleconnectionspec)
@@ -3089,6 +3107,24 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `min` _integer_ | Minimum mask length. |  | Maximum: 128 <br />Minimum: 0 <br />Required: \{\} <br /> |
 | `max` _integer_ | Maximum mask length. |  | Maximum: 128 <br />Minimum: 0 <br />Required: \{\} <br /> |
+
+
+#### MatchSetOptions
+
+_Underlying type:_ _string_
+
+MatchSetOptions defines how a route's attributes are compared against a referenced set.
+
+_Validation:_
+- Enum: [ANY ALL]
+
+_Appears in:_
+- [CommunitySetMatchCondition](#communitysetmatchcondition)
+
+| Field | Description |
+| --- | --- |
+| `ANY` | MatchSetOptionsAny matches a route carrying at least one member of the referenced set.<br /> |
+| `ALL` | MatchSetOptionsAll matches only a route carrying every member of the referenced set.<br /> |
 
 
 #### MultiChassis
@@ -3646,6 +3682,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `matchPrefixSet` _[PrefixSetMatchCondition](#prefixsetmatchcondition)_ | MatchPrefixSet matches routes against a PrefixSet resource. |  | Optional: \{\} <br /> |
+| `matchCommunitySets` _[CommunitySetMatchCondition](#communitysetmatchcondition) array_ | MatchCommunitySets matches routes against CommunitySet resource(s). |  | Optional: \{\} <br /> |
 
 
 #### PolicyStatement
