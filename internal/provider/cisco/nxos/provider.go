@@ -3576,7 +3576,7 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) erro
 	ag.AdminSt = AdminStDisabled
 	if req.NVE.Spec.AnycastGateway != nil {
 		ag.AdminSt = AdminStEnabled
-		ag.Address = req.NVE.Spec.AnycastGateway.VirtualMAC
+		ag.Address = strings.ToUpper(req.NVE.Spec.AnycastGateway.VirtualMAC)
 	}
 	sb.Patch(ag)
 
