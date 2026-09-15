@@ -3220,8 +3220,8 @@ func (p *Provider) EnsureVPCDomain(ctx context.Context, vpcdomain *nxv1alpha1.VP
 		v.AutoRecoveryReloadDelay = vpcdomain.Spec.Peer.AutoRecovery.ReloadDelay
 	}
 
-	v.KeepAliveItems.DestIP = vpcdomain.Spec.Peer.KeepAlive.Destination
-	v.KeepAliveItems.SrcIP = vpcdomain.Spec.Peer.KeepAlive.Source
+	v.KeepAliveItems.DestIP = Prefix(netip.PrefixFrom(netip.MustParseAddr(vpcdomain.Spec.Peer.KeepAlive.Destination), 32))
+	v.KeepAliveItems.SrcIP = Prefix(netip.PrefixFrom(netip.MustParseAddr(vpcdomain.Spec.Peer.KeepAlive.Source), 32))
 	v.KeepAliveItems.VRF = vpcdomain.Spec.Peer.KeepAlive.VrfName
 	if vrf != nil {
 		v.KeepAliveItems.VRF = vrf.Spec.Name
