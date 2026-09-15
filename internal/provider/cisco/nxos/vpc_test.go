@@ -3,6 +3,8 @@
 
 package nxos
 
+import "net/netip"
+
 func init() {
 	vd := &VPCDomain{
 		AdminSt:                 AdminStEnabled,
@@ -18,8 +20,8 @@ func init() {
 		RolePrio:                100,
 		SysPrio:                 10,
 	}
-	vd.KeepAliveItems.DestIP = "10.114.235.156"
-	vd.KeepAliveItems.SrcIP = "10.114.235.155"
+	vd.KeepAliveItems.DestIP = Prefix(netip.MustParsePrefix("10.114.235.156/32"))
+	vd.KeepAliveItems.SrcIP = Prefix(netip.MustParsePrefix("10.114.235.155/32"))
 	vd.KeepAliveItems.VRF = ManagementVRFName
 	vd.KeepAliveItems.PeerLinkItems.AdminSt = AdminStEnabled
 	vd.KeepAliveItems.PeerLinkItems.ID = "po1"
