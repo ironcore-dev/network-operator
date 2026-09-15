@@ -19,6 +19,13 @@ var _ provider.InterfaceProvider = (*Provider)(nil)
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
 	spec := req.Interface.Spec
 
+	if _, ok := req.IPv6.(provider.IPv6LinkLocalOnly); ok {
+		return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+			Field:       "spec.ipv6.useLinkLocalOnly",
+			Description: "openconfig provider does not support link-local-only IPv6 interfaces",
+		})
+	}
+
 	i := &Interface{
 		Name: spec.Name,
 		Config: &InterfaceConfig{
@@ -113,7 +120,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 	}
 
-	if req.IPv4 != nil {
+	if req.IPv4 != nil || req.IPv6 != nil {
 		sub := &Subinterface{
 			Index:  0,
 			Config: &SubinterfaceConfig{Index: 0, Enabled: true},
@@ -154,6 +161,8 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				},
 			}
 		}
+
+		sub.IPv6 = newInterfaceIPv6(req.IPv6)
 
 		subs := &Subinterfaces{}
 		subs.Subinterface.Set(sub)
@@ -313,7 +322,40 @@ func (p *Provider) EnsureSubinterface(ctx context.Context, req *provider.EnsureI
 		}
 	}
 
+	sub.IPv6 = newInterfaceIPv6(req.IPv6)
+
 	return p.client.Update(ctx, sub)
+}
+
+// newInterfaceIPv6 builds the IPv6 container of a subinterface, or nil if no
+// IPv6 addresses were requested. Link-local-only is rejected by EnsureInterface
+// before this is reached.
+func newInterfaceIPv6(ipv6 provider.IPv6) *InterfaceIPv6 {
+	v, ok := ipv6.(provider.IPv6AddressList)
+	if !ok {
+		return nil
+	}
+
+	addrs := &IPv6Addresses{}
+	for _, prefix := range v {
+		ip := prefix.Addr().String()
+		addrType := IPv6AddressTypeGlobalUnicast
+		if prefix.Addr().IsLinkLocalUnicast() {
+			addrType = IPv6AddressTypeLinkLocalUnicast
+		}
+		addrs.Address.Set(&IPv6Address{
+			IP: ip,
+			Config: &IPv6AddressConfig{
+				IP:           ip,
+				PrefixLength: uint8(prefix.Bits()), //nolint:gosec
+				Type:         addrType,
+			},
+		})
+	}
+	return &InterfaceIPv6{
+		Config:    &InterfaceIPv6Config{Enabled: true},
+		Addresses: addrs,
+	}
 }
 
 // InterfaceType represents the YANG identity for the interface type.
@@ -476,6 +518,7 @@ type Subinterface struct {
 	Index  uint32              `json:"index"`
 	Config *SubinterfaceConfig `json:"config,omitempty"`
 	IPv4   *InterfaceIPv4      `json:"openconfig-if-ip:ipv4,omitempty"`
+	IPv6   *InterfaceIPv6      `json:"openconfig-if-ip:ipv6,omitempty"`
 }
 
 func (s *Subinterface) Key() uint32 {
@@ -498,6 +541,49 @@ type InterfaceIPv4 struct {
 // InterfaceIPv4Config holds the config container for IPv4.
 type InterfaceIPv4Config struct {
 	Enabled bool `json:"enabled"`
+}
+
+// InterfaceIPv6 holds the IPv6 container of a subinterface.
+type InterfaceIPv6 struct {
+	Addresses *IPv6Addresses       `json:"addresses,omitempty"`
+	Config    *InterfaceIPv6Config `json:"config,omitempty"`
+}
+
+// InterfaceIPv6Config holds the config container for IPv6.
+type InterfaceIPv6Config struct {
+	Enabled bool `json:"enabled"`
+}
+
+// IPv6Addresses holds the IPv6 address list container.
+type IPv6Addresses struct {
+	Address gnmiext.List[string, *IPv6Address] `json:"address,omitempty"`
+}
+
+// IPv6Address represents a single IPv6 address entry.
+type IPv6Address struct {
+	IP     string             `json:"ip"`
+	Config *IPv6AddressConfig `json:"config,omitempty"`
+}
+
+func (a *IPv6Address) Key() string {
+	return a.IP
+}
+
+// IPv6AddressType represents the type of an IPv6 address. Unlike IPv4, IPv6 has
+// no primary/secondary addresses; the type distinguishes global unicast from
+// link-local unicast addresses.
+type IPv6AddressType string
+
+const (
+	IPv6AddressTypeGlobalUnicast    IPv6AddressType = "GLOBAL_UNICAST"
+	IPv6AddressTypeLinkLocalUnicast IPv6AddressType = "LINK_LOCAL_UNICAST"
+)
+
+// IPv6AddressConfig holds the config for a single IPv6 address.
+type IPv6AddressConfig struct {
+	IP           string          `json:"ip"`
+	PrefixLength uint8           `json:"prefix-length"`
+	Type         IPv6AddressType `json:"type,omitempty"`
 }
 
 // IPv4Addresses holds the IPv4 address list container.
@@ -626,6 +712,7 @@ type SubinterfaceEntry struct {
 	Index      uint32              `json:"index"`
 	Config     *SubinterfaceConfig `json:"config,omitempty"`
 	IPv4       *InterfaceIPv4      `json:"openconfig-if-ip:ipv4,omitempty"`
+	IPv6       *InterfaceIPv6      `json:"openconfig-if-ip:ipv6,omitempty"`
 	Vlan       *SubinterfaceVlan   `json:"openconfig-vlan:vlan,omitempty"`
 }
 
