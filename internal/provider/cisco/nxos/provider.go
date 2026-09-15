@@ -73,6 +73,7 @@ var (
 	_ provider.AAAProvider              = (*Provider)(nil)
 	_ provider.ConfigBackupProvider     = (*Provider)(nil)
 	_ provider.ProbeProvider            = (*Provider)(nil)
+	_ provider.StaticRouteProvider      = (*Provider)(nil)
 )
 
 // maxSetOperations is the maximum number of operations per gNMI Set RPC.
@@ -4331,6 +4332,16 @@ func NormalizeMACAddress(mac string) string {
 		return mac
 	}
 	return fmt.Sprintf("%s:%s:%s:%s:%s:%s", h[0:2], h[2:4], h[4:6], h[6:8], h[8:10], h[10:12])
+}
+
+func (p *Provider) EnsureStaticRoute(ctx context.Context, req *provider.StaticRouteRequest) error {
+	// TODO(sven-rosenzweig): implement static route configuration
+	return nil
+}
+
+func (p *Provider) DeleteStaticRoute(ctx context.Context, req *provider.StaticRouteRequest) error {
+	// TODO(sven-rosenzweig): implement static route deletion
+	return nil
 }
 
 func init() {
