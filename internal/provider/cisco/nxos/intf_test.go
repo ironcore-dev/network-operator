@@ -128,16 +128,17 @@ func init() {
 		Descr:      NewOption("L3 Subinterface on eth1/1"),
 	})
 
-	intfAddr4 := &AddrItem{ID: "lo0", Vrf: DefaultVRFName}
-	intfAddr4.AddrItems.AddrList.Set(&IntfAddr{
+	Register("intf_addr4", &IntfAddr{
+		ID:   "lo0",
+		Vrf:  DefaultVRFName,
+		Is6:  false,
 		Addr: "10.0.0.10/32",
 		Pref: 0,
 		Tag:  0,
 		Type: "primary",
 	})
-	Register("intf_addr4", intfAddr4)
 
-	pc := &PortChannel{
+	Register("pc", &PortChannel{
 		AccessVlan:     DefaultVLAN,
 		AdminSt:        AdminStUp,
 		Descr:          NewOption("vPC Leaf1 to Host1"),
@@ -151,9 +152,12 @@ func init() {
 		NativeVlan:     DefaultVLAN,
 		SuspIndividual: AdminStEnable,
 		UserCfgdFlags:  UserFlagAdminState,
-	}
-	pc.RsmbrIfsItems.RsMbrIfsList.Set(NewPortChannelMember("eth1/10"))
-	Register("pc", pc)
+	})
+
+	pcMember := NewPortChannelMember("eth1/10")
+	pcMember.PortChannelID = "po10"
+	Register("pc_member", pcMember)
+
 	Register("pc_trunk_vlans", &TrunkVlans{IfName: "po10", Vlans: "10"})
 
 	Register("pc_rtd", &PortChannel{
@@ -176,7 +180,7 @@ func init() {
 		}{BufferBoost: AdminStEnable},
 	})
 
-	pcLacp := &PortChannel{
+	Register("pc_lacp", &PortChannel{
 		AccessVlan:     DefaultVLAN,
 		AdminSt:        AdminStUp,
 		Descr:          NewOption("vPC Leaf1 to Host1 (LACP)"),
@@ -190,9 +194,7 @@ func init() {
 		NativeVlan:     DefaultVLAN,
 		SuspIndividual: AdminStDisable,
 		UserCfgdFlags:  UserFlagAdminState,
-	}
-	pcLacp.RsmbrIfsItems.RsMbrIfsList.Set(NewPortChannelMember("eth1/1"))
-	Register("pc_lacp", pcLacp)
+	})
 
 	svi := &SwitchVirtualInterface{
 		AdminSt: AdminStUp,

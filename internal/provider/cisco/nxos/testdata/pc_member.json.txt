@@ -1,0 +1,2 @@
+interface Ethernet1/10
+ channel-group 10 mode active

@@ -5,8 +5,6 @@
         "Dom-list": [
           {
             "name": "default",
-            "rtrId": "1.1.1.1",
-            "rtrIdAuto": "disabled",
             "af-items": {
               "DomAf-list": [
                 {

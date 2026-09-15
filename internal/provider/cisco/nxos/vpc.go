@@ -4,7 +4,10 @@
 package nxos
 
 import (
+	"bytes"
+	"encoding"
 	"fmt"
+	"net/netip"
 	"regexp"
 	"slices"
 	"strconv"
@@ -34,8 +37,8 @@ type VPCDomain struct {
 	RolePrio                int32   `json:"rolePrio"`
 	SysPrio                 int32   `json:"sysPrio"`
 	KeepAliveItems          struct {
-		DestIP        string `json:"destIp"`
-		SrcIP         string `json:"srcIp"`
+		DestIP        Prefix `json:"destIp"`
+		SrcIP         Prefix `json:"srcIp"`
 		VRF           string `json:"vrf"`
 		PeerLinkItems struct {
 			AdminSt AdminSt `json:"adminSt"`
@@ -134,5 +137,47 @@ func (v *VPCIfItems) GetListItemByInterface(name string) *VPCIf {
 			return item
 		}
 	}
+	return nil
+}
+
+var (
+	_ encoding.TextMarshaler   = Prefix{}
+	_ encoding.TextUnmarshaler = (*Prefix)(nil)
+)
+
+type Prefix netip.Prefix
+
+// MarshalText implements the [encoding.TextMarshaler] interface.
+func (p Prefix) MarshalText() ([]byte, error) {
+	return netip.Prefix(p).MarshalText()
+}
+
+// UnmarshalText implements the [encoding.TextUnmarshaler] interface.
+func (p *Prefix) UnmarshalText(text []byte) error {
+	if len(text) == 0 {
+		*p = Prefix{}
+		return nil
+	}
+	i := bytes.IndexByte(text, '/')
+	if i < 0 {
+		addr, err := netip.ParseAddr(string(text))
+		if err != nil {
+			return fmt.Errorf("failed to parse address: %w", err)
+		}
+		if addr.Is4() {
+			*p = Prefix(netip.PrefixFrom(addr, 32))
+			return nil
+		}
+		if addr.Is6() {
+			*p = Prefix(netip.PrefixFrom(addr, 128))
+			return nil
+		}
+		return fmt.Errorf("failed to infer prefix length from address: %s", addr.String())
+	}
+	np, err := netip.ParsePrefix(string(text))
+	if err != nil {
+		return fmt.Errorf("failed to parse prefix: %w", err)
+	}
+	*p = Prefix(np)
 	return nil
 }

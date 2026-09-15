@@ -18,6 +18,8 @@ var (
 	_ gnmiext.DataElement = (*BGP)(nil)
 	_ gnmiext.DataElement = (*BGPDom)(nil)
 	_ gnmiext.DataElement = (*BGPDomItems)(nil)
+	_ gnmiext.DataElement = (*BGPDomAfItems)(nil)
+	_ gnmiext.DataElement = (*BGPDomAfItem)(nil)
 	_ gnmiext.DataElement = (*BGPPeerGroup)(nil)
 )
 
@@ -45,12 +47,9 @@ func (*BGP) XPath() string {
 }
 
 type BGPDom struct {
-	Name      string  `json:"name"`
-	RtrID     string  `json:"rtrId"`
-	RtrIDAuto AdminSt `json:"rtrIdAuto"`
-	AfItems   struct {
-		DomAfList gnmiext.List[AddressFamily, *BGPDomAfItem] `json:"DomAf-list,omitzero"`
-	} `json:"af-items,omitzero"`
+	Name          string  `json:"name"`
+	RtrID         string  `json:"rtrId"`
+	RtrIDAuto     AdminSt `json:"rtrIdAuto"`
 	PeerContItems struct {
 		PeerContList gnmiext.List[string, *BGPPeerGroup] `json:"PeerCont-list,omitzero"`
 	} `json:"peercont-items,omitzero"`
@@ -87,7 +86,18 @@ func (g *BGPPeerGroup) XPath() string {
 	return "System/bgp-items/inst-items/dom-items/Dom-list[name=" + g.VRFName + "]/peercont-items/PeerCont-list[name=" + g.Name + "]"
 }
 
+// BGPDomAfItems is the list container for all address families under a BGP domain.
+type BGPDomAfItems struct {
+	Name      string                                     `json:"-"` // VRF name, for XPath construction
+	DomAfList gnmiext.List[AddressFamily, *BGPDomAfItem] `json:"DomAf-list,omitzero"`
+}
+
+func (a *BGPDomAfItems) XPath() string {
+	return "System/bgp-items/inst-items/dom-items/Dom-list[name=" + a.Name + "]/af-items"
+}
+
 type BGPDomAfItem struct {
+	VRFName string `json:"-"` // for XPath construction
 	// Maximum number of equal-cost paths for iBGP
 	MaxEcmp int8 `json:"maxEcmp,omitempty"`
 	// Maximum number of equal-cost paths for eBGP
@@ -162,6 +172,12 @@ func (af *BGPDomAfItem) UnmarshalJSON(v []byte) error {
 }
 
 func (af *BGPDomAfItem) Key() AddressFamily { return af.Type }
+
+func (*BGPDomAfItem) IsListItem() {}
+
+func (af *BGPDomAfItem) XPath() string {
+	return "System/bgp-items/inst-items/dom-items/Dom-list[name=" + af.VRFName + "]/af-items/DomAf-list[type=" + string(af.Type) + "]"
+}
 
 // NewInterLeakPDirect creates an InterLeakP entry for redistributing directly
 // connected routes into a BGP address family.

@@ -15,8 +15,8 @@
         "rolePrio": 100,
         "sysPrio": 10,
         "keepalive-items": {
-          "destIp": "10.114.235.156",
-          "srcIp": "10.114.235.155",
+          "destIp": "10.114.235.156/32",
+          "srcIp": "10.114.235.155/32",
           "vrf": "management",
           "peerlink-items": {
             "adminSt": "enabled",
