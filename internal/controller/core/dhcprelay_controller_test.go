@@ -128,7 +128,7 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Verifying the resource has been deleted")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.DHCPRelay).To(BeNil(), "Provider should have no DHCPRelay configured")
+				g.Expect(testDevices.StateFor(deviceName).DHCPRelay).To(BeNil(), "Provider should have no DHCPRelay configured")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -197,9 +197,9 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Ensuring the DHCPRelay is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.DHCPRelay).ToNot(BeNil(), "Provider DHCPRelay should not be nil")
-				if testProvider.DHCPRelay != nil {
-					g.Expect(testProvider.DHCPRelay.GetName()).To(Equal(resourceName), "Provider should have DHCPRelay configured")
+				g.Expect(testDevices.StateFor(deviceName).DHCPRelay).ToNot(BeNil(), "Provider DHCPRelay should not be nil")
+				if testDevices.StateFor(deviceName).DHCPRelay != nil {
+					g.Expect(testDevices.StateFor(deviceName).DHCPRelay.GetName()).To(Equal(resourceName), "Provider should have DHCPRelay configured")
 				}
 			}).Should(Succeed())
 		})
@@ -288,7 +288,7 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Verifying DHCPRelay is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.DHCPRelay).ToNot(BeNil())
+				g.Expect(testDevices.StateFor(deviceName).DHCPRelay).ToNot(BeNil())
 			}).Should(Succeed())
 
 			By("Deleting the DHCPRelay resource")
@@ -296,7 +296,7 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Verifying the DHCPRelay is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.DHCPRelay).To(BeNil(), "Provider should have no DHCPRelay configured after deletion")
+				g.Expect(testDevices.StateFor(deviceName).DHCPRelay).To(BeNil(), "Provider should have no DHCPRelay configured after deletion")
 			}).Should(Succeed())
 
 			By("Verifying the resource is fully deleted")
@@ -517,12 +517,20 @@ var _ = Describe("DHCPRelay Controller", func() {
 			otherIntf.Name = otherIntfKey.Name
 			otherIntf.Namespace = otherIntfKey.Namespace
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, otherIntf))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, otherIntfKey, &v1alpha1.Interface{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up the VLAN resource")
 			otherVlan := &v1alpha1.VLAN{}
 			otherVlan.Name = otherVlanKey.Name
 			otherVlan.Namespace = otherVlanKey.Namespace
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, otherVlan))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, otherVlanKey, &v1alpha1.VLAN{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up the Device resources")
 			device := &v1alpha1.Device{}
@@ -687,18 +695,30 @@ var _ = Describe("DHCPRelay Controller", func() {
 			otherVrf.Name = otherVrfKey.Name
 			otherVrf.Namespace = otherVrfKey.Namespace
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, otherVrf))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, otherVrfKey, &v1alpha1.VRF{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up the Interface resource")
 			intf := &v1alpha1.Interface{}
 			intf.Name = interfaceKey.Name
 			intf.Namespace = interfaceKey.Namespace
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, interfaceKey, &v1alpha1.Interface{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up the VLAN resource")
 			vlan := &v1alpha1.VLAN{}
 			vlan.Name = vlanKey.Name
 			vlan.Namespace = vlanKey.Namespace
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, vlan))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, vlanKey, &v1alpha1.VLAN{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up the Device resources")
 			device := &v1alpha1.Device{}
@@ -857,7 +877,7 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Verifying the provider has been cleaned up")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.DHCPRelay).To(BeNil(), "Provider should have no DHCPRelay configured")
+				g.Expect(testDevices.StateFor(deviceName).DHCPRelay).To(BeNil(), "Provider should have no DHCPRelay configured")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -903,7 +923,7 @@ var _ = Describe("DHCPRelay Controller", func() {
 
 			By("Ensuring the DHCPRelay is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.DHCPRelay).ToNot(BeNil(), "Provider DHCPRelay should not be nil")
+				g.Expect(testDevices.StateFor(deviceName).DHCPRelay).ToNot(BeNil(), "Provider DHCPRelay should not be nil")
 			}).Should(Succeed())
 		})
 	})
@@ -1001,12 +1021,20 @@ var _ = Describe("DHCPRelay Controller", func() {
 			i.Name = interfaceKey.Name
 			i.Namespace = interfaceKey.Namespace
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, i))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, interfaceKey, &v1alpha1.Interface{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up the VLAN resource")
 			vlan := &v1alpha1.VLAN{}
 			vlan.Name = vlanKey.Name
 			vlan.Namespace = vlanKey.Namespace
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, vlan))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, vlanKey, &v1alpha1.VLAN{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
 			device := &v1alpha1.Device{}

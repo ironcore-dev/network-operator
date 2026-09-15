@@ -6,6 +6,7 @@ package core
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -56,7 +57,13 @@ var _ = Describe("PIM Controller", func() {
 
 			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.PIM).To(BeNil(), "Provider should not have PIM instance configured")
+				g.Expect(testDevices.StateFor(name).PIM).To(BeNil(), "Provider should not have PIM instance configured")
+			}).Should(Succeed())
+
+			By("Waiting for the PIM to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, &v1alpha1.PIM{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			}).Should(Succeed())
 
 			By("Cleanup the Device resource")
@@ -103,7 +110,7 @@ var _ = Describe("PIM Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.PIM).ToNot(BeNil(), "Provider should have PIM instance configured")
+				g.Expect(testDevices.StateFor(name).PIM).ToNot(BeNil(), "Provider should have PIM instance configured")
 			}).Should(Succeed())
 		})
 	})
@@ -136,6 +143,10 @@ var _ = Describe("PIM Controller", func() {
 			pim.Name = name
 			pim.Namespace = metav1.NamespaceDefault
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, pim))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, &v1alpha1.PIM{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleanup the Device resource")
 			device := &v1alpha1.Device{}

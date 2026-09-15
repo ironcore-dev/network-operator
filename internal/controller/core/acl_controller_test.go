@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -76,7 +77,13 @@ var _ = Describe("AccessControlList Controller", func() {
 
 			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.ACLs.Has(name)).To(BeFalse(), "Provider shouldn't have AccessControlList configured anymore")
+				g.Expect(testDevices.StateFor(name).ACLs.Has(name)).To(BeFalse(), "Provider shouldn't have AccessControlList configured anymore")
+			}).Should(Succeed())
+
+			By("Waiting for the AccessControlList to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, &v1alpha1.AccessControlList{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -123,7 +130,7 @@ var _ = Describe("AccessControlList Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.ACLs.Has(name)).To(BeTrue(), "Provider should have AccessControlList configured")
+				g.Expect(testDevices.StateFor(name).ACLs.Has(name)).To(BeTrue(), "Provider should have AccessControlList configured")
 			}).Should(Succeed())
 		})
 	})

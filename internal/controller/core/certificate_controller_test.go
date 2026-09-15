@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -89,7 +90,13 @@ var _ = Describe("Certificate Controller", func() {
 
 			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.Certs.Has("cert1")).To(BeFalse(), "Certificate should be deleted from the provider")
+				g.Expect(testDevices.StateFor(name).Certs.Has("cert1")).To(BeFalse(), "Certificate should be deleted from the provider")
+			}).Should(Succeed())
+
+			By("Waiting for the Certificate to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, &v1alpha1.Certificate{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -136,7 +143,7 @@ var _ = Describe("Certificate Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.Certs.Has("cert1")).To(BeTrue(), "Certificate should be present in the provider")
+				g.Expect(testDevices.StateFor(name).Certs.Has("cert1")).To(BeTrue(), "Certificate should be present in the provider")
 			}).Should(Succeed())
 		})
 	})
