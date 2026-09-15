@@ -33,6 +33,7 @@ var _ = Describe("OSPF Controller", func() {
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -126,7 +127,7 @@ var _ = Describe("OSPF Controller", func() {
 		BeforeEach(func() {
 			device := &v1alpha1.Device{
 				GenerateName: "test-ospf-l2-intf-", Namespace: metav1.NamespaceDefault,
-				Spec: v1alpha1.DeviceSpec{Endpoint: v1alpha1.Endpoint{Address: "192.168.10.4:9339"}},
+				Spec: v1alpha1.DeviceSpec{Provider: "test-provider", Endpoint: v1alpha1.Endpoint{Address: "192.168.10.4:9339"}},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
 			name = device.Name
@@ -213,6 +214,7 @@ var _ = Describe("OSPF Controller", func() {
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.3:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())

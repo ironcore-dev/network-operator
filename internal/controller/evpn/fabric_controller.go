@@ -6,6 +6,7 @@ package evpn
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"net/netip"
 	"slices"
@@ -45,9 +46,6 @@ type FabricReconciler struct {
 	// Recorder is used to record events for the controller.
 	// More info: https://book.kubebuilder.io/reference/raising-events
 	Recorder events.EventRecorder
-
-	// Provider is the driver that will be used to create interfaces.
-	Provider provider.ProviderFunc
 }
 
 // +kubebuilder:rbac:groups=evpn.networking.metal.ironcore.dev,resources=fabrics,verbs=get;list;watch;create;update;patch;delete
@@ -85,16 +83,33 @@ func (r *FabricReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, err
 	}
 
-	if _, ok := r.Provider().(provider.InterfaceProvider); !ok {
-		if meta.SetStatusCondition(&fabric.Status.Conditions, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  v1alpha1.NotImplementedReason,
-			Message: "Provider does not implement provider.InterfaceProvider",
-		}) {
-			return ctrl.Result{}, r.Status().Update(ctx, fabric)
+	selector, err := metav1.LabelSelectorAsSelector(&fabric.Spec.DeviceSelector)
+	if err != nil {
+		return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("invalid deviceSelector: %w", err))
+	}
+	devices := &v1alpha1.DeviceList{}
+	if err := r.List(ctx, devices, client.InNamespace(fabric.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
+		return ctrl.Result{}, fmt.Errorf("listing all fabric devices for system loopbacks: %w", err)
+	}
+
+	for _, d := range devices.Items {
+		// Check if the device's provider implements the interfaceprovider
+		_, err := provider.LoadProvider[provider.InterfaceProvider](d.Spec.Provider)
+		if err != nil {
+			reason := v1alpha1.NotImplementedReason
+			if errors.Is(err, provider.NotFoundError{}) {
+				reason = v1alpha1.ProviderNotFoundReason
+			}
+			if meta.SetStatusCondition(&d.Status.Conditions, metav1.Condition{
+				Type:    v1alpha1.ReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  reason,
+				Message: err.Error(),
+			}) {
+				return ctrl.Result{}, r.Status().Update(ctx, &d)
+			}
+			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, nil
 	}
 
 	if !fabric.DeletionTimestamp.IsZero() {
@@ -528,7 +543,24 @@ func (r *FabricReconciler) reconcileLoopbackInterface(ctx context.Context, fabri
 		return nil, reconcile.TerminalError(fmt.Errorf("parsing allocated address %q: %w", claim.Status.Value, err))
 	}
 
-	handle, err := r.Provider().(provider.InterfaceProvider).LoopbackInterfaceName(loopbackID)
+	prov, err := provider.LoadProvider[provider.InterfaceProvider](device.Spec.Provider)
+	if err != nil {
+		reason := v1alpha1.NotImplementedReason
+		if errors.Is(err, provider.NotFoundError{}) {
+			reason = v1alpha1.ProviderNotFoundReason
+		}
+		if meta.SetStatusCondition(&device.Status.Conditions, metav1.Condition{
+			Type:    v1alpha1.ReadyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  reason,
+			Message: err.Error(),
+		}) {
+			return nil, r.Status().Update(ctx, device)
+		}
+		return nil, nil //nolint:nilnil
+	}
+
+	handle, err := prov.LoopbackInterfaceName(loopbackID)
 	if err != nil {
 		return nil, reconcile.TerminalError(fmt.Errorf("resolving loopback interface name for id %d: %w", loopbackID, err))
 	}

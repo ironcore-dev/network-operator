@@ -29,6 +29,7 @@ var _ = Describe("VPCDomain Controller", func() {
 				GenerateName: "test-vpcdomain-",
 				Namespace:    metav1.NamespaceDefault,
 				Spec: corev1.DeviceSpec{
+					Provider: "test-provider",
 					Endpoint: corev1.Endpoint{
 						Address: "192.168.10.2:9339",
 					},
@@ -204,7 +205,7 @@ var _ = Describe("VPCDomain Controller", func() {
 			deviceA := &corev1.Device{
 				GenerateName: "vpc-dep-",
 				Namespace:    metav1.NamespaceDefault,
-				Spec:         corev1.DeviceSpec{Endpoint: corev1.Endpoint{Address: "192.168.10.2:9339"}},
+				Spec:         corev1.DeviceSpec{Provider: "test-provider", Endpoint: corev1.Endpoint{Address: "192.168.10.2:9339"}},
 			}
 			Expect(k8sClient.Create(ctx, deviceA)).To(Succeed())
 			name = deviceA.Name
@@ -212,7 +213,7 @@ var _ = Describe("VPCDomain Controller", func() {
 			By("Creating Device B")
 			Expect(k8sClient.Create(ctx, &corev1.Device{
 				Name: name + "-b", Namespace: metav1.NamespaceDefault,
-				Spec: corev1.DeviceSpec{Endpoint: corev1.Endpoint{Address: "192.168.10.3:9339"}},
+				Spec: corev1.DeviceSpec{Provider: "test-provider", Endpoint: corev1.Endpoint{Address: "192.168.10.3:9339"}},
 			})).To(Succeed())
 
 			By("Creating physical interfaces on Device A and B")
