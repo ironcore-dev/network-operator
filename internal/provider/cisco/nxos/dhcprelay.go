@@ -9,7 +9,10 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
-var _ gnmiext.DataElement = (*DHCPRelayConfig)(nil)
+var (
+	_ gnmiext.DataElement = (*DHCPRelayConfig)(nil)
+	_ gnmiext.DataElement = (*DHCPRelay)(nil)
+)
 
 // DHCPRelayConfig represents the complete DHCP relay configuration tree.
 type DHCPRelayConfig struct {
@@ -22,7 +25,7 @@ func (*DHCPRelayConfig) XPath() string {
 
 // DHCPRelay represents the DHCP Relay configuration for a single interface.
 type DHCPRelay struct {
-	ID        string `json:"id"`
+	ID        string `json:"-"`
 	AddrItems struct {
 		AddrList gnmiext.List[netip.Addr, *DHCPRelayServer] `json:"RelayAddr-list,omitzero"`
 	} `json:"addr-items"`
@@ -33,6 +36,10 @@ func (d *DHCPRelay) Key() string {
 }
 
 func (*DHCPRelay) IsListItem() {}
+
+func (d *DHCPRelay) XPath() string {
+	return "System/dhcp-items/inst-items/relayif-items/RelayIf-list[id=" + d.ID + "]"
+}
 
 type DHCPRelayServer struct {
 	Address netip.Addr `json:"address"`

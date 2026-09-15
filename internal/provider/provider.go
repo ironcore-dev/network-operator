@@ -786,20 +786,14 @@ type DHCPRelayProvider interface {
 	EnsureDHCPRelay(context.Context, *DHCPRelayRequest) error
 	// DeleteDHCPRelay deletes the DHCP Relay configuration.
 	DeleteDHCPRelay(context.Context, *DHCPRelayRequest) error
-	// GetDHCPRelayStatus call retrieves the current status of the DHCP Relay configuration.
-	GetDHCPRelayStatus(context.Context, *DHCPRelayRequest) (DHCPRelayStatus, error)
 }
 
 type DHCPRelayRequest struct {
 	DHCPRelay      *v1alpha1.DHCPRelay
 	ProviderConfig *ProviderConfig
-	Interfaces     []*v1alpha1.Interface
+	Interface      *v1alpha1.Interface
 	VRF            *v1alpha1.VRF
-}
-
-type DHCPRelayStatus struct {
-	// ConfiguredInterfaces contains the names of the interfaces on the device for which DHCP Relay is configured, e.g., eth1/1.
-	ConfiguredInterfaces []string
+	Interfaces     []v1alpha1.Interface // deprecated
 }
 
 type EthernetSegmentProvider interface {
