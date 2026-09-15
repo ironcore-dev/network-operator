@@ -13,6 +13,8 @@
                   "adminSt": "enabled",
                   "asn": "65000",
                   "asnType": "none",
+                  "bfdType": "none",
+                  "ctrl": "DME_UNSET_PROPERTY_MARKER",
                   "af-items": {
                     "PeerAf-list": [
                       {

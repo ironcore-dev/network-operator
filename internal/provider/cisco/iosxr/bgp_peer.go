@@ -71,6 +71,12 @@ type BGPPeer struct {
 	Name      string                   `json:"vrf-name"`
 	RD        RouteDistinguisher       `json:"rd,omitzero"`
 	Neighbors NeighborList             `json:"neighbors,omitzero"`
+	BFD       *BFD                     `json:"bfd,omitzero"`
+}
+
+type BFD struct {
+	MinInterval uint32 `json:"minimum-interval,omitempty"`
+	Multiplier  uint32 `json:"multiplier,omitempty"`
 }
 
 // ActivatedAddressFamilies is required for IOS XR to activate the Address-Family under the BGP process
