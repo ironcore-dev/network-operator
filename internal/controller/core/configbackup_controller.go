@@ -322,6 +322,26 @@ func (r *ConfigBackupReconciler) reconcile(ctx context.Context, s *configBackupS
 			Reason:  v1alpha1.ReadyReason,
 			Message: "Remote object storage endpoint is reachable",
 		})
+		// Restore the Ready condition to its pre-outage state so early
+		// returns (schedule not due, one-shot already done) don't leave
+		// Ready stuck on RemoteEndpointUnreachable.
+		if ready := conditions.Get(s.ConfigBackup, v1alpha1.ReadyCondition); ready != nil && ready.Reason == v1alpha1.RemoteEndpointUnreachableReason {
+			if s.ConfigBackup.Status.LastBackup != nil {
+				conditions.Set(s.ConfigBackup, metav1.Condition{
+					Type:    v1alpha1.ReadyCondition,
+					Status:  metav1.ConditionTrue,
+					Reason:  v1alpha1.BackupSuccessfulReason,
+					Message: "Backup completed successfully",
+				})
+			} else {
+				conditions.Set(s.ConfigBackup, metav1.Condition{
+					Type:    v1alpha1.ReadyCondition,
+					Status:  metav1.ConditionUnknown,
+					Reason:  v1alpha1.ReconcilePendingReason,
+					Message: "Reconciliation has not yet completed",
+				})
+			}
+		}
 	}
 
 	var schedule cron.Schedule
