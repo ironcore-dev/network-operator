@@ -1282,7 +1282,14 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		ipv6Addr.ID = name
 		ipv6Addr.Vrf = vrf
 		ipv6Addr.Is6 = true
-		if v, ok := req.IPv6.(provider.IPv6AddressList); ok {
+		// Always sent so that turning link-local-only off is reconciled, and so
+		// the payload matches what the device reports back.
+		ipv6Addr.UseLinkLocalAddr = AdminStDisabled
+
+		switch v := req.IPv6.(type) {
+		case provider.IPv6AddressList:
+			// The first address is the primary one, any further addresses are
+			// secondary, mirroring IPv4.
 			for i, p := range v {
 				nth := IntfAddrTypePrimary
 				if i > 0 {
@@ -1290,6 +1297,9 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				}
 				ipv6Addr.AddrItems.AddrList.Set(&IntfAddr{Addr: p.String(), Type: nth})
 			}
+
+		case provider.IPv6LinkLocalOnly:
+			ipv6Addr.UseLinkLocalAddr = AdminStEnabled
 		}
 	}
 

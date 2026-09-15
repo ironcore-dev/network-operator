@@ -137,6 +137,14 @@ func init() {
 	})
 	Register("intf_addr4", intfAddr4)
 
+	intfAddr6 := &AddrItem{ID: "lo0", Vrf: DefaultVRFName, Is6: true, UseLinkLocalAddr: AdminStDisabled}
+	intfAddr6.AddrItems.AddrList.Set(&IntfAddr{Addr: "2001:db8:1::1/64", Type: IntfAddrTypePrimary})
+	intfAddr6.AddrItems.AddrList.Set(&IntfAddr{Addr: "2001:db8:2::1/64", Type: IntfAddrTypeSecondary})
+	Register("intf_addr6", intfAddr6)
+
+	// "ipv6 address use-link-local-only", as required for unnumbered peering.
+	Register("intf_lladdr6", &AddrItem{ID: "eth1/1", Vrf: DefaultVRFName, Is6: true, UseLinkLocalAddr: AdminStEnabled})
+
 	pc := &PortChannel{
 		AccessVlan:     DefaultVLAN,
 		AdminSt:        AdminStUp,

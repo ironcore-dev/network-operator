@@ -19,6 +19,13 @@ var _ provider.InterfaceProvider = (*Provider)(nil)
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
 	spec := req.Interface.Spec
 
+	if _, ok := req.IPv6.(provider.IPv6LinkLocalOnly); ok {
+		return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+			Field:       "spec.ipv6.useLinkLocalOnly",
+			Description: "openconfig provider does not support link-local-only IPv6 interfaces",
+		})
+	}
+
 	i := &Interface{
 		Name: spec.Name,
 		Config: &InterfaceConfig{
@@ -155,28 +162,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		}
 
-		if v, ok := req.IPv6.(provider.IPv6AddressList); ok {
-			addrs := &IPv6Addresses{}
-			for _, prefix := range v {
-				ip := prefix.Addr().String()
-				addrType := IPv6AddressTypeGlobalUnicast
-				if prefix.Addr().IsLinkLocalUnicast() {
-					addrType = IPv6AddressTypeLinkLocalUnicast
-				}
-				addrs.Address.Set(&IPv6Address{
-					IP: ip,
-					Config: &IPv6AddressConfig{
-						IP:           ip,
-						PrefixLength: uint8(prefix.Bits()), //nolint:gosec
-						Type:         addrType,
-					},
-				})
-			}
-			sub.IPv6 = &InterfaceIPv6{
-				Config:    &InterfaceIPv6Config{Enabled: true},
-				Addresses: addrs,
-			}
-		}
+		sub.IPv6 = newInterfaceIPv6(req.IPv6)
 
 		subs := &Subinterfaces{}
 		subs.Subinterface.Set(sub)
@@ -336,30 +322,40 @@ func (p *Provider) EnsureSubinterface(ctx context.Context, req *provider.EnsureI
 		}
 	}
 
-	if v, ok := req.IPv6.(provider.IPv6AddressList); ok {
-		addrs := &IPv6Addresses{}
-		for _, prefix := range v {
-			ip := prefix.Addr().String()
-			addrType := IPv6AddressTypeGlobalUnicast
-			if prefix.Addr().IsLinkLocalUnicast() {
-				addrType = IPv6AddressTypeLinkLocalUnicast
-			}
-			addrs.Address.Set(&IPv6Address{
-				IP: ip,
-				Config: &IPv6AddressConfig{
-					IP:           ip,
-					PrefixLength: uint8(prefix.Bits()), //nolint:gosec
-					Type:         addrType,
-				},
-			})
-		}
-		sub.IPv6 = &InterfaceIPv6{
-			Config:    &InterfaceIPv6Config{Enabled: true},
-			Addresses: addrs,
-		}
-	}
+	sub.IPv6 = newInterfaceIPv6(req.IPv6)
 
 	return p.client.Update(ctx, sub)
+}
+
+// newInterfaceIPv6 builds the IPv6 container of a subinterface, or nil if no
+// IPv6 addresses were requested. Link-local-only is rejected by EnsureInterface
+// before this is reached.
+func newInterfaceIPv6(ipv6 provider.IPv6) *InterfaceIPv6 {
+	v, ok := ipv6.(provider.IPv6AddressList)
+	if !ok {
+		return nil
+	}
+
+	addrs := &IPv6Addresses{}
+	for _, prefix := range v {
+		ip := prefix.Addr().String()
+		addrType := IPv6AddressTypeGlobalUnicast
+		if prefix.Addr().IsLinkLocalUnicast() {
+			addrType = IPv6AddressTypeLinkLocalUnicast
+		}
+		addrs.Address.Set(&IPv6Address{
+			IP: ip,
+			Config: &IPv6AddressConfig{
+				IP:           ip,
+				PrefixLength: uint8(prefix.Bits()), //nolint:gosec
+				Type:         addrType,
+			},
+		})
+	}
+	return &InterfaceIPv6{
+		Config:    &InterfaceIPv6Config{Enabled: true},
+		Addresses: addrs,
+	}
 }
 
 // InterfaceType represents the YANG identity for the interface type.

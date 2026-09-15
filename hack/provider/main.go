@@ -8,6 +8,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"os"
 	"os/signal"
@@ -41,6 +42,7 @@ var (
 	file         = flag.String("file", "", "Path to Kubernetes resource manifest file (required)")
 	providerName = flag.String("provider", "openconfig", "Provider implementation to use")
 	refFiles     = flag.String("ref-files", "", "Comma-separated list of YAML files containing referenced resources")
+	verbosity    = flag.Int("verbosity", 0, "Log verbosity: 1 logs gNMI writes, 2 also logs paths that are already up-to-date")
 )
 
 // ReferenceStore holds referenced resources keyed by "namespace/name".
@@ -342,6 +344,8 @@ func main() {
 			os.Exit(1)
 		}
 	}
+
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.Level(-*verbosity)})))
 
 	c := clientutil.NewClient(&refStoreReader{store: refStore}, obj.GetNamespace())
 
@@ -663,12 +667,17 @@ func performCreate(ctx context.Context, prov provider.Provider, obj client.Objec
 		}
 
 		var ipv6 provider.IPv6
-		if res.Spec.IPv6 != nil && len(res.Spec.IPv6.Addresses) > 0 {
-			addrs := make([]netip.Prefix, len(res.Spec.IPv6.Addresses))
-			for i, addr := range res.Spec.IPv6.Addresses {
-				addrs[i] = addr.Prefix
+		if res.Spec.IPv6 != nil {
+			switch {
+			case res.Spec.IPv6.UseLinkLocalOnly:
+				ipv6 = provider.IPv6LinkLocalOnly{}
+			case len(res.Spec.IPv6.Addresses) > 0:
+				addrs := make([]netip.Prefix, len(res.Spec.IPv6.Addresses))
+				for i, addr := range res.Spec.IPv6.Addresses {
+					addrs[i] = addr.Prefix
+				}
+				ipv6 = provider.IPv6AddressList(addrs)
 			}
-			ipv6 = provider.IPv6AddressList(addrs)
 		}
 
 		var members []*v1alpha1.Interface

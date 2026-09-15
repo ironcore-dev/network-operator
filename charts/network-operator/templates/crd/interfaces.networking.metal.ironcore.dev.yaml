@@ -337,15 +337,30 @@ spec:
                 properties:
                   addresses:
                     description: |-
-                      Addresses defines the list of IPv6 addresses assigned to the interface.
-                      Both global unicast and link-local addresses may be assigned.
+                      Addresses defines the list of global unicast IPv6 addresses assigned to
+                      the interface. The first address in the list is considered the primary
+                      address, and any additional addresses are considered secondary addresses.
+                      Link-local addresses cannot be assigned here, they are configured through
+                      UseLinkLocalOnly.
                     items:
                       format: cidr
                       type: string
                     minItems: 1
                     type: array
                     x-kubernetes-list-type: atomic
+                  useLinkLocalOnly:
+                    description: |-
+                      UseLinkLocalOnly configures the interface to operate with only its
+                      automatically generated IPv6 link-local address, without assigning a
+                      global address. This is what unnumbered, interface-based BGP peering
+                      requires in order to discover neighbours over their link-local address.
+                    type: boolean
                 type: object
+                x-kubernetes-validations:
+                - message: either addresses or useLinkLocalOnly must be specified
+                  rule: has(self.addresses) || (has(self.useLinkLocalOnly) && self.useLinkLocalOnly)
+                - message: addresses and useLinkLocalOnly are mutually exclusive
+                  rule: '!has(self.addresses) || !has(self.useLinkLocalOnly) || !self.useLinkLocalOnly'
               mtu:
                 description: MTU (Maximum Transmission Unit) specifies the size of
                   the largest packet that can be sent over the interface.

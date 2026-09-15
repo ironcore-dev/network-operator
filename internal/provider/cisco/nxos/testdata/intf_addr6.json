@@ -1,0 +1,37 @@
+{
+  "ipv6-items": {
+    "inst-items": {
+      "dom-items": {
+        "Dom-list": [
+          {
+            "name": "default",
+            "if-items": {
+              "If-list": [
+                {
+                  "id": "lo0",
+                  "useLinkLocalAddr": "disabled",
+                  "addr-items": {
+                    "Addr-list": [
+                      {
+                        "addr": "2001:db8:1::1/64",
+                        "pref": 0,
+                        "tag": 0,
+                        "type": "primary"
+                      },
+                      {
+                        "addr": "2001:db8:2::1/64",
+                        "pref": 0,
+                        "tag": 0,
+                        "type": "secondary"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

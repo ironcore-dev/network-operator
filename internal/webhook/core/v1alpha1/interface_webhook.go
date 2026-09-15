@@ -168,6 +168,10 @@ func validateInterfaceIPv6(ip *v1alpha1.InterfaceIPv6) error {
 			errAgg = append(errAgg, fmt.Errorf("invalid IPv6 address %q: address is IPv4", cidr.String()))
 			continue
 		}
+		if cidr.Prefix.Addr().IsLinkLocalUnicast() {
+			errAgg = append(errAgg, fmt.Errorf("invalid IPv6 address %q: link-local addresses cannot be assigned, use useLinkLocalOnly instead", cidr.String()))
+			continue
+		}
 		for j := i + 1; j < len(ip.Addresses); j++ {
 			if p := ip.Addresses[j].Prefix; cidr.Overlaps(p) {
 				errAgg = append(errAgg, fmt.Errorf("invalid IPv6 address %q: overlaps with %q", cidr.String(), p.String()))

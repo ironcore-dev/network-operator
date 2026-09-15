@@ -2448,7 +2448,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `addresses` _[IPPrefix](#ipprefix) array_ | Addresses defines the list of IPv6 addresses assigned to the interface.<br />Both global unicast and link-local addresses may be assigned. |  | Format: cidr <br />MinItems: 1 <br />Type: string <br />Optional: \{\} <br /> |
+| `addresses` _[IPPrefix](#ipprefix) array_ | Addresses defines the list of global unicast IPv6 addresses assigned to<br />the interface. The first address in the list is considered the primary<br />address, and any additional addresses are considered secondary addresses.<br />Link-local addresses cannot be assigned here, they are configured through<br />UseLinkLocalOnly. |  | Format: cidr <br />MinItems: 1 <br />Type: string <br />Optional: \{\} <br /> |
+| `useLinkLocalOnly` _boolean_ | UseLinkLocalOnly configures the interface to operate with only its<br />automatically generated IPv6 link-local address, without assigning a<br />global address. This is what unnumbered, interface-based BGP peering<br />requires in order to discover neighbours over their link-local address. |  | Optional: \{\} <br /> |
 
 
 #### InterfaceSource

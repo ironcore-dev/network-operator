@@ -569,14 +569,7 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (reterr e
 		}
 	}
 
-	var ipv6 provider.IPv6
-	if s.Interface.Spec.IPv6 != nil && len(s.Interface.Spec.IPv6.Addresses) > 0 {
-		addrs := make([]netip.Prefix, len(s.Interface.Spec.IPv6.Addresses))
-		for i, addr := range s.Interface.Spec.IPv6.Addresses {
-			addrs[i] = addr.Prefix
-		}
-		ipv6 = provider.IPv6AddressList(addrs)
-	}
+	ipv6 := interfaceIPv6(s.Interface.Spec.IPv6)
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
@@ -785,6 +778,24 @@ func (r *InterfaceReconciler) validateLLDPAdjacencyThroughAnnotation(ctx context
 	}
 
 	return v1alpha1.NeighborVerified, nil
+}
+
+// interfaceIPv6 maps the IPv6 spec of an Interface to the provider representation.
+// It returns nil if the Interface has no IPv6 configuration.
+func interfaceIPv6(spec *v1alpha1.InterfaceIPv6) provider.IPv6 {
+	switch {
+	case spec == nil:
+		return nil
+	case spec.UseLinkLocalOnly:
+		return provider.IPv6LinkLocalOnly{}
+	case len(spec.Addresses) > 0:
+		addrs := make([]netip.Prefix, len(spec.Addresses))
+		for i, addr := range spec.Addresses {
+			addrs[i] = addr.Prefix
+		}
+		return provider.IPv6AddressList(addrs)
+	}
+	return nil
 }
 
 func (r *InterfaceReconciler) reconcileIPv4(ctx context.Context, s *scope) (provider.IPv4, error) {

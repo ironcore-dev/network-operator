@@ -68,8 +68,22 @@ var _ = Describe("Interface Webhook", func() {
 
 		It("Should allow valid IPv6 addresses", func() {
 			obj.Spec.IPv6 = &v1alpha1.InterfaceIPv6{
+				Addresses: []v1alpha1.IPPrefix{v1alpha1.MustParsePrefix("2001:db8::1/64")},
+			}
+
+			Expect(validateInterfaceSpec(obj)).To(Succeed())
+		})
+
+		It("Should reject link-local addresses in the IPv6 address list", func() {
+			obj.Spec.IPv6 = &v1alpha1.InterfaceIPv6{
 				Addresses: []v1alpha1.IPPrefix{v1alpha1.MustParsePrefix("fe80::1/64")},
 			}
+
+			Expect(validateInterfaceSpec(obj)).To(MatchError(ContainSubstring("use useLinkLocalOnly instead")))
+		})
+
+		It("Should allow useLinkLocalOnly without addresses", func() {
+			obj.Spec.IPv6 = &v1alpha1.InterfaceIPv6{UseLinkLocalOnly: true}
 
 			Expect(validateInterfaceSpec(obj)).To(Succeed())
 		})

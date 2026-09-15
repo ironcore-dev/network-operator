@@ -229,6 +229,12 @@ type IPv6AddressList []netip.Prefix
 
 func (IPv6AddressList) isIPv6() {}
 
+// IPv6LinkLocalOnly configures the interface to use only its automatically
+// generated IPv6 link-local address, without a global address.
+type IPv6LinkLocalOnly struct{}
+
+func (IPv6LinkLocalOnly) isIPv6() {}
+
 type InterfaceStatus struct {
 	// OperStatus indicates whether the interface is operationally up (true) or down (false).
 	OperStatus bool

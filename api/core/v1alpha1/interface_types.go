@@ -295,13 +295,25 @@ type InterfaceIPv4Unnumbered struct {
 }
 
 // InterfaceIPv6 defines the IPv6 configuration for an interface.
+// +kubebuilder:validation:XValidation:rule="has(self.addresses) || (has(self.useLinkLocalOnly) && self.useLinkLocalOnly)", message="either addresses or useLinkLocalOnly must be specified"
+// +kubebuilder:validation:XValidation:rule="!has(self.addresses) || !has(self.useLinkLocalOnly) || !self.useLinkLocalOnly", message="addresses and useLinkLocalOnly are mutually exclusive"
 type InterfaceIPv6 struct {
-	// Addresses defines the list of IPv6 addresses assigned to the interface.
-	// Both global unicast and link-local addresses may be assigned.
+	// Addresses defines the list of global unicast IPv6 addresses assigned to
+	// the interface. The first address in the list is considered the primary
+	// address, and any additional addresses are considered secondary addresses.
+	// Link-local addresses cannot be assigned here, they are configured through
+	// UseLinkLocalOnly.
 	// +optional
 	// +listType=atomic
 	// +kubebuilder:validation:MinItems=1
 	Addresses []IPPrefix `json:"addresses,omitempty"`
+
+	// UseLinkLocalOnly configures the interface to operate with only its
+	// automatically generated IPv6 link-local address, without assigning a
+	// global address. This is what unnumbered, interface-based BGP peering
+	// requires in order to discover neighbours over their link-local address.
+	// +optional
+	UseLinkLocalOnly bool `json:"useLinkLocalOnly,omitempty"`
 }
 
 // BFD defines the Bidirectional Forwarding Detection configuration for an interface.
