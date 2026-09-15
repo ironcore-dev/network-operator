@@ -54,7 +54,8 @@ if debug:
 k8s_yaml(blob(manager))
 k8s_resource('network-operator-controller-manager', resource_deps=['controller-gen'], labels=['operator'])
 
-k8s_resource('minio', port_forwards=['9001:9001'])
+k8s_resource('rustfs', port_forwards=['9001:9001'])
+k8s_resource('rustfs-create-buckets', resource_deps=['rustfs'])
 
 # Sample resources with manual trigger mode
 def device_yaml():
@@ -182,7 +183,7 @@ k8s_resource(new_name='aaa', objects=['aaa-tacacs:aaa', 'tacacs-server-keys:secr
 k8s_yaml('./config/samples/v1alpha1_configbackup.yaml')
 k8s_resource(new_name='local-backup', objects=['local-backup:configbackup'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='startup-backup', objects=['startup-backup:configbackup'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
-k8s_resource(new_name='remote-backup', objects=['remote-backup:configbackup', 'minio-credentials:secret', 'backup-encryption-key:secret'], resource_deps=['minio'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='remote-backup', objects=['remote-backup:configbackup', 'rustfs-credentials:secret', 'backup-encryption-key:secret'], resource_deps=['rustfs-create-buckets'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_indexpool.yaml')
 k8s_resource(new_name='indexpool', objects=['indexpool-sample:indexpool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
