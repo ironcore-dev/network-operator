@@ -2,6 +2,7 @@ resources:
 - ../default
 - ../prometheus
 - rustfs.yaml
+- console-server.yaml
 
 patches:
  - path: manager_patch.yaml

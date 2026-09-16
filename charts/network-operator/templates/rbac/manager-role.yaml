@@ -81,6 +81,7 @@ rules:
   - bgppeers
   - certificates
   - configbackups
+  - consoleconnections
   - devices
   - dhcprelays
   - dns
@@ -119,6 +120,7 @@ rules:
   - bgp/finalizers
   - bgppeers/finalizers
   - certificates/finalizers
+  - consoleconnections/finalizers
   - devices/finalizers
   - dhcprelays/finalizers
   - dns/finalizers
@@ -151,6 +153,7 @@ rules:
   - bgppeers/status
   - certificates/status
   - configbackups/status
+  - consoleconnections/status
   - devices/status
   - dhcprelays/status
   - dns/status

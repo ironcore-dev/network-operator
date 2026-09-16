@@ -56,6 +56,7 @@ k8s_resource('network-operator-controller-manager', resource_deps=['controller-g
 
 k8s_resource('rustfs', port_forwards=['9001:9001'])
 k8s_resource('rustfs-create-buckets', resource_deps=['rustfs'])
+k8s_resource('console-server', objects=['console-emulator:configmap'])
 
 # Sample resources with manual trigger mode
 def device_yaml():
@@ -223,6 +224,12 @@ k8s_resource(new_name='ping-peer', objects=['ping-peer:probe'], resource_deps=['
 k8s_resource(new_name='mac-entry', objects=['mac-entry:probe'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='route-prefix', objects=['route-prefix:probe'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='vtep-peers', objects=['vtep-peers:probe'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
+k8s_yaml('./config/samples/v1alpha1_consoleconnection.yaml')
+k8s_resource(new_name='console-default', objects=['console-default:consoleconnection', 'console-credentials:secret'], resource_deps=['console-server'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='console-scheduled', objects=['console-scheduled:consoleconnection'], resource_deps=['console-default'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='console-regex', objects=['console-regex:consoleconnection'], resource_deps=['console-default'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='console-sendchar', objects=['console-sendchar:consoleconnection'], resource_deps=['console-default'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')

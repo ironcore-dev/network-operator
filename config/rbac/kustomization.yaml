@@ -103,6 +103,9 @@ resources:
 - probe_admin_role.yaml
 - probe_editor_role.yaml
 - probe_viewer_role.yaml
+- consoleconnection_admin_role.yaml
+- consoleconnection_editor_role.yaml
+- consoleconnection_viewer_role.yaml
 # The following RBAC configurations apply to Cisco NX specific CRDs
 - cisco/nx/bordergateway_admin_role.yaml
 - cisco/nx/bordergateway_editor_role.yaml

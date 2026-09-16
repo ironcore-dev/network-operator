@@ -1,0 +1,97 @@
+# Console server emulator for local development.
+# Emulates an IOLan-style console server: SSH into a port, get raw serial output.
+# Uses linuxserver/openssh-server with a custom init script that installs
+# a ForceCommand to simulate device console output.
+#
+# Default credentials: admin / admin
+# Console endpoint from within the cluster: console-server.default.svc:2222
+#
+# linuxserver/openssh-server is licensed under GPL-3.0:
+# https://github.com/linuxserver/docker-openssh-server/blob/master/LICENSE
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: console-emulator
+  namespace: default
+data:
+  # s6-overlay init script: runs once at container startup before sshd starts.
+  setup-console.sh: |
+    #!/bin/sh
+    cat > /usr/local/bin/console.sh << 'SCRIPT'
+    #!/bin/sh
+    HOSTNAME="${DEVICE_HOSTNAME:-leaf1}"
+    sleep 0.5
+    printf "\r\n%s login: " "$HOSTNAME"
+    read -r _user 2>/dev/null || true
+    printf "Password: "
+    read -r _pass 2>/dev/null || true
+    printf "\r\n%s> " "$HOSTNAME"
+    cat >/dev/null 2>&1
+    SCRIPT
+    chmod +x /usr/local/bin/console.sh
+    echo "ForceCommand /usr/local/bin/console.sh" >> /config/sshd/sshd_config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: console-server
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: console-server
+  template:
+    metadata:
+      labels:
+        app: console-server
+    spec:
+      containers:
+        - name: openssh
+          image: lscr.io/linuxserver/openssh-server:latest
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: PASSWORD_ACCESS
+              value: "true"
+            - name: USER_NAME
+              value: "admin"
+            - name: USER_PASSWORD
+              value: "admin"
+            - name: DEVICE_HOSTNAME
+              value: "leaf1"
+          ports:
+            - name: ssh
+              containerPort: 2222
+          readinessProbe:
+            tcpSocket:
+              port: 2222
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          volumeMounts:
+            - name: init
+              mountPath: /custom-cont-init.d/setup-console.sh
+              subPath: setup-console.sh
+      volumes:
+        - name: init
+          configMap:
+            name: console-emulator
+            defaultMode: 0755
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: console-server
+  namespace: default
+spec:
+  type: ClusterIP
+  clusterIP: 10.96.200.1
+  selector:
+    app: console-server
+  ports:
+    - name: ssh
+      port: 2222
+      targetPort: 2222
