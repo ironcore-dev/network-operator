@@ -248,6 +248,7 @@ const (
 	BGPAddressFamilyL2vpnEvpn BGPAddressFamilyType = "L2vpnEvpn"
 )
 
+// +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=bgppeers

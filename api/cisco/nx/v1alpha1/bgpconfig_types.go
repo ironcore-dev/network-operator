@@ -78,6 +78,7 @@ type BGPConfigUnicastAddressFamily struct {
 	AdvertiseL2vpnEvpn *bool `json:"advertiseL2vpnEvpn,omitempty"`
 }
 
+// +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=bgpconfigs
 // +kubebuilder:resource:singular=bgpconfig

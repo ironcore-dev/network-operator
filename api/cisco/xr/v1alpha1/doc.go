@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package v1alpha1 contains API Schema definitions for the xr.cisco.networking.metal.ironcore.dev v1alpha1 API group.
+// +kubebuilder:ac:generate=true
+// +kubebuilder:ac:output:package="applyconfiguration"
 // +kubebuilder:validation:Required
 // +kubebuilder:object:generate=true
 // +groupName=xr.cisco.networking.metal.ironcore.dev
