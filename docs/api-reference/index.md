@@ -332,6 +332,7 @@ Package v1alpha1 contains API Schema definitions for the networking.metal.ironco
 - [Banner](#banner)
 - [Certificate](#certificate)
 - [ConfigBackup](#configbackup)
+- [ConsoleConnection](#consoleconnection)
 - [DHCPRelay](#dhcprelay)
 - [DNS](#dns)
 - [Device](#device)
@@ -1606,6 +1607,153 @@ _Appears in:_
 | `namespace` _string_ | Namespace defines the space within which the configmap name must be unique.<br />If omitted, the namespace of the object being reconciled will be used. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 
 
+#### ConsoleConnection
+
+
+
+ConsoleConnection is the Schema for the consoleconnections API.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `ConsoleConnection` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[ConsoleConnectionSpec](#consoleconnectionspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[ConsoleConnectionStatus](#consoleconnectionstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### ConsoleConnectionSpec
+
+
+
+ConsoleConnectionSpec defines the desired state of ConsoleConnection.
+
+
+
+_Appears in:_
+- [ConsoleConnection](#consoleconnection)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceRef is a reference to the Device this console connection targets.<br />The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
+| `endpoint` _[ConsoleEndpoint](#consoleendpoint)_ | Endpoint contains the console server connection details. |  | Required: \{\} <br /> |
+| `verification` _[ConsoleVerification](#consoleverification)_ | Verification configures how the controller confirms the serial<br />line is alive and connected to the expected device. |  | Optional: \{\} <br /> |
+| `schedule` _string_ | Schedule is an optional cron expression (e.g., "*/5 * * * *").<br />If omitted, the controller performs a one-shot check only once<br />for the resource; it does not re-execute on subsequent reconciliations.<br />If set, the controller checks periodically according to the schedule. |  | Optional: \{\} <br /> |
+| `timeout` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | Timeout is the maximum duration the controller waits for output on<br />the serial line before declaring the connection dead. | 30s | Optional: \{\} <br /> |
+
+
+#### ConsoleConnectionStatus
+
+
+
+ConsoleConnectionStatus defines the observed state of ConsoleConnection.
+
+
+
+_Appears in:_
+- [ConsoleConnection](#consoleconnection)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `lastCheckTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | LastCheckTime is the timestamp of the most recent check. |  | Optional: \{\} <br /> |
+| `nextCheckTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | NextCheckTime is the next scheduled check. Only set when Schedule is configured. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | Conditions represent the current state of the ConsoleConnection resource.<br />The Ready condition reports the health of the console connection. |  | Optional: \{\} <br /> |
+
+
+#### ConsoleEndpoint
+
+
+
+ConsoleEndpoint contains the console server connection details.
+
+
+
+_Appears in:_
+- [ConsoleConnectionSpec](#consoleconnectionspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `address` _string_ | Address is the console server address in IP:Port format.<br />The port identifies the serial line on the console server. |  | Pattern: `^(\d\{1,3\}\.)\{3\}\d\{1,3\}:\d\{1,5\}$` <br />Required: \{\} <br /> |
+| `protocol` _[ConsoleProtocol](#consoleprotocol)_ | Protocol is the connection protocol. | SSH | Enum: [SSH] <br />Optional: \{\} <br /> |
+| `secretRef` _[SecretReference](#secretreference)_ | SecretRef references a kubernetes.io/basic-auth secret containing<br />'username' and 'password' for the console server. |  | Required: \{\} <br /> |
+
+
+#### ConsoleExpect
+
+
+
+ConsoleExpect configures what the controller looks for in the serial output.
+
+
+
+_Appears in:_
+- [ConsoleVerification](#consoleverification)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `string` _string_ | String is a literal string to match in the serial output. |  | Optional: \{\} <br /> |
+| `regex` _string_ | Regex is a regular expression to match in the serial output. |  | Optional: \{\} <br /> |
+
+
+#### ConsoleProtocol
+
+_Underlying type:_ _string_
+
+ConsoleProtocol is the connection protocol used to reach the console server.
+
+_Validation:_
+- Enum: [SSH]
+
+_Appears in:_
+- [ConsoleEndpoint](#consoleendpoint)
+
+| Field | Description |
+| --- | --- |
+| `SSH` |  |
+
+
+#### ConsoleVerification
+
+
+
+ConsoleVerification configures how the controller confirms the serial
+line is alive and connected to the expected device.
+
+
+
+_Appears in:_
+- [ConsoleConnectionSpec](#consoleconnectionspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `strategy` _[ConsoleVerificationStrategy](#consoleverificationstrategy)_ | Strategy selects how the controller stimulates the serial line.<br />  Wait     — passively wait for output without sending anything.<br />  SendCRLF — send a carriage-return/line-feed to trigger a prompt or response.<br />  SendChar — send a single printable character to trigger a response.<br />Defaults to SendCRLF. | SendCRLF | Enum: [Wait SendCRLF SendChar] <br />Optional: \{\} <br /> |
+| `char` _string_ | Char is the character to send when Strategy is SendChar.<br />Ignored for other strategies. |  | MaxLength: 1 <br />MinLength: 1 <br />Optional: \{\} <br /> |
+| `expect` _[ConsoleExpect](#consoleexpect)_ | Expect configures what the controller looks for in the serial output.<br />If omitted, the controller matches the device hostname or serial number<br />from Device.Status. |  | Optional: \{\} <br /> |
+
+
+#### ConsoleVerificationStrategy
+
+_Underlying type:_ _string_
+
+ConsoleVerificationStrategy selects how the controller stimulates the serial line.
+
+_Validation:_
+- Enum: [Wait SendCRLF SendChar]
+
+_Appears in:_
+- [ConsoleVerification](#consoleverification)
+
+| Field | Description |
+| --- | --- |
+| `Wait` |  |
+| `SendCRLF` |  |
+| `SendChar` |  |
+
+
 #### ControlProtocol
 
 
@@ -2674,6 +2822,7 @@ _Appears in:_
 - [BorderGatewaySpec](#bordergatewayspec)
 - [CertificateSpec](#certificatespec)
 - [ConfigBackupSpec](#configbackupspec)
+- [ConsoleConnectionSpec](#consoleconnectionspec)
 - [DHCPRelaySpec](#dhcprelayspec)
 - [DNSSpec](#dnsspec)
 - [DevicePort](#deviceport)
@@ -4024,6 +4173,7 @@ _Appears in:_
 - [CertificateSource](#certificatesource)
 - [CertificateSpec](#certificatespec)
 - [ConfigBackupS3](#configbackups3)
+- [ConsoleEndpoint](#consoleendpoint)
 - [Endpoint](#endpoint)
 - [SecretKeySelector](#secretkeyselector)
 
