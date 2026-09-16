@@ -716,6 +716,22 @@ type MatchPrefixSetCondition struct {
 
 func (MatchPrefixSetCondition) isPolicyCondition() {}
 
+type MatchCommunitySetCondition struct {
+	CommunitySet *v1alpha1.CommunitySet
+	// MatchAll is true when matchSetOptions is ALL (criteria "exact"); false for ANY.
+	MatchAll bool
+}
+
+func (MatchCommunitySetCondition) isPolicyCondition() {}
+
+type MatchExtCommunitySetCondition struct {
+	ExtCommunitySet *v1alpha1.ExtCommunitySet
+	// MatchAll is true when matchSetOptions is ALL (criteria "exact"); false for ANY.
+	MatchAll bool
+}
+
+func (MatchExtCommunitySetCondition) isPolicyCondition() {}
+
 type DeleteRoutingPolicyRequest struct {
 	Name string
 }

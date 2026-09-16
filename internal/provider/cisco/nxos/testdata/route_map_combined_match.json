@@ -1,0 +1,47 @@
+{
+  "rpm-items": {
+    "rtmap-items": {
+      "Rule-list": [
+        {
+          "name": "RM-COMBINED-MATCH",
+          "ent-items": {
+            "Entry-list": [
+              {
+                "action": "permit",
+                "order": 10,
+                "mrtdst-items": {
+                  "rsrtDstAtt-items": {
+                    "RsRtDstAtt-list": [
+                      {
+                        "tDn": "/System/rpm-items/pfxlistv4-items/RuleV4-list[name='PL-DEVICE-V4']"
+                      }
+                    ]
+                  }
+                },
+                "mregcomm-items": {
+                  "rsregCommAtt-items": {
+                    "RsRegCommAtt-list": [
+                      {
+                        "tDn": "/System/rpm-items/rtregcom-items/Rule-list[name='CS-BLUE']"
+                      }
+                    ]
+                  }
+                },
+                "mextcomm-items": {
+                  "criteria": "exact",
+                  "rsextCommAtt-items": {
+                    "RsExtCommAtt-list": [
+                      {
+                        "tDn": "/System/rpm-items/rtextcom-items/Rule-list[name='RT-BLUE']"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

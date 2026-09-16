@@ -1413,6 +1413,23 @@ CommunitySet is the Schema for the communitysets API.
 | `status` _[CommunitySetStatus](#communitysetstatus)_ |  |  | Optional: \{\} <br /> |
 
 
+#### CommunitySetMatchCondition
+
+
+
+CommunitySetMatchCondition defines the condition for matching against a CommunitySet.
+
+
+
+_Appears in:_
+- [PolicyConditions](#policyconditions)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `communitySetRef` _[LocalObjectReference](#localobjectreference)_ | CommunitySetRef references a CommunitySet in the same namespace.<br />The CommunitySet must exist and belong to the same device. |  | Required: \{\} <br /> |
+| `matchSetOptions` _[MatchSetOptions](#matchsetoptions)_ | MatchSetOptions defines how a route's communities are compared against the referenced set.<br />ANY matches a route carrying at least one member of the set; ALL matches only a route<br />carrying every member of the set. | ANY | Enum: [ANY ALL] <br />Optional: \{\} <br /> |
+
+
 #### CommunitySetSpec
 
 
@@ -2243,6 +2260,23 @@ ExtCommunitySet is the Schema for the extcommunitysets API.
 | `status` _[ExtCommunitySetStatus](#extcommunitysetstatus)_ |  |  | Optional: \{\} <br /> |
 
 
+#### ExtCommunitySetMatchCondition
+
+
+
+ExtCommunitySetMatchCondition defines the condition for matching against an ExtCommunitySet.
+
+
+
+_Appears in:_
+- [PolicyConditions](#policyconditions)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `extCommunitySetRef` _[LocalObjectReference](#localobjectreference)_ | ExtCommunitySetRef references an ExtCommunitySet in the same namespace.<br />The ExtCommunitySet must exist and belong to the same device. |  | Required: \{\} <br /> |
+| `matchSetOptions` _[MatchSetOptions](#matchsetoptions)_ | MatchSetOptions defines how a route's extended communities are compared against the referenced set.<br />ANY matches a route carrying at least one member of the set; ALL matches only a route<br />carrying every member of the set. | ANY | Enum: [ANY ALL] <br />Optional: \{\} <br /> |
+
+
 #### ExtCommunitySetSpec
 
 
@@ -2779,6 +2813,7 @@ _Appears in:_
 - [BannerSpec](#bannerspec)
 - [BorderGatewaySpec](#bordergatewayspec)
 - [CertificateSpec](#certificatespec)
+- [CommunitySetMatchCondition](#communitysetmatchcondition)
 - [CommunitySetSpec](#communitysetspec)
 - [ConfigBackupSpec](#configbackupspec)
 - [DHCPRelaySpec](#dhcprelayspec)
@@ -2786,6 +2821,7 @@ _Appears in:_
 - [DevicePort](#deviceport)
 - [EVPNInstanceSpec](#evpninstancespec)
 - [EthernetSegmentSpec](#ethernetsegmentspec)
+- [ExtCommunitySetMatchCondition](#extcommunitysetmatchcondition)
 - [ExtCommunitySetSpec](#extcommunitysetspec)
 - [FabricLoopbacksSpec](#fabricloopbacksspec)
 - [FabricUnderlayAddressingSpec](#fabricunderlayaddressingspec)
@@ -2949,6 +2985,25 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `min` _integer_ | Minimum mask length. |  | Maximum: 128 <br />Minimum: 0 <br />Required: \{\} <br /> |
 | `max` _integer_ | Maximum mask length. |  | Maximum: 128 <br />Minimum: 0 <br />Required: \{\} <br /> |
+
+
+#### MatchSetOptions
+
+_Underlying type:_ _string_
+
+MatchSetOptions defines how a route's attributes are compared against a referenced set.
+
+_Validation:_
+- Enum: [ANY ALL]
+
+_Appears in:_
+- [CommunitySetMatchCondition](#communitysetmatchcondition)
+- [ExtCommunitySetMatchCondition](#extcommunitysetmatchcondition)
+
+| Field | Description |
+| --- | --- |
+| `ANY` | MatchSetOptionsAny matches a route carrying at least one member of the referenced set.<br /> |
+| `ALL` | MatchSetOptionsAll matches only a route carrying every member of the referenced set.<br /> |
 
 
 #### MultiChassis
@@ -3506,6 +3561,8 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `matchPrefixSet` _[PrefixSetMatchCondition](#prefixsetmatchcondition)_ | MatchPrefixSet matches routes against a PrefixSet resource. |  | Optional: \{\} <br /> |
+| `matchCommunitySet` _[CommunitySetMatchCondition](#communitysetmatchcondition)_ | MatchCommunitySet matches routes against a CommunitySet resource. |  | Optional: \{\} <br /> |
+| `matchExtCommunitySet` _[ExtCommunitySetMatchCondition](#extcommunitysetmatchcondition)_ | MatchExtCommunitySet matches routes against an ExtCommunitySet resource. |  | Optional: \{\} <br /> |
 
 
 #### PolicyStatement

@@ -1,0 +1,2 @@
+route-map RM-EXTCOMMUNITYSET-ANY permit 10
+ match extcommunity RT-BLUE

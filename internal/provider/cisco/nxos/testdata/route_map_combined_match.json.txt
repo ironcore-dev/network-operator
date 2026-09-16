@@ -1,0 +1,4 @@
+route-map RM-COMBINED-MATCH permit 10
+ match ip address prefix-list PL-DEVICE-V4
+ match community CS-BLUE
+ match extcommunity RT-BLUE exact-match

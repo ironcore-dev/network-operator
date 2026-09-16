@@ -58,6 +58,8 @@ type RoutingPolicyReconciler struct {
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=routingpolicies,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=routingpolicies/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=routingpolicies/finalizers,verbs=update
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=communitysets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=extcommunitysets,verbs=get;list;watch
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -201,7 +203,11 @@ func (r *RoutingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	return ctrl.Result{}, nil
 }
 
-var routingPolicyPrefixSetRefKey = ".spec.statements[].conditions.matchPrefixSet.prefixSetRef.name"
+var (
+	routingPolicyPrefixSetRefKey       = ".spec.statements[].conditions.matchPrefixSet.prefixSetRef.name"
+	routingPolicyCommunitySetRefKey    = ".spec.statements[].conditions.matchCommunitySet.communitySetRef.name"
+	routingPolicyExtCommunitySetRefKey = ".spec.statements[].conditions.matchExtCommunitySet.extCommunitySetRef.name"
+)
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *RoutingPolicyReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
@@ -221,6 +227,32 @@ func (r *RoutingPolicyReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		for _, stmt := range rp.Spec.Statements {
 			if stmt.Conditions != nil && stmt.Conditions.MatchPrefixSet != nil {
 				names = append(names, stmt.Conditions.MatchPrefixSet.PrefixSetRef.Name)
+			}
+		}
+		return names
+	}); err != nil {
+		return err
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.RoutingPolicy{}, routingPolicyCommunitySetRefKey, func(obj client.Object) []string {
+		rp := obj.(*v1alpha1.RoutingPolicy)
+		var names []string
+		for _, stmt := range rp.Spec.Statements {
+			if stmt.Conditions != nil && stmt.Conditions.MatchCommunitySet != nil {
+				names = append(names, stmt.Conditions.MatchCommunitySet.CommunitySetRef.Name)
+			}
+		}
+		return names
+	}); err != nil {
+		return err
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.RoutingPolicy{}, routingPolicyExtCommunitySetRefKey, func(obj client.Object) []string {
+		rp := obj.(*v1alpha1.RoutingPolicy)
+		var names []string
+		for _, stmt := range rp.Spec.Statements {
+			if stmt.Conditions != nil && stmt.Conditions.MatchExtCommunitySet != nil {
+				names = append(names, stmt.Conditions.MatchExtCommunitySet.ExtCommunitySetRef.Name)
 			}
 		}
 		return names
@@ -257,6 +289,34 @@ func (r *RoutingPolicyReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		Watches(
 			&v1alpha1.PrefixSet{},
 			handler.EnqueueRequestsFromMapFunc(r.prefixSetToRoutingPolicy),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
+		// Watches enqueues RoutingPolicies for changes in referenced CommunitySet resources.
+		// Only triggers on create and delete events since CommunitySet names are immutable.
+		Watches(
+			&v1alpha1.CommunitySet{},
+			handler.EnqueueRequestsFromMapFunc(r.communitySetToRoutingPolicy),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
+		// Watches enqueues RoutingPolicies for changes in referenced ExtCommunitySet resources.
+		// Only triggers on create and delete events since ExtCommunitySet names are immutable.
+		Watches(
+			&v1alpha1.ExtCommunitySet{},
+			handler.EnqueueRequestsFromMapFunc(r.extCommunitySetToRoutingPolicy),
 			builder.WithPredicates(predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					return false
@@ -355,6 +415,26 @@ func (r *RoutingPolicyReconciler) reconcileStatements(ctx context.Context, s *ro
 				PrefixSet: prefixSet,
 			})
 		}
+		if stmt.Conditions != nil && stmt.Conditions.MatchCommunitySet != nil {
+			communitySet, err := r.reconcileCommunitySet(ctx, s, stmt.Conditions.MatchCommunitySet)
+			if err != nil {
+				return nil, err
+			}
+			cond = append(cond, provider.MatchCommunitySetCondition{
+				CommunitySet: communitySet,
+				MatchAll:     stmt.Conditions.MatchCommunitySet.MatchSetOptions == v1alpha1.MatchSetOptionsAll,
+			})
+		}
+		if stmt.Conditions != nil && stmt.Conditions.MatchExtCommunitySet != nil {
+			extCommunitySet, err := r.reconcileExtCommunitySet(ctx, s, stmt.Conditions.MatchExtCommunitySet)
+			if err != nil {
+				return nil, err
+			}
+			cond = append(cond, provider.MatchExtCommunitySetCondition{
+				ExtCommunitySet: extCommunitySet,
+				MatchAll:        stmt.Conditions.MatchExtCommunitySet.MatchSetOptions == v1alpha1.MatchSetOptionsAll,
+			})
+		}
 
 		statements = append(statements, provider.PolicyStatement{
 			Sequence:   stmt.Sequence,
@@ -400,6 +480,74 @@ func (r *RoutingPolicyReconciler) reconcilePrefixSet(ctx context.Context, s *rou
 	return prefixSet, nil
 }
 
+// reconcileCommunitySet ensures that the referenced CommunitySet exists and belongs to the same device as the RoutingPolicy.
+func (r *RoutingPolicyReconciler) reconcileCommunitySet(ctx context.Context, s *routingPolicyScope, c *v1alpha1.CommunitySetMatchCondition) (*v1alpha1.CommunitySet, error) {
+	key := client.ObjectKey{
+		Name:      c.CommunitySetRef.Name,
+		Namespace: s.RoutingPolicy.Namespace,
+	}
+
+	communitySet := new(v1alpha1.CommunitySet)
+	if err := r.Get(ctx, key, communitySet); err != nil {
+		if apierrors.IsNotFound(err) {
+			conditions.Set(s.RoutingPolicy, metav1.Condition{
+				Type:    v1alpha1.ReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.CommunitySetNotFoundReason,
+				Message: fmt.Sprintf("referenced CommunitySet %q not found", key),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("referenced CommunitySet %q not found", key))
+		}
+		return nil, fmt.Errorf("failed to get referenced CommunitySet %q: %w", key, err)
+	}
+
+	if communitySet.Spec.DeviceRef.Name != s.Device.Name {
+		conditions.Set(s.RoutingPolicy, metav1.Condition{
+			Type:    v1alpha1.ReadyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.CrossDeviceReferenceReason,
+			Message: fmt.Sprintf("referenced CommunitySet %q does not belong to device %q", communitySet.Name, s.Device.Name),
+		})
+		return nil, reconcile.TerminalError(fmt.Errorf("referenced CommunitySet %q does not belong to device %q", communitySet.Name, s.Device.Name))
+	}
+
+	return communitySet, nil
+}
+
+// reconcileExtCommunitySet ensures that the referenced ExtCommunitySet exists and belongs to the same device as the RoutingPolicy.
+func (r *RoutingPolicyReconciler) reconcileExtCommunitySet(ctx context.Context, s *routingPolicyScope, c *v1alpha1.ExtCommunitySetMatchCondition) (*v1alpha1.ExtCommunitySet, error) {
+	key := client.ObjectKey{
+		Name:      c.ExtCommunitySetRef.Name,
+		Namespace: s.RoutingPolicy.Namespace,
+	}
+
+	extCommunitySet := new(v1alpha1.ExtCommunitySet)
+	if err := r.Get(ctx, key, extCommunitySet); err != nil {
+		if apierrors.IsNotFound(err) {
+			conditions.Set(s.RoutingPolicy, metav1.Condition{
+				Type:    v1alpha1.ReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.ExtCommunitySetNotFoundReason,
+				Message: fmt.Sprintf("referenced ExtCommunitySet %q not found", key),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("referenced ExtCommunitySet %q not found", key))
+		}
+		return nil, fmt.Errorf("failed to get referenced ExtCommunitySet %q: %w", key, err)
+	}
+
+	if extCommunitySet.Spec.DeviceRef.Name != s.Device.Name {
+		conditions.Set(s.RoutingPolicy, metav1.Condition{
+			Type:    v1alpha1.ReadyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.CrossDeviceReferenceReason,
+			Message: fmt.Sprintf("referenced ExtCommunitySet %q does not belong to device %q", extCommunitySet.Name, s.Device.Name),
+		})
+		return nil, reconcile.TerminalError(fmt.Errorf("referenced ExtCommunitySet %q does not belong to device %q", extCommunitySet.Name, s.Device.Name))
+	}
+
+	return extCommunitySet, nil
+}
+
 func (r *RoutingPolicyReconciler) finalize(ctx context.Context, s *routingPolicyScope) (reterr error) {
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
@@ -436,6 +584,74 @@ func (r *RoutingPolicyReconciler) prefixSetToRoutingPolicy(ctx context.Context, 
 		for _, stmt := range rp.Spec.Statements {
 			if stmt.Conditions != nil && stmt.Conditions.MatchPrefixSet != nil && stmt.Conditions.MatchPrefixSet.PrefixSetRef.Name == prefixSet.Spec.Name {
 				log.V(2).Info("Enqueuing RoutingPolicy for reconciliation", "RoutingPolicy", klog.KObj(&rp))
+				requests = append(requests, ctrl.Request{
+					Name:      rp.Name,
+					Namespace: rp.Namespace,
+				})
+				break
+			}
+		}
+	}
+
+	return requests
+}
+
+// communitySetToRoutingPolicy is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for RoutingPolicies when their referenced CommunitySet changes.
+func (r *RoutingPolicyReconciler) communitySetToRoutingPolicy(ctx context.Context, obj client.Object) []ctrl.Request {
+	communitySet, ok := obj.(*v1alpha1.CommunitySet)
+	if !ok {
+		panic(fmt.Sprintf("Expected a CommunitySet but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "CommunitySet", klog.KObj(communitySet))
+
+	routingPolicies := new(v1alpha1.RoutingPolicyList)
+	if err := r.List(ctx, routingPolicies, client.InNamespace(communitySet.Namespace), client.MatchingFields{routingPolicyCommunitySetRefKey: communitySet.Spec.Name}); err != nil {
+		log.Error(err, "Failed to list RoutingPolicies")
+		return nil
+	}
+
+	requests := []ctrl.Request{}
+	for i := range routingPolicies.Items {
+		rp := &routingPolicies.Items[i]
+		for _, stmt := range rp.Spec.Statements {
+			if stmt.Conditions != nil && stmt.Conditions.MatchCommunitySet != nil && stmt.Conditions.MatchCommunitySet.CommunitySetRef.Name == communitySet.Spec.Name {
+				log.V(2).Info("Enqueuing RoutingPolicy for reconciliation", "RoutingPolicy", klog.KObj(rp))
+				requests = append(requests, ctrl.Request{
+					Name:      rp.Name,
+					Namespace: rp.Namespace,
+				})
+				break
+			}
+		}
+	}
+
+	return requests
+}
+
+// extCommunitySetToRoutingPolicy is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for RoutingPolicies when their referenced ExtCommunitySet changes.
+func (r *RoutingPolicyReconciler) extCommunitySetToRoutingPolicy(ctx context.Context, obj client.Object) []ctrl.Request {
+	extCommunitySet, ok := obj.(*v1alpha1.ExtCommunitySet)
+	if !ok {
+		panic(fmt.Sprintf("Expected an ExtCommunitySet but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "ExtCommunitySet", klog.KObj(extCommunitySet))
+
+	routingPolicies := new(v1alpha1.RoutingPolicyList)
+	if err := r.List(ctx, routingPolicies, client.InNamespace(extCommunitySet.Namespace), client.MatchingFields{routingPolicyExtCommunitySetRefKey: extCommunitySet.Spec.Name}); err != nil {
+		log.Error(err, "Failed to list RoutingPolicies")
+		return nil
+	}
+
+	requests := []ctrl.Request{}
+	for i := range routingPolicies.Items {
+		rp := &routingPolicies.Items[i]
+		for _, stmt := range rp.Spec.Statements {
+			if stmt.Conditions != nil && stmt.Conditions.MatchExtCommunitySet != nil && stmt.Conditions.MatchExtCommunitySet.ExtCommunitySetRef.Name == extCommunitySet.Spec.Name {
+				log.V(2).Info("Enqueuing RoutingPolicy for reconciliation", "RoutingPolicy", klog.KObj(rp))
 				requests = append(requests, ctrl.Request{
 					Name:      rp.Name,
 					Namespace: rp.Namespace,

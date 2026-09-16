@@ -72,6 +72,21 @@ spec:
         bgpActions:
           setASPath:
             asNumber: 65000
+    - sequence: 80
+      conditions:
+        matchCommunitySet:
+          communitySetRef:
+            name: communityset
+          matchSetOptions: ALL
+      actions:
+        routeDisposition: AcceptRoute
+    - sequence: 90
+      conditions:
+        matchExtCommunitySet:
+          extCommunitySetRef:
+            name: extcommunityset
+      actions:
+        routeDisposition: AcceptRoute
     - sequence: 100
       actions:
         routeDisposition: AcceptRoute
@@ -129,3 +144,37 @@ spec:
       maskLengthRange:
         min: 25
         max: 32
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: CommunitySet
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: communityset-rp
+spec:
+  deviceRef:
+    name: leaf1
+  name: WIREAPI
+  members:
+    - sequence: 5
+      regex: "50000:[0-9][0-9]"
+    - sequence: 10
+      regex: "65001:[0-9]+"
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: ExtCommunitySet
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: extcommunityset-rp
+spec:
+  deviceRef:
+    name: leaf1
+  name: WIREAPI
+  members:
+    - sequence: 5
+      regex: "65200:[0-9][0-9]"
+    - sequence: 15
+      regex: "65300:[0-9]+"

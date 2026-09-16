@@ -1,0 +1,29 @@
+{
+  "rpm-items": {
+    "rtmap-items": {
+      "Rule-list": [
+        {
+          "name": "RM-EXTCOMMUNITYSET-ALL",
+          "ent-items": {
+            "Entry-list": [
+              {
+                "action": "permit",
+                "order": 10,
+                "mextcomm-items": {
+                  "criteria": "exact",
+                  "rsextCommAtt-items": {
+                    "RsExtCommAtt-list": [
+                      {
+                        "tDn": "/System/rpm-items/rtextcom-items/Rule-list[name='RT-BLUE']"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

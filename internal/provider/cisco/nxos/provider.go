@@ -2556,6 +2556,10 @@ func (p *Provider) EnsureRoutingPolicy(ctx context.Context, req *provider.Ensure
 			switch v := cond.(type) {
 			case provider.MatchPrefixSetCondition:
 				e.SetPrefixSet(v.PrefixSet.Spec.Name, v.PrefixSet.Is6())
+			case provider.MatchCommunitySetCondition:
+				e.SetCommunitySet(v.CommunitySet.Spec.Name, v.MatchAll)
+			case provider.MatchExtCommunitySetCondition:
+				e.SetExtCommunitySet(v.ExtCommunitySet.Spec.Name, v.MatchAll)
 			default:
 				return fmt.Errorf("routing policy: unsupported condition type %T", cond)
 			}

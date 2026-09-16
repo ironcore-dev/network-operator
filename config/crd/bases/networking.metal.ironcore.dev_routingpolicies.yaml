@@ -267,6 +267,72 @@ spec:
                         Conditions define the match criteria for this statement.
                         If no conditions are specified, the statement matches all routes.
                       properties:
+                        matchCommunitySet:
+                          description: MatchCommunitySet matches routes against a
+                            CommunitySet resource.
+                          properties:
+                            communitySetRef:
+                              description: |-
+                                CommunitySetRef references a CommunitySet in the same namespace.
+                                The CommunitySet must exist and belong to the same device.
+                              properties:
+                                name:
+                                  description: |-
+                                    Name of the referent.
+                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  maxLength: 63
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            matchSetOptions:
+                              default: ANY
+                              description: |-
+                                MatchSetOptions defines how a route's communities are compared against the referenced set.
+                                ANY matches a route carrying at least one member of the set; ALL matches only a route
+                                carrying every member of the set.
+                              enum:
+                              - ANY
+                              - ALL
+                              type: string
+                          required:
+                          - communitySetRef
+                          type: object
+                        matchExtCommunitySet:
+                          description: MatchExtCommunitySet matches routes against
+                            an ExtCommunitySet resource.
+                          properties:
+                            extCommunitySetRef:
+                              description: |-
+                                ExtCommunitySetRef references an ExtCommunitySet in the same namespace.
+                                The ExtCommunitySet must exist and belong to the same device.
+                              properties:
+                                name:
+                                  description: |-
+                                    Name of the referent.
+                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  maxLength: 63
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            matchSetOptions:
+                              default: ANY
+                              description: |-
+                                MatchSetOptions defines how a route's extended communities are compared against the referenced set.
+                                ANY matches a route carrying at least one member of the set; ALL matches only a route
+                                carrying every member of the set.
+                              enum:
+                              - ANY
+                              - ALL
+                              type: string
+                          required:
+                          - extCommunitySetRef
+                          type: object
                         matchPrefixSet:
                           description: MatchPrefixSet matches routes against a PrefixSet
                             resource.

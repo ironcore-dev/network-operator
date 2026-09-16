@@ -63,6 +63,14 @@ type PolicyConditions struct {
 	// MatchPrefixSet matches routes against a PrefixSet resource.
 	// +optional
 	MatchPrefixSet *PrefixSetMatchCondition `json:"matchPrefixSet,omitempty"`
+
+	// MatchCommunitySet matches routes against a CommunitySet resource.
+	// +optional
+	MatchCommunitySet *CommunitySetMatchCondition `json:"matchCommunitySet,omitempty"`
+
+	// MatchExtCommunitySet matches routes against an ExtCommunitySet resource.
+	// +optional
+	MatchExtCommunitySet *ExtCommunitySetMatchCondition `json:"matchExtCommunitySet,omitempty"`
 }
 
 // PrefixSetMatchCondition defines the condition for matching against a PrefixSet.
@@ -72,6 +80,47 @@ type PrefixSetMatchCondition struct {
 	// +required
 	PrefixSetRef LocalObjectReference `json:"prefixSetRef"`
 }
+
+// CommunitySetMatchCondition defines the condition for matching against a CommunitySet.
+type CommunitySetMatchCondition struct {
+	// CommunitySetRef references a CommunitySet in the same namespace.
+	// The CommunitySet must exist and belong to the same device.
+	// +required
+	CommunitySetRef LocalObjectReference `json:"communitySetRef"`
+
+	// MatchSetOptions defines how a route's communities are compared against the referenced set.
+	// ANY matches a route carrying at least one member of the set; ALL matches only a route
+	// carrying every member of the set.
+	// +optional
+	// +kubebuilder:default=ANY
+	MatchSetOptions MatchSetOptions `json:"matchSetOptions,omitempty"`
+}
+
+// ExtCommunitySetMatchCondition defines the condition for matching against an ExtCommunitySet.
+type ExtCommunitySetMatchCondition struct {
+	// ExtCommunitySetRef references an ExtCommunitySet in the same namespace.
+	// The ExtCommunitySet must exist and belong to the same device.
+	// +required
+	ExtCommunitySetRef LocalObjectReference `json:"extCommunitySetRef"`
+
+	// MatchSetOptions defines how a route's extended communities are compared against the referenced set.
+	// ANY matches a route carrying at least one member of the set; ALL matches only a route
+	// carrying every member of the set.
+	// +optional
+	// +kubebuilder:default=ANY
+	MatchSetOptions MatchSetOptions `json:"matchSetOptions,omitempty"`
+}
+
+// MatchSetOptions defines how a route's attributes are compared against a referenced set.
+// +kubebuilder:validation:Enum=ANY;ALL
+type MatchSetOptions string
+
+const (
+	// MatchSetOptionsAny matches a route carrying at least one member of the referenced set.
+	MatchSetOptionsAny MatchSetOptions = "ANY"
+	// MatchSetOptionsAll matches only a route carrying every member of the referenced set.
+	MatchSetOptionsAll MatchSetOptions = "ALL"
+)
 
 // PolicyActions defines the actions to take when a policy statement matches.
 // +kubebuilder:validation:XValidation:rule="self.routeDisposition == 'AcceptRoute' || !has(self.bgpActions)",message="bgpActions cannot be specified when routeDisposition is RejectRoute"
