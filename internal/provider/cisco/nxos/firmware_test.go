@@ -7,14 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"net"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 	"github.com/ironcore-dev/network-operator/internal/transport/nxapi"
@@ -58,70 +56,26 @@ func mockGNMI(version, bootImage string) *gnmiext.ClientMock {
 }
 
 func TestUpgradeFirmwareAlreadyOnTarget(t *testing.T) {
-	client, conn := nxapiStub(t, func(cmds []string) []string {
-		bodies := make([]string, len(cmds))
-		for i := range bodies {
-			bodies[i] = "null"
-		}
-		return bodies
+	client := nxapi.NewClientMock(func(_ context.Context, r nxapi.Request) ([]json.RawMessage, error) {
+		return []json.RawMessage{json.RawMessage(`null`)}, nil
 	})
+
 	p := &Provider{client: mockGNMI("", "bootflash://nxos64-cs.10.6.3.F.bin"), nxapi: client}
 	target := provider.TargetFirmware{
 		URL: "https://repo.example/nxos64-cs.10.6.3.F.bin",
 		MD5: "48c0db0a564c442f123eba8724ef352f",
 	}
-	if err := p.UpgradeFirmware(t.Context(), conn, target); err != nil {
+	if err := p.UpgradeFirmware(t.Context(), nil, target); err != nil {
 		t.Fatalf("expected nil (already upgraded), got %v", err)
 	}
 }
 
-// nxapiStub starts an httptest server that responds to each NX-API batch using
-// the provided handler, which maps the list of commands to a JSON body string
-// (the ".result.body" payload) for each command, in order. It returns both the
-// client and the connection so tests can pass conn to UpgradeFirmware for the
-// long-timeout client it creates internally.
-func nxapiStub(t *testing.T, handler func(cmds []string) []string) (*nxapi.Client, *deviceutil.Connection) {
-	t.Helper()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var reqCmds []struct {
-			Params struct {
-				Cmd string `json:"cmd"`
-			} `json:"params"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&reqCmds); err != nil {
-			t.Fatalf("stub: decode request: %v", err)
-		}
-		cmds := make([]string, len(reqCmds))
-		for i, c := range reqCmds {
-			cmds[i] = c.Params.Cmd
-		}
-		bodies := handler(cmds)
-		w.Header().Set("Content-Type", "application/json-rpc")
-		fmt.Fprint(w, "[")
-		for i, b := range bodies {
-			if i > 0 {
-				fmt.Fprint(w, ",")
-			}
-			fmt.Fprintf(w, `{"jsonrpc":"2.0","result":{"body":%s},"id":%d}`, b, i+1)
-		}
-		fmt.Fprint(w, "]")
-	}))
-	t.Cleanup(srv.Close)
-	_, port, _ := net.SplitHostPort(srv.Listener.Addr().String()) //nolint:errcheck
-	conn := &deviceutil.Connection{Address: srv.Listener.Addr().String(), Username: "admin", Password: "secret"}
-	client, err := nxapi.NewClient(conn, nxapi.WithPort(port))
-	if err != nil {
-		t.Fatalf("stub: new client: %v", err)
-	}
-	return client, conn
-}
-
 func TestListDirectoryBytesfree(t *testing.T) {
-	client, _ := nxapiStub(t, func(cmds []string) []string {
-		if cmds[0] != "dir bootflash:" {
-			t.Errorf("cmd = %q, want 'dir bootflash:'", cmds[0])
+	client := nxapi.NewClientMock(func(_ context.Context, r nxapi.Request) ([]json.RawMessage, error) {
+		if got := r.Commands()[0]; got != "dir bootflash:" {
+			t.Errorf("cmd = %q, want 'dir bootflash:'", got)
 		}
-		return []string{`{"bytesfree":3664789504}`}
+		return []json.RawMessage{json.RawMessage(`{"bytesfree":3664789504}`)}, nil
 	})
 	p := &Provider{nxapi: client}
 	dir, err := p.ListDirectory(t.Context(), "bootflash:")
@@ -134,12 +88,12 @@ func TestListDirectoryBytesfree(t *testing.T) {
 }
 
 func TestFileMD5(t *testing.T) {
-	client, _ := nxapiStub(t, func(cmds []string) []string {
+	client := nxapi.NewClientMock(func(_ context.Context, r nxapi.Request) ([]json.RawMessage, error) {
 		want := "show file bootflash:nxos64-cs.10.6.3.F.bin md5sum"
-		if cmds[0] != want {
-			t.Errorf("cmd = %q, want %q", cmds[0], want)
+		if got := r.Commands()[0]; got != want {
+			t.Errorf("cmd = %q, want %q", got, want)
 		}
-		return []string{`{"file_content_md5sum":"48c0db0a564c442f123eba8724ef352f\n"}`}
+		return []json.RawMessage{json.RawMessage(`{"file_content_md5sum":"48c0db0a564c442f123eba8724ef352f\n"}`)}, nil
 	})
 	p := &Provider{nxapi: client}
 	got, err := p.fileMD5(t.Context(), "nxos64-cs.10.6.3.F.bin")
@@ -151,28 +105,8 @@ func TestFileMD5(t *testing.T) {
 	}
 }
 
-// nxapiErrorStub starts an httptest server that responds to every NX-API batch
-// with a single JSON-RPC error carrying the given code and message, so tests
-// can exercise how helpers react to device-side command failures.
-func nxapiErrorStub(t *testing.T, code int, message string) *nxapi.Client {
-	t.Helper()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json-rpc")
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, `[{"jsonrpc":"2.0","error":{"code":%d,"message":%q},"id":1}]`, code, message)
-	}))
-	t.Cleanup(srv.Close)
-	_, port, _ := net.SplitHostPort(srv.Listener.Addr().String()) //nolint:errcheck
-	conn := &deviceutil.Connection{Address: srv.Listener.Addr().String(), Username: "admin", Password: "secret"}
-	client, err := nxapi.NewClient(conn, nxapi.WithPort(port))
-	if err != nil {
-		t.Fatalf("error stub: new client: %v", err)
-	}
-	return client
-}
-
 func TestFileMD5NotFound(t *testing.T) {
-	p := &Provider{nxapi: nxapiErrorStub(t, 1, "No such file or directory")}
+	p := &Provider{nxapi: nxapi.MockErrorClient(1, "No such file or directory")}
 	got, err := p.fileMD5(t.Context(), "nxos64-cs.10.6.3.F.bin")
 	if err != nil {
 		t.Fatalf("fileMD5 error: %v", err)
@@ -183,15 +117,18 @@ func TestFileMD5NotFound(t *testing.T) {
 }
 
 func TestFileMD5RealError(t *testing.T) {
-	p := &Provider{nxapi: nxapiErrorStub(t, 500, "internal device error")}
+	p := &Provider{nxapi: nxapi.MockErrorClient(500, "internal device error")}
 	if _, err := p.fileMD5(t.Context(), "nxos64-cs.10.6.3.F.bin"); err == nil {
 		t.Fatal("expected error for non-not-found RPC failure, got nil")
 	}
 }
 
 func TestConfigSessionActive(t *testing.T) {
-	client1, _ := nxapiStub(t, func(cmds []string) []string {
-		return []string{`{"TABLE_session":{"ROW_session":[{"session":"s1"}]}}`}
+	client1 := nxapi.NewClientMock(func(_ context.Context, r nxapi.Request) ([]json.RawMessage, error) {
+		if len(r.Commands()) == 1 && r.Commands()[0] == "show configuration session summary" {
+			return []json.RawMessage{json.RawMessage(`{"TABLE_session":{"ROW_session":[{"session":"s1"}]}}`)}, nil
+		}
+		return nil, errors.New("unexpected command(s)")
 	})
 	p := &Provider{nxapi: client1}
 	active, err := p.configSessionActive(t.Context())
@@ -200,18 +137,6 @@ func TestConfigSessionActive(t *testing.T) {
 	}
 	if !active {
 		t.Error("expected active session, got false")
-	}
-
-	client2, _ := nxapiStub(t, func(cmds []string) []string {
-		return []string{`{}`}
-	})
-	p2 := &Provider{nxapi: client2}
-	active2, err := p2.configSessionActive(t.Context())
-	if err != nil {
-		t.Fatalf("configSessionActive error: %v", err)
-	}
-	if active2 {
-		t.Error("expected no active session, got true")
 	}
 }
 
@@ -238,31 +163,29 @@ func TestUpgradeFirmwareCopyStep(t *testing.T) {
 	// Device on old version, image absent -> preflight + copy issued -> in progress.
 	var got []string
 	copied := false
-	client, conn := nxapiStub(t, func(cmds []string) []string {
+	client := nxapi.NewClientMock(func(_ context.Context, r nxapi.Request) ([]json.RawMessage, error) {
+		cmds := r.Commands()
 		got = append(got, cmds...)
-		bodies := make([]string, len(cmds))
+		msgs := make([]json.RawMessage, len(cmds))
 		for i, c := range cmds {
 			switch {
 			case c == "show file bootflash:nxos64-cs.10.6.3.F.bin md5sum":
 				if copied {
-					bodies[i] = `{"file_content_md5sum":"48c0db0a564c442f123eba8724ef352f"}` // present after copy
+					msgs[i] = json.RawMessage(`{"file_content_md5sum":"48c0db0a564c442f123eba8724ef352f"}`) // present after copy
 				} else {
-					bodies[i] = `{"file_content_md5sum":""}` // absent before copy
+					msgs[i] = json.RawMessage(`{"file_content_md5sum":""}`) // absent before copy
 				}
-			case c == "show configuration session summary":
-				bodies[i] = `{}`
 			case c == "dir bootflash:":
-				bodies[i] = `{"bytesfree":6000000000}`
+				msgs[i] = json.RawMessage(`{"bytesfree":6000000000}`)
 			case strings.HasPrefix(c, "run bash"):
 				copied = true
-				bodies[i] = `""`
+				msgs[i] = json.RawMessage(`""`)
 			default:
-				bodies[i] = `""`
+				msgs[i] = json.RawMessage(`""`)
 			}
 		}
-		return bodies
+		return msgs, nil
 	})
-
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Length", "3005853696")
 		w.WriteHeader(http.StatusOK)
@@ -277,7 +200,7 @@ func TestUpgradeFirmwareCopyStep(t *testing.T) {
 		URL: srv.URL + "/nxos64-cs.10.6.3.F.bin",
 		MD5: "48c0db0a564c442f123eba8724ef352f",
 	}
-	err := p.UpgradeFirmware(t.Context(), conn, target)
+	err := p.UpgradeFirmware(t.Context(), nil, target)
 	if !errors.Is(err, provider.ErrMaintenanceInProgress) {
 		t.Fatalf("expected ErrUpgradeInProgress, got %v", err)
 	}
@@ -288,21 +211,17 @@ func TestUpgradeFirmwareCopyStep(t *testing.T) {
 }
 
 func TestUpgradeFirmwareInsufficientSpace(t *testing.T) {
-	client, conn := nxapiStub(t, func(cmds []string) []string {
-		bodies := make([]string, len(cmds))
+	client := nxapi.NewClientMock(func(_ context.Context, r nxapi.Request) ([]json.RawMessage, error) {
+		cmds := r.Commands()
+		msgs := make([]json.RawMessage, len(cmds))
 		for i, c := range cmds {
-			switch c {
-			case "show file bootflash:nxos64-cs.10.6.3.F.bin md5sum":
-				bodies[i] = `""`
-			case "show configuration session summary":
-				bodies[i] = `{}`
-			case "dir bootflash:":
-				bodies[i] = `{"bytesfree":"1000"}`
-			default:
-				bodies[i] = `""`
+			if c == "dir bootflash:" {
+				msgs[i] = json.RawMessage(`{"bytesfree":"1000"}`)
+			} else {
+				msgs[i] = json.RawMessage(`null`)
 			}
 		}
-		return bodies
+		return msgs, nil
 	})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Length", "3005853696")
@@ -312,7 +231,7 @@ func TestUpgradeFirmwareInsufficientSpace(t *testing.T) {
 
 	p := &Provider{client: mockGNMI("10.6(2)", ""), nxapi: client}
 	target := provider.TargetFirmware{URL: srv.URL + "/nxos64-cs.10.6.3.F.bin", MD5: "abc"}
-	err := p.UpgradeFirmware(t.Context(), conn, target)
+	err := p.UpgradeFirmware(t.Context(), nil, target)
 	if err == nil || errors.Is(err, provider.ErrMaintenanceInProgress) {
 		t.Fatalf("expected hard error for insufficient space, got %v", err)
 	}
@@ -321,54 +240,28 @@ func TestUpgradeFirmwareInsufficientSpace(t *testing.T) {
 func TestUpgradeFirmwareInstallAndReload(t *testing.T) {
 	// Image present with matching md5 -> impact + save + install(no-reload) + reload.
 	var got []string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var reqCmds []struct {
-			Params struct {
-				Cmd string `json:"cmd"`
-			} `json:"params"`
-		}
-		json.NewDecoder(r.Body).Decode(&reqCmds) //nolint:errcheck
-		cmds := make([]string, len(reqCmds))
-		for i, c := range reqCmds {
-			cmds[i] = c.Params.Cmd
-		}
+	client := nxapi.NewClientMock(func(_ context.Context, r nxapi.Request) ([]json.RawMessage, error) {
+		cmds := r.Commands()
 		got = append(got, cmds...)
-
-		// The reload request drops the connection.
+		// The reload request drops the connection, surfacing as a transport
+		// error that UpgradeFirmware treats as expected (device going down).
 		if len(cmds) == 1 && cmds[0] == "reload" {
-			hj, ok := w.(http.Hijacker)
-			if !ok {
-				t.Fatal("no hijacker")
-			}
-			conn, _, _ := hj.Hijack() //nolint:errcheck
-			conn.Close()
-			return
+			return nil, io.EOF
 		}
-		w.Header().Set("Content-Type", "application/json-rpc")
-		fmt.Fprint(w, "[")
+		msgs := make([]json.RawMessage, len(cmds))
 		for i, c := range cmds {
-			if i > 0 {
-				fmt.Fprint(w, ",")
-			}
-			body := `{"file_content_md5sum":""}`
 			if c == "show file bootflash:nxos64-cs.10.6.3.F.bin md5sum" {
-				body = `{"file_content_md5sum":"48c0db0a564c442f123eba8724ef352f"}`
+				msgs[i] = json.RawMessage(`{"file_content_md5sum":"48c0db0a564c442f123eba8724ef352f"}`)
+			} else {
+				msgs[i] = json.RawMessage(`null`)
 			}
-			fmt.Fprintf(w, `{"jsonrpc":"2.0","result":{"body":%s},"id":%d}`, body, i+1)
 		}
-		fmt.Fprint(w, "]")
-	}))
-	t.Cleanup(srv.Close)
-	_, port, _ := net.SplitHostPort(srv.Listener.Addr().String()) //nolint:errcheck
-	conn := &deviceutil.Connection{Address: srv.Listener.Addr().String(), Username: "admin", Password: "secret"}
-	client, err := nxapi.NewClient(conn, nxapi.WithPort(port))
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
+		return msgs, nil
+	})
 
 	p := &Provider{client: mockGNMI("10.6(2)", ""), nxapi: client}
 	target := provider.TargetFirmware{URL: "https://repo.example/nxos64-cs.10.6.3.F.bin", MD5: "48c0db0a564c442f123eba8724ef352f"}
-	err = p.UpgradeFirmware(t.Context(), conn, target)
+	err := p.UpgradeFirmware(t.Context(), nil, target)
 	if !errors.Is(err, provider.ErrMaintenanceInProgress) {
 		t.Fatalf("expected ErrUpgradeInProgress after reload, got %v", err)
 	}

@@ -30,22 +30,35 @@ func (f RoundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 	return f(r)
 }
 
+//go:generate go tool moq -with-resets -out nxapi_mock.go . Client
+
 // Client sends JSON-RPC requests to a Cisco NX-OS device via NX-API.
+type Client interface {
+	// Do sends a Request to the device and returns one [json.RawMessage] per
+	// command, in the same order as the request.
+	Do(context.Context, Request) ([]json.RawMessage, error)
+	// Clone returns a copy of the client with the given options applied.
+	Clone(...Option) (Client, error)
+}
+
+// client sends JSON-RPC requests to a Cisco NX-OS device via NX-API.
 // Use [NewClient] to construct one.
-type Client struct {
+type client struct {
 	client *http.Client
 	url    url.URL
 	target string
 }
 
-// Option configures a [Client].
-type Option func(*Client) error
+var _ Client = &client{}
+
+// Option configures a [client].
+type Option func(*client) error
 
 // WithPort overrides the port in the connection address.
 // This is useful when NX-API is reachable on a different
 // port (e.g. 8443) than the default (80/443).
 func WithPort(port string) Option {
-	return func(c *Client) error {
+	return func(c *client) error {
 		host := c.url.Host
 		if h, _, err := net.SplitHostPort(host); err == nil {
 			host = h
@@ -58,7 +71,7 @@ func WithPort(port string) Option {
 // WithTimeout sets the HTTP client timeout.
 // The default is 0 (no timeout).
 func WithTimeout(d time.Duration) Option {
-	return func(c *Client) error {
+	return func(c *client) error {
 		c.client.Timeout = d
 		return nil
 	}
@@ -66,7 +79,7 @@ func WithTimeout(d time.Duration) Option {
 
 // WithTarget sets the device target label used in metrics.
 func WithTarget(target string) Option {
-	return func(c *Client) error {
+	return func(c *client) error {
 		c.target = target
 		return nil
 	}
@@ -74,7 +87,7 @@ func WithTarget(target string) Option {
 
 // NewClient creates a new [Client] for the given connection.
 // If the connection has a TLS configuration set, HTTPS is used; otherwise HTTP.
-func NewClient(conn *deviceutil.Connection, opts ...Option) (*Client, error) {
+func NewClient(conn *deviceutil.Connection, opts ...Option) (Client, error) {
 	proto := "http"
 	if conn.TLS != nil {
 		proto = "https"
@@ -83,7 +96,7 @@ func NewClient(conn *deviceutil.Connection, opts ...Option) (*Client, error) {
 	if conn.TLS != nil {
 		transport.TLSClientConfig = conn.TLS
 	}
-	c := &Client{
+	c := &client{
 		client: &http.Client{
 			Transport: RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 				r.Header.Set("Content-Type", "application/json-rpc")
@@ -112,7 +125,7 @@ func NewClient(conn *deviceutil.Connection, opts ...Option) (*Client, error) {
 // the underlying HTTP transport, so it stays reachable at the same address and
 // reuses pooled connections. Use it to derive a client that differs only in
 // request behaviour, e.g. a longer timeout for long-running commands.
-func (c *Client) Clone(opts ...Option) (*Client, error) {
+func (c *client) Clone(opts ...Option) (Client, error) {
 	clone := *c
 	httpClient := *c.client
 	clone.client = &httpClient
@@ -128,7 +141,7 @@ func (c *Client) Clone(opts ...Option) (*Client, error) {
 // command, in the same order as the request. If any command fails, Do returns
 // an [RPCErrors] containing one [RPCError] per failed command; transport and
 // HTTP errors are returned directly.
-func (c *Client) Do(ctx context.Context, r Request) ([]json.RawMessage, error) {
+func (c *client) Do(ctx context.Context, r Request) ([]json.RawMessage, error) {
 	b, err := r.Encode()
 	if err != nil {
 		return nil, fmt.Errorf("nxapi: failed to encode request: %w", err)
@@ -218,6 +231,15 @@ func NewRequest(cmds ...string) Request {
 		}
 	}
 	return r
+}
+
+// Commands returns the CLI command strings in the request, in order.
+func (r Request) Commands() []string {
+	cmds := make([]string, len(r))
+	for i := range r {
+		cmds[i] = r[i].Params.Cmd
+	}
+	return cmds
 }
 
 // Method is the NX-API command type.

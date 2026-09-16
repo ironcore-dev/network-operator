@@ -101,7 +101,7 @@ func (p *Provider) isUpgraded(ctx context.Context, target provider.TargetFirmwar
 }
 
 // ensureFirmwareImage ensures a valid firmware image is present on bootflash
-func (p *Provider) ensureFirmwareImage(ctx context.Context, c *nxapi.Client, target provider.TargetFirmware, targetFileName string) error {
+func (p *Provider) ensureFirmwareImage(ctx context.Context, c nxapi.Client, target provider.TargetFirmware, targetFileName string) error {
 	logger := logr.FromContextOrDiscard(ctx)
 
 	sum, err := p.fileMD5(ctx, targetFileName)
@@ -169,7 +169,7 @@ func (p *Provider) ensureFirmwareImage(ctx context.Context, c *nxapi.Client, tar
 
 // checkCompatibility runs the software compatibility and install impact checks
 // and logs their output.
-func (p *Provider) checkCompatibility(ctx context.Context, c *nxapi.Client, targetFileName string) error {
+func (p *Provider) checkCompatibility(ctx context.Context, c nxapi.Client, targetFileName string) error {
 	logger := logr.FromContextOrDiscard(ctx)
 	compatRes, err := c.Do(ctx, nxapi.NewRequest(
 		"show incompatibility-all nxos bootflash:"+targetFileName,
@@ -191,7 +191,7 @@ func (p *Provider) checkCompatibility(ctx context.Context, c *nxapi.Client, targ
 
 // doUpgrade saves the running config, installs the firmware without
 // reload.
-func (p *Provider) doUpgrade(ctx context.Context, c *nxapi.Client, targetFileName string) error {
+func (p *Provider) doUpgrade(ctx context.Context, c nxapi.Client, targetFileName string) error {
 	logger := logr.FromContextOrDiscard(ctx)
 	if _, err := p.nxapi.Do(ctx, nxapi.NewRequest(
 		"copy running-config startup-config",
