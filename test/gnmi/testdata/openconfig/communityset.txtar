@@ -1,0 +1,58 @@
+# CommunitySet with regex members
+-- communitysets/cs-wireapi --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: CommunitySet
+metadata:
+  name: cs-wireapi
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: WIREAPI
+  members:
+    - sequence: 5
+      regex: "50000:[0-9][0-9]"
+    - sequence: 10
+      regex: "65001:[0-9]+"
+
+-- state/preload --
+{}
+
+-- state/expect --
+
+{
+  "openconfig-routing-policy:routing-policy": {
+    "defined-sets": {
+      "openconfig-bgp-policy:bgp-defined-sets": {
+        "community-sets": {
+          "community-set": [
+            {
+              "community-set-name": "WIREAPI",
+              "config": {
+                "community-set-name": "WIREAPI",
+                "community-member": [
+                  "50000:[0-9][0-9]",
+                  "65001:[0-9]+"
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+-- state/delete --
+
+{
+  "openconfig-routing-policy:routing-policy": {
+    "defined-sets": {
+      "openconfig-bgp-policy:bgp-defined-sets": {
+        "community-sets": {
+          "community-set": []
+        }
+      }
+    }
+  }
+}

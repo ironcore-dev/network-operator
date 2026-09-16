@@ -1,0 +1,58 @@
+# ExtCommunitySet with regex members
+-- extcommunitysets/ecs-wireapi --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: ExtCommunitySet
+metadata:
+  name: ecs-wireapi
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: WIREAPI
+  members:
+    - sequence: 5
+      regex: "65200:[0-9][0-9]"
+    - sequence: 15
+      regex: "65300:[0-9]+"
+
+-- state/preload --
+{}
+
+-- state/expect --
+
+{
+  "openconfig-routing-policy:routing-policy": {
+    "defined-sets": {
+      "openconfig-bgp-policy:bgp-defined-sets": {
+        "ext-community-sets": {
+          "ext-community-set": [
+            {
+              "ext-community-set-name": "WIREAPI",
+              "config": {
+                "ext-community-set-name": "WIREAPI",
+                "ext-community-member": [
+                  "65200:[0-9][0-9]",
+                  "65300:[0-9]+"
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+-- state/delete --
+
+{
+  "openconfig-routing-policy:routing-policy": {
+    "defined-sets": {
+      "openconfig-bgp-policy:bgp-defined-sets": {
+        "ext-community-sets": {
+          "ext-community-set": []
+        }
+      }
+    }
+  }
+}
