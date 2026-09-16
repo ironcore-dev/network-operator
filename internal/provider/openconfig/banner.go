@@ -5,7 +5,7 @@ package openconfig
 
 import (
 	"context"
-	"encoding/json"
+	"encoding"
 	"fmt"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
@@ -55,7 +55,11 @@ func toBannerType(t v1alpha1.BannerType) (BannerType, error) {
 }
 
 // Compile-time assertions.
-var _ gnmiext.DataElement = (*Banner)(nil)
+var (
+	_ gnmiext.DataElement      = (*Banner)(nil)
+	_ encoding.TextMarshaler   = (*Banner)(nil)
+	_ encoding.TextUnmarshaler = (*Banner)(nil)
+)
 
 // Banner targets a single banner leaf in the system config.
 type Banner struct {
@@ -68,10 +72,11 @@ func (b *Banner) XPath() string {
 	return fmt.Sprintf("openconfig-system:system/config/%s", b.Type)
 }
 
-func (b *Banner) MarshalJSON() ([]byte, error) {
-	return json.Marshal(b.Message)
+func (b Banner) MarshalText() ([]byte, error) {
+	return []byte(b.Message), nil
 }
 
-func (b *Banner) UnmarshalJSON(data []byte) error {
-	return json.Unmarshal(data, &b.Message)
+func (b *Banner) UnmarshalText(data []byte) error {
+	b.Message = string(data)
+	return nil
 }
