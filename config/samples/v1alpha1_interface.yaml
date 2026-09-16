@@ -239,3 +239,44 @@ spec:
     addresses:
       - 192.168.10.254/24
     anycastGateway: true
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: lo2
+spec:
+  deviceRef:
+    name: leaf1
+  name: lo2
+  description: IPv6 Router-ID Leaf1
+  adminState: Up
+  type: Loopback
+  mtu: 1500
+  ipv6:
+    addresses:
+      - 2001:db8::10/128
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: eth1-4
+spec:
+  deviceRef:
+    name: leaf1
+  name: eth1/4
+  description: Unnumbered uplink for interface-based BGP peering
+  adminState: Up
+  type: Physical
+  mtu: 9216
+  # Use only the automatically generated IPv6 link-local address, so the link
+  # needs no addressing of its own. Mutually exclusive with ipv6.addresses.
+  ipv6:
+    useLinkLocalOnly: true

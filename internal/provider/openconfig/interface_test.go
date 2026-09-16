@@ -35,6 +35,33 @@ func TestOpenConfigTrunkVlansJSON(t *testing.T) {
 	}
 }
 
+func TestOpenConfigIPv6AddressJSON(t *testing.T) {
+	intf := &Subinterface{
+		Index: 0,
+		IPv6: &InterfaceIPv6{
+			Config:    &InterfaceIPv6Config{Enabled: true},
+			Addresses: &IPv6Addresses{},
+		},
+	}
+	intf.IPv6.Addresses.Address.Set(&IPv6Address{
+		IP: "2001:db8::1",
+		Config: &IPv6AddressConfig{
+			IP:           "2001:db8::1",
+			PrefixLength: 64,
+			Type:         IPv6AddressTypeGlobalUnicast,
+		},
+	})
+
+	got, err := json.Marshal(intf)
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	want := `{"index":0,"openconfig-if-ip:ipv6":{"addresses":{"address":[{"ip":"2001:db8::1","config":{"ip":"2001:db8::1","prefix-length":64,"type":"GLOBAL_UNICAST"}}]},"config":{"enabled":true}}}`
+	if string(got) != want {
+		t.Fatalf("json.Marshal() = %s, want %s", got, want)
+	}
+}
+
 func TestOpenConfigTrunkVlansXPath(t *testing.T) {
 	tests := []struct {
 		name string

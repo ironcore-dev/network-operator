@@ -15,6 +15,10 @@ spec:
     addresses:
       - 10.0.0.20/32
       - 10.0.0.21/32
+  ipv6:
+    addresses:
+      - 2001:db8:1::20/128
+      - 2001:db8:2::21/128
 
 -- state/preload --
 {
@@ -80,6 +84,41 @@ spec:
         }
       }
     },
+    "ipv6-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo1",
+                    "useLinkLocalAddr": "disabled",
+                    "addr-items": {
+                      "Addr-list": [
+                        {
+                          "addr": "2001:db8:1::20/128",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "primary"
+                        },
+                        {
+                          "addr": "2001:db8:2::21/128",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "primary"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
     "icmpv4-items": {
       "inst-items": {
         "dom-items": {
@@ -115,6 +154,20 @@ spec:
       }
     },
     "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": []
+              }
+            }
+          ]
+        }
+      }
+    },
+    "ipv6-items": {
       "inst-items": {
         "dom-items": {
           "Dom-list": [

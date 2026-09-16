@@ -369,6 +369,7 @@ func (r *InterfaceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 					// Only trigger when fields that affect member Physical interface
 					// reconciliation change (e.g. layer, VRF membership, MTU).
 					return !equality.Semantic.DeepEqual(oldIntf.Spec.IPv4, newIntf.Spec.IPv4) ||
+						!equality.Semantic.DeepEqual(oldIntf.Spec.IPv6, newIntf.Spec.IPv6) ||
 						!equality.Semantic.DeepEqual(oldIntf.Spec.Switchport, newIntf.Spec.Switchport) ||
 						!equality.Semantic.DeepEqual(oldIntf.Spec.VrfRef, newIntf.Spec.VrfRef) ||
 						oldIntf.Spec.MTU != newIntf.Spec.MTU
@@ -569,6 +570,8 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (reterr e
 		}
 	}
 
+	ipv6 := interfaceIPv6(s.Interface.Spec.IPv6)
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -583,6 +586,7 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (reterr e
 		Interface:       s.Interface,
 		ProviderConfig:  s.ProviderConfig,
 		IPv4:            ip,
+		IPv6:            ipv6,
 		Members:         members,
 		MultiChassisID:  multiChassisID,
 		AggregateParent: aggregateParent,
@@ -775,6 +779,24 @@ func (r *InterfaceReconciler) validateLLDPAdjacencyThroughAnnotation(ctx context
 	}
 
 	return v1alpha1.NeighborVerified, nil
+}
+
+// interfaceIPv6 maps the IPv6 spec of an Interface to the provider representation.
+// It returns nil if the Interface has no IPv6 configuration.
+func interfaceIPv6(spec *v1alpha1.InterfaceIPv6) provider.IPv6 {
+	switch {
+	case spec == nil:
+		return nil
+	case spec.UseLinkLocalOnly:
+		return provider.IPv6LinkLocalOnly{}
+	case len(spec.Addresses) > 0:
+		addrs := make([]netip.Prefix, len(spec.Addresses))
+		for i, addr := range spec.Addresses {
+			addrs[i] = addr.Prefix
+		}
+		return provider.IPv6AddressList(addrs)
+	}
+	return nil
 }
 
 func (r *InterfaceReconciler) reconcileIPv4(ctx context.Context, s *scope) (provider.IPv4, error) {
