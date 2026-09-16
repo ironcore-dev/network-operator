@@ -34,23 +34,25 @@ var _ = Describe("BGP Controller", func() {
 		})
 
 		AfterEach(func() {
+			// Use the manager client for MatchingFields queries — the direct k8sClient
+			// does not have the custom field indexes registered on the API server.
 			By("Cleaning up BGP resources for this device")
 			bgpList := &v1alpha1.BGPList{}
-			Expect(k8sClient.List(ctx, bgpList, client.InNamespace(metav1.NamespaceDefault), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name})).To(Succeed())
+			Expect(k8sManager.GetClient().List(ctx, bgpList, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name})).To(Succeed())
 			for i := range bgpList.Items {
 				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &bgpList.Items[i]))).To(Succeed())
 			}
 
 			By("Cleaning up VRF resources for this device")
 			vrfList := &v1alpha1.VRFList{}
-			Expect(k8sClient.List(ctx, vrfList, client.InNamespace(metav1.NamespaceDefault), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name})).To(Succeed())
+			Expect(k8sManager.GetClient().List(ctx, vrfList, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name})).To(Succeed())
 			for i := range vrfList.Items {
 				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &vrfList.Items[i]))).To(Succeed())
 			}
 
 			By("Cleaning up RoutingPolicy resources for this device")
 			rpList := &v1alpha1.RoutingPolicyList{}
-			Expect(k8sClient.List(ctx, rpList, client.InNamespace(metav1.NamespaceDefault), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name})).To(Succeed())
+			Expect(k8sManager.GetClient().List(ctx, rpList, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name})).To(Succeed())
 			for i := range rpList.Items {
 				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &rpList.Items[i]))).To(Succeed())
 			}
@@ -58,13 +60,27 @@ var _ = Describe("BGP Controller", func() {
 			By("Waiting for BGP resources to be fully deleted")
 			Eventually(func(g Gomega) {
 				list := &v1alpha1.BGPList{}
-				g.Expect(k8sClient.List(ctx, list, client.InNamespace(metav1.NamespaceDefault), client.MatchingLabels{v1alpha1.DeviceLabel: device.Name})).To(Succeed())
+				g.Expect(k8sManager.GetClient().List(ctx, list, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name})).To(Succeed())
+				g.Expect(list.Items).To(BeEmpty())
+			}).Should(Succeed())
+
+			By("Waiting for VRF resources to be fully deleted")
+			Eventually(func(g Gomega) {
+				list := &v1alpha1.VRFList{}
+				g.Expect(k8sManager.GetClient().List(ctx, list, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name})).To(Succeed())
+				g.Expect(list.Items).To(BeEmpty())
+			}).Should(Succeed())
+
+			By("Waiting for RoutingPolicy resources to be fully deleted")
+			Eventually(func(g Gomega) {
+				list := &v1alpha1.RoutingPolicyList{}
+				g.Expect(k8sManager.GetClient().List(ctx, list, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name})).To(Succeed())
 				g.Expect(list.Items).To(BeEmpty())
 			}).Should(Succeed())
 
 			By("Verifying BGP is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.BGP).To(BeNil(), "Provider should not have BGP instance configured")
+				g.Expect(testDevices.StateFor(device.Name).BGP).To(BeNil(), "Provider should not have BGP instance configured")
 			}).Should(Succeed())
 
 			By("Deleting the Device resource")
@@ -120,7 +136,7 @@ var _ = Describe("BGP Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.BGP).ToNot(BeNil(), "Provider should have BGP instance configured")
+				g.Expect(testDevices.StateFor(device.Name).BGP).ToNot(BeNil(), "Provider should have BGP instance configured")
 			}).Should(Succeed())
 		})
 
@@ -176,8 +192,8 @@ var _ = Describe("BGP Controller", func() {
 
 			By("Ensuring the provider receives the VRF")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.BGPVRF).ToNot(BeNil())
-				g.Expect(testProvider.BGPVRF.Spec.Name).To(Equal("CC-MGMT"))
+				g.Expect(testDevices.StateFor(device.Name).BGPVRF).ToNot(BeNil())
+				g.Expect(testDevices.StateFor(device.Name).BGPVRF.Spec.Name).To(Equal("CC-MGMT"))
 			}).Should(Succeed())
 
 			By("Ensuring ReadyCondition is True")

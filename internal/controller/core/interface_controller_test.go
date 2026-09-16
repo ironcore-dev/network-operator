@@ -9,6 +9,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -54,7 +55,7 @@ var _ = Describe("Interface Controller", func() {
 			By("Waiting for Interfaces to be fully deleted")
 			Eventually(func(g Gomega) {
 				list := &v1alpha1.InterfaceList{}
-				g.Expect(k8sClient.List(ctx, list, client.InNamespace(metav1.NamespaceDefault), client.MatchingLabels{v1alpha1.DeviceLabel: name})).To(Succeed())
+				g.Expect(k8sManager.GetClient().List(ctx, list, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: name})).To(Succeed())
 				g.Expect(list.Items).To(BeEmpty())
 			}).Should(Succeed())
 
@@ -72,7 +73,7 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Verifying the Interface is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.Ports.Has(name)).To(BeFalse(), "Provider shouldn't have Interface configured anymore")
+				g.Expect(testDevices.StateFor(name).Ports.Has(name)).To(BeFalse(), "Provider shouldn't have Interface configured anymore")
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -141,7 +142,7 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Verifying the Interface is configured in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.Ports.Has(name)).To(BeTrue(), "Provider should have Interface configured")
+				g.Expect(testDevices.StateFor(name).Ports.Has(name)).To(BeTrue(), "Provider should have Interface configured")
 			}).Should(Succeed())
 		})
 
@@ -365,7 +366,7 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Verifying the Aggregate Interface is configured in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.Ports.Has(name)).To(BeTrue(), "Provider should have Aggregate Interface configured")
+				g.Expect(testDevices.StateFor(name).Ports.Has(name)).To(BeTrue(), "Provider should have Aggregate Interface configured")
 			}).Should(Succeed())
 		})
 
@@ -656,7 +657,7 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Verifying the Aggregate Interface is configured in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.Ports.Has(name)).To(BeTrue(), "Provider should have L3 Aggregate Interface configured")
+				g.Expect(testDevices.StateFor(name).Ports.Has(name)).To(BeTrue(), "Provider should have L3 Aggregate Interface configured")
 			}).Should(Succeed())
 		})
 
@@ -715,7 +716,7 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Verifying the member Physical interface is configured in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.Ports.Has("eth1-100")).To(BeTrue(), "Provider should have member Physical Interface configured")
+				g.Expect(testDevices.StateFor(name).Ports.Has("eth1-100")).To(BeTrue(), "Provider should have member Physical Interface configured")
 			}).Should(Succeed())
 		})
 
@@ -841,12 +842,12 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Verifying the Subinterface is configured in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.Ports.Has(parentName+".100")).To(BeTrue(), "Provider should have Subinterface configured")
+				g.Expect(testDevices.StateFor(name).Ports.Has(parentName+".100")).To(BeTrue(), "Provider should have Subinterface configured")
 			}).Should(Succeed())
 
 			By("Verifying the parent Physical interface is configured in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.Ports.Has(parentName)).To(BeTrue(), "Provider should have parent Physical Interface configured")
+				g.Expect(testDevices.StateFor(name).Ports.Has(parentName)).To(BeTrue(), "Provider should have parent Physical Interface configured")
 			}).Should(Succeed())
 		})
 
@@ -960,7 +961,7 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Verifying the Interface is configured in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.Ports.Has(name)).To(BeTrue(), "Provider should have RoutedVLAN Interface configured")
+				g.Expect(testDevices.StateFor(name).Ports.Has(name)).To(BeTrue(), "Provider should have RoutedVLAN Interface configured")
 			}).Should(Succeed())
 		})
 
@@ -1103,7 +1104,7 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Verifying the Interface is configured in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.Ports.Has(name)).To(BeTrue(), "Provider should have Interface with VRF configured")
+				g.Expect(testDevices.StateFor(name).Ports.Has(name)).To(BeTrue(), "Provider should have Interface with VRF configured")
 			}).Should(Succeed())
 		})
 
@@ -1263,7 +1264,7 @@ var _ = Describe("Interface Controller", func() {
 			}).Should(Succeed())
 
 			By("Configuring LLDP neighbor on the provider for the local interface")
-			testProvider.SetLLDPNeighbor("Ethernet1/2", "remote-switch.example.com", "aa:bb:cc:dd:ee:ff", "Ethernet1/1", 120)
+			testDevices.StateFor(localDevice.Name).SetLLDPNeighbor("Ethernet1/2", "remote-switch.example.com", "aa:bb:cc:dd:ee:ff", "Ethernet1/1", 120)
 
 			By("Creating a local Physical Interface with neighbor label pointing to the remote interface")
 			localIntf = &v1alpha1.Interface{
@@ -1284,9 +1285,9 @@ var _ = Describe("Interface Controller", func() {
 
 		AfterEach(func() {
 			By("Cleaning up LLDP neighbor configuration")
-			testProvider.Lock()
-			delete(testProvider.LLDPNeighbors, "Ethernet1/2")
-			testProvider.Unlock()
+			testDevices.StateFor(localDevice.Name).Lock()
+			delete(testDevices.StateFor(localDevice.Name).LLDPNeighbors, "Ethernet1/2")
+			testDevices.StateFor(localDevice.Name).Unlock()
 
 			By("Cleaning up all Interface resources")
 			intfList := &v1alpha1.InterfaceList{}
@@ -1307,15 +1308,19 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Cleaning up DNS resource")
 			if dns != nil {
-				Expect(k8sClient.Delete(ctx, dns)).To(Succeed())
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, dns))).To(Succeed())
+				Eventually(func(g Gomega) {
+					err := k8sClient.Get(ctx, client.ObjectKeyFromObject(dns), &v1alpha1.DNS{})
+					g.Expect(errors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
 			}
 
 			By("Cleaning up Device resources")
 			if localDevice != nil {
-				Expect(k8sClient.Delete(ctx, localDevice)).To(Succeed())
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, localDevice))).To(Succeed())
 			}
 			if remoteDevice != nil {
-				Expect(k8sClient.Delete(ctx, remoteDevice)).To(Succeed())
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, remoteDevice))).To(Succeed())
 			}
 		})
 

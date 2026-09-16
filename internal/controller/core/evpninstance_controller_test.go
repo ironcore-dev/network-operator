@@ -6,6 +6,7 @@ package core
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -43,16 +44,24 @@ var _ = Describe("EVPNInstance Controller", func() {
 			evi.Name = name
 			evi.Namespace = metav1.NamespaceDefault
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, evi))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, &v1alpha1.EVPNInstance{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up test VLAN resource")
 			vlan := &v1alpha1.VLAN{}
 			vlan.Name = name
 			vlan.Namespace = metav1.NamespaceDefault
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, vlan))).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, &v1alpha1.VLAN{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Verifying the EVPNInstance is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.EVIs.Has(vni)).To(BeFalse(), "Provider shouldn't have VNI configured anymore")
+				g.Expect(testDevices.StateFor(name).EVIs.Has(vni)).To(BeFalse(), "Provider shouldn't have VNI configured anymore")
 			}).Should(Succeed())
 
 			By("Cleaning up the test Device resource")
@@ -148,7 +157,7 @@ var _ = Describe("EVPNInstance Controller", func() {
 
 			By("Verifying the EVPNInstance is configured in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.EVIs.Has(vni)).To(BeTrue(), "Provider should have VNI configured")
+				g.Expect(testDevices.StateFor(name).EVIs.Has(vni)).To(BeTrue(), "Provider should have VNI configured")
 			}).Should(Succeed())
 		})
 

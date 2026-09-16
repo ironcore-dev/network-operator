@@ -6,6 +6,7 @@ package core
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -62,7 +63,13 @@ var _ = Describe("DNS Controller", func() {
 
 			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.DNS).To(BeNil(), "Provider DNS should be nil")
+				g.Expect(testDevices.StateFor(name).DNS).To(BeNil(), "Provider DNS should be nil")
+			}).Should(Succeed())
+
+			By("Waiting for the DNS to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, &v1alpha1.DNS{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -109,9 +116,9 @@ var _ = Describe("DNS Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.DNS).ToNot(BeNil(), "Provider DNS should not be nil")
-				if testProvider.DNS != nil {
-					g.Expect(testProvider.DNS.Spec.Domain).To(Equal("example.com"))
+				g.Expect(testDevices.StateFor(name).DNS).ToNot(BeNil(), "Provider DNS should not be nil")
+				if testDevices.StateFor(name).DNS != nil {
+					g.Expect(testDevices.StateFor(name).DNS.Spec.Domain).To(Equal("example.com"))
 				}
 			}).Should(Succeed())
 		})

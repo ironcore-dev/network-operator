@@ -5,6 +5,7 @@ package core
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -63,7 +64,13 @@ var _ = Describe("ISIS Controller", func() {
 
 			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.ISIS.Has("UNDERLAY")).To(BeFalse(), "Provider should not have ISIS instance configured")
+				g.Expect(testDevices.StateFor(name).ISIS.Has("UNDERLAY")).To(BeFalse(), "Provider should not have ISIS instance configured")
+			}).Should(Succeed())
+
+			By("Waiting for the ISIS to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, &v1alpha1.ISIS{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			}).Should(Succeed())
 
 			By("Cleanup the Device resource")
@@ -110,7 +117,7 @@ var _ = Describe("ISIS Controller", func() {
 
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.ISIS.Has("UNDERLAY")).To(BeTrue(), "Provider should have ISIS instance configured")
+				g.Expect(testDevices.StateFor(name).ISIS.Has("UNDERLAY")).To(BeTrue(), "Provider should have ISIS instance configured")
 			}).Should(Succeed())
 		})
 	})
@@ -143,6 +150,12 @@ var _ = Describe("ISIS Controller", func() {
 			isis.Name = name
 			isis.Namespace = metav1.NamespaceDefault
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, isis))).To(Succeed())
+
+			By("Waiting for the ISIS to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, &v1alpha1.ISIS{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleanup the Device resource")
 			device := &v1alpha1.Device{}

@@ -6,10 +6,10 @@ package core
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
@@ -78,7 +78,13 @@ var _ = Describe("VRF Controller", func() {
 
 			By("Verifying the resource is removed from the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.VRF.Has("CC-ADMIN-TEST")).To(BeFalse(), "Provider should not have VRF configured anymore")
+				g.Expect(testDevices.StateFor(name).VRF.Has("CC-ADMIN-TEST")).To(BeFalse(), "Provider should not have VRF configured anymore")
+			}).Should(Succeed())
+
+			By("Waiting for the VRF to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, &v1alpha1.VRF{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			}).Should(Succeed())
 
 			By("Cleaning up the Device resource")
@@ -121,9 +127,9 @@ var _ = Describe("VRF Controller", func() {
 
 			By("Ensuring the VRF is created in the provider")
 			Eventually(func(g Gomega) {
-				g.Expect(testProvider.VRF).ToNot(BeNil(), "Provider VRF should not be nil")
-				if testProvider.VRF != nil {
-					g.Expect(testProvider.VRF.Has("CC-ADMIN-TEST")).To(BeTrue(), "Provider should have VRF configured")
+				g.Expect(testDevices.StateFor(name).VRF).ToNot(BeNil(), "Provider VRF should not be nil")
+				if testDevices.StateFor(name).VRF != nil {
+					g.Expect(testDevices.StateFor(name).VRF.Has("CC-ADMIN-TEST")).To(BeTrue(), "Provider should have VRF configured")
 				}
 			}).Should(Succeed())
 		})
