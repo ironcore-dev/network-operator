@@ -90,7 +90,7 @@ func (r *RoutingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	prov, err := provider.LoadProvider[provider.RoutingPolicyProvider](device.Spec.Provider)
 	if err != nil {
 		reason := v1alpha1.NotImplementedReason
-		if _, ok := errors.AsType[provider.NotFoundError](err); ok { //nolint:errcheck
+		if _, ok := errors.AsType[provider.NotFoundError](err); ok {
 			reason = v1alpha1.ProviderNotFoundReason
 		}
 		if meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{

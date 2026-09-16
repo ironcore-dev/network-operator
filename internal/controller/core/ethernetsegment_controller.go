@@ -94,7 +94,7 @@ func (r *EthernetSegmentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	prov, err := provider.LoadProvider[provider.EthernetSegmentProvider](device.Spec.Provider)
 	if err != nil {
 		reason := v1alpha1.NotImplementedReason
-		if _, ok := errors.AsType[provider.NotFoundError](err); ok { //nolint:errcheck
+		if _, ok := errors.AsType[provider.NotFoundError](err); ok {
 			reason = v1alpha1.ProviderNotFoundReason
 		}
 		if meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{

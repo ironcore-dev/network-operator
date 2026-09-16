@@ -136,6 +136,11 @@ linters:
       check-blank: true
       # Do not report about not checking of errors in type assertions.
       check-type-assertions: false
+      exclude-functions:
+        # errors.AsType returns (T, bool), not (T, error). errcheck misidentifies
+        # the discarded T as an unchecked error because the function is in package errors.
+        # See: https://github.com/kisielk/errcheck/issues/274
+        - errors.AsType
     exhaustive:
       # Presence of "default" case in switch statements satisfies exhaustiveness,
       # even if all enum members are not listed.
