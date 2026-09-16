@@ -6,6 +6,7 @@ package nxos
 import (
 	"cmp"
 	"context"
+	"encoding"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -687,20 +688,15 @@ const (
 )
 
 var (
-	_ fmt.Stringer     = UserFlags(0)
-	_ json.Marshaler   = UserFlags(0)
-	_ json.Unmarshaler = (*UserFlags)(nil)
+	_ fmt.Stringer             = UserFlags(0)
+	_ encoding.TextMarshaler   = UserFlags(0)
+	_ encoding.TextUnmarshaler = (*UserFlags)(nil)
 )
 
-// UnmarshalJSON implements json.Unmarshaler.
-func (f *UserFlags) UnmarshalJSON(b []byte) error {
-	var s string
-	if err := json.Unmarshal(b, &s); err != nil {
-		return err
-	}
-
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (f *UserFlags) UnmarshalText(b []byte) error {
 	var flags UserFlags
-	for flag := range strings.SplitSeq(s, ",") {
+	for flag := range strings.SplitSeq(string(b), ",") {
 		switch strings.TrimSpace(flag) {
 		case "admin_state":
 			flags |= UserFlagAdminState
@@ -722,9 +718,9 @@ func (f *UserFlags) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// MarshalJSON implements json.Marshaler.
-func (f UserFlags) MarshalJSON() ([]byte, error) {
-	return json.Marshal(f.String())
+// MarshalText implements encoding.TextMarshaler.
+func (f UserFlags) MarshalText() ([]byte, error) {
+	return []byte(f.String()), nil
 }
 
 // String implements fmt.Stringer.

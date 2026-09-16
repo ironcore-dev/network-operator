@@ -4,7 +4,7 @@
 package nxos
 
 import (
-	"encoding/json"
+	"encoding"
 
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
@@ -101,8 +101,8 @@ func (b *BDItems) GetByVXLAN(v string) *VXLAN {
 }
 
 var (
-	_ json.Marshaler   = VXLAN{}
-	_ json.Unmarshaler = (*VXLAN)(nil)
+	_ encoding.TextMarshaler   = VXLAN{}
+	_ encoding.TextUnmarshaler = (*VXLAN)(nil)
 )
 
 // VXLAN represents VXLAN encapsulation settings for a VLAN.
@@ -116,15 +116,11 @@ func (v *VXLAN) XPath() string {
 	return "System/bd-items/bd-items/BD-list[fabEncap=" + v.FabEncap + "]/accEncap"
 }
 
-func (v VXLAN) MarshalJSON() ([]byte, error) {
-	return json.Marshal(v.AccEncap)
+func (v VXLAN) MarshalText() ([]byte, error) {
+	return []byte(v.AccEncap), nil
 }
 
-func (v *VXLAN) UnmarshalJSON(b []byte) error {
-	var encap string
-	if err := json.Unmarshal(b, &encap); err != nil {
-		return err
-	}
-	v.AccEncap = encap
+func (v *VXLAN) UnmarshalText(b []byte) error {
+	v.AccEncap = string(b)
 	return nil
 }

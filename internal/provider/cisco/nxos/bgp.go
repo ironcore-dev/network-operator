@@ -4,6 +4,7 @@
 package nxos
 
 import (
+	"encoding"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -323,8 +324,8 @@ func (*MultisitePeerItems) XPath() string {
 }
 
 var (
-	_ json.Marshaler   = MultisitePeer{}
-	_ json.Unmarshaler = (*MultisitePeer)(nil)
+	_ encoding.TextMarshaler   = MultisitePeer{}
+	_ encoding.TextUnmarshaler = (*MultisitePeer)(nil)
 )
 
 type MultisitePeer struct {
@@ -336,16 +337,12 @@ func (p *MultisitePeer) XPath() string {
 	return "System/bgp-items/inst-items/dom-items/Dom-list[name=default]/peer-items/Peer-list[addr=" + p.Addr + "]/peerType"
 }
 
-func (p MultisitePeer) MarshalJSON() ([]byte, error) {
-	return json.Marshal(p.PeerType)
+func (p MultisitePeer) MarshalText() ([]byte, error) {
+	return []byte(p.PeerType), nil
 }
 
-func (p *MultisitePeer) UnmarshalJSON(b []byte) error {
-	var t string
-	if err := json.Unmarshal(b, &t); err != nil {
-		return err
-	}
-	p.PeerType = BorderGatewayPeerType(t)
+func (p *MultisitePeer) UnmarshalText(b []byte) error {
+	p.PeerType = BorderGatewayPeerType(b)
 	return nil
 }
 
