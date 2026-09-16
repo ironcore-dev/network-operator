@@ -1,0 +1,1 @@
+ip community-list expanded TEST seq 10 permit 50000:[0-9][0-9]

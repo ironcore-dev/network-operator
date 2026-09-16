@@ -1,0 +1,1 @@
+ip extcommunity-list expanded TEST-EXT seq 15 permit 65200:[0-9][0-9]

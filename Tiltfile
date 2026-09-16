@@ -124,6 +124,11 @@ k8s_resource(new_name='bgp', objects=['bgp:bgp'], trigger_mode=TRIGGER_MODE_MANU
 k8s_resource(new_name='bgp-vrf-cc-admin', objects=['bgp-vrf-cc-admin:bgp'], resource_deps=['vrf-admin'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='bgp-rdst', objects=['bgp-rdst:bgp'], resource_deps=['bgp-import-policy'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
+k8s_yaml('./config/samples/v1alpha1_communityset.yaml')
+k8s_resource(new_name='communityset', objects=['communityset:communityset'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_yaml('./config/samples/v1alpha1_extcommunityset.yaml')
+k8s_resource(new_name='extcommunityset', objects=['extcommunityset:extcommunityset'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
 k8s_yaml('./config/samples/cisco/nx/v1alpha1_bgpconfig.yaml')
 k8s_resource(new_name='bgpconfig-adv-pip', objects=['bgpconfig-adv-pip:bgpconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='bgpconfig-export-gw', objects=['bgpconfig-export-gw:bgpconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
