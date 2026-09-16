@@ -29,6 +29,10 @@ type PIMSpec struct {
 	// +kubebuilder:default=Up
 	AdminState AdminState `json:"adminState,omitempty"`
 
+	// LogNeighborChanges enables logging when a PIM neighbor is added or removed.
+	// +optional
+	LogNeighborChanges *bool `json:"logNeighborChanges,omitempty"`
+
 	// RendezvousPoints defines the list of rendezvous points for sparse mode multicast.
 	// +optional
 	// +listType=map
