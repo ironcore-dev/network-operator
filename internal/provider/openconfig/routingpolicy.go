@@ -42,14 +42,35 @@ func (p *Provider) EnsureRoutingPolicy(ctx context.Context, req *provider.Ensure
 		}
 
 		for _, cond := range stmt.Conditions {
+			if s.Conditions == nil {
+				s.Conditions = &PolicyStatementConditions{}
+			}
 			switch c := cond.(type) {
 			case provider.MatchPrefixSetCondition:
-				s.Conditions = &PolicyStatementConditions{
-					MatchPrefixSet: &PolicyMatchPrefixSet{
-						Config: &PolicyMatchPrefixSetConfig{
-							PrefixSet:       c.PrefixSet.Spec.Name,
-							MatchSetOptions: MatchSetOptionAny,
-						},
+				s.Conditions.MatchPrefixSet = &PolicyMatchPrefixSet{
+					Config: &PolicyMatchPrefixSetConfig{
+						PrefixSet:       c.PrefixSet.Spec.Name,
+						MatchSetOptions: MatchSetOptionAny,
+					},
+				}
+			case provider.MatchCommunitySetCondition:
+				if s.Conditions.BgpConditions == nil {
+					s.Conditions.BgpConditions = &PolicyBGPConditions{}
+				}
+				s.Conditions.BgpConditions.MatchCommunitySet = &PolicyMatchCommunitySet{
+					Config: &PolicyMatchCommunitySetConfig{
+						CommunitySet:    c.CommunitySet.Spec.Name,
+						MatchSetOptions: toMatchSetOption(c.MatchAll),
+					},
+				}
+			case provider.MatchExtCommunitySetCondition:
+				if s.Conditions.BgpConditions == nil {
+					s.Conditions.BgpConditions = &PolicyBGPConditions{}
+				}
+				s.Conditions.BgpConditions.MatchExtCommunitySet = &PolicyMatchExtCommunitySet{
+					Config: &PolicyMatchExtCommunitySetConfig{
+						ExtCommunitySet: c.ExtCommunitySet.Spec.Name,
+						MatchSetOptions: toMatchSetOption(c.MatchAll),
 					},
 				}
 			}
@@ -112,7 +133,16 @@ type MatchSetOption string
 
 const (
 	MatchSetOptionAny MatchSetOption = "ANY"
+	MatchSetOptionAll MatchSetOption = "ALL"
 )
+
+// toMatchSetOption maps a condition's match-all flag to the OpenConfig match-set-options value.
+func toMatchSetOption(all bool) MatchSetOption {
+	if all {
+		return MatchSetOptionAll
+	}
+	return MatchSetOptionAny
+}
 
 // MaskLengthRangeExact is the mask-length-range value for exact prefix matches.
 const MaskLengthRangeExact = "exact"
@@ -159,6 +189,7 @@ type PolicyStatementConfig struct {
 // PolicyStatementConditions holds statement conditions.
 type PolicyStatementConditions struct {
 	MatchPrefixSet *PolicyMatchPrefixSet `json:"match-prefix-set,omitempty"`
+	BgpConditions  *PolicyBGPConditions  `json:"bgp-conditions,omitempty"`
 }
 
 // PolicyMatchPrefixSet holds match-prefix-set.
@@ -169,6 +200,34 @@ type PolicyMatchPrefixSet struct {
 // PolicyMatchPrefixSetConfig holds match-prefix-set config.
 type PolicyMatchPrefixSetConfig struct {
 	PrefixSet       string         `json:"prefix-set"`
+	MatchSetOptions MatchSetOption `json:"match-set-options"`
+}
+
+// PolicyBGPConditions holds statement conditions/bgp-conditions.
+type PolicyBGPConditions struct {
+	MatchCommunitySet    *PolicyMatchCommunitySet    `json:"match-community-set,omitempty"`
+	MatchExtCommunitySet *PolicyMatchExtCommunitySet `json:"match-ext-community-set,omitempty"`
+}
+
+// PolicyMatchCommunitySet holds match-community-set.
+type PolicyMatchCommunitySet struct {
+	Config *PolicyMatchCommunitySetConfig `json:"config,omitempty"`
+}
+
+// PolicyMatchCommunitySetConfig holds match-community-set config.
+type PolicyMatchCommunitySetConfig struct {
+	CommunitySet    string         `json:"community-set"`
+	MatchSetOptions MatchSetOption `json:"match-set-options"`
+}
+
+// PolicyMatchExtCommunitySet holds match-ext-community-set.
+type PolicyMatchExtCommunitySet struct {
+	Config *PolicyMatchExtCommunitySetConfig `json:"config,omitempty"`
+}
+
+// PolicyMatchExtCommunitySetConfig holds match-ext-community-set config.
+type PolicyMatchExtCommunitySetConfig struct {
+	ExtCommunitySet string         `json:"ext-community-set"`
 	MatchSetOptions MatchSetOption `json:"match-set-options"`
 }
 
