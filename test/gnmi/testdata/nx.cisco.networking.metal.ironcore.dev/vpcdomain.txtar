@@ -104,13 +104,6 @@ spec:
             "nativeVlan": "vlan-1",
             "suspIndividual": "enable",
             "userCfgdFlags": "admin_layer,admin_state",
-            "rsmbrIfs-items": {
-              "RsMbrIfs-list": [
-                {
-                  "tDn": "/System/intf-items/phys-items/PhysIf-list[id='eth1/1']"
-                }
-              ]
-            },
             "aggrExtd-items": {
               "bufferBoost": "enable"
             }
@@ -162,8 +155,8 @@ spec:
           "rolePrio": 32667,
           "sysPrio": 32667,
           "keepalive-items": {
-            "destIp": "10.0.0.2",
-            "srcIp": "10.0.0.1",
+            "destIp": "10.0.0.2/32",
+            "srcIp": "10.0.0.1/32",
             "vrf": "management",
             "peerlink-items": {
               "adminSt": "enabled",

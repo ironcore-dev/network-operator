@@ -6,18 +6,7 @@
           {
             "name": "default",
             "rtrId": "1.1.1.1",
-            "rtrIdAuto": "disabled",
-            "af-items": {
-              "DomAf-list": [
-                {
-                  "exportGwIp": "disabled",
-                  "advertL2vpnEvpn": "disabled",
-                  "type": "l2vpn-evpn",
-                  "retainRttAll": "enabled",
-                  "retainRttRtMap": "DME_UNSET_PROPERTY_MARKER"
-                }
-              ]
-            }
+            "rtrIdAuto": "disabled"
           }
         ]
       }

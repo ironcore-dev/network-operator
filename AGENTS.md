@@ -137,6 +137,10 @@ A provider's `EnsureX` methods must be safe to call on every reconciliation with
 
 The `gnmiext` package already implements a Get-and-Check approach: it diffs current device state against the desired configuration and only performs a gNMI Set when a real change is needed. This makes it safe for periodic reconciliation.
 
+**No list fields in Patched structs:**
+
+`Patch` (gNMI update) merges into existing device config — it adds or updates list entries but never removes them. A `DataElement` passed to `Patch` must not contain `gnmiext.List` or slice fields. Instead, manage list entries as individual `DataElement`s: fetch current entries with a container struct via `GetConfig`, `Patch` each desired entry, and `Delete` stale entries not in the desired set.
+
 **Platform default values — critical pitfall:**
 
 Optional fields in the API spec that map to optional fields in the provider Go struct require special handling:

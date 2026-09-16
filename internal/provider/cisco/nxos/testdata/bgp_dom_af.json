@@ -1,0 +1,22 @@
+{
+  "bgp-items": {
+    "inst-items": {
+      "dom-items": {
+        "Dom-list": [
+          {
+            "name": "default",
+            "af-items": {
+              "DomAf-list": [
+                {
+                  "exportGwIp": "disabled",
+                  "advertL2vpnEvpn": "disabled",
+                  "type": "ipv4-ucast"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

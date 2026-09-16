@@ -4,21 +4,20 @@
 package nxos
 
 func init() {
-	lldp := &LLDP{
+	Register("lldp", &LLDP{
 		HoldTime:  NewOption(uint16(200)),
 		InitDelay: NewOption(uint16(5)),
-	}
+	})
 
-	lldp.IfItems.IfList.Set(&LLDPIfItem{
+	items := new(LLDPIfItems)
+	items.IfList.Set(&LLDPIfItem{
 		InterfaceName: "eth7/1",
 		AdminRxSt:     NewOption(AdminStDisabled),
 		AdminTxSt:     NewOption(AdminStDisabled),
 	})
-
-	lldp.IfItems.IfList.Set(&LLDPIfItem{
+	items.IfList.Set(&LLDPIfItem{
 		InterfaceName: "eth8/1",
 		AdminTxSt:     NewOption(AdminStDisabled),
 	})
-
-	Register("lldp", lldp)
+	Register("lldp_if_items", items)
 }

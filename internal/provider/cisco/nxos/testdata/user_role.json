@@ -1,0 +1,25 @@
+{
+  "userext-items": {
+    "user-items": {
+      "User-list": [
+        {
+          "name": "johndoe",
+          "userdomain-items": {
+            "UserDomain-list": [
+              {
+                "name": "all",
+                "role-items": {
+                  "UserRole-list": [
+                    {
+                      "name": "network-admin"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

@@ -18,7 +18,11 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
-var _ gnmiext.DataElement = (*User)(nil)
+var (
+	_ gnmiext.DataElement = (*User)(nil)
+	_ gnmiext.DataElement = (*UserRoleItems)(nil)
+	_ gnmiext.DataElement = (*UserRole)(nil)
+)
 
 // User represents a local user on a NX-OS device.
 type User struct {
@@ -31,9 +35,6 @@ type User struct {
 	SshauthItems   struct {
 		Data string `json:"data,omitempty"`
 	} `json:"sshauth-items,omitzero"`
-	UserdomainItems struct {
-		UserDomainList gnmiext.List[string, *UserDomain] `json:"UserDomain-list,omitzero"`
-	} `json:"userdomain-items,omitzero"`
 }
 
 func (*User) IsListItem() {}
@@ -57,20 +58,28 @@ func (u *User) SetPassword(password string, encoder Encoder) error {
 	return nil
 }
 
-type UserDomain struct {
-	Name      string `json:"name"`
-	RoleItems struct {
-		UserRoleList gnmiext.List[string, *UserRole] `json:"UserRole-list,omitzero"`
-	} `json:"role-items,omitzero"`
+// UserRoleItems is the list container for fetching roles under a user domain.
+type UserRoleItems struct {
+	Username     string                          `json:"-"`
+	UserRoleList gnmiext.List[string, *UserRole] `json:"UserRole-list,omitzero"`
 }
 
-func (d *UserDomain) Key() string { return d.Name }
+func (u *UserRoleItems) XPath() string {
+	return "System/userext-items/user-items/User-list[name=" + u.Username + "]/userdomain-items/UserDomain-list[name=all]/role-items"
+}
 
 type UserRole struct {
-	Name string `json:"name"`
+	Username string `json:"-"`
+	Name     string `json:"name"`
 }
 
+func (*UserRole) IsListItem() {}
+
 func (r *UserRole) Key() string { return r.Name }
+
+func (r *UserRole) XPath() string {
+	return "System/userext-items/user-items/User-list[name=" + r.Username + "]/userdomain-items/UserDomain-list[name=all]/role-items/UserRole-list[name=" + r.Name + "]"
+}
 
 type PwdEncryptType string
 

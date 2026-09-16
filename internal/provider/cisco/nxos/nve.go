@@ -13,6 +13,7 @@ import (
 var (
 	_ gnmiext.DataElement = (*NVE)(nil)
 	_ gnmiext.DataElement = (*NVEInfraVLANs)(nil)
+	_ gnmiext.DataElement = (*NVEInfraVLAN)(nil)
 	_ gnmiext.DataElement = (*FabricFwd)(nil)
 )
 
@@ -93,7 +94,7 @@ const (
 )
 
 type NVEInfraVLANs struct {
-	InfraVLANList []*NVEInfraVLAN `json:"InfraVlan-list,omitempty"`
+	InfraVLANList gnmiext.List[uint32, *NVEInfraVLAN] `json:"InfraVlan-list,omitzero"`
 }
 
 func (*NVEInfraVLANs) XPath() string {
@@ -102,6 +103,12 @@ func (*NVEInfraVLANs) XPath() string {
 
 type NVEInfraVLAN struct {
 	ID uint32 `json:"id"`
+}
+
+func (v *NVEInfraVLAN) Key() uint32 { return v.ID }
+
+func (v *NVEInfraVLAN) XPath() string {
+	return "System/pltfm-items/nve-items/NVE-list[id=1]/infravlan-items/InfraVlan-list[id=" + strconv.FormatUint(uint64(v.ID), 10) + "]"
 }
 
 func (*NVEInfraVLAN) IsListItem() {}
