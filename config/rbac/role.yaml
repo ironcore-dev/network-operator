@@ -74,12 +74,14 @@ rules:
   - bgp
   - bgppeers
   - certificates
+  - communitysets
   - configbackups
   - devices
   - dhcprelays
   - dns
   - ethernetsegments
   - evpninstances
+  - extcommunitysets
   - interfaces
   - isis
   - lldps
@@ -113,11 +115,13 @@ rules:
   - bgp/finalizers
   - bgppeers/finalizers
   - certificates/finalizers
+  - communitysets/finalizers
   - devices/finalizers
   - dhcprelays/finalizers
   - dns/finalizers
   - ethernetsegments/finalizers
   - evpninstances/finalizers
+  - extcommunitysets/finalizers
   - interfaces/finalizers
   - isis/finalizers
   - lldps/finalizers
@@ -144,12 +148,14 @@ rules:
   - bgp/status
   - bgppeers/status
   - certificates/status
+  - communitysets/status
   - configbackups/status
   - devices/status
   - dhcprelays/status
   - dns/status
   - ethernetsegments/status
   - evpninstances/status
+  - extcommunitysets/status
   - interfaces/status
   - isis/status
   - lldps/status

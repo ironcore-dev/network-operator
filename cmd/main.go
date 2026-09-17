@@ -581,6 +581,30 @@ func main() { //nolint:gocyclo
 		os.Exit(1)
 	}
 
+	if err := (&corecontroller.CommunitySetReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorder("communityset-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+		Locker:           locker,
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CommunitySet")
+		os.Exit(1)
+	}
+
+	if err := (&corecontroller.ExtCommunitySetReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorder("extcommunityset-controller"),
+		WatchFilterValue: watchFilterValue,
+		Provider:         prov,
+		Locker:           locker,
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ExtCommunitySet")
+		os.Exit(1)
+	}
+
 	if err := (&corecontroller.RoutingPolicyReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),

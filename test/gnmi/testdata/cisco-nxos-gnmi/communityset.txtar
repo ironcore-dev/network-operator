@@ -1,0 +1,71 @@
+-- communitysets/test-communityset --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: CommunitySet
+metadata:
+  name: test-communityset
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: BGP-COMMUNITY
+  members:
+    - sequence: 5
+      regex: "50000:[0-9][0-9]"
+    - sequence: 10
+      regex: "65001:[0-9]+"
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "rpm-items": {
+      "rtregcom-items": {
+        "Rule-list": [
+          {
+            "name": "BGP-COMMUNITY",
+            "mode": "regex",
+            "ent-items": {
+              "Entry-list": [
+                {
+                  "order": 5,
+                  "action": "permit",
+                  "regex": "50000:[0-9][0-9]"
+                },
+                {
+                  "order": 10,
+                  "action": "permit",
+                  "regex": "65001:[0-9]+"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}
+
+-- state/delete --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "rpm-items": {
+      "rtregcom-items": {
+        "Rule-list": []
+      }
+    }
+  }
+}

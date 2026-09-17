@@ -331,12 +331,14 @@ Package v1alpha1 contains API Schema definitions for the networking.metal.ironco
 - [BGPPeer](#bgppeer)
 - [Banner](#banner)
 - [Certificate](#certificate)
+- [CommunitySet](#communityset)
 - [ConfigBackup](#configbackup)
 - [DHCPRelay](#dhcprelay)
 - [DNS](#dns)
 - [Device](#device)
 - [EVPNInstance](#evpninstance)
 - [EthernetSegment](#ethernetsegment)
+- [ExtCommunitySet](#extcommunityset)
 - [ISIS](#isis)
 - [Interface](#interface)
 - [LLDP](#lldp)
@@ -1374,6 +1376,78 @@ _Appears in:_
 | `MD5` |  |
 
 
+#### CommunityMember
+
+
+
+CommunityMember defines one ordered entry in a community-list with a regex pattern.
+
+
+
+_Appears in:_
+- [CommunitySetSpec](#communitysetspec)
+- [ExtCommunitySetSpec](#extcommunitysetspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `sequence` _integer_ | Sequence is the order of this entry in the community-list. |  | Minimum: 1 <br />Required: \{\} <br /> |
+| `regex` _string_ | Regex is a POSIX extended regular expression matching BGP community values. |  | MinLength: 1 <br />Required: \{\} <br /> |
+
+
+#### CommunitySet
+
+
+
+CommunitySet is the Schema for the communitysets API.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `CommunitySet` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[CommunitySetSpec](#communitysetspec)_ |  |  | Required: \{\} <br /> |
+| `status` _[CommunitySetStatus](#communitysetstatus)_ |  |  | Optional: \{\} <br /> |
+
+
+#### CommunitySetSpec
+
+
+
+CommunitySetSpec defines the desired state of CommunitySet.
+
+
+
+_Appears in:_
+- [CommunitySet](#communityset)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceRef is a reference to the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration. |  | Optional: \{\} <br /> |
+| `name` _string_ | Name is the name of the CommunitySet on the device.<br />Immutable. |  | MaxLength: 32 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `members` _[CommunityMember](#communitymember) array_ | Members is the ordered list of community-list entries. |  | MaxItems: 100 <br />MinItems: 1 <br />Required: \{\} <br /> |
+
+
+#### CommunitySetStatus
+
+
+
+CommunitySetStatus defines the observed state of CommunitySet.
+
+
+
+_Appears in:_
+- [CommunitySet](#communityset)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | Conditions is a list of status conditions describing the state of the CommunitySet. |  | Optional: \{\} <br /> |
+
+
 #### ConfigBackup
 
 
@@ -2150,6 +2224,60 @@ _Appears in:_
 | `esiType` _[ESIType](#esitype)_ | ESIType is the ESI derivation type parsed from the first byte of ESI. |  | Enum: [Arbitrary LACP MST MAC RouterID AS] <br />Optional: \{\} <br /> |
 
 
+#### ExtCommunitySet
+
+
+
+ExtCommunitySet is the Schema for the extcommunitysets API.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `ExtCommunitySet` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[ExtCommunitySetSpec](#extcommunitysetspec)_ |  |  | Required: \{\} <br /> |
+| `status` _[ExtCommunitySetStatus](#extcommunitysetstatus)_ |  |  | Optional: \{\} <br /> |
+
+
+#### ExtCommunitySetSpec
+
+
+
+ExtCommunitySetSpec defines the desired state of ExtCommunitySet.
+
+
+
+_Appears in:_
+- [ExtCommunitySet](#extcommunityset)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceRef is a reference to the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration. |  | Optional: \{\} <br /> |
+| `name` _string_ | Name is the name of the ExtCommunitySet on the device.<br />Immutable. |  | MaxLength: 32 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `members` _[CommunityMember](#communitymember) array_ | Members is the ordered list of extended community-list entries. |  | MaxItems: 100 <br />MinItems: 1 <br />Required: \{\} <br /> |
+
+
+#### ExtCommunitySetStatus
+
+
+
+ExtCommunitySetStatus defines the observed state of ExtCommunitySet.
+
+
+
+_Appears in:_
+- [ExtCommunitySet](#extcommunityset)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | Conditions is a list of status conditions describing the state of the ExtCommunitySet. |  | Optional: \{\} <br /> |
+
+
 #### FECMode
 
 _Underlying type:_ _string_
@@ -2670,12 +2798,14 @@ _Appears in:_
 - [BannerSpec](#bannerspec)
 - [BorderGatewaySpec](#bordergatewayspec)
 - [CertificateSpec](#certificatespec)
+- [CommunitySetSpec](#communitysetspec)
 - [ConfigBackupSpec](#configbackupspec)
 - [DHCPRelaySpec](#dhcprelayspec)
 - [DNSSpec](#dnsspec)
 - [DevicePort](#deviceport)
 - [EVPNInstanceSpec](#evpninstancespec)
 - [EthernetSegmentSpec](#ethernetsegmentspec)
+- [ExtCommunitySetSpec](#extcommunitysetspec)
 - [FabricLoopbacksSpec](#fabricloopbacksspec)
 - [FabricUnderlayAddressingSpec](#fabricunderlayaddressingspec)
 - [ISISSpec](#isisspec)
@@ -4290,11 +4420,13 @@ _Appears in:_
 - [CertificateSpec](#certificatespec)
 - [ClaimSpec](#claimspec)
 - [ClaimStatus](#claimstatus)
+- [CommunitySetSpec](#communitysetspec)
 - [ConfigBackupSpec](#configbackupspec)
 - [DHCPRelaySpec](#dhcprelayspec)
 - [DNSSpec](#dnsspec)
 - [EVPNInstanceSpec](#evpninstancespec)
 - [EthernetSegmentSpec](#ethernetsegmentspec)
+- [ExtCommunitySetSpec](#extcommunitysetspec)
 - [IPAddressSpec](#ipaddressspec)
 - [IPPrefixSpec](#ipprefixspec)
 - [ISISSpec](#isisspec)

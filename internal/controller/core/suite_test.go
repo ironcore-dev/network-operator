@@ -297,6 +297,24 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&CommunitySetReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+		Locker:   testLocker,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&ExtCommunitySetReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Provider: prov,
+		Locker:   testLocker,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&RoutingPolicyReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
@@ -415,6 +433,8 @@ var (
 	_ provider.VLANProvider             = (*Provider)(nil)
 	_ provider.EVPNInstanceProvider     = (*Provider)(nil)
 	_ provider.PrefixSetProvider        = (*Provider)(nil)
+	_ provider.CommunitySetProvider     = (*Provider)(nil)
+	_ provider.ExtCommunitySetProvider  = (*Provider)(nil)
 	_ provider.RoutingPolicyProvider    = (*Provider)(nil)
 	_ provider.NVEProvider              = (*Provider)(nil)
 	_ provider.LLDPProvider             = (*Provider)(nil)
@@ -452,6 +472,8 @@ type Provider struct {
 	VLANs            sets.Set[int16]
 	EVIs             sets.Set[int32]
 	PrefixSets       sets.Set[string]
+	CommunitySets    sets.Set[string]
+	ExtCommunitySets sets.Set[string]
 	RoutingPolicies  sets.Set[string]
 	NVE              *v1alpha1.NetworkVirtualizationEdge
 	LLDP             *v1alpha1.LLDP
@@ -478,6 +500,8 @@ func NewProvider() *Provider {
 		VLANs:            sets.New[int16](),
 		EVIs:             sets.New[int32](),
 		PrefixSets:       sets.New[string](),
+		CommunitySets:    sets.New[string](),
+		ExtCommunitySets: sets.New[string](),
 		RoutingPolicies:  sets.New[string](),
 		LLDPOperStatus:   true,
 		LLDPNeighbors:    make(map[string]*provider.LLDPAdjacency),
@@ -883,6 +907,34 @@ func (p *Provider) DeletePrefixSet(_ context.Context, req *provider.PrefixSetReq
 	p.Lock()
 	defer p.Unlock()
 	p.PrefixSets.Delete(req.PrefixSet.Spec.Name)
+	return nil
+}
+
+func (p *Provider) EnsureCommunitySet(_ context.Context, req *provider.CommunitySetRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.CommunitySets.Insert(req.CommunitySet.Spec.Name)
+	return nil
+}
+
+func (p *Provider) DeleteCommunitySet(_ context.Context, req *provider.CommunitySetRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.CommunitySets.Delete(req.CommunitySet.Spec.Name)
+	return nil
+}
+
+func (p *Provider) EnsureExtCommunitySet(_ context.Context, req *provider.ExtCommunitySetRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.ExtCommunitySets.Insert(req.ExtCommunitySet.Spec.Name)
+	return nil
+}
+
+func (p *Provider) DeleteExtCommunitySet(_ context.Context, req *provider.ExtCommunitySetRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.ExtCommunitySets.Delete(req.ExtCommunitySet.Spec.Name)
 	return nil
 }
 
