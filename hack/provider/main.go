@@ -503,6 +503,22 @@ func performCreate(ctx context.Context, prov provider.Provider, obj client.Objec
 			sourceInterface = iface.Spec.Name
 		}
 
+		peerInterface := ""
+		if res.Spec.InterfaceRef != nil && res.Spec.InterfaceRef.Name != "" {
+			if len(refStore) == 0 {
+				return errors.New("bgppeer resource references peer interface but no reference files provided (use --ref-files)")
+			}
+			obj := refStore.Get(res.Spec.InterfaceRef.Name, res.Namespace)
+			if obj == nil {
+				return fmt.Errorf("referenced peer interface %s not found in reference files", res.Spec.InterfaceRef.Name)
+			}
+			iface, ok := obj.(*v1alpha1.Interface)
+			if !ok {
+				return fmt.Errorf("referenced resource %s is not an Interface", res.Spec.InterfaceRef.Name)
+			}
+			peerInterface = iface.Spec.Name
+		}
+
 		var cfg *provider.ProviderConfig
 		if res.Spec.ProviderConfigRef != nil {
 			var err error
@@ -515,6 +531,7 @@ func performCreate(ctx context.Context, prov provider.Provider, obj client.Objec
 		return bpp.EnsureBGPPeer(ctx, &provider.EnsureBGPPeerRequest{
 			BGPPeer:         res,
 			SourceInterface: sourceInterface,
+			PeerInterface:   peerInterface,
 			ProviderConfig:  cfg,
 		})
 
@@ -1109,8 +1126,25 @@ func performDelete(ctx context.Context, prov provider.Provider, obj client.Objec
 		if !ok {
 			return errors.New("provider does not implement BGPPeerProvider")
 		}
+
+		// An unnumbered peer is identified by its interface, so it has to be
+		// resolved for the deletion as well.
+		peerInterface := ""
+		if resource.Spec.InterfaceRef != nil && resource.Spec.InterfaceRef.Name != "" {
+			obj := refStore.Get(resource.Spec.InterfaceRef.Name, resource.Namespace)
+			if obj == nil {
+				return fmt.Errorf("referenced peer interface %s not found in reference files", resource.Spec.InterfaceRef.Name)
+			}
+			iface, ok := obj.(*v1alpha1.Interface)
+			if !ok {
+				return fmt.Errorf("referenced resource %s is not an Interface", resource.Spec.InterfaceRef.Name)
+			}
+			peerInterface = iface.Spec.Name
+		}
+
 		return bpp.DeleteBGPPeer(ctx, &provider.DeleteBGPPeerRequest{
-			BGPPeer: resource,
+			BGPPeer:       resource,
+			PeerInterface: peerInterface,
 		})
 
 	case *v1alpha1.Certificate:

@@ -66,3 +66,25 @@ spec:
         name: bgp-import-policy
       outboundRoutingPolicyRef:
         name: bgp-import-policy
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGPPeer
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: leaf1-spine1-unnumbered
+spec:
+  deviceRef:
+    name: leaf1
+  bgpRef:
+    name: bgp
+  # Unnumbered peering: the session runs over the interface's IPv6 link-local
+  # address, and "external" accepts any AS number that differs from the local one.
+  interfaceRef:
+    name: eth1-4
+  asNumber: external
+  description: Unnumbered eBGP to spine1
+  addressFamilies:
+    ipv4Unicast:
+      enabled: true

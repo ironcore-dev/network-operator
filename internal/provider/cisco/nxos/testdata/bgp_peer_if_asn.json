@@ -1,0 +1,23 @@
+{
+  "bgp-items": {
+    "inst-items": {
+      "dom-items": {
+        "Dom-list": [
+          {
+            "name": "default",
+            "peerif-items": {
+              "PeerIf-list": [
+                {
+                  "id": "eth1/2",
+                  "adminSt": "enabled",
+                  "asn": "65020",
+                  "asnType": "none"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}
