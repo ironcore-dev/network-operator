@@ -10,6 +10,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -445,17 +446,18 @@ func (d *Directory) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+var _ encoding.TextUnmarshaler = (*dirTime)(nil)
+
 // dirTime handles the non-standard timestamp format returned by NX-OS dir output.
 type dirTime struct {
 	time.Time
 }
 
-func (t *dirTime) UnmarshalJSON(b []byte) error {
-	s := strings.Trim(string(b), `"`)
-	if s == "" || s == "null" {
+func (t *dirTime) UnmarshalText(b []byte) error {
+	if len(b) == 0 {
 		return nil
 	}
-	parsed, err := time.Parse("Jan 02 15:04:05 2006", s)
+	parsed, err := time.Parse("Jan 02 15:04:05 2006", string(b))
 	if err != nil {
 		return err
 	}

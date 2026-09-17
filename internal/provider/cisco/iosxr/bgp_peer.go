@@ -4,7 +4,7 @@
 package iosxr
 
 import (
-	"encoding/json"
+	"encoding"
 	"errors"
 	"fmt"
 	"math"
@@ -20,8 +20,8 @@ var (
 	_ gnmiext.DataElement = (*BGPPeer)(nil)
 	_ gnmiext.DataElement = (*BGPPeerOperStatus)(nil)
 
-	_ json.Marshaler   = BGPPeerOperStatus{}
-	_ json.Unmarshaler = (*BGPPeerOperStatus)(nil)
+	_ encoding.TextMarshaler   = BGPPeerOperStatus{}
+	_ encoding.TextUnmarshaler = (*BGPPeerOperStatus)(nil)
 )
 
 type AfName string
@@ -191,16 +191,12 @@ func (p *BGPPeerOperStatus) XPath() string {
 	return "Cisco-IOS-XR-ipv4-bgp-oper:bgp/instances/instance[instance-name=" + BGPDefaultInstance + "]/instance-active/vrfs/vrf[vrf-name=" + p.Name + "]/sessions/session/connection-state"
 }
 
-func (p BGPPeerOperStatus) MarshalJSON() ([]byte, error) {
-	return json.Marshal(p.State)
+func (p BGPPeerOperStatus) MarshalText() ([]byte, error) {
+	return []byte(p.State), nil
 }
 
-func (p *BGPPeerOperStatus) UnmarshalJSON(data []byte) error {
-	var t string
-	if err := json.Unmarshal(data, &t); err != nil {
-		return err
-	}
-	p.State = BGPPeerOperSt(t)
+func (p *BGPPeerOperStatus) UnmarshalText(data []byte) error {
+	p.State = BGPPeerOperSt(data)
 	return nil
 }
 
