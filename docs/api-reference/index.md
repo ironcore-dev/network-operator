@@ -4933,6 +4933,23 @@ InterfaceConfig is the Schema for the interfaceconfigs API
 | `spec` _[InterfaceConfigSpec](#interfaceconfigspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
 
 
+#### InterfaceConfigIPv6
+
+
+
+InterfaceConfigIPv6 defines IPv6 settings for an interface.
+
+
+
+_Appears in:_
+- [InterfaceConfigSpec](#interfaceconfigspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `suppressRouterAdvertisement` _boolean_ | SuppressRouterAdvertisement stops the interface from sending IPv6 Router<br />Advertisements. NX-OS sends them by default. Neighbours that discover<br />each other over their link-local addresses, such as unnumbered BGP peers,<br />depend on them, so this must stay disabled for such interfaces.<br />Only applied to interfaces that carry IPv6 configuration.<br />Maps to CLI command: ipv6 nd suppress-ra |  | Required: \{\} <br /> |
+| `routerAdvertisementInterval` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | RouterAdvertisementInterval is the maximum interval between periodic<br />IPv6 Router Advertisements, between 4s and 30m in whole seconds. The<br />minimum interval is derived from it the way NX-OS does for the CLI<br />command: a third of this value, but no less than 3s.<br />Unnumbered BGP peers only discover each other once an advertisement is<br />received, so a short interval speeds up session establishment.<br />If not specified, the NX-OS default of 600s applies.<br />Maps to CLI command: ipv6 nd ra-interval |  | Pattern: `^([0-9]+(\.[0-9]+)?(ns\|us\|µs\|ms\|s\|m\|h))+$` <br />Type: string <br />Optional: \{\} <br /> |
+
+
 #### InterfaceConfigLACP
 
 
@@ -4967,6 +4984,7 @@ _Appears in:_
 | `bufferBoost` _[BufferBoost](#bufferboost)_ | BufferBoost defines the buffer boost configuration for the interface.<br />Buffer boost increases the shared buffer space allocation for the interface. |  | Optional: \{\} <br /> |
 | `lacp` _[InterfaceConfigLACP](#interfaceconfiglacp)_ | LACP defines LACP options for PortChannel (Aggregate) interfaces. |  | Optional: \{\} <br /> |
 | `evpnMultihoming` _[EVPNMultihoming](#evpnmultihoming)_ | EVPNMultihoming defines EVPN ESI multihoming settings for the interface. |  | Optional: \{\} <br /> |
+| `ipv6` _[InterfaceConfigIPv6](#interfaceconfigipv6)_ | IPv6 defines IPv6 settings for the interface that have no equivalent in<br />the core Interface API. Neighbor Discovery settings are only managed while<br />this is set: other ND settings on the device are left untouched, and<br />removing it leaves the last applied settings on the device. |  | Optional: \{\} <br /> |
 
 
 #### KeepAlive
