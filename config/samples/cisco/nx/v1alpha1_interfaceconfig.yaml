@@ -31,3 +31,18 @@ metadata:
 spec:
   evpnMultihoming:
     coreTracking: true
+---
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: InterfaceConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: unnumbered-uplink
+spec:
+  # Peers discover each other through Router Advertisements sent to their
+  # link-local addresses, so advertisements must not be suppressed. A short
+  # interval lets the session come up within seconds rather than minutes.
+  ipv6:
+    suppressRouterAdvertisement: false
+    routerAdvertisementInterval: 4s
