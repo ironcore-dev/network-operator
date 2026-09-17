@@ -1,63 +1,34 @@
--- interfaces/uplink --
+-- interfaceconfigs/eth1-1-nxconfig --
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: InterfaceConfig
+metadata:
+  name: eth1-1-nxconfig
+  namespace: default
+spec:
+  ipv6:
+    suppressRouterAdvertisement: true
+
+-- interfaces/eth1-1 --
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
 metadata:
-  name: uplink
+  name: eth1-1
   namespace: default
 spec:
   deviceRef:
     name: device
   name: eth1/1
+  description: Leaf1 to Host1
   adminState: Up
   type: Physical
+  mtu: 9216
   providerConfigRef:
     apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
     kind: InterfaceConfig
-    name: uplink-nxconfig
+    name: eth1-1-nxconfig
   ipv6:
-    useLinkLocalOnly: true
-
--- interfaceconfigs/uplink-nxconfig --
-apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
-kind: InterfaceConfig
-metadata:
-  name: uplink-nxconfig
-  namespace: default
-spec:
-  ipv6:
-    suppressRouterAdvertisement: false
-    routerAdvertisementInterval: 4s
-
--- bgps/fabric-bgp --
-apiVersion: networking.metal.ironcore.dev/v1alpha1
-kind: BGP
-metadata:
-  name: fabric-bgp
-  namespace: default
-spec:
-  deviceRef:
-    name: device
-  asNumber: 65010
-  routerId: "10.0.0.1"
-
--- bgppeers/spine1 --
-apiVersion: networking.metal.ironcore.dev/v1alpha1
-kind: BGPPeer
-metadata:
-  name: spine1
-  namespace: default
-spec:
-  deviceRef:
-    name: device
-  bgpRef:
-    name: fabric-bgp
-  interfaceRef:
-    name: uplink
-  asNumber: external
-  description: "Unnumbered peering with spine1"
-  addressFamilies:
-    ipv4Unicast:
-      enabled: true
+    addresses:
+      - 2001:db8:1::1/64
 
 -- state/preload --
 {
@@ -81,15 +52,15 @@ spec:
           {
             "accessVlan": "unknown",
             "adminSt": "up",
-            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "descr": "Leaf1 to Host1",
             "FECMode": "auto",
             "id": "eth1/1",
             "layer": "Layer3",
-            "mtu": 1500,
+            "mtu": 9216,
             "medium": "broadcast",
             "mode": "access",
             "nativeVlan": "unknown",
-            "userCfgdFlags": "admin_layer,admin_state",
+            "userCfgdFlags": "admin_layer,admin_mtu,admin_state",
             "rtvrfMbr-items": {
               "tDn": "/System/inst-items/Inst-list[name='default']"
             },
@@ -110,7 +81,17 @@ spec:
                 "If-list": [
                   {
                     "id": "eth1/1",
-                    "useLinkLocalAddr": "enabled"
+                    "useLinkLocalAddr": "disabled",
+                    "addr-items": {
+                      "Addr-list": [
+                        {
+                          "addr": "2001:db8:1::1/64",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "primary"
+                        }
+                      ]
+                    }
                   }
                 ]
               }
@@ -129,52 +110,9 @@ spec:
                 "If-list": [
                   {
                     "id": "eth1/1",
-                    "ctrl": "redirects",
-                    "raIntvl": 4,
-                    "raIntvlMin": 4
-                  }
-                ]
-              }
-            }
-          ]
-        }
-      }
-    },
-    "fm-items": {
-      "bgp-items": {
-        "adminSt": "enabled"
-      },
-      "evpn-items": {
-        "adminSt": "enabled"
-      }
-    },
-    "bgp-items": {
-      "inst-items": {
-        "adminSt": "enabled",
-        "asn": "65010",
-        "dom-items": {
-          "Dom-list": [
-            {
-              "name": "default",
-              "rtrId": "10.0.0.1",
-              "rtrIdAuto": "disabled",
-              "peerif-items": {
-                "PeerIf-list": [
-                  {
-                    "id": "eth1/1",
-                    "adminSt": "enabled",
-                    "asnType": "external",
-                    "name": "Unnumbered peering with spine1",
-                    "af-items": {
-                      "PeerAf-list": [
-                        {
-                          "ctrl": "DME_UNSET_PROPERTY_MARKER",
-                          "sendComExt": "disabled",
-                          "sendComStd": "disabled",
-                          "type": "ipv4-ucast"
-                        }
-                      ]
-                    }
+                    "ctrl": "redirects,suppress-ra",
+                    "raIntvl": 600,
+                    "raIntvlMin": 200
                   }
                 ]
               }
@@ -239,9 +177,9 @@ spec:
                 "If-list": [
                   {
                     "id": "eth1/1",
-                    "ctrl": "redirects",
-                    "raIntvl": 4,
-                    "raIntvlMin": 4
+                    "ctrl": "redirects,suppress-ra",
+                    "raIntvl": 600,
+                    "raIntvlMin": 200
                   }
                 ]
               }
@@ -249,16 +187,7 @@ spec:
           ]
         }
       }
-    },
-    "fm-items": {
-      "bgp-items": {
-        "adminSt": "enabled"
-      },
-      "evpn-items": {
-        "adminSt": "enabled"
-      }
-    },
-    "bgp-items": {}
+    }
   }
 }
 
