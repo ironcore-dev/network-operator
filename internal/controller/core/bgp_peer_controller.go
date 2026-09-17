@@ -47,6 +47,10 @@ const bgpPeerBGPRefIndexKey = ".spec.bgpRef.name"
 // referenced by BGPPeer address families.
 const bgpPeerRoutingPolicyRefIndexKey = ".spec.addressFamilies.routingPolicyRefs"
 
+// bgpPeerInterfaceRefIndexKey is the field index key for all Interface names referenced by
+// a BGPPeer, both as unnumbered peer interface and as local (source) address.
+const bgpPeerInterfaceRefIndexKey = ".spec.interfaceRefs"
+
 // BGPPeerReconciler reconciles a BGPPeer object
 type BGPPeerReconciler struct {
 	client.Client
@@ -273,6 +277,20 @@ func (r *BGPPeerReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 		return err
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.BGPPeer{}, bgpPeerInterfaceRefIndexKey, func(obj client.Object) []string {
+		o := obj.(*v1alpha1.BGPPeer)
+		var names []string
+		if o.Spec.InterfaceRef != nil {
+			names = append(names, o.Spec.InterfaceRef.Name)
+		}
+		if o.Spec.LocalAddress != nil {
+			names = append(names, o.Spec.LocalAddress.InterfaceRef.Name)
+		}
+		return names
+	}); err != nil {
+		return err
+	}
+
 	bldr := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.BGPPeer{}).
 		Named("bgppeer").
@@ -350,6 +368,20 @@ func (r *BGPPeerReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 				},
 			}),
 		).
+		// Watches enqueues BGPPeers when a referenced Interface is created or deleted.
+		// Only triggers on create and delete events since interface names are immutable.
+		Watches(
+			&v1alpha1.Interface{},
+			handler.EnqueueRequestsFromMapFunc(r.interfaceToBGPPeers),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
 		Complete(r)
 }
 
@@ -415,30 +447,23 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (ret
 
 	var sourceInterface string
 	if addr := s.BGPPeer.Spec.LocalAddress; addr != nil {
-		intf := new(v1alpha1.Interface)
-		if err := r.Get(ctx, client.ObjectKey{Name: addr.InterfaceRef.Name, Namespace: s.BGPPeer.Namespace}, intf); err != nil {
-			if apierrors.IsNotFound(err) {
-				conditions.Set(s.BGPPeer, metav1.Condition{
-					Type:    v1alpha1.ConfiguredCondition,
-					Status:  metav1.ConditionFalse,
-					Reason:  v1alpha1.InterfaceNotFoundReason,
-					Message: fmt.Sprintf("source interface %q not found", addr.InterfaceRef.Name),
-				})
-				return reconcile.TerminalError(fmt.Errorf("source interface %q not found", addr.InterfaceRef.Name))
-			}
-			return fmt.Errorf("failed to get source interface %q: %w", addr.InterfaceRef.Name, err)
-		}
-
-		if intf.Spec.DeviceRef.Name != s.Device.Name {
-			conditions.Set(s.BGPPeer, metav1.Condition{
-				Type:    v1alpha1.ConfiguredCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  v1alpha1.CrossDeviceReferenceReason,
-				Message: fmt.Sprintf("source interface %q does not belong to device %q", intf.Name, s.Device.Name),
-			})
-			return reconcile.TerminalError(fmt.Errorf("source interface %q does not belong to device %q", intf.Name, s.Device.Name))
+		intf, err := r.reconcileInterfaceRef(ctx, s, addr.InterfaceRef.Name, "source interface")
+		if err != nil {
+			return err
 		}
 		sourceInterface = intf.Spec.Name
+	}
+
+	var peerInterface string
+	if ref := s.BGPPeer.Spec.InterfaceRef; ref != nil {
+		intf, err := r.reconcileInterfaceRef(ctx, s, ref.Name, "peer interface")
+		if err != nil {
+			return err
+		}
+		peerInterface = intf.Spec.Name
+		// Recorded even if configuring the device fails below, so that a partially
+		// applied configuration can still be cleaned up once the Interface is gone.
+		s.BGPPeer.Status.PeerInterface = peerInterface
 	}
 
 	if s.BGPPeer.Spec.LocalAS != nil && s.BGPPeer.Spec.ASNumber.String() == bgp.Spec.ASNumber.String() {
@@ -465,6 +490,7 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (ret
 		BGPPeer:                 s.BGPPeer,
 		ProviderConfig:          s.ProviderConfig,
 		SourceInterface:         sourceInterface,
+		PeerInterface:           peerInterface,
 		BGP:                     bgp,
 		VRF:                     vrf,
 		InboundRoutingPolicies:  inbound,
@@ -481,6 +507,7 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (ret
 	status, err := s.Provider.GetPeerStatus(ctx, &provider.BGPPeerStatusRequest{
 		BGPPeer:        s.BGPPeer,
 		ProviderConfig: s.ProviderConfig,
+		PeerInterface:  peerInterface,
 		VRF:            vrf,
 	})
 	if err != nil {
@@ -556,6 +583,28 @@ func (r *BGPPeerReconciler) finalize(ctx context.Context, s *bgpPeerScope) (rete
 		}
 	}
 
+	// The interface is the identity of an unnumbered peer on the device. Prefer the name
+	// recorded during reconciliation, as the Interface may already have been deleted.
+	var peerInterface string
+	if ref := s.BGPPeer.Spec.InterfaceRef; ref != nil {
+		peerInterface = s.BGPPeer.Status.PeerInterface
+		if peerInterface == "" {
+			intf := new(v1alpha1.Interface)
+			if err := r.Get(ctx, types.NamespacedName{
+				Name:      ref.Name,
+				Namespace: s.BGPPeer.Namespace,
+			}, intf); err != nil {
+				// Without the recorded name and the Interface the peer cannot be
+				// identified on the device, so we can only proceed with deletion.
+				return client.IgnoreNotFound(err)
+			}
+			if intf.Spec.DeviceRef.Name != s.Device.Name {
+				return reconcile.TerminalError(fmt.Errorf("interface %s belongs to different device", ref.Name))
+			}
+			peerInterface = intf.Spec.Name
+		}
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -566,10 +615,42 @@ func (r *BGPPeerReconciler) finalize(ctx context.Context, s *bgpPeerScope) (rete
 	}()
 
 	return s.Provider.DeleteBGPPeer(ctx, &provider.DeleteBGPPeerRequest{
-		BGPPeer: s.BGPPeer,
-		BGP:     bgp,
-		VRF:     vrf,
+		BGPPeer:       s.BGPPeer,
+		PeerInterface: peerInterface,
+		BGP:           bgp,
+		VRF:           vrf,
 	})
+}
+
+// reconcileInterfaceRef resolves an Interface referenced by the BGPPeer and validates that
+// it belongs to the same Device. The description is used in conditions and errors to tell
+// the source interface and the unnumbered peer interface apart.
+func (r *BGPPeerReconciler) reconcileInterfaceRef(ctx context.Context, s *bgpPeerScope, name, description string) (*v1alpha1.Interface, error) {
+	intf := new(v1alpha1.Interface)
+	if err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: s.BGPPeer.Namespace}, intf); err != nil {
+		if apierrors.IsNotFound(err) {
+			conditions.Set(s.BGPPeer, metav1.Condition{
+				Type:    v1alpha1.ConfiguredCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.InterfaceNotFoundReason,
+				Message: fmt.Sprintf("%s %q not found", description, name),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("%s %q not found", description, name))
+		}
+		return nil, fmt.Errorf("failed to get %s %q: %w", description, name, err)
+	}
+
+	if intf.Spec.DeviceRef.Name != s.Device.Name {
+		conditions.Set(s.BGPPeer, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.CrossDeviceReferenceReason,
+			Message: fmt.Sprintf("%s %q does not belong to device %q", description, intf.Name, s.Device.Name),
+		})
+		return nil, reconcile.TerminalError(fmt.Errorf("%s %q does not belong to device %q", description, intf.Name, s.Device.Name))
+	}
+
+	return intf, nil
 }
 
 // reconcileBGP resolves the referenced BGP instance.
@@ -767,6 +848,32 @@ func (r *BGPPeerReconciler) bgpPeersForProviderConfig(ctx context.Context, obj c
 
 // bgpToBGPPeers is a [handler.MapFunc] to be used to enqueue requests for reconciliation
 // for BGPPeers when a BGP resource is created, deleted or updated on the same device.
+func (r *BGPPeerReconciler) interfaceToBGPPeers(ctx context.Context, obj client.Object) []ctrl.Request {
+	intf, ok := obj.(*v1alpha1.Interface)
+	if !ok {
+		panic(fmt.Sprintf("Expected an Interface but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "Interface", klog.KObj(intf))
+
+	list := new(v1alpha1.BGPPeerList)
+	if err := r.List(
+		ctx, list,
+		client.InNamespace(intf.Namespace),
+		client.MatchingFields{bgpPeerInterfaceRefIndexKey: intf.Name},
+	); err != nil {
+		log.Error(err, "Failed to list BGPPeers")
+		return nil
+	}
+
+	requests := make([]ctrl.Request, 0, len(list.Items))
+	for i := range list.Items {
+		log.V(2).Info("Enqueuing BGPPeer for reconciliation", "BGPPeer", klog.KObj(&list.Items[i]))
+		requests = append(requests, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(&list.Items[i])})
+	}
+	return requests
+}
+
 func (r *BGPPeerReconciler) bgpToBGPPeers(ctx context.Context, obj client.Object) []ctrl.Request {
 	bgp, ok := obj.(*v1alpha1.BGP)
 	if !ok {
