@@ -1,0 +1,94 @@
+---
+# Console connection with default verification (matches Device hostname or serial number).
+# Uses the default SendCRLF strategy and 30s timeout.
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: ConsoleConnection
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: console-default
+spec:
+  deviceRef:
+    name: leaf1
+  endpoint:
+    address: "10.0.100.1:2001"
+    secretRef:
+      name: console-credentials
+---
+# Console connection with explicit string match, scheduled check every 5 minutes.
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: ConsoleConnection
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: console-scheduled
+spec:
+  deviceRef:
+    name: leaf1
+  endpoint:
+    address: "10.0.100.1:2001"
+    secretRef:
+      name: console-credentials
+  schedule: "*/5 * * * *"
+  verification:
+    strategy: SendCRLF
+    expect:
+      string: "leaf1#"
+---
+# Console connection with regex match and passive Wait strategy.
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: ConsoleConnection
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: console-regex
+spec:
+  deviceRef:
+    name: leaf1
+  endpoint:
+    address: "10.0.100.1:2001"
+    secretRef:
+      name: console-credentials
+  timeout: 10s
+  verification:
+    strategy: Wait
+    expect:
+      regex: "leaf1[>#]"
+---
+# Console connection with SendChar strategy.
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: ConsoleConnection
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: leaf1
+  name: console-sendchar
+spec:
+  deviceRef:
+    name: leaf1
+  endpoint:
+    address: "10.0.100.1:2001"
+    secretRef:
+      name: console-credentials
+  verification:
+    strategy: SendChar
+    char: "x"
+    expect:
+      string: "leaf1"
+---
+# Secret for console server authentication.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: console-credentials
+type: kubernetes.io/basic-auth
+stringData:
+  username: admin
+  password: changeme

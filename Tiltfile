@@ -211,6 +211,12 @@ k8s_resource(new_name='mac-entry', objects=['mac-entry:probe'], trigger_mode=TRI
 k8s_resource(new_name='route-prefix', objects=['route-prefix:probe'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='vtep-peers', objects=['vtep-peers:probe'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
+k8s_yaml('./config/samples/v1alpha1_consoleconnection.yaml')
+k8s_resource(new_name='console-default', objects=['console-default:consoleconnection'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='console-scheduled', objects=['console-scheduled:consoleconnection'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='console-regex', objects=['console-regex:consoleconnection'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='console-sendchar', objects=['console-sendchar:consoleconnection', 'console-credentials:secret'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')
 print('👉 Tilt will automatically rebuild and redeploy when changes are detected')

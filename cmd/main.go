@@ -809,6 +809,15 @@ func main() { //nolint:gocyclo
 		os.Exit(1)
 	}
 
+	if err := (&corecontroller.ConsoleConnectionReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorder("consoleconnection-controller"),
+		WatchFilterValue: watchFilterValue,
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ConsoleConnection")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {
