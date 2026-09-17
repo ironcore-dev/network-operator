@@ -10,8 +10,23 @@ spec:
   name: eth1/1
   adminState: Up
   type: Physical
+  providerConfigRef:
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+    kind: InterfaceConfig
+    name: uplink-nxconfig
   ipv6:
     useLinkLocalOnly: true
+
+-- interfaceconfigs/uplink-nxconfig --
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: InterfaceConfig
+metadata:
+  name: uplink-nxconfig
+  namespace: default
+spec:
+  ipv6:
+    suppressRouterAdvertisement: false
+    routerAdvertisementInterval: 4s
 
 -- bgps/fabric-bgp --
 apiVersion: networking.metal.ironcore.dev/v1alpha1
@@ -96,6 +111,27 @@ spec:
                   {
                     "id": "eth1/1",
                     "useLinkLocalAddr": "enabled"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "nd-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "eth1/1",
+                    "ctrl": "redirects",
+                    "raIntvl": 4,
+                    "raIntvlMin": 4
                   }
                 ]
               }
@@ -193,6 +229,27 @@ spec:
         }
       }
     },
+    "nd-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "eth1/1",
+                    "ctrl": "redirects",
+                    "raIntvl": 4,
+                    "raIntvlMin": 4
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
     "fm-items": {
       "bgp-items": {
         "adminSt": "enabled"
@@ -204,3 +261,4 @@ spec:
     "bgp-items": {}
   }
 }
+

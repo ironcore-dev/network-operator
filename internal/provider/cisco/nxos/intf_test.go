@@ -231,6 +231,14 @@ func init() {
 	// "ipv6 address use-link-local-only", as required for unnumbered peering.
 	Register("intf_lladdr6", &AddrItem{ID: "eth1/1", Vrf: DefaultVRFName, Is6: true, UseLinkLocalAddr: AdminStEnabled})
 
+	// "ipv6 nd suppress-ra".
+	Register("nd_if_suppress_ra", &NDIf{ID: "eth1/1", Vrf: DefaultVRFName, Ctrl: NDCtrlDefault | NDCtrlSuppressRA, RaIntvl: NDRAIntervalDefault, RaIntvlMin: NDRAIntervalMinDefault})
+
+	// "ipv6 nd ra-interval 4", which NX-OS expands to "ipv6 nd ra-interval 4 min 4".
+	ndRA := &NDIf{ID: "eth1/1", Vrf: DefaultVRFName, Ctrl: NDCtrlDefault}
+	ndRA.SetRAInterval(4)
+	Register("nd_if_ra_interval", ndRA)
+
 	Register("pc", &PortChannel{
 		AccessVlan:     DefaultVLAN,
 		AdminSt:        AdminStUp,
@@ -351,4 +359,58 @@ func init() {
 
 	icmp := &ICMPIf{ID: "eth1/1", Ctrl: "port-unreachable"}
 	Register("rdr", icmp)
+}
+
+func TestNDIfSetRAInterval(t *testing.T) {
+	// Expected minimums as reported by "show running-config" on NX-OS 10.3(9)
+	// after "ipv6 nd ra-interval <seconds>".
+	tests := []struct {
+		seconds, wantMin int64
+	}{
+		{seconds: 4, wantMin: 4},
+		{seconds: 8, wantMin: 8},
+		{seconds: 9, wantMin: 3},
+		{seconds: 20, wantMin: 6},
+		{seconds: 600, wantMin: 200},
+		{seconds: 1800, wantMin: 600},
+	}
+	for _, test := range tests {
+		nd := new(NDIf)
+		nd.SetRAInterval(test.seconds)
+		if nd.RaIntvl != test.seconds || nd.RaIntvlMin != test.wantMin {
+			t.Errorf("SetRAInterval(%d) = %d min %d, want %d min %d", test.seconds, nd.RaIntvl, nd.RaIntvlMin, test.seconds, test.wantMin)
+		}
+	}
+}
+
+func TestNDCtrlFlags(t *testing.T) {
+	// Flag lists as reported by NX-OS 10.3(9), which sorts them.
+	tests := []struct {
+		ctrl  string
+		want  NDCtrlFlags
+		round string
+	}{
+		{ctrl: "redirects", want: NDCtrlRedirects, round: "redirects"},
+		{ctrl: "redirects,suppress-ra", want: NDCtrlRedirects | NDCtrlSuppressRA, round: "redirects,suppress-ra"},
+		{ctrl: "managed-cfg,other-cfg", want: NDCtrlManagedCfg | NDCtrlOtherCfg, round: "managed-cfg,other-cfg"},
+		{ctrl: "suppress-ra,redirects", want: NDCtrlRedirects | NDCtrlSuppressRA, round: "redirects,suppress-ra"},
+		{ctrl: "", want: 0, round: ""},
+	}
+	for _, test := range tests {
+		var got NDCtrlFlags
+		if err := got.UnmarshalText([]byte(test.ctrl)); err != nil {
+			t.Errorf("UnmarshalText(%q) returned %v", test.ctrl, err)
+			continue
+		}
+		if got != test.want {
+			t.Errorf("UnmarshalText(%q) = %d, want %d", test.ctrl, got, test.want)
+		}
+		if s := got.String(); s != test.round {
+			t.Errorf("UnmarshalText(%q).String() = %q, want %q", test.ctrl, s, test.round)
+		}
+	}
+	var f NDCtrlFlags
+	if err := f.UnmarshalText([]byte("redirects,bogus")); err == nil {
+		t.Error("UnmarshalText did not reject an unknown flag")
+	}
 }

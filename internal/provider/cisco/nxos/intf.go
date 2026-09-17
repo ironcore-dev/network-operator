@@ -42,6 +42,7 @@ var (
 	_ gnmiext.DataElement = (*AddrItem)(nil)
 	_ gnmiext.DataElement = (*IntfAddrItems)(nil)
 	_ gnmiext.DataElement = (*IntfAddr)(nil)
+	_ gnmiext.DataElement = (*NDIf)(nil)
 	_ gnmiext.DataElement = (*FabricFwdIf)(nil)
 )
 
@@ -472,6 +473,125 @@ func (a *IntfAddrItems) XPath() string {
 		return "System/ipv6-items/inst-items/dom-items/Dom-list[name=" + a.Vrf + "]/if-items/If-list[id=" + a.ID + "]/addr-items"
 	}
 	return "System/ipv4-items/inst-items/dom-items/Dom-list[name=" + a.Vrf + "]/if-items/If-list[id=" + a.ID + "]/addr-items"
+}
+
+// NDIf represents the IPv6 Neighbor Discovery configuration of an interface.
+// The device only keeps this object for as long as the interface is routed,
+// so it needs no explicit cleanup when the interface is deleted.
+type NDIf struct {
+	ID         string      `json:"id"`
+	Ctrl       NDCtrlFlags `json:"ctrl"`
+	RaIntvl    int64       `json:"raIntvl"`
+	RaIntvlMin int64       `json:"raIntvlMin"`
+
+	// Vrf is the VRF Domain in which the interface is a member.
+	// This field is not serialized to JSON and is only used internally to
+	// determine the correct XPath.
+	Vrf string `json:"-"`
+}
+
+func (*NDIf) IsListItem() {}
+
+func (n *NDIf) XPath() string {
+	return "System/nd-items/inst-items/dom-items/Dom-list[name=" + n.Vrf + "]/if-items/If-list[id=" + n.ID + "]"
+}
+
+const (
+	// NDRAIntervalDefault and NDRAIntervalMinDefault are the NX-OS defaults,
+	// in seconds, for the maximum and minimum Router Advertisement interval.
+	NDRAIntervalDefault    = 600
+	NDRAIntervalMinDefault = 200
+)
+
+// NDCtrlFlags represents the control flags of an interface's Neighbor Discovery
+// configuration. It supports a combination of the following flags:
+// 1 - redirects
+// 2 - managed-cfg
+// 4 - other-cfg
+// 8 - suppress-ra
+// 16 - suppress-ra-mtu
+type NDCtrlFlags uint8
+
+const (
+	NDCtrlRedirects NDCtrlFlags = 1 << iota
+	NDCtrlManagedCfg
+	NDCtrlOtherCfg
+	NDCtrlSuppressRA
+	NDCtrlSuppressRAMTU
+)
+
+// NDCtrlDefault is the NX-OS default: ICMPv6 redirects are sent and Router
+// Advertisements are not suppressed.
+const NDCtrlDefault = NDCtrlRedirects
+
+var (
+	_ fmt.Stringer             = NDCtrlFlags(0)
+	_ encoding.TextMarshaler   = NDCtrlFlags(0)
+	_ encoding.TextUnmarshaler = (*NDCtrlFlags)(nil)
+)
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (f *NDCtrlFlags) UnmarshalText(b []byte) error {
+	var flags NDCtrlFlags
+	for flag := range strings.SplitSeq(string(b), ",") {
+		switch strings.TrimSpace(flag) {
+		case "redirects":
+			flags |= NDCtrlRedirects
+		case "managed-cfg":
+			flags |= NDCtrlManagedCfg
+		case "other-cfg":
+			flags |= NDCtrlOtherCfg
+		case "suppress-ra":
+			flags |= NDCtrlSuppressRA
+		case "suppress-ra-mtu":
+			flags |= NDCtrlSuppressRAMTU
+		case "":
+			// ignore empty flag
+		default:
+			return fmt.Errorf("nd: unknown control flag %q", flag)
+		}
+	}
+	*f = flags
+	return nil
+}
+
+// MarshalText implements encoding.TextMarshaler.
+func (f NDCtrlFlags) MarshalText() ([]byte, error) {
+	return []byte(f.String()), nil
+}
+
+// String implements fmt.Stringer.
+func (f NDCtrlFlags) String() string {
+	var flags []string
+	if f&NDCtrlRedirects != 0 {
+		flags = append(flags, "redirects")
+	}
+	if f&NDCtrlManagedCfg != 0 {
+		flags = append(flags, "managed-cfg")
+	}
+	if f&NDCtrlOtherCfg != 0 {
+		flags = append(flags, "other-cfg")
+	}
+	if f&NDCtrlSuppressRA != 0 {
+		flags = append(flags, "suppress-ra")
+	}
+	if f&NDCtrlSuppressRAMTU != 0 {
+		flags = append(flags, "suppress-ra-mtu")
+	}
+	slices.Sort(flags)
+	return strings.Join(flags, ",")
+}
+
+// SetRAInterval sets the maximum Router Advertisement interval and derives the
+// minimum interval the way "ipv6 nd ra-interval" does on the device: a third of
+// the maximum, or the maximum itself where a third would drop below the smallest
+// allowed minimum of 3 seconds.
+func (n *NDIf) SetRAInterval(seconds int64) {
+	n.RaIntvl = seconds
+	n.RaIntvlMin = seconds / 3
+	if n.RaIntvlMin < 3 {
+		n.RaIntvlMin = seconds
+	}
 }
 
 type IntfAddr struct {

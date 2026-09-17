@@ -1,0 +1,23 @@
+{
+  "nd-items": {
+    "inst-items": {
+      "dom-items": {
+        "Dom-list": [
+          {
+            "name": "default",
+            "if-items": {
+              "If-list": [
+                {
+                  "id": "eth1/1",
+                  "ctrl": "redirects",
+                  "raIntvl": 4,
+                  "raIntvlMin": 4
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

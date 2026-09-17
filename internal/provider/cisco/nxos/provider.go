@@ -1893,6 +1893,36 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 	}
 
+	// Neighbor Discovery is owned wherever the interface carries IPv6
+	// configuration: settings the provider config leaves out, and every setting
+	// where there is no provider config at all, are reset to the platform
+	// default. The object only exists while the interface is routed, so it needs
+	// no cleanup of its own.
+	if ipv6Addr != nil {
+		nd := &NDIf{
+			ID:         name,
+			Vrf:        vrf,
+			Ctrl:       NDCtrlDefault,
+			RaIntvl:    NDRAIntervalDefault,
+			RaIntvlMin: NDRAIntervalMinDefault,
+		}
+		if cfg.Spec.IPv6 != nil {
+			if cfg.Spec.IPv6.SuppressRouterAdvertisement {
+				nd.Ctrl |= NDCtrlSuppressRA
+			}
+			if d := cfg.Spec.IPv6.RouterAdvertisementInterval; d != nil {
+				if d.Duration%time.Second != 0 || d.Duration < 4*time.Second || d.Duration > 30*time.Minute {
+					return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+						Field:       "spec.ipv6.routerAdvertisementInterval",
+						Description: fmt.Sprintf("router advertisement interval %s must be between 4s and 30m in whole seconds", d.Duration),
+					})
+				}
+				nd.SetRAInterval(int64(d.Duration / time.Second))
+			}
+		}
+		sb.Patch(nd)
+	}
+
 	switch {
 	case req.Interface.Spec.BFD != nil && req.Interface.Spec.BFD.Enabled:
 		f := new(Feature)

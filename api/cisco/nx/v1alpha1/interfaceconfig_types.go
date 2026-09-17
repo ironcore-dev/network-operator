@@ -30,6 +30,39 @@ type InterfaceConfigSpec struct {
 	// EVPNMultihoming defines EVPN ESI multihoming settings for the interface.
 	// +optional
 	EVPNMultihoming *EVPNMultihoming `json:"evpnMultihoming,omitempty"`
+
+	// IPv6 defines IPv6 settings for the interface that have no equivalent in
+	// the core Interface API. Neighbor Discovery is managed on every interface
+	// that carries IPv6 configuration: settings left out here, and every setting
+	// of an interface without this field, are reset to the platform default.
+	// +optional
+	IPv6 *InterfaceConfigIPv6 `json:"ipv6,omitempty"`
+}
+
+// InterfaceConfigIPv6 defines IPv6 settings for an interface.
+type InterfaceConfigIPv6 struct {
+	// SuppressRouterAdvertisement stops the interface from sending IPv6 Router
+	// Advertisements. NX-OS sends them by default. Neighbours that discover
+	// each other over their link-local addresses, such as unnumbered BGP peers,
+	// depend on them, so this must stay disabled for such interfaces.
+	// Only applied to interfaces that carry IPv6 configuration.
+	// Maps to CLI command: ipv6 nd suppress-ra
+	// +optional
+	// +kubebuilder:default=false
+	SuppressRouterAdvertisement bool `json:"suppressRouterAdvertisement,omitempty"`
+
+	// RouterAdvertisementInterval is the maximum interval between periodic
+	// IPv6 Router Advertisements, between 4s and 30m in whole seconds. The
+	// minimum interval is derived from it the way NX-OS does for the CLI
+	// command: a third of this value, but no less than 3s.
+	// Unnumbered BGP peers only discover each other once an advertisement is
+	// received, so a short interval speeds up session establishment.
+	// If not specified, the interface is reset to the NX-OS default of 600s.
+	// Maps to CLI command: ipv6 nd ra-interval
+	// +optional
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+	RouterAdvertisementInterval *metav1.Duration `json:"routerAdvertisementInterval,omitempty"`
 }
 
 // SpanningTree defines the spanning tree configuration for an interface.

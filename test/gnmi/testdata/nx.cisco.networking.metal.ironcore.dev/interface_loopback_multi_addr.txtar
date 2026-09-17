@@ -119,6 +119,27 @@ spec:
         }
       }
     },
+    "nd-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo1",
+                    "ctrl": "redirects",
+                    "raIntvl": 600,
+                    "raIntvlMin": 200
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
     "icmpv4-items": {
       "inst-items": {
         "dom-items": {
@@ -175,6 +196,27 @@ spec:
               "name": "default",
               "if-items": {
                 "If-list": []
+              }
+            }
+          ]
+        }
+      }
+    },
+    "nd-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo1",
+                    "ctrl": "redirects",
+                    "raIntvl": 600,
+                    "raIntvlMin": 200
+                  }
+                ]
               }
             }
           ]

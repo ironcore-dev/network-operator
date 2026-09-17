@@ -17,6 +17,7 @@ import (
 	"syscall"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -151,7 +152,17 @@ func loadAndUnmarshalResource(path string) (runtime.Object, error) {
 
 	obj, _, err := decoder.Decode(json, nil, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode resource: %w", err)
+		if !runtime.IsNotRegisteredError(err) {
+			return nil, fmt.Errorf("failed to decode resource: %w", err)
+		}
+		// Provider-specific configs live in their own API groups and are read
+		// as unstructured objects by the providers, so decode them as such
+		// instead of registering every group in the scheme.
+		u := &unstructured.Unstructured{}
+		if err := u.UnmarshalJSON(json); err != nil {
+			return nil, fmt.Errorf("failed to decode resource: %w", err)
+		}
+		return u, nil
 	}
 
 	return obj, nil

@@ -21,6 +21,8 @@ specifc = "specifc"
 cpy = "cpy"
 # The Kubernetes built-in matchExpressions field uses the word "ANDed" in its documentation.
 ded = "ded"
+# The NX-OS CLI keyword for Neighbor Discovery, as in "ipv6 nd suppress-ra".
+nd = "nd"
 
 [files]
 extend-exclude = [
