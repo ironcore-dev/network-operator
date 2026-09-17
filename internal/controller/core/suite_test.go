@@ -228,6 +228,15 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&StaticRouteReconciler{
+		Client:          k8sManager.GetClient(),
+		Scheme:          k8sManager.GetScheme(),
+		Recorder:        recorder,
+		Locker:          testLocker,
+		RequeueInterval: time.Second,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&PIMReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
@@ -422,6 +431,7 @@ var (
 	_ provider.EthernetSegmentProvider  = (*Provider)(nil)
 	_ provider.ConfigBackupProvider     = (*Provider)(nil)
 	_ provider.ProbeProvider            = (*Provider)(nil)
+	_ provider.StaticRouteProvider      = (*Provider)(nil)
 )
 
 // Provider is a simple in-memory provider for testing purposes only.
@@ -463,6 +473,7 @@ type Provider struct {
 	StartupConfig    *v1alpha1.ConfigBackup
 	ConfigBackups    []*provider.ConfigBackupFile
 	StorageTotal     int64
+	StaticRoutes     *v1alpha1.StaticRoute
 }
 
 func NewProvider() *Provider {
@@ -1100,6 +1111,20 @@ func (p *Provider) GetRouteTable(context.Context, *provider.RouteTableRequest) (
 
 func (p *Provider) GetVTEPPeers(context.Context, *provider.VTEPPeersRequest) ([]provider.VTEPPeer, error) {
 	return []provider.VTEPPeer{{PeerIP: "192.0.2.10", OperStatus: true}}, nil
+}
+
+func (p *Provider) EnsureStaticRoute(_ context.Context, req *provider.StaticRouteRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.StaticRoutes = nil
+	return nil
+}
+
+func (p *Provider) DeleteStaticRoute(_ context.Context, req *provider.StaticRouteRequest) error {
+	p.Lock()
+	defer p.Unlock()
+	p.StaticRoutes = nil
+	return nil
 }
 
 // SetLLDPNeighbor is a test helper to configure LLDP neighbor information for an interface.

@@ -20,13 +20,14 @@ import (
 )
 
 var (
-	_ provider.Provider          = &Provider{}
-	_ provider.DeviceProvider    = &Provider{}
-	_ provider.InterfaceProvider = &Provider{}
-	_ provider.VRFProvider       = &Provider{}
-	_ provider.BGPProvider       = &Provider{}
-	_ provider.BGPPeerProvider   = &Provider{}
-	_ provider.PrefixSetProvider = &Provider{}
+	_ provider.Provider            = &Provider{}
+	_ provider.DeviceProvider      = &Provider{}
+	_ provider.InterfaceProvider   = &Provider{}
+	_ provider.VRFProvider         = &Provider{}
+	_ provider.BGPProvider         = &Provider{}
+	_ provider.BGPPeerProvider     = &Provider{}
+	_ provider.PrefixSetProvider   = &Provider{}
+	_ provider.StaticRouteProvider = &Provider{}
 )
 
 type Provider struct {
@@ -613,6 +614,66 @@ func (p *Provider) DeletePrefixSet(ctx context.Context, req *provider.PrefixSetR
 
 func (p *Provider) LoopbackInterfaceName(id int) (string, error) {
 	return fmt.Sprintf("Loopback%d", id), nil
+}
+
+func (p *Provider) EnsureStaticRoute(ctx context.Context, req *provider.StaticRouteRequest) error {
+	var nexthopAddress NexthopAddresses
+	var nexthopInterface NexthopInterfaces
+
+	prefixIP := req.StaticRoute.Spec.Prefix
+	for _, nextHop := range req.StaticRoute.Spec.NextHops {
+		if nextHop.InterfaceRef != nil {
+			intfName := req.InterfaceMap[nextHop.InterfaceRef.Name].Spec.Name
+			nexthopInterface.NexthopInterface = append(nexthopInterface.NexthopInterface,
+				NewNexthopInterface(intfName, nextHop.Address, nextHop.Metric))
+			continue
+		}
+		nexthopAddress.NexthopAddress = append(nexthopAddress.NexthopAddress,
+			NewNexthopAddress(nextHop.Address, nextHop.Metric))
+	}
+
+	prefix := Prefix{
+		PrefixAddress: prefixIP.Addr().String(),
+		PrefixLength:  prefixIP.Bits(),
+		IsIpv4:        prefixIP.Addr().Is4(),
+	}
+	if len(nexthopAddress.NexthopAddress) > 0 {
+		prefix.NextHopAddress = &nexthopAddress
+	}
+	if len(nexthopInterface.NexthopInterface) > 0 {
+		prefix.NextHopInterface = &nexthopInterface
+	}
+
+	if req.VRF != nil && req.VRF.Spec.Name != "" {
+		prefix.VRFName = req.VRF.Spec.Name
+	}
+
+	// A single client.Update (gNMI replace) drops nexthop-addresses when both
+	// nexthop-addresses and nexthop-interface-addresses are present. Delete the
+	// prefix and patch the desired state back in a single atomic SetRequest so
+	// no traffic-blackhole window opens between the two operations. gNMI applies
+	// the delete before the update within one Set.
+	b := new(gnmiext.SetBuilder).Delete(&prefix).Patch(&prefix)
+
+	return p.client.Do(ctx, b)
+}
+
+func (p *Provider) DeleteStaticRoute(ctx context.Context, req *provider.StaticRouteRequest) error {
+	staticRoute := &Prefix{
+		PrefixAddress: req.StaticRoute.Spec.Prefix.Addr().String(),
+		PrefixLength:  req.StaticRoute.Spec.Prefix.Bits(),
+	}
+
+	staticRoute.IsIpv4 = true
+	if !req.StaticRoute.Spec.Prefix.Addr().Is4() {
+		staticRoute.IsIpv4 = false
+	}
+
+	if req.VRF != nil && req.VRF.Spec.Name != "" {
+		staticRoute.VRFName = req.VRF.Spec.Name
+	}
+
+	return p.client.Delete(ctx, staticRoute)
 }
 
 func init() {

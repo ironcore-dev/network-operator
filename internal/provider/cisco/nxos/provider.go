@@ -73,6 +73,7 @@ var (
 	_ provider.AAAProvider              = (*Provider)(nil)
 	_ provider.ConfigBackupProvider     = (*Provider)(nil)
 	_ provider.ProbeProvider            = (*Provider)(nil)
+	_ provider.StaticRouteProvider      = (*Provider)(nil)
 )
 
 // maxSetOperations is the maximum number of operations per gNMI Set RPC.
@@ -4373,6 +4374,40 @@ func NormalizeMACAddress(mac string) string {
 		return mac
 	}
 	return fmt.Sprintf("%s:%s:%s:%s:%s:%s", h[0:2], h[2:4], h[4:6], h[6:8], h[8:10], h[10:12])
+}
+
+func (p *Provider) EnsureStaticRoute(ctx context.Context, req *provider.StaticRouteRequest) error {
+	vrfName := DefaultVRFName
+	if req.VRF != nil {
+		vrfName = req.VRF.Spec.Name
+	}
+
+	route := &StaticRoute{
+		VRF:    vrfName,
+		Prefix: req.StaticRoute.Spec.Prefix.String(),
+	}
+	for _, nextHop := range req.StaticRoute.Spec.NextHops {
+		var intf string
+		if nextHop.InterfaceRef != nil {
+			intf = req.InterfaceMap[nextHop.InterfaceRef.Name].Spec.Name
+		}
+		route.NhItems.NexthopList.Set(NewStaticRouteNexthop(nextHop.Address, vrfName, intf, nextHop.Metric))
+	}
+
+	return p.client.Update(ctx, route)
+}
+
+func (p *Provider) DeleteStaticRoute(ctx context.Context, req *provider.StaticRouteRequest) error {
+	vrfName := DefaultVRFName
+	if req.VRF != nil {
+		vrfName = req.VRF.Spec.Name
+	}
+
+	route := &StaticRoute{
+		VRF:    vrfName,
+		Prefix: req.StaticRoute.Spec.Prefix.String(),
+	}
+	return p.client.Delete(ctx, route)
 }
 
 func init() {
