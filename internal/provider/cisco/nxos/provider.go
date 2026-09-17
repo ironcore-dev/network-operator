@@ -81,7 +81,7 @@ const maxSetOperations = 20
 type Provider struct {
 	conn   *grpc.ClientConn
 	client gnmiext.Client
-	nxapi  *nxapi.Client
+	nxapi  nxapi.Client
 }
 
 // timeout is the default timeout for all HTTP/gRPC requests made by the provider.
