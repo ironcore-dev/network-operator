@@ -128,20 +128,17 @@ func (r *AAAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 		return ctrl.Result{}, err
 	}
 
-	var cfg *provider.ProviderConfig
+	s := &aaaScope{
+		Device:     device,
+		AAA:        obj,
+		Connection: conn,
+		Provider:   prov,
+	}
 	if obj.Spec.ProviderConfigRef != nil {
-		cfg, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
+		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
+		if err != nil && (obj.DeletionTimestamp.IsZero() || !apierrors.IsNotFound(err)) {
 			return ctrl.Result{}, err
 		}
-	}
-
-	s := &aaaScope{
-		Device:         device,
-		AAA:            obj,
-		Connection:     conn,
-		ProviderConfig: cfg,
-		Provider:       prov,
 	}
 
 	if !obj.DeletionTimestamp.IsZero() {

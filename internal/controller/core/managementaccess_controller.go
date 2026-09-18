@@ -129,20 +129,17 @@ func (r *ManagementAccessReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	var cfg *provider.ProviderConfig
-	if obj.Spec.ProviderConfigRef != nil {
-		cfg, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	s := &managementAccessScope{
 		Device:           device,
 		ManagementAccess: obj,
 		Connection:       conn,
-		ProviderConfig:   cfg,
 		Provider:         prov,
+	}
+	if obj.Spec.ProviderConfigRef != nil {
+		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
+		if err != nil && (obj.DeletionTimestamp.IsZero() || !apierrors.IsNotFound(err)) {
+			return ctrl.Result{}, err
+		}
 	}
 
 	if !obj.DeletionTimestamp.IsZero() {
