@@ -462,14 +462,13 @@ var _ = Describe("BGPPeer Controller", func() {
 		It("Should reject local address reference to Interface on different device", func() {
 			By("Creating a different Device resource for testing")
 			differentDevice := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "different-device-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "different-device-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.3:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, differentDevice)).To(Succeed())

@@ -176,7 +176,6 @@ func (r *DHCPRelayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
@@ -232,10 +231,6 @@ func (r *DHCPRelayReconciler) reconcile(ctx context.Context, s *dhcprelayScope) 
 			return err
 		}
 	}
-
-	defer func() {
-		conditions.RecomputeReady(s.DHCPRelay)
-	}()
 
 	if err := r.validateProviderConfigRef(ctx, s); err != nil {
 		return err

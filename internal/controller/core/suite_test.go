@@ -338,12 +338,11 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&ConfigBackupReconciler{
-		Client:          k8sManager.GetClient(),
-		Scheme:          k8sManager.GetScheme(),
-		Recorder:        recorder,
-		Locker:          testLocker,
-		ObjectStorage:   testS3Store,
-		RequeueInterval: time.Second,
+		Client:        k8sManager.GetClient(),
+		Scheme:        k8sManager.GetScheme(),
+		Recorder:      recorder,
+		Locker:        testLocker,
+		ObjectStorage: testS3Store,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 

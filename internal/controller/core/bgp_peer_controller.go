@@ -968,5 +968,3 @@ func (r *BGPPeerReconciler) routingPolicyToBGPPeers(ctx context.Context, obj cli
 
 	return requests
 }
-
-
