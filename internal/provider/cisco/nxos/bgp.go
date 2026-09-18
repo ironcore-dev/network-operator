@@ -19,6 +19,8 @@ var (
 	_ gnmiext.DataElement = (*BGPDom)(nil)
 	_ gnmiext.DataElement = (*BGPDomItems)(nil)
 	_ gnmiext.DataElement = (*BGPPeerGroup)(nil)
+	_ gnmiext.DataElement = (*BGPPeerIf)(nil)
+	_ gnmiext.DataElement = (*BGPPeerIfOperItems)(nil)
 )
 
 // ownershipMarkerPrefix is used to build per-VRF peer template names written
@@ -194,20 +196,49 @@ func (af *BGPDomAfItem) SetMultipath(m *v1alpha1.BGPMultipath) error {
 }
 
 type BGPPeer struct {
-	VRFName       string      `json:"-"`
-	Addr          string      `json:"addr"`
-	AdminSt       AdminSt     `json:"adminSt"`
-	Asn           string      `json:"asn"`
-	AsnType       PeerAsnType `json:"asnType"`
-	Name          string      `json:"name,omitempty"`
-	SrcIf         string      `json:"srcIf,omitempty"`
-	LocalAsnItems struct {
-		AsnPropagate AsnPropagate `json:"asnPropagate"`
-		LocalAsn     string       `json:"localAsn"`
-	} `json:"localasn-items,omitzero"`
-	AfItems struct {
+	VRFName string  `json:"-"`
+	Addr    string  `json:"addr"`
+	AdminSt AdminSt `json:"adminSt"`
+	// Asn is empty for peers with a dynamic AS number, which is indicated by AsnType.
+	// The device reports it as an empty string in that case, so the zero value matches.
+	Asn           string          `json:"asn,omitempty"`
+	AsnType       PeerAsnType     `json:"asnType"`
+	Name          string          `json:"name,omitempty"`
+	SrcIf         string          `json:"srcIf,omitempty"`
+	LocalAsnItems BGPPeerLocalAsn `json:"localasn-items,omitzero"`
+	AfItems       struct {
 		PeerAfList gnmiext.List[AddressFamily, *BGPPeerAfItem] `json:"PeerAf-list,omitzero"`
 	} `json:"af-items,omitzero"`
+}
+
+// BGPPeerLocalAsn is the local AS number a peer sees instead of the AS number of the
+// BGP instance, and how both AS numbers factor into the announcements towards the peer.
+type BGPPeerLocalAsn struct {
+	AsnPropagate AsnPropagate `json:"asnPropagate"`
+	LocalAsn     string       `json:"localAsn"`
+}
+
+// BGPPeerIf is an unnumbered (interface-based) BGP peer. The session is established over
+// the IPv6 link-local address the peer advertises on the interface, so the peer has no
+// address of its own and, unlike [BGPPeer], no source interface.
+type BGPPeerIf struct {
+	VRFName string  `json:"-"`
+	ID      string  `json:"id"`
+	AdminSt AdminSt `json:"adminSt"`
+	// Asn is empty for peers with a dynamic AS number, which is indicated by AsnType.
+	Asn           string          `json:"asn,omitempty"`
+	AsnType       PeerAsnType     `json:"asnType"`
+	Name          string          `json:"name,omitempty"`
+	LocalAsnItems BGPPeerLocalAsn `json:"localasn-items,omitzero"`
+	AfItems       struct {
+		PeerAfList gnmiext.List[AddressFamily, *BGPPeerAfItem] `json:"PeerAf-list,omitzero"`
+	} `json:"af-items,omitzero"`
+}
+
+func (*BGPPeerIf) IsListItem() {}
+
+func (p *BGPPeerIf) XPath() string {
+	return "System/bgp-items/inst-items/dom-items/Dom-list[name=" + p.VRFName + "]/peerif-items/PeerIf-list[id=" + p.ID + "]"
 }
 
 type AsnPropagate string
@@ -273,6 +304,19 @@ func (*BGPPeerOperItems) IsListItem() {}
 
 func (p *BGPPeerOperItems) XPath() string {
 	return "System/bgp-items/inst-items/dom-items/Dom-list[name=" + p.VRFName + "]/peer-items/Peer-list[addr=" + p.Addr + "]/ent-items/PeerEntry-list[addr=" + p.Addr + "]"
+}
+
+// BGPPeerIfOperItems holds the peer entries of an unnumbered BGP peer. The entries are
+// keyed by the link-local address of the peer, which is only learned at runtime, so the
+// whole container is retrieved instead of a single entry.
+type BGPPeerIfOperItems struct {
+	VRFName       string              `json:"-"`
+	ID            string              `json:"-"`
+	PeerEntryList []*BGPPeerOperItems `json:"PeerEntry-list,omitempty"`
+}
+
+func (p *BGPPeerIfOperItems) XPath() string {
+	return "System/bgp-items/inst-items/dom-items/Dom-list[name=" + p.VRFName + "]/peerif-items/PeerIf-list[id=" + p.ID + "]/ent-items"
 }
 
 type BGPPeerAfOperItems struct {

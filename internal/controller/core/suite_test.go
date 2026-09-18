@@ -4,6 +4,7 @@
 package core
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -808,14 +809,14 @@ func (p *Provider) DeleteBGP(context.Context, *provider.DeleteBGPRequest) error 
 func (p *Provider) EnsureBGPPeer(_ context.Context, req *provider.EnsureBGPPeerRequest) error {
 	p.Lock()
 	defer p.Unlock()
-	p.BGPPeers.Insert(req.BGPPeer.Spec.Address)
+	p.BGPPeers.Insert(cmp.Or(req.PeerInterface, req.BGPPeer.Spec.Address))
 	return nil
 }
 
 func (p *Provider) DeleteBGPPeer(_ context.Context, req *provider.DeleteBGPPeerRequest) error {
 	p.Lock()
 	defer p.Unlock()
-	p.BGPPeers.Delete(req.BGPPeer.Spec.Address)
+	p.BGPPeers.Delete(cmp.Or(req.PeerInterface, req.BGPPeer.Spec.Address))
 	return nil
 }
 

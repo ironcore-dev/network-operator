@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
@@ -444,6 +445,13 @@ func (p *Provider) DeleteBGP(context.Context, *provider.DeleteBGPRequest) error 
 }
 
 func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPeerRequest) error {
+	if req.BGPPeer.Spec.InterfaceRef != nil {
+		return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+			Field:       "spec.interfaceRef",
+			Description: "iosxr provider does not support unnumbered BGP peering",
+		})
+	}
+
 	// Ensure that the BGP instance exists and is configured on the "default" domain
 	bgp := new(BGP)
 	bgp.InstanceName = BGPDefaultInstance
@@ -540,6 +548,11 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 }
 
 func (p *Provider) DeleteBGPPeer(ctx context.Context, req *provider.DeleteBGPPeerRequest) error {
+	// Unnumbered peers are rejected by EnsureBGPPeer, so there is nothing to delete.
+	if req.BGPPeer.Spec.InterfaceRef != nil {
+		return nil
+	}
+
 	// Fetch the default BGP instance id
 	bgp := new(BGP)
 	bgp.InstanceName = BGPDefaultInstance

@@ -136,6 +136,7 @@ k8s_yaml('./config/samples/v1alpha1_bgppeer.yaml')
 k8s_resource(new_name='peer-spine1', objects=['leaf1-spine1:bgppeer'], resource_deps=['bgp', 'lo0'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='peer-spine2', objects=['leaf1-spine2:bgppeer'], resource_deps=['bgp', 'lo0'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='peer-spine1-filtered', objects=['leaf1-spine1-filtered:bgppeer'], resource_deps=['bgp', 'lo0', 'bgp-import-policy'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='peer-spine1-unnumbered', objects=['leaf1-spine1-unnumbered:bgppeer'], resource_deps=['bgp', 'eth1-4'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_ospf.yaml')
 k8s_resource(new_name='ospf-underlay', objects=['underlay:ospf'], resource_deps=['lo0', 'lo1', 'eth1-1', 'eth1-2'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
@@ -158,6 +159,7 @@ k8s_resource(new_name='vpcdomain', objects=['leaf1-vpcdomain:vpcdomain', 'leaf1-
 k8s_yaml('./config/samples/cisco/nx/v1alpha1_interfaceconfig.yaml')
 k8s_resource(new_name='spanning-tree-network', objects=['spanning-tree-network:interfaceconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='lacp-vpc', objects=['lacp-vpc:interfaceconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='unnumbered-uplink', objects=['unnumbered-uplink:interfaceconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_nve.yaml')
 k8s_resource(new_name='nve1', objects=['nve1:networkvirtualizationedge'], trigger_mode=TRIGGER_MODE_MANUAL, resource_deps=['lo0', 'lo1'], auto_init=False, labels=['samples'])

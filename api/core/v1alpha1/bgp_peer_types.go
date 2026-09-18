@@ -13,6 +13,11 @@ import (
 )
 
 // BGPPeerSpec defines the desired state of BGPPeer
+// +kubebuilder:validation:XValidation:rule="has(self.address) != has(self.interfaceRef)", message="exactly one of address or interfaceRef must be specified"
+// +kubebuilder:validation:XValidation:rule="!has(self.interfaceRef) || !has(self.localAddress)", message="localAddress must not be specified for interface-based peers"
+// +kubebuilder:validation:XValidation:rule="type(self.asNumber) != string || self.asNumber != 'external' || has(self.interfaceRef)", message="asNumber external requires interfaceRef"
+// +kubebuilder:validation:XValidation:rule="(!has(self.address) && !has(oldSelf.address)) || (has(self.address) && has(oldSelf.address) && self.address == oldSelf.address)",message="Address is immutable"
+// +kubebuilder:validation:XValidation:rule="(!has(self.interfaceRef) && !has(oldSelf.interfaceRef)) || (has(self.interfaceRef) && has(oldSelf.interfaceRef) && self.interfaceRef == oldSelf.interfaceRef)",message="InterfaceRef is immutable"
 type BGPPeerSpec struct {
 	// DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
 	// Immutable.
@@ -27,7 +32,9 @@ type BGPPeerSpec struct {
 
 	// BgpRef is a reference to the BGP instance this peer belongs to.
 	// The BGP object must exist in the same namespace.
+	// Immutable.
 	// +required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="BgpRef is immutable"
 	BgpRef LocalObjectReference `json:"bgpRef"`
 
 	// AdminState indicates whether this BGP peer is administratively up or down.
@@ -37,12 +44,26 @@ type BGPPeerSpec struct {
 	AdminState AdminState `json:"adminState,omitempty"`
 
 	// Address is the IPv4 address of the BGP peer.
-	// +required
+	// Mutually exclusive with InterfaceRef: exactly one of both must be specified.
+	// Immutable.
+	// +optional
 	// +kubebuilder:validation:Format=ipv4
-	Address string `json:"address"`
+	Address string `json:"address,omitempty"`
+
+	// InterfaceRef is a reference to an Interface resource over which an unnumbered
+	// (interface-based) BGP session is established. The peers discover each other over
+	// their IPv6 link-local addresses, so the link needs no addressing of its own.
+	// The referenced Interface must belong to the same Device, exist in the same namespace,
+	// and be configured for link-local operation (spec.ipv6.useLinkLocalOnly).
+	// Mutually exclusive with Address: exactly one of both must be specified.
+	// Immutable.
+	// +optional
+	InterfaceRef *LocalObjectReference `json:"interfaceRef,omitempty"`
 
 	// ASNumber is the autonomous system number (ASN) of the BGP peer.
 	// Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396.
+	// The special value "external" configures a dynamic AS number, accepting any AS number
+	// that differs from the local one. It is only valid together with InterfaceRef.
 	// +required
 	ASNumber intstr.IntOrString `json:"asNumber"`
 
@@ -64,6 +85,16 @@ type BGPPeerSpec struct {
 	// LocalAS configures the local AS number and how it factors into BGP announcements for this peer.
 	// +optional
 	LocalAS *LocalAS `json:"localAS,omitempty"`
+}
+
+// BGPPeerASNumberExternal is the value of BGPPeerSpec.ASNumber that requests a dynamic
+// AS number for the peer. The session is established with any AS number that differs from
+// the local one, which is the common setup for unnumbered eBGP peerings.
+const BGPPeerASNumberExternal = "external"
+
+// IsExternalASNumber reports whether the peer is configured with a dynamic AS number.
+func (s *BGPPeerSpec) IsExternalASNumber() bool {
+	return s.ASNumber.Type == intstr.String && s.ASNumber.StrVal == BGPPeerASNumberExternal
 }
 
 // LocalAS defines the local AS configuration and how it factors in BGP announcements.
@@ -178,6 +209,12 @@ type BGPPeerStatus struct {
 	// +patchMergeKey=afiSafi
 	AddressFamilies []AddressFamilyStatus `json:"addressFamilies,omitempty"`
 
+	// PeerInterface is the device-level name of the interface an unnumbered peer is
+	// configured over. It is recorded so that the peer can still be removed from the
+	// device after the referenced Interface has been deleted.
+	// +optional
+	PeerInterface string `json:"peerInterface,omitempty"`
+
 	// ObservedGeneration reflects the .metadata.generation that was last processed by the controller.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
@@ -254,6 +291,7 @@ const (
 // +kubebuilder:resource:singular=bgppeer
 // +kubebuilder:resource:shortName=peer;bgpneighbor
 // +kubebuilder:printcolumn:name="Peer Address",type=string,JSONPath=`.spec.address`
+// +kubebuilder:printcolumn:name="Peer Interface",type=string,JSONPath=`.spec.interfaceRef.name`
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
 // +kubebuilder:printcolumn:name="Admin State",type=string,JSONPath=`.spec.adminState`
 // +kubebuilder:printcolumn:name="AS Number",type=string,JSONPath=`.spec.asNumber`

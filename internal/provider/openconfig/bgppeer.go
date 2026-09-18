@@ -24,6 +24,13 @@ const bgpPeerGroupName = "NETOP-DEFAULT"
 func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPeerRequest) error {
 	spec := req.BGPPeer.Spec
 
+	if spec.InterfaceRef != nil {
+		return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+			Field:       "spec.interfaceRef",
+			Description: "openconfig provider does not support unnumbered BGP peering on SRLinux",
+		})
+	}
+
 	peerAS, err := asnToUint32(spec.ASNumber)
 	if err != nil {
 		return err
@@ -143,6 +150,11 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 }
 
 func (p *Provider) DeleteBGPPeer(ctx context.Context, req *provider.DeleteBGPPeerRequest) error {
+	// Unnumbered peers are rejected by EnsureBGPPeer, so there is nothing to delete.
+	if req.BGPPeer.Spec.InterfaceRef != nil {
+		return nil
+	}
+
 	ni := DefaultNetworkInstance
 	if req.VRF != nil {
 		ni = req.VRF.Spec.Name
