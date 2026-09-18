@@ -263,3 +263,20 @@ func Test_NewMTU(t *testing.T) {
 		})
 	}
 }
+
+func Test_DeleteBGPPeer_Unnumbered(t *testing.T) {
+	// The mock has no functions set, so any device call panics.
+	p := &Provider{client: &gnmiext.ClientMock{}}
+
+	err := p.DeleteBGPPeer(t.Context(), &provider.DeleteBGPPeerRequest{
+		BGPPeer: &v1alpha1.BGPPeer{
+			Spec: v1alpha1.BGPPeerSpec{
+				InterfaceRef: &v1alpha1.LocalObjectReference{Name: "eth1-1"},
+			},
+		},
+		PeerInterface: "HundredGigE0/0/0/1",
+	})
+	if err != nil {
+		t.Fatalf("DeleteBGPPeer() error = %v", err)
+	}
+}

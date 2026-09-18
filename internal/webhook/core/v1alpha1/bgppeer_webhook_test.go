@@ -36,6 +36,61 @@ var _ = Describe("BGPPeer Webhook", func() {
 		Expect(obj).NotTo(BeNil(), "Expected obj to be initialized")
 	})
 
+	Context("When creating an unnumbered BGPPeer", func() {
+		It("Should admit an interface-based peer with a dynamic AS number", func() {
+			obj.Spec.Address = ""
+			obj.Spec.InterfaceRef = &v1alpha1.LocalObjectReference{Name: "eth1-1"}
+			obj.Spec.ASNumber = intstr.FromString(v1alpha1.BGPPeerASNumberExternal)
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("Should admit an interface-based peer with an explicit AS number", func() {
+			obj.Spec.Address = ""
+			obj.Spec.InterfaceRef = &v1alpha1.LocalObjectReference{Name: "eth1-1"}
+			obj.Spec.ASNumber = intstr.FromInt32(65020)
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("Should deny both address and interfaceRef", func() {
+			obj.Spec.InterfaceRef = &v1alpha1.LocalObjectReference{Name: "eth1-1"}
+			obj.Spec.ASNumber = intstr.FromInt32(65001)
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(MatchError(ContainSubstring("exactly one of address or interfaceRef")))
+		})
+
+		It("Should deny neither address nor interfaceRef", func() {
+			obj.Spec.Address = ""
+			obj.Spec.ASNumber = intstr.FromInt32(65001)
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(MatchError(ContainSubstring("exactly one of address or interfaceRef")))
+		})
+
+		It("Should deny localAddress on an interface-based peer", func() {
+			obj.Spec.Address = ""
+			obj.Spec.InterfaceRef = &v1alpha1.LocalObjectReference{Name: "eth1-1"}
+			obj.Spec.ASNumber = intstr.FromString(v1alpha1.BGPPeerASNumberExternal)
+			obj.Spec.LocalAddress = &v1alpha1.BGPPeerLocalAddress{
+				InterfaceRef: v1alpha1.LocalObjectReference{Name: "lo0"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(MatchError(ContainSubstring("localAddress must not be specified")))
+		})
+
+		It("Should deny a dynamic AS number without interfaceRef", func() {
+			obj.Spec.ASNumber = intstr.FromString(v1alpha1.BGPPeerASNumberExternal)
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(MatchError(ContainSubstring("requires interfaceRef")))
+		})
+	})
+
 	Context("When creating BGPPeer under Validating Webhook", func() {
 		It("Should admit creation with valid integer AS number", func() {
 			obj.Spec.ASNumber = intstr.FromInt32(65001)

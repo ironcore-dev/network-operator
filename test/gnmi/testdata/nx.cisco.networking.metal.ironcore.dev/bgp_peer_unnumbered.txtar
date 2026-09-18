@@ -1,0 +1,206 @@
+-- interfaces/uplink --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: uplink
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: eth1/1
+  adminState: Up
+  type: Physical
+  ipv6:
+    useLinkLocalOnly: true
+
+-- bgps/fabric-bgp --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGP
+metadata:
+  name: fabric-bgp
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  asNumber: 65010
+  routerId: "10.0.0.1"
+
+-- bgppeers/spine1 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGPPeer
+metadata:
+  name: spine1
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  bgpRef:
+    name: fabric-bgp
+  interfaceRef:
+    name: uplink
+  asNumber: external
+  description: "Unnumbered peering with spine1"
+  addressFamilies:
+    ipv4Unicast:
+      enabled: true
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "accessVlan": "unknown",
+            "adminSt": "up",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "FECMode": "auto",
+            "id": "eth1/1",
+            "layer": "Layer3",
+            "mtu": 1500,
+            "medium": "broadcast",
+            "mode": "access",
+            "nativeVlan": "unknown",
+            "userCfgdFlags": "admin_layer,admin_state",
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            },
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            }
+          }
+        ]
+      }
+    },
+    "ipv6-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "eth1/1",
+                    "useLinkLocalAddr": "enabled"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "fm-items": {
+      "bgp-items": {
+        "adminSt": "enabled"
+      },
+      "evpn-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "bgp-items": {
+      "inst-items": {
+        "adminSt": "enabled",
+        "asn": "65010",
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "rtrId": "10.0.0.1",
+              "rtrIdAuto": "disabled",
+              "peerif-items": {
+                "PeerIf-list": [
+                  {
+                    "id": "eth1/1",
+                    "adminSt": "enabled",
+                    "asnType": "external",
+                    "name": "Unnumbered peering with spine1",
+                    "af-items": {
+                      "PeerAf-list": [
+                        {
+                          "ctrl": "DME_UNSET_PROPERTY_MARKER",
+                          "sendComExt": "disabled",
+                          "sendComStd": "disabled",
+                          "type": "ipv4-ucast"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+-- state/delete --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "accessVlan": "vlan-1",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "FECMode": "auto",
+            "id": "eth1/1",
+            "layer": "Layer2",
+            "mtu": 1500,
+            "medium": "broadcast",
+            "mode": "access",
+            "nativeVlan": "vlan-1",
+            "userCfgdFlags": "",
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            },
+            "trunkVlans": "1-4094"
+          }
+        ]
+      }
+    },
+    "ipv6-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": []
+              }
+            }
+          ]
+        }
+      }
+    },
+    "fm-items": {
+      "bgp-items": {
+        "adminSt": "enabled"
+      },
+      "evpn-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "bgp-items": {}
+  }
+}

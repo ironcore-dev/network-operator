@@ -42,6 +42,32 @@ func init() {
 	})
 	Register("bgp_peer", bgpPeer)
 
+	// Unnumbered peer with a dynamic AS number ("remote-as external"). The device
+	// reports asn as an empty string in that case, so it is omitted from the payload.
+	bgpPeerIf := &BGPPeerIf{
+		VRFName: DefaultVRFName,
+		ID:      "eth1/1",
+		AdminSt: AdminStEnabled,
+		AsnType: PeerAsnTypeExternal,
+		Name:    "Unnumbered peering with spine",
+	}
+	bgpPeerIf.AfItems.PeerAfList.Set(&BGPPeerAfItem{
+		SendComExt: AdminStDisabled,
+		SendComStd: AdminStDisabled,
+		Type:       AddressFamilyIPv4Unicast,
+	})
+	Register("bgp_peer_if", bgpPeerIf)
+
+	// Unnumbered peer with an explicit AS number ("remote-as 65020").
+	bgpPeerIfAsn := &BGPPeerIf{
+		VRFName: DefaultVRFName,
+		ID:      "eth1/2",
+		AdminSt: AdminStEnabled,
+		Asn:     "65020",
+		AsnType: PeerAsnTypeNone,
+	}
+	Register("bgp_peer_if_asn", bgpPeerIfAsn)
+
 	bgwPeer := &MultisitePeer{Addr: "1.1.1.1", PeerType: BorderGatewayPeerTypeFabricExternal}
 	Register("bgw_peer", bgwPeer)
 
