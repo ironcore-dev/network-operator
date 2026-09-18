@@ -98,7 +98,7 @@ cleanup-test-e2e: ## Tear down the Kind cluster used for e2e tests
 	@$(KIND) delete cluster --name $(KIND_CLUSTER)
 
 # Provider used in test-gnmi
-PROVIDER ?= openconfig
+PROVIDER ?= openconfig.networking.metal.ironcore.dev
 
 # Number of parallel Ginkgo processes
 GINKGO_PROCS ?= $(shell nproc 2>/dev/null || sysctl -n hw.logicalcpu)
