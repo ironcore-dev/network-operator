@@ -64,10 +64,19 @@ func (n *NVE) XPath() string {
 	return "System/eps-items/epId-items/Ep-list[epId=1]"
 }
 
+type SuppressARP string
+
+const (
+	suppressARPOff      SuppressARP = "off"
+	suppressARPEnabled  SuppressARP = "enabled"
+	suppressARPDisabled SuppressARP = "disabled"
+)
+
 type VNI struct {
 	AssociateVrfFlag bool           `json:"associateVrfFlag"`
 	McastGroup       Option[string] `json:"mcastGroup"`
 	Vni              int32          `json:"vni"`
+	SuppressARP      SuppressARP    `json:"suppressARP"`
 }
 
 func (*VNI) IsListItem() {}

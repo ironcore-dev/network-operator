@@ -18,10 +18,12 @@ func init() {
 	Register("nve", nve)
 
 	vni := &VNI{
-		Vni:        100010,
-		McastGroup: NewOption("239.1.1.100"),
+		Vni:         100010,
+		McastGroup:  NewOption("239.1.1.100"),
+		SuppressARP: suppressARPOff,
 	}
 	Register("vni", vni)
+
 	nveInfraVLANs := &NVEInfraVLANs{
 		InfraVLANList: []*NVEInfraVLAN{
 			{ID: 4052},
