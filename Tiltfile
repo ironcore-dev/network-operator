@@ -41,7 +41,7 @@ docker_build('controller:latest', '.', only=[
 local_resource('controller-gen', 'make generate', deps=['api/', 'hack/boilerplate.go.txt'], labels=['operator'])
 local_resource('crds', 'make install', deps=['api/'], labels=['operator'])
 
-provider = os.getenv('PROVIDER', 'openconfig')
+provider = os.getenv('PROVIDER')
 
 manager = kustomize('config/develop')
 manager = str(manager)
@@ -60,7 +60,8 @@ k8s_resource('rustfs-create-buckets', resource_deps=['rustfs'])
 # Sample resources with manual trigger mode
 def device_yaml():
     decoded = read_yaml_stream('./config/samples/v1alpha1_device.yaml')
-    decoded[0]['spec']['provider'] = provider
+    if provider != None:
+        decoded[0]['spec']['provider'] = provider
     ip = str(local("docker run --rm busybox:1.37.0 nslookup -type=a host.docker.internal 2>/dev/null | grep 'Address:' | tail -n 1 | awk '{print $2}' || echo ''", quiet=True)).rstrip('\n')
     if len(ip) > 0:
         decoded[0]['spec']['endpoint']['address'] = ip+':9339'
