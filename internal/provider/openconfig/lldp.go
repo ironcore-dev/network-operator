@@ -35,7 +35,7 @@ func (p *Provider) EnsureLLDP(ctx context.Context, req *provider.LLDPRequest) er
 	return p.client.Do(ctx, sb)
 }
 
-func (p *Provider) DeleteLLDP(ctx context.Context, req *provider.LLDPRequest) error {
+func (p *Provider) DeleteLLDP(ctx context.Context) error {
 	// LLDP cannot be fully deleted on SRLinux — disable it.
 	return p.client.Update(ctx, &LLDPConfig{Enabled: false})
 }

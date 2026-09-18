@@ -193,7 +193,9 @@ func (p *Provider) EnsureInterface(context.Context, *provider.EnsureInterfaceReq
 	return nil
 }
 
-func (p *Provider) DeleteInterface(context.Context, *provider.InterfaceRequest) error { return nil }
+func (p *Provider) DeleteInterface(context.Context, *provider.DeleteInterfaceRequest) error {
+	return nil
+}
 
 func (p *Provider) GetInterfaceStatus(context.Context, *provider.InterfaceRequest) (provider.InterfaceStatus, error) {
 	return provider.InterfaceStatus{}, nil

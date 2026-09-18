@@ -131,22 +131,12 @@ func (r *EVPNInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
-	var cfg *provider.ProviderConfig
-	if obj.Spec.ProviderConfigRef != nil {
-		cfg, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	s := &eviScope{
-		Device:         device,
-		EVPNInstance:   obj,
-		Connection:     conn,
-		ProviderConfig: cfg,
-		Provider:       prov,
+		Device:       device,
+		EVPNInstance: obj,
+		Connection:   conn,
+		Provider:     prov,
 	}
-
 	if !obj.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 			if err := r.finalize(ctx, s); err != nil {
@@ -161,6 +151,13 @@ func (r *EVPNInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 		log.V(3).Info("Resource is being deleted, skipping reconciliation")
 		return ctrl.Result{}, nil
+	}
+
+	if obj.Spec.ProviderConfigRef != nil {
+		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
@@ -502,10 +499,9 @@ func (r *EVPNInstanceReconciler) finalize(ctx context.Context, s *eviScope) (ret
 		}
 	}()
 
-	return s.Provider.DeleteEVPNInstance(ctx, &provider.EVPNInstanceRequest{
-		EVPNInstance:   s.EVPNInstance,
-		ProviderConfig: s.ProviderConfig,
-		VRF:            vrf,
+	return s.Provider.DeleteEVPNInstance(ctx, &provider.DeleteEVPNInstanceRequest{
+		EVPNInstance: s.EVPNInstance,
+		VRF:          vrf,
 	})
 }
 

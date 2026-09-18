@@ -188,7 +188,7 @@ type InterfaceProvider interface {
 	// EnsureInterface call is responsible for Interface realization on the provider.
 	EnsureInterface(context.Context, *EnsureInterfaceRequest) error
 	// DeleteInterface call is responsible for Interface deletion on the provider.
-	DeleteInterface(context.Context, *InterfaceRequest) error
+	DeleteInterface(context.Context, *DeleteInterfaceRequest) error
 	// GetInterfaceStatus call is responsible for retrieving the current status of the Interface from the provider.
 	GetInterfaceStatus(context.Context, *InterfaceRequest) (InterfaceStatus, error)
 	// InterfaceNameEqual reports whether two interface names refer to the same interface on the provider.
@@ -224,6 +224,10 @@ type EnsureInterfaceRequest struct {
 type InterfaceRequest struct {
 	Interface      *v1alpha1.Interface
 	ProviderConfig *ProviderConfig
+}
+
+type DeleteInterfaceRequest struct {
+	Interface *v1alpha1.Interface
 }
 
 type IPv4 interface {
@@ -315,8 +319,7 @@ type EnsureUserRequest struct {
 }
 
 type DeleteUserRequest struct {
-	Username       string
-	ProviderConfig *ProviderConfig
+	Username string
 }
 
 // DNSProvider is the interface for the realization of the DNS objects over different providers.
@@ -356,12 +359,16 @@ type ACLProvider interface {
 	// EnsureACL call is responsible for AccessControlList realization on the provider.
 	EnsureACL(context.Context, *ACLRequest) error
 	// DeleteACL call is responsible for AccessControlList deletion on the provider.
-	DeleteACL(context.Context, *ACLRequest) error
+	DeleteACL(context.Context, *DeleteACLRequest) error
 }
 
 type ACLRequest struct {
 	ACL            *v1alpha1.AccessControlList
 	ProviderConfig *ProviderConfig
+}
+
+type DeleteACLRequest struct {
+	ACL *v1alpha1.AccessControlList
 }
 
 // CertificateProvider is the interface for the realization of the Certificate objects over different providers.
@@ -381,8 +388,7 @@ type EnsureCertificateRequest struct {
 }
 
 type DeleteCertificateRequest struct {
-	ID             string
-	ProviderConfig *ProviderConfig
+	ID string
 }
 
 // SNMPProvider is the interface for the realization of the SNMP objects over different providers.
@@ -392,15 +398,11 @@ type SNMPProvider interface {
 	// EnsureSNMP call is responsible for SNMP realization on the provider.
 	EnsureSNMP(context.Context, *EnsureSNMPRequest) error
 	// DeleteSNMP call is responsible for SNMP deletion on the provider.
-	DeleteSNMP(context.Context, *DeleteSNMPRequest) error
+	DeleteSNMP(context.Context) error
 }
 
 type EnsureSNMPRequest struct {
 	SNMP           *v1alpha1.SNMP
-	ProviderConfig *ProviderConfig
-}
-
-type DeleteSNMPRequest struct {
 	ProviderConfig *ProviderConfig
 }
 
@@ -455,8 +457,7 @@ type EnsureISISRequest struct {
 }
 
 type DeleteISISRequest struct {
-	ISIS           *v1alpha1.ISIS
-	ProviderConfig *ProviderConfig
+	ISIS *v1alpha1.ISIS
 }
 
 // VRFProvider is the interface for the realization of the VRF objects over different providers.
@@ -466,13 +467,17 @@ type VRFProvider interface {
 	// EnsureVRF call is responsible for VRF realization on the provider.
 	EnsureVRF(context.Context, *VRFRequest) error
 	// DeleteVRF call is responsible for VRF deletion on the provider.
-	DeleteVRF(context.Context, *VRFRequest) error
+	DeleteVRF(context.Context, *DeleteVRFRequest) error
 }
 
 // VRFRequest is the request for handling a VRF on the provider.
 type VRFRequest struct {
 	VRF            *v1alpha1.VRF
 	ProviderConfig *ProviderConfig
+}
+
+type DeleteVRFRequest struct {
+	VRF *v1alpha1.VRF
 }
 
 // PIMProvider is the interface for the realization of the PIM objects over different providers.
@@ -482,7 +487,7 @@ type PIMProvider interface {
 	// EnsurePIM call is responsible for PIM realization on the provider.
 	EnsurePIM(context.Context, *EnsurePIMRequest) error
 	// DeletePIM call is responsible for PIM deletion on the provider.
-	DeletePIM(context.Context, *DeletePIMRequest) error
+	DeletePIM(context.Context) error
 }
 
 type EnsurePIMRequest struct {
@@ -494,11 +499,6 @@ type EnsurePIMRequest struct {
 type PIMInterface struct {
 	Interface *v1alpha1.Interface
 	Mode      v1alpha1.PIMInterfaceMode
-}
-
-type DeletePIMRequest struct {
-	PIM            *v1alpha1.PIM
-	ProviderConfig *ProviderConfig
 }
 
 // BGPProvider is the interface for the realization of the BGP objects over different providers.
@@ -524,8 +524,7 @@ type EnsureBGPRequest struct {
 }
 
 type DeleteBGPRequest struct {
-	BGP            *v1alpha1.BGP
-	ProviderConfig *ProviderConfig
+	BGP *v1alpha1.BGP
 	// VRF is the resolved VRF referenced by BGP.Spec.VrfRef.
 	// When nil, the provider shall use the default VRF.
 	VRF *v1alpha1.VRF
@@ -561,8 +560,7 @@ type EnsureBGPPeerRequest struct {
 }
 
 type DeleteBGPPeerRequest struct {
-	BGPPeer        *v1alpha1.BGPPeer
-	ProviderConfig *ProviderConfig
+	BGPPeer *v1alpha1.BGPPeer
 	// BGP is the resolved BGP instance referenced by BGPPeer.Spec.BgpRef.
 	BGP *v1alpha1.BGP
 	// VRF is the resolved VRF referenced by BGP.Spec.VrfRef.
@@ -614,8 +612,7 @@ type OSPFInterface struct {
 }
 
 type DeleteOSPFRequest struct {
-	OSPF           *v1alpha1.OSPF
-	ProviderConfig *ProviderConfig
+	OSPF *v1alpha1.OSPF
 }
 
 type OSPFStatusRequest struct {
@@ -647,7 +644,7 @@ type VLANProvider interface {
 	// EnsureVLAN call is responsible for VLAN realization on the provider.
 	EnsureVLAN(context.Context, *VLANRequest) error
 	// DeleteVLAN call is responsible for VLAN deletion on the provider.
-	DeleteVLAN(context.Context, *VLANRequest) error
+	DeleteVLAN(context.Context, *DeleteVLANRequest) error
 	// GetVLANStatus call is responsible for retrieving the current status of the VLAN from the provider.
 	GetVLANStatus(context.Context, *VLANRequest) (VLANStatus, error)
 }
@@ -662,6 +659,10 @@ type VLANRequest struct {
 	ProviderConfig *ProviderConfig
 }
 
+type DeleteVLANRequest struct {
+	VLAN *v1alpha1.VLAN
+}
+
 // EVPNInstanceProvider is the interface for the realization of the EVPNInstance objects over different providers.
 type EVPNInstanceProvider interface {
 	Provider
@@ -669,7 +670,7 @@ type EVPNInstanceProvider interface {
 	// EnsureEVPNInstance call is responsible for EVPNInstance realization on the provider.
 	EnsureEVPNInstance(context.Context, *EVPNInstanceRequest) error
 	// DeleteEVPNInstance call is responsible for EVPNInstance deletion on the provider.
-	DeleteEVPNInstance(context.Context, *EVPNInstanceRequest) error
+	DeleteEVPNInstance(context.Context, *DeleteEVPNInstanceRequest) error
 }
 
 type EVPNInstanceRequest struct {
@@ -679,6 +680,11 @@ type EVPNInstanceRequest struct {
 	VRF            *v1alpha1.VRF
 }
 
+type DeleteEVPNInstanceRequest struct {
+	EVPNInstance *v1alpha1.EVPNInstance
+	VRF          *v1alpha1.VRF
+}
+
 // PrefixSetProvider is the interface for the realization of the PrefixSet objects over different providers.
 type PrefixSetProvider interface {
 	Provider
@@ -686,12 +692,16 @@ type PrefixSetProvider interface {
 	// EnsurePrefixSet call is responsible for PrefixSet realization on the provider.
 	EnsurePrefixSet(context.Context, *PrefixSetRequest) error
 	// DeletePrefixSet call is responsible for PrefixSet deletion on the provider.
-	DeletePrefixSet(context.Context, *PrefixSetRequest) error
+	DeletePrefixSet(context.Context, *DeletePrefixSetRequest) error
 }
 
 type PrefixSetRequest struct {
 	PrefixSet      *v1alpha1.PrefixSet
 	ProviderConfig *ProviderConfig
+}
+
+type DeletePrefixSetRequest struct {
+	PrefixSet *v1alpha1.PrefixSet
 }
 
 // RoutingPolicyProvider is the interface for the realization of the RoutingPolicy objects over different providers.
@@ -734,7 +744,7 @@ type NVEProvider interface {
 	// EnsureVRF call is responsible for VRF realization on the provider.
 	EnsureNVE(context.Context, *NVERequest) error
 	// DeleteVRF call is responsible for VRF deletion on the provider.
-	DeleteNVE(context.Context, *NVERequest) error
+	DeleteNVE(context.Context) error
 	// GetInterfaceStatus call is responsible for retrieving the current status of the Interface from the provider.
 	GetNVEStatus(context.Context, *NVERequest) (NVEStatus, error)
 }
@@ -761,8 +771,7 @@ type EnsureAAARequest struct {
 }
 
 type DeleteAAARequest struct {
-	AAA            *v1alpha1.AAA
-	ProviderConfig *ProviderConfig
+	AAA *v1alpha1.AAA
 }
 
 type NVERequest struct {
@@ -794,7 +803,7 @@ type LLDPProvider interface {
 	// EnsureLLDP realizes LLDP configuration.
 	EnsureLLDP(context.Context, *LLDPRequest) error
 	// DeleteLLDP deletes the LLDP configuration.
-	DeleteLLDP(context.Context, *LLDPRequest) error
+	DeleteLLDP(context.Context) error
 	// GetLLDPStatus call retrieves the current status of the LLDP configuration.
 	GetLLDPStatus(context.Context, *LLDPRequest) (LLDPStatus, error)
 }
@@ -819,7 +828,7 @@ type DHCPRelayProvider interface {
 	// EnsureDHCPRelay realizes DHCP Relay configuration.
 	EnsureDHCPRelay(context.Context, *DHCPRelayRequest) error
 	// DeleteDHCPRelay deletes the DHCP Relay configuration.
-	DeleteDHCPRelay(context.Context, *DHCPRelayRequest) error
+	DeleteDHCPRelay(context.Context, *DeleteDHCPRelayRequest) error
 }
 
 type DHCPRelayRequest struct {
@@ -828,6 +837,11 @@ type DHCPRelayRequest struct {
 	Interface      *v1alpha1.Interface
 	VRF            *v1alpha1.VRF
 	Interfaces     []v1alpha1.Interface // deprecated
+}
+
+type DeleteDHCPRelayRequest struct {
+	DHCPRelay *v1alpha1.DHCPRelay
+	Interface *v1alpha1.Interface
 }
 
 type EthernetSegmentProvider interface {
@@ -850,7 +864,6 @@ type EnsureEthernetSegmentRequest struct {
 type DeleteEthernetSegmentRequest struct {
 	EthernetSegment *v1alpha1.EthernetSegment
 	Interface       *v1alpha1.Interface
-	ProviderConfig  *ProviderConfig
 }
 
 type EthernetSegmentStatusRequest struct {

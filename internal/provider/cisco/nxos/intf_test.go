@@ -4,11 +4,47 @@
 package nxos
 
 import (
+	"context"
 	"encoding/json"
+	"slices"
 	"testing"
 
 	corev1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
+
+// TestDeleteAggregateInterfaceDeletesSpanningTree verifies that deletion cleans up spanning-tree settings outside the aggregate interface subtree.
+func TestDeleteAggregateInterfaceDeletesSpanningTree(t *testing.T) {
+	var paths []string
+	client := &gnmiext.ClientMock{
+		GetConfigFunc: func(_ context.Context, elements ...gnmiext.DataElement) error {
+			if _, ok := elements[0].(*SpanningTree); ok {
+				return nil
+			}
+			return gnmiext.ErrNil
+		},
+		DoFunc: func(_ context.Context, builder *gnmiext.SetBuilder) error {
+			builder.Split(func(element gnmiext.DataElement) bool {
+				paths = append(paths, element.XPath())
+				return false
+			})
+			return nil
+		},
+	}
+	p := &Provider{client: client}
+	req := &provider.DeleteInterfaceRequest{Interface: &corev1alpha1.Interface{
+		Spec: corev1alpha1.InterfaceSpec{Name: "Port-Channel1", Type: corev1alpha1.InterfaceTypeAggregate},
+	}}
+
+	want := (&SpanningTree{IfName: "po1"}).XPath()
+	if err := p.DeleteInterface(t.Context(), req); err != nil {
+		t.Fatalf("DeleteInterface() error = %v", err)
+	}
+	if !slices.Contains(paths, want) {
+		t.Errorf("DeleteInterface() paths = %v, want %q", paths, want)
+	}
+}
 
 func TestTrunkVlansJSON(t *testing.T) {
 	trunkVlans := &TrunkVlans{IfName: "eth1/10", Vlans: "10"}

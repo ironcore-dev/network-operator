@@ -368,7 +368,7 @@ func updateInterface(ctx context.Context, client gnmiext.Client, conf ...gnmiext
 	return nil
 }
 
-func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceRequest) error {
+func (p *Provider) DeleteInterface(ctx context.Context, req *provider.DeleteInterfaceRequest) error {
 	physif := &Iface{}
 	physif.Name = req.Interface.Spec.Name
 
@@ -427,7 +427,7 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 	return p.client.Update(ctx, vrf)
 }
 
-func (p *Provider) DeleteVRF(ctx context.Context, req *provider.VRFRequest) error {
+func (p *Provider) DeleteVRF(ctx context.Context, req *provider.DeleteVRFRequest) error {
 	vrf := &VRF{
 		Name: req.VRF.Spec.Name,
 	}
@@ -603,7 +603,7 @@ func (p *Provider) EnsurePrefixSet(ctx context.Context, req *provider.PrefixSetR
 	return p.client.Update(ctx, s)
 }
 
-func (p *Provider) DeletePrefixSet(ctx context.Context, req *provider.PrefixSetRequest) error {
+func (p *Provider) DeletePrefixSet(ctx context.Context, req *provider.DeletePrefixSetRequest) error {
 	s := new(PrefixList)
 	s.Name = req.PrefixSet.Spec.Name
 	s.Is6 = req.PrefixSet.Is6()

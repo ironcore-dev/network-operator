@@ -9,6 +9,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -143,6 +145,57 @@ var _ = Describe("Interface Controller", func() {
 			By("Verifying the Interface is configured in the provider")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.Ports.Has(name)).To(BeTrue(), "Provider should have Interface configured")
+			}).Should(Succeed())
+		})
+
+		It("Should finalize an Interface when its provider config was deleted first", func() {
+			config := &corev1.ConfigMap{
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
+			}
+			Expect(k8sClient.Create(ctx, config)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, config))).To(Succeed())
+			})
+
+			intf := &v1alpha1.Interface{
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
+					Name:       name,
+					AdminState: v1alpha1.AdminStateUp,
+					Type:       v1alpha1.InterfaceTypePhysical,
+					ProviderConfigRef: &v1alpha1.TypedLocalObjectReference{
+						APIVersion: "v1",
+						Kind:       "ConfigMap",
+						Name:       config.Name,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, intf)).To(Succeed())
+
+			By("Waiting for the Interface to be configured")
+			Eventually(func(g Gomega) {
+				resource := new(v1alpha1.Interface)
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(controllerutil.ContainsFinalizer(resource, v1alpha1.FinalizerName)).To(BeTrue())
+				g.Expect(testProvider.Ports.Has(name)).To(BeTrue())
+			}).Should(Succeed())
+
+			By("Deleting the provider config before the Interface")
+			Expect(k8sClient.Delete(ctx, config)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, client.ObjectKeyFromObject(config), new(corev1.ConfigMap))
+				return apierrors.IsNotFound(err)
+			}).Should(BeTrue())
+
+			By("Deleting the Interface")
+			Expect(k8sClient.Delete(ctx, intf)).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, new(v1alpha1.Interface))
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+				g.Expect(testProvider.Ports.Has(name)).To(BeFalse())
 			}).Should(Succeed())
 		})
 

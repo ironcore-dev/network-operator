@@ -5,13 +5,21 @@ package nxos
 
 import "github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 
-var _ gnmiext.DataElement = (*LLDP)(nil)
+const (
+	defaultLLDPHoldTime  uint16 = 120
+	defaultLLDPInitDelay uint16 = 2
+)
+
+var (
+	_ gnmiext.DataElement = (*LLDP)(nil)
+	_ gnmiext.Defaultable = (*LLDP)(nil)
+)
 
 type LLDP struct {
 	// HoldTime is the number of seconds that a receiving device should hold the information sent by another device before discarding it.
-	HoldTime Option[uint16] `json:"holdTime"`
+	HoldTime uint16 `json:"holdTime"`
 	// InitDelay is the number of seconds for LLDP to initialize on any interface.
-	InitDelay Option[uint16] `json:"initDelayTime"`
+	InitDelay uint16 `json:"initDelayTime"`
 	// IfItems contains the per-interface LLDP configuration.
 	IfItems struct {
 		IfList gnmiext.List[string, *LLDPIfItem] `json:"If-list,omitzero"`
@@ -23,6 +31,11 @@ func (*LLDP) XPath() string {
 }
 
 func (*LLDP) IsListItem() {}
+
+func (l *LLDP) Default() {
+	l.HoldTime = defaultLLDPHoldTime
+	l.InitDelay = defaultLLDPInitDelay
+}
 
 type LLDPIfItem struct {
 	InterfaceName string          `json:"id"`
