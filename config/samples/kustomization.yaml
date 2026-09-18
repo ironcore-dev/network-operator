@@ -45,4 +45,5 @@ resources:
 - cisco/nx/v1alpha1_lldpconfig.yaml
 - cisco/nx/v1alpha1_bgpconfig.yaml
 - cisco/nx/v1alpha1_aaaconfig.yaml
+- cisco/nx/v1alpha1_evpninstanceconfig.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

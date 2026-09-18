@@ -1,0 +1,66 @@
+{{- if .Values.crd.enabled }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    {{- if .Values.crd.keep }}
+    "helm.sh/resource-policy": keep
+    {{- end }}
+    controller-gen.kubebuilder.io/version: v0.22.0
+  name: evpninstanceconfigs.nx.cisco.networking.metal.ironcore.dev
+spec:
+  group: nx.cisco.networking.metal.ironcore.dev
+  names:
+    kind: EVPNInstanceConfig
+    listKind: EVPNInstanceConfigList
+    plural: evpninstanceconfigs
+    shortNames:
+    - nxevi
+    singular: evpninstanceconfig
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: EVPNInstanceConfig is the Schema for the evpninstanceconfigs
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of the EVPNInstanceConfig
+            properties:
+              multisiteIngRepl:
+                default: Disabled
+                description: |-
+                  MultisiteIngRepl controls per-VNI multisite ingress replication.
+                  When enabled, BUM traffic for this VNI is replicated to remote VTEP peers
+                  in the multisite domain via ingress replication.
+                  Typically used on Border Gateway (BGW) nodes.
+                enum:
+                - Disabled
+                - Enabled
+                - EnabledOptimized
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+{{- end }}

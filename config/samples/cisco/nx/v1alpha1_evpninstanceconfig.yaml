@@ -1,0 +1,9 @@
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: EVPNInstanceConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: evpninstanceconfig-multisite
+spec:
+  multisiteIngRepl: EnabledOptimized

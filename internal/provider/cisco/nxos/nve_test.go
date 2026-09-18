@@ -18,10 +18,23 @@ func init() {
 	Register("nve", nve)
 
 	vni := &VNI{
-		Vni:        100010,
-		McastGroup: NewOption("239.1.1.100"),
+		Vni:              100010,
+		McastGroup:       NewOption("239.1.1.100"),
+		MultisiteIngRepl: MultisiteIngReplDisable,
 	}
 	Register("vni", vni)
+
+	vniMultisite := &VNI{
+		Vni:              100010,
+		MultisiteIngRepl: MultisiteIngReplEnable,
+	}
+	Register("vni_multisite_ingress_replication", vniMultisite)
+
+	vniMultisiteOptimized := &VNI{
+		Vni:              100010,
+		MultisiteIngRepl: MultisiteIngReplEnableOptimized,
+	}
+	Register("vni_multisite_ingress_replication_optimized", vniMultisiteOptimized)
 	nveInfraVLANs := &NVEInfraVLANs{
 		InfraVLANList: []*NVEInfraVLAN{
 			{ID: 4052},

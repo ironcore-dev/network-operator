@@ -143,6 +143,9 @@ k8s_resource(new_name='ospf-underlay', objects=['underlay:ospf'], resource_deps=
 k8s_yaml('./config/samples/v1alpha1_vlan.yaml')
 k8s_resource(new_name='vlan-10', objects=['vlan-10:vlan'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
+k8s_yaml('./config/samples/cisco/nx/v1alpha1_evpninstanceconfig.yaml')
+k8s_resource(new_name='evpninstanceconfig-multisite', objects=['evpninstanceconfig-multisite:evpninstanceconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
 k8s_yaml('./config/samples/v1alpha1_evi.yaml')
 k8s_resource(new_name='vxlan-100010', objects=['vxlan-100010:evpninstance'], resource_deps=['vlan-10'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 

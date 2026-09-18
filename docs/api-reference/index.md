@@ -4570,6 +4570,7 @@ Package v1alpha1 contains API Schema definitions for the nx.cisco.networking.met
 - [AAAConfig](#aaaconfig)
 - [BGPConfig](#bgpconfig)
 - [BorderGateway](#bordergateway)
+- [EVPNInstanceConfig](#evpninstanceconfig)
 - [InterfaceConfig](#interfaceconfig)
 - [LLDPConfig](#lldpconfig)
 - [ManagementAccessConfig](#managementaccessconfig)
@@ -4844,6 +4845,40 @@ _Appears in:_
 | `timeout` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | Timeout defines the inactivity timeout for console sessions.<br />If a session is inactive for the specified duration, it will be automatically disconnected.<br />The format is a string representing a duration (e.g., "10m" for 10 minutes). | 10m | Pattern: `^([0-9]+(\.[0-9]+)?(ns\|us\|µs\|ms\|s\|m\|h))+$` <br />Type: string <br />Optional: \{\} <br /> |
 
 
+#### EVPNInstanceConfig
+
+
+
+EVPNInstanceConfig is the Schema for the evpninstanceconfigs API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `nx.cisco.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `EVPNInstanceConfig` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[EVPNInstanceConfigSpec](#evpninstanceconfigspec)_ | spec defines the desired state of the EVPNInstanceConfig |  | Required: \{\} <br /> |
+
+
+#### EVPNInstanceConfigSpec
+
+
+
+EVPNInstanceConfigSpec defines the Cisco NX-OS-specific configuration of an EVPNInstance.
+
+
+
+_Appears in:_
+- [EVPNInstanceConfig](#evpninstanceconfig)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `multisiteIngRepl` _[MultisiteIngReplMode](#multisiteingreplmode)_ | MultisiteIngRepl controls per-VNI multisite ingress replication.<br />When enabled, BUM traffic for this VNI is replicated to remote VTEP peers<br />in the multisite domain via ingress replication.<br />Typically used on Border Gateway (BGW) nodes. | Disabled | Enum: [Disabled Enabled EnabledOptimized] <br />Optional: \{\} <br /> |
+
+
 #### EVPNMultihoming
 
 
@@ -5056,6 +5091,25 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `console` _[Console](#console)_ | Console defines the configuration for the terminal console access on the device. | \{ timeout:10m \} | Optional: \{\} <br /> |
 | `ssh` _[SSH](#ssh)_ | SSH defines the SSH server configuration for the VTY terminal access on the device. |  | Optional: \{\} <br /> |
+
+
+#### MultisiteIngReplMode
+
+_Underlying type:_ _string_
+
+MultisiteIngReplMode defines the per-VNI multisite ingress-replication mode.
+
+_Validation:_
+- Enum: [Disabled Enabled EnabledOptimized]
+
+_Appears in:_
+- [EVPNInstanceConfigSpec](#evpninstanceconfigspec)
+
+| Field | Description |
+| --- | --- |
+| `Disabled` | MultisiteIngReplDisabled disables multisite ingress replication (default).<br /> |
+| `Enabled` | MultisiteIngReplEnabled enables multisite ingress replication.<br /> |
+| `EnabledOptimized` | MultisiteIngReplEnabledOptimized enables optimized multisite ingress replication.<br /> |
 
 
 #### NetworkVirtualizationEdgeConfig
