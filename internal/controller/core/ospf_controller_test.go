@@ -8,6 +8,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -114,6 +116,76 @@ var _ = Describe("OSPF Controller", func() {
 			By("Ensuring the resource is created in the provider")
 			Eventually(func(g Gomega) {
 				g.Expect(testProvider.OSPF.Has("UNDERLAY")).To(BeTrue(), "Provider should have OSPF instance configured")
+			}).Should(Succeed())
+		})
+
+		It("Should finalize OSPF when its provider config was deleted first", func() {
+			config := &corev1.ConfigMap{
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
+			}
+			Expect(k8sClient.Create(ctx, config)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, config))).To(Succeed())
+			})
+
+			Eventually(func(g Gomega) {
+				ospf := new(v1alpha1.OSPF)
+				g.Expect(k8sClient.Get(ctx, key, ospf)).To(Succeed())
+				g.Expect(controllerutil.ContainsFinalizer(ospf, v1alpha1.FinalizerName)).To(BeTrue())
+				ospf.Spec.ProviderConfigRef = &v1alpha1.TypedLocalObjectReference{
+					APIVersion: "v1",
+					Kind:       "ConfigMap",
+					Name:       config.Name,
+				}
+				g.Expect(k8sClient.Update(ctx, ospf)).To(Succeed())
+			}).Should(Succeed())
+
+			By("Deleting the provider config before OSPF")
+			Expect(k8sClient.Delete(ctx, config)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, client.ObjectKeyFromObject(config), new(corev1.ConfigMap))
+				return apierrors.IsNotFound(err)
+			}).Should(BeTrue())
+
+			By("Deleting OSPF")
+			Expect(k8sClient.Delete(ctx, &v1alpha1.OSPF{Name: name, Namespace: metav1.NamespaceDefault})).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, new(v1alpha1.OSPF))
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+				g.Expect(testProvider.OSPF.Has("UNDERLAY")).To(BeFalse())
+				g.Expect(testProvider.OSPFDeleteHadProviderConfig()).To(BeFalse())
+			}).Should(Succeed())
+		})
+
+		It("Should pass an existing provider config when finalizing OSPF", func() {
+			config := &corev1.ConfigMap{
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
+			}
+			Expect(k8sClient.Create(ctx, config)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, config))).To(Succeed())
+			})
+
+			Eventually(func(g Gomega) {
+				ospf := new(v1alpha1.OSPF)
+				g.Expect(k8sClient.Get(ctx, key, ospf)).To(Succeed())
+				g.Expect(controllerutil.ContainsFinalizer(ospf, v1alpha1.FinalizerName)).To(BeTrue())
+				ospf.Spec.ProviderConfigRef = &v1alpha1.TypedLocalObjectReference{
+					APIVersion: "v1",
+					Kind:       "ConfigMap",
+					Name:       config.Name,
+				}
+				g.Expect(k8sClient.Update(ctx, ospf)).To(Succeed())
+			}).Should(Succeed())
+
+			Expect(k8sClient.Delete(ctx, &v1alpha1.OSPF{Name: name, Namespace: metav1.NamespaceDefault})).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, new(v1alpha1.OSPF))
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+				g.Expect(testProvider.OSPF.Has("UNDERLAY")).To(BeFalse())
+				g.Expect(testProvider.OSPFDeleteHadProviderConfig()).To(BeTrue())
 			}).Should(Succeed())
 		})
 	})

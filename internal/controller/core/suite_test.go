@@ -432,37 +432,39 @@ type Provider struct {
 	UpgradeError   error // if non-nil, UpgradeFirmware returns this error
 	LastRebootTime time.Time
 
-	Ports            sets.Set[string]
-	User             sets.Set[string]
-	PreLoginBanner   *string
-	PostLoginBanner  *string
-	DNS              *v1alpha1.DNS
-	NTP              *v1alpha1.NTP
-	ACLs             sets.Set[string]
-	Certs            sets.Set[string]
-	SNMP             *v1alpha1.SNMP
-	Syslog           *v1alpha1.Syslog
-	Access           *v1alpha1.ManagementAccess
-	ISIS             sets.Set[string]
-	VRF              sets.Set[string]
-	PIM              *v1alpha1.PIM
-	BGP              *v1alpha1.BGP
-	BGPVRF           *v1alpha1.VRF
-	BGPPeers         sets.Set[string]
-	OSPF             sets.Set[string]
-	VLANs            sets.Set[int16]
-	EVIs             sets.Set[int32]
-	PrefixSets       sets.Set[string]
-	RoutingPolicies  sets.Set[string]
-	NVE              *v1alpha1.NetworkVirtualizationEdge
-	LLDP             *v1alpha1.LLDP
-	LLDPOperStatus   bool
-	LLDPNeighbors    map[string]*provider.LLDPAdjacency
-	DHCPRelay        *v1alpha1.DHCPRelay
-	EthernetSegments map[string]string
-	StartupConfig    *v1alpha1.ConfigBackup
-	ConfigBackups    []*provider.ConfigBackupFile
-	StorageTotal     int64
+	Ports                                sets.Set[string]
+	InterfaceDeleteProviderConfigPresent bool
+	User                                 sets.Set[string]
+	PreLoginBanner                       *string
+	PostLoginBanner                      *string
+	DNS                                  *v1alpha1.DNS
+	NTP                                  *v1alpha1.NTP
+	ACLs                                 sets.Set[string]
+	Certs                                sets.Set[string]
+	SNMP                                 *v1alpha1.SNMP
+	Syslog                               *v1alpha1.Syslog
+	Access                               *v1alpha1.ManagementAccess
+	ISIS                                 sets.Set[string]
+	VRF                                  sets.Set[string]
+	PIM                                  *v1alpha1.PIM
+	BGP                                  *v1alpha1.BGP
+	BGPVRF                               *v1alpha1.VRF
+	BGPPeers                             sets.Set[string]
+	OSPF                                 sets.Set[string]
+	OSPFDeleteProviderConfigPresent      bool
+	VLANs                                sets.Set[int16]
+	EVIs                                 sets.Set[int32]
+	PrefixSets                           sets.Set[string]
+	RoutingPolicies                      sets.Set[string]
+	NVE                                  *v1alpha1.NetworkVirtualizationEdge
+	LLDP                                 *v1alpha1.LLDP
+	LLDPOperStatus                       bool
+	LLDPNeighbors                        map[string]*provider.LLDPAdjacency
+	DHCPRelay                            *v1alpha1.DHCPRelay
+	EthernetSegments                     map[string]string
+	StartupConfig                        *v1alpha1.ConfigBackup
+	ConfigBackups                        []*provider.ConfigBackupFile
+	StorageTotal                         int64
 }
 
 func NewProvider() *Provider {
@@ -580,8 +582,15 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 func (p *Provider) DeleteInterface(_ context.Context, req *provider.InterfaceRequest) error {
 	p.Lock()
 	defer p.Unlock()
+	p.InterfaceDeleteProviderConfigPresent = req.ProviderConfig != nil
 	p.Ports.Delete(req.Interface.Spec.Name)
 	return nil
+}
+
+func (p *Provider) InterfaceDeleteHadProviderConfig() bool {
+	p.Lock()
+	defer p.Unlock()
+	return p.InterfaceDeleteProviderConfigPresent
 }
 
 func (p *Provider) GetInterfaceStatus(_ context.Context, req *provider.InterfaceRequest) (provider.InterfaceStatus, error) {
@@ -842,8 +851,15 @@ func (p *Provider) EnsureOSPF(_ context.Context, req *provider.EnsureOSPFRequest
 func (p *Provider) DeleteOSPF(_ context.Context, req *provider.DeleteOSPFRequest) error {
 	p.Lock()
 	defer p.Unlock()
+	p.OSPFDeleteProviderConfigPresent = req.ProviderConfig != nil
 	p.OSPF.Delete(req.OSPF.Spec.Instance)
 	return nil
+}
+
+func (p *Provider) OSPFDeleteHadProviderConfig() bool {
+	p.Lock()
+	defer p.Unlock()
+	return p.OSPFDeleteProviderConfigPresent
 }
 
 func (p *Provider) GetOSPFStatus(context.Context, *provider.OSPFStatusRequest) (provider.OSPFStatus, error) {

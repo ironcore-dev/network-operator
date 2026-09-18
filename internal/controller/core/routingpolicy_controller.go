@@ -129,20 +129,17 @@ func (r *RoutingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	var cfg *provider.ProviderConfig
+	s := &routingPolicyScope{
+		Device:        device,
+		RoutingPolicy: obj,
+		Connection:    conn,
+		Provider:      prov,
+	}
 	if obj.Spec.ProviderConfigRef != nil {
-		cfg, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
+		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
+		if err != nil && (obj.DeletionTimestamp.IsZero() || !apierrors.IsNotFound(err)) {
 			return ctrl.Result{}, err
 		}
-	}
-
-	s := &routingPolicyScope{
-		Device:         device,
-		RoutingPolicy:  obj,
-		Connection:     conn,
-		ProviderConfig: cfg,
-		Provider:       prov,
 	}
 
 	if !obj.DeletionTimestamp.IsZero() {

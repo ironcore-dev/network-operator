@@ -133,20 +133,17 @@ func (r *VLANReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		return ctrl.Result{}, err
 	}
 
-	var cfg *provider.ProviderConfig
+	s := &vlanScope{
+		Device:     device,
+		VLAN:       obj,
+		Connection: conn,
+		Provider:   prov,
+	}
 	if obj.Spec.ProviderConfigRef != nil {
-		cfg, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
+		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
+		if err != nil && (obj.DeletionTimestamp.IsZero() || !apierrors.IsNotFound(err)) {
 			return ctrl.Result{}, err
 		}
-	}
-
-	s := &vlanScope{
-		Device:         device,
-		VLAN:           obj,
-		Connection:     conn,
-		ProviderConfig: cfg,
-		Provider:       prov,
 	}
 
 	if !obj.DeletionTimestamp.IsZero() {

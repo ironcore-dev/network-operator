@@ -130,20 +130,17 @@ func (r *NetworkVirtualizationEdgeReconciler) Reconcile(ctx context.Context, req
 		return ctrl.Result{}, err
 	}
 
-	var cfg *provider.ProviderConfig
+	s := &nveScope{
+		Device:     device,
+		NVE:        obj,
+		Connection: conn,
+		Provider:   prov,
+	}
 	if obj.Spec.ProviderConfigRef != nil {
-		cfg, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
+		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
+		if err != nil && (obj.DeletionTimestamp.IsZero() || !apierrors.IsNotFound(err)) {
 			return ctrl.Result{}, err
 		}
-	}
-
-	s := &nveScope{
-		Device:         device,
-		NVE:            obj,
-		Connection:     conn,
-		ProviderConfig: cfg,
-		Provider:       prov,
 	}
 
 	if !obj.DeletionTimestamp.IsZero() {
