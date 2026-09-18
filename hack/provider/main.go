@@ -1082,7 +1082,7 @@ func performDelete(ctx context.Context, prov provider.Provider, obj client.Objec
 		if !ok {
 			return errors.New("provider does not implement ACLProvider")
 		}
-		return ap.DeleteACL(ctx, &provider.ACLRequest{
+		return ap.DeleteACL(ctx, &provider.DeleteACLRequest{
 			ACL: resource,
 		})
 
@@ -1135,25 +1135,8 @@ func performDelete(ctx context.Context, prov provider.Provider, obj client.Objec
 			return errors.New("provider does not implement EVPNInstanceProvider")
 		}
 
-		var vlan *v1alpha1.VLAN
-		if resource.Spec.VLANRef != nil && resource.Spec.VLANRef.Name != "" {
-			if len(refStore) == 0 {
-				return errors.New("evpninstance resource references vlan but no reference files provided (use --ref-files)")
-			}
-			vlanObj := refStore.Get(resource.Spec.VLANRef.Name, resource.Namespace)
-			if vlanObj == nil {
-				return fmt.Errorf("referenced vlan %s not found in reference files", resource.Spec.VLANRef.Name)
-			}
-			v, ok := vlanObj.(*v1alpha1.VLAN)
-			if !ok {
-				return fmt.Errorf("referenced resource %s is not a VLAN", resource.Spec.VLANRef.Name)
-			}
-			vlan = v
-		}
-
-		return ep.DeleteEVPNInstance(ctx, &provider.EVPNInstanceRequest{
+		return ep.DeleteEVPNInstance(ctx, &provider.DeleteEVPNInstanceRequest{
 			EVPNInstance: resource,
-			VLAN:         vlan,
 		})
 
 	case *v1alpha1.Interface:
@@ -1161,7 +1144,7 @@ func performDelete(ctx context.Context, prov provider.Provider, obj client.Objec
 		if !ok {
 			return errors.New("provider does not implement InterfaceProvider")
 		}
-		return ip.DeleteInterface(ctx, &provider.InterfaceRequest{
+		return ip.DeleteInterface(ctx, &provider.DeleteInterfaceRequest{
 			Interface: resource,
 		})
 
@@ -1204,16 +1187,14 @@ func performDelete(ctx context.Context, prov provider.Provider, obj client.Objec
 		if !ok {
 			return errors.New("provider does not implement PIMProvider")
 		}
-		return pp.DeletePIM(ctx, &provider.DeletePIMRequest{
-			PIM: resource,
-		})
+		return pp.DeletePIM(ctx)
 
 	case *v1alpha1.PrefixSet:
 		psp, ok := prov.(provider.PrefixSetProvider)
 		if !ok {
 			return errors.New("provider does not implement PrefixSetProvider")
 		}
-		return psp.DeletePrefixSet(ctx, &provider.PrefixSetRequest{
+		return psp.DeletePrefixSet(ctx, &provider.DeletePrefixSetRequest{
 			PrefixSet: resource,
 		})
 
@@ -1231,7 +1212,7 @@ func performDelete(ctx context.Context, prov provider.Provider, obj client.Objec
 		if !ok {
 			return errors.New("provider does not implement SNMPProvider")
 		}
-		return sp.DeleteSNMP(ctx, &provider.DeleteSNMPRequest{})
+		return sp.DeleteSNMP(ctx)
 
 	case *v1alpha1.Syslog:
 		slp, ok := prov.(provider.SyslogProvider)
@@ -1254,7 +1235,7 @@ func performDelete(ctx context.Context, prov provider.Provider, obj client.Objec
 		if !ok {
 			return errors.New("provider does not implement VLANProvider")
 		}
-		return vp.DeleteVLAN(ctx, &provider.VLANRequest{
+		return vp.DeleteVLAN(ctx, &provider.DeleteVLANRequest{
 			VLAN: resource,
 		})
 
@@ -1263,7 +1244,7 @@ func performDelete(ctx context.Context, prov provider.Provider, obj client.Objec
 		if !ok {
 			return errors.New("provider does not implement VRFProvider")
 		}
-		return vp.DeleteVRF(ctx, &provider.VRFRequest{
+		return vp.DeleteVRF(ctx, &provider.DeleteVRFRequest{
 			VRF: resource,
 		})
 

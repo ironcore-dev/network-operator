@@ -181,7 +181,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	return p.client.Do(ctx, sb)
 }
 
-func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceRequest) error {
+func (p *Provider) DeleteInterface(ctx context.Context, req *provider.DeleteInterfaceRequest) error {
 	spec := req.Interface.Spec
 
 	switch spec.Type {

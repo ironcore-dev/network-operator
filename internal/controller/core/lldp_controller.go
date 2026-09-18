@@ -513,9 +513,7 @@ func (r *LLDPReconciler) finalize(ctx context.Context, s *lldpScope) (reterr err
 		}
 	}()
 
-	return s.Provider.DeleteLLDP(ctx, &provider.LLDPRequest{
-		LLDP: s.LLDP,
-	})
+	return s.Provider.DeleteLLDP(ctx)
 }
 
 // deviceToLLDPs is a [handler.MapFunc] to be used to enqueue requests for reconciliation
