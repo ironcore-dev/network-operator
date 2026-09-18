@@ -4800,6 +4800,12 @@ func NormalizeMACAddress(mac string) string {
 }
 
 func (p *Provider) EnsureStaticRoute(ctx context.Context, req *provider.EnsureStaticRouteRequest) error {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+	f := new(Feature)
+	f.Name = "bfd"
+	f.AdminSt = AdminStEnabled
+	sb.Update(f)
+
 	vrfName := DefaultVRFName
 	if req.VRF != nil {
 		vrfName = req.VRF.Spec.Name
@@ -4817,10 +4823,62 @@ func (p *Provider) EnsureStaticRoute(ctx context.Context, req *provider.EnsureSt
 		route.NhItems.NexthopList.Set(NewStaticRouteNexthop(nextHop.Address, vrfName, intf, nextHop.Metric))
 	}
 
-	return p.client.Update(ctx, route)
+	bfd := req.StaticRoute.Spec.BFD
+
+	if bfd != nil && bfd.Enabled {
+		var violations []apistatus.FieldViolation
+		if bfd.DetectionMultiplier != nil {
+			violations = append(violations, apistatus.FieldViolation{
+				Field:       "spec.bfd.detectionMultiplier",
+				Description: "nxos provider does not support BFD detection multiplier on static routes",
+			})
+		}
+		if bfd.DesiredMinimumTxInterval != nil {
+			violations = append(violations, apistatus.FieldViolation{
+				Field:       "spec.bfd.desiredMinimumTxInterval",
+				Description: "nxos provider does not support BFD desired minimum tx interval on static routes",
+			})
+		}
+		if bfd.RequiredMinimumReceive != nil {
+			violations = append(violations, apistatus.FieldViolation{
+				Field:       "spec.bfd.requiredMinimumReceive",
+				Description: "nxos provider does not support BFD required minimum receive on static routes",
+			})
+		}
+		if len(violations) > 0 {
+			return apistatus.NewUnsupportedFieldError(violations...)
+		}
+
+		for _, nextHop := range req.StaticRoute.Spec.NextHops {
+			if nextHop.InterfaceRef == nil {
+				return errors.New("interface reference is required for BFD on static route")
+			}
+
+			sb.Update(&StaticRouteBFDAssociation{
+				VRF:     vrfName,
+				Intf:    req.InterfaceMap[nextHop.InterfaceRef.Name].Spec.Name,
+				Nexthop: nextHop.Address,
+			})
+		}
+	} else {
+		for _, nextHop := range req.StaticRoute.Spec.NextHops {
+			if nextHop.InterfaceRef == nil {
+				continue
+			}
+			sb.Delete(&StaticRouteBFDAssociation{
+				VRF:     vrfName,
+				Intf:    req.InterfaceMap[nextHop.InterfaceRef.Name].Spec.Name,
+				Nexthop: nextHop.Address,
+			})
+		}
+	}
+	sb.Update(route)
+	return p.client.Do(ctx, sb)
 }
 
 func (p *Provider) DeleteStaticRoute(ctx context.Context, req *provider.DeleteStaticRouteRequest) error {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
 	vrfName := DefaultVRFName
 	if req.VRF != nil {
 		vrfName = req.VRF.Spec.Name
@@ -4830,7 +4888,18 @@ func (p *Provider) DeleteStaticRoute(ctx context.Context, req *provider.DeleteSt
 		VRF:    vrfName,
 		Prefix: req.StaticRoute.Spec.Prefix.String(),
 	}
-	return p.client.Delete(ctx, route)
+	sb.Delete(route)
+	for _, nextHop := range req.StaticRoute.Spec.NextHops {
+		if nextHop.InterfaceRef == nil {
+			continue
+		}
+		sb.Delete(&StaticRouteBFDAssociation{
+			VRF:     vrfName,
+			Intf:    req.InterfaceMap[nextHop.InterfaceRef.Name].Spec.Name,
+			Nexthop: nextHop.Address,
+		})
+	}
+	return p.client.Do(ctx, sb)
 }
 
 func init() {

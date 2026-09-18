@@ -775,6 +775,7 @@ BFD defines the Bidirectional Forwarding Detection configuration for interfaces,
 _Appears in:_
 - [BGPPeerSpec](#bgppeerspec)
 - [InterfaceSpec](#interfacespec)
+- [StaticRouteSpec](#staticroutespec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -4522,6 +4523,7 @@ _Appears in:_
 | `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VrfRef is a reference to the VRF resource that this static route belongs to.<br />If not specified, the static route will be part of the default VRF.<br />The referenced VRF must exist in the same namespace. |  | Optional: \{\} <br /> |
 | `prefix` _[IPPrefix](#ipprefix)_ | IPPrefix is the destination IP prefix for the static route.<br />Immutable. |  | Format: cidr <br />Type: string <br />Required: \{\} <br /> |
 | `nextHops` _[NextHop](#nexthop) array_ | NextHops is a list of next hop objects for the prefix. |  | MinItems: 1 <br />Required: \{\} <br /> |
+| `bfd` _[BFD](#bfd)_ | BFD defines the Bidirectional Forwarding Detection configuration for this static route. |  | Optional: \{\} <br /> |
 
 
 #### StaticRouteStatus
