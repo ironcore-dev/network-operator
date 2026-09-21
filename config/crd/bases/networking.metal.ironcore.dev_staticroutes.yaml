@@ -80,6 +80,10 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
+              ipsla:
+                description: IPSLA enables the IPSLA configuration for the static
+                  route.
+                type: boolean
               name:
                 description: Name is the name of the static route.
                 maxLength: 255

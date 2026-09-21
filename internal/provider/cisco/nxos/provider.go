@@ -4377,6 +4377,13 @@ func NormalizeMACAddress(mac string) string {
 }
 
 func (p *Provider) EnsureStaticRoute(ctx context.Context, req *provider.StaticRouteRequest) error {
+	if req.StaticRoute.Spec.IPSLA {
+		return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+			Field:       "spec.ipsla",
+			Description: "IPSLA for static routes is not supported on Cisco NX-OS devices",
+		})
+	}
+
 	vrfName := DefaultVRFName
 	if req.VRF != nil {
 		vrfName = req.VRF.Spec.Name

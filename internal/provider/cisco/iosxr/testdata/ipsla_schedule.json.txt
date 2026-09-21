@@ -1,0 +1,2 @@
+ipsla schedule operation 100 life forever
+ipsla schedule operation 100 start-time now

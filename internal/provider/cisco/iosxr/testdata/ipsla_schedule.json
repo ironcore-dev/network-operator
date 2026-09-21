@@ -1,0 +1,17 @@
+{
+  "ipsla": {
+    "schedule": {
+      "operations": {
+        "operation": {
+          "life": {
+            "forever": {}
+          },
+          "operation-number": 100,
+          "start-time": {
+            "now": {}
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,3 @@
+track management-192_168_1_0-10_10_0_1
+ type rtr 100 reachability
+ exit

@@ -26,4 +26,35 @@ func init() {
 	}
 
 	Register("static_route", route)
+
+	// IPSLA-enabled static route: EnsureStaticRoute emits a track, a matching
+	// IPSLA operation, and its schedule per unique nexthop when Spec.IPSLA is true.
+	track := &Track{
+		TrackID: "svenvrf-192_168_1_0-10_10_0_1",
+		Type:    TrackType{RTR: 100},
+	}
+	Register("track", track)
+
+	ipslaOp := &IPSLAOperation{
+		OperationNumber: 100,
+		Type: &IPSLAOperationType{
+			ICMP: &IPSLAICMP{
+				Echo: &IPSLAEcho{
+					Destination: &IPSLADestination{
+						Address: IPSLAAddress{IPv4Address: "10.10.0.1"},
+					},
+					VRF:       "svenvrf",
+					Frequency: IPSLAFrequency,
+				},
+			},
+		},
+	}
+	Register("ipsla", ipslaOp)
+
+	ipslaSchedule := &IPSLASchedule{
+		OperationNumber: 100,
+		Life:            &IPSLALife{Forever: &struct{}{}},
+		StartTime:       &IPSLAStartTime{Now: &struct{}{}},
+	}
+	Register("ipsla_schedule", ipslaSchedule)
 }

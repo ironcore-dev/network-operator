@@ -54,6 +54,10 @@ type StaticRouteSpec struct {
 	// +required
 	// +kubebuilder:validation:MinItems=1
 	NextHops []*NextHop `json:"nextHops,omitempty"`
+
+	// IPSLA enables the IPSLA configuration for the static route.
+	// +optional
+	IPSLA bool `json:"ipsla,omitempty"`
 }
 
 type NextHop struct {

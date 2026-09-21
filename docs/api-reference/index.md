@@ -4208,6 +4208,7 @@ _Appears in:_
 | `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VrfRef is a reference to the VRF resource that this static route belongs to.<br />If not specified, the static route will be part of the default VRF.<br />The referenced VRF must exist in the same namespace. |  | Optional: \{\} <br /> |
 | `prefix` _[IPPrefix](#ipprefix)_ | IPPrefix is the destination IP prefix for the static route. |  | Format: cidr <br />Type: string <br />Required: \{\} <br /> |
 | `nextHops` _[NextHop](#nexthop) array_ |  |  | MinItems: 1 <br />Required: \{\} <br /> |
+| `ipsla` _boolean_ | IPSLA enables the IPSLA configuration for the static route. |  | Optional: \{\} <br /> |
 
 
 #### StaticRouteStatus

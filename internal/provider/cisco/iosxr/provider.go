@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
+	"sort"
 	"time"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
@@ -17,6 +19,8 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/transport/grpcext"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -620,6 +624,8 @@ func (p *Provider) EnsureStaticRoute(ctx context.Context, req *provider.StaticRo
 	var nexthopAddress NexthopAddresses
 	var nexthopInterface NexthopInterfaces
 
+	sb := new(gnmiext.SetBuilder)
+
 	prefixIP := req.StaticRoute.Spec.Prefix
 	for _, nextHop := range req.StaticRoute.Spec.NextHops {
 		if nextHop.InterfaceRef != nil {
@@ -648,12 +654,107 @@ func (p *Provider) EnsureStaticRoute(ctx context.Context, req *provider.StaticRo
 		prefix.VRFName = req.VRF.Spec.Name
 	}
 
+	if req.StaticRoute.Spec.IPSLA {
+		// Group tracks by next-hop address to determine how many tracks are needed.
+		nextHopCount := make(map[netip.Addr]int)
+		for _, nextHop := range req.StaticRoute.Spec.NextHops {
+			addr, err := netip.ParseAddr(nextHop.Address)
+			if err != nil {
+				return fmt.Errorf("failed to parse nexthop address %q: %w", nextHop.Address, err)
+			}
+			nextHopCount[addr]++
+		}
+
+		neededTracks := len(nextHopCount)
+
+		tracks := new(Tracks)
+		err := p.client.GetConfig(ctx, tracks)
+		if err != nil && !errors.Is(err, gnmiext.ErrNil) && status.Code(err) != codes.NotFound {
+			return fmt.Errorf("failed to get tracks: %w", err)
+		}
+
+		// Sort tracks according to ID (numerical value).
+		// Take the next free track ID by tacking the last used track ID.
+		// Fixme(sven-rosenzweig): This approach does not consider the freeing up of track IDs when tracks are deleted.
+		// ToDo(sven-rosenzweig): For the second version migratin to the resources claim approached how vlans are reserved. might be a better approach.
+		sort.Sort(tracks)
+		usedTracks := len(tracks.Track)
+		if MaxTracks-usedTracks < neededTracks {
+			return errors.New("not enough available SLA track-ids")
+		}
+
+		var nextFreeTrackID uint32
+		if usedTracks > 0 {
+			nextFreeTrackID = tracks.Track[usedTracks-1].Type.RTR
+		}
+
+		for nh := range nextHopCount {
+			trackID := StaticRouteTrackID(req.VRF.Spec.Name, req.StaticRoute.Spec.Prefix.Addr().String(), nh.String())
+
+			var track *Track
+
+			// If an existing track with the same ID is found, reuse
+			if existingTrack := tracks.GetTrackByID(trackID); existingTrack != nil {
+				track = &Track{
+					TrackID: trackID,
+					Type:    TrackType{RTR: existingTrack.Type.RTR},
+				}
+			} else {
+				// No existing track found, allocate a new track ID.
+				nextFreeTrackID++
+				track = &Track{
+					TrackID: trackID,
+					Type:    TrackType{RTR: nextFreeTrackID},
+				}
+			}
+
+			slaOps := IPSLAOperation{
+				OperationNumber: nextFreeTrackID,
+				Type: &IPSLAOperationType{
+					ICMP: &IPSLAICMP{
+						Echo: &IPSLAEcho{
+							Destination: &IPSLADestination{
+								Address: IPSLAAddress{IPv4Address: nh.String()},
+							},
+							VRF:       req.VRF.Spec.Name,
+							Frequency: IPSLAFrequency,
+						},
+					},
+				},
+			}
+
+			slaSchedule := IPSLASchedule{
+				OperationNumber: nextFreeTrackID,
+				Life:            &IPSLALife{Forever: &struct{}{}},
+				StartTime:       &IPSLAStartTime{Now: &struct{}{}},
+			}
+
+			sb.Update(track).Update(&slaSchedule).Update(&slaOps)
+			// Logic to assign free SLA track-id to each unique nexthop
+		}
+	} else {
+		// IPSLA is disabled: remove any tracks and IPSLA operations that were
+		// previously created for this static route.
+		tracks := new(Tracks)
+		err := p.client.GetConfig(ctx, tracks)
+		if err != nil && !errors.Is(err, gnmiext.ErrNil) && status.Code(err) != codes.NotFound {
+			return fmt.Errorf("failed to get tracks: %w", err)
+		}
+
+		addr := prefixIP.Addr().String()
+		trackIDs := make([]string, 0, len(req.StaticRoute.Spec.NextHops))
+		for _, nextHop := range req.StaticRoute.Spec.NextHops {
+			trackIDs = append(trackIDs, StaticRouteTrackID(req.VRF.Spec.Name, addr, nextHop.Address))
+		}
+		sb.Delete(tracks.GarbageCollect(trackIDs...)...)
+	}
+
 	// A single client.Update (gNMI replace) drops nexthop-addresses when both
 	// nexthop-addresses and nexthop-interface-addresses are present. Delete the
 	// prefix and patch the desired state back in a single atomic SetRequest so
 	// no traffic-blackhole window opens between the two operations. gNMI applies
 	// the delete before the update within one Set.
-	b := new(gnmiext.SetBuilder).Delete(&prefix).Patch(&prefix)
+	b := sb.Delete(&prefix).Patch(&prefix)
 
 	return p.client.Do(ctx, b)
 }
@@ -673,7 +774,25 @@ func (p *Provider) DeleteStaticRoute(ctx context.Context, req *provider.StaticRo
 		staticRoute.VRFName = req.VRF.Spec.Name
 	}
 
-	return p.client.Delete(ctx, staticRoute)
+	sb := new(gnmiext.SetBuilder)
+	sb.Delete(staticRoute)
+
+	if req.StaticRoute.Spec.IPSLA {
+		tracks := new(Tracks)
+		err := p.client.GetConfig(ctx, tracks)
+		if err != nil && !errors.Is(err, gnmiext.ErrNil) && status.Code(err) != codes.NotFound {
+			return fmt.Errorf("failed to get tracks: %w", err)
+		}
+
+		addr := req.StaticRoute.Spec.Prefix.Addr().String()
+		trackIDs := make([]string, 0, len(req.StaticRoute.Spec.NextHops))
+		for _, nextHop := range req.StaticRoute.Spec.NextHops {
+			trackIDs = append(trackIDs, StaticRouteTrackID(req.VRF.Spec.Name, addr, nextHop.Address))
+		}
+		sb.Delete(tracks.GarbageCollect(trackIDs...)...)
+	}
+
+	return p.client.Do(ctx, sb)
 }
 
 func init() {

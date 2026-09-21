@@ -1,0 +1,22 @@
+{
+  "ipsla": {
+    "operations": {
+      "operation": {
+        "operation-number": 100,
+        "type": {
+          "icmp": {
+            "echo": {
+              "destination": {
+                "address": {
+                  "ipv4-address": "10.10.0.1"
+                }
+              },
+              "frequency": 5,
+              "vrf": "svenvrf"
+            }
+          }
+        }
+      }
+    }
+  }
+}
