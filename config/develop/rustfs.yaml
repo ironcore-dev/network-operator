@@ -86,5 +86,5 @@ spec:
           command: ["sh", "-c"]
           args:
             - |
-              rc alias set local http://rustfs.default.svc:9000 rustfsadmin rustfsadmin
+              rc alias set local http://rustfs.default.svc.cluster.local:9000 rustfsadmin rustfsadmin
               rc bucket create --ignore-existing local/config-backups
