@@ -171,16 +171,16 @@ func (r *ProbeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ct
 
 	// Always attempt to update the metadata/status after reconciliation
 	defer func() {
-		if !equality.Semantic.DeepEqual(orig.ObjectMeta, obj.ObjectMeta) {
-			// Pass obj.DeepCopy() to avoid Patch() modifying obj and interfering with status update below
-			if err := r.Patch(ctx, obj.DeepCopy(), client.MergeFrom(orig)); err != nil {
-				log.Error(err, "Failed to update resource metadata")
+		if !equality.Semantic.DeepEqual(orig.Status, obj.Status) {
+			// Pass obj.DeepCopy() to avoid Patch() modifying obj and interfering with metadata update below
+			if err := r.Status().Patch(ctx, obj.DeepCopy(), client.MergeFrom(orig)); err != nil {
+				log.Error(err, "Failed to update status")
 				reterr = kerrors.NewAggregate([]error{reterr, err})
 			}
 		}
-		if !equality.Semantic.DeepEqual(orig.Status, obj.Status) {
-			if err := r.Status().Patch(ctx, obj, client.MergeFrom(orig)); err != nil {
-				log.Error(err, "Failed to update status")
+		if !equality.Semantic.DeepEqual(orig.ObjectMeta, obj.ObjectMeta) {
+			if err := r.Patch(ctx, obj, client.MergeFrom(orig)); err != nil {
+				log.Error(err, "Failed to update resource metadata")
 				reterr = kerrors.NewAggregate([]error{reterr, err})
 			}
 		}
