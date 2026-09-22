@@ -204,8 +204,8 @@ func NewVrfMember(ifName, vrfName string) *VrfMember {
 type SpanningTree struct {
 	Mode       SpanningTreeMode `json:"mode"`
 	IfName     string           `json:"-"`
-	BPDUfilter AdminSt4         `json:"bpdufilter"`
-	BPDUGuard  AdminSt4         `json:"bpduguard"`
+	BPDUfilter BPDUState        `json:"bpdufilter"`
+	BPDUGuard  BPDUState        `json:"bpduguard"`
 }
 
 func (*SpanningTree) IsListItem() {}
@@ -216,6 +216,8 @@ func (s *SpanningTree) XPath() string {
 
 func (s *SpanningTree) Default() {
 	s.Mode = SpanningTreeModeDefault
+	s.BPDUfilter = BPDUStateDefault
+	s.BPDUGuard = BPDUStateDefault
 }
 
 type MultisiteIfTrackingItems struct {
@@ -623,6 +625,14 @@ const (
 	SpanningTreeModeEdge    SpanningTreeMode = "edge"
 	SpanningTreeModeNetwork SpanningTreeMode = "network"
 	SpanningTreeModeTrunk   SpanningTreeMode = "trunk"
+)
+
+type BPDUState string
+
+const (
+	BPDUStateDefault BPDUState = "default"
+	BPDUStateEnable  BPDUState = "enable"
+	BPDUStateDisable BPDUState = "disable"
 )
 
 func (s SpanningTreeMode) IsValid() bool {
