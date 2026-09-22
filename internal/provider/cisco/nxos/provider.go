@@ -1636,10 +1636,8 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 
 	if (req.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical || req.Interface.Spec.Type == v1alpha1.InterfaceTypeAggregate) && req.IPv4 == nil && req.IPv6 == nil && (req.AggregateParent == nil || (req.AggregateParent.Spec.IPv4 == nil && req.AggregateParent.Spec.IPv6 == nil)) {
 		stp := new(SpanningTree)
+		stp.Default()
 		stp.IfName = name
-		stp.Mode = SpanningTreeModeDefault
-		stp.BPDUfilter = "default"
-		stp.BPDUGuard = "default"
 		if cfg.Spec.SpanningTree != nil {
 			switch cfg.Spec.SpanningTree.PortType {
 			case nxv1alpha1.SpanningTreePortTypeNormal:
@@ -1652,15 +1650,15 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				stp.Mode = SpanningTreeModeTrunk
 			}
 			if cfg.Spec.SpanningTree.BPDUFilter != nil {
-				stp.BPDUfilter = AdminStDisable
+				stp.BPDUfilter = BPDUStateDisable
 				if *cfg.Spec.SpanningTree.BPDUFilter {
-					stp.BPDUfilter = AdminStEnable
+					stp.BPDUfilter = BPDUStateEnable
 				}
 			}
 			if cfg.Spec.SpanningTree.BPDUGuard != nil {
-				stp.BPDUGuard = AdminStDisable
+				stp.BPDUGuard = BPDUStateDisable
 				if *cfg.Spec.SpanningTree.BPDUGuard {
-					stp.BPDUGuard = AdminStEnable
+					stp.BPDUGuard = BPDUStateEnable
 				}
 			}
 		}
