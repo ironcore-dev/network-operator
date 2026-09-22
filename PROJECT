@@ -425,4 +425,22 @@ resources:
   kind: Probe
   path: github.com/ironcore-dev/network-operator/api/core/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: networking.metal.ironcore.dev
+  group: overlay
+  kind: Network
+  path: github.com/ironcore-dev/network-operator/api/overlay/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: networking.metal.ironcore.dev
+  group: overlay
+  kind: NetworkAttachment
+  path: github.com/ironcore-dev/network-operator/api/overlay/v1alpha1
+  version: v1alpha1
 version: "3"

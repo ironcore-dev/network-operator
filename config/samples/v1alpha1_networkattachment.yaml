@@ -1,0 +1,18 @@
+apiVersion: overlay.networking.metal.ironcore.dev/v1alpha1
+kind: NetworkAttachment
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: networkattachment-sample
+spec:
+  networkRef:
+    name: network-sample
+  interfaceSelector:
+    matchLabels:
+      # Select the interface sample 'po10' on the device leaf1
+      # See ./v1alpha1_interface.yaml for the definition of the interface.
+      neighbor-logical-interface: lag0
+  encapsulation:
+    type: VLAN
+    id: 10

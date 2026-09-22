@@ -144,6 +144,7 @@ metadata:
     app.kubernetes.io/name: network-operator
     app.kubernetes.io/managed-by: kustomize
     networking.metal.ironcore.dev/device-name: leaf1
+    neighbor-logical-interface: lag0
   name: po-10
 spec:
   deviceRef:

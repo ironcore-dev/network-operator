@@ -44,10 +44,12 @@ import (
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	evpnv1alpha1 "github.com/ironcore-dev/network-operator/api/evpn/v1alpha1"
+	overlayv1alpha1 "github.com/ironcore-dev/network-operator/api/overlay/v1alpha1"
 	poolv1alpha1 "github.com/ironcore-dev/network-operator/api/pool/v1alpha1"
 	nxcontroller "github.com/ironcore-dev/network-operator/internal/controller/cisco/nx"
 	corecontroller "github.com/ironcore-dev/network-operator/internal/controller/core"
 	evpncontroller "github.com/ironcore-dev/network-operator/internal/controller/evpn"
+	overlaycontroller "github.com/ironcore-dev/network-operator/internal/controller/overlay"
 	poolcontroller "github.com/ironcore-dev/network-operator/internal/controller/pool"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provisioning"
@@ -74,6 +76,7 @@ func init() {
 	utilruntime.Must(nxv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(poolv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(evpnv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(overlayv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -795,9 +798,10 @@ func main() { //nolint:gocyclo
 	}
 
 	if err := (&evpncontroller.FabricReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorder("fabric-controller"),
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorder("fabric-controller"),
+		WatchFilterValue: watchFilterValue,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "Fabric")
 		os.Exit(1)
@@ -814,6 +818,25 @@ func main() { //nolint:gocyclo
 		os.Exit(1)
 	}
 
+	if err := (&overlaycontroller.NetworkReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorder("network-controller"),
+		WatchFilterValue: watchFilterValue,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "Network")
+		os.Exit(1)
+	}
+
+	if err := (&overlaycontroller.NetworkAttachmentReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorder("networkattachment-controller"),
+		WatchFilterValue: watchFilterValue,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "NetworkAttachment")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {
