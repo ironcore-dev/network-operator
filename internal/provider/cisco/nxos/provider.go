@@ -1109,6 +1109,13 @@ func (p *Provider) DeleteDNS(ctx context.Context) error {
 func (p *Provider) EnsureEVPNInstance(ctx context.Context, req *provider.EVPNInstanceRequest) (err error) {
 	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
 
+	var cfg nxv1alpha1.EVPNInstanceConfig
+	if req.ProviderConfig != nil {
+		if err := req.ProviderConfig.Into(&cfg); err != nil {
+			return err
+		}
+	}
+
 	f := new(Feature)
 	f.Name = "nvo"
 	f.AdminSt = AdminStEnabled
@@ -1146,6 +1153,14 @@ func (p *Provider) EnsureEVPNInstance(ctx context.Context, req *provider.EVPNIns
 		vni.SuppressARP = suppressARPEnabled
 	default:
 		vni.SuppressARP = suppressARPDisabled
+	}
+	switch cfg.Spec.MultisiteIngressReplication {
+	case nxv1alpha1.MultisiteIngReplEnabled:
+		vni.MultisiteIngRepl = MultisiteIngReplEnable
+	case nxv1alpha1.MultisiteIngReplEnabledOptimized:
+		vni.MultisiteIngRepl = MultisiteIngReplEnableOptimized
+	default:
+		vni.MultisiteIngRepl = MultisiteIngReplDisable
 	}
 	sb.Update(vni)
 
