@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package v1alpha1
@@ -238,7 +238,7 @@ func TestIPAddressPool_Allocate(t *testing.T) {
 		},
 	}
 
-	claim := &Claim{ObjectMeta: metav1.ObjectMeta{Name: "test-claim", UID: "test-uid"}}
+	claim := &Claim{Name: "test-claim", UID: "test-uid"}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			allocs := make([]Allocation, len(test.existing))

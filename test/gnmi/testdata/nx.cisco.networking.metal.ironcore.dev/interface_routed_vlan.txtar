@@ -1,46 +1,34 @@
--- vlans/vlan100 --
+-- vlans/vlan-10 --
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: VLAN
 metadata:
-  name: vlan100
+  name: vlan-10
   namespace: default
 spec:
   deviceRef:
     name: device
-  id: 100
-  name: DHCP-VLAN
+  id: 10
+  name: VLAN10
 
--- interfaces/svi100 --
+-- interfaces/svi-10 --
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
 metadata:
-  name: svi100
+  name: svi-10
   namespace: default
 spec:
   deviceRef:
     name: device
-  name: Vlan100
+  name: vlan10
+  description: SVI for VLAN 10
   adminState: Up
   type: RoutedVLAN
+  mtu: 1500
   vlanRef:
-    name: vlan100
+    name: vlan-10
   ipv4:
     addresses:
-      - 192.168.100.1/24
-
--- dhcprelays/relay --
-apiVersion: networking.metal.ironcore.dev/v1alpha1
-kind: DHCPRelay
-metadata:
-  name: relay
-  namespace: default
-spec:
-  deviceRef:
-    name: device
-  servers:
-    - "10.0.0.10"
-  interfaceRefs:
-    - name: svi100
+      - 192.168.10.254/24
 
 -- state/preload --
 {
@@ -52,64 +40,27 @@ spec:
 }
 
 -- state/expect --
+
 {
   "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
     "bd-items": {
       "bd-items": {
         "BD-list": [
           {
-            "BdState": "active",
             "adminSt": "active",
-            "fabEncap": "vlan-100",
-            "name": "DHCP-VLAN"
+            "BdState": "active",
+            "fabEncap": "vlan-10",
+            "name": "VLAN10"
           }
         ]
       }
     },
-    "dhcp-items": {
-      "inst-items": {
-        "relayif-items": {
-          "RelayIf-list": [
-            {
-              "addr-items": {
-                "RelayAddr-list": [
-                  {
-                    "address": "10.0.0.10",
-                    "vrf": "!unspecified"
-                  }
-                ]
-              },
-              "id": "vlan100"
-            }
-          ]
-        }
-      }
-    },
     "fm-items": {
-      "dhcp-items": {
-        "adminSt": "enabled"
-      },
       "ifvlan-items": {
         "adminSt": "enabled"
-      }
-    },
-    "icmpv4-items": {
-      "inst-items": {
-        "dom-items": {
-          "Dom-list": [
-            {
-              "if-items": {
-                "If-list": [
-                  {
-                    "ctrl": "port-unreachable",
-                    "id": "vlan100"
-                  }
-                ]
-              },
-              "name": "default"
-            }
-          ]
-        }
       }
     },
     "intf-items": {
@@ -117,14 +68,14 @@ spec:
         "If-list": [
           {
             "adminSt": "up",
-            "descr": "",
-            "id": "vlan100",
+            "descr": "SVI for VLAN 10",
+            "id": "vlan10",
             "medium": "bcast",
             "mtu": 1500,
             "rtvrfMbr-items": {
               "tDn": "/System/inst-items/Inst-list[name='default']"
             },
-            "vlanId": 100
+            "vlanId": 10
           }
         ]
       }
@@ -134,36 +85,53 @@ spec:
         "dom-items": {
           "Dom-list": [
             {
+              "name": "default",
               "if-items": {
                 "If-list": [
                   {
+                    "id": "vlan10",
                     "addr-items": {
                       "Addr-list": [
                         {
-                          "addr": "192.168.100.1/24",
+                          "addr": "192.168.10.254/24",
                           "pref": 0,
                           "tag": 0,
                           "type": "primary"
                         }
                       ]
-                    },
-                    "id": "vlan100"
+                    }
                   }
                 ]
-              },
-              "name": "default"
+              }
             }
           ]
         }
       }
     },
-    "procsys-items": {
-      "bootTime": "1700000000"
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "vlan10",
+                    "ctrl": "port-unreachable"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
     }
   }
 }
 
 -- state/delete --
+
 {
   "System": {
     "procsys-items": {
@@ -176,9 +144,6 @@ spec:
     },
     "fm-items": {
       "ifvlan-items": {
-        "adminSt": "enabled"
-      },
-      "dhcp-items": {
         "adminSt": "enabled"
       }
     },
@@ -208,20 +173,12 @@ spec:
             {
               "name": "default",
               "if-items": {
-                "If-list": [
-                  {
-                    "id": "vlan100",
-                    "ctrl": "port-unreachable"
-                  }
-                ]
+                "If-list": []
               }
             }
           ]
         }
       }
-    },
-    "dhcp-items": {
-      "inst-items": {}
     }
   }
 }

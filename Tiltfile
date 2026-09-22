@@ -1,5 +1,5 @@
 # -*- mode: Python -*-
-# SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+# SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 # SPDX-License-Identifier: Apache-2.0
 
 # Don't track us.
@@ -41,10 +41,10 @@ docker_build('controller:latest', '.', only=[
 local_resource('controller-gen', 'make generate', deps=['api/', 'hack/boilerplate.go.txt'], labels=['operator'])
 local_resource('crds', 'make install', deps=['api/'], labels=['operator'])
 
-provider = os.getenv('PROVIDER', 'openconfig')
+provider = os.getenv('PROVIDER')
 
 manager = kustomize('config/develop')
-manager = str(manager).replace('--provider=openconfig', '--provider={}'.format(provider))
+manager = str(manager)
 
 debug = os.getenv('DEBUG', '') == 'true'
 if debug:
@@ -54,11 +54,14 @@ if debug:
 k8s_yaml(blob(manager))
 k8s_resource('network-operator-controller-manager', resource_deps=['controller-gen'], labels=['operator'])
 
-k8s_resource('minio', port_forwards=['9001:9001'])
+k8s_resource('rustfs', port_forwards=['9001:9001'])
+k8s_resource('rustfs-create-buckets', resource_deps=['rustfs'])
 
 # Sample resources with manual trigger mode
 def device_yaml():
     decoded = read_yaml_stream('./config/samples/v1alpha1_device.yaml')
+    if provider != None:
+        decoded[0]['spec']['provider'] = provider
     ip = str(local("docker run --rm busybox:1.37.0 nslookup -type=a host.docker.internal 2>/dev/null | grep 'Address:' | tail -n 1 | awk '{print $2}' || echo ''", quiet=True)).rstrip('\n')
     if len(ip) > 0:
         decoded[0]['spec']['endpoint']['address'] = ip+':9339'
@@ -81,6 +84,8 @@ k8s_resource(new_name='po10', objects=['po-10:interface'], trigger_mode=TRIGGER_
 k8s_resource(new_name='eth1-3', objects=['eth1-3:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='po20', objects=['po-20:interface'], resource_deps=['eth1-3'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='svi-10', objects=['svi-10:interface'], resource_deps=['vlan-10'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='lo2', objects=['lo2:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='eth1-4', objects=['eth1-4:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_banner.yaml')
 k8s_resource(new_name='banner', objects=['banner:banner'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
@@ -93,6 +98,9 @@ k8s_resource(new_name='dns', objects=['dns:dns'], trigger_mode=TRIGGER_MODE_MANU
 
 k8s_yaml('./config/samples/v1alpha1_ntp.yaml')
 k8s_resource(new_name='ntp', objects=['ntp:ntp'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
+k8s_yaml('./config/samples/nokia/srlinux/v1alpha1_ntp.yaml')
+k8s_resource(new_name='ntp-srlinux', objects=['ntp-srlinux:ntp'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['srlinux'])
 
 k8s_yaml('./config/samples/v1alpha1_acl.yaml')
 k8s_resource(new_name='acl', objects=['acl:accesscontrollist'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
@@ -168,7 +176,13 @@ k8s_resource(new_name='lldp', objects=['leaf1-lldp:lldp'], trigger_mode=TRIGGER_
 # k8s_resource(new_name='lldpconfig', objects=['leaf1-lldpconfig:lldpconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_dhcprelay.yaml')
-k8s_resource(new_name='dhcprelay', objects=['dhcprelay:dhcprelay'], resource_deps=['eth1-1'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='dhcprelay-vrf', objects=['dhcp-vrf:vrf'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='dhcprelay-vlan100', objects=['vlan100:vlan'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='dhcprelay-vlan200', objects=['vlan200:vlan'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='dhcprelay-svi100', objects=['svi100:interface'], resource_deps=['dhcprelay-vlan100'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='dhcprelay-svi200', objects=['svi200:interface'], resource_deps=['dhcprelay-vlan200'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='dhcprelay-relay100', objects=['dhcprelay100:dhcprelay'], resource_deps=['dhcprelay-svi100'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='dhcprelay-relay200', objects=['dhcprelay200:dhcprelay'], resource_deps=['dhcprelay-svi200', 'dhcprelay-vrf'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_ethernetsegment.yaml')
 k8s_resource(new_name='ethernetsegment-sample', objects=['ethernetsegment-sample:ethernetsegment'], resource_deps=['po10'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
@@ -182,7 +196,7 @@ k8s_resource(new_name='aaa', objects=['aaa-tacacs:aaa', 'tacacs-server-keys:secr
 k8s_yaml('./config/samples/v1alpha1_configbackup.yaml')
 k8s_resource(new_name='local-backup', objects=['local-backup:configbackup'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='startup-backup', objects=['startup-backup:configbackup'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
-k8s_resource(new_name='remote-backup', objects=['remote-backup:configbackup', 'minio-credentials:secret', 'backup-encryption-key:secret'], resource_deps=['minio'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='remote-backup', objects=['remote-backup:configbackup', 'rustfs-credentials:secret', 'backup-encryption-key:secret'], resource_deps=['rustfs-create-buckets'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_indexpool.yaml')
 k8s_resource(new_name='indexpool', objects=['indexpool-sample:indexpool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])

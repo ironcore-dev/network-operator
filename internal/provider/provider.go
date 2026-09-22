@@ -1,10 +1,11 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 package provider
 
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"maps"
 	"net/netip"
@@ -47,10 +48,15 @@ type MaintenanceProvider interface {
 	Reboot(context.Context, *deviceutil.Connection) error
 	// FactoryReset performs a factory reset of the device.
 	FactoryReset(context.Context, *deviceutil.Connection) error
+	// UpgradeFirmware initiates a firmware upgrade on the device.
+	// The provider is responsible for applying the new firmware and rebooting the device as necessary.
+	UpgradeFirmware(context.Context, *deviceutil.Connection, TargetFirmware) error
 }
 
 // ProvisioningProvider is the interface for the realization of the provisioning-related operations over different providers.
 type ProvisioningProvider interface {
+	Provider
+
 	// Reprovision prepares the device for reprovisioning by resetting it and reenabling provisioning mechanisms.
 	Reprovision(context.Context, *deviceutil.Connection) error
 	// HashProvisioningPassword takes a plaintext password and returns the hashed password along with the hash type.
@@ -70,6 +76,19 @@ type DevicePort struct {
 	// Trasceiver is the type of transceiver present on the port, e.g. "SFP" or "QSFP", if any.
 	Transceiver string
 }
+
+// TargetFirmware represents the firmware image to be applied to the device, including its URL and optional checksum.
+type TargetFirmware struct {
+	// URL is the URL of the firmware image to be applied to the device.
+	URL string `json:"url"`
+	// MD5 is the MD5 checksum of the firmware image, if available.
+	MD5 string `json:"md5,omitempty"`
+}
+
+// ErrMaintenanceInProgress is returned by MaintenanceProvider when it fails to fully complete
+// a maintenance operation. The controller treats this as a signal to
+// requeue and re-invoke rather than a hard failure.
+var ErrMaintenanceInProgress = errors.New("provider: maintenance in progress")
 
 type DeviceInfo struct {
 	// Hostname is the hostname of the device.
@@ -182,6 +201,7 @@ type EnsureInterfaceRequest struct {
 	Interface      *v1alpha1.Interface
 	ProviderConfig *ProviderConfig
 	IPv4           IPv4
+	IPv6           IPv6
 
 	// Members is the list of member interfaces for aggregated interfaces.
 	// This field is only applicable if the interface type is Aggregate.
@@ -219,6 +239,20 @@ type IPv4Unnumbered struct {
 }
 
 func (IPv4Unnumbered) isIPv4() {}
+
+type IPv6 interface {
+	isIPv6()
+}
+
+type IPv6AddressList []netip.Prefix
+
+func (IPv6AddressList) isIPv6() {}
+
+// IPv6LinkLocalOnly configures the interface to use only its automatically
+// generated IPv6 link-local address, without a global address.
+type IPv6LinkLocalOnly struct{}
+
+func (IPv6LinkLocalOnly) isIPv6() {}
 
 type InterfaceStatus struct {
 	// OperStatus indicates whether the interface is operationally up (true) or down (false).
@@ -786,20 +820,14 @@ type DHCPRelayProvider interface {
 	EnsureDHCPRelay(context.Context, *DHCPRelayRequest) error
 	// DeleteDHCPRelay deletes the DHCP Relay configuration.
 	DeleteDHCPRelay(context.Context, *DHCPRelayRequest) error
-	// GetDHCPRelayStatus call retrieves the current status of the DHCP Relay configuration.
-	GetDHCPRelayStatus(context.Context, *DHCPRelayRequest) (DHCPRelayStatus, error)
 }
 
 type DHCPRelayRequest struct {
 	DHCPRelay      *v1alpha1.DHCPRelay
 	ProviderConfig *ProviderConfig
-	Interfaces     []*v1alpha1.Interface
+	Interface      *v1alpha1.Interface
 	VRF            *v1alpha1.VRF
-}
-
-type DHCPRelayStatus struct {
-	// ConfiguredInterfaces contains the names of the interfaces on the device for which DHCP Relay is configured, e.g., eth1/1.
-	ConfiguredInterfaces []string
+	Interfaces     []v1alpha1.Interface // deprecated
 }
 
 type EthernetSegmentProvider interface {
@@ -984,4 +1012,40 @@ type ProviderConfig struct { //nolint:revive // stutter is intentional; Provider
 // Into converts the underlying unstructured object into the specified type.
 func (p ProviderConfig) Into(v any) error {
 	return runtime.DefaultUnstructuredConverter.FromUnstructured(p.obj.Object, v)
+}
+
+type NotFoundError struct {
+	ProviderName string
+}
+
+func (e NotFoundError) Error() string {
+	return fmt.Sprintf("provider %q is not registered", e.ProviderName)
+}
+
+func (e NotFoundError) Is(target error) bool {
+	_, ok := target.(NotFoundError)
+	return ok
+}
+
+type NotImplementedError[T any] struct {
+	ProviderName string
+}
+
+func (e NotImplementedError[T]) Error() string {
+	var zero T
+	return fmt.Sprintf("provider %q does not implement %T", e.ProviderName, zero)
+}
+
+// LoadProvider returns a provider instance cast to the requested interface type T.
+// Returns NotFoundError if the provider is not registered, NotImplementedError if it does not implement T.
+func LoadProvider[T Provider](providerName string) (zero T, _ error) {
+	prov, err := Get(providerName)
+	if err != nil {
+		return zero, NotFoundError{ProviderName: providerName}
+	}
+	provider, ok := prov().(T)
+	if !ok {
+		return zero, NotImplementedError[T]{ProviderName: providerName}
+	}
+	return provider, nil
 }

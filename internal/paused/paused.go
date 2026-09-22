@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 // Package paused implements helper functions for managing the Paused condition on API objects.
@@ -23,9 +23,9 @@ type Object interface {
 }
 
 // EnsureCondition computes and patches the "Paused" condition on the object.
-// It returns whether the object is paused, whether the caller should requeue,
-// and any error encountered while patching.
-func EnsureCondition(ctx context.Context, c client.Client, device *v1alpha1.Device, obj Object) (isPaused, requeue bool, err error) {
+// It returns whether reconciliation must remain paused and any error encountered
+// while patching.
+func EnsureCondition(ctx context.Context, c client.Client, device *v1alpha1.Device, obj Object) (isPaused bool, err error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	oldCondition := conditions.Get(obj, v1alpha1.PausedCondition)
@@ -59,14 +59,10 @@ func EnsureCondition(ctx context.Context, c client.Client, device *v1alpha1.Devi
 	// reconciliation status update, avoiding an unnecessary extra reconcile.
 	orig := obj.DeepCopyObject().(client.Object)
 	if changed := conditions.Set(obj, newCondition); !changed || !isPaused {
-		return isPaused, false, nil
+		return isPaused, nil
 	}
 
-	if err := c.Status().Patch(ctx, obj, client.MergeFrom(orig)); err != nil {
-		return isPaused, false, err
-	}
-
-	return isPaused, true, nil
+	return isPaused, c.Status().Patch(ctx, obj, client.MergeFrom(orig))
 }
 
 // computeCondition builds the Paused condition. A resource is paused when
@@ -105,6 +101,12 @@ func computeCondition(device *v1alpha1.Device, obj Object) metav1.Condition {
 				condition.Status = metav1.ConditionTrue
 				condition.Reason = v1alpha1.PausedReason
 				condition.Message = "Device is not reachable: " + cond.Message
+				return condition
+			}
+			if _, ok := device.GetAnnotations()[v1alpha1.DeviceMaintenanceAnnotation]; ok {
+				condition.Status = metav1.ConditionTrue
+				condition.Reason = v1alpha1.PausedReason
+				condition.Message = "Device is in maintenance"
 				return condition
 			}
 		}

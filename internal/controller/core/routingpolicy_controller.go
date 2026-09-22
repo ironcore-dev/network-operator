@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package core
@@ -15,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
@@ -48,9 +47,6 @@ type RoutingPolicyReconciler struct {
 	// Recorder is used to record events for the controller.
 	// More info: https://book.kubebuilder.io/reference/raising-events
 	Recorder events.EventRecorder
-
-	// Provider is the driver that will be used to create & delete the routingpolicy.
-	Provider provider.ProviderFunc
 
 	// Locker is used to synchronize operations on resources targeting the same device.
 	Locker *resourcelock.ResourceLocker
@@ -86,26 +82,31 @@ func (r *RoutingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	prov, ok := r.Provider().(provider.RoutingPolicyProvider)
-	if !ok {
+	device, err := deviceutil.GetDeviceByName(ctx, r, obj.Namespace, obj.Spec.DeviceRef.Name)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	prov, err := provider.LoadProvider[provider.RoutingPolicyProvider](device.Spec.Provider)
+	if err != nil {
+		reason := v1alpha1.NotImplementedReason
+		if _, ok := errors.AsType[provider.NotFoundError](err); ok {
+			reason = v1alpha1.ProviderNotFoundReason
+		}
 		if meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
 			Type:    v1alpha1.ReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  v1alpha1.NotImplementedReason,
-			Message: "Provider does not implement provider.RoutingPolicyProvider",
+			Reason:  reason,
+			Message: err.Error(),
 		}) {
 			return ctrl.Result{}, r.Status().Update(ctx, obj)
 		}
 		return ctrl.Result{}, nil
 	}
 
-	device, err := deviceutil.GetDeviceByName(ctx, r, obj.Namespace, obj.Spec.DeviceRef.Name)
-	if err != nil {
+	orig := obj.DeepCopy()
+	if isPaused, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || err != nil {
 		return ctrl.Result{}, err
-	}
-
-	if isPaused, requeue, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || requeue || err != nil {
-		return ctrl.Result{Requeue: requeue}, err
 	}
 
 	if err := r.Locker.AcquireLock(ctx, device.Name, "routingpolicy-controller"); err != nil {
@@ -171,7 +172,6 @@ func (r *RoutingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
-	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
@@ -427,7 +427,7 @@ func (r *RoutingPolicyReconciler) prefixSetToRoutingPolicy(ctx context.Context, 
 	log := ctrl.LoggerFrom(ctx, "PrefixSet", klog.KObj(prefixSet))
 
 	routingPolicies := new(v1alpha1.RoutingPolicyList)
-	if err := r.List(ctx, routingPolicies, client.InNamespace(prefixSet.Namespace), client.MatchingFields{routingPolicyPrefixSetRefKey: prefixSet.Spec.Name}); err != nil {
+	if err := r.List(ctx, routingPolicies, client.InNamespace(prefixSet.Namespace), client.MatchingFields{routingPolicyPrefixSetRefKey: prefixSet.Name}); err != nil {
 		log.Error(err, "Failed to list RoutingPolicies")
 		return nil
 	}
@@ -435,13 +435,11 @@ func (r *RoutingPolicyReconciler) prefixSetToRoutingPolicy(ctx context.Context, 
 	requests := []ctrl.Request{}
 	for _, rp := range routingPolicies.Items {
 		for _, stmt := range rp.Spec.Statements {
-			if stmt.Conditions != nil && stmt.Conditions.MatchPrefixSet != nil && stmt.Conditions.MatchPrefixSet.PrefixSetRef.Name == prefixSet.Spec.Name {
+			if stmt.Conditions != nil && stmt.Conditions.MatchPrefixSet != nil && stmt.Conditions.MatchPrefixSet.PrefixSetRef.Name == prefixSet.Name {
 				log.V(2).Info("Enqueuing RoutingPolicy for reconciliation", "RoutingPolicy", klog.KObj(&rp))
 				requests = append(requests, ctrl.Request{
-					NamespacedName: client.ObjectKey{
-						Name:      rp.Name,
-						Namespace: rp.Namespace,
-					},
+					Name:      rp.Name,
+					Namespace: rp.Namespace,
 				})
 				break
 			}
@@ -475,10 +473,8 @@ func (r *RoutingPolicyReconciler) deviceToRoutingPolicies(ctx context.Context, o
 	for _, i := range list.Items {
 		log.V(2).Info("Enqueuing RoutingPolicy for reconciliation", "RoutingPolicy", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 
@@ -506,10 +502,8 @@ func (r *RoutingPolicyReconciler) routingPoliciesForProviderConfig(ctx context.C
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
 			log.V(2).Info("Enqueuing RoutingPolicy for reconciliation", "RoutingPolicy", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      m.Name,
-					Namespace: m.Namespace,
-				},
+				Name:      m.Name,
+				Namespace: m.Namespace,
 			})
 		}
 	}

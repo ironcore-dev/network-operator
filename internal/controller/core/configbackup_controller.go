@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package core
@@ -22,7 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
@@ -57,9 +56,6 @@ type ConfigBackupReconciler struct {
 	// Recorder is used to record events for the controller.
 	// More info: https://book.kubebuilder.io/reference/raising-events
 	Recorder events.EventRecorder
-
-	// Provider is the driver that will be used to create & delete the config backup.
-	Provider provider.ProviderFunc
 
 	// Locker is used to synchronize operations on resources targeting the same device.
 	Locker *resourcelock.ResourceLocker
@@ -99,26 +95,31 @@ func (r *ConfigBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
-	prov, ok := r.Provider().(provider.ConfigBackupProvider)
-	if !ok {
+	device, err := deviceutil.GetDeviceByName(ctx, r, obj.Namespace, obj.Spec.DeviceRef.Name)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	prov, err := provider.LoadProvider[provider.ConfigBackupProvider](device.Spec.Provider)
+	if err != nil {
+		reason := v1alpha1.NotImplementedReason
+		if _, ok := errors.AsType[provider.NotFoundError](err); ok {
+			reason = v1alpha1.ProviderNotFoundReason
+		}
 		if meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
 			Type:    v1alpha1.ReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  v1alpha1.NotImplementedReason,
-			Message: "Provider does not implement provider.ConfigBackupProvider",
+			Reason:  reason,
+			Message: err.Error(),
 		}) {
 			return ctrl.Result{}, r.Status().Update(ctx, obj)
 		}
 		return ctrl.Result{}, nil
 	}
 
-	device, err := deviceutil.GetDeviceByName(ctx, r, obj.Namespace, obj.Spec.DeviceRef.Name)
-	if err != nil {
+	orig := obj.DeepCopy()
+	if isPaused, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || err != nil {
 		return ctrl.Result{}, err
-	}
-
-	if isPaused, requeue, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || requeue || err != nil {
-		return ctrl.Result{Requeue: requeue}, err
 	}
 
 	if err := r.Locker.AcquireLock(ctx, device.Name, "configbackup-controller"); err != nil {
@@ -184,7 +185,6 @@ func (r *ConfigBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
@@ -323,6 +323,26 @@ func (r *ConfigBackupReconciler) reconcile(ctx context.Context, s *configBackupS
 			Reason:  v1alpha1.ReadyReason,
 			Message: "Remote object storage endpoint is reachable",
 		})
+		// Restore the Ready condition to its pre-outage state so early
+		// returns (schedule not due, one-shot already done) don't leave
+		// Ready stuck on RemoteEndpointUnreachable.
+		if ready := conditions.Get(s.ConfigBackup, v1alpha1.ReadyCondition); ready != nil && ready.Reason == v1alpha1.RemoteEndpointUnreachableReason {
+			if s.ConfigBackup.Status.LastBackup != nil {
+				conditions.Set(s.ConfigBackup, metav1.Condition{
+					Type:    v1alpha1.ReadyCondition,
+					Status:  metav1.ConditionTrue,
+					Reason:  v1alpha1.BackupSuccessfulReason,
+					Message: "Backup completed successfully",
+				})
+			} else {
+				conditions.Set(s.ConfigBackup, metav1.Condition{
+					Type:    v1alpha1.ReadyCondition,
+					Status:  metav1.ConditionUnknown,
+					Reason:  v1alpha1.ReconcilePendingReason,
+					Message: "Reconciliation has not yet completed",
+				})
+			}
+		}
 	}
 
 	var schedule cron.Schedule
@@ -716,10 +736,8 @@ func (r *ConfigBackupReconciler) deviceToConfigBackups(ctx context.Context, obj 
 	for _, i := range list.Items {
 		log.V(2).Info("Enqueuing ConfigBackup for reconciliation", "ConfigBackup", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 
@@ -747,10 +765,8 @@ func (r *ConfigBackupReconciler) ConfigBackupsForProviderConfig(ctx context.Cont
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
 			log.V(2).Info("Enqueuing ConfigBackup for reconciliation", "ConfigBackup", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      m.Name,
-					Namespace: m.Namespace,
-				},
+				Name:      m.Name,
+				Namespace: m.Namespace,
 			})
 		}
 	}
@@ -775,10 +791,8 @@ func (r *ConfigBackupReconciler) configBackupsForSecret(ctx context.Context, obj
 			if ref.Name == obj.GetName() && ref.Namespace == obj.GetNamespace() {
 				log.V(2).Info("Enqueuing ConfigBackup for reconciliation", "ConfigBackup", klog.KObj(&m))
 				requests = append(requests, reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Name:      m.Name,
-						Namespace: m.Namespace,
-					},
+					Name:      m.Name,
+					Namespace: m.Namespace,
 				})
 				break
 			}

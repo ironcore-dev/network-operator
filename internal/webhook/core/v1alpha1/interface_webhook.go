@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package v1alpha1
@@ -70,6 +70,12 @@ func validateInterfaceSpec(intf *v1alpha1.Interface) error {
 
 	if intf.Spec.IPv4 != nil {
 		if err := validateInterfaceIPv4(intf.Spec.IPv4); err != nil {
+			errAgg = append(errAgg, err)
+		}
+	}
+
+	if intf.Spec.IPv6 != nil {
+		if err := validateInterfaceIPv6(intf.Spec.IPv6); err != nil {
 			errAgg = append(errAgg, err)
 		}
 	}
@@ -148,6 +154,27 @@ func validateInterfaceIPv4(ip *v1alpha1.InterfaceIPv4) error {
 		for j := i + 1; j < len(ip.Addresses); j++ {
 			if p := ip.Addresses[j].Prefix; cidr.Overlaps(p) {
 				errAgg = append(errAgg, fmt.Errorf("invalid IPv4 address %q: overlaps with %q", cidr.String(), p.String()))
+			}
+		}
+	}
+	return errors.Join(errAgg...)
+}
+
+// validateInterfaceIPv6 performs validation on the InterfaceIPv6 spec.
+func validateInterfaceIPv6(ip *v1alpha1.InterfaceIPv6) error {
+	var errAgg []error
+	for i, cidr := range ip.Addresses {
+		if !cidr.Prefix.Addr().Is6() {
+			errAgg = append(errAgg, fmt.Errorf("invalid IPv6 address %q: address is IPv4", cidr.String()))
+			continue
+		}
+		if cidr.Prefix.Addr().IsLinkLocalUnicast() {
+			errAgg = append(errAgg, fmt.Errorf("invalid IPv6 address %q: link-local addresses cannot be assigned, use useLinkLocalOnly instead", cidr.String()))
+			continue
+		}
+		for j := i + 1; j < len(ip.Addresses); j++ {
+			if p := ip.Addresses[j].Prefix; cidr.Overlaps(p) {
+				errAgg = append(errAgg, fmt.Errorf("invalid IPv6 address %q: overlaps with %q", cidr.String(), p.String()))
 			}
 		}
 	}

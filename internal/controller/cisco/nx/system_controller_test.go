@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package nx
@@ -24,11 +24,10 @@ var _ = Describe("System Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-system-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-system-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
+					Provider: "test-provider",
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
 					},
@@ -40,10 +39,8 @@ var _ = Describe("System Controller", func() {
 
 			By("Creating the custom resource for the Kind System")
 			resource := &nxv1alpha1.System{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: nxv1alpha1.SystemSpec{
 					DeviceRef:    v1alpha1.LocalObjectReference{Name: name},
 					JumboMTU:     9216,

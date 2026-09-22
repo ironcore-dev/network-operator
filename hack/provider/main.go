@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 package main
 
@@ -662,6 +662,20 @@ func performCreate(ctx context.Context, prov provider.Provider, obj client.Objec
 			}
 		}
 
+		var ipv6 provider.IPv6
+		if res.Spec.IPv6 != nil {
+			switch {
+			case res.Spec.IPv6.UseLinkLocalOnly:
+				ipv6 = provider.IPv6LinkLocalOnly{}
+			case len(res.Spec.IPv6.Addresses) > 0:
+				addrs := make([]netip.Prefix, len(res.Spec.IPv6.Addresses))
+				for i, addr := range res.Spec.IPv6.Addresses {
+					addrs[i] = addr.Prefix
+				}
+				ipv6 = provider.IPv6AddressList(addrs)
+			}
+		}
+
 		var members []*v1alpha1.Interface
 		if res.Spec.Type == v1alpha1.InterfaceTypeAggregate && len(res.Spec.Aggregation.MemberInterfaceRefs) > 0 {
 			if len(refStore) == 0 {
@@ -697,6 +711,7 @@ func performCreate(ctx context.Context, prov provider.Provider, obj client.Objec
 		return ip.EnsureInterface(ctx, &provider.EnsureInterfaceRequest{
 			Interface:      res,
 			IPv4:           ipv4,
+			IPv6:           ipv6,
 			Members:        members,
 			MultiChassisID: multiChassisID,
 			VLAN:           vlan,

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package nxos
@@ -406,7 +406,14 @@ func (d *AddrDom) Key() string { return d.Name }
 type AddrItem struct {
 	ID         string `json:"id"`
 	Unnumbered string `json:"unnumbered,omitempty"`
-	AddrItems  struct {
+
+	// UseLinkLocalAddr configures the interface to use only its automatically
+	// generated IPv6 link-local address ("ipv6 address use-link-local-only").
+	// Only set for IPv6; the IPv4 object has no such property, so it must stay
+	// empty there to keep the payload free of it.
+	UseLinkLocalAddr AdminSt `json:"useLinkLocalAddr,omitempty"`
+
+	AddrItems struct {
 		AddrList gnmiext.List[string, *IntfAddr] `json:"Addr-list,omitzero"`
 	} `json:"addr-items,omitzero"`
 

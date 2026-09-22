@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package v1alpha1
@@ -199,14 +199,10 @@ func (p *IPPrefixPool) Allocate(claim *Claim, existing []Allocation) (Allocation
 			candidate := netip.PrefixFrom(addr, target)
 			if _, taken := allocated[candidate]; !taken {
 				return &IPPrefix{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: GroupVersion.String(),
-						Kind:       "IPPrefix",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      fmt.Sprintf("%s-%s", p.Name, sanitizeValue(candidate.String())),
-						Namespace: p.Namespace,
-					},
+					APIVersion: GroupVersion.String(),
+					Kind:       "IPPrefix",
+					Name:       fmt.Sprintf("%s-%s", p.Name, sanitizeValue(candidate.String())),
+					Namespace:  p.Namespace,
 					Spec: IPPrefixSpec{
 						PoolRef: corev1alpha1.TypedLocalObjectReference{
 							APIVersion: GroupVersion.String(),

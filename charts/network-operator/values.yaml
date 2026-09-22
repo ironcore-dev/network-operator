@@ -25,6 +25,28 @@ manager:
   args:
     - --leader-elect
 
+  ## Health probes.
+  ## The manager serves the liveness (/healthz) and readiness (/readyz) endpoints on this port.
+  ##
+  healthProbe:
+    # Health probe server port
+    port: 8081
+
+  ## Environment variables
+  ##
+  # env:
+  #   - name: BUSYBOX_IMAGE
+  #     value: busybox:1.36.1
+  #   - name: WATCH_NAMESPACE
+  #     valueFrom:
+  #       fieldRef:
+  #         fieldPath: metadata.namespace
+
+  ## Env overrides (--set manager.envOverrides.VAR=value)
+  ## Same name in env above: this value takes precedence.
+  ##
+  envOverrides: {}
+
   ## Image pull secrets
   ##
   # imagePullSecrets:

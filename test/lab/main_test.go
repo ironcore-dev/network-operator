@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 package main_test
 
@@ -212,10 +212,8 @@ func SetupK8s(t *testing.T) {
 		t.Fatalf("failed to create Kubernetes client: %v", err)
 	}
 	Create(t, &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "secret",
-			Namespace: metav1.NamespaceDefault,
-		},
+		Name:      "secret",
+		Namespace: metav1.NamespaceDefault,
 		StringData: map[string]string{
 			"username": Endpoint.User,
 			"password": Endpoint.Pass,
@@ -223,10 +221,8 @@ func SetupK8s(t *testing.T) {
 		Type: corev1.SecretTypeBasicAuth,
 	})
 	Create(t, &v1alpha1.Device{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "device",
-			Namespace: metav1.NamespaceDefault,
-		},
+		Name:      "device",
+		Namespace: metav1.NamespaceDefault,
 		Spec: v1alpha1.DeviceSpec{
 			Endpoint: v1alpha1.Endpoint{
 				Address:   net.JoinHostPort(Endpoint.Addr, "9339"),

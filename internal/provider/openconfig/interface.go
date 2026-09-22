@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package openconfig
@@ -6,6 +6,7 @@ package openconfig
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
@@ -18,6 +19,13 @@ var _ provider.InterfaceProvider = (*Provider)(nil)
 
 func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInterfaceRequest) error {
 	spec := req.Interface.Spec
+
+	if _, ok := req.IPv6.(provider.IPv6LinkLocalOnly); ok {
+		return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+			Field:       "spec.ipv6.useLinkLocalOnly",
+			Description: "openconfig provider does not support link-local-only IPv6 interfaces",
+		})
+	}
 
 	i := &Interface{
 		Name: spec.Name,
@@ -113,7 +121,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 	}
 
-	if req.IPv4 != nil {
+	if req.IPv4 != nil || req.IPv6 != nil {
 		sub := &Subinterface{
 			Index:  0,
 			Config: &SubinterfaceConfig{Index: 0, Enabled: true},
@@ -154,6 +162,8 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				},
 			}
 		}
+
+		sub.IPv6 = newInterfaceIPv6(req.IPv6)
 
 		subs := &Subinterfaces{}
 		subs.Subinterface.Set(sub)
@@ -313,7 +323,36 @@ func (p *Provider) EnsureSubinterface(ctx context.Context, req *provider.EnsureI
 		}
 	}
 
+	sub.IPv6 = newInterfaceIPv6(req.IPv6)
+
 	return p.client.Update(ctx, sub)
+}
+
+// newInterfaceIPv6 builds the IPv6 container of a subinterface, or nil if no
+// IPv6 addresses were requested. Link-local-only is rejected by EnsureInterface
+// before this is reached.
+func newInterfaceIPv6(ipv6 provider.IPv6) *InterfaceIPv6 {
+	v, ok := ipv6.(provider.IPv6AddressList)
+	if !ok {
+		return nil
+	}
+
+	addrs := &IPv6Addresses{}
+	for _, prefix := range v {
+		ip := prefix.Addr().String()
+		addrs.Address.Set(&IPv6Address{
+			IP: ip,
+			Config: &IPv6AddressConfig{
+				IP:           ip,
+				PrefixLength: uint8(prefix.Bits()), //nolint:gosec
+				Type:         IPv6AddressTypeGlobalUnicast,
+			},
+		})
+	}
+	return &InterfaceIPv6{
+		Config:    &InterfaceIPv6Config{Enabled: true},
+		Addresses: addrs,
+	}
 }
 
 // InterfaceType represents the YANG identity for the interface type.
@@ -476,6 +515,7 @@ type Subinterface struct {
 	Index  uint32              `json:"index"`
 	Config *SubinterfaceConfig `json:"config,omitempty"`
 	IPv4   *InterfaceIPv4      `json:"openconfig-if-ip:ipv4,omitempty"`
+	IPv6   *InterfaceIPv6      `json:"openconfig-if-ip:ipv6,omitempty"`
 }
 
 func (s *Subinterface) Key() uint32 {
@@ -498,6 +538,49 @@ type InterfaceIPv4 struct {
 // InterfaceIPv4Config holds the config container for IPv4.
 type InterfaceIPv4Config struct {
 	Enabled bool `json:"enabled"`
+}
+
+// InterfaceIPv6 holds the IPv6 container of a subinterface.
+type InterfaceIPv6 struct {
+	Addresses *IPv6Addresses       `json:"addresses"`
+	Config    *InterfaceIPv6Config `json:"config"`
+}
+
+// InterfaceIPv6Config holds the config container for IPv6.
+type InterfaceIPv6Config struct {
+	Enabled bool `json:"enabled"`
+}
+
+// IPv6Addresses holds the IPv6 address list container.
+type IPv6Addresses struct {
+	Address gnmiext.List[string, *IPv6Address] `json:"address,omitempty"`
+}
+
+// IPv6Address represents a single IPv6 address entry.
+type IPv6Address struct {
+	IP     string             `json:"ip"`
+	Config *IPv6AddressConfig `json:"config,omitempty"`
+}
+
+func (a *IPv6Address) Key() string {
+	return a.IP
+}
+
+// IPv6AddressType represents the type of an IPv6 address. Unlike IPv4, IPv6 has
+// no primary/secondary addresses. Only global unicast is ever configured here:
+// link-local addresses are rejected by the webhook in favour of
+// spec.ipv6.useLinkLocalOnly, which this provider does not support.
+type IPv6AddressType string
+
+const (
+	IPv6AddressTypeGlobalUnicast IPv6AddressType = "GLOBAL_UNICAST"
+)
+
+// IPv6AddressConfig holds the config for a single IPv6 address.
+type IPv6AddressConfig struct {
+	IP           string          `json:"ip"`
+	PrefixLength uint8           `json:"prefix-length"`
+	Type         IPv6AddressType `json:"type,omitempty"`
 }
 
 // IPv4Addresses holds the IPv4 address list container.
@@ -626,6 +709,7 @@ type SubinterfaceEntry struct {
 	Index      uint32              `json:"index"`
 	Config     *SubinterfaceConfig `json:"config,omitempty"`
 	IPv4       *InterfaceIPv4      `json:"openconfig-if-ip:ipv4,omitempty"`
+	IPv6       *InterfaceIPv6      `json:"openconfig-if-ip:ipv6,omitempty"`
 	Vlan       *SubinterfaceVlan   `json:"openconfig-vlan:vlan,omitempty"`
 }
 
@@ -663,4 +747,29 @@ type SubinterfaceVlanDoubleTagged struct {
 type SubinterfaceVlanDoubleTaggedConfig struct {
 	InnerVlanID uint16 `json:"inner-vlan-id,omitempty"`
 	OuterVlanID uint16 `json:"outer-vlan-id,omitempty"`
+}
+
+type interfaceAddrs struct {
+	ifName  string
+	Address gnmiext.List[string, *IPv4Address] `json:"address"`
+}
+
+func (a *interfaceAddrs) XPath() string {
+	return fmt.Sprintf("openconfig-interfaces:interfaces/interface[name=%s]/subinterfaces/subinterface[index=0]/openconfig-if-ip:ipv4/addresses", a.ifName)
+}
+
+// interfaceIPAddr retrieves the first IPv4 address from the state of the named interface.
+// TODO: Support getting IPv6 address if it's configured
+func (p *Provider) interfaceIPAddr(ctx context.Context, name string) (string, error) {
+	addrs := &interfaceAddrs{ifName: name}
+	if err := p.client.GetState(ctx, addrs); err != nil {
+		if errors.Is(err, gnmiext.ErrNil) {
+			return "", apistatus.NewFailedPreconditionError(fmt.Sprintf("interface %q has no IPv4 address", name))
+		}
+		return "", fmt.Errorf("failed to get IPv4 address for interface %q: %w", name, err)
+	}
+	for _, a := range addrs.Address {
+		return a.IP, nil
+	}
+	return "", apistatus.NewFailedPreconditionError(fmt.Sprintf("interface %q has no IPv4 address", name))
 }

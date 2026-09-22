@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package core
@@ -31,12 +31,11 @@ var _ = Describe("NVE Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-nve-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-nve-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: testEndpointAddr},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -46,7 +45,7 @@ var _ = Describe("NVE Controller", func() {
 			By("Creating loopback interfaces")
 			for _, ifName := range []string{name + "-lo0", name + "-lo1"} {
 				Expect(k8sClient.Create(ctx, &v1alpha1.Interface{
-					ObjectMeta: metav1.ObjectMeta{Name: ifName, Namespace: metav1.NamespaceDefault},
+					Name: ifName, Namespace: metav1.NamespaceDefault,
 					Spec: v1alpha1.InterfaceSpec{
 						DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 						Name:       ifName,
@@ -63,7 +62,7 @@ var _ = Describe("NVE Controller", func() {
 			By("Creating the custom resource for the Kind NVE")
 			l2Prefix := v1alpha1.MustParsePrefix("234.0.0.0/8")
 			nve = &v1alpha1.NetworkVirtualizationEdge{
-				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault},
+				Name: name, Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.NetworkVirtualizationEdgeSpec{
 					DeviceRef:                 v1alpha1.LocalObjectReference{Name: name},
 					SuppressARP:               true,
@@ -200,12 +199,11 @@ var _ = Describe("NVE Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-nve-refupdates-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-nve-refupdates-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: testEndpointAddr},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -215,7 +213,7 @@ var _ = Describe("NVE Controller", func() {
 			By("Creating loopback interfaces")
 			for _, ifName := range []string{name + "-lo0", name + "-lo1", name + "-lo2"} {
 				Expect(k8sClient.Create(ctx, &v1alpha1.Interface{
-					ObjectMeta: metav1.ObjectMeta{Name: ifName, Namespace: metav1.NamespaceDefault},
+					Name: ifName, Namespace: metav1.NamespaceDefault,
 					Spec: v1alpha1.InterfaceSpec{
 						DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 						Name:       ifName,
@@ -233,7 +231,7 @@ var _ = Describe("NVE Controller", func() {
 			By("Creating the custom resource for the Kind NVE")
 			l2Prefix := v1alpha1.MustParsePrefix("234.0.0.0/8")
 			nve = &v1alpha1.NetworkVirtualizationEdge{
-				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault},
+				Name: name, Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.NetworkVirtualizationEdgeSpec{
 					DeviceRef:          v1alpha1.LocalObjectReference{Name: name},
 					SuppressARP:        true,
@@ -319,12 +317,11 @@ var _ = Describe("NVE Controller", func() {
 		BeforeEach(func() {
 			By("Creating device only (no interfaces)")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-nve-missingif-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-nve-missingif-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: testEndpointAddr},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -333,7 +330,7 @@ var _ = Describe("NVE Controller", func() {
 
 			By("Creating an NVE object with a reference to a non-existent interface")
 			Expect(k8sClient.Create(ctx, &v1alpha1.NetworkVirtualizationEdge{
-				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault},
+				Name: name, Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.NetworkVirtualizationEdgeSpec{
 					DeviceRef:          v1alpha1.LocalObjectReference{Name: name},
 					SuppressARP:        true,
@@ -393,12 +390,11 @@ var _ = Describe("NVE Controller", func() {
 
 		BeforeEach(func() {
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-nve-anycast-omit-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-nve-anycast-omit-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: testEndpointAddr},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -406,7 +402,7 @@ var _ = Describe("NVE Controller", func() {
 			nveKey = client.ObjectKey{Name: name, Namespace: metav1.NamespaceDefault}
 
 			Expect(k8sClient.Create(ctx, &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{Name: name + "-lo0", Namespace: metav1.NamespaceDefault},
+				Name: name + "-lo0", Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       name + "-lo0",
@@ -416,7 +412,7 @@ var _ = Describe("NVE Controller", func() {
 			})).To(Succeed())
 
 			Expect(k8sClient.Create(ctx, &v1alpha1.NetworkVirtualizationEdge{
-				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault},
+				Name: name, Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.NetworkVirtualizationEdgeSpec{
 					DeviceRef:          v1alpha1.LocalObjectReference{Name: name},
 					SuppressARP:        true,
@@ -488,12 +484,11 @@ var _ = Describe("NVE Controller", func() {
 
 		BeforeEach(func() {
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-nve-uniqueness-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-nve-uniqueness-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: testEndpointAddr},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -501,7 +496,7 @@ var _ = Describe("NVE Controller", func() {
 
 			for _, ifName := range []string{name + "-lo0", name + "-lo1"} {
 				Expect(k8sClient.Create(ctx, &v1alpha1.Interface{
-					ObjectMeta: metav1.ObjectMeta{Name: ifName, Namespace: metav1.NamespaceDefault},
+					Name: ifName, Namespace: metav1.NamespaceDefault,
 					Spec: v1alpha1.InterfaceSpec{
 						DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 						Name:       ifName,
@@ -515,7 +510,7 @@ var _ = Describe("NVE Controller", func() {
 			nve2Key = client.ObjectKey{Name: name + "-nve2", Namespace: metav1.NamespaceDefault}
 
 			Expect(k8sClient.Create(ctx, &v1alpha1.NetworkVirtualizationEdge{
-				ObjectMeta: metav1.ObjectMeta{Name: name + "-nve1", Namespace: metav1.NamespaceDefault},
+				Name: name + "-nve1", Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.NetworkVirtualizationEdgeSpec{
 					DeviceRef:          v1alpha1.LocalObjectReference{Name: name},
 					SuppressARP:        true,
@@ -525,7 +520,7 @@ var _ = Describe("NVE Controller", func() {
 				},
 			})).To(Succeed())
 			Expect(k8sClient.Create(ctx, &v1alpha1.NetworkVirtualizationEdge{
-				ObjectMeta: metav1.ObjectMeta{Name: name + "-nve2", Namespace: metav1.NamespaceDefault},
+				Name: name + "-nve2", Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.NetworkVirtualizationEdgeSpec{
 					DeviceRef:          v1alpha1.LocalObjectReference{Name: name},
 					SuppressARP:        true,
@@ -597,12 +592,11 @@ var _ = Describe("NVE Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-nve-wrongiftype-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-nve-wrongiftype-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: testEndpointAddr},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -612,7 +606,7 @@ var _ = Describe("NVE Controller", func() {
 			By("Creating interfaces with wrong type")
 			for _, ifName := range []string{name + "-eth0", name + "-eth1"} {
 				Expect(k8sClient.Create(ctx, &v1alpha1.Interface{
-					ObjectMeta: metav1.ObjectMeta{Name: ifName, Namespace: metav1.NamespaceDefault},
+					Name: ifName, Namespace: metav1.NamespaceDefault,
 					Spec: v1alpha1.InterfaceSpec{
 						DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 						Name:       ifName,
@@ -625,7 +619,7 @@ var _ = Describe("NVE Controller", func() {
 			By("Creating the custom resource for the Kind NetworkVirtualizationEdge")
 			l2Prefix := v1alpha1.MustParsePrefix("234.0.0.0/8")
 			Expect(k8sClient.Create(ctx, &v1alpha1.NetworkVirtualizationEdge{
-				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault},
+				Name: name, Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.NetworkVirtualizationEdgeSpec{
 					DeviceRef:                 v1alpha1.LocalObjectReference{Name: name},
 					SuppressARP:               true,
@@ -697,12 +691,11 @@ var _ = Describe("NVE Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-nve-crossdevice-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-nve-crossdevice-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: testEndpointAddr},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -711,12 +704,11 @@ var _ = Describe("NVE Controller", func() {
 
 			By("Creating a second device whose interfaces will be referenced cross-device")
 			device2 := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-nve-crossdevice-b-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-nve-crossdevice-b-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: testEndpointAddr},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device2)).To(Succeed())
@@ -732,7 +724,7 @@ var _ = Describe("NVE Controller", func() {
 			By("Creating loopback interfaces on the second device")
 			for _, ifName := range []string{name + "-lo0", name + "-lo1"} {
 				Expect(k8sClient.Create(ctx, &v1alpha1.Interface{
-					ObjectMeta: metav1.ObjectMeta{Name: ifName, Namespace: metav1.NamespaceDefault},
+					Name: ifName, Namespace: metav1.NamespaceDefault,
 					Spec: v1alpha1.InterfaceSpec{
 						DeviceRef:  v1alpha1.LocalObjectReference{Name: device2.Name},
 						Name:       ifName,
@@ -745,7 +737,7 @@ var _ = Describe("NVE Controller", func() {
 			By("Creating the custom resource for the Kind NetworkVirtualizationEdge")
 			l2Prefix := v1alpha1.MustParsePrefix("234.0.0.0/8")
 			Expect(k8sClient.Create(ctx, &v1alpha1.NetworkVirtualizationEdge{
-				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault},
+				Name: name, Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.NetworkVirtualizationEdgeSpec{
 					DeviceRef:                 v1alpha1.LocalObjectReference{Name: name},
 					SuppressARP:               true,
@@ -817,12 +809,11 @@ var _ = Describe("NVE Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-nve-badproviderref-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-nve-badproviderref-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{Address: testEndpointAddr},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -832,7 +823,7 @@ var _ = Describe("NVE Controller", func() {
 			By("Creating loopback interfaces")
 			for _, ifName := range []string{name + "-lo0", name + "-lo1", name + "-lo2"} {
 				Expect(k8sClient.Create(ctx, &v1alpha1.Interface{
-					ObjectMeta: metav1.ObjectMeta{Name: ifName, Namespace: metav1.NamespaceDefault},
+					Name: ifName, Namespace: metav1.NamespaceDefault,
 					Spec: v1alpha1.InterfaceSpec{
 						DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 						Name:       ifName,
@@ -844,7 +835,7 @@ var _ = Describe("NVE Controller", func() {
 
 			By("Creating an NVE with an invalid providerConfigRef")
 			Expect(k8sClient.Create(ctx, &v1alpha1.NetworkVirtualizationEdge{
-				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault},
+				Name: name, Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.NetworkVirtualizationEdgeSpec{
 					DeviceRef:                 v1alpha1.LocalObjectReference{Name: name},
 					SuppressARP:               true,

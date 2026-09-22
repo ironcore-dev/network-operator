@@ -10,7 +10,8 @@
                 {
                   "associateVrfFlag": false,
                   "mcastGroup": "239.1.1.100",
-                  "vni": 100010
+                  "vni": 100010,
+                  "suppressARP": "off"
                 }
               ]
             }

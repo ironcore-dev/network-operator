@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package v1alpha1
@@ -21,7 +21,7 @@ type PrefixSetSpec struct {
 	DeviceRef LocalObjectReference `json:"deviceRef"`
 
 	// ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
-	// This reference is used to link the Banner to its provider-specific configuration.
+	// This reference is used to link the PrefixSet to its provider-specific configuration.
 	// +optional
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
 

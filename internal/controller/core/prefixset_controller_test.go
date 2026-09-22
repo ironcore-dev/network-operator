@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package core
@@ -24,14 +24,13 @@ var _ = Describe("PrefixSet Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-prefixset-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-prefixset-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -40,10 +39,8 @@ var _ = Describe("PrefixSet Controller", func() {
 
 			By("Creating the custom resource for the Kind PrefixSet")
 			resource := &v1alpha1.PrefixSet{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.PrefixSetSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Name:      set,

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package core
@@ -15,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
@@ -48,9 +47,6 @@ type SyslogReconciler struct {
 	// Recorder is used to record events for the controller.
 	// More info: https://book.kubebuilder.io/reference/raising-events
 	Recorder events.EventRecorder
-
-	// Provider is the driver that will be used to create & delete the syslog.
-	Provider provider.ProviderFunc
 
 	// Locker is used to synchronize operations on resources targeting the same device.
 	Locker *resourcelock.ResourceLocker
@@ -86,26 +82,31 @@ func (r *SyslogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, err
 	}
 
-	prov, ok := r.Provider().(provider.SyslogProvider)
-	if !ok {
+	device, err := deviceutil.GetDeviceByName(ctx, r, obj.Namespace, obj.Spec.DeviceRef.Name)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	prov, err := provider.LoadProvider[provider.SyslogProvider](device.Spec.Provider)
+	if err != nil {
+		reason := v1alpha1.NotImplementedReason
+		if _, ok := errors.AsType[provider.NotFoundError](err); ok {
+			reason = v1alpha1.ProviderNotFoundReason
+		}
 		if meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
 			Type:    v1alpha1.ReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  v1alpha1.NotImplementedReason,
-			Message: "Provider does not implement provider.SyslogProvider",
+			Reason:  reason,
+			Message: err.Error(),
 		}) {
 			return ctrl.Result{}, r.Status().Update(ctx, obj)
 		}
 		return ctrl.Result{}, nil
 	}
 
-	device, err := deviceutil.GetDeviceByName(ctx, r, obj.Namespace, obj.Spec.DeviceRef.Name)
-	if err != nil {
+	orig := obj.DeepCopy()
+	if isPaused, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || err != nil {
 		return ctrl.Result{}, err
-	}
-
-	if isPaused, requeue, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || requeue || err != nil {
-		return ctrl.Result{Requeue: requeue}, err
 	}
 
 	if err := r.Locker.AcquireLock(ctx, device.Name, "syslog-controller"); err != nil {
@@ -171,7 +172,6 @@ func (r *SyslogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, nil
 	}
 
-	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
@@ -344,10 +344,8 @@ func (r *SyslogReconciler) deviceToSyslogs(ctx context.Context, obj client.Objec
 	for _, i := range list.Items {
 		log.V(2).Info("Enqueuing Syslog for reconciliation", "Syslog", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 
@@ -375,10 +373,8 @@ func (r *SyslogReconciler) syslogForProviderConfig(ctx context.Context, obj clie
 			m.Spec.ProviderConfigRef.APIVersion == gkv.GroupVersion().Identifier() {
 			log.V(2).Info("Enqueuing Syslog for reconciliation", "Syslog", klog.KObj(&m))
 			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      m.Name,
-					Namespace: m.Namespace,
-				},
+				Name:      m.Name,
+				Namespace: m.Namespace,
 			})
 		}
 	}

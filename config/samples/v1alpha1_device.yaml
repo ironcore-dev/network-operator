@@ -13,6 +13,7 @@ spec:
     address: 192.168.5.2:9339
     secretRef:
       name: secret-basic-auth
+  provider: openconfig.networking.metal.ironcore.dev
   # provisioning:
   #   The bootstrap configuration can be defined in a ConfigMap, Secret or inline as follows:
   #   bootScript:

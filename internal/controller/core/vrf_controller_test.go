@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package core
@@ -25,14 +25,13 @@ var _ = Describe("VRF Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-vrf-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-vrf-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -41,13 +40,12 @@ var _ = Describe("VRF Controller", func() {
 
 			By("Creating the custom resource for the Kind VRF")
 			vrf = &v1alpha1.VRF{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.VRFSpec{
-					DeviceRef:          v1alpha1.LocalObjectReference{Name: name},
-					Name:               "CC-ADMIN-TEST",
+					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
+					Name:      "CC-ADMIN-TEST",
+					//nolint:staticcheck // Verifies legacy VRF VNI compatibility.
 					VNI:                100,
 					RouteDistinguisher: "127.0.0.1:30004",
 					RouteTargets: []v1alpha1.RouteTarget{

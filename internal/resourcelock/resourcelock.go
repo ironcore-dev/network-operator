@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 // Package resourcelock provides utilities for locking Kubernetes resources using Leases.
@@ -70,10 +70,8 @@ func (rl *ResourceLocker) AcquireLock(ctx context.Context, name, lockerID string
 
 		// Lease doesn't exist, create it
 		lease = &coordinationv1.Lease{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: rl.namespace,
-			},
+			Name:      name,
+			Namespace: rl.namespace,
 			Spec: coordinationv1.LeaseSpec{
 				HolderIdentity:       &lockerID,
 				LeaseDurationSeconds: &rl.leaseDurationSeconds,

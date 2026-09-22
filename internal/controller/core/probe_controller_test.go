@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package core
@@ -27,11 +27,10 @@ var _ = Describe("Probe Controller", func() {
 		BeforeEach(func() {
 			By("Creating the custom resource for the Kind Device")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-probe-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-probe-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
+					Provider: "test-provider",
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
 					},
@@ -77,10 +76,8 @@ var _ = Describe("Probe Controller", func() {
 			}).Should(Succeed())
 
 			resource := &v1alpha1.Probe{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.ProbeSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Type:      v1alpha1.ProbeTypePing,
@@ -112,10 +109,8 @@ var _ = Describe("Probe Controller", func() {
 
 		It("Should execute a Probe when its Device is paused", func() {
 			resource := &v1alpha1.Probe{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.ProbeSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Type:      v1alpha1.ProbeTypePing,
@@ -143,10 +138,8 @@ var _ = Describe("Probe Controller", func() {
 		It("Should successfully reconcile a Ping Probe", func() {
 			By("Creating the custom resource for the Kind Probe")
 			resource := &v1alpha1.Probe{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.ProbeSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Type:      v1alpha1.ProbeTypePing,
@@ -202,10 +195,8 @@ var _ = Describe("Probe Controller", func() {
 		It("Should successfully reconcile a MAC table entry Probe", func() {
 			By("Creating the custom resource for the Kind Probe")
 			resource := &v1alpha1.Probe{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.ProbeSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Type:      v1alpha1.ProbeTypeMACTableEntry,
@@ -234,10 +225,8 @@ var _ = Describe("Probe Controller", func() {
 		It("Should successfully reconcile a route presence Probe", func() {
 			By("Creating the custom resource for the Kind Probe")
 			resource := &v1alpha1.Probe{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.ProbeSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Type:      v1alpha1.ProbeTypeRoutePresence,
@@ -266,10 +255,8 @@ var _ = Describe("Probe Controller", func() {
 		It("Should successfully reconcile a VTEP peer connectivity Probe", func() {
 			By("Creating the custom resource for the Kind Probe")
 			resource := &v1alpha1.Probe{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.ProbeSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Type:      v1alpha1.ProbeTypeVTEPPeerConnectivity,

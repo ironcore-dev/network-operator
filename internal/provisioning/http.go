@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package provisioning
@@ -91,7 +91,6 @@ type HTTPServer struct {
 	Mux              *http.ServeMux
 	Recorder         events.EventRecorder
 	ValidateSourceIP bool
-	Provider         provider.ProvisioningProvider
 	Port             int
 }
 
@@ -268,7 +267,7 @@ func (s *HTTPServer) HandleProvisioningRequest(w http.ResponseWriter, r *http.Re
 			return
 		}
 
-		deviceIP := strings.Split(device.Spec.Endpoint.Address, ":")[0]
+		deviceIP, _, _ := strings.Cut(device.Spec.Endpoint.Address, ":")
 		if deviceIP != clientIP {
 			s.Logger.Error(nil, "Source IP validation failed", "clientIP", clientIP, "deviceIP", deviceIP)
 			http.Error(w, "Source IP does not match device IP", http.StatusForbidden)
@@ -306,7 +305,14 @@ func (s *HTTPServer) HandleProvisioningRequest(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	hashedPassword, hashAlgorithm, err := s.Provider.HashProvisioningPassword(string(pass))
+	prov, err := provider.LoadProvider[provider.ProvisioningProvider](device.Spec.Provider)
+	if err != nil {
+		s.Logger.Error(err, "Failed to get provider", "provider", device.Spec.Provider, "device", device.Name, "error", err)
+		http.Error(w, "Failed to get provider", http.StatusPreconditionRequired)
+		return
+	}
+
+	hashedPassword, hashAlgorithm, err := prov.HashProvisioningPassword(string(pass))
 	if err != nil {
 		s.Logger.Error(err, "Failed to hash provisioning password", "device", device.Name)
 		http.Error(w, "Failed to hash provisioning password", http.StatusInternalServerError)

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package nx
@@ -51,9 +51,6 @@ type BorderGatewayReconciler struct {
 	// More info: https://book.kubebuilder.io/reference/raising-events
 	Recorder events.EventRecorder
 
-	// Provider is the driver that will be used to create & delete the bordergateway.
-	Provider provider.ProviderFunc
-
 	// Locker is used to synchronize operations on resources targeting the same device.
 	Locker *resourcelock.ResourceLocker
 }
@@ -88,26 +85,31 @@ func (r *BorderGatewayReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	prov, ok := r.Provider().(Provider)
-	if !ok {
+	device, err := deviceutil.GetDeviceByName(ctx, r, obj.Namespace, obj.Spec.DeviceRef.Name)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	prov, err := provider.LoadProvider[Provider](device.Spec.Provider)
+	if err != nil {
+		reason := v1alpha1.NotImplementedReason
+		if _, ok := errors.AsType[provider.NotFoundError](err); ok {
+			reason = v1alpha1.ProviderNotFoundReason
+		}
 		if meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
 			Type:    v1alpha1.ReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  v1alpha1.ErrorReason,
-			Message: "Invalid provider configured for BorderGateway reconciler",
+			Reason:  reason,
+			Message: err.Error(),
 		}) {
 			return ctrl.Result{}, r.Status().Update(ctx, obj)
 		}
 		return ctrl.Result{}, nil
 	}
 
-	device, err := deviceutil.GetDeviceByName(ctx, r, obj.Namespace, obj.Spec.DeviceRef.Name)
-	if err != nil {
+	orig := obj.DeepCopy()
+	if isPaused, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || err != nil {
 		return ctrl.Result{}, err
-	}
-
-	if isPaused, requeue, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || requeue || err != nil {
-		return ctrl.Result{Requeue: requeue}, err
 	}
 
 	if err := r.Locker.AcquireLock(ctx, device.Name, "cisco-nx-border-gateway-controller"); err != nil {
@@ -164,7 +166,6 @@ func (r *BorderGatewayReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
-	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
@@ -537,10 +538,8 @@ func (r *BorderGatewayReconciler) sourceInterfaceToBorderGateway(ctx context.Con
 		if bg.Spec.SourceInterfaceRef.Name == intf.Name {
 			log.V(2).Info("Enqueuing BorderGateway for reconciliation", "BorderGateway", klog.KObj(&bg))
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      bg.Name,
-					Namespace: bg.Namespace,
-				},
+				Name:      bg.Name,
+				Namespace: bg.Namespace,
 			})
 		}
 	}
@@ -571,10 +570,8 @@ func (r *BorderGatewayReconciler) interconnectInterfaceToBorderGateway(ctx conte
 		}) {
 			log.V(2).Info("Enqueuing BorderGateway for reconciliation", "BorderGateway", klog.KObj(&bg))
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      bg.Name,
-					Namespace: bg.Namespace,
-				},
+				Name:      bg.Name,
+				Namespace: bg.Namespace,
 			})
 		}
 	}
@@ -605,10 +602,8 @@ func (r *BorderGatewayReconciler) bgpPeerToBorderGateway(ctx context.Context, ob
 		}) {
 			log.V(2).Info("Enqueuing BorderGateway for reconciliation", "BorderGateway", klog.KObj(&bg))
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      bg.Name,
-					Namespace: bg.Namespace,
-				},
+				Name:      bg.Name,
+				Namespace: bg.Namespace,
 			})
 		}
 	}
@@ -640,10 +635,8 @@ func (r *BorderGatewayReconciler) deviceToBorderGateways(ctx context.Context, ob
 	for _, i := range list.Items {
 		log.V(2).Info("Enqueuing BorderGateway for reconciliation", "BorderGateway", klog.KObj(&i))
 		requests = append(requests, ctrl.Request{
-			NamespacedName: client.ObjectKey{
-				Name:      i.Name,
-				Namespace: i.Namespace,
-			},
+			Name:      i.Name,
+			Namespace: i.Namespace,
 		})
 	}
 

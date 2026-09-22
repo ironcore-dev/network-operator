@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package core
@@ -27,14 +27,13 @@ var _ = Describe("Interface Controller", func() {
 		BeforeEach(func() {
 			By("Creating a Device resource for testing")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-interface-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-interface-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -87,10 +86,8 @@ var _ = Describe("Interface Controller", func() {
 		It("Should successfully reconcile a Physical Interface with IPv4 addresses", func() {
 			By("Creating an Interface with IPv4 addresses")
 			intf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:   v1alpha1.LocalObjectReference{Name: name},
 					Name:        name,
@@ -152,10 +149,8 @@ var _ = Describe("Interface Controller", func() {
 		It("Should successfully reconcile a Physical Interface with unnumbered IPv4", func() {
 			By("Creating a Loopback Interface with IPv4 addresses")
 			lb := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name + "-lb",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name + "-lb",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       name,
@@ -170,10 +165,8 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Creating a Physical Interface with unnumbered IPv4 configuration")
 			eth := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       name,
@@ -207,10 +200,8 @@ var _ = Describe("Interface Controller", func() {
 		It("Should handle unnumbered reference to Interface from different device", func() {
 			By("Creating a Loopback Interface on a different device")
 			lb := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name + "-lb",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name + "-lb",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: "non-existing-device"},
 					Name:       name,
@@ -222,10 +213,8 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Creating a Physical Interface with unnumbered reference to the cross-device Interface")
 			eth := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       name,
@@ -260,10 +249,8 @@ var _ = Describe("Interface Controller", func() {
 		It("Should handle unnumbered reference to non-existing Interface", func() {
 			By("Creating a Physical Interface with unnumbered reference to non-existing Interface")
 			eth := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       name,
@@ -301,10 +288,8 @@ var _ = Describe("Interface Controller", func() {
 		It("Should successfully reconcile an Aggregate Interface with valid member interfaces", func() {
 			By("Creating Physical member interfaces")
 			member1 := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      memberName1,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      memberName1,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       memberName1,
@@ -315,10 +300,8 @@ var _ = Describe("Interface Controller", func() {
 			Expect(k8sClient.Create(ctx, member1)).To(Succeed())
 
 			member2 := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      memberName2,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      memberName2,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       memberName2,
@@ -330,10 +313,8 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Creating an Aggregate Interface")
 			aggregate := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:   v1alpha1.LocalObjectReference{Name: name},
 					Name:        name,
@@ -392,10 +373,8 @@ var _ = Describe("Interface Controller", func() {
 		It("Should handle member interface not found", func() {
 			By("Creating an Aggregate Interface with non-existing member")
 			aggregate := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       name,
@@ -433,10 +412,8 @@ var _ = Describe("Interface Controller", func() {
 		It("Should handle member interface on different device", func() {
 			By("Creating a member interface on different device")
 			member := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      memberName1,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      memberName1,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: "different-device"},
 					Name:       memberName1,
@@ -448,10 +425,8 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Creating an Aggregate Interface referencing the cross-device member")
 			aggregate := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       name,
@@ -489,10 +464,8 @@ var _ = Describe("Interface Controller", func() {
 		It("Should handle member interface already in use by another aggregate", func() {
 			By("Creating a Physical member interface")
 			member := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      memberName1,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      memberName1,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       memberName1,
@@ -509,10 +482,8 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Creating an Aggregate Interface referencing the already-in-use member")
 			aggregate := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       name,
@@ -550,10 +521,8 @@ var _ = Describe("Interface Controller", func() {
 		It("Should handle member interface with invalid type", func() {
 			By("Creating a Loopback interface (invalid type for aggregation)")
 			member := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      memberName1,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      memberName1,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       memberName1,
@@ -565,10 +534,8 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Creating an Aggregate Interface referencing the invalid-type member")
 			aggregate := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       name,
@@ -604,26 +571,30 @@ var _ = Describe("Interface Controller", func() {
 		})
 
 		It("Should successfully reconcile an Aggregate Interface with IPv4 addresses and VRF", func() {
+			By("Waiting for Device to be running")
+			Eventually(func(g Gomega) {
+				device := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, key, device)).To(Succeed())
+				g.Expect(device.Status.Phase).To(Equal(v1alpha1.DevicePhaseRunning))
+			}).Should(Succeed())
+
 			By("Creating a VRF resource")
 			vrf := &v1alpha1.VRF{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.VRFSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Name:      "PROD",
-					VNI:       1000,
+					//nolint:staticcheck // Verifies legacy VRF VNI compatibility.
+					VNI: 1000,
 				},
 			}
 			Expect(k8sClient.Create(ctx, vrf)).To(Succeed())
 
 			By("Creating a Physical member interface")
 			member := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      memberName1,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      memberName1,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       memberName1,
@@ -635,10 +606,8 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Creating an L3 Aggregate Interface with IPv4 and VRF")
 			aggregate := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:   v1alpha1.LocalObjectReference{Name: name},
 					Name:        name,
@@ -702,10 +671,8 @@ var _ = Describe("Interface Controller", func() {
 		It("Should reconcile a Physical interface that is a member of an L3 Aggregate", func() {
 			By("Creating an L3 Aggregate interface")
 			aggregate := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "po100",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "po100",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       "po100",
@@ -728,10 +695,8 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Creating the member Physical interface")
 			member := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "eth1-100",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "eth1-100",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       "eth1-100",
@@ -765,10 +730,8 @@ var _ = Describe("Interface Controller", func() {
 		It("Should fail reconcile when parent interface does not exist for subinterface", func() {
 			By("Creating a Subinterface referencing a non-existent parent")
 			subintf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:   v1alpha1.LocalObjectReference{Name: name},
 					Name:        name + ".100",
@@ -812,10 +775,8 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Creating a Physical parent interface")
 			parentIntf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      parentName,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      parentName,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:   v1alpha1.LocalObjectReference{Name: name},
 					Name:        parentName,
@@ -840,10 +801,8 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Creating a Subinterface referencing the parent")
 			subintf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      subinterfaceName,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      subinterfaceName,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:   v1alpha1.LocalObjectReference{Name: name},
 					Name:        parentName + ".100",
@@ -902,10 +861,8 @@ var _ = Describe("Interface Controller", func() {
 		It("Should handle unnumbered reference to non-Loopback Interface", func() {
 			By("Creating a Physical Interface to be referenced")
 			phys := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name + "-phys",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name + "-phys",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       name + "-phys",
@@ -920,10 +877,8 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Creating a Physical Interface with unnumbered reference to the Physical Interface")
 			eth := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       name,
@@ -958,10 +913,8 @@ var _ = Describe("Interface Controller", func() {
 		It("Should successfully reconcile a RoutedVLAN Interface with IPv4 addresses", func() {
 			By("Creating a VLAN resource")
 			vlan := &v1alpha1.VLAN{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.VLANSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					ID:         100,
@@ -973,10 +926,8 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Creating a RoutedVLAN Interface with IPv4 addresses")
 			intf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:   v1alpha1.LocalObjectReference{Name: name},
 					Name:        name,
@@ -1024,10 +975,8 @@ var _ = Describe("Interface Controller", func() {
 		It("Should handle RoutedVLAN Interface referencing non-existent VLAN", func() {
 			By("Creating a RoutedVLAN Interface referencing a non-existent VLAN")
 			intf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       name,
@@ -1061,10 +1010,8 @@ var _ = Describe("Interface Controller", func() {
 		It("Should handle RoutedVLAN Interface referencing VLAN on different device", func() {
 			By("Creating a VLAN on a different device")
 			vlan := &v1alpha1.VLAN{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.VLANSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: "different-device"},
 					ID:         100,
@@ -1076,10 +1023,8 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Creating a RoutedVLAN Interface referencing the cross-device VLAN")
 			intf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       name,
@@ -1113,24 +1058,21 @@ var _ = Describe("Interface Controller", func() {
 		It("Should successfully reconcile an Interface with VRF reference", func() {
 			By("Creating a VRF resource")
 			vrf := &v1alpha1.VRF{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.VRFSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Name:      "test-vrf",
-					VNI:       1000,
+					//nolint:staticcheck // Verifies legacy VRF VNI compatibility.
+					VNI: 1000,
 				},
 			}
 			Expect(k8sClient.Create(ctx, vrf)).To(Succeed())
 
 			By("Creating a Loopback Interface with VRF reference")
 			intf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:   v1alpha1.LocalObjectReference{Name: name},
 					Name:        name,
@@ -1176,10 +1118,8 @@ var _ = Describe("Interface Controller", func() {
 		It("Should handle Interface referencing non-existent VRF", func() {
 			By("Creating an Interface referencing a non-existent VRF")
 			intf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       name,
@@ -1213,24 +1153,21 @@ var _ = Describe("Interface Controller", func() {
 		It("Should handle Interface referencing VRF on different device", func() {
 			By("Creating a VRF on a different device")
 			vrf := &v1alpha1.VRF{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.VRFSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: "different-device"},
 					Name:      "test-vrf",
-					VNI:       1000,
+					//nolint:staticcheck // Verifies legacy VRF VNI compatibility.
+					VNI: 1000,
 				},
 			}
 			Expect(k8sClient.Create(ctx, vrf)).To(Succeed())
 
 			By("Creating an Interface referencing the cross-device VRF")
 			intf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					Name:       name,
@@ -1274,27 +1211,25 @@ var _ = Describe("Interface Controller", func() {
 		BeforeEach(func() {
 			By("Creating local and remote Device resources")
 			localDevice = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "local-device-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "local-device-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.10:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, localDevice)).To(Succeed())
 
 			remoteDevice = &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "remote-device-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "remote-device-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.11:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, remoteDevice)).To(Succeed())
@@ -1309,10 +1244,8 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Creating a remote Interface on the remote device")
 			remoteIntf = &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "remote-intf-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "remote-intf-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: remoteDevice.Name},
 					Name:       "Ethernet1/1",
@@ -1324,10 +1257,8 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Creating a DNS resource for the remote device")
 			dns = &v1alpha1.DNS{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "remote-dns-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "remote-dns-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DNSSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: remoteDevice.Name},
 					Domain:    "example.com",
@@ -1346,12 +1277,10 @@ var _ = Describe("Interface Controller", func() {
 
 			By("Creating a local Physical Interface with neighbor label pointing to the remote interface")
 			localIntf = &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "local-intf-",
-					Namespace:    metav1.NamespaceDefault,
-					Labels: map[string]string{
-						v1alpha1.PhysicalInterfaceNeighborLabel: remoteIntf.Name,
-					},
+				GenerateName: "local-intf-",
+				Namespace:    metav1.NamespaceDefault,
+				Labels: map[string]string{
+					v1alpha1.PhysicalInterfaceNeighborLabel: remoteIntf.Name,
 				},
 				Spec: v1alpha1.InterfaceSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: localDevice.Name},
@@ -1513,7 +1442,7 @@ var _ = Describe("Interface Controller", func() {
 
 		It("Should not rely on this predicate for generation changes", func() {
 			oldIntf := &v1alpha1.Interface{
-				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Generation: 1,
 				Status: v1alpha1.InterfaceStatus{
 					Neighbors: []v1alpha1.Neighbor{{
 						ExpirationTime: metav1.NewTime(time.Now()),

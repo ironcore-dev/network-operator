@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package nxapi
@@ -41,10 +41,11 @@ func TestUri(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			c, err := NewClient(test.conn)
+			got, err := NewClient(test.conn)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
+			c := got.(*client)
 			if c.url.Scheme != test.wantProto {
 				t.Errorf("scheme = %q, want %q", c.url.Scheme, test.wantProto)
 			}

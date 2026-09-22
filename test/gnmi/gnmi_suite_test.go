@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package gnmitest
@@ -6,13 +6,13 @@ package gnmitest
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/format"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,7 +30,6 @@ import (
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	nxcontroller "github.com/ironcore-dev/network-operator/internal/controller/cisco/nx"
 	"github.com/ironcore-dev/network-operator/internal/controller/core"
-	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/resourcelock"
 	testserver "github.com/ironcore-dev/network-operator/test/gnmi/server"
 
@@ -52,10 +51,6 @@ var (
 	gnmiServer *testserver.Server
 )
 
-// providerFunc is the provider function resolved during Ginkgo tree construction.
-// NOTE: This is assigned in the Describe block (gnmi_test.go) which runs BEFORE BeforeSuite.
-var providerFunc provider.ProviderFunc
-
 // suiteCancel stops long-running components (gNMI server, controller manager) in AfterSuite.
 var suiteCancel context.CancelFunc
 
@@ -70,14 +65,11 @@ func TestGNMI(t *testing.T) {
 // It starts the gNMI test server, sets up the Kubernetes client, and starts the controller manager.
 var _ = BeforeSuite(func(ctx SpecContext) {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	format.MaxLength = 0
 	SetDefaultEventuallyTimeout(60 * time.Second)
 	SetDefaultEventuallyPollingInterval(time.Second)
 
-	By("resolving provider")
-	// PROVIDER env var already validated during tree construction (Describe block runs first)
 	var err error
-	providerFunc, err = provider.Get(os.Getenv(ProviderEnvVar))
-	Expect(err).NotTo(HaveOccurred())
 
 	By("initializing envtest environment")
 
@@ -128,7 +120,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	err = mgr.Add(locker)
 	Expect(err).NotTo(HaveOccurred())
 
-	registerControllers(ctx, mgr, recorder, providerFunc, locker)
+	registerControllers(ctx, mgr, recorder, locker)
 
 	go func() {
 		defer GinkgoRecover()
@@ -160,14 +152,13 @@ var _ = AfterSuite(func(ctx SpecContext) {
 
 // registerControllers registers all controllers with the manager.
 // Add more controllers here as needed for testing.
-func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events.FakeRecorder, providerFn provider.ProviderFunc, locker *resourcelock.ResourceLocker) {
+func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events.FakeRecorder, locker *resourcelock.ResourceLocker) {
 	var err error
 
 	err = (&core.PrefixSetReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: recorder,
-		Provider: providerFn,
 		Locker:   locker,
 	}).SetupWithManager(ctx, mgr)
 	Expect(err).NotTo(HaveOccurred())
@@ -176,7 +167,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: recorder,
-		Provider: providerFn,
 		Locker:   locker,
 	}).SetupWithManager(ctx, mgr)
 	Expect(err).NotTo(HaveOccurred())
@@ -185,7 +175,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:          mgr.GetClient(),
 		Scheme:          mgr.GetScheme(),
 		Recorder:        recorder,
-		Provider:        providerFn,
 		Locker:          locker,
 		RequeueInterval: time.Minute,
 	}).SetupWithManager(ctx, mgr)
@@ -195,7 +184,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:          mgr.GetClient(),
 		Scheme:          mgr.GetScheme(),
 		Recorder:        recorder,
-		Provider:        providerFn,
 		Locker:          locker,
 		RequeueInterval: time.Minute,
 	}).SetupWithManager(ctx, mgr)
@@ -205,7 +193,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: recorder,
-		Provider: providerFn,
 		Locker:   locker,
 	}).SetupWithManager(ctx, mgr)
 	Expect(err).NotTo(HaveOccurred())
@@ -214,7 +201,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: recorder,
-		Provider: providerFn,
 		Locker:   locker,
 	}).SetupWithManager(ctx, mgr)
 	Expect(err).NotTo(HaveOccurred())
@@ -223,7 +209,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: recorder,
-		Provider: providerFn,
 		Locker:   locker,
 	}).SetupWithManager(ctx, mgr)
 	Expect(err).NotTo(HaveOccurred())
@@ -232,7 +217,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:          mgr.GetClient(),
 		Scheme:          mgr.GetScheme(),
 		Recorder:        recorder,
-		Provider:        providerFn,
 		Locker:          locker,
 		RequeueInterval: time.Minute,
 	}).SetupWithManager(ctx, mgr)
@@ -242,7 +226,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: recorder,
-		Provider: providerFn,
 		Locker:   locker,
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
@@ -251,7 +234,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: recorder,
-		Provider: providerFn,
 		Locker:   locker,
 	}).SetupWithManager(ctx, mgr)
 	Expect(err).NotTo(HaveOccurred())
@@ -260,7 +242,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: recorder,
-		Provider: providerFn,
 		Locker:   locker,
 	}).SetupWithManager(ctx, mgr)
 	Expect(err).NotTo(HaveOccurred())
@@ -269,7 +250,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:          mgr.GetClient(),
 		Scheme:          mgr.GetScheme(),
 		Recorder:        recorder,
-		Provider:        providerFn,
 		Locker:          locker,
 		RequeueInterval: time.Minute,
 	}).SetupWithManager(ctx, mgr)
@@ -279,7 +259,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: recorder,
-		Provider: providerFn,
 		Locker:   locker,
 	}).SetupWithManager(ctx, mgr)
 	Expect(err).NotTo(HaveOccurred())
@@ -288,7 +267,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:          mgr.GetClient(),
 		Scheme:          mgr.GetScheme(),
 		Recorder:        recorder,
-		Provider:        providerFn,
 		Locker:          locker,
 		RequeueInterval: time.Minute,
 	}).SetupWithManager(ctx, mgr)
@@ -298,7 +276,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: recorder,
-		Provider: providerFn,
 		Locker:   locker,
 	}).SetupWithManager(ctx, mgr)
 	Expect(err).NotTo(HaveOccurred())
@@ -307,7 +284,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:          mgr.GetClient(),
 		Scheme:          mgr.GetScheme(),
 		Recorder:        recorder,
-		Provider:        providerFn,
 		Locker:          locker,
 		RequeueInterval: time.Minute,
 	}).SetupWithManager(ctx, mgr)
@@ -317,7 +293,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:          mgr.GetClient(),
 		Scheme:          mgr.GetScheme(),
 		Recorder:        recorder,
-		Provider:        providerFn,
 		Locker:          locker,
 		RequeueInterval: time.Minute,
 	}).SetupWithManager(ctx, mgr)
@@ -327,7 +302,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: recorder,
-		Provider: providerFn,
 		Locker:   locker,
 	}).SetupWithManager(ctx, mgr)
 	Expect(err).NotTo(HaveOccurred())
@@ -336,7 +310,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: recorder,
-		Provider: providerFn,
 		Locker:   locker,
 	}).SetupWithManager(ctx, mgr)
 	Expect(err).NotTo(HaveOccurred())
@@ -345,7 +318,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: recorder,
-		Provider: providerFn,
 		Locker:   locker,
 	}).SetupWithManager(ctx, mgr)
 	Expect(err).NotTo(HaveOccurred())
@@ -354,7 +326,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: recorder,
-		Provider: providerFn,
 		Locker:   locker,
 	}).SetupWithManager(ctx, mgr)
 	Expect(err).NotTo(HaveOccurred())
@@ -363,7 +334,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:          mgr.GetClient(),
 		Scheme:          mgr.GetScheme(),
 		Recorder:        recorder,
-		Provider:        providerFn,
 		Locker:          locker,
 		RequeueInterval: time.Minute,
 	}).SetupWithManager(ctx, mgr)
@@ -373,7 +343,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: recorder,
-		Provider: providerFn,
 		Locker:   locker,
 	}).SetupWithManager(ctx, mgr)
 	Expect(err).NotTo(HaveOccurred())
@@ -382,7 +351,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: recorder,
-		Provider: providerFn,
 		Locker:   locker,
 	}).SetupWithManager(ctx, mgr)
 	Expect(err).NotTo(HaveOccurred())
@@ -391,7 +359,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: recorder,
-		Provider: providerFn,
 		Locker:   locker,
 	}).SetupWithManager(ctx, mgr)
 	Expect(err).NotTo(HaveOccurred())
@@ -400,7 +367,6 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: recorder,
-		Provider: providerFn,
 		Locker:   locker,
 	}).SetupWithManager(ctx, mgr)
 	Expect(err).NotTo(HaveOccurred())

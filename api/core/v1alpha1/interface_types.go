@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package v1alpha1
@@ -13,6 +13,7 @@ import (
 
 // InterfaceSpec defines the desired state of Interface.
 // +kubebuilder:validation:XValidation:rule="!has(self.switchport) || !has(self.ipv4)", message="switchport and ipv4 are mutually exclusive"
+// +kubebuilder:validation:XValidation:rule="!has(self.switchport) || !has(self.ipv6)", message="switchport and ipv6 are mutually exclusive"
 // +kubebuilder:validation:XValidation:rule="self.type != 'Loopback' || !has(self.switchport)", message="switchport must not be specified for interfaces of type Loopback"
 // +kubebuilder:validation:XValidation:rule="self.type == 'Physical' || !has(self.ipv4) || !has(self.ipv4.unnumbered)", message="unnumbered ipv4 configuration can only be used for interfaces of type Physical"
 // +kubebuilder:validation:XValidation:rule="self.type != 'Aggregate' || has(self.aggregation)", message="aggregation must be specified for interfaces of type Aggregate"
@@ -79,6 +80,10 @@ type InterfaceSpec struct {
 	// IPv4 defines the IPv4 configuration for the interface.
 	// +optional
 	IPv4 *InterfaceIPv4 `json:"ipv4,omitempty"`
+
+	// IPv6 defines the IPv6 configuration for the interface.
+	// +optional
+	IPv6 *InterfaceIPv6 `json:"ipv6,omitempty"`
 
 	// Aggregation defines the aggregation (bundle) configuration for the interface.
 	// This is only applicable for interfaces of type Aggregate.
@@ -287,6 +292,28 @@ type InterfaceIPv4Unnumbered struct {
 	// The referenced interface must exist and have at least one IPv4 address configured.
 	// +required
 	InterfaceRef LocalObjectReference `json:"interfaceRef"`
+}
+
+// InterfaceIPv6 defines the IPv6 configuration for an interface.
+// +kubebuilder:validation:XValidation:rule="has(self.addresses) || (has(self.useLinkLocalOnly) && self.useLinkLocalOnly)", message="either addresses or useLinkLocalOnly must be specified"
+// +kubebuilder:validation:XValidation:rule="!has(self.addresses) || !has(self.useLinkLocalOnly) || !self.useLinkLocalOnly", message="addresses and useLinkLocalOnly are mutually exclusive"
+type InterfaceIPv6 struct {
+	// Addresses defines the list of global unicast IPv6 addresses assigned to
+	// the interface. Unlike IPv4, all addresses are equal, there is no primary
+	// or secondary distinction.
+	// Link-local addresses cannot be assigned here, they are configured through
+	// UseLinkLocalOnly.
+	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:MinItems=1
+	Addresses []IPPrefix `json:"addresses,omitempty"`
+
+	// UseLinkLocalOnly configures the interface to operate with only its
+	// automatically generated IPv6 link-local address, without assigning a
+	// global address. This is what unnumbered, interface-based BGP peering
+	// requires in order to discover neighbours over their link-local address.
+	// +optional
+	UseLinkLocalOnly bool `json:"useLinkLocalOnly,omitempty"`
 }
 
 // BFD defines the Bidirectional Forwarding Detection configuration for an interface.
@@ -598,6 +625,11 @@ type Interface struct {
 // HasIPv4 reports whether the Interface is configured as a routed IPv4 interface.
 func (in *Interface) HasIPv4() bool {
 	return in.Spec.Switchport == nil && in.Spec.IPv4 != nil
+}
+
+// HasIPv6 reports whether the Interface is configured as a routed IPv6 interface.
+func (in *Interface) HasIPv6() bool {
+	return in.Spec.Switchport == nil && in.Spec.IPv6 != nil
 }
 
 // GetConditions implements conditions.Getter.

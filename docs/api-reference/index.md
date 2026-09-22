@@ -1052,7 +1052,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
-| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the BGP to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the BGPPeer to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `bgpRef` _[LocalObjectReference](#localobjectreference)_ | BgpRef is a reference to the BGP instance this peer belongs to.<br />The BGP object must exist in the same namespace. |  | Required: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether this BGP peer is administratively up or down.<br />When Down, the BGP session with this peer is administratively shut down. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
 | `address` _string_ | Address is the IPv4 address of the BGP peer. |  | Format: ipv4 <br />Required: \{\} <br /> |
@@ -1664,8 +1664,10 @@ DHCPRelay is the Schema for the DHCPRelays API
 
 
 
-DHCPRelaySpec defines the desired state of DHCPRelay.
-Only a single DHCPRelay resource should be created per Device, the controller will reject additional resources of this type with the same DeviceRef.
+DHCPRelaySpec defines the desired state of the DHCPRelay configuration for a single interface.
+The migration path for existing DHCPRelay objects that use the deprecated InterfaceRefs field requires deleting those objects
+and creating new ones using the new fields. Objects using the deprecated field InterfaceRefs likely replace the entire DHCPRelay tree and thus
+would remove configuration for all interfaces, even for those that are not referenced.
 
 
 
@@ -1676,9 +1678,10 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceRef is a reference to the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration for this DHCPRelay.<br />If not specified the provider applies the target platform's default settings. |  | Optional: \{\} <br /> |
-| `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VrfRef is an optional reference to the VRF to use when relaying DHCP messages in all referenced interfaces. |  | Optional: \{\} <br /> |
+| `interfaceRef` _[LocalObjectReference](#localobjectreference)_ | InterfaceRef is a reference to an interface resource on which to enable DHCP relay.<br />Immutable.<br />To be made non-pointer object and required once we remove the deprecated fields. |  | Optional: \{\} <br /> |
+| `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VrfRef is an optional reference to the VRF to use when relaying DHCP messages in the referenced interface(s). |  | Optional: \{\} <br /> |
 | `servers` _string array_ | Servers is a list of DHCP server addresses to which DHCP messages will be relayed.<br />Only IPv4 addresses are currently supported. |  | MinItems: 1 <br />items:Format: ipv4 <br />Required: \{\} <br /> |
-| `interfaceRefs` _[LocalObjectReference](#localobjectreference) array_ | InterfaceRefs is a list of interfaces |  | MinItems: 1 <br />Required: \{\} <br /> |
+| `interfaceRefs` _[LocalObjectReference](#localobjectreference) array_ | Deprecated: Use field `InterfaceRef` instead. |  | MinItems: 1 <br />Optional: \{\} <br /> |
 
 
 #### DHCPRelayStatus
@@ -1695,7 +1698,6 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the DHCPRelay resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />Standard condition types include:<br />- "Available": the resource is fully functional<br />- "Progressing": the resource is being created or updated<br />- "Degraded": the resource failed to reach or maintain its desired state<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
-| `configuredInterfaces` _string array_ | ConfiguredInterfaces contains the names of Interface resources that have DHCP relay configured as known by the device. |  | Optional: \{\} <br /> |
 
 
 #### DNS
@@ -1846,7 +1848,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `paused` _boolean_ | Paused can be used to prevent controllers from processing the Device and its associated objects. | false | Optional: \{\} <br /> |
 | `endpoint` _[Endpoint](#endpoint)_ | Endpoint contains the connection information for the device. |  | Required: \{\} <br /> |
-| `provider` _string_ | Provider is the name of the provider plugin which is responsible for reconciling the CRD connected to the device |  | Optional: \{\} <br /> |
+| `provider` _string_ | Provider identifies the provider implementation used to reconcile this Device and all CRDs that reference it.<br />Immutable. |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `provisioning` _[Provisioning](#provisioning)_ | Provisioning is an optional configuration for the device provisioning process.<br />It can be used to provide initial configuration templates or scripts that are applied during the device provisioning. |  | Optional: \{\} <br /> |
 
 
@@ -1935,7 +1937,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
-| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the BGP to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the EVPNInstance to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `vni` _integer_ | VNI is the VXLAN Network Identifier.<br />Immutable. |  | Maximum: 1.6777214e+07 <br />Minimum: 1 <br />Required: \{\} <br /> |
 | `type` _[EVPNInstanceType](#evpninstancetype)_ | Type specifies the EVPN instance type.<br />Immutable. |  | Enum: [Bridged Routed] <br />Required: \{\} <br /> |
 | `multicastGroupAddress` _string_ | MulticastGroupAddress specifies the IPv4 multicast group address used for BUM (Broadcast, Unknown unicast, Multicast) traffic.<br />The address must be in the valid multicast range (224.0.0.0 - 239.255.255.255). |  | Format: ipv4 <br />Optional: \{\} <br /> |
@@ -1943,6 +1945,7 @@ _Appears in:_
 | `routeTargets` _[EVPNRouteTarget](#evpnroutetarget) array_ | RouteTargets is the list of route targets for the EVI. |  | MinItems: 1 <br />Optional: \{\} <br /> |
 | `vlanRef` _[LocalObjectReference](#localobjectreference)_ | VLANRef is a reference to a VLAN resource for which this EVPNInstance builds the MAC-VRF.<br />This field is only applicable when Type is Bridged (L2VNI).<br />The VLAN resource must exist in the same namespace.<br />Immutable. |  | Optional: \{\} <br /> |
 | `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VRFRef is a reference to a VRF resource for which this EVPNInstance provides the L3VNI.<br />This field is only applicable when Type is Routed (L3VNI).<br />The VRF resource must exist in the same namespace.<br />Immutable. |  | Optional: \{\} <br /> |
+| `suppressARP` _boolean_ | SuppressARP overrides the NVE-level ARP suppression setting for this VNI.<br />When unset, the NVE-level SuppressARP setting takes precedence. |  | Optional: \{\} <br /> |
 
 
 #### EVPNInstanceStatus
@@ -2259,6 +2262,7 @@ _Appears in:_
 - [IPPrefixPoolSpec](#ipprefixpoolspec)
 - [IPPrefixSpec](#ipprefixspec)
 - [InterfaceIPv4](#interfaceipv4)
+- [InterfaceIPv6](#interfaceipv6)
 - [MulticastGroups](#multicastgroups)
 - [PrefixEntry](#prefixentry)
 - [RendezvousPoint](#rendezvouspoint)
@@ -2318,7 +2322,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
-| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Interface to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the ISIS to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether the ISIS instance is administratively up or down. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
 | `instance` _string_ | Instance is the name of the ISIS instance. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `networkEntityTitle` _string_ | NetworkEntityTitle is the NET of the ISIS instance. |  | Pattern: `^[a-fA-F0-9]\{2\}(\.[a-fA-F0-9]\{4\})\{3,9\}\.[a-fA-F0-9]\{2\}$` <br />Required: \{\} <br /> |
@@ -2434,6 +2438,23 @@ _Appears in:_
 | `interfaceRef` _[LocalObjectReference](#localobjectreference)_ | InterfaceRef is a reference to the interface from which to borrow the IP address.<br />The referenced interface must exist and have at least one IPv4 address configured. |  | Required: \{\} <br /> |
 
 
+#### InterfaceIPv6
+
+
+
+InterfaceIPv6 defines the IPv6 configuration for an interface.
+
+
+
+_Appears in:_
+- [InterfaceSpec](#interfacespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `addresses` _[IPPrefix](#ipprefix) array_ | Addresses defines the list of global unicast IPv6 addresses assigned to<br />the interface. Unlike IPv4, all addresses are equal, there is no primary<br />or secondary distinction.<br />Link-local addresses cannot be assigned here, they are configured through<br />UseLinkLocalOnly. |  | Format: cidr <br />MinItems: 1 <br />Type: string <br />Optional: \{\} <br /> |
+| `useLinkLocalOnly` _boolean_ | UseLinkLocalOnly configures the interface to operate with only its<br />automatically generated IPv6 link-local address, without assigning a<br />global address. This is what unnumbered, interface-based BGP peering<br />requires in order to discover neighbours over their link-local address. |  | Optional: \{\} <br /> |
+
+
 #### InterfaceSource
 
 
@@ -2474,6 +2495,7 @@ _Appears in:_
 | `mtu` _integer_ | MTU (Maximum Transmission Unit) specifies the size of the largest packet that can be sent over the interface. |  | Maximum: 9216 <br />Minimum: 576 <br />Optional: \{\} <br /> |
 | `switchport` _[Switchport](#switchport)_ | Switchport defines the switchport configuration for the interface.<br />This is only applicable for Ethernet and Aggregate interfaces. |  | Optional: \{\} <br /> |
 | `ipv4` _[InterfaceIPv4](#interfaceipv4)_ | IPv4 defines the IPv4 configuration for the interface. |  | Optional: \{\} <br /> |
+| `ipv6` _[InterfaceIPv6](#interfaceipv6)_ | IPv6 defines the IPv6 configuration for the interface. |  | Optional: \{\} <br /> |
 | `aggregation` _[Aggregation](#aggregation)_ | Aggregation defines the aggregation (bundle) configuration for the interface.<br />This is only applicable for interfaces of type Aggregate. |  | Optional: \{\} <br /> |
 | `vlanRef` _[LocalObjectReference](#localobjectreference)_ | VlanRef is a reference to the VLAN resource that this interface provides routing for.<br />This is only applicable for interfaces of type RoutedVLAN.<br />The referenced VLAN must exist in the same namespace. |  | Optional: \{\} <br /> |
 | `vrfRef` _[LocalObjectReference](#localobjectreference)_ | VrfRef is a reference to the VRF resource that this interface belongs to.<br />If not specified, the interface will be part of the default VRF.<br />This is only applicable for Layer 3 interfaces.<br />The referenced VRF must exist in the same namespace. |  | Optional: \{\} <br /> |
@@ -2783,7 +2805,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
-| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Interface to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the ManagementAccess to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `grpc` _[GRPC](#grpc)_ | Configuration for the gRPC server on the device. | \{ enabled:true port:9339 \} | Optional: \{\} <br /> |
 | `ssh` _[SSH](#ssh)_ | Configuration for the SSH server on the device. | \{ enabled:true sessionLimit:32 timeout:10m \} | Optional: \{\} <br /> |
 
@@ -3152,7 +3174,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
-| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Interface to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the OSPF to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether the OSPF instance is administratively up or down. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
 | `instance` _string_ | Instance is the process tag of the OSPF instance. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `routerId` _string_ | RouterID is the OSPF router identifier, used in OSPF messages to identify the originating router.<br />Follows dotted quad notation (IPv4 format). |  | Format: ipv4 <br />Required: \{\} <br /> |
@@ -3486,7 +3508,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
-| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Banner to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the PrefixSet to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `name` _string_ | Name is the name of the PrefixSet.<br />Immutable. |  | MaxLength: 32 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `entries` _[PrefixEntry](#prefixentry) array_ | A list of entries to apply.<br />The address families (IPv4, IPv6) of all prefixes in the list must match. |  | MaxItems: 100 <br />MinItems: 1 <br />Required: \{\} <br /> |
 
@@ -3812,7 +3834,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
-| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Banner to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the RoutingPolicy to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `name` _string_ | Name is the identifier of the RoutingPolicy on the device.<br />Immutable. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `statements` _[PolicyStatement](#policystatement) array_ | A list of policy statements to apply. |  | MaxItems: 100 <br />MinItems: 1 <br />Required: \{\} <br /> |
 
@@ -4194,7 +4216,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
-| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Interface to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the Syslog to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `servers` _[LogServer](#logserver) array_ | Servers is a list of remote log servers to which the device will send logs. |  | MaxItems: 16 <br />MinItems: 1 <br />Required: \{\} <br /> |
 | `facilities` _[LogFacility](#logfacility) array_ | Facilities is a list of log facilities to configure on the device. |  | MaxItems: 64 <br />MinItems: 1 <br />Required: \{\} <br /> |
 

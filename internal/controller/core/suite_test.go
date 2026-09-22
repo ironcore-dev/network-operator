@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package core
@@ -121,13 +121,12 @@ var _ = BeforeSuite(func() {
 	_, err = k8sManager.GetCache().GetInformer(ctx, &coordinationv1.Lease{})
 	Expect(err).NotTo(HaveOccurred())
 
-	prov := func() provider.Provider { return testProvider }
+	provider.Register("test-provider", func() provider.Provider { return testProvider })
 
 	err = (&DeviceReconciler{
 		Client:            k8sManager.GetClient(),
 		Scheme:            k8sManager.GetScheme(),
 		Recorder:          recorder,
-		Provider:          prov,
 		HeartbeatInterval: time.Second,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -136,7 +135,6 @@ var _ = BeforeSuite(func() {
 		Client:          k8sManager.GetClient(),
 		Scheme:          k8sManager.GetScheme(),
 		Recorder:        recorder,
-		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
 	}).SetupWithManager(ctx, k8sManager)
@@ -146,7 +144,6 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
-		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -155,7 +152,6 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
-		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -164,7 +160,6 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
-		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -173,7 +168,6 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
-		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -182,7 +176,6 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
-		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -191,7 +184,6 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
-		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -200,7 +192,6 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
-		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -209,7 +200,6 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
-		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -218,7 +208,6 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
-		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -227,7 +216,6 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
-		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -236,7 +224,6 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
-		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -245,7 +232,6 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
-		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -254,7 +240,6 @@ var _ = BeforeSuite(func() {
 		Client:          k8sManager.GetClient(),
 		Scheme:          k8sManager.GetScheme(),
 		Recorder:        recorder,
-		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
 	}).SetupWithManager(ctx, k8sManager)
@@ -264,7 +249,6 @@ var _ = BeforeSuite(func() {
 		Client:          k8sManager.GetClient(),
 		Scheme:          k8sManager.GetScheme(),
 		Recorder:        recorder,
-		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
 	}).SetupWithManager(ctx, k8sManager)
@@ -274,7 +258,6 @@ var _ = BeforeSuite(func() {
 		Client:          k8sManager.GetClient(),
 		Scheme:          k8sManager.GetScheme(),
 		Recorder:        recorder,
-		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
 	}).SetupWithManager(ctx, k8sManager)
@@ -284,7 +267,6 @@ var _ = BeforeSuite(func() {
 		Client:          k8sManager.GetClient(),
 		Scheme:          k8sManager.GetScheme(),
 		Recorder:        recorder,
-		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
 	}).SetupWithManager(ctx, k8sManager)
@@ -294,7 +276,6 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
-		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -303,7 +284,6 @@ var _ = BeforeSuite(func() {
 		Client:          k8sManager.GetClient(),
 		Scheme:          k8sManager.GetScheme(),
 		Recorder:        recorder,
-		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
 	}).SetupWithManager(ctx, k8sManager)
@@ -313,7 +293,6 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
-		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -322,7 +301,6 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
-		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -331,7 +309,6 @@ var _ = BeforeSuite(func() {
 		Client:          k8sManager.GetClient(),
 		Scheme:          k8sManager.GetScheme(),
 		Recorder:        recorder,
-		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
 	}).SetupWithManager(ctx, k8sManager)
@@ -341,7 +318,6 @@ var _ = BeforeSuite(func() {
 		Client:          k8sManager.GetClient(),
 		Scheme:          k8sManager.GetScheme(),
 		Recorder:        recorder,
-		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
 	}).SetupWithManager(ctx, k8sManager)
@@ -351,7 +327,6 @@ var _ = BeforeSuite(func() {
 		Client:        k8sManager.GetClient(),
 		Scheme:        k8sManager.GetScheme(),
 		Recorder:      recorder,
-		Provider:      prov,
 		Locker:        testLocker,
 		ObjectStorage: testS3Store,
 	}).SetupWithManager(ctx, k8sManager)
@@ -361,7 +336,6 @@ var _ = BeforeSuite(func() {
 		Client:          k8sManager.GetClient(),
 		Scheme:          k8sManager.GetScheme(),
 		Recorder:        recorder,
-		Provider:        prov,
 		Locker:          testLocker,
 		RequeueInterval: time.Second,
 	}).SetupWithManager(ctx, k8sManager)
@@ -371,7 +345,6 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
-		Provider: prov,
 		Locker:   testLocker,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -456,39 +429,41 @@ type Provider struct {
 	sync.Mutex
 
 	ConnectError   error // if non-nil, Connect returns this error
+	UpgradeError   error // if non-nil, UpgradeFirmware returns this error
 	LastRebootTime time.Time
 
-	Ports            sets.Set[string]
-	User             sets.Set[string]
-	PreLoginBanner   *string
-	PostLoginBanner  *string
-	DNS              *v1alpha1.DNS
-	NTP              *v1alpha1.NTP
-	ACLs             sets.Set[string]
-	Certs            sets.Set[string]
-	SNMP             *v1alpha1.SNMP
-	Syslog           *v1alpha1.Syslog
-	Access           *v1alpha1.ManagementAccess
-	ISIS             sets.Set[string]
-	VRF              sets.Set[string]
-	PIM              *v1alpha1.PIM
-	BGP              *v1alpha1.BGP
-	BGPVRF           *v1alpha1.VRF
-	BGPPeers         sets.Set[string]
-	OSPF             sets.Set[string]
-	VLANs            sets.Set[int16]
-	EVIs             sets.Set[int32]
-	PrefixSets       sets.Set[string]
-	RoutingPolicies  sets.Set[string]
-	NVE              *v1alpha1.NetworkVirtualizationEdge
-	LLDP             *v1alpha1.LLDP
-	LLDPOperStatus   bool
-	LLDPNeighbors    map[string]*provider.LLDPAdjacency
-	DHCPRelay        *v1alpha1.DHCPRelay
-	EthernetSegments map[string]string
-	StartupConfig    *v1alpha1.ConfigBackup
-	ConfigBackups    []*provider.ConfigBackupFile
-	StorageTotal     int64
+	Ports                sets.Set[string]
+	User                 sets.Set[string]
+	PreLoginBanner       *string
+	PostLoginBanner      *string
+	DNS                  *v1alpha1.DNS
+	NTP                  *v1alpha1.NTP
+	ACLs                 sets.Set[string]
+	Certs                sets.Set[string]
+	SNMP                 *v1alpha1.SNMP
+	Syslog               *v1alpha1.Syslog
+	Access               *v1alpha1.ManagementAccess
+	ISIS                 sets.Set[string]
+	VRF                  sets.Set[string]
+	PIM                  *v1alpha1.PIM
+	BGP                  *v1alpha1.BGP
+	BGPVRF               *v1alpha1.VRF
+	BGPPeers             sets.Set[string]
+	OSPF                 sets.Set[string]
+	VLANs                sets.Set[int16]
+	EVIs                 sets.Set[int32]
+	PrefixSets           sets.Set[string]
+	RoutingPolicies      sets.Set[string]
+	NVE                  *v1alpha1.NetworkVirtualizationEdge
+	LLDP                 *v1alpha1.LLDP
+	LLDPOperStatus       bool
+	LLDPNeighbors        map[string]*provider.LLDPAdjacency
+	DHCPRelay            *v1alpha1.DHCPRelay
+	DHCPRelayDeleteCalls int
+	EthernetSegments     map[string]string
+	StartupConfig        *v1alpha1.ConfigBackup
+	ConfigBackups        []*provider.ConfigBackupFile
+	StorageTotal         int64
 }
 
 func NewProvider() *Provider {
@@ -576,6 +551,20 @@ func (p *Provider) Reboot(ctx context.Context, conn *deviceutil.Connection) erro
 
 func (p *Provider) FactoryReset(ctx context.Context, conn *deviceutil.Connection) error {
 	return nil
+}
+
+func (p *Provider) UpgradeFirmware(ctx context.Context, conn *deviceutil.Connection, target provider.TargetFirmware) error {
+	p.Lock()
+	defer p.Unlock()
+	return p.UpgradeError
+}
+
+// SetUpgradeError sets the error that UpgradeFirmware returns on subsequent
+// calls. Pass nil to clear it.
+func (p *Provider) SetUpgradeError(err error) {
+	p.Lock()
+	defer p.Unlock()
+	p.UpgradeError = err
 }
 
 func (p *Provider) Reprovision(ctx context.Context, conn *deviceutil.Connection) (reterr error) {
@@ -1042,21 +1031,9 @@ func (p *Provider) EnsureDHCPRelay(_ context.Context, req *provider.DHCPRelayReq
 func (p *Provider) DeleteDHCPRelay(_ context.Context, req *provider.DHCPRelayRequest) error {
 	p.Lock()
 	defer p.Unlock()
+	p.DHCPRelayDeleteCalls++
 	p.DHCPRelay = nil
 	return nil
-}
-
-func (p *Provider) GetDHCPRelayStatus(_ context.Context, req *provider.DHCPRelayRequest) (provider.DHCPRelayStatus, error) {
-	p.Lock()
-	defer p.Unlock()
-	status := provider.DHCPRelayStatus{}
-	if p.DHCPRelay != nil {
-		// Return the interface names from the request (simulating what the device would return)
-		for _, intf := range req.Interfaces {
-			status.ConfiguredInterfaces = append(status.ConfiguredInterfaces, intf.Spec.Name)
-		}
-	}
-	return status, nil
 }
 
 func (p *Provider) EnsureEthernetSegment(_ context.Context, req *provider.EnsureEthernetSegmentRequest) error {

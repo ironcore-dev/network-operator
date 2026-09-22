@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package nxos
@@ -66,6 +66,13 @@ type FirmwareVersion string
 
 func (*FirmwareVersion) XPath() string {
 	return "System/showversion-items/nxosVersion"
+}
+
+// BootImage is the boot image filename of the device, e.g. "bootflash://nxos.10.4.3.bin".
+type BootImage string
+
+func (*BootImage) XPath() string {
+	return "System/showversion-items/nxosImageFile"
 }
 
 type BootTime UnixTime

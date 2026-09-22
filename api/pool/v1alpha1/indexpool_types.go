@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package v1alpha1
@@ -139,14 +139,10 @@ func (p *IndexPool) Allocate(claim *Claim, existing []Allocation) (Allocation, e
 		for idx := r.Start; idx <= r.End; idx++ {
 			if _, taken := allocated[idx]; !taken {
 				return &Index{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: GroupVersion.String(),
-						Kind:       "Index",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      fmt.Sprintf("%s-%d", p.Name, idx),
-						Namespace: p.Namespace,
-					},
+					APIVersion: GroupVersion.String(),
+					Kind:       "Index",
+					Name:       fmt.Sprintf("%s-%d", p.Name, idx),
+					Namespace:  p.Namespace,
 					Spec: IndexSpec{
 						PoolRef: corev1alpha1.TypedLocalObjectReference{
 							APIVersion: GroupVersion.String(),

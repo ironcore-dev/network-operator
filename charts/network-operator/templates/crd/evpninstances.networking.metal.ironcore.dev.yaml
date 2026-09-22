@@ -6,7 +6,7 @@ metadata:
     {{- if .Values.crd.keep }}
     "helm.sh/resource-policy": keep
     {{- end }}
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: evpninstances.networking.metal.ironcore.dev
 spec:
   group: networking.metal.ironcore.dev
@@ -99,7 +99,7 @@ spec:
               providerConfigRef:
                 description: |-
                   ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
-                  This reference is used to link the BGP to its provider-specific configuration.
+                  This reference is used to link the EVPNInstance to its provider-specific configuration.
                 properties:
                   apiVersion:
                     description: APIVersion is the api group version of the resource
@@ -168,6 +168,11 @@ spec:
                 x-kubernetes-list-map-keys:
                 - value
                 x-kubernetes-list-type: map
+              suppressARP:
+                description: |-
+                  SuppressARP overrides the NVE-level ARP suppression setting for this VNI.
+                  When unset, the NVE-level SuppressARP setting takes precedence.
+                type: boolean
               type:
                 description: |-
                   Type specifies the EVPN instance type.

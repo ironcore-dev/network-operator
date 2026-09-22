@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1
-# SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+# SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 # SPDX-License-Identifier: Apache-2.0
 
-ARG GO_VERSION=1.24
-ARG ALPINE_VERSION=3.22
+ARG GO_VERSION=1.27
+ARG ALPINE_VERSION=3.24
 
 FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:${GO_VERSION}-alpine${ALPINE_VERSION} AS build
 

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package nxos
@@ -81,7 +81,7 @@ const maxSetOperations = 20
 type Provider struct {
 	conn   *grpc.ClientConn
 	client gnmiext.Client
-	nxapi  *nxapi.Client
+	nxapi  nxapi.Client
 }
 
 // timeout is the default timeout for all HTTP/gRPC requests made by the provider.
@@ -1117,6 +1117,14 @@ func (p *Provider) EnsureEVPNInstance(ctx context.Context, req *provider.EVPNIns
 	if req.EVPNInstance.Spec.MulticastGroupAddress != "" {
 		vni.McastGroup = NewOption(req.EVPNInstance.Spec.MulticastGroupAddress)
 	}
+	switch {
+	case req.EVPNInstance.Spec.SuppressARP == nil:
+		vni.SuppressARP = suppressARPOff
+	case *req.EVPNInstance.Spec.SuppressARP:
+		vni.SuppressARP = suppressARPEnabled
+	default:
+		vni.SuppressARP = suppressARPDisabled
+	}
 	sb.Update(vni)
 
 	switch req.EVPNInstance.Spec.Type {
@@ -1276,6 +1284,28 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		}
 	}
+	var ipv6Addr *AddrItem
+	if req.IPv6 != nil {
+		ipv6Addr = new(AddrItem)
+		ipv6Addr.ID = name
+		ipv6Addr.Vrf = vrf
+		ipv6Addr.Is6 = true
+		// Always sent so that turning link-local-only off is reconciled, and so
+		// the payload matches what the device reports back.
+		ipv6Addr.UseLinkLocalAddr = AdminStDisabled
+
+		switch v := req.IPv6.(type) {
+		case provider.IPv6AddressList:
+			// Unlike IPv4, IPv6 has no primary/secondary distinction: an
+			// interface simply carries multiple equal addresses.
+			for _, p := range v {
+				ipv6Addr.AddrItems.AddrList.Set(&IntfAddr{Addr: p.String(), Type: IntfAddrTypePrimary})
+			}
+
+		case provider.IPv6LinkLocalOnly:
+			ipv6Addr.UseLinkLocalAddr = AdminStEnabled
+		}
+	}
 
 	addrs := new(AddrList)
 	if err := p.client.GetConfig(ctx, addrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
@@ -1283,6 +1313,15 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	}
 	for _, a := range addrs.GetAddrItemsByInterface(name) {
 		if addr == nil || a.Vrf != vrf {
+			sb.Delete(a)
+		}
+	}
+	ipv6Addrs := &AddrList{Is6: true}
+	if err := p.client.GetConfig(ctx, ipv6Addrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	for _, a := range ipv6Addrs.GetAddrItemsByInterface(name) {
+		if ipv6Addr == nil || a.Vrf != vrf {
 			sb.Delete(a)
 		}
 	}
@@ -1323,7 +1362,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 
 		// If this Physical interface is a member of an L3 Aggregate (port-channel),
 		// it must be Layer3 on NX-OS even though it has no IP address of its own.
-		if req.IPv4 != nil || (req.AggregateParent != nil && req.AggregateParent.Spec.IPv4 != nil) {
+		if req.IPv4 != nil || req.IPv6 != nil || (req.AggregateParent != nil && (req.AggregateParent.Spec.IPv4 != nil || req.AggregateParent.Spec.IPv6 != nil)) {
 			p.Layer = Layer3
 			p.RtvrfMbrItems = NewVrfMember(name, vrf)
 			p.AccessVlan = string(AdjOperStUnknown)
@@ -1420,7 +1459,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			pc.UserCfgdFlags |= UserFlagAdminMTU
 		}
 
-		if req.IPv4 != nil {
+		if req.IPv4 != nil || req.IPv6 != nil {
 			pc.Layer = Layer3
 			pc.RtvrfMbrItems = NewVrfMember(name, vrf)
 			pc.AccessVlan = "unknown"
@@ -1577,7 +1616,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 		s.Encap = encap
 
-		if req.IPv4 != nil {
+		if req.IPv4 != nil || req.IPv6 != nil {
 			s.RtvrfMbrItems = NewVrfMember(name, vrf)
 		}
 
@@ -1595,7 +1634,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		})
 	}
 
-	if (req.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical || req.Interface.Spec.Type == v1alpha1.InterfaceTypeAggregate) && req.IPv4 == nil && (req.AggregateParent == nil || req.AggregateParent.Spec.IPv4 == nil) {
+	if (req.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical || req.Interface.Spec.Type == v1alpha1.InterfaceTypeAggregate) && req.IPv4 == nil && req.IPv6 == nil && (req.AggregateParent == nil || (req.AggregateParent.Spec.IPv4 == nil && req.AggregateParent.Spec.IPv6 == nil)) {
 		stp := new(SpanningTree)
 		stp.IfName = name
 		stp.Mode = SpanningTreeModeDefault
@@ -1631,6 +1670,9 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	// Add the address items last, as they depend on the interface being created first.
 	if addr != nil {
 		sb.Patch(addr)
+	}
+	if ipv6Addr != nil {
+		sb.Patch(ipv6Addr)
 	}
 
 	switch {
@@ -1721,6 +1763,14 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 		sb.Delete(addr)
 	}
 
+	ipv6Addrs := &AddrList{Is6: true}
+	if err := p.client.GetConfig(ctx, ipv6Addrs); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	for _, addr := range ipv6Addrs.GetAddrItemsByInterface(name) {
+		sb.Delete(addr)
+	}
+
 	bfd := new(BFD)
 	bfd.ID = name
 	sb.Delete(bfd)
@@ -1763,6 +1813,10 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 		}
 
 	case v1alpha1.InterfaceTypeRoutedVLAN:
+		icmp := new(ICMPIf)
+		icmp.ID = name
+		sb.Delete(icmp)
+
 		svi := new(SwitchVirtualInterface)
 		svi.ID = name
 		sb.Delete(svi)
@@ -3647,8 +3701,7 @@ func (p *Provider) GetLLDPStatus(ctx context.Context, req *provider.LLDPRequest)
 	return s, nil
 }
 
-// EnsureDHCPRelay configures DHCP relay on the specified interfaces.
-// Replaces the entire DHCP relay configuration on the device with the provided configuration in the request.
+// EnsureDHCPRelay configures DHCP relay for the specified interfaces.
 func (p *Provider) EnsureDHCPRelay(ctx context.Context, req *provider.DHCPRelayRequest) error {
 	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
 
@@ -3657,57 +3710,63 @@ func (p *Provider) EnsureDHCPRelay(ctx context.Context, req *provider.DHCPRelayR
 	f.AdminSt = AdminStEnabled
 	sb.Update(f)
 
-	// undocumented default value for the VRF property in DME (can be verified via NX-API)
-	vrfName := "!unspecified"
-	if req.VRF != nil {
-		vrfName = req.VRF.Spec.Name
-	}
-
-	dhcp := new(DHCPRelayConfig)
-	for _, intf := range req.Interfaces {
-		ifName, err := ShortName(intf.Spec.Name)
+	// relayFor generates per-interface relay config
+	relayFor := func(intfName string) (*DHCPRelay, error) {
+		name, err := ShortName(intfName)
 		if err != nil {
-			return fmt.Errorf("dhcp relay: failed to get short name for interface %q: %w", intf.Spec.Name, err)
+			return nil, fmt.Errorf("dhcp relay: failed to get short name for interface %q: %w", intfName, err)
 		}
-
-		relay := &DHCPRelay{ID: ifName}
+		relay := &DHCPRelay{ID: name}
 		for _, addr := range req.DHCPRelay.Spec.Servers {
 			a, err := netip.ParseAddr(addr)
 			if err != nil {
-				return fmt.Errorf("dhcp relay: invalid server address %q: %w", addr, err)
+				return nil, fmt.Errorf("dhcp relay: invalid server address %q: %w", addr, err)
 			}
-			relay.AddrItems.AddrList.Set(&DHCPRelayServer{Address: a, Vrf: vrfName})
+			srv := &DHCPRelayServer{Address: a, Vrf: "!unspecified"}
+			if req.VRF != nil {
+				srv.Vrf = req.VRF.Spec.Name
+			}
+			relay.AddrItems.AddrList.Set(srv)
 		}
-		dhcp.RelayIfList.Set(relay)
+		return relay, nil
 	}
-	sb.Update(dhcp)
 
+	// deprecated path
+	if req.Interface == nil {
+		dhcp := new(DHCPRelayConfig)
+		for _, intf := range req.Interfaces {
+			relay, err := relayFor(intf.Spec.Name)
+			if err != nil {
+				return err
+			}
+			dhcp.RelayIfList.Set(relay)
+		}
+		sb.Update(dhcp)
+		return p.Do(ctx, sb)
+	}
+
+	relay, err := relayFor(req.Interface.Spec.Name)
+	if err != nil {
+		return err
+	}
+	sb.Update(relay)
 	return p.Do(ctx, sb)
 }
 
 // DeleteDHCPRelay removes all DHCP relay configurations from the device.
 func (p *Provider) DeleteDHCPRelay(ctx context.Context, req *provider.DHCPRelayRequest) error {
-	return p.client.Delete(ctx, new(DHCPRelayConfig))
-}
-
-// GetDHCPRelayStatus retrieves the current DHCP relay status.
-func (p *Provider) GetDHCPRelayStatus(ctx context.Context, req *provider.DHCPRelayRequest) (provider.DHCPRelayStatus, error) {
-	var s provider.DHCPRelayStatus
-
-	config := new(DHCPRelayConfig)
-	if err := p.client.GetConfig(ctx, config); err != nil {
-		if errors.Is(err, gnmiext.ErrNil) {
-			return s, nil
-		}
-		return s, fmt.Errorf("dhcp relay: failed to get status: %w", err)
+	// deprecated path
+	if len(req.DHCPRelay.Spec.InterfaceRefs) > 0 { //nolint:staticcheck
+		return p.client.Delete(ctx, new(DHCPRelayConfig))
 	}
 
-	s.ConfiguredInterfaces = make([]string, 0, config.RelayIfList.Len())
-	for _, relay := range config.RelayIfList {
-		s.ConfiguredInterfaces = append(s.ConfiguredInterfaces, relay.ID)
+	// normal path
+	ifName, err := ShortName(req.Interface.Spec.Name)
+	if err != nil {
+		return fmt.Errorf("dhcp relay: failed to get short name for interface %q: %w", req.Interface.Spec.Name, err)
 	}
-
-	return s, nil
+	relay := &DHCPRelay{ID: ifName}
+	return p.client.Delete(ctx, relay)
 }
 
 func (p *Provider) EnsureEthernetSegment(ctx context.Context, req *provider.EnsureEthernetSegmentRequest) error {
@@ -4334,5 +4393,5 @@ func NormalizeMACAddress(mac string) string {
 }
 
 func init() {
-	provider.Register("cisco-nxos-gnmi", NewProvider)
+	provider.Register("nx.cisco.networking.metal.ironcore.dev", NewProvider)
 }

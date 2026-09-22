@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package v1alpha1
@@ -27,7 +27,7 @@ type EVPNInstanceSpec struct {
 	DeviceRef LocalObjectReference `json:"deviceRef"`
 
 	// ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
-	// This reference is used to link the BGP to its provider-specific configuration.
+	// This reference is used to link the EVPNInstance to its provider-specific configuration.
 	// +optional
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
 
@@ -85,6 +85,11 @@ type EVPNInstanceSpec struct {
 	// +optional
 	// +kubebuilder:validation:XValidation:rule="self.name == oldSelf.name",message="VRFRef is immutable"
 	VRFRef *LocalObjectReference `json:"vrfRef,omitempty"`
+
+	// SuppressARP overrides the NVE-level ARP suppression setting for this VNI.
+	// When unset, the NVE-level SuppressARP setting takes precedence.
+	// +optional
+	SuppressARP *bool `json:"suppressARP,omitempty"`
 }
 
 // EVPNInstanceType defines the type of EVPN instance.

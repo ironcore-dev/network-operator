@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package core
@@ -6,9 +6,11 @@ package core
 import (
 	"cmp"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"net/url"
 	"regexp"
 	"slices"
 	"strings"
@@ -49,9 +51,6 @@ type DeviceReconciler struct {
 	// More info: https://book.kubebuilder.io/reference/raising-events
 	Recorder events.EventRecorder
 
-	// Provider is the driver that will be used to create & delete the interface.
-	Provider provider.ProviderFunc
-
 	// HeartbeatInterval is the duration after which the controller requeues the reconciliation,
 	// regardless of changes.
 	HeartbeatInterval time.Duration
@@ -89,8 +88,9 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, err
 	}
 
-	if isPaused, requeue, err := paused.EnsureCondition(ctx, r.Client, obj, obj); isPaused || requeue || err != nil {
-		return ctrl.Result{Requeue: requeue}, err
+	orig := obj.DeepCopy()
+	if isPaused, err := paused.EnsureCondition(ctx, r.Client, obj, obj); isPaused || err != nil {
+		return ctrl.Result{}, err
 	}
 
 	conn, err := deviceutil.GetDeviceConnection(ctx, r, obj)
@@ -98,7 +98,6 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, fmt.Errorf("failed to obtain device connection: %w", err)
 	}
 
-	orig := obj.DeepCopy()
 	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ReachableCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
@@ -128,8 +127,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 			obj.Status.Phase = v1alpha1.DevicePhaseRunning
 			return ctrl.Result{}, nil
 		}
-
-		if _, ok := r.Provider().(provider.ProvisioningProvider); !ok {
+		if _, err := provider.LoadProvider[provider.ProvisioningProvider](obj.Spec.Provider); err != nil {
 			// Skip provisioning if the provider does not support it.
 			log.Info("Provider does not support provisioning, skipping")
 			obj.Status.Phase = v1alpha1.DevicePhaseFailed
@@ -211,7 +209,11 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 			return ctrl.Result{}, nil
 		}
 		log.Info("Device provisioning completed, running post provisioning checks")
-		prov, _ := r.Provider().(provider.ProvisioningProvider)
+		prov, err := provider.LoadProvider[provider.ProvisioningProvider](obj.Spec.Provider)
+		if err != nil {
+			log.Error(err, "Failed to load provisioning provider")
+			return ctrl.Result{}, err
+		}
 		if ok := prov.VerifyProvisioned(ctx, conn, obj); !ok {
 			return ctrl.Result{RequeueAfter: r.HeartbeatInterval}, nil
 		}
@@ -221,7 +223,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, nil
 
 	case v1alpha1.DevicePhaseRunning:
-		if prov, ok := r.Provider().(provider.DeviceProvider); ok {
+		if prov, err := provider.LoadProvider[provider.DeviceProvider](obj.Spec.Provider); err == nil {
 			if err := r.reconcile(ctx, obj, prov, conn); err != nil {
 				log.Error(err, "Failed to reconcile resource")
 				return ctrl.Result{}, err
@@ -246,6 +248,12 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 	}
 
 	if err := r.reconcileMaintenance(ctx, obj, conn); err != nil {
+		// ErrMaintenanceInProgress signals that a long-running maintenance step was
+		// issued and the operation must be resumed on a subsequent reconcile, so
+		// it must requeue rather than terminate.
+		if errors.Is(err, provider.ErrMaintenanceInProgress) {
+			return ctrl.Result{RequeueAfter: Jitter(r.HeartbeatInterval)}, nil
+		}
 		return ctrl.Result{}, reconcile.TerminalError(err)
 	}
 
@@ -407,7 +415,10 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 }
 
 func (r *DeviceReconciler) reconcileMinimal(ctx context.Context, device *v1alpha1.Device, conn *deviceutil.Connection) (reterr error) {
-	prov := r.Provider()
+	prov, err := provider.LoadProvider[provider.DeviceProvider](device.Spec.Provider)
+	if err != nil {
+		return fmt.Errorf("failed to load device provider: %w", err)
+	}
 	if err := prov.Connect(ctx, conn); err != nil {
 		conditions.Set(device, metav1.Condition{
 			Type:    v1alpha1.ReachableCondition,
@@ -468,11 +479,17 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 
 	case v1alpha1.DeviceMaintenanceReboot,
 		v1alpha1.DeviceMaintenanceFactoryReset,
-		v1alpha1.DeviceMaintenanceReprovision:
+		v1alpha1.DeviceMaintenanceReprovision,
+		v1alpha1.DeviceMaintenanceFirmwareUpgrade:
 
-		prov := r.Provider()
+		prov, err := provider.LoadProvider[provider.DeviceProvider](obj.Spec.Provider)
+		if err != nil {
+			return fmt.Errorf("failed to load device provider: %w", err)
+		}
+
 		if err := prov.Connect(ctx, conn); err != nil {
-			return fmt.Errorf("failed to connect to device: %w", err)
+			r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceFailed", "Maintenance", "Failed to connect to device for maintenance operation: %v", err)
+			return provider.ErrMaintenanceInProgress
 		}
 		defer prov.Disconnect(ctx, conn) //nolint:errcheck
 
@@ -538,6 +555,39 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 				return fmt.Errorf("failed to prepare device for reprovisioning: %w", err)
 			}
 			obj.Status.Phase = v1alpha1.DevicePhasePending
+
+		case v1alpha1.DeviceMaintenanceFirmwareUpgrade:
+			mp, ok := prov.(provider.MaintenanceProvider)
+			if !ok {
+				r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceUnsupported", "Maintenance", "Provider does not support firmware upgrade operation: %s", action)
+				return nil
+			}
+			targetFirmware, err := r.getTargetFirmware(obj)
+			if err != nil {
+				return err
+			}
+
+			err = mp.UpgradeFirmware(ctx, conn, targetFirmware)
+			if errors.Is(err, provider.ErrMaintenanceInProgress) {
+				conditions.Set(obj, metav1.Condition{
+					Type:    v1alpha1.ReadyCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  v1alpha1.MaintenanceInProgressReason,
+					Message: "Firmware upgrade in progress",
+				})
+				r.Recorder.Eventf(obj, nil, "Normal", "FirmwareUpgradeInProgress", "Maintenance", "Device firmware upgrade is in progress")
+				return err
+			}
+			if err != nil {
+				conditions.Set(obj, metav1.Condition{
+					Type:    v1alpha1.ReadyCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  v1alpha1.MaintenanceFailedReason,
+					Message: fmt.Sprintf("Failed to upgrade firmware: %v", err),
+				})
+				r.Recorder.Eventf(obj, nil, "Warning", "FirmwareUpgradeFailed", "Maintenance", "Device firmware upgrade has failed: %v", err)
+				return fmt.Errorf("failed to upgrade firmware: %w", err)
+			}
 		}
 
 	default:
@@ -549,6 +599,53 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 	// failed actions are retried on the next reconciliation.
 	delete(obj.Annotations, v1alpha1.DeviceMaintenanceAnnotation)
 	return nil
+}
+
+// getTargetFirmware retrieves the target firmware information from the device's annotations
+func (r *DeviceReconciler) getTargetFirmware(obj *v1alpha1.Device) (provider.TargetFirmware, error) {
+	targetFirmwareJSON, ok := obj.Annotations[v1alpha1.DeviceMaintenanceFirmwareTargetAnnotation]
+	if !ok {
+		r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceMissingFirmwareTarget", "Maintenance", "Firmware upgrade requested but no target firmware specified")
+		return provider.TargetFirmware{}, errors.New("firmware upgrade requested but no target firmware specified")
+	}
+
+	var targetFirmware provider.TargetFirmware
+	if err := json.Unmarshal([]byte(targetFirmwareJSON), &targetFirmware); err != nil {
+		r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceInvalidFirmwareTarget", "Maintenance", "Invalid firmware target specified: %v", err)
+		return provider.TargetFirmware{}, fmt.Errorf("failed to parse firmware target: %w", err)
+	}
+
+	// Validate the URL to ensure it is a well-formed absolute HTTP(S) URL and reject
+	// characters commonly used for shell/control injection if this value is later passed on.
+	parsedURL, err := url.ParseRequestURI(targetFirmware.URL)
+	if err != nil {
+		r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceInvalidFirmwareTarget", "Maintenance", "Invalid firmware target specified: url is invalid: %v", err)
+		return provider.TargetFirmware{}, fmt.Errorf("invalid firmware target: url is invalid: %w", err)
+	}
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceInvalidFirmwareTarget", "Maintenance", "Invalid firmware target specified: url scheme must be http or https")
+		return provider.TargetFirmware{}, errors.New("invalid firmware target: url scheme must be http or https")
+	}
+	if parsedURL.Host == "" {
+		r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceInvalidFirmwareTarget", "Maintenance", "Invalid firmware target specified: url host is required")
+		return provider.TargetFirmware{}, errors.New("invalid firmware target: url host is required")
+	}
+	if parsedURL.User != nil {
+		r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceInvalidFirmwareTarget", "Maintenance", "Invalid firmware target specified: url must not contain user info")
+		return provider.TargetFirmware{}, errors.New("invalid firmware target: url must not contain user info")
+	}
+	if strings.ContainsAny(targetFirmware.URL, "\r\n\t`$\\<>|;&()") {
+		r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceInvalidFirmwareTarget", "Maintenance", "Invalid firmware target specified: url contains forbidden characters")
+		return provider.TargetFirmware{}, errors.New("invalid firmware target: url contains forbidden characters")
+	}
+
+	// Validate the MD5 checksum if provided. It must be alphanumeric.
+	if targetFirmware.MD5 != "" && !regexp.MustCompile(`^[a-zA-Z0-9]+$`).MatchString(targetFirmware.MD5) {
+		r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceInvalidFirmwareTarget", "Maintenance", "Invalid firmware target specified: md5 must be alphanumeric")
+		return provider.TargetFirmware{}, errors.New("invalid firmware target: md5 must be alphanumeric")
+	}
+
+	return targetFirmware, nil
 }
 
 // secretToDevices is a [handler.MapFunc] to be used to enqueue requests for reconciliation
@@ -574,10 +671,8 @@ func (r *DeviceReconciler) secretToDevices(ctx context.Context, obj client.Objec
 		}) {
 			log.V(2).Info("Enqueuing Device for reconciliation", "Device", klog.KObj(&dev))
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKey{
-					Name:      dev.Name,
-					Namespace: dev.Namespace,
-				},
+				Name:      dev.Name,
+				Namespace: dev.Namespace,
 			})
 		}
 	}

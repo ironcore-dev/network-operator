@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package core
@@ -26,14 +26,13 @@ var _ = Describe("RoutingPolicy Controller", func() {
 		BeforeEach(func() {
 			By("Creating a Device resource for testing")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-routingpolicy-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-routingpolicy-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -68,10 +67,8 @@ var _ = Describe("RoutingPolicy Controller", func() {
 
 		It("Should successfully reconcile the resource", func() {
 			rp := &v1alpha1.RoutingPolicy{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.RoutingPolicySpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Name:      name,
@@ -130,10 +127,8 @@ var _ = Describe("RoutingPolicy Controller", func() {
 		It("Should successfully reconcile a RoutingPolicy with PrefixSet match condition and BGP actions", func() {
 			By("Creating a PrefixSet resource")
 			ps := &v1alpha1.PrefixSet{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.PrefixSetSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Name:      "INTERNAL-NETWORKS",
@@ -149,10 +144,8 @@ var _ = Describe("RoutingPolicy Controller", func() {
 
 			By("Creating a RoutingPolicy with PrefixSet match condition and BGP actions")
 			rp := &v1alpha1.RoutingPolicy{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.RoutingPolicySpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Name:      name,
@@ -201,10 +194,8 @@ var _ = Describe("RoutingPolicy Controller", func() {
 		It("Should handle non-existing PrefixSet reference", func() {
 			By("Creating a RoutingPolicy referencing non-existing PrefixSet")
 			rp := &v1alpha1.RoutingPolicy{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.RoutingPolicySpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Name:      name,
@@ -247,10 +238,8 @@ var _ = Describe("RoutingPolicy Controller", func() {
 			useLastAS := int32(5)
 
 			rp := &v1alpha1.RoutingPolicy{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.RoutingPolicySpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Name:      name,
@@ -350,10 +339,8 @@ var _ = Describe("RoutingPolicy Controller", func() {
 		It("Should handle PrefixSet on different device", func() {
 			By("Creating a PrefixSet on a different device")
 			ps := &v1alpha1.PrefixSet{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.PrefixSetSpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: "different-device"},
 					Name:      "INTERNAL-NETWORKS",
@@ -369,10 +356,8 @@ var _ = Describe("RoutingPolicy Controller", func() {
 
 			By("Creating a RoutingPolicy referencing the cross-device PrefixSet")
 			rp := &v1alpha1.RoutingPolicy{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.RoutingPolicySpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: name},
 					Name:      name,

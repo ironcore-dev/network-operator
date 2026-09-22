@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 SPDX-License-Identifier: Apache-2.0
 -->
 
@@ -19,7 +19,7 @@ The project uses three types of tests:
 
 ### Prerequisites
 
-- Go 1.26+
+- Go 1.27+
 - Make
 
 ### Running Unit Tests

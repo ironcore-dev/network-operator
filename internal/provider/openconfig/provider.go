@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package openconfig
@@ -55,5 +55,5 @@ func (p *Provider) Disconnect(_ context.Context, _ *deviceutil.Connection) error
 }
 
 func init() {
-	provider.Register("openconfig", NewProvider)
+	provider.Register("openconfig.networking.metal.ironcore.dev", NewProvider)
 }

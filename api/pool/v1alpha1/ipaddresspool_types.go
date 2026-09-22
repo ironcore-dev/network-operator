@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package v1alpha1
@@ -153,14 +153,10 @@ func (p *IPAddressPool) Allocate(claim *Claim, existing []Allocation) (Allocatio
 			if _, taken := allocated[addr]; !taken {
 				value := addr.String()
 				return &IPAddress{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: GroupVersion.String(),
-						Kind:       "IPAddress",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      fmt.Sprintf("%s-%s", p.Name, sanitizeValue(value)),
-						Namespace: p.Namespace,
-					},
+					APIVersion: GroupVersion.String(),
+					Kind:       "IPAddress",
+					Name:       fmt.Sprintf("%s-%s", p.Name, sanitizeValue(value)),
+					Namespace:  p.Namespace,
 					Spec: IPAddressSpec{
 						PoolRef: corev1alpha1.TypedLocalObjectReference{
 							APIVersion: GroupVersion.String(),

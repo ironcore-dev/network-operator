@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package core
@@ -24,14 +24,13 @@ var _ = Describe("EVPNInstance Controller", func() {
 		BeforeEach(func() {
 			By("Creating a Device resource for testing")
 			device := &v1alpha1.Device{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-evi-",
-					Namespace:    metav1.NamespaceDefault,
-				},
+				GenerateName: "test-evi-",
+				Namespace:    metav1.NamespaceDefault,
 				Spec: v1alpha1.DeviceSpec{
 					Endpoint: v1alpha1.Endpoint{
 						Address: "192.168.10.2:9339",
 					},
+					Provider: "test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, device)).To(Succeed())
@@ -67,10 +66,8 @@ var _ = Describe("EVPNInstance Controller", func() {
 		It("Should successfully reconcile EVPNInstance with VLAN reference", func() {
 			By("Creating a VLAN resource")
 			vlan := &v1alpha1.VLAN{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.VLANSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: name},
 					ID:         10,
@@ -82,10 +79,8 @@ var _ = Describe("EVPNInstance Controller", func() {
 
 			By("Creating an EVPNInstance with complete configuration from sample")
 			evi := &v1alpha1.EVPNInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.EVPNInstanceSpec{
 					DeviceRef:             v1alpha1.LocalObjectReference{Name: name},
 					VNI:                   vni,
@@ -161,10 +156,8 @@ var _ = Describe("EVPNInstance Controller", func() {
 		It("Should handle EVPNInstance referencing non-existent VLAN", func() {
 			By("Creating an EVPNInstance referencing a non-existent VLAN")
 			evi := &v1alpha1.EVPNInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.EVPNInstanceSpec{
 					DeviceRef:             v1alpha1.LocalObjectReference{Name: name},
 					VNI:                   vni,
@@ -198,10 +191,8 @@ var _ = Describe("EVPNInstance Controller", func() {
 		It("Should handle EVPNInstance referencing VLAN on different device", func() {
 			By("Creating a VLAN on a different device")
 			vlan := &v1alpha1.VLAN{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.VLANSpec{
 					DeviceRef:  v1alpha1.LocalObjectReference{Name: "different-device"},
 					ID:         10,
@@ -213,10 +204,8 @@ var _ = Describe("EVPNInstance Controller", func() {
 
 			By("Creating an EVPNInstance referencing the cross-device VLAN")
 			evi := &v1alpha1.EVPNInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1alpha1.EVPNInstanceSpec{
 					DeviceRef:             v1alpha1.LocalObjectReference{Name: name},
 					VNI:                   vni,

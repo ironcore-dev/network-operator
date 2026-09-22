@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package v1alpha1
@@ -76,6 +76,11 @@ const VRFLabel = "networking.metal.ironcore.dev/vrf-name"
 // to trigger certain disruptive operations, such as reboots or firmware upgrades.
 const DeviceMaintenanceAnnotation = "networking.metal.ironcore.dev/maintenance"
 
+// DeviceMaintenanceFirmwareTargetAnnotation specifies the target firmware image for a firmware upgrade.
+// It also includes the MD5 checksum of the firmware image if available.
+// The value format is {"url": "<url>", "md5": "<md5>"}
+const DeviceMaintenanceFirmwareTargetAnnotation = "networking.metal.ironcore.dev/maintenance-target-firmware"
+
 // PhysicalInterfaceNeighborLabel identifies the peer Interface resource on the other end of a physical link.
 // The value must be the name of another Interface resource in the same namespace.
 // This label is only valid for interfaces of type Physical.
@@ -113,6 +118,10 @@ const (
 	// spec.provisioning is defined.
 	// The annotation is always consumed once the device reaches Running.
 	DeviceMaintenanceSkipProvisioning = "skip-provisioning"
+	// DeviceMaintenanceFirmwareUpgrade triggers a firmware upgrade on the device. The provider initiates
+	// the upgrade workflow, which will apply the new firmware and reboot the device as necessary.
+	// The target firmware image is specified by the DeviceMaintenanceFirmwareTargetAnnotation.
+	DeviceMaintenanceFirmwareUpgrade = "firmware-upgrade"
 )
 
 // Condition types that are used across different objects.
@@ -190,6 +199,9 @@ const (
 	// ErrorReason indicates that an error occurred while reconciling the resource.
 	ErrorReason = "Error"
 
+	// ProviderNotFoundReason indicates that the provider specified in the resource's device.spec.provider field was not found.
+	ProviderNotFoundReason = "ProviderNotFound"
+
 	// WaitingForDependenciesReason indicates that the resource is waiting for its dependencies to be ready.
 	WaitingForDependenciesReason = "WaitingForDependencies"
 
@@ -264,6 +276,9 @@ const (
 const (
 	// MaintenanceFailedReason indicates that a requested maintenance operation (e.g., reboot or factory reset) failed.
 	MaintenanceFailedReason = "MaintenanceFailed"
+	// MaintenanceInProgressReason indicates that a long-running maintenance
+	// operation (e.g., firmware upgrade) is still in progress and will be retried.
+	MaintenanceInProgressReason = "MaintenanceInProgress"
 )
 
 // Reasons that are specific to [RoutingPolicy] objects.
