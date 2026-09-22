@@ -67,8 +67,8 @@ spec:
     },
     "lldp-items": {
       "inst-items": {
-        "holdTime": 90,
-        "initDelayTime": 5
+        "holdTime": 120,
+        "initDelayTime": 2
       }
     }
   }

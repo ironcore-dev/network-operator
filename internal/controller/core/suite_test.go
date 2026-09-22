@@ -578,7 +578,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	return nil
 }
 
-func (p *Provider) DeleteInterface(_ context.Context, req *provider.InterfaceRequest) error {
+func (p *Provider) DeleteInterface(_ context.Context, req *provider.DeleteInterfaceRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.Ports.Delete(req.Interface.Spec.Name)
@@ -685,7 +685,7 @@ func (p *Provider) EnsureACL(_ context.Context, req *provider.ACLRequest) error 
 	return nil
 }
 
-func (p *Provider) DeleteACL(_ context.Context, req *provider.ACLRequest) error {
+func (p *Provider) DeleteACL(_ context.Context, req *provider.DeleteACLRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.ACLs.Delete(req.ACL.Spec.Name)
@@ -713,7 +713,7 @@ func (p *Provider) EnsureSNMP(_ context.Context, req *provider.EnsureSNMPRequest
 	return nil
 }
 
-func (p *Provider) DeleteSNMP(_ context.Context, req *provider.DeleteSNMPRequest) error {
+func (p *Provider) DeleteSNMP(context.Context) error {
 	p.Lock()
 	defer p.Unlock()
 	p.SNMP = nil
@@ -769,7 +769,7 @@ func (p *Provider) EnsureVRF(_ context.Context, req *provider.VRFRequest) error 
 	return nil
 }
 
-func (p *Provider) DeleteVRF(_ context.Context, req *provider.VRFRequest) error {
+func (p *Provider) DeleteVRF(_ context.Context, req *provider.DeleteVRFRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.VRF.Delete(req.VRF.Spec.Name)
@@ -783,7 +783,7 @@ func (p *Provider) EnsurePIM(_ context.Context, req *provider.EnsurePIMRequest) 
 	return nil
 }
 
-func (p *Provider) DeletePIM(context.Context, *provider.DeletePIMRequest) error {
+func (p *Provider) DeletePIM(context.Context) error {
 	p.Lock()
 	defer p.Unlock()
 	p.PIM = nil
@@ -860,7 +860,7 @@ func (p *Provider) EnsureVLAN(_ context.Context, req *provider.VLANRequest) erro
 	return nil
 }
 
-func (p *Provider) DeleteVLAN(_ context.Context, req *provider.VLANRequest) error {
+func (p *Provider) DeleteVLAN(_ context.Context, req *provider.DeleteVLANRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.VLANs.Delete(req.VLAN.Spec.ID)
@@ -880,7 +880,7 @@ func (p *Provider) EnsureEVPNInstance(_ context.Context, req *provider.EVPNInsta
 	return nil
 }
 
-func (p *Provider) DeleteEVPNInstance(_ context.Context, req *provider.EVPNInstanceRequest) error {
+func (p *Provider) DeleteEVPNInstance(_ context.Context, req *provider.DeleteEVPNInstanceRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.EVIs.Delete(req.EVPNInstance.Spec.VNI)
@@ -895,7 +895,7 @@ func (p *Provider) EnsurePrefixSet(_ context.Context, req *provider.PrefixSetReq
 	return nil
 }
 
-func (p *Provider) DeletePrefixSet(_ context.Context, req *provider.PrefixSetRequest) error {
+func (p *Provider) DeletePrefixSet(_ context.Context, req *provider.DeletePrefixSetRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.PrefixSets.Delete(req.PrefixSet.Spec.Name)
@@ -923,7 +923,7 @@ func (p *Provider) EnsureNVE(_ context.Context, req *provider.NVERequest) error 
 	return nil
 }
 
-func (p *Provider) DeleteNVE(_ context.Context, req *provider.NVERequest) error {
+func (p *Provider) DeleteNVE(context.Context) error {
 	p.Lock()
 	defer p.Unlock()
 	p.NVE = nil
@@ -1008,7 +1008,7 @@ func (p *Provider) EnsureLLDP(_ context.Context, req *provider.LLDPRequest) erro
 	return nil
 }
 
-func (p *Provider) DeleteLLDP(_ context.Context, req *provider.LLDPRequest) error {
+func (p *Provider) DeleteLLDP(context.Context) error {
 	p.Lock()
 	defer p.Unlock()
 	p.LLDP = nil
@@ -1028,7 +1028,7 @@ func (p *Provider) EnsureDHCPRelay(_ context.Context, req *provider.DHCPRelayReq
 	return nil
 }
 
-func (p *Provider) DeleteDHCPRelay(_ context.Context, req *provider.DHCPRelayRequest) error {
+func (p *Provider) DeleteDHCPRelay(context.Context, *provider.DeleteDHCPRelayRequest) error {
 	p.Lock()
 	defer p.Unlock()
 	p.DHCPRelayDeleteCalls++

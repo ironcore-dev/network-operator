@@ -292,7 +292,7 @@ func (p *MockProvider) EnsureNVE(_ context.Context, req *provider.NVERequest) er
 	return nil
 }
 
-func (p *MockProvider) DeleteNVE(_ context.Context, req *provider.NVERequest) error {
+func (p *MockProvider) DeleteNVE(context.Context) error {
 	p.Lock()
 	defer p.Unlock()
 	p.NVE = nil

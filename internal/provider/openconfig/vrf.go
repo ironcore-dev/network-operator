@@ -53,7 +53,7 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 	return p.client.Update(ctx, ni)
 }
 
-func (p *Provider) DeleteVRF(ctx context.Context, req *provider.VRFRequest) error {
+func (p *Provider) DeleteVRF(ctx context.Context, req *provider.DeleteVRFRequest) error {
 	ni := &NetworkInstance{Name: req.VRF.Spec.Name}
 	return p.client.Delete(ctx, ni)
 }

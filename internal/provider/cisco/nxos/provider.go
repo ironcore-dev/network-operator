@@ -492,7 +492,7 @@ func (p *Provider) EnsureACL(ctx context.Context, req *provider.ACLRequest) erro
 	return p.client.Update(ctx, a)
 }
 
-func (p *Provider) DeleteACL(ctx context.Context, req *provider.ACLRequest) error {
+func (p *Provider) DeleteACL(ctx context.Context, req *provider.DeleteACLRequest) error {
 	a := new(ACL)
 	a.Name = req.ACL.Spec.Name
 	// Check if the ACL is IPv4 by trying to fetch its config. If it does not exist, assume it's IPv6.
@@ -1187,7 +1187,7 @@ func (p *Provider) EnsureEVPNInstance(ctx context.Context, req *provider.EVPNIns
 	return p.Do(ctx, sb)
 }
 
-func (p *Provider) DeleteEVPNInstance(ctx context.Context, req *provider.EVPNInstanceRequest) error {
+func (p *Provider) DeleteEVPNInstance(ctx context.Context, req *provider.DeleteEVPNInstanceRequest) error {
 	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
 
 	// Clear L3VNI/Encap on the VRF if this is a Routed EVI and the VRF still exists.
@@ -1747,7 +1747,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	return p.Do(ctx, sb)
 }
 
-func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceRequest) error {
+func (p *Provider) DeleteInterface(ctx context.Context, req *provider.DeleteInterfaceRequest) error {
 	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
 
 	name, err := ShortName(req.Interface.Spec.Name)
@@ -1774,6 +1774,12 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 	bfd := new(BFD)
 	bfd.ID = name
 	sb.Delete(bfd)
+	if req.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical || req.Interface.Spec.Type == v1alpha1.InterfaceTypeAggregate {
+		stp := &SpanningTree{IfName: name}
+		if err = p.client.GetConfig(ctx, stp); err == nil {
+			sb.Delete(stp)
+		}
+	}
 
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
@@ -1781,12 +1787,6 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.InterfaceR
 		i.ID = name
 		sb.Delete(i)
 		sb.Patch(&TrunkVlans{IfName: name, Vlans: DefaultVLANRange})
-
-		stp := new(SpanningTree)
-		stp.IfName = name
-		if err = p.client.GetConfig(ctx, stp); err == nil {
-			sb.Delete(stp)
-		}
 
 		icmp := new(ICMPIf)
 		icmp.ID = name
@@ -2155,6 +2155,7 @@ func (p *Provider) DeleteManagementAccess(ctx context.Context, _ *provider.Delet
 		new(GNMI),
 		new(VTY),
 		new(Console),
+		new(VTYAccessClass),
 	)
 }
 
@@ -2552,7 +2553,7 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 	return p.Do(ctx, sb)
 }
 
-func (p *Provider) DeletePIM(ctx context.Context, _ *provider.DeletePIMRequest) error {
+func (p *Provider) DeletePIM(ctx context.Context) error {
 	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
 
 	pim := new(PIM)
@@ -2592,7 +2593,7 @@ func (p *Provider) EnsurePrefixSet(ctx context.Context, req *provider.PrefixSetR
 	return p.client.Update(ctx, s)
 }
 
-func (p *Provider) DeletePrefixSet(ctx context.Context, req *provider.PrefixSetRequest) error {
+func (p *Provider) DeletePrefixSet(ctx context.Context, req *provider.DeletePrefixSetRequest) error {
 	s := new(PrefixList)
 	s.Name = req.PrefixSet.Spec.Name
 	s.Is6 = req.PrefixSet.Is6()
@@ -2825,7 +2826,7 @@ func (p *Provider) EnsureSNMP(ctx context.Context, req *provider.EnsureSNMPReque
 	return p.client.Update(ctx, sysInfo, globals, communities, hosts, traps)
 }
 
-func (p *Provider) DeleteSNMP(ctx context.Context, req *provider.DeleteSNMPRequest) error {
+func (p *Provider) DeleteSNMP(ctx context.Context) error {
 	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
 
 	traps := new(SNMPTrapsItems)
@@ -2966,7 +2967,7 @@ func (p *Provider) EnsureVLAN(ctx context.Context, req *provider.VLANRequest) er
 	return p.client.Patch(ctx, v)
 }
 
-func (p *Provider) DeleteVLAN(ctx context.Context, req *provider.VLANRequest) error {
+func (p *Provider) DeleteVLAN(ctx context.Context, req *provider.DeleteVLANRequest) error {
 	v := new(VLAN)
 	v.FabEncap = fmt.Sprintf("vlan-%d", req.VLAN.Spec.ID)
 	return p.client.Delete(ctx, v)
@@ -3109,7 +3110,7 @@ func (p *Provider) EnsureVRF(ctx context.Context, req *provider.VRFRequest) erro
 	return p.Do(ctx, sb)
 }
 
-func (p *Provider) DeleteVRF(ctx context.Context, req *provider.VRFRequest) error {
+func (p *Provider) DeleteVRF(ctx context.Context, req *provider.DeleteVRFRequest) error {
 	v := new(VRF)
 	v.Name = req.VRF.Spec.Name
 	if err := p.client.Delete(ctx, v); err != nil {
@@ -3570,7 +3571,7 @@ func (p *Provider) EnsureNVE(ctx context.Context, req *provider.NVERequest) erro
 	return p.Do(ctx, sb)
 }
 
-func (p *Provider) DeleteNVE(ctx context.Context, req *provider.NVERequest) error {
+func (p *Provider) DeleteNVE(ctx context.Context) error {
 	v := new(NVE)
 	iv := new(NVEInfraVLANs)
 	av := new(FabricFwd)
@@ -3634,17 +3635,19 @@ func (p *Provider) EnsureLLDP(ctx context.Context, req *provider.LLDPRequest) er
 	}
 
 	l := new(LLDP)
-	// Default values based on the YANG model
-	l.HoldTime = NewOption[uint16](120)
-	l.InitDelay = NewOption[uint16](2)
+	l.Default()
 
 	if req.ProviderConfig != nil {
 		var cfg nxv1alpha1.LLDPConfig
 		if err := req.ProviderConfig.Into(&cfg); err != nil {
 			return fmt.Errorf("failed to decode provider config: %w", err)
 		}
-		l.InitDelay = NewOption(uint16(cfg.Spec.InitDelay)) //nolint:gosec
-		l.HoldTime = NewOption(uint16(cfg.Spec.HoldTime))   //nolint:gosec
+		if cfg.Spec.InitDelay != 0 {
+			l.InitDelay = uint16(cfg.Spec.InitDelay) //nolint:gosec
+		}
+		if cfg.Spec.HoldTime != 0 {
+			l.HoldTime = uint16(cfg.Spec.HoldTime) //nolint:gosec
+		}
 	}
 
 	interfaceMap := make(map[string]*v1alpha1.Interface, len(req.Interfaces))
@@ -3682,7 +3685,10 @@ func (p *Provider) EnsureLLDP(ctx context.Context, req *provider.LLDPRequest) er
 	return p.Do(ctx, sb)
 }
 
-func (p *Provider) DeleteLLDP(ctx context.Context, req *provider.LLDPRequest) error {
+func (p *Provider) DeleteLLDP(ctx context.Context) error {
+	if err := p.client.Delete(ctx, new(LLDP)); err != nil {
+		return err
+	}
 	f := new(Feature)
 	f.Name = "lldp"
 	f.AdminSt = AdminStDisabled
@@ -3753,8 +3759,8 @@ func (p *Provider) EnsureDHCPRelay(ctx context.Context, req *provider.DHCPRelayR
 	return p.Do(ctx, sb)
 }
 
-// DeleteDHCPRelay removes all DHCP relay configurations from the device.
-func (p *Provider) DeleteDHCPRelay(ctx context.Context, req *provider.DHCPRelayRequest) error {
+// DeleteDHCPRelay removes DHCP relay configuration from the device.
+func (p *Provider) DeleteDHCPRelay(ctx context.Context, req *provider.DeleteDHCPRelayRequest) error {
 	// deprecated path
 	if len(req.DHCPRelay.Spec.InterfaceRefs) > 0 { //nolint:staticcheck
 		return p.client.Delete(ctx, new(DHCPRelayConfig))

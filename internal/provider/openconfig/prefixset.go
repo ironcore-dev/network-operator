@@ -42,7 +42,7 @@ func (p *Provider) EnsurePrefixSet(ctx context.Context, req *provider.PrefixSetR
 	return p.client.Update(ctx, ps)
 }
 
-func (p *Provider) DeletePrefixSet(ctx context.Context, req *provider.PrefixSetRequest) error {
+func (p *Provider) DeletePrefixSet(ctx context.Context, req *provider.DeletePrefixSetRequest) error {
 	ps := &PrefixSetElement{Name: req.PrefixSet.Spec.Name}
 	return p.client.Delete(ctx, ps)
 }

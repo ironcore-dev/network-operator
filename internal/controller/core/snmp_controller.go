@@ -129,22 +129,12 @@ func (r *SNMPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		return ctrl.Result{}, err
 	}
 
-	var cfg *provider.ProviderConfig
-	if obj.Spec.ProviderConfigRef != nil {
-		cfg, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	s := &snmpScope{
-		Device:         device,
-		SNMP:           obj,
-		Connection:     conn,
-		ProviderConfig: cfg,
-		Provider:       prov,
+		Device:     device,
+		SNMP:       obj,
+		Connection: conn,
+		Provider:   prov,
 	}
-
 	if !obj.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 			if err := r.finalize(ctx, s); err != nil {
@@ -159,6 +149,13 @@ func (r *SNMPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		}
 		log.V(3).Info("Resource is being deleted, skipping reconciliation")
 		return ctrl.Result{}, nil
+	}
+
+	if obj.Spec.ProviderConfigRef != nil {
+		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
@@ -311,9 +308,7 @@ func (r *SNMPReconciler) finalize(ctx context.Context, s *snmpScope) (reterr err
 		}
 	}()
 
-	return s.Provider.DeleteSNMP(ctx, &provider.DeleteSNMPRequest{
-		ProviderConfig: s.ProviderConfig,
-	})
+	return s.Provider.DeleteSNMP(ctx)
 }
 
 // deviceToSNMPs is a [handler.MapFunc] to be used to enqueue requests for reconciliation

@@ -141,22 +141,12 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	var cfg *provider.ProviderConfig
-	if obj.Spec.ProviderConfigRef != nil {
-		cfg, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	s := &scope{
-		Device:         device,
-		Interface:      obj,
-		Connection:     conn,
-		ProviderConfig: cfg,
-		Provider:       prov,
+		Device:     device,
+		Interface:  obj,
+		Connection: conn,
+		Provider:   prov,
 	}
-
 	if !obj.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 			if err := r.finalize(ctx, s); err != nil {
@@ -171,6 +161,13 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 		log.V(3).Info("Resource is being deleted, skipping reconciliation")
 		return ctrl.Result{}, nil
+	}
+
+	if obj.Spec.ProviderConfigRef != nil {
+		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
@@ -1127,9 +1124,8 @@ func (r *InterfaceReconciler) finalize(ctx context.Context, s *scope) (reterr er
 		}
 	}()
 
-	return s.Provider.DeleteInterface(ctx, &provider.InterfaceRequest{
-		Interface:      s.Interface,
-		ProviderConfig: s.ProviderConfig,
+	return s.Provider.DeleteInterface(ctx, &provider.DeleteInterfaceRequest{
+		Interface: s.Interface,
 	})
 }
 

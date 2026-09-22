@@ -84,7 +84,7 @@ func (p *Provider) EnsureACL(ctx context.Context, req *provider.ACLRequest) erro
 	return p.client.Update(ctx, acl)
 }
 
-func (p *Provider) DeleteACL(ctx context.Context, req *provider.ACLRequest) error {
+func (p *Provider) DeleteACL(ctx context.Context, req *provider.DeleteACLRequest) error {
 	aclType := ACLTypeIPv4
 	if len(req.ACL.Spec.Entries) > 0 && req.ACL.Spec.Entries[0].SourceAddress.Is6() {
 		aclType = ACLTypeIPv6
