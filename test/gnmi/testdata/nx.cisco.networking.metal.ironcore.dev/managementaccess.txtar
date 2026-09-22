@@ -136,11 +136,7 @@ spec:
       "ipv4-items": {
         "policy-items": {
           "ingress-items": {
-            "vty-items": {
-              "acl-items": {
-                "name": "MGMT-ACL"
-              }
-            }
+            "vty-items": {}
           }
         }
       }

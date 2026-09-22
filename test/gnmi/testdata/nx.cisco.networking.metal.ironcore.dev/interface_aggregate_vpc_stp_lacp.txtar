@@ -231,7 +231,7 @@ spec:
         "if-items": {
           "If-list": [
             {
-              "mode": "network",
+              "mode": "default",
               "bpdufilter": "enable",
               "bpduguard": "default",
               "id": "po10"
