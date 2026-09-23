@@ -29,7 +29,7 @@ func (*PIM) XPath() string {
 type PIMDom struct {
 	Name       string  `json:"name"`
 	AdminSt    AdminSt `json:"adminSt"`
-	LogNbhChng *bool   `json:"logNbhChng,omitempty"`
+	LogNbhChng bool    `json:"logNbhChng"`
 }
 
 func (*PIMDom) IsListItem() {}

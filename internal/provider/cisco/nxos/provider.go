@@ -2548,7 +2548,10 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 	if req.PIM.Spec.AdminState == v1alpha1.AdminStateDown {
 		dom.AdminSt = AdminStDisabled
 	}
-	dom.LogNbhChng = cfg.Spec.LogNeighborChanges
+	dom.LogNbhChng = false
+	if cfg.Spec.LogNeighborChanges != nil {
+		dom.LogNbhChng = *cfg.Spec.LogNeighborChanges
+	}
 	sb.Patch(dom)
 
 	rpItems := new(StaticRPItems)

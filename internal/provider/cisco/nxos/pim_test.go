@@ -16,10 +16,9 @@ func init() {
 	rp.RpgrplistItems.RPGrpListList.Set(&StaticRPGrp{GrpListName: "224.0.0.0/4"})
 	Register("pim_rp", rp)
 
-	logEnabled := true
 	Register("pim_dom_log", &PIMDom{
 		Name:       "default",
 		AdminSt:    AdminStEnabled,
-		LogNbhChng: &logEnabled,
+		LogNbhChng: true,
 	})
 }
