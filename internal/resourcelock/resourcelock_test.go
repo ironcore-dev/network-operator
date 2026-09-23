@@ -4,6 +4,7 @@
 package resourcelock
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -323,9 +324,15 @@ func TestReleaseLock_NotFound(t *testing.T) {
 		t.Fatalf("NewResourceLocker() error = %v", err)
 	}
 
-	ctx := t.Context()
+	ctx, cancel := context.WithCancel(t.Context())
+	rl.cancelFuncs.Store("non-existent-lease", cancel)
 	if err := rl.ReleaseLock(ctx, "non-existent-lease", "locker-1"); err != nil {
 		t.Errorf("ReleaseLock() error = %v, expected success (noop) when lease not found", err)
+	}
+	select {
+	case <-ctx.Done():
+	default:
+		t.Error("ReleaseLock() did not cancel renewal when lease was not found")
 	}
 }
 
