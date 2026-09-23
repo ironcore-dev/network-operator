@@ -1398,6 +1398,26 @@ _Appears in:_
 | `regex` _string_ | Regex is a POSIX extended regular expression matching BGP community values. |  | MinLength: 1 <br />Required: \{\} <br /> |
 
 
+#### CommunityOperation
+
+_Underlying type:_ _string_
+
+CommunityOperation defines whether communities are added to the route's existing
+set (Add) or replace it (Replace).
+
+_Validation:_
+- Enum: [Add Replace]
+
+_Appears in:_
+- [SetCommunityAction](#setcommunityaction)
+- [SetExtCommunityAction](#setextcommunityaction)
+
+| Field | Description |
+| --- | --- |
+| `Add` | CommunityOperationAdd appends the communities to the route's existing set.<br /> |
+| `Replace` | CommunityOperationReplace overwrites the route's communities with the configured set.<br /> |
+
+
 #### CommunitySet
 
 
@@ -4390,6 +4410,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `communities` _string array_ | Communities is the list of BGP standard communities to set.<br />The communities must be in the format defined by [RFC 1997].<br />[RFC 1997]: https://datatracker.ietf.org/doc/html/rfc1997 |  | MinItems: 1 <br />Required: \{\} <br /> |
+| `operation` _[CommunityOperation](#communityoperation)_ | Operation controls whether attributes are added (Add) to the communities or<br />if the communities attributes are replaced (Replace). | Replace | Enum: [Add Replace] <br />Optional: \{\} <br /> |
 
 
 #### SetExtCommunityAction
@@ -4406,6 +4427,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `communities` _string array_ | Communities is the list of BGP extended communities to set.<br />The communities must be in the format defined by [RFC 4360].<br />[RFC 4360]: https://datatracker.ietf.org/doc/html/rfc4360 |  | MinItems: 1 <br />Required: \{\} <br /> |
+| `operation` _[CommunityOperation](#communityoperation)_ | Operation controls whether the communities are added to the route's existing<br />communities (Add) or replace them (Replace). | Replace | Enum: [Add Replace] <br />Optional: \{\} <br /> |
 
 
 #### Severity

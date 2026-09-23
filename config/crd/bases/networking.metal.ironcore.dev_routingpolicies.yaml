@@ -224,6 +224,15 @@ spec:
                                     type: string
                                   minItems: 1
                                   type: array
+                                operation:
+                                  default: Replace
+                                  description: |-
+                                    Operation controls whether attributes are added (Add) to the communities or
+                                    if the communities attributes are replaced (Replace).
+                                  enum:
+                                  - Add
+                                  - Replace
+                                  type: string
                               required:
                               - communities
                               type: object
@@ -240,6 +249,15 @@ spec:
                                     type: string
                                   minItems: 1
                                   type: array
+                                operation:
+                                  default: Replace
+                                  description: |-
+                                    Operation controls whether the communities are added to the route's existing
+                                    communities (Add) or replace them (Replace).
+                                  enum:
+                                  - Add
+                                  - Replace
+                                  type: string
                               required:
                               - communities
                               type: object

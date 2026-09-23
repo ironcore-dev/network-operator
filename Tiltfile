@@ -165,7 +165,7 @@ k8s_yaml('./config/samples/v1alpha1_prefixset.yaml')
 k8s_resource(new_name='ccloud-prefixset', objects=['ccloud-prefixset:prefixset'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_routingpolicy.yaml')
-k8s_resource(new_name='bgp-import-policy', objects=['bgp-import-policy:routingpolicy', 'internal-networks:prefixset', 'partner-networks:prefixset', 'blocked-networks:prefixset'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='bgp-import-policy', objects=['bgp-import-policy:routingpolicy', 'internal-networks:prefixset', 'partner-networks:prefixset', 'blocked-networks:prefixset', 'communityset-regular:communityset', 'communityset-extended:communityset'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/cisco/nx/v1alpha1_vpcdomain.yaml')
 k8s_resource(new_name='vpcdomain', objects=['leaf1-vpcdomain:vpcdomain', 'leaf1-vrfvpckeepalive:vrf', 'eth1-30:interface', 'vpc-peer-link:interfaceconfig', 'eth1-31:interface','eth1-32:interface', 'po1:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])

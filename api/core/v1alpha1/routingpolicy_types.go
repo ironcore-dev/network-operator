@@ -197,6 +197,18 @@ type SetASPathReplace struct {
 	Replacement intstr.IntOrString `json:"replacement"`
 }
 
+// CommunityOperation defines whether communities are added to the route's existing
+// set (Add) or replace it (Replace).
+// +kubebuilder:validation:Enum=Add;Replace
+type CommunityOperation string
+
+const (
+	// CommunityOperationAdd appends the communities to the route's existing set.
+	CommunityOperationAdd CommunityOperation = "Add"
+	// CommunityOperationReplace overwrites the route's communities with the configured set.
+	CommunityOperationReplace CommunityOperation = "Replace"
+)
+
 // SetCommunityAction defines the action to set BGP standard communities.
 type SetCommunityAction struct {
 	// Communities is the list of BGP standard communities to set.
@@ -205,6 +217,12 @@ type SetCommunityAction struct {
 	// +required
 	// +kubebuilder:validation:MinItems=1
 	Communities []string `json:"communities"`
+
+	// Operation controls whether attributes are added (Add) to the communities or
+	// if the communities attributes are replaced (Replace).
+	// +optional
+	// +kubebuilder:default=Replace
+	Operation CommunityOperation `json:"operation,omitempty"`
 }
 
 // SetExtCommunityAction defines the action to set BGP extended communities.
@@ -215,6 +233,12 @@ type SetExtCommunityAction struct {
 	// +required
 	// +kubebuilder:validation:MinItems=1
 	Communities []string `json:"communities"`
+
+	// Operation controls whether the communities are added to the route's existing
+	// communities (Add) or replace them (Replace).
+	// +optional
+	// +kubebuilder:default=Replace
+	Operation CommunityOperation `json:"operation,omitempty"`
 }
 
 // RoutingPolicyStatus defines the observed state of RoutingPolicy.

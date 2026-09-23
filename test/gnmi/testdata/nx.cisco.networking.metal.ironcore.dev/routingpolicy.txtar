@@ -97,6 +97,20 @@ spec:
           matchSetOption: Any
       actions:
         routeDisposition: AcceptRoute
+    - sequence: 50
+      actions:
+        routeDisposition: AcceptRoute
+        bgpActions:
+          setCommunity:
+            communities:
+              - "65000:10"
+              - "65000:20"
+            operation: Add
+          setExtCommunity:
+            communities:
+              - "65000:10"
+              - "65000:20"
+            operation: Replace
 
 -- state/preload --
 {
@@ -242,6 +256,39 @@ spec:
                       "RsExtCommAtt-list": [
                         {
                           "tDn": "/System/rpm-items/rtextcom-items/Rule-list[name='BGP-EXT-COMMUNITY']"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "action": "permit",
+                  "order": 50,
+                  "srtt-items": {
+                    "additive": "disabled",
+                    "item-items": {
+                      "Item-list": [
+                        {
+                          "community": "route-target:as2-nn2:65000:10",
+                          "scope": "transitive"
+                        },
+                        {
+                          "community": "route-target:as2-nn2:65000:20",
+                          "scope": "transitive"
+                        }
+                      ]
+                    }
+                  },
+                  "sregcomm-items": {
+                    "additive": "enabled",
+                    "noCommAttr": "disabled",
+                    "item-items": {
+                      "Item-list": [
+                        {
+                          "community": "regular:as2-nn2:65000:10"
+                        },
+                        {
+                          "community": "regular:as2-nn2:65000:20"
                         }
                       ]
                     }

@@ -10,6 +10,7 @@
                 "action": "permit",
                 "order": 10,
                 "srtt-items": {
+                  "additive": "disabled",
                   "item-items": {
                     "Item-list": [
                       {
@@ -20,6 +21,7 @@
                   }
                 },
                 "sregcomm-items": {
+                  "additive": "disabled",
                   "noCommAttr": "disabled",
                   "item-items": {
                     "Item-list": [

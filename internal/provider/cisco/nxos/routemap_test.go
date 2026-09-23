@@ -9,7 +9,9 @@ func init() {
 	e := &RouteMapEntry{}
 	e.Order = 10
 	e.Action = ActionPermit
+	e.SrttItems.Additive = AdminStDisabled
 	e.SrttItems.ItemItems.ItemList.Set(&ExtCommItem{Community: "route-target:as2-nn2:65137:107", Scope: RtExtComScopeTransitive})
+	e.SregcommItems.Additive = AdminStDisabled
 	e.SregcommItems.NoCommAttr = AdminStDisabled
 	e.SregcommItems.ItemItems.ItemList.Set(&CommItem{Community: "regular:as2-nn2:65137:107"})
 	e.MrtdstItems.RsrtDstAttItems.RsRtDstAttList.Set(&RsRtDstAtt{TDn: "/System/rpm-items/pfxlistv4-items/RuleV4-list[name='PL-CLOUD07']"})
@@ -141,4 +143,28 @@ func init() {
 	comboRM.Name = "RM-COMBINED-MATCH"
 	comboRM.EntItems.EntryList.Set(comboEntry)
 	Register("route_map_combined_match", comboRM)
+
+	commAdditiveEntry := &RouteMapEntry{}
+	commAdditiveEntry.Order = 10
+	commAdditiveEntry.Action = ActionPermit
+	if err := commAdditiveEntry.SetCommunities([]string{"65000:10", "65000:20"}, v1alpha1.CommunityOperationAdd); err != nil {
+		panic(err)
+	}
+
+	commAdditiveRM := &RouteMap{}
+	commAdditiveRM.Name = "RM-COMMUNITY-ADDITIVE"
+	commAdditiveRM.EntItems.EntryList.Set(commAdditiveEntry)
+	Register("route_map_community_additive", commAdditiveRM)
+
+	extCommAdditiveEntry := &RouteMapEntry{}
+	extCommAdditiveEntry.Order = 10
+	extCommAdditiveEntry.Action = ActionPermit
+	if err := extCommAdditiveEntry.SetExtCommunities([]string{"65000:10", "65000:20"}, v1alpha1.CommunityOperationAdd); err != nil {
+		panic(err)
+	}
+
+	extCommAdditiveRM := &RouteMap{}
+	extCommAdditiveRM.Name = "RM-EXTCOMMUNITY-ADDITIVE"
+	extCommAdditiveRM.EntItems.EntryList.Set(extCommAdditiveEntry)
+	Register("route_map_extcommunity_additive", extCommAdditiveRM)
 }
