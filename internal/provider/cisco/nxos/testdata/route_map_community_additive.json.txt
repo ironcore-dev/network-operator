@@ -1,0 +1,2 @@
+route-map RM-COMMUNITY-ADDITIVE permit 10
+ set community 65000:10 65000:20 additive

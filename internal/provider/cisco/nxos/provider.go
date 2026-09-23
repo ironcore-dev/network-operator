@@ -2576,12 +2576,12 @@ func (p *Provider) EnsureRoutingPolicy(ctx context.Context, req *provider.Ensure
 
 		if stmt.Actions.BgpActions != nil {
 			if stmt.Actions.BgpActions.SetCommunity != nil {
-				if err := e.SetCommunities(stmt.Actions.BgpActions.SetCommunity.Communities); err != nil {
+				if err := e.SetCommunities(stmt.Actions.BgpActions.SetCommunity.Communities, stmt.Actions.BgpActions.SetCommunity.Options); err != nil {
 					return err
 				}
 			}
 			if stmt.Actions.BgpActions.SetExtCommunity != nil {
-				if err := e.SetExtCommunities(stmt.Actions.BgpActions.SetExtCommunity.Communities); err != nil {
+				if err := e.SetExtCommunities(stmt.Actions.BgpActions.SetExtCommunity.Communities, stmt.Actions.BgpActions.SetExtCommunity.Options); err != nil {
 					return err
 				}
 			}

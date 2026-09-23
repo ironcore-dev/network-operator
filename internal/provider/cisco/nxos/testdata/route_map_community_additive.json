@@ -1,0 +1,33 @@
+{
+  "rpm-items": {
+    "rtmap-items": {
+      "Rule-list": [
+        {
+          "name": "RM-COMMUNITY-ADDITIVE",
+          "ent-items": {
+            "Entry-list": [
+              {
+                "action": "permit",
+                "order": 10,
+                "sregcomm-items": {
+                  "additive": "enabled",
+                  "noCommAttr": "disabled",
+                  "item-items": {
+                    "Item-list": [
+                      {
+                        "community": "regular:as2-nn2:65000:10"
+                      },
+                      {
+                        "community": "regular:as2-nn2:65000:20"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

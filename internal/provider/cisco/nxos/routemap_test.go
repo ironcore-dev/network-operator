@@ -3,6 +3,8 @@
 
 package nxos
 
+import "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+
 func init() {
 	e := &RouteMapEntry{}
 	e.Order = 10
@@ -139,4 +141,28 @@ func init() {
 	comboRM.Name = "RM-COMBINED-MATCH"
 	comboRM.EntItems.EntryList.Set(comboEntry)
 	Register("route_map_combined_match", comboRM)
+
+	commAdditiveEntry := &RouteMapEntry{}
+	commAdditiveEntry.Order = 10
+	commAdditiveEntry.Action = ActionPermit
+	if err := commAdditiveEntry.SetCommunities([]string{"65000:10", "65000:20"}, v1alpha1.CommunityOptionsAdd); err != nil {
+		panic(err)
+	}
+
+	commAdditiveRM := &RouteMap{}
+	commAdditiveRM.Name = "RM-COMMUNITY-ADDITIVE"
+	commAdditiveRM.EntItems.EntryList.Set(commAdditiveEntry)
+	Register("route_map_community_additive", commAdditiveRM)
+
+	extCommAdditiveEntry := &RouteMapEntry{}
+	extCommAdditiveEntry.Order = 10
+	extCommAdditiveEntry.Action = ActionPermit
+	if err := extCommAdditiveEntry.SetExtCommunities([]string{"65000:10", "65000:20"}, v1alpha1.CommunityOptionsAdd); err != nil {
+		panic(err)
+	}
+
+	extCommAdditiveRM := &RouteMap{}
+	extCommAdditiveRM.Name = "RM-EXTCOMMUNITY-ADDITIVE"
+	extCommAdditiveRM.EntItems.EntryList.Set(extCommAdditiveEntry)
+	Register("route_map_extcommunity_additive", extCommAdditiveRM)
 }

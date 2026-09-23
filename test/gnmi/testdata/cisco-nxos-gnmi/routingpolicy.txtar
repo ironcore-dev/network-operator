@@ -94,6 +94,20 @@ spec:
             name: test-extcommunityset
       actions:
         routeDisposition: AcceptRoute
+    - sequence: 50
+      actions:
+        routeDisposition: AcceptRoute
+        bgpActions:
+          setCommunity:
+            communities:
+              - "65000:10"
+              - "65000:20"
+            options: ADD
+          setExtCommunity:
+            communities:
+              - "65000:10"
+              - "65000:20"
+            options: ADD
 
 -- state/preload --
 {
@@ -240,6 +254,48 @@ spec:
                           "tDn": "/System/rpm-items/rtextcom-items/Rule-list[name='BGP-EXT-COMMUNITY']"
                         }
                       ]
+                    }
+                  }
+                },
+                {
+                  "action": "permit",
+                  "order": 50,
+                  "bgp-items": {
+                    "bgpActions-items": {
+                      "setCommunity-items": {
+                        "Sregcomm-items": {
+                          "item-items": {
+                            "Item-list": [
+                              {
+                                "community": "65000:10",
+                                "scope": "transitive"
+                              },
+                              {
+                                "community": "65000:20",
+                                "scope": "transitive"
+                              }
+                            ]
+                          },
+                          "additive": "enabled"
+                        }
+                      },
+                      "setExtCommunity-items": {
+                        "Sextcomm-items": {
+                          "item-items": {
+                            "Item-list": [
+                              {
+                                "community": "65000:10",
+                                "scope": "transitive"
+                              },
+                              {
+                                "community": "65000:20",
+                                "scope": "transitive"
+                              }
+                            ]
+                          },
+                          "additive": "enabled"
+                        }
+                      }
                     }
                   }
                 }

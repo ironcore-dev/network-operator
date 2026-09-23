@@ -1,0 +1,34 @@
+{
+  "rpm-items": {
+    "rtmap-items": {
+      "Rule-list": [
+        {
+          "name": "RM-EXTCOMMUNITY-ADDITIVE",
+          "ent-items": {
+            "Entry-list": [
+              {
+                "action": "permit",
+                "order": 10,
+                "srtt-items": {
+                  "additive": "enabled",
+                  "item-items": {
+                    "Item-list": [
+                      {
+                        "community": "route-target:as2-nn2:65000:10",
+                        "scope": "transitive"
+                      },
+                      {
+                        "community": "route-target:as2-nn2:65000:20",
+                        "scope": "transitive"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

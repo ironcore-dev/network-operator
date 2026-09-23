@@ -4,6 +4,7 @@
 package nxos
 
 import (
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
@@ -26,11 +27,13 @@ type RouteMapEntry struct {
 	Action    Action `json:"action"`
 	Order     int32  `json:"order"`
 	SrttItems struct {
+		Additive  AdminSt `json:"additive,omitempty"`
 		ItemItems struct {
 			ItemList gnmiext.List[ExtCommItem, *ExtCommItem] `json:"Item-list,omitzero"`
 		} `json:"item-items,omitzero"`
 	} `json:"srtt-items,omitzero"`
 	SregcommItems struct {
+		Additive   AdminSt `json:"additive,omitempty"`
 		NoCommAttr AdminSt `json:"noCommAttr"`
 		ItemItems  struct {
 			ItemList gnmiext.List[string, *CommItem] `json:"Item-list,omitzero"`
@@ -72,7 +75,7 @@ type RouteMapEntry struct {
 
 func (e *RouteMapEntry) Key() int32 { return e.Order }
 
-func (e *RouteMapEntry) SetCommunities(communities []string) error {
+func (e *RouteMapEntry) SetCommunities(communities []string, options v1alpha1.CommunityOptions) error {
 	for _, comm := range communities {
 		c, err := Community(comm)
 		if err != nil {
@@ -81,16 +84,22 @@ func (e *RouteMapEntry) SetCommunities(communities []string) error {
 		e.SregcommItems.NoCommAttr = AdminStDisabled
 		e.SregcommItems.ItemItems.ItemList.Set(&CommItem{Community: c})
 	}
+	if options == v1alpha1.CommunityOptionsAdd {
+		e.SregcommItems.Additive = AdminStEnabled
+	}
 	return nil
 }
 
-func (e *RouteMapEntry) SetExtCommunities(communities []string) error {
+func (e *RouteMapEntry) SetExtCommunities(communities []string, options v1alpha1.CommunityOptions) error {
 	for _, comm := range communities {
 		c, err := RouteTarget(comm)
 		if err != nil {
 			return err
 		}
 		e.SrttItems.ItemItems.ItemList.Set(&ExtCommItem{Community: c, Scope: RtExtComScopeTransitive})
+	}
+	if options == v1alpha1.CommunityOptionsAdd {
+		e.SrttItems.Additive = AdminStEnabled
 	}
 	return nil
 }
