@@ -66,7 +66,7 @@ vet: ## Run go vet against code.
 
 .PHONY: test
 test: manifests generate setup-envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $$(go list ./... | grep -v /e2e | grep -v /lab | grep -v /gnmi/) -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $$(go list ./... | grep -v /e2e | grep -v /lab | grep -v /gnmi) -coverprofile cover.out
 
 .PHONY: coverage
 coverage: test ## Run tests and generate coverage report.
