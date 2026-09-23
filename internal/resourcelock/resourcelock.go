@@ -139,6 +139,11 @@ func (rl *ResourceLocker) AcquireLock(ctx context.Context, name, lockerID string
 func (rl *ResourceLocker) ReleaseLock(ctx context.Context, name, lockerID string) error {
 	log := ctrl.LoggerFrom(ctx).WithValues("namespace", rl.namespace, "lease", name, "locker", lockerID)
 
+	if cancel, ok := rl.cancelFuncs.LoadAndDelete(name); ok {
+		cancel.(context.CancelFunc)()
+		log.V(3).Info("Stopped renewal goroutine")
+	}
+
 	lease := &coordinationv1.Lease{}
 	if err := rl.client.Get(ctx, client.ObjectKey{Namespace: rl.namespace, Name: name}, lease); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -159,11 +164,6 @@ func (rl *ResourceLocker) ReleaseLock(ctx context.Context, name, lockerID string
 			return nil
 		}
 		return fmt.Errorf("resourcelock: failed to delete lease: %w", err)
-	}
-
-	if cancel, ok := rl.cancelFuncs.LoadAndDelete(name); ok {
-		cancel.(context.CancelFunc)()
-		log.V(3).Info("Stopped renewal goroutine")
 	}
 
 	log.V(2).Info("Lock released")
