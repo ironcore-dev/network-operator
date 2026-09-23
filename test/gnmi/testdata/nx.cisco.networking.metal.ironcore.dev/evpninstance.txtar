@@ -86,6 +86,7 @@ spec:
                   {
                     "associateVrfFlag": false,
                     "mcastGroup": "DME_UNSET_PROPERTY_MARKER",
+                    "multisiteIngRepl": "disable",
                     "vni": 10100,
                     "suppressARP": "off"
                   }

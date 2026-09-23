@@ -8,6 +8,12 @@ metadata:
 spec:
   deviceRef:
     name: leaf1
+  # Uncomment to add NXOS provider-specific config
+  # See: ./cisco/nx/v1alpha1_evpninstanceconfig.yaml
+  # providerConfigRef:
+  #   apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+  #   kind: EVPNInstanceConfig
+  #   name: evpninstanceconfig-multisite
   vni: 100010
   type: Bridged
   multicastGroupAddress: 239.1.1.100

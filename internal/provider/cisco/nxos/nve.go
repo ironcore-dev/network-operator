@@ -73,11 +73,22 @@ const (
 	suppressARPDisabled SuppressARP = "disabled"
 )
 
+// MultisiteIngRepl represents the per-VNI multisite ingress-replication state
+// on NX-OS (nvo_MultisiteIngReplStateT).
+type MultisiteIngRepl string
+
+const (
+	MultisiteIngReplDisable         MultisiteIngRepl = "disable"
+	MultisiteIngReplEnable          MultisiteIngRepl = "enable"
+	MultisiteIngReplEnableOptimized MultisiteIngRepl = "enableOptimized"
+)
+
 type VNI struct {
-	AssociateVrfFlag bool           `json:"associateVrfFlag"`
-	McastGroup       Option[string] `json:"mcastGroup"`
-	Vni              int32          `json:"vni"`
-	SuppressARP      SuppressARP    `json:"suppressARP"`
+	AssociateVrfFlag bool             `json:"associateVrfFlag"`
+	McastGroup       Option[string]   `json:"mcastGroup"`
+	MultisiteIngRepl MultisiteIngRepl `json:"multisiteIngRepl"`
+	Vni              int32            `json:"vni"`
+	SuppressARP      SuppressARP      `json:"suppressARP"`
 }
 
 func (*VNI) IsListItem() {}

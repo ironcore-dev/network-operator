@@ -9,10 +9,10 @@
               "Nw-list": [
                 {
                   "associateVrfFlag": false,
-                  "mcastGroup": "239.1.1.100",
-                  "multisiteIngRepl": "disable",
+                  "mcastGroup": "DME_UNSET_PROPERTY_MARKER",
+                  "multisiteIngRepl": "enableOptimized",
                   "vni": 100010,
-                  "suppressARP": "off"
+                  "suppressARP": ""
                 }
               ]
             }

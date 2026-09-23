@@ -47,6 +47,7 @@ resources:
 - bases/nx.cisco.networking.metal.ironcore.dev_lldpconfigs.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_bgpconfigs.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_aaaconfigs.yaml
+- bases/nx.cisco.networking.metal.ironcore.dev_evpninstanceconfigs.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches: []

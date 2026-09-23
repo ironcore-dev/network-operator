@@ -175,6 +175,7 @@ rules:
   resources:
   - aaaconfigs
   - bgpconfigs
+  - evpninstanceconfigs
   - interfaceconfigs
   - lldpconfigs
   - managementaccessconfigs
