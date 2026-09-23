@@ -269,11 +269,8 @@ func (r *OSPFReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					oldInterface := e.ObjectOld.(*v1alpha1.Interface)
 					newInterface := e.ObjectNew.(*v1alpha1.Interface)
-					oldConfigured := conditions.Get(oldInterface, v1alpha1.ConfiguredCondition)
-					newConfigured := conditions.Get(newInterface, v1alpha1.ConfiguredCondition)
 					return oldInterface.HasIPv4() != newInterface.HasIPv4() ||
-						((oldConfigured == nil) != (newConfigured == nil)) ||
-						(newConfigured != nil && oldConfigured.Status != newConfigured.Status)
+						conditions.IsConfigured(oldInterface) != conditions.IsConfigured(newInterface)
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false
