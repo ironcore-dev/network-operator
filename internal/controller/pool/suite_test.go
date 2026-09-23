@@ -14,8 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap/zapcore"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -143,10 +141,9 @@ var _ = BeforeSuite(func() {
 		Expect(err).NotTo(HaveOccurred(), "failed to run manager")
 	}()
 
-	Eventually(func() error {
-		var namespace corev1.Namespace
-		return k8sClient.Get(context.Background(), client.ObjectKey{Name: metav1.NamespaceDefault}, &namespace)
-	}).Should(Succeed())
+	Eventually(func() bool {
+		return k8sManager.GetCache().WaitForCacheSync(ctx)
+	}).Should(BeTrue())
 })
 
 var _ = AfterSuite(func() {
