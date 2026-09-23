@@ -232,14 +232,14 @@ spec:
           "If-list": [
             {
               "mode": "default",
-              "bpdufilter": "enable",
+              "bpdufilter": "default",
               "bpduguard": "default",
               "id": "po10"
             },
             {
               "mode": "default",
               "bpdufilter": "default",
-              "bpduguard": "enable",
+              "bpduguard": "default",
               "id": "eth1/2"
             }
           ]
