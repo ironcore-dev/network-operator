@@ -9,6 +9,12 @@ metadata:
 spec:
   deviceRef:
     name: leaf1
+  # Uncomment to add NXOS provider-specific config
+  # See: ./cisco/nx/v1alpha1_pimconfig.yaml
+  # providerConfigRef:
+  #   apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+  #   kind: PIMConfig
+  #   name: leaf1-pimconfig
   rendezvousPoints:
     - address: 10.0.0.100
       multicastGroups:

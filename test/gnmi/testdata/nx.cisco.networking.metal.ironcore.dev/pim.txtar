@@ -14,6 +14,15 @@ spec:
     addresses:
       - 10.255.255.20/32
 
+-- pimconfigs/log-neighbor --
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: PIMConfig
+metadata:
+  name: log-neighbor
+  namespace: default
+spec:
+  logNeighborChanges: true
+
 -- pims/multicast --
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: PIM
@@ -24,6 +33,10 @@ spec:
   deviceRef:
     name: device
   adminState: Up
+  providerConfigRef:
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+    kind: PIMConfig
+    name: log-neighbor
   interfaceRefs:
     - name: lo-pim
       mode: Sparse
@@ -119,6 +132,7 @@ spec:
             {
               "name": "default",
               "adminSt": "enabled",
+              "logNbhChng": true,
               "if-items": {
                 "If-list": [
                   {

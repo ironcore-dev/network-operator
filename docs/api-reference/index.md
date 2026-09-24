@@ -4579,6 +4579,7 @@ Package v1alpha1 contains API Schema definitions for the nx.cisco.networking.met
 - [LLDPConfig](#lldpconfig)
 - [ManagementAccessConfig](#managementaccessconfig)
 - [NetworkVirtualizationEdgeConfig](#networkvirtualizationedgeconfig)
+- [PIMConfig](#pimconfig)
 - [System](#system)
 - [VPCDomain](#vpcdomain)
 
@@ -5150,6 +5151,40 @@ _Appears in:_
 | `advertiseVirtualMAC` _boolean_ | AdvertiseVirtualMAC controls if the NVE should advertise a virtual MAC address | false | Optional: \{\} <br /> |
 | `holdDownTime` _integer_ | HoldDownTime defines the duration for which the switch suppresses the advertisement of the NVE loopback address. | 180 | Maximum: 1500 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `infraVLANs` _[VLANListItem](#vlanlistitem) array_ | InfraVLANs specifies VLANs used by all SVI interfaces for uplink and vPC peer-links in VXLAN as infra-VLANs.<br />Valid VLAN IDs are 1-4092 because NX-OS always reserves VLANs 4093-4095 for internal use.<br />The provider also checks these VLANs against the device's configurable internal reserved VLAN range.<br />The total number of VLANs configured must not exceed 512.<br />Elements in the list must not overlap with each other. |  | MaxItems: 10 <br />Optional: \{\} <br /> |
+
+
+#### PIMConfig
+
+
+
+PIMConfig is the Schema for the PIMConfig API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `nx.cisco.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `PIMConfig` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[PIMConfigSpec](#pimconfigspec)_ | spec defines the desired state of PIMConfig |  | Required: \{\} <br /> |
+
+
+#### PIMConfigSpec
+
+
+
+PIMConfigSpec defines the Cisco NX-OS specific PIM configuration.
+
+
+
+_Appears in:_
+- [PIMConfig](#pimconfig)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `logNeighborChanges` _boolean_ | LogNeighborChanges enables logging when a PIM neighbor is added or removed. |  | Optional: \{\} <br /> |
 
 
 #### Peer
