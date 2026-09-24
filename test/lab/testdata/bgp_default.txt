@@ -1,0 +1,35 @@
+# Test Case 4: NX-OS default BGP instance — create and delete
+#
+# Verifies that:
+# - The global BGP instance and ownership marker appear after apply
+# - Both are fully removed after deletion (no residual config)
+
+? vty show running-config bgp
+! stdout 'router bgp'
+
+apply bgp.yaml
+sleep 30s
+vty show running-config bgp
+stdout 'router bgp 65000'
+stdout 'router-id 10\.255\.0\.1'
+stdout '__operator-managed--default__'
+
+delete bgp.yaml
+sleep 30s
+vty show running-config bgp
+! stdout 'router bgp 65000'
+! stdout '__operator-managed'
+
+-- bgp.yaml --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGP
+metadata:
+  name: default-bgp
+spec:
+  deviceRef:
+    name: device
+  asNumber: 65000
+  routerId: 10.255.0.1
+  addressFamilies:
+    ipv4Unicast:
+      enabled: true

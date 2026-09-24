@@ -30,9 +30,11 @@ import (
 )
 
 const (
-	timeout  = 10 * time.Second
+	timeout  = 60 * time.Second
 	interval = time.Second
 )
+
+var testNamespace string
 
 // TestAll runs all lab tests by setting up the environment, SSH connection,
 // and Kubernetes client, then executing all test cases from the testdata directory.
@@ -56,6 +58,7 @@ func DefaultCmds() map[string]script.Cmd {
 	cmds := scripttest.DefaultCmds()
 	cmds["vty"] = Vty()
 	cmds["apply"] = Apply()
+	cmds["delete"] = Delete()
 	return cmds
 }
 
@@ -135,7 +138,7 @@ func Apply() script.Cmd {
 			if !ok {
 				return nil, fmt.Errorf("decoded object is not a client.Object: %T", obj)
 			}
-			res.SetNamespace(metav1.NamespaceDefault)
+			res.SetNamespace(testNamespace)
 			res.SetLabels(map[string]string{v1alpha1.DeviceLabel: "device"})
 			if err := k8sClient.Create(s.Context(), res); err != nil {
 				return nil, fmt.Errorf("failed to apply resource: %w", err)
@@ -155,19 +158,80 @@ func Apply() script.Cmd {
 	)
 }
 
+// Delete returns a script command that deletes a Kubernetes resource from the cluster
+// and waits for the resource to be fully removed (finalizers completed).
+func Delete() script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "delete a Kubernetes resource and wait for it to be fully removed",
+			Args:    "file",
+			Async:   true,
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			if len(args) != 1 {
+				return nil, script.ErrUsage
+			}
+			data, err := os.ReadFile(s.Path(args[0]))
+			if err != nil {
+				return nil, fmt.Errorf("failed to read file %s: %w", args[0], err)
+			}
+			json, err := yaml.YAMLToJSON(data)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert YAML to JSON: %w", err)
+			}
+			dec := serializer.NewCodecFactory(scheme.Scheme).UniversalDeserializer()
+			obj, _, err := dec.Decode(json, nil, nil)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode resource: %w", err)
+			}
+			res, ok := obj.(client.Object)
+			if !ok {
+				return nil, fmt.Errorf("decoded object is not a client.Object: %T", obj)
+			}
+			res.SetNamespace(testNamespace)
+			if err := client.IgnoreNotFound(k8sClient.Delete(s.Context(), res)); err != nil {
+				return nil, fmt.Errorf("failed to delete resource: %w", err)
+			}
+			wait := func(s *script.State) (stdout, stderr string, reterr error) {
+				err := k8sClient.Get(s.Context(), client.ObjectKeyFromObject(res), res)
+				if err == nil {
+					return "", "", fmt.Errorf("resource %s still exists", res.GetName())
+				}
+				if client.IgnoreNotFound(err) != nil {
+					return "", "", fmt.Errorf("failed to check resource deletion: %w", err)
+				}
+				return "", "", nil
+			}
+			return WaitTimeout(wait, timeout, interval), nil
+		},
+	)
+}
+
 // TODO(felix-kaestner): Load endpoint configuration from a config file.
 var Endpoint = struct {
-	Addr string
-	User string
-	Pass string `json:"-"`
+	Addr     string
+	GNMIAddr string
+	User     string
+	Pass     string `json:"-"`
+	SSHPort  string
+	GNMIPort string
 }{}
 
 // ReadEnv reads required environment variables and populates the global Endpoint struct.
+// SSH_PORT and GNMI_PORT are optional and default to 22 and 9339 respectively,
+// which allows overriding when using port-forwarding (e.g. SSH_PORT=8022 GNMI_PORT=9339).
+// GNMI_ADDR overrides the address used for the Device gNMI endpoint (defaults to ADDR).
+// This allows SSH to reach the device via a local port-forward while the operator
+// connects directly via the cluster-internal address.
 func ReadEnv(t *testing.T) {
 	t.Helper()
 	Endpoint.Addr = MustGetEnv(t, "ADDR")
+	Endpoint.GNMIAddr = GetEnvOrDefault(t, "GNMI_ADDR", Endpoint.Addr)
 	Endpoint.User = MustGetEnv(t, "USER")
 	Endpoint.Pass = MustGetEnv(t, "PASS")
+	Endpoint.SSHPort = GetEnvOrDefault(t, "SSH_PORT", "22")
+	Endpoint.GNMIPort = GetEnvOrDefault(t, "GNMI_PORT", "9339")
+	testNamespace = GetEnvOrDefault(t, "NAMESPACE", metav1.NamespaceDefault)
 }
 
 var sshClient *ssh.Client
@@ -177,7 +241,7 @@ var sshClient *ssh.Client
 func SetupSSH(t *testing.T) {
 	t.Helper()
 	var err error
-	sshClient, err = ssh.Dial("tcp", net.JoinHostPort(Endpoint.Addr, "22"), &ssh.ClientConfig{
+	sshClient, err = ssh.Dial("tcp", net.JoinHostPort(Endpoint.Addr, Endpoint.SSHPort), &ssh.ClientConfig{
 		User:            Endpoint.User,
 		Auth:            []ssh.AuthMethod{ssh.Password(Endpoint.Pass)},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), //nolint:gosec
@@ -213,7 +277,7 @@ func SetupK8s(t *testing.T) {
 	}
 	Create(t, &corev1.Secret{
 		Name:      "secret",
-		Namespace: metav1.NamespaceDefault,
+		Namespace: testNamespace,
 		StringData: map[string]string{
 			"username": Endpoint.User,
 			"password": Endpoint.Pass,
@@ -222,20 +286,25 @@ func SetupK8s(t *testing.T) {
 	})
 	Create(t, &v1alpha1.Device{
 		Name:      "device",
-		Namespace: metav1.NamespaceDefault,
+		Namespace: testNamespace,
 		Spec: v1alpha1.DeviceSpec{
+			Provider: "nx.cisco.networking.metal.ironcore.dev",
 			Endpoint: v1alpha1.Endpoint{
-				Address:   net.JoinHostPort(Endpoint.Addr, "9339"),
-				SecretRef: &v1alpha1.SecretReference{Name: "secret", Namespace: metav1.NamespaceDefault},
+				Address:   net.JoinHostPort(ResolveAddr(t, Endpoint.GNMIAddr), Endpoint.GNMIPort),
+				SecretRef: &v1alpha1.SecretReference{Name: "secret", Namespace: testNamespace},
 			},
 		},
 	})
 }
 
 // Create creates a Kubernetes object in the cluster and registers a cleanup function
-// to delete it after the test completes. It fails the test if the creation fails.
+// to delete it after the test completes. If the object already exists from a
+// previous interrupted run, it is deleted first so the test starts from a clean state.
 func Create(t *testing.T, obj client.Object) {
 	t.Helper()
+	if err := client.IgnoreNotFound(k8sClient.Delete(t.Context(), obj)); err != nil {
+		t.Fatalf("failed to delete existing %T: %v", obj, err)
+	}
 	if err := k8sClient.Create(t.Context(), obj); err != nil {
 		t.Fatalf("failed to create %T: %v", obj, err)
 	}
@@ -246,6 +315,23 @@ func Create(t *testing.T, obj client.Object) {
 		}
 		t.Logf("deleted %T %s/%s", obj, obj.GetNamespace(), obj.GetName())
 	})
+}
+
+// ResolveAddr resolves a hostname to its first IPv4 address string.
+// The Device address field requires IPv4 format, so hostnames like "localhost" must be resolved.
+func ResolveAddr(t *testing.T, host string) string {
+	t.Helper()
+	addrs, err := (&net.Resolver{}).LookupHost(t.Context(), host)
+	if err != nil {
+		t.Fatalf("failed to resolve host %q: %v", host, err)
+	}
+	for _, addr := range addrs {
+		if ip := net.ParseIP(addr); ip != nil && ip.To4() != nil {
+			return ip.String()
+		}
+	}
+	t.Fatalf("no IPv4 address found for host %q", host)
+	return ""
 }
 
 // MustGetEnv retrieves the value of an environment variable
