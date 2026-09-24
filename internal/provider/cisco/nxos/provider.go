@@ -2526,6 +2526,13 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 	f.AdminSt = AdminStEnabled
 	sb.Update(f)
 
+	var cfg nxv1alpha1.PIMConfig
+	if req.ProviderConfig != nil {
+		if err := req.ProviderConfig.Into(&cfg); err != nil {
+			return err
+		}
+	}
+
 	pim := new(PIM)
 	pim.AdminSt = AdminStEnabled
 	pim.InstItems.AdminSt = AdminStEnabled
@@ -2540,6 +2547,10 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 	dom.AdminSt = AdminStEnabled
 	if req.PIM.Spec.AdminState == v1alpha1.AdminStateDown {
 		dom.AdminSt = AdminStDisabled
+	}
+	dom.LogNbhChng = false
+	if cfg.Spec.LogNeighborChanges != nil {
+		dom.LogNbhChng = *cfg.Spec.LogNeighborChanges
 	}
 	sb.Patch(dom)
 
