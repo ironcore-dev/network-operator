@@ -13,6 +13,7 @@
                   "adminSt": "enabled",
                   "asn": "65000",
                   "asnType": "none",
+                  "ttl": 1,
                   "af-items": {
                     "PeerAf-list": [
                       {
