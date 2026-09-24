@@ -38,6 +38,8 @@ resources:
 - bases/pool.networking.metal.ironcore.dev_ipaddresses.yaml
 - bases/pool.networking.metal.ironcore.dev_ipprefixes.yaml
 - bases/evpn.networking.metal.ironcore.dev_fabrics.yaml
+- bases/overlay.networking.metal.ironcore.dev_networks.yaml
+- bases/overlay.networking.metal.ironcore.dev_networkattachments.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_bordergateways.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_managementaccessconfigs.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_networkvirtualizationedgeconfigs.yaml

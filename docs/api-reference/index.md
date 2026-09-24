@@ -4,6 +4,7 @@
 - [evpn.networking.metal.ironcore.dev/v1alpha1](#evpnnetworkingmetalironcoredevv1alpha1)
 - [networking.metal.ironcore.dev/v1alpha1](#networking-metal-ironcore-dev-v1alpha1)
 - [nx.cisco.networking.metal.ironcore.dev/v1alpha1](#nx-cisco-networking-metal-ironcore-dev-v1alpha1)
+- [overlay.networking.metal.ironcore.dev/v1alpha1](#overlaynetworkingmetalironcoredevv1alpha1)
 - [pool.networking.metal.ironcore.dev/v1alpha1](#pool-networking-metal-ironcore-dev-v1alpha1)
 - [xe.cisco.networking.metal.ironcore.dev/v1alpha1](#xe-cisco-networking-metal-ironcore-dev-v1alpha1)
 - [xr.cisco.networking.metal.ironcore.dev/v1alpha1](#xr-cisco-networking-metal-ironcore-dev-v1alpha1)
@@ -2692,6 +2693,7 @@ _Appears in:_
 - [LLDPSpec](#lldpspec)
 - [ManagementAccessSpec](#managementaccessspec)
 - [NTPSpec](#ntpspec)
+- [NetworkAttachmentSpec](#networkattachmentspec)
 - [NetworkVirtualizationEdgeSpec](#networkvirtualizationedgespec)
 - [OSPFInterface](#ospfinterface)
 - [OSPFNeighbor](#ospfneighbor)
@@ -5478,6 +5480,152 @@ _Appears in:_
 | `peerUptime` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | PeerUptime indicates how long the vPC domain peer has been up and reachable via keepalive. |  | Optional: \{\} <br /> |
 | `peerLinkIf` _string_ | PeerLinkIf is the name of the interface used as the vPC domain peer-link. |  | Optional: \{\} <br /> |
 | `peerLinkIfOperStatus` _[Status](#status)_ | PeerLinkIfOperStatus is the Operational status of `PeerLinkIf`. | Unknown | Optional: \{\} <br /> |
+
+
+
+## overlay.networking.metal.ironcore.dev/v1alpha1
+
+Package v1alpha1 contains API Schema definitions for the overlay.networking.metal.ironcore.dev v1alpha1 API group.
+
+### Resource Types
+- [Network](#network)
+- [NetworkAttachment](#networkattachment)
+
+
+
+#### Encapsulation
+
+
+
+Encapsulation defines the encapsulation parameters for a NetworkAttachment.
+
+
+
+_Appears in:_
+- [NetworkAttachmentSpec](#networkattachmentspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `type` _[EncapsulationType](#encapsulationtype)_ | Type is the encapsulation method. |  | Enum: [VLAN] <br />Required: \{\} <br /> |
+| `id` _integer_ | Id is the identifier for the encapsulation method. For VLAN, this is the VLAN ID. |  | Maximum: 4094 <br />Minimum: 1 <br />Required: \{\} <br /> |
+
+
+#### EncapsulationType
+
+_Underlying type:_ _string_
+
+EncapsulationType is the encapsulation method used for a NetworkAttachment.
+
+_Validation:_
+- Enum: [VLAN]
+
+_Appears in:_
+- [Encapsulation](#encapsulation)
+
+| Field | Description |
+| --- | --- |
+| `VLAN` | EncapsulationTypeVLAN uses IEEE 802.1Q VLAN tagging.<br /> |
+
+
+#### Network
+
+
+
+Network is the Schema for the networks API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `overlay.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `Network` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[NetworkSpec](#networkspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[NetworkStatus](#networkstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### NetworkAttachment
+
+
+
+NetworkAttachment is the Schema for the networkattachments API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `overlay.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `NetworkAttachment` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[NetworkAttachmentSpec](#networkattachmentspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[NetworkAttachmentStatus](#networkattachmentstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### NetworkAttachmentSpec
+
+
+
+NetworkAttachmentSpec defines the desired state of NetworkAttachment
+
+
+
+_Appears in:_
+- [NetworkAttachment](#networkattachment)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `networkRef` _[LocalObjectReference](#localobjectreference)_ | NetworkRef references the [Network] this attachment is associated with.<br />Immutable. |  | Required: \{\} <br /> |
+| `interfaceSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#labelselector-v1-meta)_ | InterfaceSelector selects Interface resources to attach to the network.<br />Type filtering (Physical ∪ Aggregate) is enforced by the controller at<br />reconcile time, not by the selector itself. |  | Required: \{\} <br /> |
+| `encapsulation` _[Encapsulation](#encapsulation)_ | Encapsulation defines the encapsulation parameters for this attachment. |  | Required: \{\} <br /> |
+
+
+#### NetworkAttachmentStatus
+
+
+
+NetworkAttachmentStatus defines the observed state of NetworkAttachment.
+
+
+
+_Appears in:_
+- [NetworkAttachment](#networkattachment)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the NetworkAttachment resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+
+
+#### NetworkSpec
+
+
+
+NetworkSpec defines the desired state of Network
+
+
+
+_Appears in:_
+- [Network](#network)
+
+
+
+#### NetworkStatus
+
+
+
+NetworkStatus defines the observed state of Network.
+
+
+
+_Appears in:_
+- [Network](#network)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the Network resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
 
 
 

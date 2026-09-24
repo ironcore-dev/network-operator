@@ -155,3 +155,9 @@ resources:
 - evpn_fabric_admin_role.yaml
 - evpn_fabric_editor_role.yaml
 - evpn_fabric_viewer_role.yaml
+- overlay_networkattachment_admin_role.yaml
+- overlay_networkattachment_editor_role.yaml
+- overlay_networkattachment_viewer_role.yaml
+- overlay_network_admin_role.yaml
+- overlay_network_editor_role.yaml
+- overlay_network_viewer_role.yaml

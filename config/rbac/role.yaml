@@ -217,6 +217,35 @@ rules:
   - patch
   - update
 - apiGroups:
+  - overlay.networking.metal.ironcore.dev
+  resources:
+  - networkattachments
+  - networks
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - overlay.networking.metal.ironcore.dev
+  resources:
+  - networkattachments/finalizers
+  - networks/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - overlay.networking.metal.ironcore.dev
+  resources:
+  - networkattachments/status
+  - networks/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - pool.networking.metal.ironcore.dev
   resources:
   - claims
