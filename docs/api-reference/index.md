@@ -1061,6 +1061,7 @@ _Appears in:_
 | `localAddress` _[BGPPeerLocalAddress](#bgppeerlocaladdress)_ | LocalAddress specifies the local address configuration for the BGP session with this peer.<br />This determines the source address/interface for BGP packets sent to this peer. |  | Optional: \{\} <br /> |
 | `addressFamilies` _[BGPPeerAddressFamilies](#bgppeeraddressfamilies)_ | AddressFamilies configures address family specific settings for this BGP peer.<br />Controls which address families are enabled and their specific configuration. |  | Optional: \{\} <br /> |
 | `localAS` _[LocalAS](#localas)_ | LocalAS configures the local AS number and how it factors into BGP announcements for this peer. |  | Optional: \{\} <br /> |
+| `ttl` _integer_ | TTL sets the time-to-live for eBGP sessions that span multiple hops.<br />When set, allows establishing eBGP sessions with non-directly-connected peers<br />by setting the IP TTL of outgoing BGP packets to this value. |  | Maximum: 255 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 
 
 #### BGPPeerStatus

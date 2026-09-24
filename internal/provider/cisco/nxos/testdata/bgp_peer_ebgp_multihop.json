@@ -1,7 +1,6 @@
 {
   "bgp-items": {
     "inst-items": {
-      "asn": "65000",
       "dom-items": {
         "Dom-list": [
           {
@@ -11,13 +10,9 @@
                 {
                   "addr": "1.1.1.1",
                   "adminSt": "enabled",
-                  "asn": "65001",
+                  "asn": "65000",
                   "asnType": "none",
-                  "ttl": 1,
-                  "localasn-items": {
-                    "asnPropagate": "none",
-                    "localAsn": "65002"
-                  }
+                  "ttl": 2
                 }
               ]
             }
