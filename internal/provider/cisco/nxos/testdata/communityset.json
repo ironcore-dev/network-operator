@@ -1,0 +1,21 @@
+{
+  "rpm-items": {
+    "rtregcom-items": {
+      "Rule-list": [
+        {
+          "name": "TEST",
+          "mode": "regex",
+          "ent-items": {
+            "Entry-list": [
+              {
+                "order": 10,
+                "action": "permit",
+                "regex": "50000:[0-9][0-9]"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

@@ -704,6 +704,19 @@ type DeletePrefixSetRequest struct {
 	PrefixSet *v1alpha1.PrefixSet
 }
 
+// CommunitySetProvider is the interface for the realization of CommunitySet objects over different providers.
+type CommunitySetProvider interface {
+	Provider
+
+	EnsureCommunitySet(context.Context, *CommunitySetRequest) error
+	DeleteCommunitySet(context.Context, *CommunitySetRequest) error
+}
+
+type CommunitySetRequest struct {
+	CommunitySet   *v1alpha1.CommunitySet
+	ProviderConfig *ProviderConfig
+}
+
 // RoutingPolicyProvider is the interface for the realization of the RoutingPolicy objects over different providers.
 type RoutingPolicyProvider interface {
 	Provider
