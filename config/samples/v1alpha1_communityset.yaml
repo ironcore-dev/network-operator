@@ -1,0 +1,16 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: CommunitySet
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: communityset
+spec:
+  deviceRef:
+    name: leaf1
+  name: WIREAPI
+  members:
+    - sequence: 5
+      regex: "50000:[0-9][0-9]"
+    - sequence: 10
+      regex: "65001:[0-9]+"

@@ -74,6 +74,7 @@ rules:
   - bgp
   - bgppeers
   - certificates
+  - communitysets
   - configbackups
   - consoleconnections
   - devices
@@ -114,6 +115,7 @@ rules:
   - bgp/finalizers
   - bgppeers/finalizers
   - certificates/finalizers
+  - communitysets/finalizers
   - consoleconnections/finalizers
   - devices/finalizers
   - dhcprelays/finalizers
@@ -146,6 +148,7 @@ rules:
   - bgp/status
   - bgppeers/status
   - certificates/status
+  - communitysets/status
   - configbackups/status
   - consoleconnections/status
   - devices/status
