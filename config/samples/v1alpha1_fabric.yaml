@@ -57,6 +57,11 @@ spec:
         networking.metal.ironcore.dev/role: evpn-leaf
     anycastGateway:
       virtualMAC: f0:0c:c1:5c:00:00
+  # vniPool references an IndexPool from which VNIs are allocated for Networks
+  vniPool:
+    apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+    kind: IndexPool
+    name: indexpool-sample
 ---
 apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
 kind: IPAddressPool

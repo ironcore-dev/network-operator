@@ -40,6 +40,7 @@ var _ = Describe("Fabric Controller", func() {
 	Context("When reconciling with unnumbered underlay addressing", func() {
 		var (
 			loopbackPool *poolv1alpha1.IPAddressPool
+			indexPool    *poolv1alpha1.IndexPool
 			spine1       *corev1alpha1.Device
 			spine2       *corev1alpha1.Device
 			leaf1        *corev1alpha1.Device
@@ -60,6 +61,24 @@ var _ = Describe("Fabric Controller", func() {
 			Expect(k8sClient.Create(ctx, loopbackPool)).To(Succeed())
 			DeferCleanup(func() {
 				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, loopbackPool))).To(Succeed())
+			})
+
+			By("Creating an IndexPool for vniPool allocation")
+			indexPool = &poolv1alpha1.IndexPool{
+				GenerateName: "index-pool-",
+				Namespace:    metav1.NamespaceDefault,
+				Spec: poolv1alpha1.IndexPoolSpec{
+					Ranges: []corev1alpha1.IndexRange{
+						{
+							Start: 64512,
+							End:   65534,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, indexPool)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, indexPool))).To(Succeed())
 			})
 
 			By("Creating spine-1 (route reflector, rendezvous point)")
@@ -190,6 +209,11 @@ var _ = Describe("Fabric Controller", func() {
 					},
 					VTEP: evpnv1alpha1.FabricVTEPSpec{
 						DeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "leaf"}},
+					},
+					VniPool: corev1alpha1.TypedLocalObjectReference{
+						APIVersion: poolv1alpha1.GroupVersion.String(),
+						Kind:       "IndexPool",
+						Name:       indexPool.Name,
 					},
 				},
 			}
@@ -545,6 +569,7 @@ var _ = Describe("Fabric Controller", func() {
 		var (
 			loopbackPool *poolv1alpha1.IPAddressPool
 			prefixPool   *poolv1alpha1.IPPrefixPool
+			indexPool    *poolv1alpha1.IndexPool
 			spine1       *corev1alpha1.Device
 			leaf1        *corev1alpha1.Device
 			spineIntf    *corev1alpha1.Interface
@@ -577,6 +602,19 @@ var _ = Describe("Fabric Controller", func() {
 			Expect(k8sClient.Create(ctx, prefixPool)).To(Succeed())
 			DeferCleanup(func() {
 				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, prefixPool))).To(Succeed())
+			})
+
+			By("Creating an IndexPool for VNI allocation")
+			indexPool = &poolv1alpha1.IndexPool{
+				GenerateName: "index-pool-",
+				Namespace:    metav1.NamespaceDefault,
+				Spec: poolv1alpha1.IndexPoolSpec{
+					Ranges: []corev1alpha1.IndexRange{{Start: 64512, End: 65534}},
+				},
+			}
+			Expect(k8sClient.Create(ctx, indexPool)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, indexPool))).To(Succeed())
 			})
 
 			By("Creating spine-1")
@@ -695,6 +733,11 @@ var _ = Describe("Fabric Controller", func() {
 					VTEP: evpnv1alpha1.FabricVTEPSpec{
 						DeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "leaf"}},
 					},
+					VniPool: corev1alpha1.TypedLocalObjectReference{
+						APIVersion: poolv1alpha1.GroupVersion.String(),
+						Kind:       "IndexPool",
+						Name:       indexPool.Name,
+					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, fabric)).To(Succeed())
@@ -759,6 +802,7 @@ var _ = Describe("Fabric Controller", func() {
 	Context("When reconciling with the ISIS underlay protocol", func() {
 		var (
 			loopbackPool *poolv1alpha1.IPAddressPool
+			indexPool    *poolv1alpha1.IndexPool
 			spine1       *corev1alpha1.Device
 			leaf1        *corev1alpha1.Device
 			spineIntf    *corev1alpha1.Interface
@@ -777,6 +821,19 @@ var _ = Describe("Fabric Controller", func() {
 			Expect(k8sClient.Create(ctx, loopbackPool)).To(Succeed())
 			DeferCleanup(func() {
 				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, loopbackPool))).To(Succeed())
+			})
+
+			By("Creating an IndexPool for VNI allocation")
+			indexPool = &poolv1alpha1.IndexPool{
+				GenerateName: "index-pool-",
+				Namespace:    metav1.NamespaceDefault,
+				Spec: poolv1alpha1.IndexPoolSpec{
+					Ranges: []corev1alpha1.IndexRange{{Start: 64512, End: 65534}},
+				},
+			}
+			Expect(k8sClient.Create(ctx, indexPool)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, indexPool))).To(Succeed())
 			})
 
 			By("Creating spine-1")
@@ -883,6 +940,11 @@ var _ = Describe("Fabric Controller", func() {
 					},
 					VTEP: evpnv1alpha1.FabricVTEPSpec{
 						DeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "leaf"}},
+					},
+					VniPool: corev1alpha1.TypedLocalObjectReference{
+						APIVersion: poolv1alpha1.GroupVersion.String(),
+						Kind:       "IndexPool",
+						Name:       indexPool.Name,
 					},
 				},
 			}
