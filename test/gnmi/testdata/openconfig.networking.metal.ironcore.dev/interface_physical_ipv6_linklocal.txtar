@@ -1,0 +1,97 @@
+# Physical Interface with IPv6 Link-Local Address Only
+-- interfaces/eth1-1 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: eth1-1
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: eth1/1
+  description: Leaf1 to Spine1
+  adminState: Up
+  type: Physical
+  mtu: 9216
+  ipv6:
+    useLinkLocalOnly: true
+
+-- state/preload --
+{
+  "openconfig-system:system": {
+    "state": {
+      "boot-time": "1784731445707000000"
+    }
+  }
+}
+
+-- state/expect --
+
+{
+  "openconfig-system:system": {
+    "state": {
+      "boot-time": "1784731445707000000"
+    }
+  },
+  "openconfig-interfaces:interfaces": {
+    "interface": [
+      {
+        "config": {
+          "name": "eth1/1",
+          "type": "iana-if-type:ethernetCsmacd",
+          "description": "Leaf1 to Spine1",
+          "enabled": true,
+          "mtu": 9216
+        },
+        "subinterfaces": {
+          "subinterface": [
+            {
+              "index": 0,
+              "config": {
+                "index": 0,
+                "enabled": true
+              },
+              "openconfig-if-ip:ipv6": {
+                "config": {
+                  "enabled": true
+                }
+              }
+            }
+          ]
+        },
+        "name": "eth1/1"
+      }
+    ]
+  }
+}
+
+-- state/delete --
+
+{
+  "openconfig-system:system": {
+    "state": {
+      "boot-time": "1784731445707000000"
+    }
+  },
+  "openconfig-interfaces:interfaces": {
+    "interface": [
+      {
+        "config": {
+          "name": "eth1/1",
+          "type": "iana-if-type:ethernetCsmacd",
+          "enabled": false
+        },
+        "name": "eth1/1",
+        "openconfig-if-ethernet:ethernet": {
+          "openconfig-vlan:switched-vlan": {
+            "config": {
+              "trunk-vlans": [
+                "1..4094"
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}
