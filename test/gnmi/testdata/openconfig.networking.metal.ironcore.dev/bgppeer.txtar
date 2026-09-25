@@ -27,6 +27,7 @@ spec:
   address: 10.0.0.2
   asNumber: 65001
   description: spine-1
+  ttl: 2
   addressFamilies:
     ipv4Unicast:
       enabled: true
@@ -85,6 +86,12 @@ spec:
                         "peer-group": "NETOP-DEFAULT",
                         "enabled": true,
                         "description": "spine-1"
+                      },
+                      "ebgp-multihop": {
+                        "config": {
+                          "enabled": true,
+                          "multihop-ttl": 2
+                        }
                       },
                       "afi-safis": {
                         "afi-safi": [

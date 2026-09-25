@@ -411,6 +411,15 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
+              ttl:
+                description: |-
+                  TTL sets the time-to-live for eBGP sessions that span multiple hops.
+                  When set, allows establishing eBGP sessions with non-directly-connected peers
+                  by setting the IP TTL of outgoing BGP packets to this value.
+                format: int32
+                maximum: 255
+                minimum: 1
+                type: integer
             required:
             - address
             - asNumber

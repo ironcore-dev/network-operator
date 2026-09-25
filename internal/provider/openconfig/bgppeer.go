@@ -139,6 +139,21 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		}
 	}
 
+	if spec.TTL != nil {
+		neighbor.EbgpMultihop = &BGPNeighborEbgpMultihop{
+			Config: &BGPNeighborEbgpMultihopConfig{
+				Enabled:     true,
+				MultihopTTL: spec.TTL,
+			},
+		}
+	} else {
+		neighbor.EbgpMultihop = &BGPNeighborEbgpMultihop{
+			Config: &BGPNeighborEbgpMultihopConfig{
+				Enabled: false,
+			},
+		}
+	}
+
 	return p.client.Update(ctx, pg, neighbor)
 }
 
@@ -230,11 +245,23 @@ type BGPPeerGroupConfig struct {
 
 // BGPNeighbor targets a neighbor entry.
 type BGPNeighbor struct {
-	NetworkInstance string                `json:"-"`
-	NeighborAddress string                `json:"-"`
-	Config          *BGPNeighborConfig    `json:"config,omitempty"`
-	Transport       *BGPNeighborTransport `json:"transport,omitempty"`
-	AfiSafis        *BGPNeighborAfiSafis  `json:"afi-safis,omitempty"`
+	NetworkInstance string                   `json:"-"`
+	NeighborAddress string                   `json:"-"`
+	Config          *BGPNeighborConfig       `json:"config,omitempty"`
+	Transport       *BGPNeighborTransport    `json:"transport,omitempty"`
+	EbgpMultihop    *BGPNeighborEbgpMultihop `json:"ebgp-multihop,omitempty"`
+	AfiSafis        *BGPNeighborAfiSafis     `json:"afi-safis,omitempty"`
+}
+
+// BGPNeighborEbgpMultihop holds ebgp-multihop config for a neighbor.
+type BGPNeighborEbgpMultihop struct {
+	Config *BGPNeighborEbgpMultihopConfig `json:"config,omitempty"`
+}
+
+// BGPNeighborEbgpMultihopConfig holds ebgp-multihop/config.
+type BGPNeighborEbgpMultihopConfig struct {
+	Enabled     bool   `json:"enabled"`
+	MultihopTTL *int32 `json:"multihop-ttl,omitempty"`
 }
 
 func (n *BGPNeighbor) XPath() string {

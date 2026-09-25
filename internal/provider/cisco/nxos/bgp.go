@@ -218,6 +218,7 @@ type BGPPeer struct {
 	AsnType       PeerAsnType `json:"asnType"`
 	Name          string      `json:"name,omitempty"`
 	SrcIf         string      `json:"srcIf,omitempty"`
+	TTL           int32       `json:"ttl"`
 	LocalAsnItems struct {
 		AsnPropagate AsnPropagate `json:"asnPropagate"`
 		LocalAsn     string       `json:"localAsn"`
