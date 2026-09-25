@@ -19,6 +19,9 @@ hero:
         - theme: alt
           text: API Reference
           link: /api-reference/
+        - theme: alt
+          text: Vendor Compatibility
+          link: /provider-compatibility
 
 features:
     - title: 🔌 Multi-Vendor Network Automation
