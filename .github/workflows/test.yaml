@@ -69,7 +69,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Post coverage report
-        uses: fgrosse/go-coverage-report@v1.3.1
+        uses: fgrosse/go-coverage-report@v1.4.0
         with:
           coverage-artifact-name: code-coverage
           coverage-file-name: cover.out
