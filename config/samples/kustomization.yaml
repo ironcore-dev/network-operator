@@ -26,6 +26,7 @@ resources:
 - v1alpha1_prefixset.yaml
 - v1alpha1_routingpolicy.yaml
 - v1alpha1_ethernetsegment.yaml
+- v1alpha1_staticroute.yaml
 - v1alpha1_aaa.yaml
 - v1alpha1_indexpool.yaml
 - v1alpha1_ipaddresspool.yaml

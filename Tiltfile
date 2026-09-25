@@ -234,6 +234,9 @@ k8s_resource(new_name='console-scheduled', objects=['console-scheduled:consoleco
 k8s_resource(new_name='console-regex', objects=['console-regex:consoleconnection'], resource_deps=['console-default'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='console-sendchar', objects=['console-sendchar:consoleconnection'], resource_deps=['console-default'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
+k8s_yaml('./config/samples/v1alpha1_staticroute.yaml')
+k8s_resource(new_name='staticroute', objects=['str-cc-admin:staticroute'], resource_deps=['vrf-admin'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
 print('🚀 network-operator development environment')
 print('👉 Edit the code inside the api/, cmd/, or internal/ directories')
 print('👉 Tilt will automatically rebuild and redeploy when changes are detected')
