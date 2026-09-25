@@ -15,6 +15,7 @@ spec:
     listKind: NetworkVirtualizationEdgeConfigList
     plural: networkvirtualizationedgeconfigs
     shortNames:
+    - nxnve
     - nveconfig
     singular: networkvirtualizationedgeconfig
   scope: Namespaced

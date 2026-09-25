@@ -12,7 +12,7 @@ import (
 
 // +kubebuilder:rbac:groups=nx.cisco.networking.metal.ironcore.dev,resources=lldpconfigs,verbs=get;list;watch
 
-// LLDPConfig defines the Cisco-specific configuration of an LLDP object.
+// LLDPConfigSpec defines the Cisco NX-OS specific LLDP configuration.
 type LLDPConfigSpec struct {
 	// InitDelay defines the delay in seconds before LLDP starts sending packets after interface comes up.
 	// +optional
@@ -32,6 +32,7 @@ type LLDPConfigSpec struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=lldpconfigs
 // +kubebuilder:resource:singular=lldpconfig
+// +kubebuilder:resource:shortName=nxlldp
 
 // LLDPConfig is the Schema for the LLDPConfig API
 type LLDPConfig struct {

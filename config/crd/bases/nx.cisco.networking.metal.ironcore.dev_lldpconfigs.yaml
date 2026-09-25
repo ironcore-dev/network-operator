@@ -11,6 +11,8 @@ spec:
     kind: LLDPConfig
     listKind: LLDPConfigList
     plural: lldpconfigs
+    shortNames:
+    - nxlldp
     singular: lldpconfig
   scope: Namespaced
   versions:

@@ -5199,7 +5199,7 @@ LLDPConfig is the Schema for the LLDPConfig API
 
 
 
-LLDPConfig defines the Cisco-specific configuration of an LLDP object.
+LLDPConfigSpec defines the Cisco NX-OS specific LLDP configuration.
 
 
 

@@ -11,8 +11,6 @@ spec:
     kind: VPCDomain
     listKind: VPCDomainList
     plural: vpcdomains
-    shortNames:
-    - vpcdomain
     singular: vpcdomain
   scope: Namespaced
   versions:

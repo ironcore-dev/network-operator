@@ -22,6 +22,7 @@ type PIMConfigSpec struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=pimconfigs
 // +kubebuilder:resource:singular=pimconfig
+// +kubebuilder:resource:shortName=nxpim
 
 // PIMConfig is the Schema for the PIMConfig API
 type PIMConfig struct {
