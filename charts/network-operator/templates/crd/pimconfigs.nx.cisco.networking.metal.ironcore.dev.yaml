@@ -14,6 +14,8 @@ spec:
     kind: PIMConfig
     listKind: PIMConfigList
     plural: pimconfigs
+    shortNames:
+    - nxpim
     singular: pimconfig
   scope: Namespaced
   versions:

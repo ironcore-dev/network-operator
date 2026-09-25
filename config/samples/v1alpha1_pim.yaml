@@ -14,7 +14,7 @@ spec:
   # providerConfigRef:
   #   apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
   #   kind: PIMConfig
-  #   name: leaf1-pimconfig
+  #   name: log-neighbor-changes
   rendezvousPoints:
     - address: 10.0.0.100
       multicastGroups:

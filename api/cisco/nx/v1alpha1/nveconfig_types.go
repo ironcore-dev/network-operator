@@ -59,7 +59,7 @@ type VLANListItem struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=networkvirtualizationedgeconfigs
 // +kubebuilder:resource:singular=networkvirtualizationedgeconfig
-// +kubebuilder:resource:shortName=nveconfig
+// +kubebuilder:resource:shortName=nxnve;nveconfig
 
 // NetworkVirtualizationEdgeConfig is the Schema for the NetworkVirtualizationEdgeConfig API
 type NetworkVirtualizationEdgeConfig struct {

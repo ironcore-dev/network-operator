@@ -267,7 +267,6 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=vpcdomains
 // +kubebuilder:resource:singular=vpcdomain
-// +kubebuilder:resource:shortName=vpcdomain
 // +kubebuilder:printcolumn:name="Domain",type=string,JSONPath=`.spec.domainId`
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
 // +kubebuilder:printcolumn:name="Admin State",type=string,JSONPath=`.spec.adminState`
