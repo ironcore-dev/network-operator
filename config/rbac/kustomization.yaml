@@ -134,6 +134,9 @@ resources:
 - cisco/nx/bgpconfig_admin_role.yaml
 - cisco/nx/bgpconfig_editor_role.yaml
 - cisco/nx/bgpconfig_viewer_role.yaml
+- cisco/nx/pimconfig_admin_role.yaml
+- cisco/nx/pimconfig_editor_role.yaml
+- cisco/nx/pimconfig_viewer_role.yaml
 - claim_admin_role.yaml
 - claim_editor_role.yaml
 - claim_viewer_role.yaml

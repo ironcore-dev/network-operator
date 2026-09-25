@@ -127,6 +127,9 @@ k8s_resource(new_name='vrf-admin', objects=['vrf-cc-admin:vrf'], trigger_mode=TR
 k8s_yaml('./config/samples/v1alpha1_pim.yaml')
 k8s_resource(new_name='pim', objects=['pim:pim'], resource_deps=['lo0', 'lo1', 'eth1-1', 'eth1-2'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
+k8s_yaml('./config/samples/cisco/nx/v1alpha1_pimconfig.yaml')
+k8s_resource(new_name='pimconfig-log-neighbor-changes', objects=['log-neighbor-changes:pimconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
 k8s_yaml('./config/samples/v1alpha1_bgp.yaml')
 k8s_resource(new_name='bgp', objects=['bgp:bgp'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='bgp-vrf-cc-admin', objects=['bgp-vrf-cc-admin:bgp'], resource_deps=['vrf-admin'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
