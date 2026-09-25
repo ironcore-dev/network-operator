@@ -4,6 +4,7 @@
 package iosxr
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"slices"
@@ -41,28 +42,19 @@ func NewEmptyAcceptRoutePolicy(vrf string) RoutePolicy {
 // PolicyString generates IOS-XR RPL syntax from ordered policy statements.
 // Statements are evaluated sequentially until a match is found.
 type PolicyString struct {
-	Statement PolicyStatement
-	Name      string
+	Name       string
+	Statements []Statement
 }
 
 // NewPolicyString creates a PolicyString from provider-agnostic policy statements.
-// Statements are sorted by sequence number and linked in evaluation order.
+// Statements are sorted by sequence number and evaluated in that order.
 func NewPolicyString(name string, providerStatements []provider.PolicyStatement) (*PolicyString, error) {
-	// Sort statements by sequence number (lowest first)
-	statements := make([]provider.PolicyStatement, len(providerStatements))
-	copy(statements, providerStatements)
+	statements := slices.Clone(providerStatements)
 	slices.SortFunc(statements, func(a, b provider.PolicyStatement) int {
-		if a.Sequence < b.Sequence {
-			return -1
-		}
-		if a.Sequence > b.Sequence {
-			return 1
-		}
-		return 0
+		return cmp.Compare(a.Sequence, b.Sequence)
 	})
 
-	// Build condition string and actions for each statement
-	var iosxrStatements []*Statement
+	result := &PolicyString{Name: name}
 	for _, stmt := range statements {
 		conditions, err := NewConditions(stmt.Conditions)
 		if err != nil {
@@ -73,100 +65,39 @@ func NewPolicyString(name string, providerStatements []provider.PolicyStatement)
 		if err != nil {
 			return nil, fmt.Errorf("failed to build actions for statement %d: %w", stmt.Sequence, err)
 		}
-		iosxrStmt := NewStatement(conditions, actions)
-		iosxrStatements = append(iosxrStatements, iosxrStmt)
+		result.Statements = append(result.Statements, Statement{Condition: conditions, Action: actions})
 	}
 
-	// Link statements together (Next/Back pointers)
-	for i := range iosxrStatements {
-		if i > 0 {
-			iosxrStatements[i].previous = iosxrStatements[i-1]
-		}
-		if i < len(iosxrStatements)-1 {
-			iosxrStatements[i].next = iosxrStatements[i+1]
-		}
-	}
-
-	return &PolicyString{
-		Name:      name,
-		Statement: iosxrStatements[0],
-	}, nil
+	return result, nil
 }
 
 func (p *PolicyString) String() string {
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "route-policy %s\n  ", p.Name)
-	sb.WriteString(p.Statement.String())
-	sb.WriteString("\nend-policy\n")
+	fmt.Fprintf(&sb, "route-policy %s\n", p.Name)
+	for i := range p.Statements {
+		keyword := "if"
+		if i > 0 {
+			keyword = "elseif"
+		}
+		fmt.Fprintf(&sb, "  %s %s then\n", keyword, p.Statements[i].Condition.String())
+		sb.WriteString(p.Statements[i].Action.String())
+	}
+	if len(p.Statements) > 0 {
+		sb.WriteString("  endif\n")
+	}
+	sb.WriteString("end-policy\n")
 	return sb.String()
 }
 
-// PolicyStatement represents a single statement in a route policy.
-type PolicyStatement interface {
-	String() string
-	Next() PolicyStatement
-	Previous() PolicyStatement
-}
-
-// Statement is a policy statement with conditions, actions, and route disposition.
-// Statements are linked to form if-elseif-endif chains in IOS-XR RPL syntax.
+// Statement is a single condition/action pair in a route policy.
 type Statement struct {
-	Action      Actions
-	Condition   Conditions
-	Disposition string
-	next        PolicyStatement
-	previous    PolicyStatement
-}
-
-// NewStatement creates a Statement with the specified conditions and actions.
-func NewStatement(condition Conditions, actions Actions) *Statement {
-	return &Statement{
-		Condition:   condition,
-		Action:      actions,
-		Disposition: "done",
-	}
-}
-
-func (s *Statement) Next() PolicyStatement {
-	return s.next
-}
-
-func (s *Statement) Previous() PolicyStatement {
-	return s.previous
-}
-
-func (s *Statement) String() string {
-	var sb strings.Builder
-
-	// first element starts if
-	if s.previous == nil {
-		fmt.Fprintf(&sb, "if %s then\n", s.Condition.String())
-	} else {
-		fmt.Fprintf(&sb, "elseif %s then\n", s.Condition.String())
-	}
-
-	sb.WriteString(s.Action.String())
-
-	// no other element, close action
-	if s.next == nil {
-		sb.WriteString("endif")
-	}
-
-	res := sb.String()
-	if s.next != nil {
-		res = res + s.next.String()
-	}
-	return res
-}
-
-// PolicyCondition represents a single route matching condition.
-type PolicyCondition interface {
-	String() string
+	Condition Conditions
+	Action    Actions
 }
 
 // Conditions represents a set of route matching conditions combined with logical AND.
 type Conditions struct {
-	Conditions []PolicyCondition
+	Conditions []*MatchPrefixCondition
 }
 
 func (cl *Conditions) String() string {
@@ -211,9 +142,9 @@ func (al *Actions) String() string {
 	// Route disposition: RejectRoute -> "drop", AcceptRoute -> "done".
 	// IOS-XR "pass" is not used as it would continue policy evaluation.
 	if al.RouteDisposition == v1alpha1.RejectRoute {
-		sb.WriteString("    drop\n  ")
+		sb.WriteString("    drop\n")
 	} else {
-		sb.WriteString("    done\n  ")
+		sb.WriteString("    done\n")
 	}
 	return sb.String()
 }
@@ -341,5 +272,5 @@ func NewConditions(conditions []provider.PolicyCondition) (Conditions, error) {
 		}
 	}
 
-	return Conditions{Conditions: condList.Conditions}, nil
+	return condList, nil
 }
