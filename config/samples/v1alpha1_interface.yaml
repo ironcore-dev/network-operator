@@ -276,6 +276,12 @@ spec:
   adminState: Up
   type: Physical
   mtu: 9216
+  # Router Advertisement settings have no equivalent in the core API, so they
+  # come from the NX-OS specific InterfaceConfig resource.
+  providerConfigRef:
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+    kind: InterfaceConfig
+    name: unnumbered-uplink
   # Use only the automatically generated IPv6 link-local address, so the link
   # needs no addressing of its own. Mutually exclusive with ipv6.addresses.
   ipv6:

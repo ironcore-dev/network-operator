@@ -1,0 +1,33 @@
+{
+  "bgp-items": {
+    "inst-items": {
+      "dom-items": {
+        "Dom-list": [
+          {
+            "name": "default",
+            "peerif-items": {
+              "PeerIf-list": [
+                {
+                  "id": "eth1/1",
+                  "adminSt": "enabled",
+                  "asnType": "external",
+                  "name": "Unnumbered peering with spine",
+                  "af-items": {
+                    "PeerAf-list": [
+                      {
+                        "ctrl": "DME_UNSET_PROPERTY_MARKER",
+                        "sendComExt": "disabled",
+                        "sendComStd": "disabled",
+                        "type": "ipv4-ucast"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

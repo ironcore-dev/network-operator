@@ -5,6 +5,8 @@ package v1alpha1
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -49,7 +51,21 @@ func (v *BGPPeerCustomValidator) ValidateDelete(_ context.Context, _ *v1alpha1.B
 }
 
 func validateBGPPeer(bgppeer v1alpha1.BGPPeerSpec) error {
-	if err := validateASNumber(bgppeer.ASNumber); err != nil {
+	if (bgppeer.Address == "") == (bgppeer.InterfaceRef == nil) {
+		return errors.New("exactly one of address or interfaceRef must be specified")
+	}
+
+	if bgppeer.InterfaceRef != nil && bgppeer.LocalAddress != nil {
+		return errors.New("localAddress must not be specified for interface-based peers")
+	}
+
+	// A peer with a dynamic AS number accepts any AS number that differs from the local
+	// one, which is only meaningful for unnumbered, interface-based peers.
+	if bgppeer.IsExternalASNumber() {
+		if bgppeer.InterfaceRef == nil {
+			return fmt.Errorf("AS number %q requires interfaceRef", v1alpha1.BGPPeerASNumberExternal)
+		}
+	} else if err := validateASNumber(bgppeer.ASNumber); err != nil {
 		return err
 	}
 
