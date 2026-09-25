@@ -114,6 +114,10 @@ Users can just run kubectl apply -f <URL for YAML BUNDLE> to install the project
 kubectl apply -f https://raw.githubusercontent.com/<org>/network-operator/<tag or branch>/dist/install.yaml
 ```
 
+## Supported Providers
+
+For a detailed compatibility matrix showing which API types are supported by each provider, see [Provider Compatibility Matrix](docs/provider-compatibility.md).
+
 ## Support, Feedback, Contributing
 
 This project is open to feature requests/suggestions, bug reports etc. via [GitHub issues](https://github.com/ironcore-dev/network-operator/issues). Contribution and feedback are encouraged and always welcome. For more information about how to contribute, the project structure, as well as additional contribution information, see our [Contribution Guidelines](CONTRIBUTING.md).
