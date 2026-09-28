@@ -3,5 +3,7 @@ route-policy BGP-MULTI-ACTION
     set community (65000:100, 65000:200)
     set extcommunity rt (65000:100)
     done
+  else
+     pass
   endif
 end-policy

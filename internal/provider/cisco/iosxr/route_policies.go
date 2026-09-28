@@ -48,14 +48,13 @@ type PolicyString struct {
 
 // NewPolicyString creates a PolicyString from provider-agnostic policy statements.
 // Statements are sorted by sequence number and evaluated in that order.
-func NewPolicyString(name string, providerStatements []provider.PolicyStatement) (*PolicyString, error) {
-	statements := slices.Clone(providerStatements)
-	slices.SortFunc(statements, func(a, b provider.PolicyStatement) int {
+func NewPolicyString(name string, Statements []provider.PolicyStatement) (*PolicyString, error) {
+	slices.SortFunc(Statements, func(a, b provider.PolicyStatement) int {
 		return cmp.Compare(a.Sequence, b.Sequence)
 	})
 
 	result := &PolicyString{Name: name}
-	for _, stmt := range statements {
+	for _, stmt := range Statements {
 		conditions, err := NewConditions(stmt.Conditions)
 		if err != nil {
 			return nil, fmt.Errorf("failed to build condition for statement %d: %w", stmt.Sequence, err)
@@ -83,6 +82,10 @@ func (p *PolicyString) String() string {
 		sb.WriteString(p.Statements[i].Action.String())
 	}
 	if len(p.Statements) > 0 {
+		// Drop route if no statement matched
+		// Change to accept by default, matching NX-OS / OpenConfig
+		sb.WriteString("  else\n")
+		sb.WriteString("     pass\n")
 		sb.WriteString("  endif\n")
 	}
 	sb.WriteString("end-policy\n")
