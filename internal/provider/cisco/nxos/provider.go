@@ -3795,13 +3795,13 @@ func (p *Provider) EnsureLLDP(ctx context.Context, req *provider.LLDPRequest) er
 		}
 		item.InterfaceName = name
 
-		item.AdminRxSt = NewOption(AdminStEnabled)
-		item.AdminTxSt = NewOption(AdminStEnabled)
+		item.AdminRxSt = AdminStEnabled
+		item.AdminTxSt = AdminStEnabled
 
 		// Set admin state based on the interface-level admin state from LLDP spec
 		if ifRef.AdminState == v1alpha1.AdminStateDown {
-			item.AdminRxSt = NewOption(AdminStDisabled)
-			item.AdminTxSt = NewOption(AdminStDisabled)
+			item.AdminRxSt = AdminStDisabled
+			item.AdminTxSt = AdminStDisabled
 		}
 
 		desired.Set(item)

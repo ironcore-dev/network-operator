@@ -29,6 +29,9 @@ type LLDPSpec struct {
 	AdminState AdminState `json:"adminState"`
 
 	// InterfaceRefs is a list of interfaces and their LLDP configuration.
+	// Interfaces not listed here are left at the platform default, which
+	// on all supported platforms is LLDP enabled. To disable LLDP on
+	// specific interfaces, add them with adminState set to Down.
 	// +optional
 	// +listType=atomic
 	InterfaceRefs []LLDPInterface `json:"interfaceRefs,omitempty"`

@@ -91,8 +91,11 @@ spec:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
               interfaceRefs:
-                description: InterfaceRefs is a list of interfaces and their LLDP
-                  configuration.
+                description: |-
+                  InterfaceRefs is a list of interfaces and their LLDP configuration.
+                  Interfaces not listed here are left at the platform default, which
+                  on all supported platforms is LLDP enabled. To disable LLDP on
+                  specific interfaces, add them with adminState set to Down.
                 items:
                   properties:
                     adminState:
