@@ -194,7 +194,7 @@ _Appears in:_
 | `overlay` _[FabricOverlaySpec](#fabricoverlayspec)_ | overlay defines the overlay control-plane configuration for the fabric. |  | Required: \{\} <br /> |
 | `bum` _[FabricBUMSpec](#fabricbumspec)_ | bum defines how BUM traffic is forwarded across the fabric. |  | Required: \{\} <br /> |
 | `vtep` _[FabricVTEPSpec](#fabricvtepspec)_ | vtep identifies the VTEP devices and configures their anycast gateway. |  | Required: \{\} <br /> |
-| `vniPool` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | vniPool references an IndexPool from which VNIs are allocated for Networks<br />realized by this Fabric |  | Required: \{\} <br /> |
+| `vniPool` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | vniPool references an IndexPool from which VNIs are allocated for Networks<br />realized by this Fabric.<br />This field is introduced as optional until the NetworkAttachment<br />controller is implemented. The field currently has no effect. |  | Optional: \{\} <br /> |
 
 
 #### FabricStatus

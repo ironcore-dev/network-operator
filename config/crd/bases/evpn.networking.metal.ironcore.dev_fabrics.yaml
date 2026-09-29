@@ -542,7 +542,9 @@ spec:
               vniPool:
                 description: |-
                   vniPool references an IndexPool from which VNIs are allocated for Networks
-                  realized by this Fabric
+                  realized by this Fabric.
+                  This field is introduced as optional until the NetworkAttachment
+                  controller is implemented. The field currently has no effect.
                 properties:
                   apiVersion:
                     description: APIVersion is the api group version of the resource
@@ -647,7 +649,6 @@ spec:
             - loopbacks
             - overlay
             - underlay
-            - vniPool
             - vtep
             type: object
           status:
