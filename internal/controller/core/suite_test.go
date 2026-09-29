@@ -369,6 +369,15 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&MacSecReconciler{
+		Client:          k8sManager.GetClient(),
+		Scheme:          k8sManager.GetScheme(),
+		Recorder:        recorder,
+		Locker:          testLocker,
+		RequeueInterval: time.Second,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -1231,22 +1240,22 @@ func (s *DeviceState) SetLLDPNeighbor(interfaceName, sysName, chassisID, portID 
 	}
 }
 
-func (s *DeviceState) EnsureMacSec(_ context.Context, req *provider.EnsureMacSecRequest) error {
+func (p *Provider) EnsureMacSec(_ context.Context, req *provider.EnsureMacSecRequest) error {
+	s := p.devices.StateFor(p.deviceName)
 	s.Lock()
 	defer s.Unlock()
 	s.MacSec.Insert(req.MacSec.Spec.Name)
 	return nil
 }
 
-func (s *DeviceState) DeleteMacSec(_ context.Context, req *provider.DeleteMacSecRequest) error {
+func (p *Provider) DeleteMacSec(_ context.Context, req *provider.DeleteMacSecRequest) error {
+	s := p.devices.StateFor(p.deviceName)
 	s.Lock()
 	defer s.Unlock()
 	s.MacSec.Delete(req.MacSec.Spec.Name)
 	return nil
 }
 
-func (s *DeviceState) GetMacSecStatus(_ context.Context, req *provider.EnsureMacSecRequest) (provider.MacSecStatus, error) {
-	s.Lock()
-	defer s.Unlock()
+func (p *Provider) GetMacSecStatus(_ context.Context, _ *provider.EnsureMacSecRequest) (provider.MacSecStatus, error) {
 	return provider.MacSecStatus{}, nil
 }

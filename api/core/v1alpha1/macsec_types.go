@@ -5,6 +5,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // / ConfidentialityOffset represents the number of octets in an Ethernet frame that are sent in unencrypted plain-text.
@@ -125,5 +126,8 @@ func (m *MacSec) SetConditions(conditions []metav1.Condition) {
 }
 
 func init() {
-	SchemeBuilder.Register(&MacSec{}, &MacSecList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &MacSec{}, &MacSecList{})
+		return nil
+	})
 }
