@@ -617,7 +617,7 @@ func (p *Provider) LoopbackInterfaceName(id int) (string, error) {
 }
 
 func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecRequest) error {
-	//Configure MacSec Policy
+	// Configure MacSec Policy
 
 	cipherSuite, err := ExtractCipherSuite(req.MacSec.Spec.Policy.CipherSuite)
 	if err != nil {
@@ -632,7 +632,7 @@ func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecR
 		RelayProtection:   req.MacSec.Spec.Policy.RelayProtection,
 	}
 
-	//Configure KeyChain
+	// Configure KeyChain
 
 	chain := new(KeyChain)
 	chain.Name = req.MacSec.Spec.Name

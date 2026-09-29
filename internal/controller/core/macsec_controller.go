@@ -25,8 +25,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/paused"
@@ -45,9 +47,6 @@ type MacSecReconciler struct {
 	// Recorder is used to record events for the controller.
 	// More info: https://book.kubebuilder.io/reference/raising-events
 	Recorder events.EventRecorder
-
-	// Provider is the driver that will be used to create & delete the macsec.
-	Provider provider.ProviderFunc
 
 	// Locker is used to synchronize operations on resources targeting the same device.
 	Locker *resourcelock.ResourceLocker
@@ -87,26 +86,31 @@ func (r *MacSecReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, err
 	}
 
-	prov, ok := r.Provider().(provider.MacSecProvider)
-	if !ok {
+	device, err := deviceutil.GetDeviceByName(ctx, r, obj.Namespace, obj.Spec.DeviceRef.Name)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	prov, err := provider.LoadProvider[provider.MacSecProvider](device.Spec.Provider)
+	if err != nil {
+		reason := v1alpha1.NotImplementedReason
+		if _, ok := errors.AsType[provider.NotFoundError](err); ok {
+			reason = v1alpha1.ProviderNotFoundReason
+		}
 		if meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
 			Type:    v1alpha1.ReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  v1alpha1.NotImplementedReason,
-			Message: "Provider does not implement provider.MacSecProvider",
+			Reason:  reason,
+			Message: err.Error(),
 		}) {
 			return ctrl.Result{}, r.Status().Update(ctx, obj)
 		}
 		return ctrl.Result{}, nil
 	}
 
-	device, err := deviceutil.GetDeviceByName(ctx, r, obj.Namespace, obj.Spec.DeviceRef.Name)
-	if err != nil {
+	orig := obj.DeepCopy()
+	if isPaused, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || err != nil {
 		return ctrl.Result{}, err
-	}
-
-	if isPaused, requeue, err := paused.EnsureCondition(ctx, r.Client, device, obj); isPaused || requeue || err != nil {
-		return ctrl.Result{Requeue: requeue}, err
 	}
 
 	if err := r.Locker.AcquireLock(ctx, device.Name, "macsec-controller"); err != nil {
@@ -129,43 +133,11 @@ func (r *MacSecReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, err
 	}
 
-	var cfg *provider.ProviderConfig
-	if obj.Spec.ProviderConfigRef != nil {
-		cfg, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	// Validate that the referenced interface exists
-	intf, err := GetInterfaceByName(ctx, r, obj.Namespace, obj.Spec.InterfaceRef.Name)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// Validate that all pre-shared key secrets exist
-	secrets, err := r.validatePreSharedKeySecrets(ctx, obj)
-	if err != nil {
-		log.Error(err, "Pre-shared key validation failed")
-		if meta.SetStatusCondition(&obj.Status.Conditions, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  v1alpha1.ErrorReason,
-			Message: fmt.Sprintf("Pre-shared key validation failed: %v", err),
-		}) {
-			return ctrl.Result{}, r.Status().Update(ctx, obj)
-		}
-		return ctrl.Result{}, nil
-	}
-
 	s := &macSecScope{
-		Device:         device,
-		MacSec:         obj,
-		Interface:      intf,
-		Secrets:        secrets,
-		Connection:     conn,
-		ProviderConfig: cfg,
-		Provider:       prov,
+		Device:     device,
+		MacSec:     obj,
+		Connection: conn,
+		Provider:   prov,
 	}
 
 	if !obj.DeletionTimestamp.IsZero() {
@@ -184,6 +156,13 @@ func (r *MacSecReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, nil
 	}
 
+	if obj.Spec.ProviderConfigRef != nil {
+		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -195,8 +174,7 @@ func (r *MacSecReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, nil
 	}
 
-	orig := obj.DeepCopy()
-	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition, v1alpha1.OperationalCondition) {
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition) {
 		log.Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
@@ -220,7 +198,7 @@ func (r *MacSecReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 
 	if err := r.reconcile(ctx, s); err != nil {
 		log.Error(err, "Failed to reconcile resource")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, apistatus.WrapTerminalError(err)
 	}
 
 	return ctrl.Result{RequeueAfter: Jitter(r.RequeueInterval)}, nil
@@ -253,7 +231,14 @@ func (r *MacSecReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manage
 		Watches(
 			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.secretToMacSec),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
 		).
 		// Watches enqueues MacSecs for updates in referenced Device resources.
 		// Triggers on create, delete, and update events when the device's effective pause state changes.
@@ -278,7 +263,6 @@ type macSecScope struct {
 	MacSec         *v1alpha1.MacSec
 	Connection     *deviceutil.Connection
 	ProviderConfig *provider.ProviderConfig
-	Interface      *v1alpha1.Interface
 	Secrets        []corev1.Secret
 	Provider       provider.MacSecProvider
 }
@@ -301,6 +285,14 @@ func (r *MacSecReconciler) reconcile(ctx context.Context, s *macSecScope) (reter
 		conditions.RecomputeReady(s.MacSec)
 	}()
 
+	if _, err := r.reconcileInterface(ctx, s); err != nil {
+		return err
+	}
+
+	if err := r.reconcilePreSharedKeys(ctx, s); err != nil {
+		return err
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -318,7 +310,7 @@ func (r *MacSecReconciler) reconcile(ctx context.Context, s *macSecScope) (reter
 	cond := conditions.FromError(err)
 	conditions.Set(s.MacSec, cond)
 
-	return nil
+	return err
 }
 
 func (r *MacSecReconciler) finalize(ctx context.Context, s *macSecScope) (reterr error) {
@@ -336,34 +328,76 @@ func (r *MacSecReconciler) finalize(ctx context.Context, s *macSecScope) (reterr
 	})
 }
 
-// validatePreSharedKeySecrets validates that all pre-shared key secrets referenced in the MacSec spec exist
-func (r *MacSecReconciler) validatePreSharedKeySecrets(ctx context.Context, macSec *v1alpha1.MacSec) ([]corev1.Secret, error) {
-	secrets := []corev1.Secret{}
-	for _, psk := range macSec.Spec.PreSharedKeyRef {
+// preSharedKeyRequiredFields are the keys every pre-shared key Secret must contain.
+var preSharedKeyRequiredFields = []string{"lifetime", "connectivityKeyName", "algorithm"}
+
+// reconcilePreSharedKeys validates that all pre-shared key secrets referenced in the MacSec
+// spec exist and contain the required fields, storing them on the scope for the provider.
+func (r *MacSecReconciler) reconcilePreSharedKeys(ctx context.Context, s *macSecScope) error {
+	secrets := make([]corev1.Secret, 0, len(s.MacSec.Spec.PreSharedKeyRef))
+	for _, psk := range s.MacSec.Spec.PreSharedKeyRef {
+		key := client.ObjectKey{Namespace: s.MacSec.Namespace, Name: psk.Name}
 		secret := new(corev1.Secret)
-		if err := r.Get(ctx, client.ObjectKey{
-			Namespace: macSec.Namespace,
-			Name:      psk.Name,
-		}, secret); err != nil {
-			return nil, fmt.Errorf("pre-shared key secret not found: %s", psk.Name)
+		if err := r.Get(ctx, key, secret); err != nil {
+			if apierrors.IsNotFound(err) {
+				conditions.Set(s.MacSec, metav1.Condition{
+					Type:    v1alpha1.ConfiguredCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  v1alpha1.SecretNotFoundReason,
+					Message: fmt.Sprintf("referenced pre-shared key secret %q not found", key),
+				})
+				return reconcile.TerminalError(fmt.Errorf("referenced pre-shared key secret %q not found", key))
+			}
+			return fmt.Errorf("failed to get referenced pre-shared key secret %q: %w", key, err)
 		}
-		secrets = append(secrets, *secret)
-		for _, key := range []string{"lifetime", "connectivityKeyName", "algorithm"} {
-			_, ok := secret.Data[key]
-			if !ok {
-				return nil, fmt.Errorf("pre-shared key secret %s does not contain a '%s' field", psk.Name, key)
+		for _, field := range preSharedKeyRequiredFields {
+			if _, ok := secret.Data[field]; !ok {
+				conditions.Set(s.MacSec, metav1.Condition{
+					Type:    v1alpha1.ConfiguredCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  v1alpha1.SecretNotFoundReason,
+					Message: fmt.Sprintf("pre-shared key secret %q does not contain field %q", key, field),
+				})
+				return reconcile.TerminalError(fmt.Errorf("pre-shared key secret %q does not contain field %q", key, field))
 			}
 		}
+		secrets = append(secrets, *secret)
 	}
-	return secrets, nil
+	s.Secrets = secrets
+	return nil
 }
 
-func GetInterfaceByName(ctx context.Context, r client.Reader, namespace, name string) (*v1alpha1.Interface, error) {
-	obj := new(v1alpha1.Interface)
-	if err := r.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, obj); err != nil {
-		return nil, fmt.Errorf("failed to get %s/%s: %w", v1alpha1.GroupVersion.WithKind("Interface").String(), name, err)
+func (r *MacSecReconciler) reconcileInterface(ctx context.Context, s *macSecScope) (*v1alpha1.Interface, error) {
+	key := client.ObjectKey{
+		Name:      s.MacSec.Spec.InterfaceRef.Name,
+		Namespace: s.MacSec.Namespace,
 	}
-	return obj, nil
+
+	intf := new(v1alpha1.Interface)
+	if err := r.Get(ctx, key, intf); err != nil {
+		if apierrors.IsNotFound(err) {
+			conditions.Set(s.MacSec, metav1.Condition{
+				Type:    v1alpha1.ConfiguredCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.InterfaceNotFoundReason,
+				Message: fmt.Sprintf("referenced interface %q not found", key),
+			})
+			return nil, reconcile.TerminalError(fmt.Errorf("referenced interface %q not found", key))
+		}
+		return nil, fmt.Errorf("failed to get referenced interface %q: %w", key, err)
+	}
+
+	if intf.Spec.DeviceRef.Name != s.Device.Name {
+		conditions.Set(s.MacSec, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.CrossDeviceReferenceReason,
+			Message: fmt.Sprintf("referenced interface %q does not belong to device %q", intf.Name, s.Device.Name),
+		})
+		return nil, reconcile.TerminalError(fmt.Errorf("referenced interface %q does not belong to device %q", intf.Name, s.Device.Name))
+	}
+
+	return intf, nil
 }
 
 // secretToMacSec is a [handler.MapFunc] to be used to enqueue requests for reconciliation

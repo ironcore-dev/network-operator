@@ -616,12 +616,12 @@ func main() { //nolint:gocyclo
 	}
 
 	if err := (&corecontroller.MacSecReconciler{
-		Client:          mgr.GetClient(),
-		Scheme:          mgr.GetScheme(),
-		Recorder:        mgr.GetEventRecorder("macsec-controller"),
-		Provider:        prov,
-		Locker:          locker,
-		RequeueInterval: requeueInterval,
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorder("macsec-controller"),
+		WatchFilterValue: watchFilterValue,
+		Locker:           locker,
+		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MacSec")
 		os.Exit(1)
@@ -703,16 +703,6 @@ func main() { //nolint:gocyclo
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "pool-ipprefix")
-		os.Exit(1)
-	}
-
-	if err := (&corecontroller.MacSecReconciler{
-		Client:          mgr.GetClient(),
-		Scheme:          mgr.GetScheme(),
-		Locker:          locker,
-		RequeueInterval: requeueInterval,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "MacSec")
 		os.Exit(1)
 	}
 
