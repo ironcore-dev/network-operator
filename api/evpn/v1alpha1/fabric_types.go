@@ -41,6 +41,14 @@ type FabricSpec struct {
 	// vtep identifies the VTEP devices and configures their anycast gateway.
 	// +required
 	VTEP FabricVTEPSpec `json:"vtep"`
+
+	// vniPool references an IndexPool from which VNIs are allocated for Networks
+	// realized by this Fabric.
+	// This field is introduced as optional until the NetworkAttachment
+	// controller is implemented. The field currently has no effect.
+	// TODO: Make this field required once the NetworkAttachment controller is implemented.
+	// +optional
+	VniPool corev1alpha1.TypedLocalObjectReference `json:"vniPool"`
 }
 
 // FabricLoopbacksSpec configures IP address allocation for loopback interfaces.
