@@ -4542,24 +4542,61 @@ func NormalizeMACAddress(mac string) string {
 	return fmt.Sprintf("%s:%s:%s:%s:%s:%s", h[0:2], h[2:4], h[4:6], h[6:8], h[8:10], h[10:12])
 }
 
-// EnsureMacSec is a dummy implementation for MacSec provisioning.
-// This method currently returns an error indicating that MacSec is not yet supported.
+// EnsureMacSec realizes the MacSec policy and keychain on the device. The
+// macsec feature is enabled first (in its own Set RPC via p.Do) before the
+// dependent policy and keychain configuration is pushed.
 func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecRequest) error {
-	// TODO(sven-rosenzweig): Implement MacSec
-	return nil
+	if req.MacSec.Spec.Policy == nil {
+		return errors.New("macsec: spec.policy is required")
+	}
+
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+	sb.Update(&Feature{Name: "macsec", AdminSt: AdminStEnabled})
+
+	cipherSuite, err := ExtractCipherSuite(req.MacSec.Spec.Policy.CipherSuite)
+	if err != nil {
+		return err
+	}
+
+	policy := &MacSecPolicy{
+		PolicyName:        req.MacSec.Spec.Name,
+		CipherSuite:       cipherSuite,
+		ConfOffset:        uint16(req.MacSec.Spec.Policy.ConfidentialityOffset),
+		KeyServerPriority: req.MacSec.Spec.Policy.KeyServerPriority,
+		ReplayWindow:      req.MacSec.Spec.Policy.RelayProtection,
+	}
+	sb.Patch(policy)
+
+	chain := &KeyChain{Name: req.MacSec.Spec.Name}
+	for i := range req.Secrets {
+		psk := &req.Secrets[i]
+		lifetime, err := NewLifetime(string(psk.Data["lifetime"]))
+		if err != nil {
+			return err
+		}
+		chain.KeyList.Set(&MacSecKey{
+			ID:             string(psk.Data["connectivityKeyName"]),
+			OctetString:    string(psk.Data["key"]),
+			CryptoAlg:      string(psk.Data["algorithm"]),
+			SendLifetime:   lifetime,
+			AcceptLifetime: lifetime,
+		})
+	}
+	sb.Patch(chain)
+
+	return p.Do(ctx, sb)
 }
 
-// DeleteMacSec is a dummy implementation for MacSec deletion.
-// This method currently returns an error indicating that MacSec is not yet supported.
+// DeleteMacSec removes the MacSec policy and keychain from the device.
 func (p *Provider) DeleteMacSec(ctx context.Context, req *provider.DeleteMacSecRequest) error {
-	// TODO(sven-rosenzweig) : Implement MacSec deletion
-	return nil
+	policy := &MacSecPolicy{PolicyName: req.MacSec.Spec.Name}
+	chain := &KeyChain{Name: req.MacSec.Spec.Name}
+	return p.client.Delete(ctx, policy, chain)
 }
 
-// DeleteMacSec is a dummy implementation for MacSec status retrieval.
-// This method currently returns an error indicating that MacSec is not yet supported.
+// GetMacSecStatus is not yet implemented; the controller does not consume it.
 func (p *Provider) GetMacSecStatus(ctx context.Context, req *provider.EnsureMacSecRequest) (provider.MacSecStatus, error) {
-	// TODO(sven-rosenzweig): Implement MacSec
+	// TODO(sven-rosenzweig): Implement MacSec status retrieval
 	return provider.MacSecStatus{}, nil
 }
 
