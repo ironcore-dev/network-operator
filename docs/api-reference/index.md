@@ -2763,7 +2763,7 @@ _Appears in:_
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration for this LLDP.<br />If not specified the provider applies the target platform's default settings. |  | Optional: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether LLDP is system-wide administratively up or down. |  | Enum: [Up Down] <br />Required: \{\} <br /> |
-| `interfaceRefs` _[LLDPInterface](#lldpinterface) array_ | InterfaceRefs is a list of interfaces and their LLDP configuration. |  | Optional: \{\} <br /> |
+| `interfaceRefs` _[LLDPInterface](#lldpinterface) array_ | InterfaceRefs is a list of interfaces and their LLDP configuration.<br />Interfaces not listed here are left at the platform default, which<br />on all supported platforms is LLDP enabled. To disable LLDP on<br />specific interfaces, add them with adminState set to Down. |  | Optional: \{\} <br /> |
 
 
 #### LLDPStatus

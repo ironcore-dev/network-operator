@@ -4,14 +4,14 @@
       "if-items": {
         "If-list": [
           {
-              "id": "eth7/1",
-              "adminRxSt": "disabled",
-              "adminTxSt": "disabled"
+            "id": "eth7/1",
+            "adminRxSt": "disabled",
+            "adminTxSt": "disabled"
           },
           {
-              "id": "eth8/1",
-              "adminRxSt":  "DME_UNSET_PROPERTY_MARKER",
-              "adminTxSt": "disabled"
+            "id": "eth8/1",
+            "adminRxSt": "enabled",
+            "adminTxSt": "disabled"
           }
         ]
       }

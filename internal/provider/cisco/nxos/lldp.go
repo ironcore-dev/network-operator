@@ -45,9 +45,14 @@ func (l *LLDP) Default() {
 }
 
 type LLDPIfItem struct {
-	InterfaceName string          `json:"id"`
-	AdminRxSt     Option[AdminSt] `json:"adminRxSt"`
-	AdminTxSt     Option[AdminSt] `json:"adminTxSt"`
+	InterfaceName string  `json:"id"`
+	AdminRxSt     AdminSt `json:"adminRxSt"`
+	AdminTxSt     AdminSt `json:"adminTxSt"`
+}
+
+func (i *LLDPIfItem) Default() {
+	i.AdminRxSt = AdminStEnabled
+	i.AdminTxSt = AdminStEnabled
 }
 
 func (i *LLDPIfItem) Key() string { return i.InterfaceName }

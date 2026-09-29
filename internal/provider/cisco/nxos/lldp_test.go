@@ -20,12 +20,13 @@ func init() {
 	items := new(LLDPIfItems)
 	items.IfList.Set(&LLDPIfItem{
 		InterfaceName: "eth7/1",
-		AdminRxSt:     NewOption(AdminStDisabled),
-		AdminTxSt:     NewOption(AdminStDisabled),
+		AdminRxSt:     AdminStDisabled,
+		AdminTxSt:     AdminStDisabled,
 	})
 	items.IfList.Set(&LLDPIfItem{
 		InterfaceName: "eth8/1",
-		AdminTxSt:     NewOption(AdminStDisabled),
+		AdminRxSt:     AdminStEnabled,
+		AdminTxSt:     AdminStDisabled,
 	})
 	Register("lldp_if_items", items)
 }
