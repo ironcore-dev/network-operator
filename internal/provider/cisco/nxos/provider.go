@@ -833,6 +833,10 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		pe.SrcIf = srcIf
 	}
 
+	if req.BGPPeer.Spec.TTL != nil {
+		pe.TTL = NewOption(*req.BGPPeer.Spec.TTL)
+	}
+
 	if req.BGPPeer.Spec.LocalAS != nil {
 		if req.BGPPeer.Spec.LocalAS.ASNumber.String() == req.BGP.Spec.ASNumber.String() {
 			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{

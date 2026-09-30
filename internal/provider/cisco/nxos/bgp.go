@@ -211,13 +211,14 @@ func (af *BGPDomAfItem) SetMultipath(m *v1alpha1.BGPMultipath) error {
 }
 
 type BGPPeer struct {
-	VRFName       string      `json:"-"`
-	Addr          string      `json:"addr"`
-	AdminSt       AdminSt     `json:"adminSt"`
-	Asn           string      `json:"asn"`
-	AsnType       PeerAsnType `json:"asnType"`
-	Name          string      `json:"name,omitempty"`
-	SrcIf         string      `json:"srcIf,omitempty"`
+	VRFName       string        `json:"-"`
+	Addr          string        `json:"addr"`
+	AdminSt       AdminSt       `json:"adminSt"`
+	Asn           string        `json:"asn"`
+	AsnType       PeerAsnType   `json:"asnType"`
+	Name          string        `json:"name,omitempty"`
+	SrcIf         string        `json:"srcIf,omitempty"`
+	TTL           Option[int32] `json:"ttl"`
 	LocalAsnItems struct {
 		AsnPropagate AsnPropagate `json:"asnPropagate"`
 		LocalAsn     string       `json:"localAsn"`

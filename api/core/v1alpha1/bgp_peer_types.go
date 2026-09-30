@@ -64,6 +64,15 @@ type BGPPeerSpec struct {
 	// LocalAS configures the local AS number and how it factors into BGP announcements for this peer.
 	// +optional
 	LocalAS *LocalAS `json:"localAS,omitempty"`
+
+	// TTL sets the time-to-live for eBGP sessions that span multiple hops.
+	// When set, allows establishing eBGP sessions with non-directly-connected peers
+	// by setting the IP TTL of outgoing BGP packets to this value.
+	// When unset, eBGP multihop is disabled (equivalent to TTL=1 — directly connected peers only).
+	// +optional
+	// +kubebuilder:validation:Minimum=2
+	// +kubebuilder:validation:Maximum=255
+	TTL *int32 `json:"ttl,omitempty"`
 }
 
 // LocalAS defines the local AS configuration and how it factors in BGP announcements.

@@ -68,6 +68,7 @@ spec:
       enabled: true
       sendCommunity: Both
       routeReflectorClient: true
+  ttl: 2
 
 -- state/preload --
 {
@@ -187,6 +188,7 @@ spec:
                     "asnType": "none",
                     "name": "EVPN peering with spine1",
                     "srcIf": "lo0",
+                    "ttl": 2,
                     "af-items": {
                       "PeerAf-list": [
                         {
