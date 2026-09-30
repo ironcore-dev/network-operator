@@ -205,6 +205,12 @@ type LLDPIfItem struct {
 func (i *LLDPIfItem) Default() {
 	i.AdminRxSt = AdminStEnabled
 	i.AdminTxSt = AdminStEnabled
+
+	// Disable LLDP for port-channel interfaces by default.
+	if strings.HasPrefix(i.InterfaceName, "po") {
+		i.AdminRxSt = AdminStDisabled
+		i.AdminTxSt = AdminStDisabled
+	}
 }
 
 func (i *LLDPIfItem) Key() string { return i.InterfaceName }
