@@ -3818,7 +3818,7 @@ func (p *Provider) EnsureLLDP(ctx context.Context, req *provider.LLDPRequest) er
 		// configured on the device.
 		// Fetch the current selector list and strip only dcbxp, leaving every other TLV as the
 		// device has it.
-		if strings.HasPrefix(item.InterfaceName, "po") {
+		if !strings.HasPrefix(item.InterfaceName, "po") {
 			continue
 		}
 
