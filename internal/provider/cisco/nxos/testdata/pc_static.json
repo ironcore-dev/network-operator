@@ -1,0 +1,26 @@
+{
+  "intf-items": {
+    "aggr-items": {
+      "AggrIf-list": [
+        {
+          "accessVlan": "vlan-1",
+          "adminSt": "up",
+          "descr": "Static port-channel",
+          "id": "po30",
+          "lacpVpcConvergence": "disable",
+          "layer": "Layer2",
+          "mtu": 1500,
+          "medium": "broadcast",
+          "mode": "access",
+          "pcMode": "on",
+          "nativeVlan": "vlan-1",
+          "suspIndividual": "enable",
+          "userCfgdFlags": "admin_state",
+          "aggrExtd-items": {
+            "bufferBoost": "enable"
+          }
+        }
+      ]
+    }
+  }
+}

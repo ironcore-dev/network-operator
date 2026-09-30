@@ -1523,6 +1523,8 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			pc.PcMode = PortChannelModeActive
 		case v1alpha1.LACPModePassive:
 			pc.PcMode = PortChannelModePassive
+		case v1alpha1.LACPModeStatic:
+			pc.PcMode = PortChannelModeOn
 		default:
 			return fmt.Errorf("iface: unknown LACP mode: %s", m)
 		}

@@ -245,6 +245,25 @@ func init() {
 		UserCfgdFlags:  UserFlagAdminState,
 	})
 
+	Register("pc_static", &PortChannel{
+		AccessVlan:     DefaultVLAN,
+		AdminSt:        AdminStUp,
+		Descr:          NewOption("Static port-channel"),
+		ID:             "po30",
+		VPCConvergence: AdminStDisable,
+		Layer:          Layer2,
+		MTU:            DefaultMTU,
+		Medium:         MediumBroadcast,
+		Mode:           SwitchportModeAccess,
+		PcMode:         PortChannelModeOn,
+		NativeVlan:     DefaultVLAN,
+		SuspIndividual: AdminStEnable,
+		UserCfgdFlags:  UserFlagAdminState,
+		AggrExtdItems: struct {
+			BufferBoost AdminSt4 `json:"bufferBoost,omitempty"`
+		}{BufferBoost: AdminStEnable},
+	})
+
 	svi := &SwitchVirtualInterface{
 		AdminSt: AdminStUp,
 		Descr:   "Foo",

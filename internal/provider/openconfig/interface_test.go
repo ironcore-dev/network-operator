@@ -88,6 +88,28 @@ func TestOpenConfigTrunkVlansXPath(t *testing.T) {
 	}
 }
 
+func TestAggregationLagType(t *testing.T) {
+	tests := []struct {
+		name    string
+		lagType LagType
+		want    string
+	}{
+		{name: "lacp", lagType: LagTypeLACP, want: `{"lag-type":"LACP"}`},
+		{name: "static", lagType: LagTypeStatic, want: `{"lag-type":"STATIC"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := json.Marshal(&InterfaceAggregationConfig{LagType: tt.lagType})
+			if err != nil {
+				t.Fatalf("json.Marshal() error = %v", err)
+			}
+			if string(got) != tt.want {
+				t.Fatalf("json.Marshal() = %s, want %s", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestInterfaceSetSwitchportOmitsTrunkVlans(t *testing.T) {
 	i := &Interface{Name: "ethernet-1/1"}
 	if err := i.SetSwitchport(&v1alpha1.Switchport{
