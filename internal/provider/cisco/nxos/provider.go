@@ -3812,6 +3812,24 @@ func (p *Provider) EnsureLLDP(ctx context.Context, req *provider.LLDPRequest) er
 	if err := p.client.GetConfig(ctx, current); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 		return err
 	}
+
+	for _, item := range current.IfList {
+		// Disable the dcbxp optional TLV before configuring LLDP globally if there is a port-channel
+		// configured on the device.
+		// Fetch the current selector list and strip only dcbxp, leaving every other TLV as the
+		// device has it.
+		if strings.HasPrefix(item.InterfaceName, "po") {
+			continue
+		}
+
+		tlv := new(LLDPOptTLV)
+		if err := p.client.GetConfig(ctx, tlv); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+		*tlv &^= LLDPOptTLVDcbxp
+		sb.Patch(tlv)
+	}
+
 	for _, item := range desired {
 		sb.Patch(item)
 	}
