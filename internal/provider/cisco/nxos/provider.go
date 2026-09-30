@@ -3815,9 +3815,17 @@ func (p *Provider) EnsureLLDP(ctx context.Context, req *provider.LLDPRequest) er
 	for _, item := range desired {
 		sb.Patch(item)
 	}
+	// Only delete stale entries whose config differs from the platform default.
+	// The device populates lldpIf items for every interface with default values,
+	// so we need to compare with the default values to avoid needlessly resetting
+	// all interfaces to default values on every reconcile.
 	for _, item := range current.IfList {
 		if _, ok := desired.Get(item.Key()); !ok {
-			sb.Delete(item)
+			def := &LLDPIfItem{InterfaceName: item.Key()}
+			def.Default()
+			if *item != *def {
+				sb.Delete(item)
+			}
 		}
 	}
 
