@@ -69,7 +69,7 @@ type BGPPeerSpec struct {
 	// When set, allows establishing eBGP sessions with non-directly-connected peers
 	// by setting the IP TTL of outgoing BGP packets to this value.
 	// +optional
-	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Minimum=2
 	// +kubebuilder:validation:Maximum=255
 	TTL *int32 `json:"ttl,omitempty"`
 }

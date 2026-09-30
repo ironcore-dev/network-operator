@@ -255,7 +255,7 @@ type BGPNeighbor struct {
 
 // BGPNeighborEbgpMultihop holds ebgp-multihop config for a neighbor.
 type BGPNeighborEbgpMultihop struct {
-	Config *BGPNeighborEbgpMultihopConfig `json:"config,omitempty"`
+	Config *BGPNeighborEbgpMultihopConfig `json:"config"`
 }
 
 // BGPNeighborEbgpMultihopConfig holds ebgp-multihop/config.

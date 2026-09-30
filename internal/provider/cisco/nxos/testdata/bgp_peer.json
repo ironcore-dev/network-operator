@@ -14,7 +14,7 @@
                   "asnType": "none",
                   "name": "EVPN peering with spine",
                   "srcIf": "lo0",
-                  "ttl": 1,
+                  "ttl": "DME_UNSET_PROPERTY_MARKER",
                   "af-items": {
                     "PeerAf-list": [
                       {

@@ -833,9 +833,8 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		pe.SrcIf = srcIf
 	}
 
-	pe.TTL = 1
 	if req.BGPPeer.Spec.TTL != nil {
-		pe.TTL = *req.BGPPeer.Spec.TTL
+		pe.TTL = NewOption(*req.BGPPeer.Spec.TTL)
 	}
 
 	if req.BGPPeer.Spec.LocalAS != nil {

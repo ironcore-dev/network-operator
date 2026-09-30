@@ -418,7 +418,7 @@ spec:
                   by setting the IP TTL of outgoing BGP packets to this value.
                 format: int32
                 maximum: 255
-                minimum: 1
+                minimum: 2
                 type: integer
             required:
             - address
