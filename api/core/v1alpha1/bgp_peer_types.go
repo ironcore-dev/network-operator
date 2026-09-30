@@ -68,6 +68,7 @@ type BGPPeerSpec struct {
 	// TTL sets the time-to-live for eBGP sessions that span multiple hops.
 	// When set, allows establishing eBGP sessions with non-directly-connected peers
 	// by setting the IP TTL of outgoing BGP packets to this value.
+	// When unset, eBGP multihop is disabled (equivalent to TTL=1 — directly connected peers only).
 	// +optional
 	// +kubebuilder:validation:Minimum=2
 	// +kubebuilder:validation:Maximum=255
