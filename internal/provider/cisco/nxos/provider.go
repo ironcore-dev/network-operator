@@ -1525,6 +1525,12 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			pc.PcMode = PortChannelModePassive
 		case v1alpha1.LACPModeStatic:
 			pc.PcMode = PortChannelModeOn
+			if cfg.Spec.LACP != nil {
+				return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+					Field:       "providerConfig.lacp",
+					Description: "spec.lacp is not compatible with aggregation mode Static",
+				})
+			}
 		default:
 			return fmt.Errorf("iface: unknown LACP mode: %s", m)
 		}

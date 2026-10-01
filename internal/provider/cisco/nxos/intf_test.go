@@ -9,7 +9,9 @@ import (
 	"slices"
 	"testing"
 
+	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	corev1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
@@ -43,6 +45,48 @@ func TestDeleteAggregateInterfaceDeletesSpanningTree(t *testing.T) {
 	}
 	if !slices.Contains(paths, want) {
 		t.Errorf("DeleteInterface() paths = %v, want %q", paths, want)
+	}
+}
+
+// TestEnsureInterfaceStaticModeRejectsLACPConfig verifies that configuring spec.lacp
+// on a Static port-channel returns an InvalidArgument error.
+func TestEnsureInterfaceStaticModeRejectsLACPConfig(t *testing.T) {
+	client := &gnmiext.ClientMock{
+		GetConfigFunc: func(_ context.Context, _ ...gnmiext.DataElement) error { return gnmiext.ErrNil },
+		DoFunc:        func(_ context.Context, _ *gnmiext.SetBuilder) error { return nil },
+	}
+	p := &Provider{client: client}
+
+	vpcConvergence := true
+	cfg, err := provider.NewProviderConfig(&nxv1alpha1.InterfaceConfig{
+		Spec: nxv1alpha1.InterfaceConfigSpec{
+			LACP: &nxv1alpha1.InterfaceConfigLACP{VPCConvergence: &vpcConvergence},
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewProviderConfig() error = %v", err)
+	}
+
+	req := &provider.EnsureInterfaceRequest{
+		Interface: &corev1alpha1.Interface{
+			Spec: corev1alpha1.InterfaceSpec{
+				Name: "Port-Channel30",
+				Type: corev1alpha1.InterfaceTypeAggregate,
+				Aggregation: &corev1alpha1.Aggregation{
+					ControlProtocol: corev1alpha1.ControlProtocol{Mode: corev1alpha1.LACPModeStatic},
+				},
+			},
+		},
+		ProviderConfig: cfg,
+	}
+
+	err = p.EnsureInterface(t.Context(), req)
+	if err == nil {
+		t.Fatal("EnsureInterface() expected error, got nil")
+	}
+	se, ok := apistatus.FromError(err)
+	if !ok || se.Code != apistatus.CodeInvalidArgument {
+		t.Errorf("EnsureInterface() error = %v, want InvalidArgument StatusError", err)
 	}
 }
 
