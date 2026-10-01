@@ -90,4 +90,13 @@ func init() {
 	bgpPeerLocalAs.LocalAsnItems.AsnPropagate = AsnPropagateNone
 	bgpPeerLocalAs.LocalAsnItems.LocalAsn = "65002"
 	Register("bgp_peer_local_as", bgpPeerLocalAs)
+
+	Register("bgp_peer_ebgp_multihop", &BGPPeer{
+		VRFName: DefaultVRFName,
+		Addr:    "1.1.1.1",
+		AdminSt: AdminStEnabled,
+		Asn:     "65000",
+		AsnType: PeerAsnTypeNone,
+		TTL:     NewOption[int32](2),
+	})
 }

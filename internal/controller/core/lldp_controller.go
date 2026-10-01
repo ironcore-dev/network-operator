@@ -379,6 +379,16 @@ func (r *LLDPReconciler) reconcileInterfaceRef(ctx context.Context, interfaceRef
 		return nil, reconcile.TerminalError(fmt.Errorf("interface %s belongs to different device", interfaceRef.Name))
 	}
 
+	if intf.Spec.Type == v1alpha1.InterfaceTypeAggregate {
+		conditions.Set(s.LLDP, metav1.Condition{
+			Type:    v1alpha1.ConfiguredCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1alpha1.InvalidInterfaceTypeReason,
+			Message: "LLDP configuration not supported on port-channel interfaces: " + intf.Name,
+		})
+		return nil, reconcile.TerminalError(fmt.Errorf("lldp configuration not supported on port-channel interfaces: %s", intf.Name))
+	}
+
 	return intf, nil
 }
 
