@@ -6,6 +6,7 @@ package core
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -292,6 +293,164 @@ var _ = Describe("BGPPeer Controller", func() {
 				g.Expect(resource.Status.Conditions[3].Type).To(Equal(v1alpha1.PausedCondition))
 				g.Expect(resource.Status.Conditions[3].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
+		})
+
+		It("Should handle peer interface reference to non-existing Interface", func() {
+			By("Creating a BGP resource for the Device")
+			bgp := &v1alpha1.BGP{
+				GenerateName: "test-bgp-",
+				Namespace:    metav1.NamespaceDefault,
+				Spec: v1alpha1.BGPSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
+					ASNumber:  intstr.FromInt(65000),
+					RouterID:  "10.0.0.1",
+				},
+			}
+			Expect(k8sClient.Create(ctx, bgp)).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				b := &v1alpha1.BGP{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgp), b)).To(Succeed())
+				g.Expect(conditions.IsReady(b)).To(BeTrue())
+			}).Should(Succeed())
+
+			By("Creating an unnumbered BGPPeer pointing to a non-existent Interface")
+			bgppeer := &v1alpha1.BGPPeer{
+				GenerateName: "test-bgppeer-",
+				Namespace:    metav1.NamespaceDefault,
+				Spec: v1alpha1.BGPPeerSpec{
+					DeviceRef:    v1alpha1.LocalObjectReference{Name: device.Name},
+					BgpRef:       v1alpha1.LocalObjectReference{Name: bgp.Name},
+					InterfaceRef: &v1alpha1.LocalObjectReference{Name: "non-existing-interface"},
+					ASNumber:     intstr.FromString(v1alpha1.BGPPeerASNumberExternal),
+				},
+			}
+			Expect(k8sClient.Create(ctx, bgppeer)).To(Succeed())
+
+			By("Verifying the controller sets Interface not found status")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.BGPPeer{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgppeer), resource)).To(Succeed())
+				g.Expect(resource.Status.Conditions).To(HaveLen(4))
+				g.Expect(conditions.IsConfigured(resource)).To(BeFalse())
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(resource.Status.Conditions[1].Reason).To(Equal(v1alpha1.InterfaceNotFoundReason))
+				g.Expect(resource.Status.Conditions[1].Message).To(ContainSubstring("peer interface"))
+			}).Should(Succeed())
+		})
+
+		It("Should remove an unnumbered BGP peer from the provider after its Interface was deleted", func() {
+			By("Creating a BGP resource for the Device")
+			bgp := &v1alpha1.BGP{
+				GenerateName: "test-bgppeer-bgp-",
+				Namespace:    metav1.NamespaceDefault,
+				Spec: v1alpha1.BGPSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
+					ASNumber:  intstr.FromInt(65000),
+					RouterID:  "10.0.0.10",
+				},
+			}
+			Expect(k8sClient.Create(ctx, bgp)).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				b := &v1alpha1.BGP{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgp), b)).To(Succeed())
+				g.Expect(conditions.IsReady(b)).To(BeTrue())
+			}).Should(Succeed())
+
+			By("Creating a link-local-only Interface resource")
+			intf := &v1alpha1.Interface{
+				GenerateName: "test-bgppeer-intf-",
+				Namespace:    metav1.NamespaceDefault,
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: device.Name},
+					Name:       "Ethernet1/1",
+					AdminState: v1alpha1.AdminStateUp,
+					Type:       v1alpha1.InterfaceTypePhysical,
+					IPv6:       &v1alpha1.InterfaceIPv6{UseLinkLocalOnly: true},
+				},
+			}
+			Expect(k8sClient.Create(ctx, intf)).To(Succeed())
+
+			By("Creating an unnumbered BGPPeer over the Interface")
+			bgppeer := &v1alpha1.BGPPeer{
+				GenerateName: "test-bgppeer-",
+				Namespace:    metav1.NamespaceDefault,
+				Spec: v1alpha1.BGPPeerSpec{
+					DeviceRef:    v1alpha1.LocalObjectReference{Name: device.Name},
+					BgpRef:       v1alpha1.LocalObjectReference{Name: bgp.Name},
+					InterfaceRef: &v1alpha1.LocalObjectReference{Name: intf.Name},
+					ASNumber:     intstr.FromString(v1alpha1.BGPPeerASNumberExternal),
+				},
+			}
+			Expect(k8sClient.Create(ctx, bgppeer)).To(Succeed())
+
+			By("Verifying the peer is configured and its interface is recorded")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.BGPPeer{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgppeer), resource)).To(Succeed())
+				g.Expect(resource.Status.PeerInterface).To(Equal("Ethernet1/1"))
+				g.Expect(testDevices.StateFor(device.Name).BGPPeers.Has("Ethernet1/1")).To(BeTrue())
+			}).Should(Succeed())
+
+			By("Deleting the Interface before the BGPPeer")
+			Expect(k8sClient.Delete(ctx, intf)).To(Succeed())
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, client.ObjectKeyFromObject(intf), &v1alpha1.Interface{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
+
+			By("Deleting the BGPPeer")
+			Expect(k8sClient.Delete(ctx, bgppeer)).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(testDevices.StateFor(device.Name).BGPPeers.Has("Ethernet1/1")).To(BeFalse(), "Provider should not have the unnumbered BGP peer configured")
+			}).Should(Succeed())
+		})
+
+		It("Should reject changes to the peer identity", func() {
+			By("Creating a BGPPeer resource")
+			bgppeer := &v1alpha1.BGPPeer{
+				GenerateName: "test-bgppeer-",
+				Namespace:    metav1.NamespaceDefault,
+				Spec: v1alpha1.BGPPeerSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
+					BgpRef:    v1alpha1.LocalObjectReference{Name: "bgp"},
+					Address:   host,
+					ASNumber:  intstr.FromInt(65000),
+				},
+			}
+			Expect(k8sClient.Create(ctx, bgppeer)).To(Succeed())
+
+			for _, tc := range []struct {
+				mutate  func(*v1alpha1.BGPPeer)
+				message string
+			}{
+				{
+					mutate:  func(p *v1alpha1.BGPPeer) { p.Spec.Address = "10.0.0.2" },
+					message: "Address is immutable",
+				},
+				{
+					mutate: func(p *v1alpha1.BGPPeer) {
+						p.Spec.Address = ""
+						p.Spec.InterfaceRef = &v1alpha1.LocalObjectReference{Name: "eth1-1"}
+					},
+					message: "InterfaceRef is immutable",
+				},
+				{
+					mutate:  func(p *v1alpha1.BGPPeer) { p.Spec.BgpRef.Name = "other-bgp" },
+					message: "BgpRef is immutable",
+				},
+			} {
+				By("Attempting an update that must be rejected with: " + tc.message)
+				Eventually(func(g Gomega) {
+					resource := &v1alpha1.BGPPeer{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgppeer), resource)).To(Succeed())
+					tc.mutate(resource)
+					err := k8sClient.Update(ctx, resource)
+					g.Expect(err).To(HaveOccurred())
+					g.Expect(err.Error()).To(ContainSubstring(tc.message))
+				}).Should(Succeed())
+			}
 		})
 
 		It("Should reject local address reference to Interface on different device", func() {

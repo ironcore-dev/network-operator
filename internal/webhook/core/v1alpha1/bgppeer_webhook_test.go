@@ -36,6 +36,26 @@ var _ = Describe("BGPPeer Webhook", func() {
 		Expect(obj).NotTo(BeNil(), "Expected obj to be initialized")
 	})
 
+	Context("When creating an unnumbered BGPPeer", func() {
+		It("Should admit an interface-based peer with a dynamic AS number", func() {
+			obj.Spec.Address = ""
+			obj.Spec.InterfaceRef = &v1alpha1.LocalObjectReference{Name: "eth1-1"}
+			obj.Spec.ASNumber = intstr.FromString(v1alpha1.BGPPeerASNumberExternal)
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("Should admit an interface-based peer with an explicit AS number", func() {
+			obj.Spec.Address = ""
+			obj.Spec.InterfaceRef = &v1alpha1.LocalObjectReference{Name: "eth1-1"}
+			obj.Spec.ASNumber = intstr.FromInt32(65020)
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
 	Context("When creating BGPPeer under Validating Webhook", func() {
 		It("Should admit creation with valid integer AS number", func() {
 			obj.Spec.ASNumber = intstr.FromInt32(65001)

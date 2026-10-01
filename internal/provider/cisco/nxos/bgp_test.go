@@ -43,13 +43,13 @@ func init() {
 	rdstItem.InterLeakPItems.InterLeakPList.Set(NewInterLeakPDirect("ROUTE_MAP"))
 	Register("bgp_dom_af_rdst", rdstItem)
 
-	bgpPeer := &BGPPeer{
+	bgpPeer := &BGPPeerAddr{
 		VRFName: DefaultVRFName,
-		Addr:    "1.1.1.1",
 		AdminSt: AdminStEnabled,
 		Asn:     "65000",
 		AsnType: PeerAsnTypeNone,
 		Name:    "EVPN peering with spine",
+		Addr:    "1.1.1.1",
 		SrcIf:   "lo0",
 	}
 	bgpPeer.AfItems.PeerAfList.Set(&BGPPeerAfItem{
@@ -60,15 +60,41 @@ func init() {
 	})
 	Register("bgp_peer", bgpPeer)
 
+	// Unnumbered peer with a dynamic AS number ("remote-as external"). The device
+	// reports asn as an empty string in that case, so it is omitted from the payload.
+	bgpPeerIf := &BGPPeerIf{
+		VRFName: DefaultVRFName,
+		AdminSt: AdminStEnabled,
+		AsnType: PeerAsnTypeExternal,
+		Name:    "Unnumbered peering with spine",
+		ID:      "eth1/1",
+	}
+	bgpPeerIf.AfItems.PeerAfList.Set(&BGPPeerAfItem{
+		SendComExt: AdminStDisabled,
+		SendComStd: AdminStDisabled,
+		Type:       AddressFamilyIPv4Unicast,
+	})
+	Register("bgp_peer_if", bgpPeerIf)
+
+	// Unnumbered peer with an explicit AS number ("remote-as 65020").
+	bgpPeerIfAsn := &BGPPeerIf{
+		VRFName: DefaultVRFName,
+		AdminSt: AdminStEnabled,
+		Asn:     "65020",
+		AsnType: PeerAsnTypeNone,
+		ID:      "eth1/2",
+	}
+	Register("bgp_peer_if_asn", bgpPeerIfAsn)
+
 	bgwPeer := &MultisitePeer{Addr: "1.1.1.1", PeerType: BorderGatewayPeerTypeFabricExternal}
 	Register("bgw_peer", bgwPeer)
 
-	bgpPeerRp := &BGPPeer{
+	bgpPeerRp := &BGPPeerAddr{
 		VRFName: "CC-MGMT",
-		Addr:    "10.0.0.1",
 		AdminSt: AdminStEnabled,
 		Asn:     "65000",
 		AsnType: PeerAsnTypeNone,
+		Addr:    "10.0.0.1",
 	}
 	bgpPeerRpAf := &BGPPeerAfItem{
 		SendComExt: AdminStDisabled,
@@ -80,18 +106,18 @@ func init() {
 	bgpPeerRp.AfItems.PeerAfList.Set(bgpPeerRpAf)
 	Register("bgp_dom_rp", bgpPeerRp)
 
-	bgpPeerLocalAs := &BGPPeer{
+	bgpPeerLocalAs := &BGPPeerAddr{
 		VRFName: DefaultVRFName,
-		Addr:    "1.1.1.1",
 		AdminSt: AdminStEnabled,
 		Asn:     "65001",
 		AsnType: PeerAsnTypeNone,
+		Addr:    "1.1.1.1",
 	}
 	bgpPeerLocalAs.LocalAsnItems.AsnPropagate = AsnPropagateNone
 	bgpPeerLocalAs.LocalAsnItems.LocalAsn = "65002"
 	Register("bgp_peer_local_as", bgpPeerLocalAs)
 
-	Register("bgp_peer_ebgp_multihop", &BGPPeer{
+	Register("bgp_peer_ebgp_multihop", &BGPPeerAddr{
 		VRFName: DefaultVRFName,
 		Addr:    "1.1.1.1",
 		AdminSt: AdminStEnabled,

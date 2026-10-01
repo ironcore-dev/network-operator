@@ -7,6 +7,10 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
 func TestAsnToUint32(t *testing.T) {
@@ -30,5 +34,22 @@ func TestAsnToUint32(t *testing.T) {
 				t.Errorf("asnToUint32(%v) = %d, want %d", test.asn, got, test.want)
 			}
 		})
+	}
+}
+
+func TestDeleteBGPPeer_Unnumbered(t *testing.T) {
+	// The mock has no functions set, so any device call panics.
+	p := newProviderWithClient(&gnmiext.ClientMock{})
+
+	err := p.DeleteBGPPeer(t.Context(), &provider.DeleteBGPPeerRequest{
+		BGPPeer: &v1alpha1.BGPPeer{
+			Spec: v1alpha1.BGPPeerSpec{
+				InterfaceRef: &v1alpha1.LocalObjectReference{Name: "eth1-1"},
+			},
+		},
+		PeerInterface: "ethernet-1/1",
+	})
+	if err != nil {
+		t.Fatalf("DeleteBGPPeer() error = %v", err)
 	}
 }
