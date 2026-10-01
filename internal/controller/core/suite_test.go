@@ -4,6 +4,7 @@
 package core
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -885,7 +886,7 @@ func (p *Provider) EnsureBGPPeer(_ context.Context, req *provider.EnsureBGPPeerR
 	s := p.devices.StateFor(p.deviceName)
 	s.Lock()
 	defer s.Unlock()
-	s.BGPPeers.Insert(req.BGPPeer.Spec.Address)
+	s.BGPPeers.Insert(cmp.Or(req.PeerInterface, req.BGPPeer.Spec.Address))
 	return nil
 }
 
@@ -893,7 +894,7 @@ func (p *Provider) DeleteBGPPeer(_ context.Context, req *provider.DeleteBGPPeerR
 	s := p.devices.StateFor(p.deviceName)
 	s.Lock()
 	defer s.Unlock()
-	s.BGPPeers.Delete(req.BGPPeer.Spec.Address)
+	s.BGPPeers.Delete(cmp.Or(req.PeerInterface, req.BGPPeer.Spec.Address))
 	return nil
 }
 

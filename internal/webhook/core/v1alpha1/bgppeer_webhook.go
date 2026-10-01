@@ -49,8 +49,14 @@ func (v *BGPPeerCustomValidator) ValidateDelete(_ context.Context, _ *v1alpha1.B
 }
 
 func validateBGPPeer(bgppeer v1alpha1.BGPPeerSpec) error {
-	if err := validateASNumber(bgppeer.ASNumber); err != nil {
-		return err
+	// A peer with a dynamic AS number accepts any AS number that differs from the local
+	// one. The sentinel is not an AS number, so it is not validated as one. That it is
+	// only valid together with interfaceRef, and the mutual exclusion of address and
+	// interfaceRef, are enforced by CEL on the CRD.
+	if !bgppeer.IsExternalASNumber() {
+		if err := validateASNumber(bgppeer.ASNumber); err != nil {
+			return err
+		}
 	}
 
 	if bgppeer.LocalAS != nil {
