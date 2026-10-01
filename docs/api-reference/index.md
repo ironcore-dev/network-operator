@@ -4826,6 +4826,7 @@ Package v1alpha1 contains API Schema definitions for the nx.cisco.networking.met
 - [BGPConfig](#bgpconfig)
 - [BorderGateway](#bordergateway)
 - [EVPNInstanceConfig](#evpninstanceconfig)
+- [EthernetSegmentConfig](#ethernetsegmentconfig)
 - [InterfaceConfig](#interfaceconfig)
 - [LLDPConfig](#lldpconfig)
 - [ManagementAccessConfig](#managementaccessconfig)
@@ -5166,6 +5167,40 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `enabled` _boolean_ | Enabled indicates whether a configuration property is administratively enabled (true) or disabled (false). |  | Required: \{\} <br /> |
+
+
+#### EthernetSegmentConfig
+
+
+
+EthernetSegmentConfig is the Schema for the ethernetsegmentconfigs API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `nx.cisco.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `EthernetSegmentConfig` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[EthernetSegmentConfigSpec](#ethernetsegmentconfigspec)_ | spec defines the desired state of the EthernetSegmentConfig |  | Required: \{\} <br /> |
+
+
+#### EthernetSegmentConfigSpec
+
+
+
+EthernetSegmentConfigSpec defines the Cisco NX-OS-specific configuration of an EthernetSegment.
+
+
+
+_Appears in:_
+- [EthernetSegmentConfig](#ethernetsegmentconfig)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `frrAnycastSourceIP` _string_ | FRRAnycastSourceIP sets the EVPN ES fast-reroute anycast source IP<br />(evpn esi multihoming / frr-anycast-src-ip). It is applied to the device-global<br />EVPN multihoming configuration. Omit to leave it unmanaged. |  | Format: ip <br />Optional: \{\} <br /> |
 
 
 #### InterconnectInterfaceReference

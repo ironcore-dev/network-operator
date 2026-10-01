@@ -37,10 +37,11 @@ const EthernetSegmentTypeNative EthernetSegmentType = "native"
 
 // MultihomingItems represents the global EVPN multihoming configuration.
 type MultihomingItems struct {
-	EadEviRoute    bool        `json:"eadEviRoute"`
-	AdminSt        AdminSt     `json:"state"`
-	DfElectionMode DfElectMode `json:"dfElectionMode,omitempty"`
-	DfElectionTime string      `json:"dfElectionTime,omitempty"`
+	EadEviRoute     bool           `json:"eadEviRoute"`
+	AdminSt         AdminSt        `json:"state"`
+	DfElectionMode  DfElectMode    `json:"dfElectionMode"`
+	DfElectionTime  string         `json:"dfElectionTime"`
+	FrrAnycastSrcIP Option[string] `json:"frrAnycastSrcIp"`
 }
 
 func (*MultihomingItems) XPath() string {

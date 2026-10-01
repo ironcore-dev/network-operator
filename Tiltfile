@@ -198,6 +198,9 @@ k8s_resource(new_name='dhcprelay-relay200', objects=['dhcprelay200:dhcprelay'], 
 k8s_yaml('./config/samples/v1alpha1_ethernetsegment.yaml')
 k8s_resource(new_name='ethernetsegment-sample', objects=['ethernetsegment-sample:ethernetsegment'], resource_deps=['po10'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
+k8s_yaml('./config/samples/cisco/nx/v1alpha1_ethernetsegmentconfig.yaml')
+k8s_resource(new_name='ethernetsegmentconfig-frr', objects=['ethernetsegmentconfig-frr:ethernetsegmentconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
 k8s_yaml('./config/samples/v1alpha1_aaa.yaml')
 k8s_resource(new_name='aaa', objects=['aaa-tacacs:aaa', 'tacacs-server-keys:secret'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 # Uncomment the following lines for NX-OS specific AAA config
