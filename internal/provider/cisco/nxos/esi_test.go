@@ -24,6 +24,14 @@ func init() {
 		DfElectionTime: "2.2",
 	})
 
+	Register("esi_multihoming_frr", &MultihomingItems{
+		EadEviRoute:     true,
+		AdminSt:         AdminStEnabled,
+		DfElectionMode:  DfElectModeModulo,
+		DfElectionTime:  "2.2",
+		FrrAnycastSrcIP: "10.0.0.1",
+	})
+
 	Register("esi_evpn_multicast", &EvpnMulticastItems{
 		State: AdminStEnabled,
 	})

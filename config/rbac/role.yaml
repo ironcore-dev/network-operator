@@ -178,6 +178,7 @@ rules:
   resources:
   - aaaconfigs
   - bgpconfigs
+  - ethernetsegmentconfigs
   - evpninstanceconfigs
   - interfaceconfigs
   - lldpconfigs
