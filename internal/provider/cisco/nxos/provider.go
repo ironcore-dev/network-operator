@@ -1673,6 +1673,26 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 
 		sb.Patch(pc)
 
+		if req.MultiChassisID != nil {
+			v := new(VPCIf)
+			v.ID = int(*req.MultiChassisID)
+			v.SetPortChannel(name)
+			sb.Patch(v)
+		}
+
+		// Commit the port-channel and its trunk VLANs before binding members.
+		// NX-OS validates the member bind against the DME, which rejects a
+		// member whose allowed-VLAN list does not yet match the port-channel's.
+		// The trunk VLANs and the member bind are subpaths of the port-channel
+		// but not the same path, and the gNMI spec (§3.4) only guarantees
+		// in-order application for repeats of the same path, leaving ordering
+		// across distinct subpaths within one Set RPC unspecified: the DME may
+		// not yet contain the trunk VLANs when the member is validated. A
+		// transaction's scope is a single SetRequest (§3.4.3), so recreate sb to
+		// send the member binds as a separate, subsequent transaction.
+		p.client.Do(ctx, sb)
+
+		sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
 		// Patch desired entries and delete stale ones because parent patches only merge lists.
 		current := &PortChannelMemberItems{ID: name}
 		if err := p.client.GetConfig(ctx, current); err != nil && !errors.Is(err, gnmiext.ErrNil) {
@@ -1687,13 +1707,6 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				m.PortChannelID = name
 				sb.Delete(m)
 			}
-		}
-
-		if req.MultiChassisID != nil {
-			v := new(VPCIf)
-			v.ID = int(*req.MultiChassisID)
-			v.SetPortChannel(name)
-			sb.Patch(v)
 		}
 
 	case v1alpha1.InterfaceTypeRoutedVLAN:
