@@ -36,6 +36,7 @@ resources:
 - v1alpha1_claim.yaml
 - v1alpha1_fabric.yaml
 - v1alpha1_probe.yaml
+- v1alpha1_communityset.yaml
 - v1alpha1_consoleconnection.yaml
 - v1alpha1_network.yaml
 - v1alpha1_networkattachment.yaml
