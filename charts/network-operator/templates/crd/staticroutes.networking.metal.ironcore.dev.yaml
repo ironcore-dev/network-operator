@@ -59,11 +59,6 @@ spec:
           spec:
             description: spec defines the desired state of StaticRoute
             properties:
-              description:
-                description: Description is an optional human-readable description
-                  for this static route.
-                maxLength: 255
-                type: string
               deviceRef:
                 description: |-
                   DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
@@ -83,15 +78,8 @@ spec:
                 x-kubernetes-validations:
                 - message: DeviceRef is immutable
                   rule: self == oldSelf
-              name:
-                description: Name is the name of the static route.
-                maxLength: 255
-                minLength: 1
-                type: string
-                x-kubernetes-validations:
-                - message: Name is immutable
-                  rule: self == oldSelf
               nextHops:
+                description: NextHops is a list of next hop objects for the prefix.
                 items:
                   properties:
                     address:
@@ -126,14 +114,18 @@ spec:
                 minItems: 1
                 type: array
               prefix:
-                description: IPPrefix is the destination IP prefix for the static
-                  route.
+                description: |-
+                  IPPrefix is the destination IP prefix for the static route.
+                  Immutable.
                 format: cidr
                 type: string
+                x-kubernetes-validations:
+                - message: Prefix is immutable
+                  rule: self == oldSelf
               providerConfigRef:
                 description: |-
-                  ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
-                  This reference is used to link the Interface to its provider-specific configuration.
+                  ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this StaticRoute.
+                  This reference is used to link the StaticRoute to its provider-specific configuration.
                 properties:
                   apiVersion:
                     description: APIVersion is the api group version of the resource
@@ -183,7 +175,6 @@ spec:
                 x-kubernetes-map-type: atomic
             required:
             - deviceRef
-            - name
             - nextHops
             - prefix
             type: object

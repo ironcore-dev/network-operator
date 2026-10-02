@@ -1226,7 +1226,7 @@ func (p *Provider) GetVTEPPeers(context.Context, *provider.VTEPPeersRequest) ([]
 	return []provider.VTEPPeer{{PeerIP: "192.0.2.10", OperStatus: true}}, nil
 }
 
-func (p *Provider) EnsureStaticRoute(_ context.Context, req *provider.StaticRouteRequest) error {
+func (p *Provider) EnsureStaticRoute(_ context.Context, req *provider.EnsureStaticRouteRequest) error {
 	s := p.devices.StateFor(p.deviceName)
 	s.Lock()
 	defer s.Unlock()
@@ -1234,7 +1234,7 @@ func (p *Provider) EnsureStaticRoute(_ context.Context, req *provider.StaticRout
 	return nil
 }
 
-func (p *Provider) DeleteStaticRoute(_ context.Context, req *provider.StaticRouteRequest) error {
+func (p *Provider) DeleteStaticRoute(_ context.Context, req *provider.DeleteStaticRouteRequest) error {
 	s := p.devices.StateFor(p.deviceName)
 	s.Lock()
 	defer s.Unlock()

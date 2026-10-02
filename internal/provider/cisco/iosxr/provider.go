@@ -652,7 +652,7 @@ func (p *Provider) LoopbackInterfaceName(id int) (string, error) {
 	return fmt.Sprintf("Loopback%d", id), nil
 }
 
-func (p *Provider) EnsureStaticRoute(ctx context.Context, req *provider.StaticRouteRequest) error {
+func (p *Provider) EnsureStaticRoute(ctx context.Context, req *provider.EnsureStaticRouteRequest) error {
 	var nexthopAddress NexthopAddresses
 	var nexthopInterface NexthopInterfaces
 
@@ -680,7 +680,7 @@ func (p *Provider) EnsureStaticRoute(ctx context.Context, req *provider.StaticRo
 		prefix.NextHopInterface = &nexthopInterface
 	}
 
-	if req.VRF != nil && req.VRF.Spec.Name != "" {
+	if req.VRF != nil {
 		prefix.VRFName = req.VRF.Spec.Name
 	}
 
@@ -694,7 +694,7 @@ func (p *Provider) EnsureStaticRoute(ctx context.Context, req *provider.StaticRo
 	return p.client.Do(ctx, b)
 }
 
-func (p *Provider) DeleteStaticRoute(ctx context.Context, req *provider.StaticRouteRequest) error {
+func (p *Provider) DeleteStaticRoute(ctx context.Context, req *provider.DeleteStaticRouteRequest) error {
 	staticRoute := &Prefix{
 		PrefixAddress: req.StaticRoute.Spec.Prefix.Addr().String(),
 		PrefixLength:  req.StaticRoute.Spec.Prefix.Bits(),
@@ -705,7 +705,7 @@ func (p *Provider) DeleteStaticRoute(ctx context.Context, req *provider.StaticRo
 		staticRoute.IsIpv4 = false
 	}
 
-	if req.VRF != nil && req.VRF.Spec.Name != "" {
+	if req.VRF.Spec.Name != "" {
 		staticRoute.VRFName = req.VRF.Spec.Name
 	}
 

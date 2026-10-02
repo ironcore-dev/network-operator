@@ -993,16 +993,21 @@ type StaticRouteProvider interface {
 	Provider
 
 	// EnsureStaticRoute call is responsible for StaticRoute realization on the provider.
-	EnsureStaticRoute(context.Context, *StaticRouteRequest) error
+	EnsureStaticRoute(context.Context, *EnsureStaticRouteRequest) error
 	// DeleteStaticRoute call is responsible for StaticRoute deletion on the provider.
-	DeleteStaticRoute(context.Context, *StaticRouteRequest) error
+	DeleteStaticRoute(context.Context, *DeleteStaticRouteRequest) error
 }
 
-type StaticRouteRequest struct {
+type EnsureStaticRouteRequest struct {
 	StaticRoute    *v1alpha1.StaticRoute
 	ProviderConfig *ProviderConfig
 	VRF            *v1alpha1.VRF
 	InterfaceMap   map[string]*v1alpha1.Interface
+}
+
+type DeleteStaticRouteRequest struct {
+	StaticRoute *v1alpha1.StaticRoute
+	VRF         *v1alpha1.VRF
 }
 
 var mu sync.RWMutex

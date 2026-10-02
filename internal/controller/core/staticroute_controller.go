@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
@@ -125,20 +126,11 @@ func (r *StaticRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	var cfg *provider.ProviderConfig
-	if obj.Spec.ProviderConfigRef != nil {
-		cfg, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	s := &staticRouteScope{
-		Device:         device,
-		StaticRoute:    obj,
-		Connection:     conn,
-		ProviderConfig: cfg,
-		Provider:       prov,
+		Device:      device,
+		StaticRoute: obj,
+		Connection:  conn,
+		Provider:    prov,
 	}
 
 	if !obj.DeletionTimestamp.IsZero() {
@@ -155,6 +147,13 @@ func (r *StaticRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 		log.V(3).Info("Resource is being deleted, skipping reconciliation")
 		return ctrl.Result{}, nil
+	}
+
+	if obj.Spec.ProviderConfigRef != nil {
+		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
@@ -263,6 +262,18 @@ func (r *StaticRouteReconciler) SetupWithManager(ctx context.Context, mgr ctrl.M
 			}),
 		).
 		Watches(
+			&v1alpha1.Interface{},
+			handler.EnqueueRequestsFromMapFunc(r.interfaceToStaticRoute),
+			builder.WithPredicates(predicate.Funcs{
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+			}),
+		).
+		Watches(
 			&v1alpha1.Device{},
 			handler.EnqueueRequestsFromMapFunc(r.deviceToStaticRoutes),
 			builder.WithPredicates(predicate.Funcs{
@@ -284,7 +295,6 @@ type staticRouteScope struct {
 	Connection     *deviceutil.Connection
 	ProviderConfig *provider.ProviderConfig
 	Provider       provider.StaticRouteProvider
-	IntfMap        map[string]*v1alpha1.Interface
 }
 
 func (r *StaticRouteReconciler) reconcile(ctx context.Context, s *staticRouteScope) (reterr error) {
@@ -327,7 +337,7 @@ func (r *StaticRouteReconciler) reconcile(ctx context.Context, s *staticRouteSco
 		}
 	}()
 
-	err = s.Provider.EnsureStaticRoute(ctx, &provider.StaticRouteRequest{
+	err = s.Provider.EnsureStaticRoute(ctx, &provider.EnsureStaticRouteRequest{
 		StaticRoute:    s.StaticRoute,
 		ProviderConfig: s.ProviderConfig,
 		VRF:            vrf,
@@ -395,7 +405,7 @@ func (r *StaticRouteReconciler) reconcileIntf(ctx context.Context, s *staticRout
 					Reason:  v1alpha1.InterfaceNotFoundReason,
 					Message: fmt.Sprintf("referenced Interface %q not found", client.ObjectKeyFromObject(intf)),
 				})
-				return nil, err
+				return nil, reconcile.TerminalError(err)
 			}
 			conditions.Set(s.StaticRoute, metav1.Condition{
 				Type:    v1alpha1.ConfiguredCondition,
@@ -413,7 +423,7 @@ func (r *StaticRouteReconciler) reconcileIntf(ctx context.Context, s *staticRout
 				Reason:  v1alpha1.CrossDeviceReferenceReason,
 				Message: fmt.Sprintf("referenced Interface %q does not belong to device %q", intf.Name, s.Device.Name),
 			})
-			return nil, fmt.Errorf("referenced Interface %q does not belong to device %q", intf.Name, s.Device.Name)
+			return nil, reconcile.TerminalError(fmt.Errorf("referenced Interface %q does not belong to device %q", intf.Name, s.Device.Name))
 		}
 		intfMap[intf.Name] = intf
 	}
@@ -430,13 +440,23 @@ func (r *StaticRouteReconciler) finalize(ctx context.Context, s *staticRouteScop
 		}
 	}()
 
-	vrf := new(v1alpha1.VRF)
-	vrf.Spec.Name = s.StaticRoute.Spec.VrfRef.Name
+	var vrf *v1alpha1.VRF
+	if s.StaticRoute.Spec.VrfRef != nil {
+		vrf = new(v1alpha1.VRF)
+		if err := r.Get(ctx, types.NamespacedName{
+			Name:      s.StaticRoute.Spec.VrfRef.Name,
+			Namespace: s.StaticRoute.Namespace,
+		}, vrf); err != nil {
+			return client.IgnoreNotFound(err)
+		}
+		if vrf.Spec.DeviceRef.Name != s.Device.Name {
+			return nil
+		}
+	}
 
-	return s.Provider.DeleteStaticRoute(ctx, &provider.StaticRouteRequest{
-		StaticRoute:    s.StaticRoute,
-		ProviderConfig: s.ProviderConfig,
-		VRF:            vrf,
+	return s.Provider.DeleteStaticRoute(ctx, &provider.DeleteStaticRouteRequest{
+		StaticRoute: s.StaticRoute,
+		VRF:         vrf,
 	})
 }
 
@@ -465,6 +485,41 @@ func (r *StaticRouteReconciler) vrfToStaticRoute(ctx context.Context, obj client
 				Name:      sr.Name,
 				Namespace: sr.Namespace,
 			})
+		}
+	}
+
+	return requests
+}
+
+// interfaceToStaticRoute is a [handler.MapFunc] to be used to enqueue requests for reconciliation
+// for StaticRoutes when their referenced Interface changes.
+func (r *StaticRouteReconciler) interfaceToStaticRoute(ctx context.Context, obj client.Object) []ctrl.Request {
+	intf, ok := obj.(*v1alpha1.Interface)
+	if !ok {
+		panic(fmt.Sprintf("Expected an Interface but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx, "Interface", klog.KObj(intf))
+
+	staticRoutes := new(v1alpha1.StaticRouteList)
+	if err := r.List(ctx, staticRoutes, client.InNamespace(intf.Namespace), client.MatchingFields{staticRouteInterfaceRefKey: intf.Name}); err != nil {
+		log.Error(err, "Failed to list StaticRoutes")
+		return nil
+	}
+
+	requests := []ctrl.Request{}
+
+	for _, sr := range staticRoutes.Items {
+		for _, nh := range sr.Spec.NextHops {
+			if nh.InterfaceRef != nil && nh.InterfaceRef.Name == intf.Name {
+				log.V(2).Info("Enqueuing StaticRoute for reconciliation due to nexthop interface change", "StaticRoute", klog.KObj(&sr))
+
+				requests = append(requests, ctrl.Request{
+					Name:      sr.Name,
+					Namespace: sr.Namespace,
+				})
+				break
+			}
 		}
 	}
 

@@ -24,22 +24,10 @@ type StaticRouteSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="DeviceRef is immutable"
 	DeviceRef LocalObjectReference `json:"deviceRef"`
 
-	// ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.
-	// This reference is used to link the Interface to its provider-specific configuration.
+	// ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this StaticRoute.
+	// This reference is used to link the StaticRoute to its provider-specific configuration.
 	// +optional
 	ProviderConfigRef *TypedLocalObjectReference `json:"providerConfigRef,omitempty"`
-
-	// Name is the name of the static route.
-	// +required
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=255
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Name is immutable"
-	Name string `json:"name"`
-
-	// Description is an optional human-readable description for this static route.
-	// +optional
-	// +kubebuilder:validation:MaxLength=255
-	Description string `json:"description,omitempty"`
 
 	// VrfRef is a reference to the VRF resource that this static route belongs to.
 	// If not specified, the static route will be part of the default VRF.
@@ -48,16 +36,18 @@ type StaticRouteSpec struct {
 	VrfRef *LocalObjectReference `json:"vrfRef,omitempty"`
 
 	// IPPrefix is the destination IP prefix for the static route.
+	// Immutable.
 	// +required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Prefix is immutable"
 	Prefix IPPrefix `json:"prefix"`
 
+	// NextHops is a list of next hop objects for the prefix.
 	// +required
 	// +kubebuilder:validation:MinItems=1
 	NextHops []*NextHop `json:"nextHops,omitempty"`
 }
 
 type NextHop struct {
-	// TODO(sven-rosenzweig): It is possible to point an a static route in a VRF to an Interface. For now this is not needed.
 	// InterfaceRef is a reference to the Interface resource that this static route is associated with.
 	// The referenced Interface must exist in the same namespace.
 	// +optional
@@ -78,7 +68,7 @@ type StaticRouteStatus struct {
 	// The conditions are a list of status objects that describe the state of the StaticRoute.
 	// +listType=map
 	// +listMapKey=type
-	// +patchStrategy=mergegit
+	// +patchStrategy=merge
 	// +patchMergeKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
@@ -86,6 +76,8 @@ type StaticRouteStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:path=staticroutes
+// +kubebuilder:resource:singular=staticroute
 // +kubebuilder:printcolumn:name="Device",type=string,JSONPath=`.spec.deviceRef.name`
 // +kubebuilder:printcolumn:name="VRF",type=string,JSONPath=`.spec.vrfRef.name`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`

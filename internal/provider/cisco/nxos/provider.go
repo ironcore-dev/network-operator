@@ -4701,7 +4701,7 @@ func NormalizeMACAddress(mac string) string {
 	return fmt.Sprintf("%s:%s:%s:%s:%s:%s", h[0:2], h[2:4], h[4:6], h[6:8], h[8:10], h[10:12])
 }
 
-func (p *Provider) EnsureStaticRoute(ctx context.Context, req *provider.StaticRouteRequest) error {
+func (p *Provider) EnsureStaticRoute(ctx context.Context, req *provider.EnsureStaticRouteRequest) error {
 	vrfName := DefaultVRFName
 	if req.VRF != nil {
 		vrfName = req.VRF.Spec.Name
@@ -4722,7 +4722,7 @@ func (p *Provider) EnsureStaticRoute(ctx context.Context, req *provider.StaticRo
 	return p.client.Update(ctx, route)
 }
 
-func (p *Provider) DeleteStaticRoute(ctx context.Context, req *provider.StaticRouteRequest) error {
+func (p *Provider) DeleteStaticRoute(ctx context.Context, req *provider.DeleteStaticRouteRequest) error {
 	vrfName := DefaultVRFName
 	if req.VRF != nil {
 		vrfName = req.VRF.Spec.Name
