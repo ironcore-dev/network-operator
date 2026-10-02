@@ -3872,6 +3872,7 @@ func (p *Provider) EnsureLLDP(ctx context.Context, req *provider.LLDPRequest) er
 		interfaceMap[intf.Name] = intf
 	}
 
+	var hasPortChannel bool
 	var desired gnmiext.List[string, *LLDPIfItem]
 	for _, ifRef := range req.LLDP.Spec.InterfaceRefs {
 		intf, ok := interfaceMap[ifRef.Name]
@@ -3887,6 +3888,10 @@ func (p *Provider) EnsureLLDP(ctx context.Context, req *provider.LLDPRequest) er
 		}
 		item.InterfaceName = name
 
+		if !hasPortChannel && intf.Spec.Type == v1alpha1.InterfaceTypeAggregate {
+			hasPortChannel = true
+		}
+
 		item.AdminRxSt = AdminStEnabled
 		item.AdminTxSt = AdminStEnabled
 
@@ -3897,6 +3902,15 @@ func (p *Provider) EnsureLLDP(ctx context.Context, req *provider.LLDPRequest) er
 		}
 
 		desired.Set(item)
+	}
+
+	if hasPortChannel {
+		l.PCEnable = AdminStEnabled
+		// Disable the dcbxp optional TLV when port-channels are referenced.
+		// The device rejects LLDP on port-channel interfaces with:
+		//   "Please disable dcbx using 'no lldp tlv-select dcbxp' before
+		//    using LLDP on Port-channels."
+		l.OptTlvSel &^= LLDPOptTLVDcbxp
 	}
 
 	// Patch desired entries and delete stale ones because parent patches only merge lists.

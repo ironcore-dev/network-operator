@@ -21,7 +21,6 @@ var (
 	_ gnmiext.Defaultable = (*LLDP)(nil)
 	_ gnmiext.DataElement = (*LLDPIfItems)(nil)
 	_ gnmiext.DataElement = (*LLDPIfItem)(nil)
-	_ gnmiext.DataElement = (*LLDPOptTLV)(nil)
 	_ gnmiext.Defaultable = (*LLDPOptTLV)(nil)
 )
 
@@ -30,6 +29,10 @@ type LLDP struct {
 	HoldTime uint16 `json:"holdTime"`
 	// InitDelay is the number of seconds for LLDP to initialize on any interface.
 	InitDelay uint16 `json:"initDelayTime"`
+	// PCEnable controls whether LLDP is enabled on port-channel interfaces (equivalent to 'lldp port-channel').
+	PCEnable AdminSt `json:"pcEnable"`
+	// OptTlvSel is the set of optional TLVs the device advertises.
+	OptTlvSel LLDPOptTLV `json:"optTlvSel"`
 }
 
 func (*LLDP) IsListItem() {}
@@ -50,6 +53,8 @@ func (*LLDPIfItems) XPath() string {
 func (l *LLDP) Default() {
 	l.HoldTime = defaultLLDPHoldTime
 	l.InitDelay = defaultLLDPInitDelay
+	l.PCEnable = AdminStDisabled
+	l.OptTlvSel.Default()
 }
 
 // LLDPOptTLV is the global LLDP optional-TLV selector. NX-OS encodes it as a
@@ -88,20 +93,8 @@ const (
 	LLDPOptTLVLinkAggregation
 )
 
-// defaultLLDPOptTLVSel is the NX-OS platform default optTlvSel bitmask.
-const defaultLLDPOptTLVSel = LLDPOptTLVPortDesc | LLDPOptTLVSysName | LLDPOptTLVSysDesc |
-	LLDPOptTLVSysCap | LLDPOptTLVMgmtAddrV4 | LLDPOptTLVMgmtAddrV6 | LLDPOptTLVPortVLAN |
-	LLDPOptTLVDcbxp | LLDPOptTLVPowerMgmt | LLDPOptTLVFourWirePwrMgmt | LLDPOptTLVMaxFramesize |
-	LLDPOptTLVVLANName | LLDPOptTLVLinkAggregation
-
-func (*LLDPOptTLV) XPath() string {
-	return "System/lldp-items/inst-items/optTlvSel"
-}
-
-// Default restores the NX-OS platform default TLV list so that deleting the
-// element resets it via replace-with-default.
 func (t *LLDPOptTLV) Default() {
-	*t = defaultLLDPOptTLVSel
+	*t = LLDPOptTLVPortDesc | LLDPOptTLVSysName | LLDPOptTLVSysDesc | LLDPOptTLVSysCap | LLDPOptTLVMgmtAddrV4 | LLDPOptTLVMgmtAddrV6 | LLDPOptTLVPortVLAN | LLDPOptTLVDcbxp | LLDPOptTLVPowerMgmt | LLDPOptTLVFourWirePwrMgmt | LLDPOptTLVMaxFramesize | LLDPOptTLVVLANName | LLDPOptTLVLinkAggregation
 }
 
 // UnmarshalText implements encoding.TextUnmarshaler.
