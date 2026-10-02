@@ -1,0 +1,130 @@
+# Test Case 4: NX-OS default BGP instance — create and delete
+#
+# Verifies that:
+# - The global BGP instance and ownership marker appear after apply
+# - Both are fully removed after deletion (no residual config)
+
+? vty show running-config bgp
+! stdout 'router bgp'
+
+apply bgp.yaml
+sleep 30s
+vty show running-config bgp
+stdout 'router bgp 65000'
+stdout 'router-id 10\.255\.0\.1'
+stdout '__operator-managed--default__'
+
+delete bgp.yaml
+sleep 30s
+? vty show running-config bgp
+! stdout 'router bgp 65000'
+! stdout '__operator-managed'
+
+# Test Case 5: NX-OS per-VRF BGP instance — create and selective delete
+#
+# Verifies that:
+# - Both VRF BGP domains and their ownership markers appear after apply
+# - Deleting one VRF-scoped BGP removes only that VRF domain and marker
+# - The other VRF domain and the global BGP instance remain untouched
+# - After deleting the second VRF-scoped BGP, the global instance is removed too
+
+apply vrf-a.yaml
+apply vrf-b.yaml
+apply bgp-a.yaml
+apply bgp-b.yaml
+sleep 30s
+
+vty show running-config bgp
+stdout 'router bgp 65000'
+stdout 'vrf TENANT_A'
+stdout '__operator-managed--TENANT_A__'
+stdout 'vrf TENANT_B'
+stdout '__operator-managed--TENANT_B__'
+
+# Delete only TENANT_A BGP — TENANT_B must remain
+delete bgp-a.yaml
+sleep 30s
+vty show running-config bgp
+! stdout '__operator-managed--TENANT_A__'
+! stdout 'vrf TENANT_A'
+stdout 'router bgp 65000'
+stdout 'vrf TENANT_B'
+stdout '__operator-managed--TENANT_B__'
+
+# Delete TENANT_B BGP — global instance must be gone too
+delete bgp-b.yaml
+sleep 30s
+? vty show running-config bgp
+! stdout 'router bgp 65000'
+! stdout '__operator-managed'
+
+delete vrf-a.yaml
+delete vrf-b.yaml
+
+-- bgp.yaml --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGP
+metadata:
+  name: default-bgp
+spec:
+  deviceRef:
+    name: device
+  asNumber: 65000
+  routerId: 10.255.0.1
+  addressFamilies:
+    ipv4Unicast:
+      enabled: true
+
+-- vrf-a.yaml --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: VRF
+metadata:
+  name: tenant-a
+spec:
+  deviceRef:
+    name: device
+  name: TENANT_A
+  routeDistinguisher: "65000:101"
+
+-- vrf-b.yaml --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: VRF
+metadata:
+  name: tenant-b
+spec:
+  deviceRef:
+    name: device
+  name: TENANT_B
+  routeDistinguisher: "65000:102"
+
+-- bgp-a.yaml --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGP
+metadata:
+  name: tenant-a-bgp
+spec:
+  deviceRef:
+    name: device
+  vrfRef:
+    name: tenant-a
+  asNumber: 65000
+  routerId: 10.255.0.11
+  addressFamilies:
+    ipv4Unicast:
+      enabled: true
+
+-- bgp-b.yaml --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGP
+metadata:
+  name: tenant-b-bgp
+spec:
+  deviceRef:
+    name: device
+  vrfRef:
+    name: tenant-b
+  asNumber: 65000
+  routerId: 10.255.0.12
+  addressFamilies:
+    ipv4Unicast:
+      enabled: true
