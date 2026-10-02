@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -57,8 +58,14 @@ var _ = Describe("StaticRoute Controller", func() {
 		})
 
 		AfterEach(func() {
-			By("Cleaning up all StaticRoute resources")
+			By("Cleaning up the StaticRoute resources")
 			Expect(k8sClient.DeleteAllOf(ctx, &v1alpha1.StaticRoute{}, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+
+			By("Waiting for StaticRoute to be fully deleted")
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, key, &v1alpha1.StaticRoute{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 
 			By("Cleaning up test VRF resource")
 			vrf := &v1alpha1.VRF{}
@@ -92,7 +99,6 @@ var _ = Describe("StaticRoute Controller", func() {
 					DeviceRef: v1alpha1.LocalObjectReference{
 						Name: name,
 					},
-					Name: "test-static-route",
 					VrfRef: &v1alpha1.LocalObjectReference{
 						Name: vrfName,
 					},
@@ -167,7 +173,6 @@ var _ = Describe("StaticRoute Controller", func() {
 					DeviceRef: v1alpha1.LocalObjectReference{
 						Name: name,
 					},
-					Name: "test-static-route-missing-vrf",
 					VrfRef: &v1alpha1.LocalObjectReference{
 						Name: "non-existent-vrf",
 					},

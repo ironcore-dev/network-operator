@@ -7,14 +7,6 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
-// defaultNexthopPref is the NX-OS platform default administrative distance for a
-// static route next hop. It is applied when the API spec does not set a metric,
-// so a repeated reconcile does not diff against the device's default.
-const (
-	defaultNexthopPref int32  = 1
-	defaultInterface   string = "unspecified"
-)
-
 var _ gnmiext.DataElement = (*StaticRoute)(nil)
 
 // StaticRoute represents a Route-list entry under a VRF's IPv4 routing domain.
@@ -29,8 +21,7 @@ type StaticRoute struct {
 func (*StaticRoute) IsListItem() {}
 
 func (r *StaticRoute) XPath() string {
-	return "System/ipv4-items/inst-items/dom-items/Dom-list[name=" + r.VRF +
-		"]/rt-items/Route-list[prefix=" + r.Prefix + "]"
+	return "System/ipv4-items/inst-items/dom-items/Dom-list[name=" + r.VRF + "]/rt-items/Route-list[prefix=" + r.Prefix + "]"
 }
 
 type StaticRouteNhItems struct {
@@ -38,31 +29,32 @@ type StaticRouteNhItems struct {
 }
 
 type StaticRouteNexthopKey struct {
-	NhVrf  string
-	NhAddr string
-	NhIf   string
-	Pref   int32
-}
-
-type StaticRouteNexthop struct {
 	NhAddr string `json:"nhAddr"`
 	NhIf   string `json:"nhIf"`
 	NhVrf  string `json:"nhVrf"`
-	Pref   int32  `json:"pref"`
+}
+
+type StaticRouteNexthop struct {
+	StaticRouteNexthopKey
+
+	Pref int32 `json:"pref"`
 }
 
 func (n *StaticRouteNexthop) Key() StaticRouteNexthopKey {
-	return StaticRouteNexthopKey{NhVrf: n.NhVrf, NhAddr: n.NhAddr, NhIf: n.NhIf, Pref: n.Pref}
+	return n.StaticRouteNexthopKey
 }
 
 func NewStaticRouteNexthop(address, vrf, intf string, metric *int32) *StaticRouteNexthop {
-	pref := defaultNexthopPref
+	// "1" and "unspecified" are the NX-OS platform default administrative distance and interface for a
+	// static route next hop. They are applied when the API spec does not set a metric,
+	// so a repeated reconcile does not diff against the device's default.
+	var pref int32 = 1
 	if metric != nil {
 		pref = *metric
 	}
 
 	if intf == "" {
-		intf = defaultInterface
+		intf = "unspecified"
 	}
 	return &StaticRouteNexthop{
 		NhVrf:  vrf,
