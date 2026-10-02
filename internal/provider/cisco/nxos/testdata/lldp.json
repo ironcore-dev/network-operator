@@ -2,7 +2,9 @@
   "lldp-items": {
     "inst-items": {
       "holdTime": 200,
-      "initDelayTime": 5
+      "initDelayTime": 5,
+      "pcEnable": "disabled",
+      "optTlvSel": "dcbxp,four-wire-pwr-mgmt,link-aggregation,max-framesize,mgmt-addr-v4,mgmt-addr-v6,port-desc,port-vlan,power-mgmt,sys-cap,sys-desc,sys-name,vlan-name"
     }
   }
 }
