@@ -42,6 +42,7 @@ var (
 	_ gnmiext.DataElement = (*AddrItem)(nil)
 	_ gnmiext.DataElement = (*IntfAddrItems)(nil)
 	_ gnmiext.DataElement = (*IntfAddr)(nil)
+	_ gnmiext.DataElement = (*NDIf)(nil)
 	_ gnmiext.DataElement = (*FabricFwdIf)(nil)
 )
 
@@ -472,6 +473,67 @@ func (a *IntfAddrItems) XPath() string {
 		return "System/ipv6-items/inst-items/dom-items/Dom-list[name=" + a.Vrf + "]/if-items/If-list[id=" + a.ID + "]/addr-items"
 	}
 	return "System/ipv4-items/inst-items/dom-items/Dom-list[name=" + a.Vrf + "]/if-items/If-list[id=" + a.ID + "]/addr-items"
+}
+
+// NDIf represents the IPv6 Neighbor Discovery configuration of an interface.
+// The device only keeps this object for as long as the interface is routed,
+// so it needs no explicit cleanup when the interface is deleted.
+type NDIf struct {
+	ID         string `json:"id"`
+	Ctrl       string `json:"ctrl"`
+	RaIntvl    int64  `json:"raIntvl"`
+	RaIntvlMin int64  `json:"raIntvlMin"`
+
+	// Vrf is the VRF Domain in which the interface is a member.
+	// This field is not serialized to JSON and is only used internally to
+	// determine the correct XPath.
+	Vrf string `json:"-"`
+}
+
+func (*NDIf) IsListItem() {}
+
+func (n *NDIf) XPath() string {
+	return "System/nd-items/inst-items/dom-items/Dom-list[name=" + n.Vrf + "]/if-items/If-list[id=" + n.ID + "]"
+}
+
+const (
+	// NDCtrlDefault is the NX-OS default for ndIf.ctrl: ICMPv6 redirects are
+	// sent and Router Advertisements are not suppressed.
+	NDCtrlDefault = "redirects"
+	// NDCtrlSuppressRA is the ndIf.ctrl flag that stops Router Advertisements
+	// from being sent ("ipv6 nd suppress-ra").
+	NDCtrlSuppressRA = "suppress-ra"
+
+	// NDRAIntervalDefault and NDRAIntervalMinDefault are the NX-OS defaults,
+	// in seconds, for the maximum and minimum Router Advertisement interval.
+	NDRAIntervalDefault    = 600
+	NDRAIntervalMinDefault = 200
+)
+
+// SetSuppressRA adds or removes the suppress-ra flag and keeps all other flags,
+// such as redirects or managed-cfg, which the operator does not manage. The
+// device reports the flags sorted, so they are kept sorted to compare equal.
+func (n *NDIf) SetSuppressRA(suppress bool) {
+	flags := slices.DeleteFunc(strings.Split(n.Ctrl, ","), func(f string) bool {
+		return f == "" || f == NDCtrlSuppressRA
+	})
+	if suppress {
+		flags = append(flags, NDCtrlSuppressRA)
+	}
+	slices.Sort(flags)
+	n.Ctrl = strings.Join(flags, ",")
+}
+
+// SetRAInterval sets the maximum Router Advertisement interval and derives the
+// minimum interval the way "ipv6 nd ra-interval" does on the device: a third of
+// the maximum, or the maximum itself where a third would drop below the smallest
+// allowed minimum of 3 seconds.
+func (n *NDIf) SetRAInterval(seconds int64) {
+	n.RaIntvl = seconds
+	n.RaIntvlMin = seconds / 3
+	if n.RaIntvlMin < 3 {
+		n.RaIntvlMin = seconds
+	}
 }
 
 type IntfAddr struct {

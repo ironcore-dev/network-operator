@@ -187,6 +187,14 @@ func init() {
 	// "ipv6 address use-link-local-only", as required for unnumbered peering.
 	Register("intf_lladdr6", &AddrItem{ID: "eth1/1", Vrf: DefaultVRFName, Is6: true, UseLinkLocalAddr: AdminStEnabled})
 
+	// "ipv6 nd suppress-ra".
+	Register("nd_if_suppress_ra", &NDIf{ID: "eth1/1", Vrf: DefaultVRFName, Ctrl: "redirects,suppress-ra", RaIntvl: NDRAIntervalDefault, RaIntvlMin: NDRAIntervalMinDefault})
+
+	// "ipv6 nd ra-interval 4", which NX-OS expands to "ipv6 nd ra-interval 4 min 4".
+	ndRA := &NDIf{ID: "eth1/1", Vrf: DefaultVRFName, Ctrl: NDCtrlDefault}
+	ndRA.SetRAInterval(4)
+	Register("nd_if_ra_interval", ndRA)
+
 	Register("pc", &PortChannel{
 		AccessVlan:     DefaultVLAN,
 		AdminSt:        AdminStUp,
@@ -288,4 +296,50 @@ func init() {
 
 	icmp := &ICMPIf{ID: "eth1/1", Ctrl: "port-unreachable"}
 	Register("rdr", icmp)
+}
+
+func TestNDIfSetRAInterval(t *testing.T) {
+	// Expected minimums as reported by "show running-config" on NX-OS 10.3(9)
+	// after "ipv6 nd ra-interval <seconds>".
+	tests := []struct {
+		seconds, wantMin int64
+	}{
+		{seconds: 4, wantMin: 4},
+		{seconds: 8, wantMin: 8},
+		{seconds: 9, wantMin: 3},
+		{seconds: 20, wantMin: 6},
+		{seconds: 600, wantMin: 200},
+		{seconds: 1800, wantMin: 600},
+	}
+	for _, test := range tests {
+		nd := new(NDIf)
+		nd.SetRAInterval(test.seconds)
+		if nd.RaIntvl != test.seconds || nd.RaIntvlMin != test.wantMin {
+			t.Errorf("SetRAInterval(%d) = %d min %d, want %d min %d", test.seconds, nd.RaIntvl, nd.RaIntvlMin, test.seconds, test.wantMin)
+		}
+	}
+}
+
+func TestNDIfSetSuppressRA(t *testing.T) {
+	// Flag lists as reported by NX-OS 10.3(9), which sorts them.
+	tests := []struct {
+		ctrl     string
+		suppress bool
+		want     string
+	}{
+		{ctrl: "redirects", suppress: true, want: "redirects,suppress-ra"},
+		{ctrl: "redirects,suppress-ra", suppress: true, want: "redirects,suppress-ra"},
+		{ctrl: "redirects,suppress-ra", suppress: false, want: "redirects"},
+		{ctrl: "managed-cfg,other-cfg", suppress: true, want: "managed-cfg,other-cfg,suppress-ra"},
+		{ctrl: "managed-cfg,other-cfg,redirects,suppress-ra", suppress: false, want: "managed-cfg,other-cfg,redirects"},
+		{ctrl: "", suppress: true, want: "suppress-ra"},
+		{ctrl: "suppress-ra", suppress: false, want: ""},
+	}
+	for _, test := range tests {
+		nd := &NDIf{Ctrl: test.ctrl}
+		nd.SetSuppressRA(test.suppress)
+		if nd.Ctrl != test.want {
+			t.Errorf("SetSuppressRA(%t) on %q = %q, want %q", test.suppress, test.ctrl, nd.Ctrl, test.want)
+		}
+	}
 }
