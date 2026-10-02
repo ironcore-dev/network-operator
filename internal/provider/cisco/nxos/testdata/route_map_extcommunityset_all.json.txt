@@ -1,0 +1,2 @@
+route-map RM-EXTCOMMUNITYSET-ALL permit 10
+ match extcommunity RT-BLUE exact-match
