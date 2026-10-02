@@ -1,0 +1,218 @@
+-- vrfs/test-vrf --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: VRF
+metadata:
+  name: test-vrf
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: test-vrf
+  description: "Test VRF"
+
+-- interfaces/eth1-1 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: eth1-1
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: eth1/1
+  description: Leaf1 to Spine1
+  adminState: Up
+  type: Physical
+  mtu: 9216
+  ipv4:
+    addresses:
+      - 10.0.1.1/30
+
+-- staticroutes/test-vrf-route --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: StaticRoute
+metadata:
+  name: test-vrf-route
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: test-vrf-route
+  description: Default route to internet gateway
+  prefix: "172.16.0.0/16"
+  nextHops:
+    - address: "11.0.100.1"
+      metric: 15
+    - address: "12.0.100.1"
+      metric: 30
+      interfaceRef:
+        name: "eth1-1"
+  vrfRef:
+    name: "test-vrf"
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+{
+        "System": {
+          "procsys-items": {
+            "bootTime": "1700000000"
+          },
+          "inst-items": {
+            "Inst-list": [
+              {
+                "name": "test-vrf",
+                "descr": "Test VRF",
+                "dom-items": {
+                  "Dom-list": [
+                    {
+                      "name": "test-vrf",
+                      "rd": "DME_UNSET_PROPERTY_MARKER"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "intf-items": {
+            "phys-items": {
+              "PhysIf-list": [
+                {
+                  "accessVlan": "unknown",
+                  "adminSt": "up",
+                  "descr": "Leaf1 to Spine1",
+                  "FECMode": "auto",
+                  "id": "eth1/1",
+                  "layer": "Layer3",
+                  "mtu": 9216,
+                  "medium": "broadcast",
+                  "mode": "access",
+                  "nativeVlan": "unknown",
+                  "userCfgdFlags": "admin_layer,admin_mtu,admin_state",
+                  "rtvrfMbr-items": {
+                    "tDn": "/System/inst-items/Inst-list[name='default']"
+                  },
+                  "physExtd-items": {
+                    "bufferBoost": "enable"
+                  }
+                }
+              ]
+            }
+          },
+          "ipv4-items": {
+            "inst-items": {
+              "dom-items": {
+                "Dom-list": [
+                  {
+                    "name": "default",
+                    "if-items": {
+                      "If-list": [
+                        {
+                          "id": "eth1/1",
+                          "addr-items": {
+                            "Addr-list": [
+                              {
+                                "addr": "10.0.1.1/30",
+                                "pref": 0,
+                                "tag": 0,
+                                "type": "primary"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "test-vrf",
+                    "rt-items": {
+                      "Route-list": [
+                        {
+                          "prefix": "172.16.0.0/16",
+                          "nh-items": {
+                            "Nexthop-list": [
+                              {
+                                "nhAddr": "11.0.100.1",
+                                "nhIf": "unspecified",
+                                "nhVrf": "test-vrf",
+                                "pref": 15
+                              },
+                              {
+                                "nhAddr": "12.0.100.1",
+                                "nhIf": "eth1/1",
+                                "nhVrf": "test-vrf",
+                                "pref": 30
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+
+-- state/delete --
+ {
+        "System": {
+          "procsys-items": {
+            "bootTime": "1700000000"
+          },
+          "inst-items": {
+            "Inst-list": []
+          },
+          "intf-items": {
+            "phys-items": {
+              "PhysIf-list": [
+                {
+                  "accessVlan": "vlan-1",
+                  "descr": "DME_UNSET_PROPERTY_MARKER",
+                  "FECMode": "auto",
+                  "id": "eth1/1",
+                  "layer": "Layer2",
+                  "mtu": 1500,
+                  "medium": "broadcast",
+                  "mode": "access",
+                  "nativeVlan": "vlan-1",
+                  "userCfgdFlags": "",
+                  "physExtd-items": {
+                    "bufferBoost": "enable"
+                  },
+                  "trunkVlans": "1-4094"
+                }
+              ]
+            }
+          },
+          "ipv4-items": {
+            "inst-items": {
+              "dom-items": {
+                "Dom-list": [
+                  {
+                    "name": "default",
+                    "if-items": {
+                      "If-list": []
+                    }
+                  },
+                  {
+                    "name": "test-vrf",
+                    "rt-items": {
+                      "Route-list": []
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
