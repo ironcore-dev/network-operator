@@ -64,9 +64,13 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 
 	case v1alpha1.InterfaceTypeAggregate:
 		i.Config.Type = InterfaceTypeIEEE8023adLag
+		lagType := LagTypeLACP
+		if spec.Aggregation.ControlProtocol.Mode == v1alpha1.LACPModeStatic {
+			lagType = LagTypeStatic
+		}
 		i.Aggregation = &InterfaceAggregation{
 			Config: &InterfaceAggregationConfig{
-				LagType: LagTypeLACP,
+				LagType: lagType,
 			},
 		}
 		if req.MultiChassisID != nil {
@@ -409,7 +413,8 @@ const (
 type LagType string
 
 const (
-	LagTypeLACP LagType = "LACP"
+	LagTypeLACP   LagType = "LACP"
+	LagTypeStatic LagType = "STATIC"
 )
 
 // Compile-time assertions.

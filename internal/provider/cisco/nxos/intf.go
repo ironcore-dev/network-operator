@@ -694,6 +694,7 @@ type PortChannelMode string
 const (
 	PortChannelModeActive  PortChannelMode = "active"
 	PortChannelModePassive PortChannelMode = "passive"
+	PortChannelModeOn      PortChannelMode = "on"
 )
 
 type MultisiteIfTrackingMode string

@@ -1031,6 +1031,15 @@ type ProviderConfig struct { //nolint:revive // stutter is intentional; Provider
 	obj *unstructured.Unstructured
 }
 
+// NewProviderConfig wraps a typed object as a ProviderConfig.
+func NewProviderConfig(obj any) (*ProviderConfig, error) {
+	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return nil, err
+	}
+	return &ProviderConfig{obj: &unstructured.Unstructured{Object: raw}}, nil
+}
+
 // Into converts the underlying unstructured object into the specified type.
 func (p ProviderConfig) Into(v any) error {
 	return runtime.DefaultUnstructuredConverter.FromUnstructured(p.obj.Object, v)

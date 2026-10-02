@@ -395,7 +395,7 @@ type ControlProtocol struct {
 }
 
 // LACPMode represents the LACP mode of an interface.
-// +kubebuilder:validation:Enum=Active;Passive
+// +kubebuilder:validation:Enum=Active;Passive;Static
 type LACPMode string
 
 const (
@@ -403,6 +403,8 @@ const (
 	LACPModeActive LACPMode = "Active"
 	// LACPModePassive indicates that LACP is in passive mode.
 	LACPModePassive LACPMode = "Passive"
+	// LACPModeStatic indicates a static port-channel with no LACP (mode on).
+	LACPModeStatic LACPMode = "Static"
 )
 
 type MultiChassis struct {
