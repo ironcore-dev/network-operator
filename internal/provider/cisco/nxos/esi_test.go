@@ -29,7 +29,7 @@ func init() {
 		AdminSt:         AdminStEnabled,
 		DfElectionMode:  DfElectModeModulo,
 		DfElectionTime:  "2.2",
-		FrrAnycastSrcIP: "10.0.0.1",
+		FrrAnycastSrcIP: NewOption("10.0.0.1"),
 	})
 
 	Register("esi_evpn_multicast", &EvpnMulticastItems{

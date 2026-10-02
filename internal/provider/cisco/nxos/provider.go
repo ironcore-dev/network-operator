@@ -4013,7 +4013,7 @@ func (p *Provider) EnsureEthernetSegment(ctx context.Context, req *provider.Ensu
 				Description: fmt.Sprintf("invalid IP address %q", ip),
 			})
 		}
-		mh.FrrAnycastSrcIP = addr.String()
+		mh.FrrAnycastSrcIP = NewOption(addr.String())
 	}
 	sb.Patch(mh)
 

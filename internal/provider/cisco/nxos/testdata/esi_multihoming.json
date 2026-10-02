@@ -4,7 +4,8 @@
       "eadEviRoute": true,
       "state": "enabled",
       "dfElectionMode": "modulo",
-      "dfElectionTime": "2.2"
+      "dfElectionTime": "2.2",
+      "frrAnycastSrcIp": "DME_UNSET_PROPERTY_MARKER"
     }
   }
 }
