@@ -4062,6 +4062,22 @@ func (p *Provider) EnsureEthernetSegment(ctx context.Context, req *provider.Ensu
 	if df := req.EthernetSegment.Spec.DesignatedForwarder; df != nil && df.ElectionWaitTime != nil {
 		mh.DfElectionTime = fmt.Sprintf("%g", df.ElectionWaitTime.Seconds())
 	}
+	var cfg nxv1alpha1.EthernetSegmentConfig
+	if req.ProviderConfig != nil {
+		if err := req.ProviderConfig.Into(&cfg); err != nil {
+			return err
+		}
+	}
+	if ip := cfg.Spec.FRRAnycastSourceIP; ip != "" {
+		addr, err := netip.ParseAddr(ip)
+		if err != nil {
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "spec.frrAnycastSourceIP",
+				Description: fmt.Sprintf("invalid IP address %q", ip),
+			})
+		}
+		mh.FrrAnycastSrcIP = NewOption(addr.String())
+	}
 	sb.Patch(mh)
 
 	mm := new(EvpnMulticastItems)

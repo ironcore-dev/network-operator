@@ -42,11 +42,24 @@ spec:
     name: device
   interfaceRef:
     name: port-channel-10
+  providerConfigRef:
+    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+    kind: EthernetSegmentConfig
+    name: esi-mh-config
   esiType: Arbitrary
   esi: "00:11:22:33:44:55:66:77:88:01"
   redundancyMode: AllActive
   designatedForwarder:
     electionMode: Default
+
+-- ethernetsegmentconfigs/esi-mh-config --
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: EthernetSegmentConfig
+metadata:
+  name: esi-mh-config
+  namespace: default
+spec:
+  frrAnycastSourceIP: "10.0.0.1"
 
 -- state/preload --
 {
@@ -68,6 +81,7 @@ spec:
         "dfElectionMode": "modulo",
         "dfElectionTime": "3.0",
         "eadEviRoute": true,
+        "frrAnycastSrcIp": "10.0.0.1",
         "state": "enabled"
       }
     },
