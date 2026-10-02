@@ -23,9 +23,11 @@ spec:
             communities:
               - "65137:100"
               - "65137:200"
+            options: ADD
           setExtCommunity:
             communities:
               - "65137:100"
+            options: ADD
     - sequence: 20
       conditions:
         matchPrefixSet:
