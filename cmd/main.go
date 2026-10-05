@@ -907,6 +907,13 @@ func main() { //nolint:gocyclo
 		setupLog.Error(err, "Failed to create controller", "controller", "NetworkAttachment")
 		os.Exit(1)
 	}
+	if err := (&overlaycontroller.RoutingDomainReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "overlay-routingdomain")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {

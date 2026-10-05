@@ -3081,6 +3081,7 @@ _Appears in:_
 - [NTPSpec](#ntpspec)
 - [NetworkAttachmentInterfaceStatus](#networkattachmentinterfacestatus)
 - [NetworkAttachmentSpec](#networkattachmentspec)
+- [NetworkSpec](#networkspec)
 - [NetworkVirtualizationEdgeSpec](#networkvirtualizationedgespec)
 - [NextHop](#nexthop)
 - [OSPFInterface](#ospfinterface)
@@ -6275,6 +6276,7 @@ Package v1alpha1 contains API Schema definitions for the overlay.networking.meta
 ### Resource Types
 - [Network](#network)
 - [NetworkAttachment](#networkattachment)
+- [RoutingDomain](#routingdomain)
 
 
 
@@ -6310,6 +6312,22 @@ _Appears in:_
 | Field | Description |
 | --- | --- |
 | `VLAN` | EncapsulationTypeVLAN uses IEEE 802.1Q VLAN tagging.<br /> |
+
+
+#### IPv4
+
+
+
+
+
+
+
+_Appears in:_
+- [NetworkSpec](#networkspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `cidr` _string_ | Address is the IP prefix for the SVI's Anycast Gateway |  |  |
 
 
 #### Network
@@ -6414,6 +6432,10 @@ NetworkSpec defines the desired state of Network
 _Appears in:_
 - [Network](#network)
 
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `routingDomainRef` _[LocalObjectReference](#localobjectreference)_ |  |  |  |
+| `ipv4` _[IPv4](#ipv4)_ |  |  |  |
 
 
 #### NetworkStatus
@@ -6430,6 +6452,57 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the Network resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+
+
+#### RoutingDomain
+
+
+
+RoutingDomain is the Schema for the routingdomains API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `overlay.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `RoutingDomain` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  | Optional: \{\} <br /> |
+| `spec` _[RoutingDomainSpec](#routingdomainspec)_ | spec defines the desired state of RoutingDomain |  | Required: \{\} <br /> |
+| `status` _[RoutingDomainStatus](#routingdomainstatus)_ | status defines the observed state of RoutingDomain |  | Optional: \{\} <br /> |
+
+
+#### RoutingDomainSpec
+
+
+
+RoutingDomainSpec defines the desired state of RoutingDomain
+
+
+
+_Appears in:_
+- [RoutingDomain](#routingdomain)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ |  |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
+
+
+#### RoutingDomainStatus
+
+
+
+RoutingDomainStatus defines the observed state of RoutingDomain.
+
+
+
+_Appears in:_
+- [RoutingDomain](#routingdomain)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the RoutingDomain. |  | Optional: \{\} <br /> |
 
 
 

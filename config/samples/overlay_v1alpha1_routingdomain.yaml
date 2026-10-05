@@ -1,0 +1,9 @@
+apiVersion: overlay.networking.metal.ironcore.dev/v1alpha1
+kind: RoutingDomain
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: routingdomain-sample
+spec:
+  name: routingdomain-sample

@@ -242,6 +242,7 @@ rules:
   resources:
   - networkattachments
   - networks
+  - routingdomains
   verbs:
   - create
   - delete
@@ -255,6 +256,7 @@ rules:
   resources:
   - networkattachments/finalizers
   - networks/finalizers
+  - routingdomains/finalizers
   verbs:
   - update
 - apiGroups:
@@ -262,6 +264,7 @@ rules:
   resources:
   - networkattachments/status
   - networks/status
+  - routingdomains/status
   verbs:
   - get
   - patch
