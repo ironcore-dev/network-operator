@@ -176,3 +176,6 @@ resources:
 - overlay_network_admin_role.yaml
 - overlay_network_editor_role.yaml
 - overlay_network_viewer_role.yaml
+- overlay_routingdomain_admin_role.yaml
+- overlay_routingdomain_editor_role.yaml
+- overlay_routingdomain_viewer_role.yaml
