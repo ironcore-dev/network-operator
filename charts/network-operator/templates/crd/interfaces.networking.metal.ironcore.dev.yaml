@@ -110,6 +110,7 @@ spec:
                         enum:
                         - Active
                         - Passive
+                        - Static
                         type: string
                     required:
                     - mode

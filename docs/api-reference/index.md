@@ -1864,7 +1864,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `mode` _[LACPMode](#lacpmode)_ | Mode defines the LACP mode for the aggregate interface. |  | Enum: [Active Passive] <br />Required: \{\} <br /> |
+| `mode` _[LACPMode](#lacpmode)_ | Mode defines the LACP mode for the aggregate interface. |  | Enum: [Active Passive Static] <br />Required: \{\} <br /> |
 
 
 #### DFElectionMode
@@ -2796,7 +2796,7 @@ _Underlying type:_ _string_
 LACPMode represents the LACP mode of an interface.
 
 _Validation:_
-- Enum: [Active Passive]
+- Enum: [Active Passive Static]
 
 _Appears in:_
 - [ControlProtocol](#controlprotocol)
@@ -2805,6 +2805,7 @@ _Appears in:_
 | --- | --- |
 | `Active` | LACPModeActive indicates that LACP is in active mode.<br /> |
 | `Passive` | LACPModePassive indicates that LACP is in passive mode.<br /> |
+| `Static` | LACPModeStatic indicates a static port-channel with no LACP (mode on).<br /> |
 
 
 #### LLDP
