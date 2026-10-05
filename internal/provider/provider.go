@@ -546,6 +546,9 @@ type EnsureBGPPeerRequest struct {
 	BGPPeer         *v1alpha1.BGPPeer
 	ProviderConfig  *ProviderConfig
 	SourceInterface string
+	// PeerInterface is the device-level name of the interface an unnumbered
+	// (interface-based) peer is reachable over. Empty for peers with an address.
+	PeerInterface string
 	// BGP is the resolved BGP instance referenced by BGPPeer.Spec.BgpRef.
 	BGP *v1alpha1.BGP
 	// VRF is the resolved VRF referenced by BGP.Spec.VrfRef.
@@ -561,6 +564,9 @@ type EnsureBGPPeerRequest struct {
 
 type DeleteBGPPeerRequest struct {
 	BGPPeer *v1alpha1.BGPPeer
+	// PeerInterface is the device-level name of the interface an unnumbered
+	// (interface-based) peer is reachable over. Empty for peers with an address.
+	PeerInterface string
 	// BGP is the resolved BGP instance referenced by BGPPeer.Spec.BgpRef.
 	BGP *v1alpha1.BGP
 	// VRF is the resolved VRF referenced by BGP.Spec.VrfRef.
@@ -571,6 +577,9 @@ type DeleteBGPPeerRequest struct {
 type BGPPeerStatusRequest struct {
 	BGPPeer        *v1alpha1.BGPPeer
 	ProviderConfig *ProviderConfig
+	// PeerInterface is the device-level name of the interface an unnumbered
+	// (interface-based) peer is reachable over. Empty for peers with an address.
+	PeerInterface string
 	// VRF is the resolved VRF referenced by the BGP instance of this peer.
 	// When nil, the provider shall use the default VRF.
 	VRF *v1alpha1.VRF
@@ -702,6 +711,23 @@ type PrefixSetRequest struct {
 
 type DeletePrefixSetRequest struct {
 	PrefixSet *v1alpha1.PrefixSet
+}
+
+// CommunitySetProvider is the interface for the realization of CommunitySet objects over different providers.
+type CommunitySetProvider interface {
+	Provider
+
+	EnsureCommunitySet(context.Context, *CommunitySetRequest) error
+	DeleteCommunitySet(context.Context, *CommunitySetDeleteRequest) error
+}
+
+type CommunitySetRequest struct {
+	CommunitySet   *v1alpha1.CommunitySet
+	ProviderConfig *ProviderConfig
+}
+
+type CommunitySetDeleteRequest struct {
+	CommunitySet *v1alpha1.CommunitySet
 }
 
 // RoutingPolicyProvider is the interface for the realization of the RoutingPolicy objects over different providers.

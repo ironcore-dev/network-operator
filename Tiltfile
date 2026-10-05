@@ -135,6 +135,9 @@ k8s_resource(new_name='bgp', objects=['bgp:bgp'], trigger_mode=TRIGGER_MODE_MANU
 k8s_resource(new_name='bgp-vrf-cc-admin', objects=['bgp-vrf-cc-admin:bgp'], resource_deps=['vrf-admin'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='bgp-rdst', objects=['bgp-rdst:bgp'], resource_deps=['bgp-import-policy'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
+k8s_yaml('./config/samples/v1alpha1_communityset.yaml')
+k8s_resource(new_name='communityset', objects=['communityset:communityset'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
 k8s_yaml('./config/samples/cisco/nx/v1alpha1_bgpconfig.yaml')
 k8s_resource(new_name='bgpconfig-adv-pip', objects=['bgpconfig-adv-pip:bgpconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='bgpconfig-export-gw', objects=['bgpconfig-export-gw:bgpconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
@@ -144,6 +147,7 @@ k8s_yaml('./config/samples/v1alpha1_bgppeer.yaml')
 k8s_resource(new_name='peer-spine1', objects=['leaf1-spine1:bgppeer'], resource_deps=['bgp', 'lo0'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='peer-spine2', objects=['leaf1-spine2:bgppeer'], resource_deps=['bgp', 'lo0'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='peer-spine1-filtered', objects=['leaf1-spine1-filtered:bgppeer'], resource_deps=['bgp', 'lo0', 'bgp-import-policy'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='peer-spine1-unnumbered', objects=['leaf1-spine1-unnumbered:bgppeer'], resource_deps=['bgp', 'eth1-4'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_ospf.yaml')
 k8s_resource(new_name='ospf-underlay', objects=['underlay:ospf'], resource_deps=['lo0', 'lo1', 'eth1-1', 'eth1-2'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])

@@ -351,6 +351,14 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 	}).SetupWithManager(ctx, mgr)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&core.CommunitySetReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: recorder,
+		Locker:   locker,
+	}).SetupWithManager(ctx, mgr)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&nxcontroller.SystemReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),

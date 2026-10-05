@@ -1,0 +1,5 @@
+router bgp 65000
+  neighbor Ethernet1/1
+    description Unnumbered peering with spine
+    remote-as external
+    address-family ipv4 unicast

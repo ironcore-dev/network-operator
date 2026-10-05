@@ -814,16 +814,50 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		return apistatus.NewFailedPreconditionError(fmt.Sprintf("bgp peer: BGP instance %q must be configured on the device before peers can be realized: %v", bgp.Name, err))
 	}
 
-	pe := new(BGPPeer)
-	pe.VRFName = bgp.Name
-	pe.Addr = req.BGPPeer.Spec.Address
-	pe.AdminSt = AdminStEnabled
+	adminSt := AdminStEnabled
 	if req.BGPPeer.Spec.AdminState == v1alpha1.AdminStateDown {
-		pe.AdminSt = AdminStDisabled
+		adminSt = AdminStDisabled
 	}
-	pe.Asn = req.BGPPeer.Spec.ASNumber.String()
-	pe.AsnType = PeerAsnTypeNone
-	pe.Name = req.BGPPeer.Spec.Description
+
+	// A peer with a dynamic AS number carries no AS number of its own.
+	asn, asnType := req.BGPPeer.Spec.ASNumber.String(), PeerAsnTypeNone
+	if req.BGPPeer.Spec.IsExternalASNumber() {
+		asn, asnType = "", PeerAsnTypeExternal
+	}
+
+	localAsn, err := bgpPeerLocalAsn(req)
+	if err != nil {
+		return err
+	}
+
+	base := BGPPeer{
+		VRFName:       bgp.Name,
+		AdminSt:       adminSt,
+		Asn:           asn,
+		AsnType:       asnType,
+		Name:          req.BGPPeer.Spec.Description,
+		LocalAsnItems: localAsn,
+	}
+	base.AfItems.PeerAfList = bgpPeerAfItems(req)
+
+	// Unnumbered peers are identified by the interface they are reachable over instead
+	// of by an address, and are configured under a separate list on the device.
+	if req.PeerInterface != "" {
+		id, err := ShortName(req.PeerInterface)
+		if err != nil {
+			return fmt.Errorf("bgp peer: invalid peer interface name %q: %w", req.PeerInterface, err)
+		}
+
+		return p.client.Update(ctx, &BGPPeerIf{BGPPeer: base, ID: id})
+	}
+
+	pe := &BGPPeerAddr{BGPPeer: base, Addr: req.BGPPeer.Spec.Address}
+
+	// eBGP multihop only applies to peers reached at an address; an unnumbered peer is
+	// directly connected by construction.
+	if req.BGPPeer.Spec.TTL != nil {
+		pe.TTL = NewOption(*req.BGPPeer.Spec.TTL)
+	}
 
 	if req.SourceInterface != "" {
 		srcIf, err := ShortName(req.SourceInterface)
@@ -833,80 +867,101 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		pe.SrcIf = srcIf
 	}
 
-	if req.BGPPeer.Spec.TTL != nil {
-		pe.TTL = NewOption(*req.BGPPeer.Spec.TTL)
-	}
-
-	if req.BGPPeer.Spec.LocalAS != nil {
-		if req.BGPPeer.Spec.LocalAS.ASNumber.String() == req.BGP.Spec.ASNumber.String() {
-			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
-				Field:       "spec.localAS",
-				Description: "local-as cannot be configured on iBGP peers",
-			})
-		}
-
-		pe.LocalAsnItems.LocalAsn = req.BGPPeer.Spec.LocalAS.ASNumber.String()
-
-		prependLocalAS := req.BGPPeer.Spec.LocalAS.PrependLocalAS == nil || *req.BGPPeer.Spec.LocalAS.PrependLocalAS
-		prependGlobalAS := req.BGPPeer.Spec.LocalAS.PrependGlobalAS == nil || *req.BGPPeer.Spec.LocalAS.PrependGlobalAS
-
-		switch {
-		case !prependLocalAS && prependGlobalAS:
-			pe.LocalAsnItems.AsnPropagate = AsnPropagateNoPrep
-		case !prependLocalAS && !prependGlobalAS:
-			pe.LocalAsnItems.AsnPropagate = AsnPropagateReplaceAs
-		case prependLocalAS && !prependGlobalAS:
-			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
-				Field:       "spec.localAS.prependGlobalAS",
-				Description: "prependGlobalAS=false (replace-as mode) requires prependLocalAS=false (no-prepend on inbound)",
-			})
-		default:
-			pe.LocalAsnItems.AsnPropagate = AsnPropagateNone
-		}
-	}
-
-	if req.BGPPeer.Spec.AddressFamilies != nil {
-		for t, af := range map[AddressFamily]*v1alpha1.BGPPeerAddressFamily{
-			AddressFamilyIPv4Unicast: req.BGPPeer.Spec.AddressFamilies.Ipv4Unicast,
-			AddressFamilyIPv6Unicast: req.BGPPeer.Spec.AddressFamilies.Ipv6Unicast,
-			AddressFamilyL2EVPN:      req.BGPPeer.Spec.AddressFamilies.L2vpnEvpn,
-		} {
-			if af == nil || !af.Enabled {
-				continue
-			}
-			item := new(BGPPeerAfItem)
-			item.Type = t
-			item.SendComStd = AdminStDisabled
-			if af.SendCommunity == v1alpha1.BGPCommunityTypeStandard || af.SendCommunity == v1alpha1.BGPCommunityTypeBoth {
-				item.SendComStd = AdminStEnabled
-			}
-			item.SendComExt = AdminStDisabled
-			if af.SendCommunity == v1alpha1.BGPCommunityTypeExtended || af.SendCommunity == v1alpha1.BGPCommunityTypeBoth {
-				item.SendComExt = AdminStEnabled
-			}
-			if af.RouteReflectorClient {
-				item.Ctrl = NewOption(RouteReflectorClient)
-			}
-			afType := t.ToAddressFamilyType()
-			if name, ok := req.InboundRoutingPolicies[afType]; ok {
-				item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionIn, RtMap: name})
-			}
-			if name, ok := req.OutboundRoutingPolicies[afType]; ok {
-				item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionOut, RtMap: name})
-			}
-			pe.AfItems.PeerAfList.Set(item)
-		}
-	}
-
 	return p.client.Update(ctx, pe)
 }
 
-func (p *Provider) DeleteBGPPeer(ctx context.Context, req *provider.DeleteBGPPeerRequest) error {
-	b := new(BGPPeer)
-	b.VRFName = DefaultVRFName
-	if req.VRF != nil {
-		b.VRFName = req.VRF.Spec.Name
+// bgpPeerLocalAsn builds the local AS configuration shared by both peer kinds.
+func bgpPeerLocalAsn(req *provider.EnsureBGPPeerRequest) (items BGPPeerLocalAsn, err error) {
+	if req.BGPPeer.Spec.LocalAS == nil {
+		return items, nil
 	}
+
+	if req.BGPPeer.Spec.LocalAS.ASNumber.String() == req.BGP.Spec.ASNumber.String() {
+		return items, apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+			Field:       "spec.localAS",
+			Description: "local-as cannot be configured on iBGP peers",
+		})
+	}
+
+	items.LocalAsn = req.BGPPeer.Spec.LocalAS.ASNumber.String()
+
+	prependLocalAS := req.BGPPeer.Spec.LocalAS.PrependLocalAS == nil || *req.BGPPeer.Spec.LocalAS.PrependLocalAS
+	prependGlobalAS := req.BGPPeer.Spec.LocalAS.PrependGlobalAS == nil || *req.BGPPeer.Spec.LocalAS.PrependGlobalAS
+
+	switch {
+	case !prependLocalAS && prependGlobalAS:
+		items.AsnPropagate = AsnPropagateNoPrep
+	case !prependLocalAS && !prependGlobalAS:
+		items.AsnPropagate = AsnPropagateReplaceAs
+	case prependLocalAS && !prependGlobalAS:
+		return items, apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+			Field:       "spec.localAS.prependGlobalAS",
+			Description: "prependGlobalAS=false (replace-as mode) requires prependLocalAS=false (no-prepend on inbound)",
+		})
+	default:
+		items.AsnPropagate = AsnPropagateNone
+	}
+
+	return items, nil
+}
+
+// bgpPeerAfItems builds the per-address-family configuration shared by both peer kinds.
+func bgpPeerAfItems(req *provider.EnsureBGPPeerRequest) gnmiext.List[AddressFamily, *BGPPeerAfItem] {
+	var list gnmiext.List[AddressFamily, *BGPPeerAfItem]
+	if req.BGPPeer.Spec.AddressFamilies == nil {
+		return list
+	}
+
+	for t, af := range map[AddressFamily]*v1alpha1.BGPPeerAddressFamily{
+		AddressFamilyIPv4Unicast: req.BGPPeer.Spec.AddressFamilies.Ipv4Unicast,
+		AddressFamilyIPv6Unicast: req.BGPPeer.Spec.AddressFamilies.Ipv6Unicast,
+		AddressFamilyL2EVPN:      req.BGPPeer.Spec.AddressFamilies.L2vpnEvpn,
+	} {
+		if af == nil || !af.Enabled {
+			continue
+		}
+		item := new(BGPPeerAfItem)
+		item.Type = t
+		item.SendComStd = AdminStDisabled
+		if af.SendCommunity == v1alpha1.BGPCommunityTypeStandard || af.SendCommunity == v1alpha1.BGPCommunityTypeBoth {
+			item.SendComStd = AdminStEnabled
+		}
+		item.SendComExt = AdminStDisabled
+		if af.SendCommunity == v1alpha1.BGPCommunityTypeExtended || af.SendCommunity == v1alpha1.BGPCommunityTypeBoth {
+			item.SendComExt = AdminStEnabled
+		}
+		if af.RouteReflectorClient {
+			item.Ctrl = NewOption(RouteReflectorClient)
+		}
+		afType := t.ToAddressFamilyType()
+		if name, ok := req.InboundRoutingPolicies[afType]; ok {
+			item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionIn, RtMap: name})
+		}
+		if name, ok := req.OutboundRoutingPolicies[afType]; ok {
+			item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionOut, RtMap: name})
+		}
+		list.Set(item)
+	}
+
+	return list
+}
+
+func (p *Provider) DeleteBGPPeer(ctx context.Context, req *provider.DeleteBGPPeerRequest) error {
+	vrfName := DefaultVRFName
+	if req.VRF != nil {
+		vrfName = req.VRF.Spec.Name
+	}
+
+	if req.PeerInterface != "" {
+		id, err := ShortName(req.PeerInterface)
+		if err != nil {
+			return fmt.Errorf("bgp peer: invalid peer interface name %q: %w", req.PeerInterface, err)
+		}
+		return p.client.Delete(ctx, &BGPPeerIf{VRFName: vrfName, ID: id})
+	}
+
+	b := new(BGPPeerAddr)
+	b.VRFName = vrfName
 	b.Addr = req.BGPPeer.Spec.Address
 	return p.client.Delete(ctx, b)
 }
@@ -918,7 +973,32 @@ func (p *Provider) GetPeerStatus(ctx context.Context, req *provider.BGPPeerStatu
 		ps.VRFName = req.VRF.Spec.Name
 	}
 	ps.Addr = req.BGPPeer.Spec.Address
-	if err := p.client.GetState(ctx, ps); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+
+	// An unnumbered peer has no address of its own: its entry is keyed by the link-local
+	// address learned at runtime, so the whole entry container is retrieved instead.
+	if req.PeerInterface != "" {
+		id, err := ShortName(req.PeerInterface)
+		if err != nil {
+			return provider.BGPPeerStatus{}, fmt.Errorf("bgp peer status: invalid peer interface name %q: %w", req.PeerInterface, err)
+		}
+		ents := &BGPPeerIfOperItems{VRFName: ps.VRFName, ID: id}
+		if err := p.client.GetState(ctx, ents); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return provider.BGPPeerStatus{}, err
+		}
+		if len(ents.PeerEntryList) == 0 {
+			return provider.BGPPeerStatus{SessionState: v1alpha1.BGPPeerSessionStateIdle}, nil
+		}
+		// NX-OS models interface peering as dynamic prefix peering, so the interface can
+		// hold an entry per neighbour discovered on the link. The established session is
+		// the one the BGPPeer reports on; without one, any entry describes the state.
+		ps = ents.PeerEntryList[0]
+		for _, ent := range ents.PeerEntryList {
+			if ent.OperSt == BGPPeerOperStEstablished {
+				ps = ent
+				break
+			}
+		}
+	} else if err := p.client.GetState(ctx, ps); err != nil && !errors.Is(err, gnmiext.ErrNil) {
 		return provider.BGPPeerStatus{}, err
 	}
 

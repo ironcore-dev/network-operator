@@ -333,6 +333,7 @@ Package v1alpha1 contains API Schema definitions for the networking.metal.ironco
 - [BGPPeer](#bgppeer)
 - [Banner](#banner)
 - [Certificate](#certificate)
+- [CommunitySet](#communityset)
 - [ConfigBackup](#configbackup)
 - [ConsoleConnection](#consoleconnection)
 - [DHCPRelay](#dhcprelay)
@@ -1056,10 +1057,11 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
 | `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration of this interface.<br />This reference is used to link the BGPPeer to its provider-specific configuration. |  | Optional: \{\} <br /> |
-| `bgpRef` _[LocalObjectReference](#localobjectreference)_ | BgpRef is a reference to the BGP instance this peer belongs to.<br />The BGP object must exist in the same namespace. |  | Required: \{\} <br /> |
+| `bgpRef` _[LocalObjectReference](#localobjectreference)_ | BgpRef is a reference to the BGP instance this peer belongs to.<br />The BGP object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
 | `adminState` _[AdminState](#adminstate)_ | AdminState indicates whether this BGP peer is administratively up or down.<br />When Down, the BGP session with this peer is administratively shut down. | Up | Enum: [Up Down] <br />Optional: \{\} <br /> |
-| `address` _string_ | Address is the IPv4 address of the BGP peer. |  | Format: ipv4 <br />Required: \{\} <br /> |
-| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number (ASN) of the BGP peer.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
+| `address` _string_ | Address is the IPv4 address of the BGP peer.<br />Mutually exclusive with InterfaceRef: exactly one of both must be specified.<br />Immutable. |  | Format: ipv4 <br />Optional: \{\} <br /> |
+| `interfaceRef` _[LocalObjectReference](#localobjectreference)_ | InterfaceRef is a reference to an Interface resource over which an unnumbered<br />(interface-based) BGP session is established. The peers discover each other over<br />their IPv6 link-local addresses, so the link needs no addressing of its own.<br />The referenced Interface must belong to the same Device, exist in the same namespace,<br />and be configured for link-local operation (spec.ipv6.useLinkLocalOnly).<br />Mutually exclusive with Address: exactly one of both must be specified.<br />Immutable. |  | Optional: \{\} <br /> |
+| `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | ASNumber is the autonomous system number (ASN) of the BGP peer.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396.<br />The special value "external" configures a dynamic AS number, accepting any AS number<br />that differs from the local one. It is only valid together with InterfaceRef. |  | Required: \{\} <br /> |
 | `description` _string_ | Description is an optional human-readable description for this BGP peer.<br />This field is used for documentation purposes and may be displayed in management interfaces. |  | Optional: \{\} <br /> |
 | `localAddress` _[BGPPeerLocalAddress](#bgppeerlocaladdress)_ | LocalAddress specifies the local address configuration for the BGP session with this peer.<br />This determines the source address/interface for BGP packets sent to this peer. |  | Optional: \{\} <br /> |
 | `addressFamilies` _[BGPPeerAddressFamilies](#bgppeeraddressfamilies)_ | AddressFamilies configures address family specific settings for this BGP peer.<br />Controls which address families are enabled and their specific configuration. |  | Optional: \{\} <br /> |
@@ -1084,6 +1086,7 @@ _Appears in:_
 | `lastEstablishedTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | LastEstablishedTime is the timestamp when the BGP session last transitioned to the ESTABLISHED state.<br />A frequently changing timestamp indicates session instability (flapping). |  | Optional: \{\} <br /> |
 | `advertisedPrefixesSummary` _string_ | AdvertisedPrefixesSummary provides a human-readable summary of advertised prefixes<br />across all address families (e.g., "10 (IPv4Unicast), 5 (IPv6Unicast)").<br />This field is computed by the controller from the AddressFamilies field. |  | Optional: \{\} <br /> |
 | `addressFamilies` _[AddressFamilyStatus](#addressfamilystatus) array_ | AddressFamilies contains per-address-family statistics for this peer.<br />Only address families that are enabled and negotiated with the peer are included. |  | Optional: \{\} <br /> |
+| `peerInterface` _string_ | PeerInterface is the device-level name of the interface an unnumbered peer is<br />configured over. It is recorded so that the peer can still be removed from the<br />device after the referenced Interface has been deleted. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | ObservedGeneration reflects the .metadata.generation that was last processed by the controller. |  | Optional: \{\} <br /> |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the BGP. |  | Optional: \{\} <br /> |
 
@@ -1376,6 +1379,97 @@ _Appears in:_
 | --- | --- |
 | `SHA256` |  |
 | `MD5` |  |
+
+
+#### CommunityMember
+
+
+
+CommunityMember defines one ordered entry in a community-list with a regex pattern.
+
+
+
+_Appears in:_
+- [CommunitySetSpec](#communitysetspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `sequence` _integer_ | Sequence is the order of this entry in the community-list. |  | Minimum: 1 <br />Required: \{\} <br /> |
+| `regex` _string_ | Regex is a POSIX extended regular expression matching BGP community values. |  | MinLength: 1 <br />Required: \{\} <br /> |
+
+
+#### CommunitySet
+
+
+
+CommunitySet is the Schema for the communitysets API.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `CommunitySet` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[CommunitySetSpec](#communitysetspec)_ |  |  | Required: \{\} <br /> |
+| `status` _[CommunitySetStatus](#communitysetstatus)_ |  |  | Optional: \{\} <br /> |
+
+
+#### CommunitySetSpec
+
+
+
+CommunitySetSpec defines the desired state of CommunitySet.
+
+
+
+_Appears in:_
+- [CommunitySet](#communityset)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceRef is a reference to the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration. |  | Optional: \{\} <br /> |
+| `name` _string_ | Name is the name of the CommunitySet on the device.<br />Immutable. |  | MaxLength: 32 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `type` _[CommunitySetType](#communitysettype)_ | Type is the type of the CommunitySet. It can be either "Standard" (a<br />standard BGP community-list) or "Extended" (an extended community-list).<br />Immutable. | Standard | Enum: [Standard Extended] <br />Required: \{\} <br /> |
+| `members` _[CommunityMember](#communitymember) array_ | Members is the ordered list of community-list entries. |  | MaxItems: 100 <br />MinItems: 1 <br />Required: \{\} <br /> |
+
+
+#### CommunitySetStatus
+
+
+
+CommunitySetStatus defines the observed state of CommunitySet.
+
+
+
+_Appears in:_
+- [CommunitySet](#communityset)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | Conditions is a list of status conditions describing the state of the CommunitySet. |  | Optional: \{\} <br /> |
+
+
+#### CommunitySetType
+
+_Underlying type:_ _string_
+
+CommunitySetType selects whether the CommunitySet is a standard BGP
+community-list or an extended community-list.
+
+_Validation:_
+- Enum: [Standard Extended]
+
+_Appears in:_
+- [CommunitySetSpec](#communitysetspec)
+
+| Field | Description |
+| --- | --- |
+| `Standard` | CommunitySetTypeStandard is a standard BGP community-list.<br /> |
+| `Extended` | CommunitySetTypeExtended is an extended BGP community-list.<br /> |
 
 
 #### ConfigBackup
@@ -2825,6 +2919,7 @@ _Appears in:_
 - [BannerSpec](#bannerspec)
 - [BorderGatewaySpec](#bordergatewayspec)
 - [CertificateSpec](#certificatespec)
+- [CommunitySetSpec](#communitysetspec)
 - [ConfigBackupSpec](#configbackupspec)
 - [ConsoleConnectionSpec](#consoleconnectionspec)
 - [DHCPRelaySpec](#dhcprelayspec)
@@ -4448,6 +4543,7 @@ _Appears in:_
 - [CertificateSpec](#certificatespec)
 - [ClaimSpec](#claimspec)
 - [ClaimStatus](#claimstatus)
+- [CommunitySetSpec](#communitysetspec)
 - [ConfigBackupSpec](#configbackupspec)
 - [DHCPRelaySpec](#dhcprelayspec)
 - [DNSSpec](#dnsspec)

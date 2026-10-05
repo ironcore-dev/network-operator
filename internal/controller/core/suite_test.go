@@ -4,6 +4,7 @@
 package core
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -301,6 +302,14 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&CommunitySetReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+		Locker:   testLocker,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&RoutingPolicyReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
@@ -425,6 +434,7 @@ var (
 	_ provider.VLANProvider             = (*Provider)(nil)
 	_ provider.EVPNInstanceProvider     = (*Provider)(nil)
 	_ provider.PrefixSetProvider        = (*Provider)(nil)
+	_ provider.CommunitySetProvider     = (*Provider)(nil)
 	_ provider.RoutingPolicyProvider    = (*Provider)(nil)
 	_ provider.NVEProvider              = (*Provider)(nil)
 	_ provider.LLDPProvider             = (*Provider)(nil)
@@ -464,6 +474,7 @@ type DeviceState struct {
 	VLANs                sets.Set[int16]
 	EVIs                 sets.Set[int32]
 	PrefixSets           sets.Set[string]
+	CommunitySets        sets.Set[string]
 	RoutingPolicies      sets.Set[string]
 	NVE                  *v1alpha1.NetworkVirtualizationEdge
 	LLDP                 *v1alpha1.LLDP
@@ -491,6 +502,7 @@ func NewDeviceState() *DeviceState {
 		VLANs:            sets.New[int16](),
 		EVIs:             sets.New[int32](),
 		PrefixSets:       sets.New[string](),
+		CommunitySets:    sets.New[string](),
 		RoutingPolicies:  sets.New[string](),
 		LLDPOperStatus:   true,
 		LLDPNeighbors:    make(map[string]*provider.LLDPAdjacency),
@@ -885,7 +897,7 @@ func (p *Provider) EnsureBGPPeer(_ context.Context, req *provider.EnsureBGPPeerR
 	s := p.devices.StateFor(p.deviceName)
 	s.Lock()
 	defer s.Unlock()
-	s.BGPPeers.Insert(req.BGPPeer.Spec.Address)
+	s.BGPPeers.Insert(cmp.Or(req.PeerInterface, req.BGPPeer.Spec.Address))
 	return nil
 }
 
@@ -893,7 +905,7 @@ func (p *Provider) DeleteBGPPeer(_ context.Context, req *provider.DeleteBGPPeerR
 	s := p.devices.StateFor(p.deviceName)
 	s.Lock()
 	defer s.Unlock()
-	s.BGPPeers.Delete(req.BGPPeer.Spec.Address)
+	s.BGPPeers.Delete(cmp.Or(req.PeerInterface, req.BGPPeer.Spec.Address))
 	return nil
 }
 
@@ -979,6 +991,22 @@ func (p *Provider) DeletePrefixSet(_ context.Context, req *provider.DeletePrefix
 	s.Lock()
 	defer s.Unlock()
 	s.PrefixSets.Delete(req.PrefixSet.Spec.Name)
+	return nil
+}
+
+func (p *Provider) EnsureCommunitySet(_ context.Context, req *provider.CommunitySetRequest) error {
+	s := p.devices.StateFor(p.deviceName)
+	s.Lock()
+	defer s.Unlock()
+	s.CommunitySets.Insert(req.CommunitySet.Spec.Name)
+	return nil
+}
+
+func (p *Provider) DeleteCommunitySet(_ context.Context, req *provider.CommunitySetDeleteRequest) error {
+	s := p.devices.StateFor(p.deviceName)
+	s.Lock()
+	defer s.Unlock()
+	s.CommunitySets.Delete(req.CommunitySet.Spec.Name)
 	return nil
 }
 
