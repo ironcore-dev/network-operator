@@ -92,7 +92,7 @@ func ExtractCryptographicAlgorithm(cipherSuite string) (string, error) {
 }
 
 type KeyChain struct {
-	Name string `json:"-"`
+	Name string `json:"key-chain-name"`
 	Keys Keys   `json:"keys,omitzero"`
 }
 
@@ -101,7 +101,7 @@ type Keys struct {
 }
 
 type Key struct {
-	ID                     string       `json:"key-name,omitzero"`
+	KeyName                string       `json:"key-name"`
 	CryptographicAlgorithm string       `json:"cryptographic-algorithm,omitzero"`
 	PreSharedKey           PreSharedKey `json:"key-string,omitzero"`
 	StartLifetime          Lifetime     `json:"send-lifetime,omitzero"`
@@ -109,7 +109,39 @@ type Key struct {
 }
 
 type PreSharedKey struct {
-	Secret string `json:"password,omitzero"`
+	Password string `json:"password,omitzero"`
+}
+
+// ciscoType7Xlat is Cisco's fixed Vigenère translation table used by
+// service-password-encryption (Type 7). Only indices 0..50 are used.
+var ciscoType7Xlat = []byte{
+	0x64, 0x73, 0x66, 0x64, 0x3b, 0x6b, 0x66, 0x6f, 0x41, 0x2c, 0x2e,
+	0x69, 0x79, 0x65, 0x77, 0x72, 0x6b, 0x6c, 0x64, 0x4a, 0x4b, 0x44,
+	0x48, 0x53, 0x55, 0x42, 0x73, 0x67, 0x76, 0x63, 0x61, 0x36, 0x39,
+	0x38, 0x33, 0x34, 0x6e, 0x63, 0x78, 0x76, 0x39, 0x38, 0x37, 0x33,
+	0x32, 0x35, 0x34, 0x6b, 0x3b, 0x66, 0x67, 0x38, 0x37,
+}
+
+// encryptType7 encodes plaintext as a Cisco Type 7 password string: a two-digit
+// decimal salt (seed index) followed by the hex of each byte XORed against the
+// xlat table, cycling the index 0..50. The IOS-XR key-chain password leaf is
+// typed xr:Proprietary-password and rejects plaintext.
+//
+// A fixed salt of 0 is used so the output is deterministic — repeated reconciles
+// produce the identical string, letting the gNMI client skip the Set when the
+// config is unchanged. A random salt would re-write the key on every reconcile.
+func encryptType7(plaintext string) string {
+	salt := 0
+	var b strings.Builder
+	fmt.Fprintf(&b, "%02d", salt)
+	for i := range len(plaintext) {
+		fmt.Fprintf(&b, "%02x", plaintext[i]^ciscoType7Xlat[salt])
+		salt++
+		if salt == 51 {
+			salt = 0
+		}
+	}
+	return b.String()
 }
 
 type Lifetime struct {

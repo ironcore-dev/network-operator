@@ -54,7 +54,7 @@ type MacSecSpec struct {
 
 	// PreSharedKeyRef is a list of references to pre-shared keys used for MACSec encryption.
 	// +optional
-	PreSharedKeyRef []LocalObjectReference `json:"preSharedkeyRef,omitempty"`
+	PreSharedKeyRef []LocalObjectReference `json:"preSharedKeyRef,omitempty"`
 
 	// Policy defines the MACSec policy configuration.
 	// +optional

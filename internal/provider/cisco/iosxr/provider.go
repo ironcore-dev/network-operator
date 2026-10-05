@@ -654,6 +654,7 @@ func (p *Provider) LoopbackInterfaceName(id int) (string, error) {
 
 func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecRequest) error {
 	// Configure MacSec Policy
+	sb := new(gnmiext.SetBuilder)
 
 	cipherSuite, err := ExtractCipherSuite(req.MacSec.Spec.Policy.CipherSuite)
 	if err != nil {
@@ -667,9 +668,9 @@ func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecR
 		KeyServerPriority: req.MacSec.Spec.Policy.KeyServerPriority,
 		RelayProtection:   req.MacSec.Spec.Policy.RelayProtection,
 	}
+	sb.Update(policy)
 
 	// Configure KeyChain
-
 	chain := new(KeyChain)
 	chain.Name = req.MacSec.Spec.Name
 
@@ -680,15 +681,22 @@ func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecR
 		}
 
 		key := Key{
-			ID:                     string(psk.Data["connectivityKeyName"]),
+			KeyName:                string(psk.Data["connectivityKeyName"]),
 			CryptographicAlgorithm: string(psk.Data["algorithm"]),
+			PreSharedKey:           PreSharedKey{Password: encryptType7(string(psk.Data["preSharedKey"]))},
 			StartLifetime:          lifeTime,
 			AcceptLifetime:         lifeTime,
 		}
 		chain.Keys.Key = append(chain.Keys.Key, key)
 	}
 
-	return p.client.Update(ctx, policy, chain)
+	if len(chain.Keys.Key) == 0 {
+		return errors.New("no keys provided for MacSec KeyChain")
+	}
+
+	sb.Update(chain)
+
+	return p.client.Do(ctx, sb)
 }
 
 func (p *Provider) DeleteMacSec(ctx context.Context, req *provider.DeleteMacSecRequest) error {

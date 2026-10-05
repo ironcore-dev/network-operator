@@ -1473,6 +1473,19 @@ _Appears in:_
 | `Extended` | CommunitySetTypeExtended is an extended BGP community-list.<br /> |
 
 
+#### ConfidentialityOffset
+
+_Underlying type:_ _integer_
+
+/ ConfidentialityOffset represents the number of octets in an Ethernet frame that are sent in unencrypted plain-text.
+
+
+
+_Appears in:_
+- [MacSecPolicy](#macsecpolicy)
+
+
+
 #### ConfigBackup
 
 
@@ -3075,9 +3088,10 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
-| `interfaceRef` _[LocalObjectReference](#localobjectreference)_ | InterfaceRef is a reference to the interface on which MACsec is enabled. The interface must exist on the Device specified by deviceRef.<br />Immutable. |  | Required: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration.<br />This reference is used to link the Interface to its provider-specific configuration. |  | Optional: \{\} <br /> |
 | `name` _string_ | Name is the name of the interface. |  | MaxLength: 255 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `description` _string_ | Description provides a human-readable description of the macsec policy. |  | MaxLength: 255 <br />Optional: \{\} <br /> |
+| `interfaceRef` _[LocalObjectReference](#localobjectreference)_ | InterfaceRef is a reference to the interface on which MACsec is enabled. The interface must exist on the Device specified by deviceRef.<br />Immutable. |  | Required: \{\} <br /> |
 | `preSharedkeyRef` _[LocalObjectReference](#localobjectreference) array_ | PreSharedKeyRef is a list of references to pre-shared keys used for MACSec encryption. |  | Optional: \{\} <br /> |
 | `policy` _[MacSecPolicy](#macsecpolicy)_ | Policy defines the MACSec policy configuration. |  | Optional: \{\} <br /> |
 
@@ -4633,6 +4647,7 @@ _Appears in:_
 - [IndexSpec](#indexspec)
 - [InterfaceSpec](#interfacespec)
 - [LLDPSpec](#lldpspec)
+- [MacSecSpec](#macsecspec)
 - [ManagementAccessSpec](#managementaccessspec)
 - [NTPSpec](#ntpspec)
 - [NetworkVirtualizationEdgeSpec](#networkvirtualizationedgespec)
