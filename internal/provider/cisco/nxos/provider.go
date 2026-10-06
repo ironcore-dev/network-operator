@@ -1514,7 +1514,9 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				if req.Interface.Spec.Switchport.NativeVlan != 0 {
 					p.NativeVlan = fmt.Sprintf("vlan-%d", req.Interface.Spec.Switchport.NativeVlan)
 				}
-				if req.Interface.Spec.Switchport.AllowedVlansMode != v1alpha1.AllowedVlansModeUnmanaged {
+				// Skip trunk VLANs for port-channel members — NX-OS
+				// inherits them from the aggregate interface.
+				if req.AggregateParent == nil && req.Interface.Spec.Switchport.AllowedVlansMode != v1alpha1.AllowedVlansModeUnmanaged {
 					vlans := DefaultVLANRange
 					if len(req.Interface.Spec.Switchport.AllowedVlans) > 0 {
 						vlans = Range(req.Interface.Spec.Switchport.AllowedVlans)
