@@ -1,0 +1,5 @@
+evpn multihoming
+  ead-evi route
+  df-election mode modulo
+  df-election time 2.2
+  frr-anycast-src-ip 10.0.0.1
