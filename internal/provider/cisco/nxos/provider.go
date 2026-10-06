@@ -1504,6 +1504,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			p.Medium = MediumPointToPoint
 		}
 
+		var trunkVlans *TrunkVlans
 		if req.Interface.Spec.Switchport != nil {
 			switch req.Interface.Spec.Switchport.Mode {
 			case v1alpha1.SwitchportModeAccess:
@@ -1521,7 +1522,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 					if len(req.Interface.Spec.Switchport.AllowedVlans) > 0 {
 						vlans = Range(req.Interface.Spec.Switchport.AllowedVlans)
 					}
-					sb.Patch(&TrunkVlans{IfName: name, Vlans: vlans})
+					trunkVlans = &TrunkVlans{IfName: name, Vlans: vlans}
 				}
 			default:
 				return fmt.Errorf("invalid switchport mode: %s", req.Interface.Spec.Switchport.Mode)
@@ -1541,6 +1542,9 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 
 		sb.Patch(p)
+		if trunkVlans != nil {
+			sb.Patch(trunkVlans)
+		}
 
 	case v1alpha1.InterfaceTypeLoopback:
 		lb := new(Loopback)
@@ -1621,6 +1625,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			return fmt.Errorf("iface: unknown LACP mode: %s", m)
 		}
 
+		var trunkVlans *TrunkVlans
 		if req.Interface.Spec.Switchport != nil {
 			switch req.Interface.Spec.Switchport.Mode {
 			case v1alpha1.SwitchportModeAccess:
@@ -1636,22 +1641,11 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 					if len(req.Interface.Spec.Switchport.AllowedVlans) > 0 {
 						vlans = Range(req.Interface.Spec.Switchport.AllowedVlans)
 					}
-					sb.Patch(&TrunkVlans{IfName: name, Vlans: vlans})
+					trunkVlans = &TrunkVlans{IfName: name, Vlans: vlans}
 				}
 			default:
 				return fmt.Errorf("invalid switchport mode: %s", req.Interface.Spec.Switchport.Mode)
 			}
-		}
-
-		var members gnmiext.List[string, *PortChannelMember]
-		for _, member := range req.Members {
-			n, err := ShortNamePhysicalInterface(member.Spec.Name)
-			if err != nil {
-				return err
-			}
-			m := NewPortChannelMember(n)
-			m.PortChannelID = name
-			members.Set(m)
 		}
 
 		v := new(VPCIfItems)
@@ -1682,6 +1676,9 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 
 		sb.Patch(pc)
+		if trunkVlans != nil {
+			sb.Patch(trunkVlans)
+		}
 
 		if req.MultiChassisID != nil {
 			v := new(VPCIf)
@@ -1707,6 +1704,18 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		// Reset the shared builder so the member binds commit via the final
 		// Do as a separate, subsequent transaction (see comment above).
 		sb = new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
+		var members gnmiext.List[string, *PortChannelMember]
+		for _, member := range req.Members {
+			n, err := ShortNamePhysicalInterface(member.Spec.Name)
+			if err != nil {
+				return err
+			}
+			m := NewPortChannelMember(n)
+			m.PortChannelID = name
+			members.Set(m)
+		}
+
 		// Patch desired entries and delete stale ones because parent patches only merge lists.
 		current := &PortChannelMemberItems{ID: name}
 		if err := p.client.GetConfig(ctx, current); err != nil && !errors.Is(err, gnmiext.ErrNil) {
