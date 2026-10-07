@@ -1648,18 +1648,6 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		}
 
-		v := new(VPCIfItems)
-		if err := p.client.GetConfig(ctx, v); err != nil && !errors.Is(err, gnmiext.ErrNil) {
-			return err
-		}
-
-		// Delete the existing VPC interface entry if the MultiChassisID has changed or got removed.
-		if vpc := v.GetListItemByInterface(name); vpc != nil {
-			if req.MultiChassisID == nil || int(*req.MultiChassisID) != vpc.ID {
-				sb.Delete(vpc)
-			}
-		}
-
 		if cfg.Spec.BufferBoost != nil && !cfg.Spec.BufferBoost.Enabled {
 			pc.AggrExtdItems.BufferBoost = AdminStDisable
 		}
@@ -1678,13 +1666,6 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		sb.Patch(pc)
 		if trunkVlans != nil {
 			sb.Patch(trunkVlans)
-		}
-
-		if req.MultiChassisID != nil {
-			v := new(VPCIf)
-			v.ID = int(*req.MultiChassisID)
-			v.SetPortChannel(name)
-			sb.Patch(v)
 		}
 
 		// Commit the port-channel and its trunk VLANs before binding members.
@@ -1730,6 +1711,25 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 				m.PortChannelID = name
 				sb.Delete(m)
 			}
+		}
+
+		v := new(VPCIfItems)
+		if err := p.client.GetConfig(ctx, v); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+
+		// Delete the existing VPC interface entry if the MultiChassisID has changed or got removed.
+		if vpc := v.GetListItemByInterface(name); vpc != nil {
+			if req.MultiChassisID == nil || int(*req.MultiChassisID) != vpc.ID {
+				sb.Delete(vpc)
+			}
+		}
+
+		if req.MultiChassisID != nil {
+			v := new(VPCIf)
+			v.ID = int(*req.MultiChassisID)
+			v.SetPortChannel(name)
+			sb.Patch(v)
 		}
 
 	case v1alpha1.InterfaceTypeRoutedVLAN:
