@@ -430,15 +430,20 @@ func (r *DHCPRelayReconciler) validateUniqueResource(ctx context.Context, s *dhc
 		}
 		// refuse to reconcile if another DHCPRelay exists that uses deprecated paths exists on the same device
 		if len(dhcprelay.Spec.InterfaceRefs) > 0 && s.DHCPRelay.Spec.DeviceRef.Name == dhcprelay.Spec.DeviceRef.Name { //nolint:staticcheck
+			interfaceName := "<unknown>"
+			if s.DHCPRelay.Spec.InterfaceRef != nil {
+				interfaceName = s.DHCPRelay.Spec.InterfaceRef.Name
+			}
 			conditions.Set(s.DHCPRelay, metav1.Condition{
 				Type:    v1alpha1.ConfiguredCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  v1alpha1.DuplicateResourceOnDevice,
-				Message: fmt.Sprintf("Another DHCPRelay (%s) using deprecated field .spec.InterfaceRefs already exists for interface %s, this migration path is not supported.", dhcprelay.Name, s.DHCPRelay.Spec.InterfaceRef.Name),
+				Message: fmt.Sprintf("Another DHCPRelay (%s) using deprecated field .spec.InterfaceRefs already exists for interface %s, this migration path is not supported.", dhcprelay.Name, interfaceName),
 			})
-			return reconcile.TerminalError(fmt.Errorf("only one DHCPRelay resource allowed per interface (%s)", s.DHCPRelay.Spec.InterfaceRef.Name))
+			return reconcile.TerminalError(fmt.Errorf("only one DHCPRelay resource allowed per interface (%s)", interfaceName))
 		}
 		if s.DHCPRelay.Spec.InterfaceRef != nil &&
+			dhcprelay.Spec.InterfaceRef != nil &&
 			dhcprelay.Spec.InterfaceRef.Name == s.DHCPRelay.Spec.InterfaceRef.Name {
 			conditions.Set(s.DHCPRelay, metav1.Condition{
 				Type:    v1alpha1.ConfiguredCondition,
