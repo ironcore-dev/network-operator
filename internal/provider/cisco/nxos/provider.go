@@ -4705,10 +4705,6 @@ func NormalizeMACAddress(mac string) string {
 // macsec feature is enabled first (in its own Set RPC via p.Do) before the
 // dependent policy and keychain configuration is pushed.
 func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecRequest) error {
-	if req.MacSec.Spec.Policy == nil {
-		return errors.New("macsec: spec.policy is required")
-	}
-
 	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
 	sb.Update(&Feature{Name: "macsec", AdminSt: AdminStEnabled})
 
@@ -4717,12 +4713,17 @@ func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecR
 		return err
 	}
 
+	confOffset, err := ExtractConfOffset(uint16(req.MacSec.Spec.Policy.ConfidentialityOffset))
+	if err != nil {
+		return err
+	}
+
 	policy := &MacSecPolicy{
 		PolicyName:        req.MacSec.Spec.Name,
 		CipherSuite:       cipherSuite,
-		ConfOffset:        uint16(req.MacSec.Spec.Policy.ConfidentialityOffset),
+		ConfOffset:        confOffset,
 		KeyServerPriority: req.MacSec.Spec.Policy.KeyServerPriority,
-		ReplayWindow:      req.MacSec.Spec.Policy.RelayProtection,
+		ReplayWindow:      uint32(req.MacSec.Spec.Policy.RelayProtection),
 	}
 	sb.Patch(policy)
 
@@ -4733,12 +4734,17 @@ func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecR
 		if err != nil {
 			return err
 		}
-		chain.KeyList.Set(&MacSecKey{
-			ID:             string(psk.Data["connectivityKeyName"]),
-			OctetString:    string(psk.Data["key"]),
-			CryptoAlg:      string(psk.Data["algorithm"]),
-			SendLifetime:   lifetime,
-			AcceptLifetime: lifetime,
+		cryptoAlg, err := ExtractCryptographicAlgo(string(psk.Data["algorithm"]))
+		if err != nil {
+			return err
+		}
+		chain.Keys.KeyList.Set(&MacSecKey{
+			ID:          string(psk.Data["connectivityKeyName"]),
+			OctetString: string(psk.Data["key"]),
+			//fixme
+			EncryptType:  EncryptTypeUnencrypted,
+			CryptoAlg:    cryptoAlg,
+			SendLifetime: lifetime,
 		})
 	}
 	sb.Patch(chain)
