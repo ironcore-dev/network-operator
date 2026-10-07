@@ -369,6 +369,15 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&MacSecReconciler{
+		Client:          k8sManager.GetClient(),
+		Scheme:          k8sManager.GetScheme(),
+		Recorder:        recorder,
+		Locker:          testLocker,
+		RequeueInterval: time.Second,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -442,6 +451,7 @@ var (
 	_ provider.EthernetSegmentProvider  = (*Provider)(nil)
 	_ provider.ConfigBackupProvider     = (*Provider)(nil)
 	_ provider.ProbeProvider            = (*Provider)(nil)
+	_ provider.MacSecProvider           = (*Provider)(nil)
 )
 
 // DeviceState holds per-device mutable state for testing. Each device created in
@@ -486,6 +496,7 @@ type DeviceState struct {
 	StartupConfig        *v1alpha1.ConfigBackup
 	ConfigBackups        []*provider.ConfigBackupFile
 	StorageTotal         int64
+	MacSec               sets.Set[string]
 }
 
 func NewDeviceState() *DeviceState {
@@ -508,6 +519,7 @@ func NewDeviceState() *DeviceState {
 		LLDPNeighbors:    make(map[string]*provider.LLDPAdjacency),
 		EthernetSegments: make(map[string]string),
 		StorageTotal:     int64(1024 * 1024 * 100),
+		MacSec:           sets.New[string](),
 	}
 }
 
@@ -1226,4 +1238,24 @@ func (s *DeviceState) SetLLDPNeighbor(interfaceName, sysName, chassisID, portID 
 		PortIDType:    7, // Local
 		TTL:           time.Duration(ttl) * time.Second,
 	}
+}
+
+func (p *Provider) EnsureMacSec(_ context.Context, req *provider.EnsureMacSecRequest) error {
+	s := p.devices.StateFor(p.deviceName)
+	s.Lock()
+	defer s.Unlock()
+	s.MacSec.Insert(req.MacSec.Spec.Name)
+	return nil
+}
+
+func (p *Provider) DeleteMacSec(_ context.Context, req *provider.DeleteMacSecRequest) error {
+	s := p.devices.StateFor(p.deviceName)
+	s.Lock()
+	defer s.Unlock()
+	s.MacSec.Delete(req.MacSec.Spec.Name)
+	return nil
+}
+
+func (p *Provider) GetMacSecStatus(_ context.Context, _ *provider.EnsureMacSecRequest) (provider.MacSecStatus, error) {
+	return provider.MacSecStatus{}, nil
 }

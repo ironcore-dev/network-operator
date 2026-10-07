@@ -29,6 +29,7 @@ var (
 	_ provider.BGPPeerProvider       = &Provider{}
 	_ provider.PrefixSetProvider     = &Provider{}
 	_ provider.RoutingPolicyProvider = &Provider{}
+	_ provider.MacSecProvider        = &Provider{}
 )
 
 type Provider struct {
@@ -649,6 +650,74 @@ func (p *Provider) DeleteRoutingPolicy(ctx context.Context, req *provider.Delete
 
 func (p *Provider) LoopbackInterfaceName(id int) (string, error) {
 	return fmt.Sprintf("Loopback%d", id), nil
+}
+
+func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecRequest) error {
+	// Configure MacSec Policy
+	sb := new(gnmiext.SetBuilder)
+
+	cipherSuite, err := ExtractCipherSuite(req.MacSec.Spec.Policy.CipherSuite)
+	if err != nil {
+		return err
+	}
+
+	policy := &MacSecPolicy{
+		Name:              req.MacSec.Spec.Name,
+		CipherSuite:       cipherSuite,
+		ConfOffset:        fmt.Sprintf(ConfOffsetPrefix, req.MacSec.Spec.Policy.ConfidentialityOffset),
+		KeyServerPriority: req.MacSec.Spec.Policy.KeyServerPriority,
+		RelayProtection:   req.MacSec.Spec.Policy.RelayProtection,
+	}
+	sb.Update(policy)
+
+	// Configure KeyChain
+	chain := new(KeyChain)
+	chain.Name = req.MacSec.Spec.Name
+
+	for _, psk := range req.Secrets {
+		lifeTime, err := NewLifetime(string(psk.Data["lifetime"]))
+		if err != nil {
+			return err
+		}
+
+		key := Key{
+			KeyName:                string(psk.Data["connectivityKeyName"]),
+			CryptographicAlgorithm: string(psk.Data["algorithm"]),
+			PreSharedKey:           PreSharedKey{Password: encryptType7(string(psk.Data["preSharedKey"]))},
+			StartLifetime:          lifeTime,
+			AcceptLifetime:         lifeTime,
+		}
+		chain.Keys.Key = append(chain.Keys.Key, key)
+	}
+
+	if len(chain.Keys.Key) == 0 {
+		return errors.New("no keys provided for MacSec KeyChain")
+	}
+
+	sb.Update(chain)
+
+	return p.client.Do(ctx, sb)
+}
+
+func (p *Provider) DeleteMacSec(ctx context.Context, req *provider.DeleteMacSecRequest) error {
+	policy := new(MacSecPolicy)
+	policy.Name = req.MacSec.Spec.Name
+
+	keyChain := new(KeyChain)
+	keyChain.Name = req.MacSec.Spec.Name
+
+	return p.client.Delete(ctx, policy, keyChain)
+}
+
+func (p *Provider) GetMacSecStatus(ctx context.Context, req *provider.EnsureMacSecRequest) (provider.MacSecStatus, error) {
+	status := new(KeyChainOperData)
+	status.Name = req.MacSec.Spec.Name
+
+	err := p.client.GetState(ctx, status)
+	if err != nil {
+		return provider.MacSecStatus{}, fmt.Errorf("failed to get MacSec status for %s: %w", req.MacSec.Spec.Name, err)
+	}
+	return provider.MacSecStatus{}, nil
 }
 
 func init() {

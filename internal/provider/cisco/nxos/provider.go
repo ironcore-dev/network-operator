@@ -56,6 +56,7 @@ var (
 	_ provider.EVPNInstanceProvider     = (*Provider)(nil)
 	_ provider.InterfaceProvider        = (*Provider)(nil)
 	_ provider.ISISProvider             = (*Provider)(nil)
+	_ provider.MacSecProvider           = (*Provider)(nil)
 	_ provider.ManagementAccessProvider = (*Provider)(nil)
 	_ provider.NTPProvider              = (*Provider)(nil)
 	_ provider.OSPFProvider             = (*Provider)(nil)
@@ -4698,6 +4699,70 @@ func NormalizeMACAddress(mac string) string {
 		return mac
 	}
 	return fmt.Sprintf("%s:%s:%s:%s:%s:%s", h[0:2], h[2:4], h[4:6], h[6:8], h[8:10], h[10:12])
+}
+
+// EnsureMacSec realizes the MacSec policy and keychain on the device. The
+// macsec feature is enabled first (in its own Set RPC via p.Do) before the
+// dependent policy and keychain configuration is pushed.
+func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecRequest) error {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+	sb.Update(&Feature{Name: "macsec", AdminSt: AdminStEnabled})
+
+	cipherSuite, err := ExtractCipherSuite(req.MacSec.Spec.Policy.CipherSuite)
+	if err != nil {
+		return err
+	}
+
+	confOffset, err := ExtractConfOffset(uint16(req.MacSec.Spec.Policy.ConfidentialityOffset))
+	if err != nil {
+		return err
+	}
+
+	policy := &MacSecPolicy{
+		PolicyName:        req.MacSec.Spec.Name,
+		CipherSuite:       cipherSuite,
+		ConfOffset:        confOffset,
+		KeyServerPriority: req.MacSec.Spec.Policy.KeyServerPriority,
+		ReplayWindow:      uint32(req.MacSec.Spec.Policy.RelayProtection),
+	}
+	sb.Patch(policy)
+
+	chain := &KeyChain{Name: req.MacSec.Spec.Name}
+	for i := range req.Secrets {
+		psk := &req.Secrets[i]
+		lifetime, err := NewLifetime(string(psk.Data["lifetime"]))
+		if err != nil {
+			return err
+		}
+		cryptoAlg, err := ExtractCryptographicAlgo(string(psk.Data["algorithm"]))
+		if err != nil {
+			return err
+		}
+		chain.Keys.KeyList.Set(&MacSecKey{
+			ID:          string(psk.Data["connectivityKeyName"]),
+			OctetString: string(psk.Data["key"]),
+			//fixme
+			EncryptType:  EncryptTypeUnencrypted,
+			CryptoAlg:    cryptoAlg,
+			SendLifetime: lifetime,
+		})
+	}
+	sb.Patch(chain)
+
+	return p.Do(ctx, sb)
+}
+
+// DeleteMacSec removes the MacSec policy and keychain from the device.
+func (p *Provider) DeleteMacSec(ctx context.Context, req *provider.DeleteMacSecRequest) error {
+	policy := &MacSecPolicy{PolicyName: req.MacSec.Spec.Name}
+	chain := &KeyChain{Name: req.MacSec.Spec.Name}
+	return p.client.Delete(ctx, policy, chain)
+}
+
+// GetMacSecStatus is not yet implemented; the controller does not consume it.
+func (p *Provider) GetMacSecStatus(ctx context.Context, req *provider.EnsureMacSecRequest) (provider.MacSecStatus, error) {
+	// TODO(sven-rosenzweig): Implement MacSec status retrieval
+	return provider.MacSecStatus{}, nil
 }
 
 func init() {
