@@ -177,6 +177,10 @@ const (
 	// UnreachableReason indicates that the controller cannot reach the device.
 	UnreachableReason = "Unreachable"
 
+	// ResourceExhaustedReason indicates that the device's worker threads
+	// are exhausted and it cannot accept new connections.
+	ResourceExhaustedReason = "ResourceExhausted"
+
 	// ReconcilePendingReason indicates that the controller is waiting for resources to be reconciled.
 	ReconcilePendingReason = "ReconcilePending"
 

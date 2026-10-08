@@ -9,6 +9,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -515,6 +517,61 @@ var _ = Describe("Device Controller", func() {
 			testDevices.StateFor(name).SetConnectFailure(nil)
 
 			By("Verifying Reachable=True and Ready=True after recovery")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.ReachableCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionTrue))
+			}).Should(Succeed())
+		})
+
+		It("Should set Reachable=False with ResourceExhausted reason when device resources are exhausted", func() {
+			By("Making the provider return a gRPC ResourceExhausted error")
+			testDevices.StateFor(name).SetConnectFailure(
+				status.Error(codes.ResourceExhausted, "Max worker thread limit reached: 8"),
+			)
+
+			DeferCleanup(func() {
+				testDevices.StateFor(name).SetConnectFailure(nil)
+			})
+
+			By("Creating the custom resource for the Kind Device")
+			device := &v1alpha1.Device{
+				Name:      name,
+				Namespace: metav1.NamespaceDefault,
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{
+						Address: "192.168.10.2:9339",
+						SecretRef: &v1alpha1.SecretReference{
+							Name: name,
+						},
+					},
+					Provider: "test-provider",
+				},
+			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+
+			By("Verifying Reachable=False with ResourceExhausted reason")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
+				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseRunning))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
+				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
+				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionUnknown))
+				g.Expect(resource.Status.Conditions[0].Reason).To(Equal(v1alpha1.ResourceExhaustedReason))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.ReachableCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[2].Reason).To(Equal(v1alpha1.ResourceExhaustedReason))
+				g.Expect(resource.Status.Conditions[2].Message).To(ContainSubstring("Device resources exhausted"))
+			}).Should(Succeed())
+
+			By("Clearing the error to simulate recovery")
+			testDevices.StateFor(name).SetConnectFailure(nil)
+
+			By("Verifying Reachable=True after recovery")
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.Device{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
