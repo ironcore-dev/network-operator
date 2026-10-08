@@ -39,6 +39,7 @@ import (
 	// Import all supported provider implementations.
 	_ "github.com/ironcore-dev/network-operator/internal/provider/cisco/iosxr"
 	_ "github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos"
+	_ "github.com/ironcore-dev/network-operator/internal/provider/nokia/srlinux"
 	_ "github.com/ironcore-dev/network-operator/internal/provider/openconfig"
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
