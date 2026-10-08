@@ -4,6 +4,7 @@
 package nxos
 
 import (
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
@@ -41,6 +42,18 @@ type RouteMapEntry struct {
 			RsRtDstAttList gnmiext.List[string, *RsRtDstAtt] `json:"RsRtDstAtt-list,omitzero"`
 		} `json:"rsrtDstAtt-items,omitzero"`
 	} `json:"mrtdst-items,omitzero"`
+	MregcommItems struct {
+		Criteria          string `json:"criteria,omitempty"`
+		RsregCommAttItems struct {
+			RsRegCommAttList gnmiext.List[string, *RsRegCommAtt] `json:"RsRegCommAtt-list,omitzero"`
+		} `json:"rsregCommAtt-items,omitzero"`
+	} `json:"mregcomm-items,omitzero"`
+	MextcommItems struct {
+		Criteria          string `json:"criteria,omitempty"`
+		RsextCommAttItems struct {
+			RsExtCommAttList gnmiext.List[string, *RsExtCommAtt] `json:"RsExtCommAtt-list,omitzero"`
+		} `json:"rsextCommAtt-items,omitzero"`
+	} `json:"mextcomm-items,omitzero"`
 	SetASPathPrependItems struct {
 		AS string `json:"as"`
 	} `json:"setaspathprepend-items,omitzero"`
@@ -91,11 +104,45 @@ func (e *RouteMapEntry) SetPrefixSet(name string, isV6 bool) {
 	e.MrtdstItems.RsrtDstAttItems.RsRtDstAttList.Set(&RsRtDstAtt{TDn: tdn})
 }
 
+// criteriaExact realizes matchSetOptions ALL: a route must carry every member of the set.
+// ANY (the default) leaves criteria absent, which is the device default.
+const criteriaExact = "exact"
+
+func (e *RouteMapEntry) SetCommunitySet(name string, t v1alpha1.CommunitySetType, all bool) {
+	if t == v1alpha1.CommunitySetTypeStandard {
+		e.MregcommItems.RsregCommAttItems.RsRegCommAttList.Set(&RsRegCommAtt{
+			TDn: "/System/rpm-items/rtregcom-items/Rule-list[name='" + name + "']",
+		})
+		if all {
+			e.MregcommItems.Criteria = criteriaExact
+		}
+	} else {
+		e.MextcommItems.RsextCommAttItems.RsExtCommAttList.Set(&RsExtCommAtt{
+			TDn: "/System/rpm-items/rtextcom-items/Rule-list[name='" + name + "']",
+		})
+		if all {
+			e.MextcommItems.Criteria = criteriaExact
+		}
+	}
+}
+
 type RsRtDstAtt struct {
 	TDn string `json:"tDn"`
 }
 
 func (r *RsRtDstAtt) Key() string { return r.TDn }
+
+type RsRegCommAtt struct {
+	TDn string `json:"tDn"`
+}
+
+func (r *RsRegCommAtt) Key() string { return r.TDn }
+
+type RsExtCommAtt struct {
+	TDn string `json:"tDn"`
+}
+
+func (r *RsExtCommAtt) Key() string { return r.TDn }
 
 type CommItem struct {
 	Community string `json:"community"`

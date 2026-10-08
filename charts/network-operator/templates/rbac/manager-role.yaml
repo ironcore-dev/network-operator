@@ -183,6 +183,14 @@ rules:
   - patch
   - update
 - apiGroups:
+  - networking.metal.ironcore.dev
+  resources:
+  - extcommunitysets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - nx.cisco.networking.metal.ironcore.dev
   resources:
   - aaaconfigs
