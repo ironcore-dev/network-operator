@@ -31,6 +31,7 @@ import (
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
+	"github.com/ironcore-dev/network-operator/internal/connpool"
 	corecontroller "github.com/ironcore-dev/network-operator/internal/controller/core"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/paused"
@@ -53,6 +54,9 @@ type BorderGatewayReconciler struct {
 
 	// Locker is used to synchronize operations on resources targeting the same device.
 	Locker *resourcelock.ResourceLocker
+
+	// Pool caches provider connections across reconciliation cycles.
+	Pool *connpool.Pool
 }
 
 // +kubebuilder:rbac:groups=nx.cisco.networking.metal.ironcore.dev,resources=bordergateways,verbs=get;list;watch;create;update;patch;delete
@@ -350,11 +354,11 @@ func (r *BorderGatewayReconciler) reconcile(ctx context.Context, s *borderGatewa
 		return err
 	}
 
-	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
+	if err := r.Pool.Connect(ctx, s.Provider, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
-		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
+		if err := r.Pool.Disconnect(ctx, s.Provider, s.Connection); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()
@@ -505,11 +509,11 @@ func (r *BorderGatewayReconciler) reconcileBGPPeers(ctx context.Context, s *bord
 }
 
 func (r *BorderGatewayReconciler) finalize(ctx context.Context, s *borderGatewayScope) (reterr error) {
-	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
+	if err := r.Pool.Connect(ctx, s.Provider, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
-		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
+		if err := r.Pool.Disconnect(ctx, s.Provider, s.Connection); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()

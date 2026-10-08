@@ -34,6 +34,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/connpool"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/resourcelock"
@@ -128,11 +129,14 @@ var _ = BeforeSuite(func() {
 
 	provider.Register("test-provider", func() provider.Provider { return &Provider{devices: testDevices} })
 
+	testPool := connpool.New()
+
 	err = (&DeviceReconciler{
 		Client:            k8sManager.GetClient(),
 		Scheme:            k8sManager.GetScheme(),
 		Recorder:          recorder,
 		HeartbeatInterval: time.Second,
+		Pool:              testPool,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -141,6 +145,7 @@ var _ = BeforeSuite(func() {
 		Scheme:          k8sManager.GetScheme(),
 		Recorder:        recorder,
 		Locker:          testLocker,
+		Pool:            testPool,
 		RequeueInterval: time.Second,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -246,6 +251,7 @@ var _ = BeforeSuite(func() {
 		Scheme:          k8sManager.GetScheme(),
 		Recorder:        recorder,
 		Locker:          testLocker,
+		Pool:            testPool,
 		RequeueInterval: time.Second,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -255,6 +261,7 @@ var _ = BeforeSuite(func() {
 		Scheme:          k8sManager.GetScheme(),
 		Recorder:        recorder,
 		Locker:          testLocker,
+		Pool:            testPool,
 		RequeueInterval: time.Second,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -264,6 +271,7 @@ var _ = BeforeSuite(func() {
 		Scheme:          k8sManager.GetScheme(),
 		Recorder:        recorder,
 		Locker:          testLocker,
+		Pool:            testPool,
 		RequeueInterval: time.Second,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -273,6 +281,7 @@ var _ = BeforeSuite(func() {
 		Scheme:          k8sManager.GetScheme(),
 		Recorder:        recorder,
 		Locker:          testLocker,
+		Pool:            testPool,
 		RequeueInterval: time.Second,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -290,6 +299,7 @@ var _ = BeforeSuite(func() {
 		Scheme:          k8sManager.GetScheme(),
 		Recorder:        recorder,
 		Locker:          testLocker,
+		Pool:            testPool,
 		RequeueInterval: time.Second,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -323,6 +333,7 @@ var _ = BeforeSuite(func() {
 		Scheme:          k8sManager.GetScheme(),
 		Recorder:        recorder,
 		Locker:          testLocker,
+		Pool:            testPool,
 		RequeueInterval: time.Second,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -332,6 +343,7 @@ var _ = BeforeSuite(func() {
 		Scheme:          k8sManager.GetScheme(),
 		Recorder:        recorder,
 		Locker:          testLocker,
+		Pool:            testPool,
 		RequeueInterval: time.Second,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -350,6 +362,7 @@ var _ = BeforeSuite(func() {
 		Scheme:          k8sManager.GetScheme(),
 		Recorder:        recorder,
 		Locker:          testLocker,
+		Pool:            testPool,
 		RequeueInterval: time.Second,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())

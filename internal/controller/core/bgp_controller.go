@@ -31,6 +31,7 @@ import (
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
+	"github.com/ironcore-dev/network-operator/internal/connpool"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/paused"
 	"github.com/ironcore-dev/network-operator/internal/provider"
@@ -58,6 +59,9 @@ type BGPReconciler struct {
 
 	// Locker is used to synchronize operations on resources targeting the same device.
 	Locker *resourcelock.ResourceLocker
+
+	// Pool caches provider connections across reconciliation cycles.
+	Pool *connpool.Pool
 
 	// RequeueInterval is the duration after which the controller should requeue the reconciliation,
 	// regardless of changes.
@@ -370,11 +374,11 @@ func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (reterr erro
 		}
 	}
 
-	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
+	if err := r.Pool.Connect(ctx, s.Provider, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
-		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
+		if err := r.Pool.Disconnect(ctx, s.Provider, s.Connection); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()
@@ -414,11 +418,11 @@ func (r *BGPReconciler) finalize(ctx context.Context, s *bgpScope) (reterr error
 		}
 	}
 
-	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
+	if err := r.Pool.Connect(ctx, s.Provider, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
-		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
+		if err := r.Pool.Disconnect(ctx, s.Provider, s.Connection); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()

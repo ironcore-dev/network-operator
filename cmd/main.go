@@ -46,6 +46,7 @@ import (
 	evpnv1alpha1 "github.com/ironcore-dev/network-operator/api/evpn/v1alpha1"
 	overlayv1alpha1 "github.com/ironcore-dev/network-operator/api/overlay/v1alpha1"
 	poolv1alpha1 "github.com/ironcore-dev/network-operator/api/pool/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/connpool"
 	nxcontroller "github.com/ironcore-dev/network-operator/internal/controller/cisco/nx"
 	corecontroller "github.com/ironcore-dev/network-operator/internal/controller/core"
 	evpncontroller "github.com/ironcore-dev/network-operator/internal/controller/evpn"
@@ -301,12 +302,19 @@ func main() { //nolint:gocyclo
 		os.Exit(1)
 	}
 
+	pool := connpool.New()
+	if err := mgr.Add(pool); err != nil {
+		setupLog.Error(err, "unable to add connection pool to manager")
+		os.Exit(1)
+	}
+
 	if err := (&corecontroller.DeviceReconciler{
 		Client:            mgr.GetClient(),
 		Scheme:            mgr.GetScheme(),
 		Recorder:          mgr.GetEventRecorder("device-controller"),
 		WatchFilterValue:  watchFilterValue,
 		HeartbeatInterval: heartbeatInterval,
+		Pool:              pool,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Device")
 		os.Exit(1)
@@ -318,6 +326,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("interface-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Interface")
@@ -330,6 +339,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("banner-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Banner")
 		os.Exit(1)
@@ -341,6 +351,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("user-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "User")
 		os.Exit(1)
@@ -352,6 +363,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("dns-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DNS")
 		os.Exit(1)
@@ -363,6 +375,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("ntp-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "NTP")
 		os.Exit(1)
@@ -374,6 +387,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("acl-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AccessControlList")
 		os.Exit(1)
@@ -385,6 +399,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("certificate-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Certificate")
 		os.Exit(1)
@@ -396,6 +411,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("snmp-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SNMP")
 		os.Exit(1)
@@ -407,6 +423,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("syslog-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Syslog")
 		os.Exit(1)
@@ -418,6 +435,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("managementaccess-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ManagementAccess")
 		os.Exit(1)
@@ -429,6 +447,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("isis-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ISIS")
 		os.Exit(1)
@@ -440,6 +459,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("pim-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PIM")
 		os.Exit(1)
@@ -451,6 +471,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("bgp-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BGP")
@@ -463,6 +484,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("bgppeer-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BGPPeer")
@@ -475,6 +497,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("lldp-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LLDP")
@@ -487,6 +510,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("ospf-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OSPF")
@@ -499,6 +523,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("vlan-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VLAN")
@@ -511,6 +536,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("vrf-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VRF")
 		os.Exit(1)
@@ -522,6 +548,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("cisco-nx-vpcdomain-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VPCDomain")
@@ -534,6 +561,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("nve-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "NetworkVirtualizationEdge")
@@ -546,6 +574,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("cisco-nx-system-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "System")
 		os.Exit(1)
@@ -557,6 +586,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("evpn-instance-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "EVPNInstance")
 		os.Exit(1)
@@ -568,6 +598,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("aaa-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AAA")
 		os.Exit(1)
@@ -579,6 +610,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("prefixset-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PrefixSet")
 		os.Exit(1)
@@ -590,6 +622,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("communityset-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CommunitySet")
 		os.Exit(1)
@@ -601,6 +634,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("routingpolicy-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RoutingPolicy")
 		os.Exit(1)
@@ -612,6 +646,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("cisco-nx-border-gateway-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BorderGateway")
 		os.Exit(1)
@@ -623,6 +658,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("dhcprelay-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DHCPRelay")
@@ -635,6 +671,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("configbackup-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ConfigBackup")
 		os.Exit(1)
@@ -646,6 +683,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("ethernetsegment-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 		RequeueInterval:  requeueInterval,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "EthernetSegment")
@@ -824,6 +862,7 @@ func main() { //nolint:gocyclo
 		Recorder:         mgr.GetEventRecorder("probe-controller"),
 		WatchFilterValue: watchFilterValue,
 		Locker:           locker,
+		Pool:             pool,
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Probe")
 		os.Exit(1)

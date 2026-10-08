@@ -6,18 +6,23 @@ package openconfig
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/go-logr/logr"
 	"google.golang.org/grpc"
 
+	"github.com/ironcore-dev/network-operator/internal/connpool"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 	"github.com/ironcore-dev/network-operator/internal/transport/grpcext"
 )
 
-var _ provider.Provider = (*Provider)(nil)
+var (
+	_ provider.Provider       = (*Provider)(nil)
+	_ connpool.PooledProvider = (*Provider)(nil)
+)
 
 // Provider implements the OpenConfig provider using gnmiext.Client.
 type Provider struct {
@@ -52,6 +57,27 @@ func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (er
 // Disconnect closes the underlying gRPC connection.
 func (p *Provider) Disconnect(_ context.Context, _ *deviceutil.Connection) error {
 	return p.conn.Close()
+}
+
+type poolState struct {
+	conn   *grpc.ClientConn
+	client gnmiext.Client
+}
+
+// SaveState returns the provider's connection state for caching.
+func (p *Provider) SaveState() (any, io.Closer) {
+	return &poolState{conn: p.conn, client: p.client}, p.conn
+}
+
+// RestoreState restores a previously cached connection state.
+func (p *Provider) RestoreState(state any) bool {
+	s, ok := state.(*poolState)
+	if !ok {
+		return false
+	}
+	p.conn = s.conn
+	p.client = s.client
+	return true
 }
 
 func init() {

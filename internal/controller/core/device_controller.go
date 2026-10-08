@@ -34,6 +34,7 @@ import (
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
+	"github.com/ironcore-dev/network-operator/internal/connpool"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/paused"
 	"github.com/ironcore-dev/network-operator/internal/provider"
@@ -54,6 +55,9 @@ type DeviceReconciler struct {
 	// HeartbeatInterval is the duration after which the controller requeues the reconciliation,
 	// regardless of changes.
 	HeartbeatInterval time.Duration
+
+	// Pool caches provider connections across reconciliation cycles.
+	Pool *connpool.Pool
 }
 
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=devices,verbs=get;list;watch;create;update;patch;delete
@@ -81,6 +85,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 			// If the custom resource is not found then it usually means that it was deleted or not created
 			// In this way, we will stop the reconciliation
 			log.V(3).Info("Resource not found. Ignoring since object must be deleted")
+			r.Pool.EvictByDevice(req.Name)
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -301,7 +306,8 @@ func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Device, prov provider.DeviceProvider, conn *deviceutil.Connection) (reterr error) {
-	if err := prov.Connect(ctx, conn); err != nil {
+	if err := r.Pool.Connect(ctx, prov, conn); err != nil {
+		r.Pool.Evict(conn.Address)
 		conditions.Set(device, metav1.Condition{
 			Type:    v1alpha1.ReachableCondition,
 			Status:  metav1.ConditionFalse,
@@ -317,7 +323,7 @@ func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Devic
 		return nil
 	}
 	defer func() {
-		if err := prov.Disconnect(ctx, conn); err != nil {
+		if err := r.Pool.Disconnect(ctx, prov, conn); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()
@@ -419,7 +425,8 @@ func (r *DeviceReconciler) reconcileMinimal(ctx context.Context, device *v1alpha
 	if err != nil {
 		return fmt.Errorf("failed to load device provider: %w", err)
 	}
-	if err := prov.Connect(ctx, conn); err != nil {
+	if err := r.Pool.Connect(ctx, prov, conn); err != nil {
+		r.Pool.Evict(conn.Address)
 		conditions.Set(device, metav1.Condition{
 			Type:    v1alpha1.ReachableCondition,
 			Status:  metav1.ConditionFalse,
@@ -435,7 +442,7 @@ func (r *DeviceReconciler) reconcileMinimal(ctx context.Context, device *v1alpha
 		return nil
 	}
 	defer func() {
-		if err := prov.Disconnect(ctx, conn); err != nil {
+		if err := r.Pool.Disconnect(ctx, prov, conn); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()
@@ -487,11 +494,11 @@ func (r *DeviceReconciler) reconcileMaintenance(ctx context.Context, obj *v1alph
 			return fmt.Errorf("failed to load device provider: %w", err)
 		}
 
-		if err := prov.Connect(ctx, conn); err != nil {
+		if err := r.Pool.Connect(ctx, prov, conn); err != nil {
 			r.Recorder.Eventf(obj, nil, "Warning", "MaintenanceFailed", "Maintenance", "Failed to connect to device for maintenance operation: %v", err)
 			return provider.ErrMaintenanceInProgress
 		}
-		defer prov.Disconnect(ctx, conn) //nolint:errcheck
+		defer r.Pool.Disconnect(ctx, prov, conn) //nolint:errcheck
 
 		switch action {
 		case v1alpha1.DeviceMaintenanceReboot:

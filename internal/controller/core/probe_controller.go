@@ -33,6 +33,7 @@ import (
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
+	"github.com/ironcore-dev/network-operator/internal/connpool"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/resourcelock"
@@ -52,6 +53,9 @@ type ProbeReconciler struct {
 
 	// Locker is used to synchronize operations on resources targeting the same device.
 	Locker *resourcelock.ResourceLocker
+
+	// Pool caches provider connections across reconciliation cycles.
+	Pool *connpool.Pool
 }
 
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=probes,verbs=get;list;watch;create;update;patch;delete
@@ -363,11 +367,11 @@ func (r *ProbeReconciler) reconcile(ctx context.Context, s *probeScope) (res ctr
 		}()
 	}
 
-	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
+	if err := r.Pool.Connect(ctx, s.Provider, s.Connection); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
-		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
+		if err := r.Pool.Disconnect(ctx, s.Provider, s.Connection); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()

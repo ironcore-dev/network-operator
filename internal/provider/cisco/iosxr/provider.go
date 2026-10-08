@@ -7,11 +7,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"time"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/apistatus"
+	"github.com/ironcore-dev/network-operator/internal/connpool"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
@@ -28,6 +30,7 @@ var (
 	_ provider.BGPProvider       = &Provider{}
 	_ provider.BGPPeerProvider   = &Provider{}
 	_ provider.PrefixSetProvider = &Provider{}
+	_ connpool.PooledProvider    = &Provider{}
 )
 
 type Provider struct {
@@ -53,6 +56,25 @@ func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (er
 
 func (p *Provider) Disconnect(ctx context.Context, conn *deviceutil.Connection) error {
 	return p.conn.Close()
+}
+
+type poolState struct {
+	conn   *grpc.ClientConn
+	client gnmiext.Client
+}
+
+func (p *Provider) SaveState() (any, io.Closer) {
+	return &poolState{conn: p.conn, client: p.client}, p.conn
+}
+
+func (p *Provider) RestoreState(state any) bool {
+	s, ok := state.(*poolState)
+	if !ok {
+		return false
+	}
+	p.conn = s.conn
+	p.client = s.client
+	return true
 }
 
 func (p *Provider) ListPorts(ctx context.Context) ([]provider.DevicePort, error) {

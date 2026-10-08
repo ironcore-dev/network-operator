@@ -35,6 +35,7 @@ import (
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/apistatus"
+	"github.com/ironcore-dev/network-operator/internal/connpool"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
@@ -74,6 +75,7 @@ var (
 	_ provider.AAAProvider              = (*Provider)(nil)
 	_ provider.ConfigBackupProvider     = (*Provider)(nil)
 	_ provider.ProbeProvider            = (*Provider)(nil)
+	_ connpool.PooledProvider           = (*Provider)(nil)
 )
 
 // maxSetOperations is the maximum number of operations per gNMI Set RPC.
@@ -114,6 +116,27 @@ func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (er
 
 func (p *Provider) Disconnect(_ context.Context, _ *deviceutil.Connection) error {
 	return p.conn.Close()
+}
+
+type poolState struct {
+	conn   *grpc.ClientConn
+	client gnmiext.Client
+	nxapi  nxapi.Client
+}
+
+func (p *Provider) SaveState() (any, io.Closer) {
+	return &poolState{conn: p.conn, client: p.client, nxapi: p.nxapi}, p.conn
+}
+
+func (p *Provider) RestoreState(state any) bool {
+	s, ok := state.(*poolState)
+	if !ok {
+		return false
+	}
+	p.conn = s.conn
+	p.client = s.client
+	p.nxapi = s.nxapi
+	return true
 }
 
 // Do applies the SetBuilder to the device. Feature activations are always

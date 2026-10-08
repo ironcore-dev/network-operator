@@ -29,6 +29,7 @@ import (
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/connpool"
 	core "github.com/ironcore-dev/network-operator/internal/controller/core"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
@@ -122,11 +123,14 @@ var _ = BeforeSuite(func() {
 
 	provider.Register("test-provider", func() provider.Provider { return testProvider })
 
+	testPool := connpool.New()
+
 	err = (&SystemReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
 		Locker:   testLocker,
+		Pool:     testPool,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -135,6 +139,7 @@ var _ = BeforeSuite(func() {
 		Scheme:   scheme.Scheme,
 		Recorder: recorder,
 		Locker:   testLocker,
+		Pool:     testPool,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -143,6 +148,7 @@ var _ = BeforeSuite(func() {
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
 		Locker:   testLocker,
+		Pool:     testPool,
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -155,6 +161,7 @@ var _ = BeforeSuite(func() {
 		Scheme:            k8sManager.GetScheme(),
 		Recorder:          recorder,
 		HeartbeatInterval: 10 * time.Minute,
+		Pool:              testPool,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 

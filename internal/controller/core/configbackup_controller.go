@@ -38,6 +38,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/clientutil"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
+	"github.com/ironcore-dev/network-operator/internal/connpool"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/objectstorage"
 	"github.com/ironcore-dev/network-operator/internal/paused"
@@ -59,6 +60,9 @@ type ConfigBackupReconciler struct {
 
 	// Locker is used to synchronize operations on resources targeting the same device.
 	Locker *resourcelock.ResourceLocker
+
+	// Pool caches provider connections across reconciliation cycles.
+	Pool *connpool.Pool
 
 	// ObjectStorage is an optional pre-configured object storage client for Remote backups.
 	// If set, it is used instead of creating one from the spec credentials.
@@ -382,11 +386,11 @@ func (r *ConfigBackupReconciler) reconcile(ctx context.Context, s *configBackupS
 		}()
 	}
 
-	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
+	if err := r.Pool.Connect(ctx, s.Provider, s.Connection); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
-		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
+		if err := r.Pool.Disconnect(ctx, s.Provider, s.Connection); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()
