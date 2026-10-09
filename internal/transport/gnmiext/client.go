@@ -137,6 +137,7 @@ type Client interface {
 	Capabilities() *Capabilities
 	GetConfig(context.Context, ...DataElement) error
 	GetState(context.Context, ...DataElement) error
+	GetOperational(context.Context, ...DataElement) error
 	Do(context.Context, *SetBuilder) error
 	Patch(context.Context, ...DataElement) error
 	Update(context.Context, ...DataElement) error
@@ -230,6 +231,11 @@ func (c *client) GetState(ctx context.Context, elements ...DataElement) error {
 	return c.get(ctx, gnmipb.GetRequest_STATE, elements...)
 }
 
+// GetOperational retrieves the operational state for the given set of items.
+func (c *client) GetOperational(ctx context.Context, elements ...DataElement) error {
+	return c.get(ctx, gnmipb.GetRequest_OPERATIONAL, elements...)
+}
+
 // Update replaces the configuration for the given set of items.
 // If the current configuration equals the desired configuration, the operation is skipped.
 // For partial updates that merge changes, use [Client.Patch] instead.
@@ -313,9 +319,14 @@ func (c *client) get(ctx context.Context, dt gnmipb.GetRequest_DataType, element
 		}
 		r.Path = append(r.Path, path)
 	}
-	op := "get_config"
-	if dt == gnmipb.GetRequest_STATE {
+	var op string
+	switch dt {
+	case gnmipb.GetRequest_STATE:
 		op = "get_state"
+	case gnmipb.GetRequest_OPERATIONAL:
+		op = "get_operational"
+	default:
+		op = "get_config"
 	}
 	start := time.Now()
 	res, err := c.gnmi.Get(ctx, r)

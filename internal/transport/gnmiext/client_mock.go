@@ -30,6 +30,9 @@ var _ Client = &ClientMock{}
 //			GetConfigFunc: func(contextMoqParam context.Context, dataElements ...DataElement) error {
 //				panic("mock out the GetConfig method")
 //			},
+//			GetOperationalFunc: func(contextMoqParam context.Context, dataElements ...DataElement) error {
+//				panic("mock out the GetOperational method")
+//			},
 //			GetStateFunc: func(contextMoqParam context.Context, dataElements ...DataElement) error {
 //				panic("mock out the GetState method")
 //			},
@@ -57,6 +60,9 @@ type ClientMock struct {
 
 	// GetConfigFunc mocks the GetConfig method.
 	GetConfigFunc func(contextMoqParam context.Context, dataElements ...DataElement) error
+
+	// GetOperationalFunc mocks the GetOperational method.
+	GetOperationalFunc func(contextMoqParam context.Context, dataElements ...DataElement) error
 
 	// GetStateFunc mocks the GetState method.
 	GetStateFunc func(contextMoqParam context.Context, dataElements ...DataElement) error
@@ -92,6 +98,13 @@ type ClientMock struct {
 			// DataElements is the dataElements argument value.
 			DataElements []DataElement
 		}
+		// GetOperational holds details about calls to the GetOperational method.
+		GetOperational []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// DataElements is the dataElements argument value.
+			DataElements []DataElement
+		}
 		// GetState holds details about calls to the GetState method.
 		GetState []struct {
 			// ContextMoqParam is the contextMoqParam argument value.
@@ -114,13 +127,14 @@ type ClientMock struct {
 			DataElements []DataElement
 		}
 	}
-	lockCapabilities sync.RWMutex
-	lockDelete       sync.RWMutex
-	lockDo           sync.RWMutex
-	lockGetConfig    sync.RWMutex
-	lockGetState     sync.RWMutex
-	lockPatch        sync.RWMutex
-	lockUpdate       sync.RWMutex
+	lockCapabilities   sync.RWMutex
+	lockDelete         sync.RWMutex
+	lockDo             sync.RWMutex
+	lockGetConfig      sync.RWMutex
+	lockGetOperational sync.RWMutex
+	lockGetState       sync.RWMutex
+	lockPatch          sync.RWMutex
+	lockUpdate         sync.RWMutex
 }
 
 // Capabilities calls CapabilitiesFunc.
@@ -283,6 +297,49 @@ func (mock *ClientMock) ResetGetConfigCalls() {
 	mock.lockGetConfig.Unlock()
 }
 
+// GetOperational calls GetOperationalFunc.
+func (mock *ClientMock) GetOperational(contextMoqParam context.Context, dataElements ...DataElement) error {
+	if mock.GetOperationalFunc == nil {
+		panic("ClientMock.GetOperationalFunc: method is nil but Client.GetOperational was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		DataElements    []DataElement
+	}{
+		ContextMoqParam: contextMoqParam,
+		DataElements:    dataElements,
+	}
+	mock.lockGetOperational.Lock()
+	mock.calls.GetOperational = append(mock.calls.GetOperational, callInfo)
+	mock.lockGetOperational.Unlock()
+	return mock.GetOperationalFunc(contextMoqParam, dataElements...)
+}
+
+// GetOperationalCalls gets all the calls that were made to GetOperational.
+// Check the length with:
+//
+//	len(mockedClient.GetOperationalCalls())
+func (mock *ClientMock) GetOperationalCalls() []struct {
+	ContextMoqParam context.Context
+	DataElements    []DataElement
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		DataElements    []DataElement
+	}
+	mock.lockGetOperational.RLock()
+	calls = mock.calls.GetOperational
+	mock.lockGetOperational.RUnlock()
+	return calls
+}
+
+// ResetGetOperationalCalls reset all the calls that were made to GetOperational.
+func (mock *ClientMock) ResetGetOperationalCalls() {
+	mock.lockGetOperational.Lock()
+	mock.calls.GetOperational = nil
+	mock.lockGetOperational.Unlock()
+}
+
 // GetState calls GetStateFunc.
 func (mock *ClientMock) GetState(contextMoqParam context.Context, dataElements ...DataElement) error {
 	if mock.GetStateFunc == nil {
@@ -429,6 +486,10 @@ func (mock *ClientMock) ResetCalls() {
 	mock.lockGetConfig.Lock()
 	mock.calls.GetConfig = nil
 	mock.lockGetConfig.Unlock()
+
+	mock.lockGetOperational.Lock()
+	mock.calls.GetOperational = nil
+	mock.lockGetOperational.Unlock()
 
 	mock.lockGetState.Lock()
 	mock.calls.GetState = nil
