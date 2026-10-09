@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 # SPDX-License-Identifier: Apache-2.0
 
-ARG GO_VERSION=1.27
+ARG GO_VERSION=1.27.2
 ARG ALPINE_VERSION=3.24
 
 FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:${GO_VERSION}-alpine${ALPINE_VERSION} AS build
