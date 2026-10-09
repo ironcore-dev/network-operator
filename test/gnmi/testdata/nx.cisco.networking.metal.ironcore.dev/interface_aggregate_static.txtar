@@ -61,7 +61,7 @@ spec:
             "medium": "broadcast",
             "mode": "access",
             "nativeVlan": "vlan-1",
-            "userCfgdFlags": "admin_layer,admin_mtu,admin_state",
+            "userCfgdFlags": "admin_layer,admin_state",
             "physExtd-items": {
               "bufferBoost": "enable"
             }
@@ -83,7 +83,7 @@ spec:
             "pcMode": "on",
             "nativeVlan": "vlan-1",
             "suspIndividual": "enable",
-            "userCfgdFlags": "admin_layer,admin_mtu,admin_state",
+            "userCfgdFlags": "admin_layer,admin_state",
             "rsmbrIfs-items": {
               "RsMbrIfs-list": [
                 {

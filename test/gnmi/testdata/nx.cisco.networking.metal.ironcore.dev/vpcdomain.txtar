@@ -106,6 +106,13 @@ spec:
             "userCfgdFlags": "admin_layer,admin_state",
             "aggrExtd-items": {
               "bufferBoost": "enable"
+            },
+            "rsmbrIfs-items": {
+              "RsMbrIfs-list": [
+                {
+                  "tDn": "/System/intf-items/phys-items/PhysIf-list[id='eth1/1']"
+                }
+              ]
             }
           }
         ]
