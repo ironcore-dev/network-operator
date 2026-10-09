@@ -32,6 +32,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
@@ -302,16 +305,17 @@ func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *DeviceReconciler) reconcile(ctx context.Context, device *v1alpha1.Device, prov provider.DeviceProvider, conn *deviceutil.Connection) (reterr error) {
 	if err := prov.Connect(ctx, conn); err != nil {
+		reason, message := connectFailureCondition(err)
 		conditions.Set(device, metav1.Condition{
 			Type:    v1alpha1.ReachableCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  v1alpha1.UnreachableReason,
-			Message: fmt.Sprintf("Failed to connect to device: %v", err),
+			Reason:  reason,
+			Message: message,
 		})
 		conditions.Set(device, metav1.Condition{
 			Type:    v1alpha1.ReadyCondition,
 			Status:  metav1.ConditionUnknown,
-			Reason:  v1alpha1.UnreachableReason,
+			Reason:  reason,
 			Message: "Device is not reachable",
 		})
 		return nil
@@ -420,16 +424,17 @@ func (r *DeviceReconciler) reconcileMinimal(ctx context.Context, device *v1alpha
 		return fmt.Errorf("failed to load device provider: %w", err)
 	}
 	if err := prov.Connect(ctx, conn); err != nil {
+		reason, message := connectFailureCondition(err)
 		conditions.Set(device, metav1.Condition{
 			Type:    v1alpha1.ReachableCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  v1alpha1.UnreachableReason,
-			Message: fmt.Sprintf("Failed to connect to device: %v", err),
+			Reason:  reason,
+			Message: message,
 		})
 		conditions.Set(device, metav1.Condition{
 			Type:    v1alpha1.ReadyCondition,
 			Status:  metav1.ConditionUnknown,
-			Reason:  v1alpha1.UnreachableReason,
+			Reason:  reason,
 			Message: "Device is not reachable",
 		})
 		return nil
@@ -765,4 +770,15 @@ func sanitizeLabelValue(s string) string {
 	s = invalidLabelChars.ReplaceAllString(s, "-")
 	s = strings.Trim(s, "-_.")
 	return s[:min(len(s), 63)]
+}
+
+// connectFailureCondition returns the condition reason and message for a
+// connection failure based on the gRPC status code.
+func connectFailureCondition(err error) (reason, message string) {
+	switch status.Code(err) {
+	case codes.ResourceExhausted:
+		return v1alpha1.ResourceExhaustedReason, fmt.Sprintf("Device resources exhausted: %v", err)
+	default:
+		return v1alpha1.UnreachableReason, fmt.Sprintf("Failed to connect to device: %v", err)
+	}
 }
