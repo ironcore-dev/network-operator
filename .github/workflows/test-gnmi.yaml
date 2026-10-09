@@ -31,8 +31,8 @@ jobs:
       fail-fast: true
       matrix:
         provider:
-          - openconfig
-          - cisco-nxos-gnmi
+          - openconfig.networking.metal.ironcore.dev
+          - nx.cisco.networking.metal.ironcore.dev
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
