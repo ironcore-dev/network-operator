@@ -8,7 +8,7 @@ spec:
   deviceRef:
     name: device
   name: BGP-COMMUNITY
-  type: standard
+  type: Standard
   members:
     - sequence: 5
       regex: "50000:[0-9][0-9]"
@@ -24,7 +24,7 @@ spec:
   deviceRef:
     name: device
   name: BGP-EXT-COMMUNITY
-  type: extended
+  type: Extended
   members:
     - sequence: 5
       regex: "65200:[0-9][0-9]"

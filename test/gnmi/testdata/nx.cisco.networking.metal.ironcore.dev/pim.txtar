@@ -207,7 +207,8 @@ spec:
           "Dom-list": [
             {
               "name": "default",
-              "adminSt": "disabled"
+              "adminSt": "disabled",
+              "logNbhChng": false
             }
           ]
         }
