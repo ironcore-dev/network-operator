@@ -163,7 +163,7 @@ func (r *SystemReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, nil
 	}
 
-	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
@@ -248,6 +248,10 @@ func (r *SystemReconciler) reconcile(ctx context.Context, s *systemScope) (reter
 
 	s.System.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
+	defer func() {
+		conditions.RecomputeReady(s.System)
+	}()
+
 	// Ensure the System is owned by the Device.
 	if !controllerutil.HasControllerReference(s.System) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.System, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
@@ -268,8 +272,6 @@ func (r *SystemReconciler) reconcile(ctx context.Context, s *systemScope) (reter
 	err := s.Provider.EnsureSystemSettings(ctx, s.System)
 
 	cond := conditions.FromError(err)
-	// As this resource is configuration only, we use the Configured condition as top-level Ready condition.
-	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.System, cond)
 
 	return err
