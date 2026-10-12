@@ -45,7 +45,7 @@ func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (er
 	if err != nil {
 		return fmt.Errorf("failed to create grpc connection: %w", err)
 	}
-	p.client, err = gnmiext.New(ctx, p.conn)
+	p.client, err = gnmiext.New(ctx, p.conn, gnmiext.WithTarget(conn.DeviceName))
 	if err != nil {
 		return err
 	}
