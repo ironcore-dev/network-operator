@@ -3372,7 +3372,15 @@ func (p *Provider) EnsureSystemSettings(ctx context.Context, s *nxv1alpha1.Syste
 	sys := new(SystemJumboMTU)
 	*sys = SystemJumboMTU(s.Spec.JumboMTU)
 
-	return p.client.Patch(ctx, long, res, sys)
+	sidod := new(DHCPRelayServerIDOverrideDisable)
+	if s.Spec.RelayServerIDOverrideDisable {
+		*sidod = 1
+		if err := p.client.Patch(ctx, &Feature{Name: FeatureDHCP, AdminSt: AdminStEnabled}); err != nil {
+			return err
+		}
+	}
+
+	return p.client.Patch(ctx, long, res, sys, sidod)
 }
 
 func (p *Provider) ResetSystemSettings(ctx context.Context) error {
@@ -3381,6 +3389,7 @@ func (p *Provider) ResetSystemSettings(ctx context.Context) error {
 		new(VLANSystem),
 		new(VLANReservation),
 		new(SystemJumboMTU),
+		new(DHCPRelayServerIDOverrideDisable),
 	)
 }
 
@@ -3994,7 +4003,7 @@ func (p *Provider) EnsureDHCPRelay(ctx context.Context, req *provider.DHCPRelayR
 	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
 
 	f := new(Feature)
-	f.Name = "dhcp"
+	f.Name = FeatureDHCP
 	f.AdminSt = AdminStEnabled
 	sb.Update(f)
 

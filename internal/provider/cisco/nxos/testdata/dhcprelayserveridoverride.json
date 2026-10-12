@@ -1,0 +1,7 @@
+{
+  "dhcp-items": {
+    "inst-items": {
+      "relayInformationOptionServerIdOverrideDisableEnabled": 1
+    }
+  }
+}

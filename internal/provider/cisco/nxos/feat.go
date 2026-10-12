@@ -10,6 +10,9 @@ var (
 	_ gnmiext.Defaultable = (*Feature)(nil)
 )
 
+// FeatureDHCP is the NX-OS feature name for DHCP.
+const FeatureDHCP = "dhcp"
+
 // Feature represents a dynamic feature configuration on a NX-OS device.
 type Feature struct {
 	Name    string  `json:"-"`

@@ -87,6 +87,15 @@ spec:
                 maximum: 9216
                 minimum: 1501
                 type: integer
+              relayServerIdOverrideDisable:
+                default: false
+                description: |-
+                  RelayServerIDOverrideDisable enables the global command
+                  "ip dhcp relay information option server-id-override-disable".
+                  It prevents the DHCP relay agent from overriding the Server-ID (Option 54) in
+                  relayed requests, which otherwise causes DHCP servers to drop the request.
+                  Disabled by default. Requires the dhcp feature, which is enabled automatically.
+                type: boolean
               reservedVlan:
                 default: 3968
                 description: |-

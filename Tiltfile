@@ -170,6 +170,9 @@ k8s_resource(new_name='bgp-import-policy', objects=['bgp-import-policy:routingpo
 k8s_yaml('./config/samples/cisco/nx/v1alpha1_vpcdomain.yaml')
 k8s_resource(new_name='vpcdomain', objects=['leaf1-vpcdomain:vpcdomain', 'leaf1-vrfvpckeepalive:vrf', 'eth1-30:interface', 'vpc-peer-link:interfaceconfig', 'eth1-31:interface','eth1-32:interface', 'po1:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
+k8s_yaml('./config/samples/cisco/nx/v1alpha1_system.yaml')
+k8s_resource(new_name='nxsystem', objects=['leaf1:system'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
 k8s_yaml('./config/samples/cisco/nx/v1alpha1_interfaceconfig.yaml')
 k8s_resource(new_name='spanning-tree-network', objects=['spanning-tree-network:interfaceconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='lacp-vpc', objects=['lacp-vpc:interfaceconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
