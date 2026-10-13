@@ -3,7 +3,13 @@ processor:
     - "TypeMeta$"
   ignoreTypes:
     - "ParseError$"
-    - "List$"
+    # Exclude Kubernetes list wrapper types (FooList). Three patterns together
+    # cover all wrappers without accidentally excluding AccessControlList which
+    # is a root CRD type (its wrapper AccessControlListList is caught by the
+    # first pattern).
+    - "ListList$"
+    - "PoolList$"
+    - "[^l]List$"
 
 render:
   kubernetesVersion: 1.35
