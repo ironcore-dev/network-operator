@@ -110,7 +110,8 @@ func (r *NetworkVirtualizationEdgeReconciler) Reconcile(ctx context.Context, req
 		return ctrl.Result{}, err
 	}
 
-	if err := r.Locker.AcquireLock(ctx, device.Name, "nve-controller"); err != nil {
+	release, err := r.Locker.AcquireLock(ctx, device.Name, obj)
+	if err != nil {
 		if errors.Is(err, resourcelock.ErrLockAlreadyHeld) {
 			log.V(3).Info("Device is already locked, requeuing reconciliation")
 			return ctrl.Result{RequeueAfter: Jitter(time.Second), Priority: new(LockWaitPriorityDefault)}, nil
@@ -119,7 +120,7 @@ func (r *NetworkVirtualizationEdgeReconciler) Reconcile(ctx context.Context, req
 		return ctrl.Result{}, err
 	}
 	defer func() {
-		if err := r.Locker.ReleaseLock(ctx, device.Name, "nve-controller"); err != nil {
+		if err := release(ctx); err != nil {
 			log.Error(err, "Failed to release device lock")
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}

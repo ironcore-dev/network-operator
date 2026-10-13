@@ -6,10 +6,12 @@ package resourcelock
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	coordinationv1 "k8s.io/api/coordination/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -96,12 +98,16 @@ func TestAcquireLock_CreateNew(t *testing.T) {
 
 	ctx := t.Context()
 	leaseName := "test-lease"
-	lockerID := "locker-1"
+	locker := &corev1.ConfigMap{}
+	locker.Namespace = "test-namespace"
+	locker.Name = "locker-1"
 
-	if err := rl.AcquireLock(ctx, leaseName, lockerID); err != nil {
+	release, err := rl.AcquireLock(ctx, leaseName, locker)
+	if err != nil {
 		t.Errorf("AcquireLock() error = %v", err)
 		return
 	}
+	defer release(ctx) //nolint:errcheck
 
 	lease := &coordinationv1.Lease{}
 	key := types.NamespacedName{Namespace: metav1.NamespaceDefault, Name: leaseName}
@@ -109,8 +115,9 @@ func TestAcquireLock_CreateNew(t *testing.T) {
 		t.Fatalf("Get lease error = %v", err)
 	}
 
-	if lease.Spec.HolderIdentity == nil || *lease.Spec.HolderIdentity != lockerID {
-		t.Errorf("Lease holder = %v, want %v", lease.Spec.HolderIdentity, lockerID)
+	const lockerIDPrefix = "ConfigMap/test-namespace/locker-1/"
+	if lease.Spec.HolderIdentity == nil || !strings.HasPrefix(*lease.Spec.HolderIdentity, lockerIDPrefix) {
+		t.Errorf("Lease holder = %v, want prefix %q", lease.Spec.HolderIdentity, lockerIDPrefix)
 	}
 
 	if lease.Spec.LeaseDurationSeconds == nil || *lease.Spec.LeaseDurationSeconds != 15 {
@@ -118,42 +125,32 @@ func TestAcquireLock_CreateNew(t *testing.T) {
 	}
 }
 
-func TestAcquireLock_AlreadyOwned(t *testing.T) {
-	lockerID := "locker-1"
-	leaseName := "test-lease"
-
-	now := metav1.NewMicroTime(time.Now())
-	leaseDuration := int32(15)
-	lease := &coordinationv1.Lease{
-		Name:      leaseName,
-		Namespace: metav1.NamespaceDefault,
-		Spec: coordinationv1.LeaseSpec{
-			HolderIdentity:       &lockerID,
-			LeaseDurationSeconds: &leaseDuration,
-			AcquireTime:          &now,
-			RenewTime:            &now,
-		},
-	}
-
-	client := fake.NewClientBuilder().
-		WithScheme(scheme.Scheme).
-		WithObjects(lease).
-		Build()
-
+func TestAcquireLock_RejectsConcurrentAttemptForSameLocker(t *testing.T) {
+	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 	rl, err := NewResourceLocker(client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
 	if err != nil {
 		t.Fatalf("NewResourceLocker() error = %v", err)
 	}
 
 	ctx := t.Context()
-	if err := rl.AcquireLock(ctx, leaseName, lockerID); err != nil {
-		t.Errorf("AcquireLock() error = %v, expected success when already owned", err)
+	leaseName := "test-lease"
+	locker := &corev1.ConfigMap{}
+	locker.Namespace = "test-namespace"
+	locker.Name = "locker-1"
+
+	release, err := rl.AcquireLock(ctx, leaseName, locker)
+	if err != nil {
+		t.Fatalf("first AcquireLock() error = %v", err)
+	}
+	defer release(ctx) //nolint:errcheck
+
+	if _, err := rl.AcquireLock(ctx, leaseName, locker); !errors.Is(err, ErrLockAlreadyHeld) {
+		t.Errorf("second AcquireLock() error = %v, want %v", err, ErrLockAlreadyHeld)
 	}
 }
 
 func TestAcquireLock_HeldByAnother(t *testing.T) {
 	lockerID1 := "locker-1"
-	lockerID2 := "locker-2"
 	leaseName := "test-lease"
 
 	now := metav1.NewMicroTime(time.Now())
@@ -180,14 +177,15 @@ func TestAcquireLock_HeldByAnother(t *testing.T) {
 	}
 
 	ctx := t.Context()
-	if err := rl.AcquireLock(ctx, leaseName, lockerID2); !errors.Is(err, ErrLockAlreadyHeld) {
+	locker := &corev1.ConfigMap{}
+	locker.Name = "locker-2"
+	if _, err := rl.AcquireLock(ctx, leaseName, locker); !errors.Is(err, ErrLockAlreadyHeld) {
 		t.Errorf("AcquireLock() error = %v, want %v", err, ErrLockAlreadyHeld)
 	}
 }
 
 func TestAcquireLock_ClaimExpired(t *testing.T) {
 	lockerID1 := "locker-1"
-	lockerID2 := "locker-2"
 	leaseName := "test-lease"
 
 	// Create an expired lease (renewed 20 seconds ago with 15 second duration)
@@ -215,10 +213,14 @@ func TestAcquireLock_ClaimExpired(t *testing.T) {
 	}
 
 	ctx := t.Context()
-	if err := rl.AcquireLock(ctx, leaseName, lockerID2); err != nil {
+	locker := &corev1.ConfigMap{}
+	locker.Name = "locker-2"
+	release, err := rl.AcquireLock(ctx, leaseName, locker)
+	if err != nil {
 		t.Errorf("AcquireLock() error = %v, expected to claim expired lease", err)
 		return
 	}
+	defer release(ctx) //nolint:errcheck
 
 	lease := &coordinationv1.Lease{}
 	key := types.NamespacedName{Namespace: metav1.NamespaceDefault, Name: leaseName}
@@ -226,8 +228,9 @@ func TestAcquireLock_ClaimExpired(t *testing.T) {
 		t.Fatalf("Get lease error = %v", err)
 	}
 
-	if lease.Spec.HolderIdentity == nil || *lease.Spec.HolderIdentity != lockerID2 {
-		t.Errorf("Lease holder = %v, want %v", lease.Spec.HolderIdentity, lockerID2)
+	const lockerIDPrefix = "ConfigMap/locker-2/"
+	if lease.Spec.HolderIdentity == nil || !strings.HasPrefix(*lease.Spec.HolderIdentity, lockerIDPrefix) {
+		t.Errorf("Lease holder = %v, want prefix %q", lease.Spec.HolderIdentity, lockerIDPrefix)
 	}
 }
 
@@ -259,8 +262,8 @@ func TestReleaseLock(t *testing.T) {
 	}
 
 	ctx := t.Context()
-	if err := rl.ReleaseLock(ctx, leaseName, lockerID); err != nil {
-		t.Errorf("ReleaseLock() error = %v", err)
+	if err := rl.releaseLock(ctx, leaseName, lockerID); err != nil {
+		t.Errorf("releaseLock() error = %v", err)
 		return
 	}
 
@@ -300,8 +303,8 @@ func TestReleaseLock_NotOwned(t *testing.T) {
 	}
 
 	ctx := t.Context()
-	if err := rl.ReleaseLock(ctx, leaseName, lockerID2); err != nil {
-		t.Errorf("ReleaseLock() error = %v, expected success (noop) when not owned", err)
+	if err := rl.releaseLock(ctx, leaseName, lockerID2); err != nil {
+		t.Errorf("releaseLock() error = %v, expected success (noop) when not owned", err)
 		return
 	}
 
@@ -325,14 +328,14 @@ func TestReleaseLock_NotFound(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(t.Context())
-	rl.cancelFuncs.Store("non-existent-lease", cancel)
-	if err := rl.ReleaseLock(ctx, "non-existent-lease", "locker-1"); err != nil {
-		t.Errorf("ReleaseLock() error = %v, expected success (noop) when lease not found", err)
+	rl.cancelFuncs.Store("locker-1", cancel)
+	if err := rl.releaseLock(ctx, "non-existent-lease", "locker-1"); err != nil {
+		t.Errorf("releaseLock() error = %v, expected success (noop) when lease not found", err)
 	}
 	select {
 	case <-ctx.Done():
 	default:
-		t.Error("ReleaseLock() did not cancel renewal when lease was not found")
+		t.Error("releaseLock() did not cancel renewal when lease was not found")
 	}
 }
 
@@ -422,22 +425,7 @@ func TestRenewLease_NotOwned(t *testing.T) {
 
 func TestReleaseLock_CancelsRenewalGoroutine(t *testing.T) {
 	leaseName := "test-lease"
-	lockerID := "test-locker"
-
-	leaseDuration := int32(15)
-	existingLease := &coordinationv1.Lease{
-		Name:      leaseName,
-		Namespace: metav1.NamespaceDefault,
-		Spec: coordinationv1.LeaseSpec{
-			HolderIdentity:       &lockerID,
-			LeaseDurationSeconds: &leaseDuration,
-		},
-	}
-
-	client := fake.NewClientBuilder().
-		WithScheme(scheme.Scheme).
-		WithObjects(existingLease).
-		Build()
+	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 
 	rl, err := NewResourceLocker(client, metav1.NamespaceDefault, 15*time.Second, 100*time.Millisecond)
 	if err != nil {
@@ -446,19 +434,32 @@ func TestReleaseLock_CancelsRenewalGoroutine(t *testing.T) {
 	defer rl.Close()
 
 	ctx := t.Context()
-	if err := rl.AcquireLock(ctx, leaseName, lockerID); err != nil {
+	locker := &corev1.ConfigMap{}
+	locker.Name = "test-locker"
+	release, err := rl.AcquireLock(ctx, leaseName, locker)
+	if err != nil {
 		t.Fatalf("AcquireLock() error = %v", err)
 	}
 
-	if _, exists := rl.cancelFuncs.Load(leaseName); !exists {
+	lease := &coordinationv1.Lease{}
+	key := types.NamespacedName{Namespace: metav1.NamespaceDefault, Name: leaseName}
+	if err := client.Get(ctx, key, lease); err != nil {
+		t.Fatalf("Get lease error = %v", err)
+	}
+	if lease.Spec.HolderIdentity == nil {
+		t.Fatal("Lease holder is nil")
+	}
+	lockerID := *lease.Spec.HolderIdentity
+
+	if _, exists := rl.cancelFuncs.Load(lockerID); !exists {
 		t.Error("Expected cancel func to be stored after AcquireLock")
 	}
 
-	if err := rl.ReleaseLock(ctx, leaseName, lockerID); err != nil {
-		t.Fatalf("ReleaseLock() error = %v", err)
+	if err := release(ctx); err != nil {
+		t.Fatalf("release() error = %v", err)
 	}
 
-	if _, exists := rl.cancelFuncs.Load(leaseName); exists {
-		t.Error("Expected cancel func to be removed after ReleaseLock")
+	if _, exists := rl.cancelFuncs.Load(lockerID); exists {
+		t.Error("Expected cancel func to be removed after release")
 	}
 }
