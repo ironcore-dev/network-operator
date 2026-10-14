@@ -2239,37 +2239,39 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 		dom.AfItems.DomAfList.Set(item)
 	}
 
-	interfaceNames, err := p.EnsureInterfacesExist(ctx, req.Interfaces)
-	if err != nil {
-		return err
-	}
+	if len(req.Interfaces) > 0 {
+		interfaceNames, err := p.EnsureInterfacesExist(ctx, req.Interfaces)
+		if err != nil {
+			return err
+		}
 
-	// prevent bounds check in for the range loop below
-	// [Bounds Check Elimination]: https://go101.org/optimizations/5-bce.html
-	_ = req.Interfaces[len(interfaceNames)-1]
+		// prevent bounds check in for the range loop below
+		// [Bounds Check Elimination]: https://go101.org/optimizations/5-bce.html
+		_ = req.Interfaces[len(interfaceNames)-1]
 
-	for i, iface := range req.Interfaces {
-		intf := new(ISISInterface)
-		intf.ID = interfaceNames[i]
-		intf.NetworkTypeP2P = AdminStOff
-		if iface.Spec.Type == v1alpha1.InterfaceTypePhysical {
-			intf.NetworkTypeP2P = AdminStOn
-		}
-		if ipv4 {
-			intf.V4Enable = true
-			intf.V4Bfd = "inheritVrf"
-			if iface.Spec.BFD != nil && iface.Spec.BFD.Enabled {
-				intf.V4Bfd = string(PassiveControlEnabled)
+		for i, iface := range req.Interfaces {
+			intf := new(ISISInterface)
+			intf.ID = interfaceNames[i]
+			intf.NetworkTypeP2P = AdminStOff
+			if iface.Spec.Type == v1alpha1.InterfaceTypePhysical {
+				intf.NetworkTypeP2P = AdminStOn
 			}
-		}
-		if ipv6 {
-			intf.V6Enable = true
-			intf.V6Bfd = "inheritVrf"
-			if iface.Spec.BFD != nil && iface.Spec.BFD.Enabled {
-				intf.V6Bfd = string(PassiveControlEnabled)
+			if ipv4 {
+				intf.V4Enable = true
+				intf.V4Bfd = "inheritVrf"
+				if iface.Spec.BFD != nil && iface.Spec.BFD.Enabled {
+					intf.V4Bfd = string(PassiveControlEnabled)
+				}
 			}
+			if ipv6 {
+				intf.V6Enable = true
+				intf.V6Bfd = "inheritVrf"
+				if iface.Spec.BFD != nil && iface.Spec.BFD.Enabled {
+					intf.V6Bfd = string(PassiveControlEnabled)
+				}
+			}
+			dom.IfItems.IfList.Set(intf)
 		}
-		dom.IfItems.IfList.Set(intf)
 	}
 	sb.Update(i)
 
