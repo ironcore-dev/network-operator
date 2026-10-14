@@ -574,8 +574,8 @@ func (r *DHCPRelayReconciler) reconcileVRFRef(ctx context.Context, vrfRef v1alph
 		return nil, reconcile.TerminalError(fmt.Errorf("vrf %s belongs to different device", vrfRef.Name))
 	}
 
-	// Verify the VRF is configured on the device
-	if !conditions.IsReady(vrf) {
+	// Verify the VRF is ready (configured) on the device
+	if !conditions.IsConfigured(vrf) {
 		conditions.Set(s.DHCPRelay, metav1.Condition{
 			Type:    v1alpha1.ConfiguredCondition,
 			Status:  metav1.ConditionFalse,
