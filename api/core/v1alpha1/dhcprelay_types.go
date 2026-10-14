@@ -83,6 +83,7 @@ type DHCPRelayStatus struct {
 // +kubebuilder:printcolumn:name="Servers",type=string,JSONPath=`.spec.servers`
 // +kubebuilder:printcolumn:name="Interface",type=string,JSONPath=`.spec.interfaceRef.name`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
+// +kubebuilder:printcolumn:name="Configured",type=string,JSONPath=`.status.conditions[?(@.type=="Configured")].status`,priority=1
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // DHCPRelay is the Schema for the DHCPRelays API
