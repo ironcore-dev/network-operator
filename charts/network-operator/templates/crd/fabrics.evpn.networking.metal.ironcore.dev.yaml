@@ -568,8 +568,6 @@ spec:
                 description: |-
                   vniPool references an IndexPool from which VNIs are allocated for Networks
                   realized by this Fabric.
-                  This field is introduced as optional until the NetworkAttachment
-                  controller is implemented. The field currently has no effect.
                 properties:
                   apiVersion:
                     description: APIVersion is the api group version of the resource
@@ -600,6 +598,9 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
+                x-kubernetes-validations:
+                - message: vniPool is immutable
+                  rule: self == oldSelf
               vtep:
                 description: vtep identifies the VTEP devices and configures their
                   anycast gateway.
@@ -682,6 +683,7 @@ spec:
             - loopbacks
             - overlay
             - underlay
+            - vniPool
             - vtep
             type: object
           status:
