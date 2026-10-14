@@ -48,7 +48,7 @@ type FabricSpec struct {
 	// controller is implemented. The field currently has no effect.
 	// TODO: Make this field required once the NetworkAttachment controller is implemented.
 	// +optional
-	VniPool corev1alpha1.TypedLocalObjectReference `json:"vniPool"`
+	VNIPool corev1alpha1.TypedLocalObjectReference `json:"vniPool"`
 }
 
 // FabricLoopbacksSpec configures IP address allocation for loopback interfaces.

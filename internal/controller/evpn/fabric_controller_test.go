@@ -210,7 +210,7 @@ var _ = Describe("Fabric Controller", func() {
 					VTEP: evpnv1alpha1.FabricVTEPSpec{
 						DeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "leaf"}},
 					},
-					VniPool: corev1alpha1.TypedLocalObjectReference{
+					VNIPool: corev1alpha1.TypedLocalObjectReference{
 						APIVersion: poolv1alpha1.GroupVersion.String(),
 						Kind:       "IndexPool",
 						Name:       indexPool.Name,
@@ -733,7 +733,7 @@ var _ = Describe("Fabric Controller", func() {
 					VTEP: evpnv1alpha1.FabricVTEPSpec{
 						DeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "leaf"}},
 					},
-					VniPool: corev1alpha1.TypedLocalObjectReference{
+					VNIPool: corev1alpha1.TypedLocalObjectReference{
 						APIVersion: poolv1alpha1.GroupVersion.String(),
 						Kind:       "IndexPool",
 						Name:       indexPool.Name,
@@ -941,7 +941,7 @@ var _ = Describe("Fabric Controller", func() {
 					VTEP: evpnv1alpha1.FabricVTEPSpec{
 						DeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "leaf"}},
 					},
-					VniPool: corev1alpha1.TypedLocalObjectReference{
+					VNIPool: corev1alpha1.TypedLocalObjectReference{
 						APIVersion: poolv1alpha1.GroupVersion.String(),
 						Kind:       "IndexPool",
 						Name:       indexPool.Name,
