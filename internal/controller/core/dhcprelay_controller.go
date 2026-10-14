@@ -228,7 +228,6 @@ func (r *DHCPRelayReconciler) reconcile(ctx context.Context, s *dhcprelayScope) 
 	// Ensure the DHCPRelay is owned by the Device.
 	if !controllerutil.HasControllerReference(s.DHCPRelay) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.DHCPRelay, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			conditions.Set(s.DHCPRelay, conditions.FromError(err))
 			return err
 		}
 	}
@@ -271,7 +270,6 @@ func (r *DHCPRelayReconciler) reconcile(ctx context.Context, s *dhcprelayScope) 
 
 	// Connect to remote device using the provider.
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		conditions.Set(s.DHCPRelay, conditions.FromError(err))
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
@@ -423,7 +421,6 @@ func (r *DHCPRelayReconciler) validateUniqueResource(ctx context.Context, s *dhc
 		client.InNamespace(s.DHCPRelay.Namespace),
 		client.MatchingFields{v1alpha1.DeviceRefIndexKey: s.Device.Name},
 	); err != nil {
-		conditions.Set(s.DHCPRelay, conditions.FromError(err))
 		return err
 	}
 
@@ -495,7 +492,6 @@ func (r *DHCPRelayReconciler) reconcileInterfaceRef(ctx context.Context, interfa
 			})
 			return nil, reconcile.TerminalError(fmt.Errorf("interface %s not found", interfaceRef.Name))
 		}
-		conditions.Set(s.DHCPRelay, conditions.FromError(err))
 		return nil, fmt.Errorf("failed to get interface %s: %w", interfaceRef.Name, err)
 	}
 
@@ -563,7 +559,6 @@ func (r *DHCPRelayReconciler) reconcileVRFRef(ctx context.Context, vrfRef v1alph
 			})
 			return nil, reconcile.TerminalError(fmt.Errorf("vrf %s not found", vrfRef.Name))
 		}
-		conditions.Set(s.DHCPRelay, conditions.FromError(err))
 		return nil, fmt.Errorf("failed to get VRF %s: %w", vrfRef.Name, err)
 	}
 
