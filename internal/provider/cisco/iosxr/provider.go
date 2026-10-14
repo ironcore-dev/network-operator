@@ -17,9 +17,13 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
+	"github.com/ironcore-dev/network-operator/internal/transport/grpcext"
 
 	"google.golang.org/grpc"
 )
+
+// timeout is the default timeout for all HTTP/gRPC requests made by the provider.
+const timeout = 30 * time.Second
 
 var (
 	_ provider.Provider              = &Provider{}
@@ -42,11 +46,17 @@ func NewProvider() provider.Provider {
 }
 
 func (p *Provider) Connect(ctx context.Context, conn *deviceutil.Connection) (err error) {
-	var opts []gnmiext.Option
+	p.conn, err = grpcext.NewClient(conn, grpcext.WithDefaultTimeout(timeout))
+	if err != nil {
+		return fmt.Errorf("failed to create grpc connection: %w", err)
+	}
+
+	opts := []gnmiext.Option{gnmiext.WithTarget(conn.DeviceName)}
 	if logger, err := logr.FromContext(ctx); err == nil && !logger.IsZero() {
 		opts = append(opts, gnmiext.WithLogger(logger))
 	}
-	p.client, err = gnmiext.New(ctx, p.conn, gnmiext.WithTarget(conn.DeviceName))
+
+	p.client, err = gnmiext.New(ctx, p.conn, opts...)
 	if err != nil {
 		return err
 	}
