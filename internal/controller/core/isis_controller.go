@@ -292,7 +292,6 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (reterr er
 	// Ensure the ISIS is owned by the Device.
 	if !controllerutil.HasControllerReference(s.ISIS) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.ISIS, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
-			conditions.Set(s.ISIS, conditions.FromError(err))
 			return err
 		}
 	}
@@ -310,7 +309,6 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (reterr er
 				})
 				return reconcile.TerminalError(fmt.Errorf("interface %s not found", iface.Name))
 			}
-			conditions.Set(s.ISIS, conditions.FromError(err))
 			return err
 		}
 
@@ -328,9 +326,7 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (reterr er
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
-		err = fmt.Errorf("failed to connect to provider: %w", err)
-		conditions.Set(s.ISIS, conditions.FromError(err))
-		return err
+		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
 	defer func() {
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
