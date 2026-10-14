@@ -15,6 +15,7 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -32,6 +33,7 @@ type ReleaseFunc func(context.Context) error
 // renewed in the background until the context is cancelled or the returned ReleaseFunc is called.
 type ResourceLocker struct {
 	client               client.Client
+	reader               client.Reader
 	leaseDurationSeconds int32
 	renewPeriod          time.Duration
 	namespace            string
@@ -41,12 +43,13 @@ type ResourceLocker struct {
 // NewResourceLocker creates a new ResourceLocker with the given configuration.
 // The namespace specifies where Lease resources will be created.
 // The renewPeriod must be shorter than leaseDuration to ensure the lease is renewed before expiration.
-func NewResourceLocker(c client.Client, namespace string, leaseDuration, renewPeriod time.Duration) (*ResourceLocker, error) {
+func NewResourceLocker(c client.Client, reader client.Reader, namespace string, leaseDuration, renewPeriod time.Duration) (*ResourceLocker, error) {
 	if renewPeriod >= leaseDuration {
 		return nil, fmt.Errorf("resourcelock: renewPeriod (%v) must be shorter than leaseDuration (%v)", renewPeriod, leaseDuration)
 	}
 	return &ResourceLocker{
 		client:               c,
+		reader:               reader,
 		leaseDurationSeconds: int32(leaseDuration.Seconds()),
 		renewPeriod:          renewPeriod,
 		namespace:            namespace,
@@ -156,29 +159,37 @@ func (rl *ResourceLocker) releaseLock(ctx context.Context, name, lockerID string
 		log.V(3).Info("Stopped renewal goroutine")
 	}
 
-	lease := &coordinationv1.Lease{}
-	if err := rl.client.Get(ctx, client.ObjectKey{Namespace: rl.namespace, Name: name}, lease); err != nil {
-		if apierrors.IsNotFound(err) {
-			log.V(3).Info("Lease not found, nothing to release")
+	key := client.ObjectKey{Namespace: rl.namespace, Name: name}
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		lease := &coordinationv1.Lease{}
+		if err := rl.reader.Get(ctx, key, lease); err != nil {
+			if apierrors.IsNotFound(err) {
+				log.V(3).Info("Lease not found, nothing to release")
+				return nil
+			}
+			return err
+		}
+
+		if lease.Spec.HolderIdentity == nil || *lease.Spec.HolderIdentity != lockerID {
+			log.V(3).Info("Not the current locker, skipping release", "currentLocker", lease.Spec.HolderIdentity)
 			return nil
 		}
-		return fmt.Errorf("resourcelock: failed to get lease: %w", err)
-	}
 
-	if lease.Spec.HolderIdentity == nil || *lease.Spec.HolderIdentity != lockerID {
-		log.V(3).Info("Not the current locker, skipping release", "currentLocker", lease.Spec.HolderIdentity)
+		preconditions := client.Preconditions{
+			UID:             &lease.UID,
+			ResourceVersion: &lease.ResourceVersion,
+		}
+		if err := rl.client.Delete(ctx, lease, preconditions); err != nil {
+			if apierrors.IsNotFound(err) {
+				log.V(3).Info("Lease already deleted")
+				return nil
+			}
+			return err
+		}
+
 		return nil
-	}
-
-	preconditions := client.Preconditions{
-		UID:             &lease.UID,
-		ResourceVersion: &lease.ResourceVersion,
-	}
-	if err := rl.client.Delete(ctx, lease, preconditions); err != nil {
-		if apierrors.IsNotFound(err) {
-			log.V(3).Info("Lease already deleted")
-			return nil
-		}
+	})
+	if err != nil {
 		return fmt.Errorf("resourcelock: failed to delete lease: %w", err)
 	}
 

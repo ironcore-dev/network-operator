@@ -272,7 +272,7 @@ func main() { //nolint:gocyclo
 		}
 	}
 
-	locker, err := resourcelock.NewResourceLocker(mgr.GetClient(), lockerNamespace, lockerDuration, lockerRenewInterval)
+	locker, err := resourcelock.NewResourceLocker(mgr.GetClient(), mgr.GetAPIReader(), lockerNamespace, lockerDuration, lockerRenewInterval)
 	if err != nil {
 		setupLog.Error(err, "unable to create resource locker")
 		os.Exit(1)

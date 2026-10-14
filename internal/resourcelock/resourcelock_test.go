@@ -14,10 +14,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 func init() {
@@ -58,7 +61,7 @@ func TestNewResourceLocker(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			client := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
-			rl, err := NewResourceLocker(client, test.namespace, test.leaseDuration, test.renewPeriod)
+			rl, err := NewResourceLocker(client, client, test.namespace, test.leaseDuration, test.renewPeriod)
 
 			if test.wantErr {
 				if err == nil {
@@ -91,7 +94,7 @@ func TestNewResourceLocker(t *testing.T) {
 
 func TestAcquireLock_CreateNew(t *testing.T) {
 	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
-	rl, err := NewResourceLocker(client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
+	rl, err := NewResourceLocker(client, client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
 	if err != nil {
 		t.Fatalf("NewResourceLocker() error = %v", err)
 	}
@@ -127,7 +130,7 @@ func TestAcquireLock_CreateNew(t *testing.T) {
 
 func TestAcquireLock_RejectsConcurrentAttemptForSameLocker(t *testing.T) {
 	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
-	rl, err := NewResourceLocker(client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
+	rl, err := NewResourceLocker(client, client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
 	if err != nil {
 		t.Fatalf("NewResourceLocker() error = %v", err)
 	}
@@ -171,7 +174,7 @@ func TestAcquireLock_HeldByAnother(t *testing.T) {
 		WithObjects(lease).
 		Build()
 
-	rl, err := NewResourceLocker(client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
+	rl, err := NewResourceLocker(client, client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
 	if err != nil {
 		t.Fatalf("NewResourceLocker() error = %v", err)
 	}
@@ -207,7 +210,7 @@ func TestAcquireLock_ClaimExpired(t *testing.T) {
 		WithObjects(existingLease).
 		Build()
 
-	rl, err := NewResourceLocker(client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
+	rl, err := NewResourceLocker(client, client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
 	if err != nil {
 		t.Fatalf("NewResourceLocker() error = %v", err)
 	}
@@ -256,7 +259,7 @@ func TestReleaseLock(t *testing.T) {
 		WithObjects(existingLease).
 		Build()
 
-	rl, err := NewResourceLocker(client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
+	rl, err := NewResourceLocker(client, client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
 	if err != nil {
 		t.Fatalf("NewResourceLocker() error = %v", err)
 	}
@@ -271,6 +274,175 @@ func TestReleaseLock(t *testing.T) {
 	key := types.NamespacedName{Namespace: metav1.NamespaceDefault, Name: leaseName}
 	if err := client.Get(ctx, key, lease); !apierrors.IsNotFound(err) {
 		t.Errorf("Expected lease to be deleted, but got error = %v", err)
+	}
+}
+
+func TestReleaseLock_RetriesConflict(t *testing.T) {
+	const (
+		lockerID  = "locker-1"
+		leaseName = "test-lease"
+	)
+
+	existingLease := &coordinationv1.Lease{
+		Spec: coordinationv1.LeaseSpec{HolderIdentity: new(lockerID)},
+	}
+	existingLease.Name = leaseName
+	existingLease.Namespace = metav1.NamespaceDefault
+	existingLease.UID = types.UID("lease-uid")
+
+	storage := fake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		WithObjects(existingLease).
+		Build()
+
+	getCalls := 0
+	deleteCalls := 0
+	client := interceptor.NewClient(storage, interceptor.Funcs{
+		Get: func(ctx context.Context, client crclient.WithWatch, key crclient.ObjectKey, obj crclient.Object, opts ...crclient.GetOption) error {
+			getCalls++
+			return client.Get(ctx, key, obj, opts...)
+		},
+		Delete: func(ctx context.Context, client crclient.WithWatch, obj crclient.Object, opts ...crclient.DeleteOption) error {
+			deleteCalls++
+			deleteOpts := (&crclient.DeleteOptions{}).ApplyOptions(opts)
+			if deleteOpts.Preconditions == nil || deleteOpts.Preconditions.UID == nil || *deleteOpts.Preconditions.UID != obj.GetUID() {
+				t.Errorf("Delete() UID precondition = %v, want %q", deleteOpts.Preconditions, obj.GetUID())
+			}
+			if deleteOpts.Preconditions == nil || deleteOpts.Preconditions.ResourceVersion == nil || *deleteOpts.Preconditions.ResourceVersion != obj.GetResourceVersion() {
+				t.Errorf("Delete() resource-version precondition = %v, want %q", deleteOpts.Preconditions, obj.GetResourceVersion())
+			}
+			if deleteCalls == 1 {
+				latest := &coordinationv1.Lease{}
+				if err := storage.Get(ctx, crclient.ObjectKeyFromObject(obj), latest); err != nil {
+					t.Fatalf("Get lease before conflicting update: %v", err)
+				}
+				latest.Annotations = map[string]string{"renewed": "true"}
+				if err := storage.Update(ctx, latest); err != nil {
+					t.Fatalf("Update lease before conflict: %v", err)
+				}
+				return apierrors.NewConflict(schema.GroupResource{Group: coordinationv1.GroupName, Resource: "leases"}, obj.GetName(), errors.New("lease changed"))
+			}
+			return client.Delete(ctx, obj, opts...)
+		},
+	})
+
+	rl, err := NewResourceLocker(client, client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
+	if err != nil {
+		t.Fatalf("NewResourceLocker() error = %v", err)
+	}
+	if err := rl.releaseLock(t.Context(), leaseName, lockerID); err != nil {
+		t.Fatalf("releaseLock() error = %v", err)
+	}
+	if deleteCalls != 2 {
+		t.Errorf("Delete() calls = %d, want 2", deleteCalls)
+	}
+	if getCalls < 2 {
+		t.Errorf("Get() calls = %d, want at least 2", getCalls)
+	}
+	if err := storage.Get(t.Context(), types.NamespacedName{Namespace: metav1.NamespaceDefault, Name: leaseName}, &coordinationv1.Lease{}); !apierrors.IsNotFound(err) {
+		t.Errorf("Get released lease error = %v, want NotFound", err)
+	}
+}
+
+func TestReleaseLock_StopsWhenOwnershipChanges(t *testing.T) {
+	const (
+		lockerID      = "locker-1"
+		otherLockerID = "locker-2"
+		leaseName     = "test-lease"
+	)
+
+	existingLease := &coordinationv1.Lease{
+		Spec: coordinationv1.LeaseSpec{HolderIdentity: new(lockerID)},
+	}
+	existingLease.Name = leaseName
+	existingLease.Namespace = metav1.NamespaceDefault
+	existingLease.UID = types.UID("lease-uid")
+
+	storage := fake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		WithObjects(existingLease).
+		Build()
+
+	getCalls := 0
+	deleteCalls := 0
+	client := interceptor.NewClient(storage, interceptor.Funcs{
+		Get: func(ctx context.Context, client crclient.WithWatch, key crclient.ObjectKey, obj crclient.Object, opts ...crclient.GetOption) error {
+			getCalls++
+			return client.Get(ctx, key, obj, opts...)
+		},
+		Delete: func(ctx context.Context, _ crclient.WithWatch, obj crclient.Object, _ ...crclient.DeleteOption) error {
+			deleteCalls++
+			latest := &coordinationv1.Lease{}
+			if err := storage.Get(ctx, crclient.ObjectKeyFromObject(obj), latest); err != nil {
+				t.Fatalf("Get lease before ownership change: %v", err)
+			}
+			latest.Spec.HolderIdentity = new(otherLockerID)
+			if err := storage.Update(ctx, latest); err != nil {
+				t.Fatalf("Update lease owner: %v", err)
+			}
+			return apierrors.NewConflict(schema.GroupResource{Group: coordinationv1.GroupName, Resource: "leases"}, obj.GetName(), errors.New("lease changed"))
+		},
+	})
+
+	rl, err := NewResourceLocker(client, client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
+	if err != nil {
+		t.Fatalf("NewResourceLocker() error = %v", err)
+	}
+	if err := rl.releaseLock(t.Context(), leaseName, lockerID); err != nil {
+		t.Fatalf("releaseLock() error = %v", err)
+	}
+	if deleteCalls != 1 {
+		t.Errorf("Delete() calls = %d, want 1", deleteCalls)
+	}
+	if getCalls < 2 {
+		t.Errorf("Get() calls = %d, want at least 2", getCalls)
+	}
+	lease := &coordinationv1.Lease{}
+	if err := storage.Get(t.Context(), types.NamespacedName{Namespace: metav1.NamespaceDefault, Name: leaseName}, lease); err != nil {
+		t.Fatalf("Get lease after release: %v", err)
+	}
+	if lease.Spec.HolderIdentity == nil || *lease.Spec.HolderIdentity != otherLockerID {
+		t.Errorf("Lease holder = %v, want %q", lease.Spec.HolderIdentity, otherLockerID)
+	}
+}
+
+func TestReleaseLock_DeleteError(t *testing.T) {
+	const (
+		lockerID  = "locker-1"
+		leaseName = "test-lease"
+	)
+
+	deleteErr := errors.New("delete failed")
+
+	existingLease := &coordinationv1.Lease{
+		Spec: coordinationv1.LeaseSpec{HolderIdentity: new(lockerID)},
+	}
+	existingLease.Name = leaseName
+	existingLease.Namespace = metav1.NamespaceDefault
+
+	storage := fake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		WithObjects(existingLease).
+		Build()
+
+	deleteCalls := 0
+	client := interceptor.NewClient(storage, interceptor.Funcs{
+		Delete: func(context.Context, crclient.WithWatch, crclient.Object, ...crclient.DeleteOption) error {
+			deleteCalls++
+			return deleteErr
+		},
+	})
+	rl, err := NewResourceLocker(client, client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
+	if err != nil {
+		t.Fatalf("NewResourceLocker() error = %v", err)
+	}
+
+	err = rl.releaseLock(t.Context(), leaseName, lockerID)
+	if !errors.Is(err, deleteErr) {
+		t.Errorf("releaseLock() error = %v, want %v", err, deleteErr)
+	}
+	if deleteCalls != 1 {
+		t.Errorf("Delete() calls = %d, want 1", deleteCalls)
 	}
 }
 
@@ -297,7 +469,7 @@ func TestReleaseLock_NotOwned(t *testing.T) {
 		WithObjects(existingLease).
 		Build()
 
-	rl, err := NewResourceLocker(client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
+	rl, err := NewResourceLocker(client, client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
 	if err != nil {
 		t.Fatalf("NewResourceLocker() error = %v", err)
 	}
@@ -322,7 +494,7 @@ func TestReleaseLock_NotOwned(t *testing.T) {
 func TestReleaseLock_NotFound(t *testing.T) {
 	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 
-	rl, err := NewResourceLocker(client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
+	rl, err := NewResourceLocker(client, client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
 	if err != nil {
 		t.Fatalf("NewResourceLocker() error = %v", err)
 	}
@@ -361,7 +533,7 @@ func TestRenewLease(t *testing.T) {
 		WithObjects(existingLease).
 		Build()
 
-	rl, err := NewResourceLocker(client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
+	rl, err := NewResourceLocker(client, client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
 	if err != nil {
 		t.Fatalf("NewResourceLocker() error = %v", err)
 	}
@@ -412,7 +584,7 @@ func TestRenewLease_NotOwned(t *testing.T) {
 		WithObjects(existingLease).
 		Build()
 
-	rl, err := NewResourceLocker(client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
+	rl, err := NewResourceLocker(client, client, metav1.NamespaceDefault, 15*time.Second, 5*time.Second)
 	if err != nil {
 		t.Fatalf("NewResourceLocker() error = %v", err)
 	}
@@ -427,7 +599,7 @@ func TestReleaseLock_CancelsRenewalGoroutine(t *testing.T) {
 	leaseName := "test-lease"
 	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 
-	rl, err := NewResourceLocker(client, metav1.NamespaceDefault, 15*time.Second, 100*time.Millisecond)
+	rl, err := NewResourceLocker(client, client, metav1.NamespaceDefault, 15*time.Second, 100*time.Millisecond)
 	if err != nil {
 		t.Fatalf("NewResourceLocker() error = %v", err)
 	}

@@ -118,7 +118,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 	recorder := events.NewFakeRecorder(0)
 
-	locker, err := resourcelock.NewResourceLocker(mgr.GetClient(), metav1.NamespaceDefault, 15*time.Second, 10*time.Second)
+	locker, err := resourcelock.NewResourceLocker(mgr.GetClient(), mgr.GetAPIReader(), metav1.NamespaceDefault, 15*time.Second, 10*time.Second)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = mgr.Add(locker)

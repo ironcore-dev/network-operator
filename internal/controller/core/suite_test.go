@@ -116,7 +116,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
-	testLocker, err = resourcelock.NewResourceLocker(k8sManager.GetClient(), metav1.NamespaceDefault, 15*time.Second, 10*time.Second)
+	testLocker, err = resourcelock.NewResourceLocker(k8sManager.GetClient(), k8sManager.GetAPIReader(), metav1.NamespaceDefault, 15*time.Second, 10*time.Second)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = k8sManager.Add(testLocker)
