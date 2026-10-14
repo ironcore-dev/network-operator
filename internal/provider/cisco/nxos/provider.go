@@ -811,7 +811,10 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		bgp.Name = req.VRF.Spec.Name
 	}
 	if err := p.client.GetConfig(ctx, bgp); err != nil {
-		return apistatus.NewFailedPreconditionError(fmt.Sprintf("bgp peer: BGP instance %q must be configured on the device before peers can be realized: %v", bgp.Name, err))
+		if !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+		return apistatus.NewFailedPreconditionError(fmt.Sprintf("bgp peer: BGP instance %q must be configured on the device before peers can be realized", bgp.Name))
 	}
 
 	adminSt := AdminStEnabled
