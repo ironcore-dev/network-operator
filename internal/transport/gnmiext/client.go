@@ -319,16 +319,17 @@ func (c *client) get(ctx context.Context, dt gnmipb.GetRequest_DataType, element
 	}
 	start := time.Now()
 	res, err := c.gnmi.Get(ctx, r)
+	code := status.Code(err).String()
 	if err != nil {
-		rpcDurationSeconds.WithLabelValues(c.target, "Get", "error").Observe(time.Since(start).Seconds())
+		rpcDurationSeconds.WithLabelValues(c.target, "Get", "error", code).Observe(time.Since(start).Seconds())
 		for _, p := range r.GetPath() {
-			operationsTotal.WithLabelValues(c.target, "Get", op, metricPath(p), "error").Inc()
+			operationsTotal.WithLabelValues(c.target, "Get", op, metricPath(p), "error", code).Inc()
 		}
 		return fmt.Errorf("gnmiext: failed to perform get rpc: %w", err)
 	}
-	rpcDurationSeconds.WithLabelValues(c.target, "Get", "success").Observe(time.Since(start).Seconds())
+	rpcDurationSeconds.WithLabelValues(c.target, "Get", "success", code).Observe(time.Since(start).Seconds())
 	for _, p := range r.GetPath() {
-		operationsTotal.WithLabelValues(c.target, "Get", op, metricPath(p), "success").Inc()
+		operationsTotal.WithLabelValues(c.target, "Get", op, metricPath(p), "success", code).Inc()
 	}
 	// As per [gNMI spec] the response MUST contain one notification
 	// for each path in the request.
@@ -460,15 +461,16 @@ func (c *client) do(ctx context.Context, r *gnmipb.SetRequest) error {
 	if err != nil {
 		st = "error"
 	}
-	rpcDurationSeconds.WithLabelValues(c.target, "Set", st).Observe(time.Since(start).Seconds())
+	code := status.Code(err).String()
+	rpcDurationSeconds.WithLabelValues(c.target, "Set", st, code).Observe(time.Since(start).Seconds())
 	for _, u := range r.GetReplace() {
-		operationsTotal.WithLabelValues(c.target, "Set", "replace", metricPath(u.GetPath()), st).Inc()
+		operationsTotal.WithLabelValues(c.target, "Set", "replace", metricPath(u.GetPath()), st, code).Inc()
 	}
 	for _, u := range r.GetUpdate() {
-		operationsTotal.WithLabelValues(c.target, "Set", "update", metricPath(u.GetPath()), st).Inc()
+		operationsTotal.WithLabelValues(c.target, "Set", "update", metricPath(u.GetPath()), st, code).Inc()
 	}
 	for _, d := range r.GetDelete() {
-		operationsTotal.WithLabelValues(c.target, "Set", "delete", metricPath(d), st).Inc()
+		operationsTotal.WithLabelValues(c.target, "Set", "delete", metricPath(d), st, code).Inc()
 	}
 	if err != nil {
 		return fmt.Errorf("gnmiext: failed to perform set rpc: %w", err)

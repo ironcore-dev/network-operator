@@ -18,7 +18,7 @@ var (
 			Name:      "gnmi_operations_total",
 			Help:      "Total number of gNMI operations performed.",
 		},
-		[]string{"target", "rpc", "operation", "path", "status"},
+		[]string{"target", "rpc", "operation", "path", "status", "grpc_code"},
 	)
 	rpcDurationSeconds = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -27,7 +27,7 @@ var (
 			Help:      "Duration of gNMI RPCs in seconds.",
 			Buckets:   prometheus.DefBuckets,
 		},
-		[]string{"target", "rpc", "status"},
+		[]string{"target", "rpc", "status", "grpc_code"},
 	)
 	operationsSkippedTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
