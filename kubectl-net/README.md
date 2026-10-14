@@ -91,6 +91,23 @@ kubectl net unpause devices leaf1 --recursive
 kubectl net pause interfaces --device leaf1
 ```
 
+### Device maintenance
+
+Maintenance commands annotate one Device and return after the request is accepted by the Kubernetes API. The controller performs the operation asynchronously.
+
+```bash
+kubectl net reboot leaf1
+kubectl net factory-reset leaf1
+kubectl net reprovision leaf1
+kubectl net reset-phase leaf1
+kubectl net skip-provisioning leaf1
+kubectl net firmware-upgrade leaf1 \
+  --url https://images.example.com/nxos.bin \
+  --md5 0123456789abcdef
+```
+
+All commands require exactly one Device. Firmware upgrades require `--url`; `--md5` is optional. Reboot, factory reset, reprovision, and firmware upgrade prompt for confirmation; use `--yes` in non-interactive workflows.
+
 ### Shell completion
 
 ```bash

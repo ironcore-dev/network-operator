@@ -3,7 +3,7 @@ module github.com/ironcore-dev/network-operator/kubectl-net
 go 1.27.3
 
 require (
-	github.com/ironcore-dev/network-operator v0.0.0-20260827134819-b03d7ae72c7e
+	github.com/ironcore-dev/network-operator v0.0.0-20260917125130-19eb933a2f91
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	k8s.io/apimachinery v0.36.2
