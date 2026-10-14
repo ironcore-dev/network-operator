@@ -3,6 +3,8 @@
 package core
 
 import (
+	"net/netip"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -109,11 +111,13 @@ var _ = Describe("ISIS Controller", func() {
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.ISIS{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(2))
+				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
-				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.PausedCondition))
-				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(resource.Status.Conditions[1].Type).To(Equal(v1alpha1.ConfiguredCondition))
+				g.Expect(resource.Status.Conditions[1].Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(resource.Status.Conditions[2].Type).To(Equal(v1alpha1.PausedCondition))
+				g.Expect(resource.Status.Conditions[2].Status).To(Equal(metav1.ConditionFalse))
 			}).Should(Succeed())
 
 			By("Ensuring the resource is created in the provider")
@@ -199,6 +203,99 @@ var _ = Describe("ISIS Controller", func() {
 				g.Expect(configured).NotTo(BeNil())
 				g.Expect(configured.Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(configured.Reason).To(Equal(v1alpha1.InterfaceNotFoundReason))
+			}).Should(Succeed())
+		})
+	})
+
+	Context("When a referenced Interface is not configured", func() {
+		var deviceName string
+
+		BeforeEach(func() {
+			By("Creating the Device resource")
+			device := &v1alpha1.Device{
+				GenerateName: "test-isis-intfnr-",
+				Namespace:    metav1.NamespaceDefault,
+				Spec: v1alpha1.DeviceSpec{
+					Endpoint: v1alpha1.Endpoint{Address: "192.168.10.2:9339"},
+					Provider: "test-provider",
+				},
+			}
+			Expect(k8sClient.Create(ctx, device)).To(Succeed())
+			deviceName = device.Name
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
+			})
+		})
+
+		It("Should set ConfiguredCondition to False with WaitingForDependenciesReason", func() {
+			By("Creating an Interface referencing a non-existent VRF so it stays not configured")
+			intf := &v1alpha1.Interface{
+				GenerateName: "test-isis-intfnr-intf-",
+				Namespace:    metav1.NamespaceDefault,
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceName},
+					Name:       "Ethernet1/1",
+					AdminState: v1alpha1.AdminStateUp,
+					Type:       v1alpha1.InterfaceTypePhysical,
+					VrfRef:     &v1alpha1.LocalObjectReference{Name: "test-isis-intfnr-nonexistent-vrf"},
+					IPv4:       &v1alpha1.InterfaceIPv4{Addresses: []v1alpha1.IPPrefix{{Prefix: netip.MustParsePrefix("10.0.5.1/24")}}},
+				},
+			}
+			Expect(k8sClient.Create(ctx, intf)).To(Succeed())
+			intfKey := client.ObjectKeyFromObject(intf)
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, intfKey, &v1alpha1.Interface{}))).To(BeTrue())
+				}).Should(Succeed())
+			})
+
+			By("Verifying the Interface is not configured")
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, intfKey, intf)).To(Succeed())
+				cond := meta.FindStatusCondition(intf.Status.Conditions, v1alpha1.ConfiguredCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			}).Should(Succeed())
+
+			By("Creating an ISIS referencing the non-configured Interface")
+			isis := &v1alpha1.ISIS{
+				GenerateName: "test-isis-intfnr-",
+				Namespace:    metav1.NamespaceDefault,
+				Spec: v1alpha1.ISISSpec{
+					DeviceRef:          v1alpha1.LocalObjectReference{Name: deviceName},
+					Instance:           "UNDERLAY",
+					NetworkEntityTitle: "49.0001.0000.0000.0001.00",
+					Type:               v1alpha1.ISISLevel1,
+					AddressFamilies:    []v1alpha1.AddressFamily{v1alpha1.AddressFamilyIPv4Unicast},
+					InterfaceRefs:      []v1alpha1.LocalObjectReference{{Name: intf.Name}},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isis)).To(Succeed())
+			isisKey := client.ObjectKeyFromObject(isis)
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, isis))).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, isisKey, &v1alpha1.ISIS{}))).To(BeTrue())
+				}).Should(Succeed())
+			})
+
+			By("Verifying the controller sets ConfiguredCondition to False with WaitingForDependenciesReason")
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, isisKey, isis)).To(Succeed())
+				cond := meta.FindStatusCondition(isis.Status.Conditions, v1alpha1.ConfiguredCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(cond.Reason).To(Equal(v1alpha1.WaitingForDependenciesReason))
+
+				ready := meta.FindStatusCondition(isis.Status.Conditions, v1alpha1.ReadyCondition)
+				g.Expect(ready).ToNot(BeNil())
+				g.Expect(ready.Status).To(Equal(metav1.ConditionFalse))
+			}).Should(Succeed())
+
+			By("Verifying the ISIS is not configured in the provider")
+			Consistently(func(g Gomega) {
+				g.Expect(testDevices.StateFor(deviceName).ISIS.Has("UNDERLAY")).To(BeFalse())
 			}).Should(Succeed())
 		})
 	})
