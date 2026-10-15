@@ -12,6 +12,7 @@ spec:
     listKind: BGPConfigList
     plural: bgpconfigs
     shortNames:
+    - bgpcfg
     - nxbgp
     singular: bgpconfig
   scope: Namespaced

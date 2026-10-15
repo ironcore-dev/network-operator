@@ -12,7 +12,10 @@ spec:
     listKind: EVPNInstanceConfigList
     plural: evpninstanceconfigs
     shortNames:
+    - evicfg
+    - vnicfg
     - nxevi
+    - nxvni
     singular: evpninstanceconfig
   scope: Namespaced
   versions:

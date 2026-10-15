@@ -130,7 +130,7 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=interfaceconfigs
 // +kubebuilder:resource:singular=interfaceconfig
-// +kubebuilder:resource:shortName=nxint
+// +kubebuilder:resource:shortName=intcfg;nxint
 
 // InterfaceConfig is the Schema for the interfaceconfigs API
 type InterfaceConfig struct {

@@ -12,6 +12,7 @@ spec:
     listKind: AAAConfigList
     plural: aaaconfigs
     shortNames:
+    - aaacfg
     - nxaaa
     singular: aaaconfig
   scope: Namespaced

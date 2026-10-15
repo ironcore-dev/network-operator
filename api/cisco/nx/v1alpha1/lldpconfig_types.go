@@ -32,7 +32,7 @@ type LLDPConfigSpec struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=lldpconfigs
 // +kubebuilder:resource:singular=lldpconfig
-// +kubebuilder:resource:shortName=nxlldp
+// +kubebuilder:resource:shortName=lldpcfg;nxlldp
 
 // LLDPConfig is the Schema for the LLDPConfig API
 type LLDPConfig struct {

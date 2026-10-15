@@ -39,7 +39,7 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=evpninstanceconfigs
 // +kubebuilder:resource:singular=evpninstanceconfig
-// +kubebuilder:resource:shortName=nxevi
+// +kubebuilder:resource:shortName=evicfg;vnicfg;nxevi;nxvni
 
 // EVPNInstanceConfig is the Schema for the evpninstanceconfigs API
 type EVPNInstanceConfig struct {

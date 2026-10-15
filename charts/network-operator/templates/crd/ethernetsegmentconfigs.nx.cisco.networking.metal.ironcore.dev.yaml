@@ -15,6 +15,7 @@ spec:
     listKind: EthernetSegmentConfigList
     plural: ethernetsegmentconfigs
     shortNames:
+    - escfg
     - nxes
     singular: ethernetsegmentconfig
   scope: Namespaced

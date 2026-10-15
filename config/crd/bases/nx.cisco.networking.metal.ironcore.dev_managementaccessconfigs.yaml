@@ -12,6 +12,8 @@ spec:
     listKind: ManagementAccessConfigList
     plural: managementaccessconfigs
     shortNames:
+    - mgmtcfg
+    - mgmtaccesscfg
     - nxmgmt
     - nxmgmtaccess
     singular: managementaccessconfig

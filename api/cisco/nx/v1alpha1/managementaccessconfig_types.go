@@ -48,7 +48,7 @@ type SSH struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=managementaccessconfigs
 // +kubebuilder:resource:singular=managementaccessconfig
-// +kubebuilder:resource:shortName=nxmgmt;nxmgmtaccess
+// +kubebuilder:resource:shortName=mgmtcfg;mgmtaccesscfg;nxmgmt;nxmgmtaccess
 
 // ManagementAccessConfig is the Schema for the managementaccessconfigs API
 type ManagementAccessConfig struct {

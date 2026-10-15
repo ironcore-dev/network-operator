@@ -81,7 +81,7 @@ type BGPConfigUnicastAddressFamily struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=bgpconfigs
 // +kubebuilder:resource:singular=bgpconfig
-// +kubebuilder:resource:shortName=nxbgp
+// +kubebuilder:resource:shortName=bgpcfg;nxbgp
 
 // BGPConfig is the Schema for the bgpconfigs API
 type BGPConfig struct {

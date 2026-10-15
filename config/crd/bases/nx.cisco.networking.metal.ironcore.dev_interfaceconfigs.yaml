@@ -12,6 +12,7 @@ spec:
     listKind: InterfaceConfigList
     plural: interfaceconfigs
     shortNames:
+    - intcfg
     - nxint
     singular: interfaceconfig
   scope: Namespaced

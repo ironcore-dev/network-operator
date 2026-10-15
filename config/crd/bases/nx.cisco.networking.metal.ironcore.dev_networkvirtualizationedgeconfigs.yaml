@@ -12,7 +12,10 @@ spec:
     listKind: NetworkVirtualizationEdgeConfigList
     plural: networkvirtualizationedgeconfigs
     shortNames:
+    - nvecfg
+    - vtepcfg
     - nxnve
+    - nxvtep
     - nveconfig
     singular: networkvirtualizationedgeconfig
   scope: Namespaced

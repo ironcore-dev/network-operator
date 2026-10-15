@@ -25,7 +25,7 @@ type EthernetSegmentConfigSpec struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=ethernetsegmentconfigs
 // +kubebuilder:resource:singular=ethernetsegmentconfig
-// +kubebuilder:resource:shortName=nxes
+// +kubebuilder:resource:shortName=escfg;nxes
 
 // EthernetSegmentConfig is the Schema for the ethernetsegmentconfigs API
 type EthernetSegmentConfig struct {

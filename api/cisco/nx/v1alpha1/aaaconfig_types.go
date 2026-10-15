@@ -70,7 +70,7 @@ type AAAMethodList struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=aaaconfigs
 // +kubebuilder:resource:singular=aaaconfig
-// +kubebuilder:resource:shortName=nxaaa
+// +kubebuilder:resource:shortName=aaacfg;nxaaa
 
 // AAAConfig is the Schema for the aaaconfigs API
 type AAAConfig struct {
