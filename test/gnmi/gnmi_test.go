@@ -30,11 +30,18 @@ var _ = Describe("gNMI requests tests", func() {
 	// Tree construction: discover test files to generate It() nodes.
 	// Provider resolution happens in BeforeSuite.
 	envProvider := os.Getenv(ProviderEnvVar)
+	envTestFile := os.Getenv(ProviderTestFileEnvVar)
 
 	testdataDir := filepath.Join("testdata", envProvider)
-	testFiles, err := filepath.Glob(filepath.Join(testdataDir, "*.txtar"))
-	if err != nil {
-		Fail(fmt.Sprintf("failed to glob testdata: %v", err))
+	testFiles := []string{}
+	if envTestFile != "" {
+		testFiles = append(testFiles, filepath.Join(testdataDir, envTestFile))
+	} else {
+		var err error
+		testFiles, err = filepath.Glob(filepath.Join(testdataDir, "*.txtar"))
+		if err != nil {
+			Fail(fmt.Sprintf("failed to glob testdata: %v", err))
+		}
 	}
 	if len(testFiles) == 0 {
 		return
