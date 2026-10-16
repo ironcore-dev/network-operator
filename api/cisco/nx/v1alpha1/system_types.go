@@ -42,6 +42,16 @@ type SystemSpec struct {
 	// +kubebuilder:default=false
 	VlanLongName bool `json:"vlanLongName"`
 
+	// RelayServerIDOverrideDisable enables the global command
+	// "ip dhcp relay information option server-id-override-disable".
+	//
+	// Deprecated: use dhcp.relayServerIdOverrideDisable instead. This field is kept
+	// only for migration and will be removed in a future release. While both are set,
+	// the setting is enabled if either is true.
+	// +optional
+	// +kubebuilder:default=false
+	RelayServerIDOverrideDisable bool `json:"relayServerIdOverrideDisable"`
+
 	// DHCP groups DHCP-related system settings.
 	// +optional
 	// +kubebuilder:default={relayServerIdOverrideDisable:false}

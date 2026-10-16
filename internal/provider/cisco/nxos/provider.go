@@ -3446,7 +3446,9 @@ func (p *Provider) EnsureSystemSettings(ctx context.Context, s *nxv1alpha1.Syste
 	sb.Patch(long, res, sys)
 
 	sidod := new(DHCPRelayServerIDOverrideDisable)
-	if s.Spec.DHCP.RelayServerIDOverrideDisable {
+	// Honor the deprecated top-level field during the expand phase of its migration
+	// into DHCP.RelayServerIDOverrideDisable: enabled if either is set.
+	if s.Spec.RelayServerIDOverrideDisable || s.Spec.DHCP.RelayServerIDOverrideDisable { //nolint:staticcheck // SA1019: deprecated field read intentionally during migration
 		*sidod = 1
 		f := new(Feature)
 		f.Name = FeatureDHCP

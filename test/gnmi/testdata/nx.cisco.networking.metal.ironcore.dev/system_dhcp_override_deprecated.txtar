@@ -1,0 +1,93 @@
+-- systems/system-config --
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: System
+metadata:
+  name: system-config
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  jumboMtu: 9214
+  reservedVlan: 3968
+  vlanLongName: false
+  relayServerIdOverrideDisable: true
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "fm-items": {
+      "dhcp-items": {
+        "adminSt": "disabled"
+      }
+    }
+  }
+}
+
+-- state/expect --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "vlanmgr-items": {
+      "inst-items": {
+        "longName": false
+      }
+    },
+    "bd-items": {
+      "resvlan-items": {
+        "sysVlan": 3968
+      }
+    },
+    "ethpm-items": {
+      "inst-items": {
+        "systemJumboMtu": 9214
+      }
+    },
+    "fm-items": {
+      "dhcp-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "dhcp-items": {
+      "inst-items": {
+        "relayInformationOptionServerIdOverrideDisableEnabled": 1
+      }
+    }
+  }
+}
+
+-- state/delete --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "vlanmgr-items": {
+      "inst-items": {
+        "longName": false
+      }
+    },
+    "bd-items": {
+      "resvlan-items": {
+        "sysVlan": 3968
+      }
+    },
+    "ethpm-items": {
+      "inst-items": {
+        "systemJumboMtu": 9216
+      }
+    },
+    "fm-items": {
+      "dhcp-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "dhcp-items": {
+      "inst-items": {}
+    }
+  }
+}

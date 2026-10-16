@@ -73,9 +73,7 @@ spec:
       }
     },
     "dhcp-items": {
-      "inst-items": {
-        "relayInformationOptionServerIdOverrideDisableEnabled": 0
-      }
+      "inst-items": {}
     }
   }
 }
