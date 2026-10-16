@@ -159,11 +159,13 @@ func (af BGPDomAfItem) MarshalJSON() ([]byte, error) {
 func (af *BGPDomAfItem) UnmarshalJSON(v []byte) error {
 	// Create a new type to avoid infinite recursion
 	type Copy BGPDomAfItem
+	vrfName := af.VRFName
 	var cpy Copy
 	if err := json.Unmarshal(v, &cpy); err != nil {
 		return err
 	}
 	*af = BGPDomAfItem(cpy)
+	af.VRFName = vrfName
 	if af.Type != AddressFamilyL2EVPN {
 		af.AdvPip = ""
 		af.RetainRttAll = ""

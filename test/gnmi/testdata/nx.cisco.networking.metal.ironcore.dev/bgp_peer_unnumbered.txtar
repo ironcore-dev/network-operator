@@ -158,6 +158,13 @@ spec:
               "name": "default",
               "rtrId": "10.0.0.1",
               "rtrIdAuto": "disabled",
+              "peercont-items": {
+                "PeerCont-list": [
+                  {
+                    "name": "__operator-managed--default__"
+                  }
+                ]
+              },
               "peerif-items": {
                 "PeerIf-list": [
                   {
