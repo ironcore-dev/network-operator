@@ -1,0 +1,5 @@
+router static
+ address-family ipv4 unicast
+  192.168.1.0/24 10.10.0.1 12
+  192.168.1.0/24 TwentyFiveGigE0/0/0/34 10.9.2.1 10
+  192.168.1.0/24 TwentyFiveGigE0/0/0/35 10.8.1.1 9
