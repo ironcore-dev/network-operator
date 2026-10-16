@@ -86,11 +86,6 @@ spec:
       "dhcp-items": {
         "adminSt": "enabled"
       }
-    },
-    "dhcp-items": {
-      "inst-items": {
-        "relayInformationOptionServerIdOverrideDisableEnabled": 0
-      }
     }
   }
 }

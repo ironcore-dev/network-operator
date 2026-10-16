@@ -5657,6 +5657,7 @@ _Appears in:_
 | `jumboMtu` _integer_ | JumboMtu defines the system-wide jumbo MTU setting.<br />Valid values are from 1501 to 9216. | 9216 | ExclusiveMaximum: false <br />Maximum: 9216 <br />Minimum: 1501 <br />Optional: \{\} <br /> |
 | `reservedVlan` _integer_ | ReservedVlan specifies the VLAN ID to be reserved for system use.<br />Valid values are from 1 to 4032. | 3968 | ExclusiveMaximum: false <br />Maximum: 4032 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `vlanLongName` _boolean_ | VlanLongName enables or disables 128-character VLAN names<br />Disabled by default. | false | Optional: \{\} <br /> |
+| `relayServerIdOverrideDisable` _boolean_ | RelayServerIDOverrideDisable enables the global command<br />"ip dhcp relay information option server-id-override-disable".<br />Deprecated: use dhcp.relayServerIdOverrideDisable instead. This field is kept<br />only for migration and will be removed in a future release. While both are set,<br />the setting is enabled if either is true. | false | Optional: \{\} <br /> |
 | `dhcp` _[DHCP](#dhcp)_ | DHCP groups DHCP-related system settings. | \{ relayServerIdOverrideDisable:false \} | Optional: \{\} <br /> |
 
 
