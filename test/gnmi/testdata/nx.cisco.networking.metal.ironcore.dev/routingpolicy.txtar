@@ -26,6 +26,36 @@ spec:
     - sequence: 10
       prefix: "2001:db8::/32"
 
+-- communitysets/test-communityset --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: CommunitySet
+metadata:
+  name: test-communityset
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: BGP-COMMUNITY
+  type: Standard
+  members:
+    - sequence: 5
+      regex: "50000:[0-9][0-9]"
+
+-- extcommunitysets/test-extcommunityset --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: CommunitySet
+metadata:
+  name: test-extcommunityset
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: BGP-EXT-COMMUNITY
+  type: Extended
+  members:
+    - sequence: 5
+      regex: "65200:[0-9][0-9]"
+
 -- routingpolicies/rm-import --
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: RoutingPolicy
@@ -49,6 +79,22 @@ spec:
         matchPrefixSet:
           prefixSetRef:
             name: test-prefixset-v6
+      actions:
+        routeDisposition: AcceptRoute
+    - sequence: 30
+      conditions:
+        matchCommunitySet:
+          communitySetRef:
+            name: test-communityset
+          matchSetOption: All
+      actions:
+        routeDisposition: AcceptRoute
+    - sequence: 40
+      conditions:
+        matchExtendedCommunitySet:
+          communitySetRef:
+            name: test-extcommunityset
+          matchSetOption: Any
       actions:
         routeDisposition: AcceptRoute
 
@@ -107,6 +153,40 @@ spec:
           }
         ]
       },
+      "rtregcom-items": {
+        "Rule-list": [
+          {
+            "name": "BGP-COMMUNITY",
+            "mode": "regex",
+            "ent-items": {
+              "Entry-list": [
+                {
+                  "order": 5,
+                  "action": "permit",
+                  "regex": "50000:[0-9][0-9]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "rtextcom-items": {
+        "Rule-list": [
+          {
+            "name": "BGP-EXT-COMMUNITY",
+            "mode": "regex",
+            "ent-items": {
+              "Entry-list": [
+                {
+                  "order": 5,
+                  "action": "permit",
+                  "regex": "65200:[0-9][0-9]"
+                }
+              ]
+            }
+          }
+        ]
+      },
       "rtmap-items": {
         "Rule-list": [
           {
@@ -138,6 +218,34 @@ spec:
                       ]
                     }
                   }
+                },
+                {
+                  "action": "permit",
+                  "order": 30,
+                  "mregcomm-items": {
+                    "criteria": "exact",
+                    "rsregCommAtt-items": {
+                      "RsRegCommAtt-list": [
+                        {
+                          "tDn": "/System/rpm-items/rtregcom-items/Rule-list[name='BGP-COMMUNITY']"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "action": "permit",
+                  "order": 40,
+                  "mextcomm-items": {
+                    "criteria":"sub-group",
+                    "rsextCommAtt-items": {
+                      "RsExtCommAtt-list": [
+                        {
+                          "tDn": "/System/rpm-items/rtextcom-items/Rule-list[name='BGP-EXT-COMMUNITY']"
+                        }
+                      ]
+                    }
+                  }
                 }
               ]
             }
@@ -161,6 +269,12 @@ spec:
       },
       "pfxlistv6-items": {
         "RuleV6-list": []
+      },
+      "rtregcom-items": {
+        "Rule-list": []
+      },
+      "rtextcom-items": {
+        "Rule-list": []
       },
       "rtmap-items": {
         "Rule-list": []

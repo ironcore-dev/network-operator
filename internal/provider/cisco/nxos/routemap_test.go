@@ -3,6 +3,8 @@
 
 package nxos
 
+import "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+
 func init() {
 	e := &RouteMapEntry{}
 	e.Order = 10
@@ -87,4 +89,56 @@ func init() {
 	pfxV6RM.Name = "RM-PREFIXSET-V6"
 	pfxV6RM.EntItems.EntryList.Set(pfxV6Entry)
 	Register("route_map_prefixset_v6", pfxV6RM)
+
+	commAnyEntry := &RouteMapEntry{}
+	commAnyEntry.Order = 10
+	commAnyEntry.Action = ActionPermit
+	commAnyEntry.SetCommunitySet("CS-BLUE", v1alpha1.CommunitySetTypeStandard, false)
+
+	commAnyRM := &RouteMap{}
+	commAnyRM.Name = "RM-COMMUNITYSET-ANY"
+	commAnyRM.EntItems.EntryList.Set(commAnyEntry)
+	Register("route_map_communityset_any", commAnyRM)
+
+	commAllEntry := &RouteMapEntry{}
+	commAllEntry.Order = 10
+	commAllEntry.Action = ActionPermit
+	commAllEntry.SetCommunitySet("CS-BLUE", v1alpha1.CommunitySetTypeStandard, true)
+
+	commAllRM := &RouteMap{}
+	commAllRM.Name = "RM-COMMUNITYSET-ALL"
+	commAllRM.EntItems.EntryList.Set(commAllEntry)
+	Register("route_map_communityset_all", commAllRM)
+
+	extCommAnyEntry := &RouteMapEntry{}
+	extCommAnyEntry.Order = 10
+	extCommAnyEntry.Action = ActionPermit
+	extCommAnyEntry.SetCommunitySet("RT-BLUE", v1alpha1.CommunitySetTypeExtended, false)
+
+	extCommAnyRM := &RouteMap{}
+	extCommAnyRM.Name = "RM-EXTCOMMUNITYSET-ANY"
+	extCommAnyRM.EntItems.EntryList.Set(extCommAnyEntry)
+	Register("route_map_extcommunityset_any", extCommAnyRM)
+
+	extCommAllEntry := &RouteMapEntry{}
+	extCommAllEntry.Order = 10
+	extCommAllEntry.Action = ActionPermit
+	extCommAllEntry.SetCommunitySet("RT-BLUE", v1alpha1.CommunitySetTypeExtended, true)
+
+	extCommAllRM := &RouteMap{}
+	extCommAllRM.Name = "RM-EXTCOMMUNITYSET-ALL"
+	extCommAllRM.EntItems.EntryList.Set(extCommAllEntry)
+	Register("route_map_extcommunityset_all", extCommAllRM)
+
+	comboEntry := &RouteMapEntry{}
+	comboEntry.Order = 10
+	comboEntry.Action = ActionPermit
+	comboEntry.SetPrefixSet("PL-DEVICE-V4", false)
+	comboEntry.SetCommunitySet("CS-BLUE", v1alpha1.CommunitySetTypeStandard, false)
+	comboEntry.SetCommunitySet("RT-BLUE", v1alpha1.CommunitySetTypeExtended, true)
+
+	comboRM := &RouteMap{}
+	comboRM.Name = "RM-COMBINED-MATCH"
+	comboRM.EntItems.EntryList.Set(comboEntry)
+	Register("route_map_combined_match", comboRM)
 }
