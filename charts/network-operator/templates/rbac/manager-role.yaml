@@ -28,6 +28,14 @@ rules:
   - update
   - watch
 - apiGroups:
+  - ""
+  - events.k8s.io
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
   - coordination.k8s.io
   resources:
   - leases
@@ -91,6 +99,7 @@ rules:
   - interfaces
   - isis
   - lldps
+  - macsecs
   - managementaccesses
   - networkvirtualizationedges
   - ntp
@@ -131,6 +140,7 @@ rules:
   - interfaces/finalizers
   - isis/finalizers
   - lldps/finalizers
+  - macsecs/finalizers
   - managementaccesses/finalizers
   - networkvirtualizationedges/finalizers
   - ntp/finalizers
@@ -165,6 +175,7 @@ rules:
   - interfaces/status
   - isis/status
   - lldps/status
+  - macsecs/status
   - managementaccesses/status
   - networkvirtualizationedges/status
   - ntp/status

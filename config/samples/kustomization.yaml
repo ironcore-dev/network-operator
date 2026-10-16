@@ -40,6 +40,7 @@ resources:
 - v1alpha1_consoleconnection.yaml
 - v1alpha1_network.yaml
 - v1alpha1_networkattachment.yaml
+- v1alpha1_macsec.yaml
 - cisco/nx/v1alpha1_bordergateway.yaml
 - cisco/nx/v1alpha1_managementaccessconfig.yaml
 - cisco/nx/v1alpha1_nveconfig.yaml

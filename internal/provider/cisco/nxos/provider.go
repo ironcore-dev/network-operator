@@ -37,6 +37,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/encryption"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 	"github.com/ironcore-dev/network-operator/internal/transport/grpcext"
 	"github.com/ironcore-dev/network-operator/internal/transport/nxapi"
@@ -56,6 +57,7 @@ var (
 	_ provider.EVPNInstanceProvider     = (*Provider)(nil)
 	_ provider.InterfaceProvider        = (*Provider)(nil)
 	_ provider.ISISProvider             = (*Provider)(nil)
+	_ provider.MacSecProvider           = (*Provider)(nil)
 	_ provider.ManagementAccessProvider = (*Provider)(nil)
 	_ provider.NTPProvider              = (*Provider)(nil)
 	_ provider.OSPFProvider             = (*Provider)(nil)
@@ -4740,6 +4742,107 @@ func NormalizeMACAddress(mac string) string {
 		return mac
 	}
 	return fmt.Sprintf("%s:%s:%s:%s:%s:%s", h[0:2], h[2:4], h[4:6], h[6:8], h[8:10], h[10:12])
+}
+
+// EnsureMacSec realizes the MacSec policy and keychain on the device. The
+// macsec feature is enabled first (in its own Set RPC via p.Do) before the
+// dependent policy and keychain configuration is pushed.
+func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecRequest) error {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
+	f := new(Feature)
+	f.Name = "macsec"
+	f.AdminSt = AdminStEnabled
+	sb.Update(f)
+
+	cipherSuite, err := ExtractCipherSuite(req.MacSec.Spec.Policy.CipherSuite)
+	if err != nil {
+		// ToDo: Should be terminal error
+		return err
+	}
+
+	confOffset, err := ExtractConfOffset(uint16(req.MacSec.Spec.Policy.ConfidentialityOffset))
+	if err != nil {
+		// ToDo: Should be terminal error
+		return err
+	}
+
+	policy := &MacSecPolicy{
+		PolicyName:        req.MacSec.Spec.Name,
+		CipherSuite:       cipherSuite,
+		ConfOffset:        confOffset,
+		KeyServerPriority: req.MacSec.Spec.Policy.KeyServerPriority,
+		ReplayWindow:      uint32(req.MacSec.Spec.Policy.RelayProtection),
+	}
+	sb.Patch(policy)
+
+	chain := &KeyChain{Name: req.MacSec.Spec.Name}
+
+	// fixme: order keys
+	for _, psk := range req.Secrets {
+		lifetime, err := NewLifetime(psk.StringData["lifetime"])
+		if err != nil {
+			// ToDo: Should be terminal error
+			return err
+		}
+		cryptoAlg, err := ExtractCryptographicAlgo(psk.StringData["algorithm"])
+		if err != nil {
+			// ToDo: Should be terminal error
+			return err
+		}
+
+		keyHexString, err := encryption.EncryptType7(string(psk.Data["key"]), 0)
+		if err != nil {
+			return err
+		}
+
+		key := MacSecKey{
+			ID:           psk.StringData["connectivityKeyName"],
+			OctetString:  keyHexString,
+			EncryptType:  EncryptTypeType7,
+			CryptoAlg:    cryptoAlg,
+			SendLifetime: lifetime,
+		}
+		chain.Keys.KeyList.Set(&key)
+	}
+	sb.Update(chain)
+
+	name, err := ShortName(req.SourceInterface.Spec.Name)
+	if err != nil {
+		return err
+	}
+
+	intf := MacSecInterface{
+		ID:           name,
+		KeychainName: req.MacSec.Spec.Name,
+		PolicyName:   req.MacSec.Spec.Name,
+	}
+	sb.Patch(&intf)
+
+	return p.Do(ctx, sb)
+}
+
+// DeleteMacSec removes the MacSec policy and keychain from the device, along
+// with the interface binding that references them.
+func (p *Provider) DeleteMacSec(ctx context.Context, req *provider.DeleteMacSecRequest) error {
+	elems := []gnmiext.DataElement{
+		&MacSecPolicy{PolicyName: req.MacSec.Spec.Name},
+		&KeyChain{Name: req.MacSec.Spec.Name},
+	}
+	if req.SourceInterface != nil {
+		name, err := ShortName(req.SourceInterface.Spec.Name)
+		if err != nil {
+			return err
+		}
+		elems = append(elems, &MacSecInterface{ID: name})
+	}
+	return p.client.Delete(ctx, elems...)
+}
+
+// GetMacSecStatus is not yet implemented; the controller does not consume it.
+func (p *Provider) GetMacSecStatus(ctx context.Context, req *provider.EnsureMacSecRequest) (provider.MacSecStatus, error) {
+	// TODO(sven-rosenzweig): Implement MacSec status retrieval
+	return provider.MacSecStatus{}, nil
 }
 
 func init() {

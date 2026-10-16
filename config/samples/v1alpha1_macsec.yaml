@@ -1,0 +1,37 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: MacSec
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    networking.metal.ironcore.dev/device-name: iosxr-1
+  name: macsec-sample
+spec:
+  deviceRef:
+    name: iosxr-1
+  interfaceRef:
+    name: TwentyFiveGigE0/0/0/40
+  name: test-macsec234
+  description: "Test MacSec resource"
+  preSharedKeyRef:
+    - name: test-psk
+  policy:
+    cipherSuite: GCM-AES-XPN-256
+    confidentialityOffset: 30
+    keyServerPriority: 8
+    relayProtection: 32
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-psk
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+type: Opaque
+stringData:
+  connectivityKeyName: "1234567"
+  algorithm: "aes-128-cmac-96"
+  lifetime: "2027-01-01T09:34:01Z"
+data:
+  preSharedKey: dGVzdC1wc2s= # base64-decoded value: test-psk

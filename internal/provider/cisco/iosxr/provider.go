@@ -16,6 +16,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/encryption"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 	"github.com/ironcore-dev/network-operator/internal/transport/grpcext"
 
@@ -34,6 +35,7 @@ var (
 	_ provider.BGPPeerProvider       = &Provider{}
 	_ provider.PrefixSetProvider     = &Provider{}
 	_ provider.RoutingPolicyProvider = &Provider{}
+	_ provider.MacSecProvider        = &Provider{}
 )
 
 type Provider struct {
@@ -217,6 +219,16 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			iface = ifaceBundeConf
 		}
 
+		// Configure MacSec on the interface
+		if req.Interface.GetLabels()[v1alpha1.MacSecLabel] != "" {
+			iface.MacSec = IfaceMacSec{
+				PSKKeyChain: PSKKeyChain{
+					KeyChainName: req.Interface.GetLabels()[v1alpha1.MacSecLabel],
+					Policy:       req.Interface.GetLabels()[v1alpha1.MacSecLabel],
+				},
+			}
+		}
+
 		// (fixme): for the moment it is enough to keep this static
 		// option1: extend existing interface spec
 		// option2: create a custom iosxr config
@@ -224,7 +236,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		if req.Interface.Spec.AdminState == v1alpha1.AdminStateDown {
 			iface.Shutdown = gnmiext.Empty(true)
 		}
-		iface.Active = "act"
+		iface.Active = "pre"
 		conf = append(conf, iface)
 
 		return updateInterface(ctx, p.client, conf...)
@@ -272,6 +284,17 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 			conf = append(conf, &iface)
 		}
+
+		// Configure MacSec on the interface
+		if req.Interface.GetLabels()[v1alpha1.MacSecLabel] != "" {
+			iface.MacSec = IfaceMacSec{
+				PSKKeyChain: PSKKeyChain{
+					KeyChainName: req.Interface.GetLabels()[v1alpha1.MacSecLabel],
+					Policy:       req.Interface.GetLabels()[v1alpha1.MacSecLabel],
+				},
+			}
+		}
+
 		return updateInterface(ctx, p.client, conf...)
 	case v1alpha1.InterfaceTypeSubinterface:
 
@@ -318,6 +341,16 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 
 		if req.VRF != nil && req.VRF.Spec.Name != "" {
 			iface.Vrf = req.VRF.Spec.Name
+		}
+
+		// Configure MacSec on the interface
+		if req.Interface.GetLabels()[v1alpha1.MacSecLabel] != "" {
+			iface.MacSec = IfaceMacSec{
+				PSKKeyChain: PSKKeyChain{
+					KeyChainName: req.Interface.GetLabels()[v1alpha1.MacSecLabel],
+					Policy:       req.Interface.GetLabels()[v1alpha1.MacSecLabel],
+				},
+			}
 		}
 
 		conf = append(conf, &iface)
@@ -660,6 +693,79 @@ func (p *Provider) DeleteRoutingPolicy(ctx context.Context, req *provider.Delete
 
 func (p *Provider) LoopbackInterfaceName(id int) (string, error) {
 	return fmt.Sprintf("Loopback%d", id), nil
+}
+
+func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecRequest) error {
+	// Configure MacSec Policy
+	sb := new(gnmiext.SetBuilder)
+
+	cipherSuite, err := ExtractCipherSuite(req.MacSec.Spec.Policy.CipherSuite)
+	if err != nil {
+		return err
+	}
+
+	policy := &MacSecPolicy{
+		Name:              req.MacSec.Spec.Name,
+		CipherSuite:       cipherSuite,
+		ConfOffset:        fmt.Sprintf(ConfOffsetPrefix, req.MacSec.Spec.Policy.ConfidentialityOffset),
+		KeyServerPriority: req.MacSec.Spec.Policy.KeyServerPriority,
+		RelayProtection:   req.MacSec.Spec.Policy.RelayProtection,
+	}
+	sb.Update(policy)
+
+	// Configure KeyChain
+	chain := new(KeyChain)
+	chain.Name = req.MacSec.Spec.Name
+
+	for _, psk := range req.Secrets {
+		lifeTime, err := NewLifetime(string(psk.Data["lifetime"]))
+		if err != nil {
+			return err
+		}
+
+		password, err := encryption.EncryptType7(string(psk.Data["preSharedKey"]), 0)
+		if err != nil {
+			return err
+		}
+
+		key := Key{
+			KeyName:                string(psk.Data["connectivityKeyName"]),
+			CryptographicAlgorithm: string(psk.Data["algorithm"]),
+			PreSharedKey:           PreSharedKey{Password: password},
+			StartLifetime:          lifeTime,
+			AcceptLifetime:         lifeTime,
+		}
+		chain.Keys.Key = append(chain.Keys.Key, key)
+	}
+
+	if len(chain.Keys.Key) == 0 {
+		return errors.New("no keys provided for MacSec KeyChain")
+	}
+
+	sb.Update(chain)
+
+	return p.client.Do(ctx, sb)
+}
+
+func (p *Provider) DeleteMacSec(ctx context.Context, req *provider.DeleteMacSecRequest) error {
+	policy := new(MacSecPolicy)
+	policy.Name = req.MacSec.Spec.Name
+
+	keyChain := new(KeyChain)
+	keyChain.Name = req.MacSec.Spec.Name
+
+	return p.client.Delete(ctx, policy, keyChain)
+}
+
+func (p *Provider) GetMacSecStatus(ctx context.Context, req *provider.EnsureMacSecRequest) (provider.MacSecStatus, error) {
+	status := new(KeyChainOperData)
+	status.Name = req.MacSec.Spec.Name
+
+	err := p.client.GetState(ctx, status)
+	if err != nil {
+		return provider.MacSecStatus{}, fmt.Errorf("failed to get MacSec status for %s: %w", req.MacSec.Spec.Name, err)
+	}
+	return provider.MacSecStatus{}, nil
 }
 
 func init() {
