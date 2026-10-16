@@ -94,6 +94,11 @@ type BGPPeerSpec struct {
 	// +kubebuilder:validation:Minimum=2
 	// +kubebuilder:validation:Maximum=255
 	TTL *int32 `json:"ttl,omitempty"`
+
+	// BFD defines the Bidirectional Forwarding Detection configuration for the interface.
+	// BFD is only applicable for Layer 3 interfaces.
+	// +optional
+	BFD *BFD `json:"bfd,omitempty"`
 }
 
 // BGPPeerASNumberExternal is the value of BGPPeerSpec.ASNumber that requests a dynamic

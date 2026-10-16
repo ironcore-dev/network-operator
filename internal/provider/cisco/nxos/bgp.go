@@ -12,6 +12,7 @@ import (
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
@@ -227,6 +228,55 @@ type BGPPeer struct {
 	AfItems       struct {
 		PeerAfList gnmiext.List[AddressFamily, *BGPPeerAfItem] `json:"PeerAf-list,omitzero"`
 	} `json:"af-items,omitzero"`
+
+	// BFD enablement
+	PeerControl Option[string] `json:"ctrl"`
+	// Bfd Type: none (default), single-hop, multi-hop
+	// Rely on default, if peer is directly connected then a single hop session is selected,
+	// if the peer is not connected then a multi hop session type is selected
+	BfdType     BfdType         `json:"bfdType"`
+	BfdMultihop *BGPNeighborBfd `json:"mhbfdintvl-items,omitzero"`
+}
+
+type BGPNeighborBfd struct {
+	DetectMult   uint32 `json:"multiplier"`
+	MinRxIntvlMs uint32 `json:"minRxMs"`
+	MinTxIntvlMs uint32 `json:"minTxMs"`
+}
+
+func NewBGPNeighborBfd(peer *v1alpha1.BFD) (*BGPNeighborBfd, error) {
+	bfd := &BGPNeighborBfd{}
+	if peer.DetectionMultiplier != nil {
+		multiplier := *peer.DetectionMultiplier
+		if multiplier < 0 {
+			return nil, apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "spec.bfd.detectionMultiplier",
+				Description: "BFD detection multiplier must be non-negative",
+			})
+		}
+		bfd.DetectMult = uint32(multiplier)
+	}
+	if peer.RequiredMinimumReceive != nil {
+		ms := peer.RequiredMinimumReceive.Milliseconds()
+		if ms < 250 || ms > 999 {
+			return nil, apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "spec.bfd.requiredMinimumReceive",
+				Description: "BFD minimum receive interval must be between 250ms and 999ms",
+			})
+		}
+		bfd.MinRxIntvlMs = uint32(ms)
+	}
+	if peer.DesiredMinimumTxInterval != nil {
+		ms := peer.DesiredMinimumTxInterval.Milliseconds()
+		if ms < 250 || ms > 999 {
+			return nil, apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "spec.bfd.desiredMinimumTxInterval",
+				Description: "BFD desired minimum transmit interval must be between 250ms and 999ms",
+			})
+		}
+		bfd.MinTxIntvlMs = uint32(ms)
+	}
+	return bfd, nil
 }
 
 // BGPPeerAddr is a BGP peer reached at an address of its own, optionally sourced from a
@@ -428,6 +478,17 @@ const (
 )
 
 const RouteReflectorClient = "rr-client"
+
+const PeerControlType = "bfd"
+
+type BfdType string
+
+const (
+	// BfdTypeNone relies on default BFD session type selection
+	BfdTypeNone      BfdType = "none"
+	BfdTypeSingleHop BfdType = "singlehop"
+	BfdTypeMultiHop  BfdType = "multihop"
+)
 
 type BorderGatewayPeerType string
 

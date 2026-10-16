@@ -186,6 +186,8 @@ spec:
                     "adminSt": "enabled",
                     "asn": "65000",
                     "asnType": "none",
+                    "ctrl": "DME_UNSET_PROPERTY_MARKER",
+                    "bfdType": "none",
                     "name": "EVPN peering with spine1",
                     "srcIf": "lo0",
                     "ttl": 2,

@@ -16,7 +16,7 @@ spec:
   addressFamilies:
     - IPv4Unicast
     - IPv6Unicast
-  interfaces:
+  interfaceRefs:
     - name: eth1-1
     - name: eth1-2
     - name: lo0

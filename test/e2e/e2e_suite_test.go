@@ -93,4 +93,10 @@ var _ = AfterSuite(func(ctx SpecContext) {
 		_, _ = fmt.Fprintf(GinkgoWriter, "Uninstalling CertManager...\n")
 		UninstallCertManager(ctx)
 	}
+
+	cwd, err := GetProjectDir()
+	Expect(err).NotTo(HaveOccurred(), "Failed to get project directory")
+
+	err = CommentCode(cwd+"/config/default/kustomization.yaml", "- ../prometheus", "#")
+	Expect(err).NotTo(HaveOccurred(), "Failed to disable Prometheus")
 })

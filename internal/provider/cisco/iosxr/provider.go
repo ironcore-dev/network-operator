@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"time"
 
@@ -496,6 +497,31 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		Name:     req.BGP.Spec.VrfRef.Name,
 		RouterID: routerID,
 		RD:       rd,
+	}
+
+	if req.BGPPeer.Spec.BFD != nil && req.BGPPeer.Spec.BFD.Enabled {
+		bfd := &BFD{}
+		if req.BGPPeer.Spec.BFD.RequiredMinimumReceive != nil {
+			ms := req.BGPPeer.Spec.BFD.RequiredMinimumReceive.Duration
+			if ms < 0 || ms > math.MaxUint32 {
+				return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+					Field:       "spec.bfd.requiredMinimumReceive",
+					Description: "BFD minimum receive interval must be between 0ms and 4294967295ms",
+				})
+			}
+			bfd.MinInterval = uint32(ms)
+		}
+		if req.BGPPeer.Spec.BFD.DetectionMultiplier != nil {
+			multiplier := *req.BGPPeer.Spec.BFD.DetectionMultiplier
+			if multiplier < 0 {
+				return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+					Field:       "spec.bfd.detectionMultiplier",
+					Description: "BFD detection multiplier must be non-negative",
+				})
+			}
+			bfd.Multiplier = uint32(multiplier)
+		}
+		peer.BFD = bfd
 	}
 
 	if req.BGPPeer.Spec.AddressFamilies != nil && (req.BGPPeer.Spec.AddressFamilies.Ipv6Unicast != nil || req.BGPPeer.Spec.AddressFamilies.L2vpnEvpn != nil) {

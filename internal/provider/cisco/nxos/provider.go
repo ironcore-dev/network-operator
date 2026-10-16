@@ -88,6 +88,8 @@ type Provider struct {
 // timeout is the default timeout for all HTTP/gRPC requests made by the provider.
 const timeout = 30 * time.Second
 
+const featureBFD = "bfd"
+
 func NewProvider() provider.Provider {
 	return &Provider{}
 }
@@ -804,6 +806,8 @@ func (p *Provider) deleteBGP(ctx context.Context, vrfName string) error {
 }
 
 func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPeerRequest) error {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
 	// Ensure that the BGP domain exists before configuring a peer under it.
 	bgp := new(BGPDom)
 	bgp.Name = DefaultVRFName
@@ -840,8 +844,44 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		AsnType:       asnType,
 		Name:          req.BGPPeer.Spec.Description,
 		LocalAsnItems: localAsn,
+		BfdType:       BfdTypeNone,
 	}
 	base.AfItems.PeerAfList = bgpPeerAfItems(req)
+
+	if req.BGPPeer.Spec.BFD != nil && req.BGPPeer.Spec.BFD.Enabled {
+		// As PeerControl and BfdMultihop are only set when BFD is configured in the spec, this will not
+		// work with a gnmiext.Client.Patch call if somebody outside of the network operator configures BFD.
+		// "mhbfdintvl-items" would appear in the unmarshaled response and thus we would detect a config
+		// drift and reconcile over and over again.
+
+		bfd, err := NewBGPNeighborBfd(req.BGPPeer.Spec.BFD)
+		if err != nil {
+			return err
+		}
+
+		base.PeerControl = NewOption(PeerControlType)
+
+		// Force the BGP BFD session type to multihop.
+		//
+		// NX-OS supports two BFD session types for a BGP neighbor: single-hop and
+		// multihop (enum bgp_BfdSessionType). With no keyword, NX-OS defaults to
+		// single-hop when the peer is directly connected and multihop otherwise.
+		//
+		// We pin multihop for consistency: the session type then does not depend on
+		// whether the peer happens to be directly connected, so a peer that is later
+		// reached over a routed path keeps working.
+		// Single-hop and multihop BFD use different UDP ports (3784 vs 4784), so BOTH
+		// ends must agree — if the remote end is single-hop, the session will not form
+		// and BGP silently loses fast failure detection. Ensure the peer is also multihop.
+
+		base.BfdType = BfdTypeMultiHop
+		base.BfdMultihop = bfd
+
+		f := new(Feature)
+		f.Name = featureBFD
+		f.AdminSt = AdminStEnabled
+		sb.Update(f)
+	}
 
 	// Unnumbered peers are identified by the interface they are reachable over instead
 	// of by an address, and are configured under a separate list on the device.
@@ -850,8 +890,8 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		if err != nil {
 			return fmt.Errorf("bgp peer: invalid peer interface name %q: %w", req.PeerInterface, err)
 		}
-
-		return p.client.Update(ctx, &BGPPeerIf{BGPPeer: base, ID: id})
+		sb.Update(&BGPPeerIf{BGPPeer: base, ID: id})
+		return p.client.Do(ctx, sb)
 	}
 
 	pe := &BGPPeerAddr{BGPPeer: base, Addr: req.BGPPeer.Spec.Address}
@@ -869,8 +909,8 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		}
 		pe.SrcIf = srcIf
 	}
-
-	return p.client.Update(ctx, pe)
+	sb.Update(pe)
+	return p.client.Do(ctx, sb)
 }
 
 // bgpPeerLocalAsn builds the local AS configuration shared by both peer kinds.
@@ -1926,7 +1966,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	switch {
 	case req.Interface.Spec.BFD != nil && req.Interface.Spec.BFD.Enabled:
 		f := new(Feature)
-		f.Name = "bfd"
+		f.Name = featureBFD
 		f.AdminSt = AdminStEnabled
 		sb.Update(f)
 
@@ -1959,7 +1999,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 
 	case req.Interface.Spec.BFD != nil && !req.Interface.Spec.BFD.Enabled:
 		f := new(Feature)
-		f.Name = "bfd"
+		f.Name = featureBFD
 		f.AdminSt = AdminStEnabled
 		sb.Update(f)
 
@@ -2229,7 +2269,7 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 		return intf.Spec.BFD != nil && intf.Spec.BFD.Enabled
 	}) {
 		f := new(Feature)
-		f.Name = "bfd"
+		f.Name = featureBFD
 		f.AdminSt = AdminStEnabled
 		sb.Update(f)
 	}
@@ -2272,37 +2312,39 @@ func (p *Provider) EnsureISIS(ctx context.Context, req *provider.EnsureISISReque
 		dom.AfItems.DomAfList.Set(item)
 	}
 
-	interfaceNames, err := p.EnsureInterfacesExist(ctx, req.Interfaces)
-	if err != nil {
-		return err
-	}
+	if len(req.Interfaces) > 0 {
+		interfaceNames, err := p.EnsureInterfacesExist(ctx, req.Interfaces)
+		if err != nil {
+			return err
+		}
 
-	// prevent bounds check in for the range loop below
-	// [Bounds Check Elimination]: https://go101.org/optimizations/5-bce.html
-	_ = req.Interfaces[len(interfaceNames)-1]
+		// prevent bounds check in for the range loop below
+		// [Bounds Check Elimination]: https://go101.org/optimizations/5-bce.html
+		_ = req.Interfaces[len(interfaceNames)-1]
 
-	for i, iface := range req.Interfaces {
-		intf := new(ISISInterface)
-		intf.ID = interfaceNames[i]
-		intf.NetworkTypeP2P = AdminStOff
-		if iface.Spec.Type == v1alpha1.InterfaceTypePhysical {
-			intf.NetworkTypeP2P = AdminStOn
-		}
-		if ipv4 {
-			intf.V4Enable = true
-			intf.V4Bfd = "inheritVrf"
-			if iface.Spec.BFD != nil && iface.Spec.BFD.Enabled {
-				intf.V4Bfd = string(PassiveControlEnabled)
+		for i, iface := range req.Interfaces {
+			intf := new(ISISInterface)
+			intf.ID = interfaceNames[i]
+			intf.NetworkTypeP2P = AdminStOff
+			if iface.Spec.Type == v1alpha1.InterfaceTypePhysical {
+				intf.NetworkTypeP2P = AdminStOn
 			}
-		}
-		if ipv6 {
-			intf.V6Enable = true
-			intf.V6Bfd = "inheritVrf"
-			if iface.Spec.BFD != nil && iface.Spec.BFD.Enabled {
-				intf.V6Bfd = string(PassiveControlEnabled)
+			if ipv4 {
+				intf.V4Enable = true
+				intf.V4Bfd = "inheritVrf"
+				if iface.Spec.BFD != nil && iface.Spec.BFD.Enabled {
+					intf.V4Bfd = string(PassiveControlEnabled)
+				}
 			}
+			if ipv6 {
+				intf.V6Enable = true
+				intf.V6Bfd = "inheritVrf"
+				if iface.Spec.BFD != nil && iface.Spec.BFD.Enabled {
+					intf.V6Bfd = string(PassiveControlEnabled)
+				}
+			}
+			dom.IfItems.IfList.Set(intf)
 		}
-		dom.IfItems.IfList.Set(intf)
 	}
 	sb.Update(i)
 
@@ -2581,7 +2623,7 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 			// BFD-specific fields. Activate it via a separate Set RPC to ensure
 			// the feature is present before the OSPF interface is configured.
 			fb := new(Feature)
-			fb.Name = "bfd"
+			fb.Name = featureBFD
 			fb.AdminSt = AdminStEnabled
 			if err := p.client.Update(ctx, fb); err != nil {
 				return err
@@ -2870,6 +2912,8 @@ func (p *Provider) EnsureRoutingPolicy(ctx context.Context, req *provider.Ensure
 			switch v := cond.(type) {
 			case provider.MatchPrefixSetCondition:
 				e.SetPrefixSet(v.PrefixSet.Spec.Name, v.PrefixSet.Is6())
+			case provider.MatchCommunitySetCondition:
+				e.SetCommunitySet(v.CommunitySet.Spec.Name, v.CommunitySet.Spec.Type, v.MatchAll)
 			default:
 				return fmt.Errorf("routing policy: unsupported condition type %T", cond)
 			}
@@ -2886,12 +2930,12 @@ func (p *Provider) EnsureRoutingPolicy(ctx context.Context, req *provider.Ensure
 
 		if stmt.Actions.BgpActions != nil {
 			if stmt.Actions.BgpActions.SetCommunity != nil {
-				if err := e.SetCommunities(stmt.Actions.BgpActions.SetCommunity.Communities); err != nil {
+				if err := e.SetCommunities(stmt.Actions.BgpActions.SetCommunity.Communities, stmt.Actions.BgpActions.SetCommunity.Operation); err != nil {
 					return err
 				}
 			}
 			if stmt.Actions.BgpActions.SetExtCommunity != nil {
-				if err := e.SetExtCommunities(stmt.Actions.BgpActions.SetExtCommunity.Communities); err != nil {
+				if err := e.SetExtCommunities(stmt.Actions.BgpActions.SetExtCommunity.Communities, stmt.Actions.BgpActions.SetExtCommunity.Operation); err != nil {
 					return err
 				}
 			}

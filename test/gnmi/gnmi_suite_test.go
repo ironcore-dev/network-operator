@@ -41,7 +41,8 @@ import (
 )
 
 const (
-	ProviderEnvVar = "PROVIDER"
+	ProviderEnvVar         = "PROVIDER"
+	ProviderTestFileEnvVar = "PROVIDER_TEST_FILE"
 )
 
 // Test environment — initialized in BeforeSuite

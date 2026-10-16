@@ -171,7 +171,7 @@ func (r *ISISReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		return ctrl.Result{}, nil
 	}
 
-	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition) {
+	if conditions.InitializeConditions(obj, v1alpha1.ReadyCondition, v1alpha1.ConfiguredCondition) {
 		log.V(1).Info("Initializing status conditions")
 		return ctrl.Result{}, r.Status().Update(ctx, obj)
 	}
@@ -286,16 +286,16 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (reterr er
 
 	s.ISIS.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
+	defer func() {
+		conditions.RecomputeReady(s.ISIS)
+	}()
+
 	// Ensure the ISIS is owned by the Device.
 	if !controllerutil.HasControllerReference(s.ISIS) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.ISIS, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
 	}
-
-	defer func() {
-		conditions.RecomputeReady(s.ISIS)
-	}()
 
 	var interfaces []*v1alpha1.Interface
 	for _, iface := range s.ISIS.Spec.InterfaceRefs {
@@ -315,7 +315,7 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (reterr er
 
 		if !conditions.IsConfigured(intf) {
 			conditions.Set(s.ISIS, metav1.Condition{
-				Type:    v1alpha1.ReadyCondition,
+				Type:    v1alpha1.ConfiguredCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  v1alpha1.WaitingForDependenciesReason,
 				Message: "Waiting for referenced interfaces to become configured",
@@ -343,8 +343,6 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (reterr er
 	})
 
 	cond := conditions.FromError(err)
-	// As this resource is configuration only, we use the Configured condition as top-level Ready condition.
-	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.ISIS, cond)
 
 	return err

@@ -4,6 +4,7 @@
 package nxos
 
 import (
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
@@ -26,11 +27,13 @@ type RouteMapEntry struct {
 	Action    Action `json:"action"`
 	Order     int32  `json:"order"`
 	SrttItems struct {
+		Additive  AdminSt `json:"additive"`
 		ItemItems struct {
 			ItemList gnmiext.List[ExtCommItem, *ExtCommItem] `json:"Item-list,omitzero"`
 		} `json:"item-items,omitzero"`
 	} `json:"srtt-items,omitzero"`
 	SregcommItems struct {
+		Additive   AdminSt `json:"additive"`
 		NoCommAttr AdminSt `json:"noCommAttr"`
 		ItemItems  struct {
 			ItemList gnmiext.List[string, *CommItem] `json:"Item-list,omitzero"`
@@ -41,6 +44,18 @@ type RouteMapEntry struct {
 			RsRtDstAttList gnmiext.List[string, *RsRtDstAtt] `json:"RsRtDstAtt-list,omitzero"`
 		} `json:"rsrtDstAtt-items,omitzero"`
 	} `json:"mrtdst-items,omitzero"`
+	MregcommItems struct {
+		Criteria          matchCriteria `json:"criteria"`
+		RsregCommAttItems struct {
+			RsRegCommAttList gnmiext.List[string, *RsCommAtt] `json:"RsRegCommAtt-list,omitzero"`
+		} `json:"rsregCommAtt-items,omitzero"`
+	} `json:"mregcomm-items,omitzero"`
+	MextcommItems struct {
+		Criteria          matchCriteria `json:"criteria"`
+		RsextCommAttItems struct {
+			RsExtCommAttList gnmiext.List[string, *RsCommAtt] `json:"RsExtCommAtt-list,omitzero"`
+		} `json:"rsextCommAtt-items,omitzero"`
+	} `json:"mextcomm-items,omitzero"`
 	SetASPathPrependItems struct {
 		AS string `json:"as"`
 	} `json:"setaspathprepend-items,omitzero"`
@@ -60,7 +75,7 @@ type RouteMapEntry struct {
 
 func (e *RouteMapEntry) Key() int32 { return e.Order }
 
-func (e *RouteMapEntry) SetCommunities(communities []string) error {
+func (e *RouteMapEntry) SetCommunities(communities []string, operation v1alpha1.CommunityOperation) error {
 	for _, comm := range communities {
 		c, err := Community(comm)
 		if err != nil {
@@ -69,16 +84,24 @@ func (e *RouteMapEntry) SetCommunities(communities []string) error {
 		e.SregcommItems.NoCommAttr = AdminStDisabled
 		e.SregcommItems.ItemItems.ItemList.Set(&CommItem{Community: c})
 	}
+	e.SregcommItems.Additive = AdminStDisabled
+	if operation == v1alpha1.CommunityOperationAdd {
+		e.SregcommItems.Additive = AdminStEnabled
+	}
 	return nil
 }
 
-func (e *RouteMapEntry) SetExtCommunities(communities []string) error {
+func (e *RouteMapEntry) SetExtCommunities(communities []string, operation v1alpha1.CommunityOperation) error {
 	for _, comm := range communities {
 		c, err := RouteTarget(comm)
 		if err != nil {
 			return err
 		}
 		e.SrttItems.ItemItems.ItemList.Set(&ExtCommItem{Community: c, Scope: RtExtComScopeTransitive})
+	}
+	e.SrttItems.Additive = AdminStDisabled
+	if operation == v1alpha1.CommunityOperationAdd {
+		e.SrttItems.Additive = AdminStEnabled
 	}
 	return nil
 }
@@ -91,11 +114,44 @@ func (e *RouteMapEntry) SetPrefixSet(name string, isV6 bool) {
 	e.MrtdstItems.RsrtDstAttItems.RsRtDstAttList.Set(&RsRtDstAtt{TDn: tdn})
 }
 
+type matchCriteria string
+
+const (
+	matchCriteriaExact    matchCriteria = "exact"
+	matchCriteriaSubGroup matchCriteria = "sub-group"
+)
+
+func (e *RouteMapEntry) SetCommunitySet(name string, t v1alpha1.CommunitySetType, all bool) {
+	if t == v1alpha1.CommunitySetTypeStandard {
+		e.MregcommItems.RsregCommAttItems.RsRegCommAttList.Set(&RsCommAtt{
+			TDn: "/System/rpm-items/rtregcom-items/Rule-list[name='" + name + "']",
+		})
+		e.MregcommItems.Criteria = matchCriteriaSubGroup
+		if all {
+			e.MregcommItems.Criteria = matchCriteriaExact
+		}
+	} else {
+		e.MextcommItems.RsextCommAttItems.RsExtCommAttList.Set(&RsCommAtt{
+			TDn: "/System/rpm-items/rtextcom-items/Rule-list[name='" + name + "']",
+		})
+		e.MextcommItems.Criteria = matchCriteriaSubGroup
+		if all {
+			e.MextcommItems.Criteria = matchCriteriaExact
+		}
+	}
+}
+
 type RsRtDstAtt struct {
 	TDn string `json:"tDn"`
 }
 
 func (r *RsRtDstAtt) Key() string { return r.TDn }
+
+type RsCommAtt struct {
+	TDn string `json:"tDn"`
+}
+
+func (r *RsCommAtt) Key() string { return r.TDn }
 
 type CommItem struct {
 	Community string `json:"community"`

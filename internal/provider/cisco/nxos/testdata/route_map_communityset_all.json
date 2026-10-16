@@ -1,0 +1,29 @@
+{
+  "rpm-items": {
+    "rtmap-items": {
+      "Rule-list": [
+        {
+          "name": "RM-COMMUNITYSET-ALL",
+          "ent-items": {
+            "Entry-list": [
+              {
+                "action": "permit",
+                "order": 10,
+                "mregcomm-items": {
+                  "criteria": "exact",
+                  "rsregCommAtt-items": {
+                    "RsRegCommAtt-list": [
+                      {
+                        "tDn": "/System/rpm-items/rtregcom-items/Rule-list[name='CS-BLUE']"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

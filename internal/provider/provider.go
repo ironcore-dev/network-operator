@@ -760,6 +760,14 @@ type MatchPrefixSetCondition struct {
 
 func (MatchPrefixSetCondition) isPolicyCondition() {}
 
+type MatchCommunitySetCondition struct {
+	CommunitySet *v1alpha1.CommunitySet
+	// MatchAll is true when matchSetOptions is All (criteria "exact"); false for Any.
+	MatchAll bool
+}
+
+func (MatchCommunitySetCondition) isPolicyCondition() {}
+
 type DeleteRoutingPolicyRequest struct {
 	Name string
 }

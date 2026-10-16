@@ -767,16 +767,17 @@ _Appears in:_
 
 
 
-BFD defines the Bidirectional Forwarding Detection configuration for an interface.
+BFD defines the Bidirectional Forwarding Detection configuration for interfaces, bgp peerings and static routes.
 
 
 
 _Appears in:_
+- [BGPPeerSpec](#bgppeerspec)
 - [InterfaceSpec](#interfacespec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `enabled` _boolean_ | Enabled indicates whether BFD is enabled on the interface. |  | Required: \{\} <br /> |
+| `enabled` _boolean_ | Enabled indicates whether BFD is enabled on the network object. |  | Required: \{\} <br /> |
 | `desiredMinimumTxInterval` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | DesiredMinimumTxInterval is the minimum interval between transmission of BFD control<br />packets that the operator desires. This value is advertised to the peer.<br />The actual interval used is the maximum of this value and the remote<br />required-minimum-receive interval value. |  | Pattern: `^([0-9]+(\.[0-9]+)?(ns\|us\|µs\|ms\|s\|m\|h))+$` <br />Type: string <br />Optional: \{\} <br /> |
 | `requiredMinimumReceive` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | RequiredMinimumReceive is the minimum interval between received BFD control packets<br />that this system should support. This value is advertised to the remote peer to<br />indicate the maximum frequency between BFD control packets that is acceptable<br />to the local system. |  | Pattern: `^([0-9]+(\.[0-9]+)?(ns\|us\|µs\|ms\|s\|m\|h))+$` <br />Type: string <br />Optional: \{\} <br /> |
 | `detectionMultiplier` _integer_ | DetectionMultiplier is the number of packets that must be missed to declare<br />this session as down. The detection interval for the BFD session is calculated<br />by multiplying the value of the negotiated transmission interval by this value. |  | Maximum: 255 <br />Minimum: 1 <br />Optional: \{\} <br /> |
@@ -1067,6 +1068,7 @@ _Appears in:_
 | `addressFamilies` _[BGPPeerAddressFamilies](#bgppeeraddressfamilies)_ | AddressFamilies configures address family specific settings for this BGP peer.<br />Controls which address families are enabled and their specific configuration. |  | Optional: \{\} <br /> |
 | `localAS` _[LocalAS](#localas)_ | LocalAS configures the local AS number and how it factors into BGP announcements for this peer. |  | Optional: \{\} <br /> |
 | `ttl` _integer_ | TTL sets the time-to-live for eBGP sessions that span multiple hops.<br />When set, allows establishing eBGP sessions with non-directly-connected peers<br />by setting the IP TTL of outgoing BGP packets to this value.<br />When unset, eBGP multihop is disabled (equivalent to TTL=1 — directly connected peers only). |  | Maximum: 255 <br />Minimum: 2 <br />Optional: \{\} <br /> |
+| `bfd` _[BFD](#bfd)_ | BFD defines the Bidirectional Forwarding Detection configuration for the interface.<br />BFD is only applicable for Layer 3 interfaces. |  | Optional: \{\} <br /> |
 
 
 #### BGPPeerStatus
@@ -1398,6 +1400,26 @@ _Appears in:_
 | `regex` _string_ | Regex is a POSIX extended regular expression matching BGP community values. |  | MinLength: 1 <br />Required: \{\} <br /> |
 
 
+#### CommunityOperation
+
+_Underlying type:_ _string_
+
+CommunityOperation defines whether communities are added to the route's existing
+set (Add) or replace it (Replace).
+
+_Validation:_
+- Enum: [Add Replace]
+
+_Appears in:_
+- [SetCommunityAction](#setcommunityaction)
+- [SetExtCommunityAction](#setextcommunityaction)
+
+| Field | Description |
+| --- | --- |
+| `Add` | CommunityOperationAdd appends the communities to the route's existing set.<br /> |
+| `Replace` | CommunityOperationReplace overwrites the route's communities with the configured set.<br /> |
+
+
 #### CommunitySet
 
 
@@ -1415,6 +1437,23 @@ CommunitySet is the Schema for the communitysets API.
 | `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
 | `spec` _[CommunitySetSpec](#communitysetspec)_ |  |  | Required: \{\} <br /> |
 | `status` _[CommunitySetStatus](#communitysetstatus)_ |  |  | Optional: \{\} <br /> |
+
+
+#### CommunitySetMatchCondition
+
+
+
+CommunitySetMatchCondition defines the condition for matching against a CommunitySet.
+
+
+
+_Appears in:_
+- [PolicyConditions](#policyconditions)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `communitySetRef` _[LocalObjectReference](#localobjectreference)_ | CommunitySetRef references a CommunitySet in the same namespace.<br />The CommunitySet must exist and belong to the same device. |  | Required: \{\} <br /> |
+| `matchSetOption` _[MatchSetOption](#matchsetoption)_ | MatchSetOption defines if the route must match 'Any' or 'All' of the community members in the set. | Any | Enum: [Any All] <br />Optional: \{\} <br /> |
 
 
 #### CommunitySetSpec
@@ -2919,6 +2958,7 @@ _Appears in:_
 - [BannerSpec](#bannerspec)
 - [BorderGatewaySpec](#bordergatewayspec)
 - [CertificateSpec](#certificatespec)
+- [CommunitySetMatchCondition](#communitysetmatchcondition)
 - [CommunitySetSpec](#communitysetspec)
 - [ConfigBackupSpec](#configbackupspec)
 - [ConsoleConnectionSpec](#consoleconnectionspec)
@@ -3090,6 +3130,24 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `min` _integer_ | Minimum mask length. |  | Maximum: 128 <br />Minimum: 0 <br />Required: \{\} <br /> |
 | `max` _integer_ | Maximum mask length. |  | Maximum: 128 <br />Minimum: 0 <br />Required: \{\} <br /> |
+
+
+#### MatchSetOption
+
+_Underlying type:_ _string_
+
+MatchSetOption defines how a route's attributes are compared against a referenced set.
+
+_Validation:_
+- Enum: [Any All]
+
+_Appears in:_
+- [CommunitySetMatchCondition](#communitysetmatchcondition)
+
+| Field | Description |
+| --- | --- |
+| `Any` | MatchSetOptionAny matches a route carrying at least one member of the referenced set.<br /> |
+| `All` | MatchSetOptionAll matches only a route carrying every member of the referenced set.<br /> |
 
 
 #### MultiChassis
@@ -3647,6 +3705,8 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `matchPrefixSet` _[PrefixSetMatchCondition](#prefixsetmatchcondition)_ | MatchPrefixSet matches routes against a PrefixSet resource. |  | Optional: \{\} <br /> |
+| `matchCommunitySet` _[CommunitySetMatchCondition](#communitysetmatchcondition)_ | MatchCommunitySet matches routes against a CommunitySet resource. |  | Optional: \{\} <br /> |
+| `matchExtendedCommunitySet` _[CommunitySetMatchCondition](#communitysetmatchcondition)_ | MatchExtendedCommunitySet matches routes against a CommunitySet resource of type Extended. |  | Optional: \{\} <br /> |
 
 
 #### PolicyStatement
@@ -4352,6 +4412,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `communities` _string array_ | Communities is the list of BGP standard communities to set.<br />The communities must be in the format defined by [RFC 1997].<br />[RFC 1997]: https://datatracker.ietf.org/doc/html/rfc1997 |  | MinItems: 1 <br />Required: \{\} <br /> |
+| `operation` _[CommunityOperation](#communityoperation)_ | Operation controls whether attributes are added (Add) to the communities or<br />if the communities attributes are replaced (Replace). | Replace | Enum: [Add Replace] <br />Optional: \{\} <br /> |
 
 
 #### SetExtCommunityAction
@@ -4368,6 +4429,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `communities` _string array_ | Communities is the list of BGP extended communities to set.<br />The communities must be in the format defined by [RFC 4360].<br />[RFC 4360]: https://datatracker.ietf.org/doc/html/rfc4360 |  | MinItems: 1 <br />Required: \{\} <br /> |
+| `operation` _[CommunityOperation](#communityoperation)_ | Operation controls whether the communities are added to the route's existing<br />communities (Add) or replace them (Replace). | Replace | Enum: [Add Replace] <br />Optional: \{\} <br /> |
 
 
 #### Severity

@@ -1,0 +1,2 @@
+route-map RM-EXTCOMMUNITY-ADDITIVE permit 10
+ set extcommunity rt 65000:10 65000:20 additive

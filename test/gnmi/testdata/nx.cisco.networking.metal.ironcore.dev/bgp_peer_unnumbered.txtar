@@ -164,6 +164,8 @@ spec:
                     "id": "eth1/1",
                     "adminSt": "enabled",
                     "asnType": "external",
+                    "ctrl": "DME_UNSET_PROPERTY_MARKER",
+                    "bfdType": "none",
                     "name": "Unnumbered peering with spine1",
                     "af-items": {
                       "PeerAf-list": [

@@ -100,6 +100,11 @@ cleanup-test-e2e: ## Tear down the Kind cluster used for e2e tests
 # Provider used in test-gnmi
 PROVIDER ?= openconfig.networking.metal.ironcore.dev
 
+# Provider test file used in test-gnmi
+# Filename of any test data files in the provider's testdata directory.
+# If not set all testdata files will be used.
+# PROVIDER_TEST_FILE ?= banner.txtar
+
 # Number of parallel Ginkgo processes
 GINKGO_PROCS ?= $(shell nproc 2>/dev/null || sysctl -n hw.logicalcpu)
 

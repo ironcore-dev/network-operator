@@ -319,6 +319,32 @@ func UncommentCode(filename, target, prefix string) error {
 	return os.WriteFile(filename, out.Bytes(), 0o644)
 }
 
+// CommentCode searches for target in the file and adds the comment prefix
+// to each line of the target content. The target content may span multiple lines.
+func CommentCode(filename, target, prefix string) error {
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+
+	before, after, ok := bytes.Cut(content, []byte(target))
+	if !ok {
+		return fmt.Errorf("unable to find the code %s to be commented", target)
+	}
+
+	out := new(bytes.Buffer)
+	out.Write(before)
+	for line := range strings.SplitAfterSeq(target, "\n") {
+		if line != "" {
+			out.WriteString(prefix)
+			out.WriteString(line)
+		}
+	}
+	out.Write(after)
+
+	return os.WriteFile(filename, out.Bytes(), 0o644)
+}
+
 // GetNonEmptyLines converts given command output string into individual objects
 // according to line breakers, and ignores the empty elements in it.
 func GetNonEmptyLines(output string) []string {
