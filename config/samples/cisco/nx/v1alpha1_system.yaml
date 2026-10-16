@@ -11,4 +11,5 @@ spec:
   jumboMtu: 9214
   reservedVlan: 3850
   vlanLongName: true
-  relayServerIdOverrideDisable: true
+  dhcp:
+    relayServerIdOverrideDisable: true

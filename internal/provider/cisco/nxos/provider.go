@@ -3438,6 +3438,8 @@ func (p *Provider) DeleteVRF(ctx context.Context, req *provider.DeleteVRFRequest
 }
 
 func (p *Provider) EnsureSystemSettings(ctx context.Context, s *nxv1alpha1.System) error {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
 	long := new(VLANSystem)
 	long.LongName = s.Spec.VlanLongName
 
@@ -3446,16 +3448,21 @@ func (p *Provider) EnsureSystemSettings(ctx context.Context, s *nxv1alpha1.Syste
 
 	sys := new(SystemJumboMTU)
 	*sys = SystemJumboMTU(s.Spec.JumboMTU)
+	sb.Patch(long, res, sys)
 
 	sidod := new(DHCPRelayServerIDOverrideDisable)
-	if s.Spec.RelayServerIDOverrideDisable {
+	// Honor the deprecated top-level field during the expand phase of its migration
+	// into DHCP.RelayServerIDOverrideDisable: enabled if either is set.
+	if s.Spec.RelayServerIDOverrideDisable || s.Spec.DHCP.RelayServerIDOverrideDisable { //nolint:staticcheck // SA1019: deprecated field read intentionally during migration
 		*sidod = 1
-		if err := p.client.Patch(ctx, &Feature{Name: FeatureDHCP, AdminSt: AdminStEnabled}); err != nil {
-			return err
-		}
+		f := new(Feature)
+		f.Name = FeatureDHCP
+		f.AdminSt = AdminStEnabled
+		sb.Update(f)
 	}
+	sb.Patch(sidod)
 
-	return p.client.Patch(ctx, long, res, sys, sidod)
+	return p.Do(ctx, sb)
 }
 
 func (p *Provider) ResetSystemSettings(ctx context.Context) error {

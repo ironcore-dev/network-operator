@@ -5164,6 +5164,23 @@ _Appears in:_
 | `timeout` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | Timeout defines the inactivity timeout for console sessions.<br />If a session is inactive for the specified duration, it will be automatically disconnected.<br />The format is a string representing a duration (e.g., "10m" for 10 minutes). | 10m | Pattern: `^([0-9]+(\.[0-9]+)?(ns\|us\|µs\|ms\|s\|m\|h))+$` <br />Type: string <br />Optional: \{\} <br /> |
 
 
+#### DHCP
+
+
+
+DHCP groups DHCP-related system settings. These require the dhcp feature,
+which the operator enables automatically when a setting here is active.
+
+
+
+_Appears in:_
+- [SystemSpec](#systemspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `relayServerIdOverrideDisable` _boolean_ | RelayServerIDOverrideDisable enables the global command<br />"ip dhcp relay information option server-id-override-disable".<br />It prevents the DHCP relay agent from overriding the Server-ID (Option 54) in<br />relayed requests, which otherwise causes DHCP servers to drop the request.<br />Disabled by default. Enabling it activates the dhcp feature automatically. | false | Optional: \{\} <br /> |
+
+
 #### EVPNInstanceConfig
 
 
@@ -5720,7 +5737,8 @@ _Appears in:_
 | `jumboMtu` _integer_ | JumboMtu defines the system-wide jumbo MTU setting.<br />Valid values are from 1501 to 9216. | 9216 | ExclusiveMaximum: false <br />Maximum: 9216 <br />Minimum: 1501 <br />Optional: \{\} <br /> |
 | `reservedVlan` _integer_ | ReservedVlan specifies the VLAN ID to be reserved for system use.<br />Valid values are from 1 to 4032. | 3968 | ExclusiveMaximum: false <br />Maximum: 4032 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `vlanLongName` _boolean_ | VlanLongName enables or disables 128-character VLAN names<br />Disabled by default. | false | Optional: \{\} <br /> |
-| `relayServerIdOverrideDisable` _boolean_ | RelayServerIDOverrideDisable enables the global command<br />"ip dhcp relay information option server-id-override-disable".<br />It prevents the DHCP relay agent from overriding the Server-ID (Option 54) in<br />relayed requests, which otherwise causes DHCP servers to drop the request.<br />Disabled by default. Requires the dhcp feature, which is enabled automatically. | false | Optional: \{\} <br /> |
+| `relayServerIdOverrideDisable` _boolean_ | RelayServerIDOverrideDisable enables the global command<br />"ip dhcp relay information option server-id-override-disable".<br />Deprecated: use dhcp.relayServerIdOverrideDisable instead. This field is kept<br />only for migration and will be removed in a future release. While both are set,<br />the setting is enabled if either is true. | false | Optional: \{\} <br /> |
+| `dhcp` _[DHCP](#dhcp)_ | DHCP groups DHCP-related system settings. | \{ relayServerIdOverrideDisable:false \} | Optional: \{\} <br /> |
 
 
 #### SystemStatus

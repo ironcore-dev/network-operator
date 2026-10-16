@@ -44,9 +44,28 @@ type SystemSpec struct {
 
 	// RelayServerIDOverrideDisable enables the global command
 	// "ip dhcp relay information option server-id-override-disable".
+	//
+	// Deprecated: use dhcp.relayServerIdOverrideDisable instead. This field is kept
+	// only for migration and will be removed in a future release. While both are set,
+	// the setting is enabled if either is true.
+	// +optional
+	// +kubebuilder:default=false
+	RelayServerIDOverrideDisable bool `json:"relayServerIdOverrideDisable"`
+
+	// DHCP groups DHCP-related system settings.
+	// +optional
+	// +kubebuilder:default={relayServerIdOverrideDisable:false}
+	DHCP DHCP `json:"dhcp,omitzero"`
+}
+
+// DHCP groups DHCP-related system settings. These require the dhcp feature,
+// which the operator enables automatically when a setting here is active.
+type DHCP struct {
+	// RelayServerIDOverrideDisable enables the global command
+	// "ip dhcp relay information option server-id-override-disable".
 	// It prevents the DHCP relay agent from overriding the Server-ID (Option 54) in
 	// relayed requests, which otherwise causes DHCP servers to drop the request.
-	// Disabled by default. Requires the dhcp feature, which is enabled automatically.
+	// Disabled by default. Enabling it activates the dhcp feature automatically.
 	// +optional
 	// +kubebuilder:default=false
 	RelayServerIDOverrideDisable bool `json:"relayServerIdOverrideDisable"`

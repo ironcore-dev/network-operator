@@ -6,4 +6,7 @@ package nxos
 func init() {
 	mtu := SystemJumboMTU(9214)
 	Register("system", &mtu)
+
+	sidod := DHCPRelayServerIDOverrideDisable(1)
+	Register("dhcprelayserveridoverride", &sidod)
 }
