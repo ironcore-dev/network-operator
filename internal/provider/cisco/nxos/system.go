@@ -26,6 +26,8 @@ var (
 	_ gnmiext.DataElement = (*Model)(nil)
 	_ gnmiext.DataElement = (*SerialNumber)(nil)
 	_ gnmiext.DataElement = (*FirmwareVersion)(nil)
+	_ gnmiext.DataElement = (*DHCPRelayServerIDOverrideDisable)(nil)
+	_ gnmiext.Defaultable = (*DHCPRelayServerIDOverrideDisable)(nil)
 )
 
 // SystemJumboMTU represents the jumbo MTU size configured on the system.
@@ -38,6 +40,17 @@ func (s *SystemJumboMTU) XPath() string {
 func (s *SystemJumboMTU) Default() {
 	*s = 9216
 }
+
+// DHCPRelayServerIDOverrideDisable toggles the global
+// "ip dhcp relay information option server-id-override-disable" command.
+// Modeled as the YANG uint32 0..1 toggle; 0 is the platform default.
+type DHCPRelayServerIDOverrideDisable uint32
+
+func (*DHCPRelayServerIDOverrideDisable) XPath() string {
+	return "System/dhcp-items/inst-items/relayInformationOptionServerIdOverrideDisableEnabled"
+}
+
+func (d *DHCPRelayServerIDOverrideDisable) Default() { *d = 0 }
 
 // Hostname is the configured hostname of the device.
 type Hostname string
