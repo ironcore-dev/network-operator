@@ -616,12 +616,6 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 		}
 	}
 
-	dom = new(BGPDom)
-	dom.Name = DefaultVRFName
-	if req.VRF != nil {
-		dom.Name = req.VRF.Spec.Name
-	}
-
 	if dom.Name == DefaultVRFName && (cfg.Spec.AddressFamilies.Ipv4UnicastAdvertiseL2vpnEvpn() || cfg.Spec.AddressFamilies.Ipv6UnicastAdvertiseL2vpnEvpn()) {
 		return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
 			Field:       "providerConfig.addressFamilies.advertiseL2vpnEvpn",
@@ -700,6 +694,7 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 			if af.RouteTargetPolicy != nil && af.RouteTargetPolicy.RetainAll {
 				item.RetainRttAll = AdminStEnabled
 			}
+			item.AdvPip = AdminStDisabled
 			if cfg.Spec.AddressFamilies != nil && cfg.Spec.AddressFamilies.L2vpnEvpn != nil && cfg.Spec.AddressFamilies.L2vpnEvpn.AdvertisePIP {
 				item.AdvPip = AdminStEnabled
 			}
@@ -770,7 +765,7 @@ func (p *Provider) deleteBGP(ctx context.Context, vrfName string) error {
 		}
 		empty := &BGPDom{Name: DefaultVRFName}
 		for _, pg := range dom.PeerContItems.PeerContList {
-			if isOwnershipMarker(pg.Name) {
+			if isOwnershipMarker(pg.Name) && pg.Name != marker.Name {
 				empty.PeerContItems.PeerContList.Set(&BGPPeerGroup{VRFName: DefaultVRFName, Name: pg.Name})
 			}
 		}
