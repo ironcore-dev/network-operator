@@ -14,6 +14,7 @@ import (
 	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/encryption"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 	"github.com/ironcore-dev/network-operator/internal/transport/grpcext"
 
@@ -711,10 +712,15 @@ func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecR
 			return err
 		}
 
+		password, err := encryption.EncryptType7(string(psk.Data["preSharedKey"]), 0)
+		if err != nil {
+			return err
+		}
+
 		key := Key{
 			KeyName:                string(psk.Data["connectivityKeyName"]),
 			CryptographicAlgorithm: string(psk.Data["algorithm"]),
-			PreSharedKey:           PreSharedKey{Password: encryption.EncryptType7(string(psk.Data["preSharedKey"]), 0)},
+			PreSharedKey:           PreSharedKey{Password: password},
 			StartLifetime:          lifeTime,
 			AcceptLifetime:         lifeTime,
 		}
