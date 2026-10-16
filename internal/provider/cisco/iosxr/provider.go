@@ -714,7 +714,7 @@ func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecR
 		key := Key{
 			KeyName:                string(psk.Data["connectivityKeyName"]),
 			CryptographicAlgorithm: string(psk.Data["algorithm"]),
-			PreSharedKey:           PreSharedKey{Password: encryptType7(string(psk.Data["preSharedKey"]))},
+			PreSharedKey:           PreSharedKey{Password: encryption.EncryptType7(string(psk.Data["preSharedKey"]), 0)},
 			StartLifetime:          lifeTime,
 			AcceptLifetime:         lifeTime,
 		}

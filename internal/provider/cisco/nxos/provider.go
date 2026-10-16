@@ -4706,15 +4706,21 @@ func NormalizeMACAddress(mac string) string {
 // dependent policy and keychain configuration is pushed.
 func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecRequest) error {
 	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
-	sb.Update(&Feature{Name: "macsec", AdminSt: AdminStEnabled})
+
+	f := new(Feature)
+	f.Name = "macsec"
+	f.AdminSt = AdminStEnabled
+	sb.Update(f)
 
 	cipherSuite, err := ExtractCipherSuite(req.MacSec.Spec.Policy.CipherSuite)
 	if err != nil {
+		// ToDo: Should be terminal error
 		return err
 	}
 
 	confOffset, err := ExtractConfOffset(uint16(req.MacSec.Spec.Policy.ConfidentialityOffset))
 	if err != nil {
+		// ToDo: Should be terminal error
 		return err
 	}
 
@@ -4728,39 +4734,42 @@ func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecR
 	sb.Patch(policy)
 
 	chain := &KeyChain{Name: req.MacSec.Spec.Name}
-	for i := range req.Secrets {
-		psk := &req.Secrets[i]
-		lifetime, err := NewLifetime(string(psk.Data["lifetime"]))
+
+	// fixme: order keys
+	for _, psk := range req.Secrets {
+		lifetime, err := NewLifetime(psk.StringData["lifetime"])
 		if err != nil {
+			// ToDo: Should be terminal error
 			return err
 		}
-		cryptoAlg, err := ExtractCryptographicAlgo(string(psk.Data["algorithm"]))
+		cryptoAlg, err := ExtractCryptographicAlgo(psk.StringData["algorithm"])
 		if err != nil {
+			// ToDo: Should be terminal error
 			return err
 		}
-		chain.Keys.KeyList.Set(&MacSecKey{
-			ID:          string(psk.Data["connectivityKeyName"]),
-			OctetString: string(psk.Data["key"]),
-			// fixme
-			EncryptType:  EncryptTypeUnencrypted,
+
+		key := MacSecKey{
+			ID:           psk.StringData["connectivityKeyName"],
+			OctetString:  string(psk.Data["key"]),
+			EncryptType:  EncryptTypeType7,
 			CryptoAlg:    cryptoAlg,
 			SendLifetime: lifetime,
-		})
+		}
+		chain.Keys.KeyList.Set(&key)
 	}
-	sb.Patch(chain)
+	sb.Update(chain)
 
-	if req.SourceInterface == nil {
-		return errors.New("macsec: source interface is required to bind the policy and keychain")
-	}
 	name, err := ShortName(req.SourceInterface.Spec.Name)
 	if err != nil {
 		return err
 	}
-	sb.Patch(&MacSecInterface{
+
+	intf := MacSecInterface{
 		ID:           name,
 		KeychainName: req.MacSec.Spec.Name,
 		PolicyName:   req.MacSec.Spec.Name,
-	})
+	}
+	sb.Patch(&intf)
 
 	return p.Do(ctx, sb)
 }

@@ -131,8 +131,10 @@ spec:
                 - relayProtection
                 type: object
               preSharedKeyRef:
-                description: PreSharedKeyRef is a list of references to pre-shared
-                  keys used for MACSec encryption.
+                description: |-
+                  PreSharedKeyRef is a list of references to pre-shared keys used for MACSec encryption.
+                  Specify multiple keys if needed for redundancy rotation
+                  Sort them in the order they should be used for redundancy rotation.
                 items:
                   description: |-
                     LocalObjectReference contains enough information to locate a
@@ -149,6 +151,7 @@ spec:
                   - name
                   type: object
                   x-kubernetes-map-type: atomic
+                minItems: 1
                 type: array
               providerConfigRef:
                 description: |-

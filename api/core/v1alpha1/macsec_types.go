@@ -53,6 +53,9 @@ type MacSecSpec struct {
 	InterfaceRef LocalObjectReference `json:"interfaceRef,omitempty"`
 
 	// PreSharedKeyRef is a list of references to pre-shared keys used for MACSec encryption.
+	// Specify multiple keys if needed for redundancy rotation
+	// Sort them in the order they should be used for redundancy rotation.
+	// +kubebuilder:validation:MinItems=1
 	// +required
 	PreSharedKeyRef []LocalObjectReference `json:"preSharedKeyRef"`
 

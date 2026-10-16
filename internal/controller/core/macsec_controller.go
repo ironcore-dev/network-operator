@@ -377,6 +377,21 @@ func (r *MacSecReconciler) reconcilePreSharedKeys(ctx context.Context, s *macSec
 				return reconcile.TerminalError(fmt.Errorf("pre-shared key secret %q does not contain field %q", key, field))
 			}
 		}
+
+		// Check the contents of the secrets
+		if _, ok := secret.StringData["lifetime"]; !ok {
+			return reconcile.TerminalError(fmt.Errorf("pre-shared key secret %q does not contain field data.%q", key, "lifetime"))
+		}
+		if _, ok := secret.StringData["connectivityKeyName"]; !ok {
+			return reconcile.TerminalError(fmt.Errorf("pre-shared key secret %q does not contain field data.%q", key, "connectivityKeyName"))
+		}
+		if _, ok := secret.StringData["algorithm"]; !ok {
+			return reconcile.TerminalError(fmt.Errorf("pre-shared key secret %q does not contain field data.%q", key, "algorithm"))
+		}
+		if _, ok := secret.StringData["key"]; !ok {
+			return reconcile.TerminalError(fmt.Errorf("pre-shared key secret %q does not contain field data.%q", key, "key"))
+		}
+
 		secrets = append(secrets, *secret)
 	}
 	s.Secrets = secrets

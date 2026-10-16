@@ -33,4 +33,5 @@ stringData:
   connectivityKeyName: "1234567"
   algorithm: "aes-128-cmac-96"
   lifetime: "2027-01-01T09:34:01Z"
-  preSharedKey: "test-psk"
+data:
+  preSharedKey: dGVzdC1wc2s= # base64-decoded value: test-psk
