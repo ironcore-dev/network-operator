@@ -3445,17 +3445,29 @@ func (p *Provider) EnsureSystemSettings(ctx context.Context, s *nxv1alpha1.Syste
 	*sys = SystemJumboMTU(s.Spec.JumboMTU)
 	sb.Patch(long, res, sys)
 
+	// The override leaf lives under the dhcp feature tree, which only exists while the
+	// feature is enabled. Read the current feature state to decide how to realize it.
+	dhcp := &Feature{Name: FeatureDHCP}
+	if err := p.client.GetConfig(ctx, dhcp); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+
 	sidod := new(DHCPRelayServerIDOverrideDisable)
 	// Honor the deprecated top-level field during the expand phase of its migration
 	// into DHCP.RelayServerIDOverrideDisable: enabled if either is set.
 	if s.Spec.RelayServerIDOverrideDisable || s.Spec.DHCP.RelayServerIDOverrideDisable { //nolint:staticcheck // SA1019: deprecated field read intentionally during migration
 		*sidod = 1
-		f := new(Feature)
-		f.Name = FeatureDHCP
-		f.AdminSt = AdminStEnabled
-		sb.Update(f)
+		if dhcp.AdminSt != AdminStEnabled {
+			dhcp.AdminSt = AdminStEnabled
+			sb.Patch(dhcp)
+		}
 	}
-	sb.Patch(sidod)
+	// Only write the leaf when the feature is (or is being) enabled. When the feature is
+	// off and the override is not requested, the path is absent and writing it would be
+	// rejected by the device.
+	if dhcp.AdminSt == AdminStEnabled {
+		sb.Patch(sidod)
+	}
 
 	return p.Do(ctx, sb)
 }
