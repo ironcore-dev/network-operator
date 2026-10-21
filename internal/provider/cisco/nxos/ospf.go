@@ -188,6 +188,10 @@ const (
 	RtLeakProtoDirect RtLeakProto = "direct"
 )
 
+// interLeakNone is the value used for the asn and inst keys of an InterLeakP
+// entry when redistributing from a protocol that is not instance-scoped.
+const interLeakNone = "none"
+
 type NtwType string
 
 const (

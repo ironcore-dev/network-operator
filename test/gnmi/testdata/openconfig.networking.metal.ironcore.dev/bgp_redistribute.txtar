@@ -1,0 +1,161 @@
+# BGP redistribute direct and static via table-connections
+-- routingpolicies/redist --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: RoutingPolicy
+metadata:
+  name: redist
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: REDIST
+  statements:
+    - sequence: 10
+      actions:
+        routeDisposition: AcceptRoute
+-- bgps/bgp --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGP
+metadata:
+  name: bgp
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  asNumber: 65000
+  routerId: 10.0.0.1
+  addressFamilies:
+    ipv4Unicast:
+      enabled: true
+      redistributeDirectRoutes:
+        routingPolicyRef:
+          name: redist
+      redistributeStaticRoutes:
+        routingPolicyRef:
+          name: redist
+
+-- state/preload --
+{}
+
+-- state/expect --
+
+{
+  "openconfig-routing-policy:routing-policy": {
+    "policy-definitions": {
+      "policy-definition": [
+        {
+          "config": {
+            "name": "REDIST"
+          },
+          "statements": {
+            "statement": [
+              {
+                "name": "10",
+                "config": {
+                  "name": "10"
+                },
+                "actions": {
+                  "config": {
+                    "policy-result": "ACCEPT_ROUTE"
+                  }
+                }
+              }
+            ]
+          },
+          "name": "REDIST"
+        }
+      ]
+    }
+  },
+  "openconfig-network-instance:network-instances": {
+    "network-instance": [
+      {
+        "name": "default",
+        "protocols": {
+          "protocol": [
+            {
+              "config": {
+                "identifier": "openconfig-policy-types:BGP",
+                "name": "BGP"
+              },
+              "bgp": {
+                "global": {
+                  "config": {
+                    "as": 65000,
+                    "router-id": "10.0.0.1"
+                  },
+                  "afi-safis": {
+                    "afi-safi": [
+                      {
+                        "afi-safi-name": "openconfig-bgp-types:IPV4_UNICAST",
+                        "config": {
+                          "afi-safi-name": "openconfig-bgp-types:IPV4_UNICAST",
+                          "enabled": true
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "identifier": "openconfig-policy-types:BGP",
+              "name": "BGP"
+            }
+          ]
+        },
+        "table-connections": {
+          "table-connection": [
+            {
+              "src-protocol": "openconfig-policy-types:DIRECTLY_CONNECTED",
+              "dst-protocol": "openconfig-policy-types:BGP",
+              "address-family": "openconfig-types:IPV4",
+              "config": {
+                "src-protocol": "openconfig-policy-types:DIRECTLY_CONNECTED",
+                "dst-protocol": "openconfig-policy-types:BGP",
+                "address-family": "openconfig-types:IPV4",
+                "import-policy": [
+                  "REDIST"
+                ]
+              }
+            },
+            {
+              "src-protocol": "openconfig-policy-types:STATIC",
+              "dst-protocol": "openconfig-policy-types:BGP",
+              "address-family": "openconfig-types:IPV4",
+              "config": {
+                "src-protocol": "openconfig-policy-types:STATIC",
+                "dst-protocol": "openconfig-policy-types:BGP",
+                "address-family": "openconfig-types:IPV4",
+                "import-policy": [
+                  "REDIST"
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+
+-- state/delete --
+
+{
+  "openconfig-routing-policy:routing-policy": {
+    "policy-definitions": {
+      "policy-definition": []
+    }
+  },
+  "openconfig-network-instance:network-instances": {
+    "network-instance": [
+      {
+        "name": "default",
+        "protocols": {
+          "protocol": []
+        },
+        "table-connections": {
+          "table-connection": []
+        }
+      }
+    ]
+  }
+}

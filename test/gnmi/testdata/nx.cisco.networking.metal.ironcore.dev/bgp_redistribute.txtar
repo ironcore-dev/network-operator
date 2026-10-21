@@ -1,0 +1,152 @@
+-- routingpolicies/redist --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: RoutingPolicy
+metadata:
+  name: redist
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: REDIST
+  statements:
+    - sequence: 10
+      actions:
+        routeDisposition: AcceptRoute
+
+-- bgps/rdst-bgp --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGP
+metadata:
+  name: rdst-bgp
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  asNumber: 65000
+  routerId: "10.0.0.1"
+  addressFamilies:
+    ipv4Unicast:
+      enabled: true
+      redistributeDirectRoutes:
+        routingPolicyRef:
+          name: redist
+      redistributeStaticRoutes:
+        routingPolicyRef:
+          name: redist
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "fm-items": {
+      "bgp-items": {
+        "adminSt": "enabled"
+      },
+      "evpn-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "rpm-items": {
+      "rtmap-items": {
+        "Rule-list": [
+          {
+            "name": "REDIST",
+            "ent-items": {
+              "Entry-list": [
+                {
+                  "action": "permit",
+                  "order": 10
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "bgp-items": {
+      "inst-items": {
+        "adminSt": "enabled",
+        "asn": "65000",
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "rtrId": "10.0.0.1",
+              "rtrIdAuto": "disabled",
+              "peercont-items": {
+                "PeerCont-list": [
+                  {
+                    "name": "__operator-managed--default__"
+                  }
+                ]
+              },
+              "af-items": {
+                "DomAf-list": [
+                  {
+                    "maxEcmp": 1,
+                    "maxExtEcmp": 1,
+                    "exportGwIp": "disabled",
+                    "advertL2vpnEvpn": "disabled",
+                    "type": "ipv4-ucast",
+                    "interleak-items": {
+                      "InterLeakP-list": [
+                        {
+                          "asn": "none",
+                          "inst": "none",
+                          "proto": "direct",
+                          "rtMap": "REDIST"
+                        },
+                        {
+                          "asn": "none",
+                          "inst": "none",
+                          "proto": "static",
+                          "rtMap": "REDIST"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+-- state/delete --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "fm-items": {
+      "bgp-items": {
+        "adminSt": "enabled"
+      },
+      "evpn-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "rpm-items": {
+      "rtmap-items": {
+        "Rule-list": []
+      }
+    },
+    "bgp-items": {}
+  }
+}

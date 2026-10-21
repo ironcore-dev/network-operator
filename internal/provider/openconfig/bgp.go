@@ -123,25 +123,33 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 	sb := new(gnmiext.SetBuilder)
 	sb.Update(proto)
 
-	// Handle redistribute direct routes via table-connections.
-	for afType, policy := range req.RedistributeDirectRoutePolicies {
-		af, err := toAddressFamily(afType)
-		if err != nil {
-			return err
+	// Handle redistribution into BGP via table-connections, one per source protocol.
+	addTableConnections := func(src PolicyType, policies map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy) error {
+		for afType, policy := range policies {
+			af, err := toAddressFamily(afType)
+			if err != nil {
+				return err
+			}
+			sb.Update(&TableConnection{
+				NetworkInstance: ni,
+				SrcProtocol:     src,
+				DstProtocol:     PolicyTypeBGP,
+				AddressFamily:   af,
+				Config: &TableConnectionConfig{
+					SrcProtocol:   src,
+					DstProtocol:   PolicyTypeBGP,
+					AddressFamily: af,
+					ImportPolicy:  []string{policy.Spec.Name},
+				},
+			})
 		}
-		tc := &TableConnection{
-			NetworkInstance: ni,
-			SrcProtocol:     PolicyTypeDirectlyConnected,
-			DstProtocol:     PolicyTypeBGP,
-			AddressFamily:   af,
-			Config: &TableConnectionConfig{
-				SrcProtocol:   PolicyTypeDirectlyConnected,
-				DstProtocol:   PolicyTypeBGP,
-				AddressFamily: af,
-				ImportPolicy:  []string{policy.Spec.Name},
-			},
-		}
-		sb.Update(tc)
+		return nil
+	}
+	if err := addTableConnections(PolicyTypeDirectlyConnected, req.RedistributeDirectRoutePolicies); err != nil {
+		return err
+	}
+	if err := addTableConnections(PolicyTypeStatic, req.RedistributeStaticRoutePolicies); err != nil {
+		return err
 	}
 
 	return p.client.Do(ctx, sb)
@@ -168,8 +176,20 @@ func (p *Provider) DeleteBGP(ctx context.Context, req *provider.DeleteBGPRequest
 		DstProtocol:     PolicyTypeBGP,
 		AddressFamily:   AddressFamilyIPv6,
 	}
+	tcStaticIPv4 := &TableConnection{
+		NetworkInstance: ni,
+		SrcProtocol:     PolicyTypeStatic,
+		DstProtocol:     PolicyTypeBGP,
+		AddressFamily:   AddressFamilyIPv4,
+	}
+	tcStaticIPv6 := &TableConnection{
+		NetworkInstance: ni,
+		SrcProtocol:     PolicyTypeStatic,
+		DstProtocol:     PolicyTypeBGP,
+		AddressFamily:   AddressFamilyIPv6,
+	}
 
-	return p.client.Delete(ctx, proto, tcIPv4, tcIPv6)
+	return p.client.Delete(ctx, proto, tcIPv4, tcIPv6, tcStaticIPv4, tcStaticIPv6)
 }
 
 // toOCAddressFamily converts a BGPAddressFamilyType to the OpenConfig address-family identity.
@@ -220,6 +240,7 @@ const (
 	PolicyTypeBGP               PolicyType = "openconfig-policy-types:BGP"
 	PolicyTypeISIS              PolicyType = "openconfig-policy-types:ISIS"
 	PolicyTypeDirectlyConnected PolicyType = "openconfig-policy-types:DIRECTLY_CONNECTED"
+	PolicyTypeStatic            PolicyType = "openconfig-policy-types:STATIC"
 )
 
 // AddressFamily represents the OpenConfig address-family identity for table connections.

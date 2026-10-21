@@ -43,6 +43,13 @@ func init() {
 	rdstItem.InterLeakPItems.InterLeakPList.Set(NewInterLeakPDirect("ROUTE_MAP"))
 	Register("bgp_dom_af_rdst", rdstItem)
 
+	// Direct and static redistribution coexist on a single address family as
+	// distinct InterLeakP-list entries (keyed by proto).
+	rdstStaticItem := &BGPDomAfItem{VRFName: DefaultVRFName, Type: AddressFamilyIPv4Unicast, ExportGwIP: AdminStDisabled, AdvertL2vpnEvpn: AdminStDisabled}
+	rdstStaticItem.InterLeakPItems.InterLeakPList.Set(NewInterLeakPDirect("ROUTE_MAP_DIRECT"))
+	rdstStaticItem.InterLeakPItems.InterLeakPList.Set(NewInterLeakPStatic("ROUTE_MAP_STATIC"))
+	Register("bgp_dom_af_rdst_static", rdstStaticItem)
+
 	bgpPeer := &BGPPeerAddr{
 		VRFName: DefaultVRFName,
 		AdminSt: AdminStEnabled,

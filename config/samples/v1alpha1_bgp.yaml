@@ -76,8 +76,14 @@ spec:
       redistributeDirectRoutes:
         routingPolicyRef:
           name: bgp-import-policy
+      redistributeStaticRoutes:
+        routingPolicyRef:
+          name: bgp-import-policy
     ipv6Unicast:
       enabled: true
       redistributeDirectRoutes:
+        routingPolicyRef:
+          name: bgp-import-policy
+      redistributeStaticRoutes:
         routingPolicyRef:
           name: bgp-import-policy
