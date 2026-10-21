@@ -153,13 +153,6 @@ func (r *ISISReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -272,11 +265,10 @@ func (r *ISISReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 
 // scope holds the different objects that are read and used during the reconcile.
 type isisScope struct {
-	Device         *v1alpha1.Device
-	ISIS           *v1alpha1.ISIS
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.ISISProvider
+	Device     *v1alpha1.Device
+	ISIS       *v1alpha1.ISIS
+	Connection *deviceutil.Connection
+	Provider   provider.ISISProvider
 }
 
 func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (reterr error) {
@@ -295,6 +287,11 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (reterr er
 		if err := controllerutil.SetOwnerReference(s.Device, s.ISIS, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
+	}
+
+	cfg, err := validateProviderConfigRef(ctx, r, s.ISIS, s.ISIS.Spec.ProviderConfigRef, v1alpha1.ISISDependencies)
+	if err != nil {
+		return err
 	}
 
 	var interfaces []*v1alpha1.Interface
@@ -336,10 +333,10 @@ func (r *ISISReconciler) reconcile(ctx context.Context, s *isisScope) (reterr er
 	}()
 
 	// Ensure the ISIS is realized on the provider.
-	err := s.Provider.EnsureISIS(ctx, &provider.EnsureISISRequest{
+	err = s.Provider.EnsureISIS(ctx, &provider.EnsureISISRequest{
 		ISIS:           s.ISIS,
 		Interfaces:     interfaces,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 	})
 
 	cond := conditions.FromError(err)

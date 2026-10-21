@@ -156,13 +156,6 @@ func (r *EthernetSegmentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -289,7 +282,6 @@ type ethernetSegmentScope struct {
 	Device          *v1alpha1.Device
 	EthernetSegment *v1alpha1.EthernetSegment
 	Connection      *deviceutil.Connection
-	ProviderConfig  *provider.ProviderConfig
 	Provider        provider.EthernetSegmentProvider
 }
 
@@ -311,6 +303,11 @@ func (r *EthernetSegmentReconciler) reconcile(ctx context.Context, s *ethernetSe
 		conditions.RecomputeReady(s.EthernetSegment)
 	}()
 
+	cfg, err := validateProviderConfigRef(ctx, r, s.EthernetSegment, s.EthernetSegment.Spec.ProviderConfigRef, v1alpha1.EthernetSegmentDependencies)
+	if err != nil {
+		return err
+	}
+
 	intf, err := r.reconcileInterface(ctx, s)
 	if err != nil {
 		return err
@@ -329,7 +326,7 @@ func (r *EthernetSegmentReconciler) reconcile(ctx context.Context, s *ethernetSe
 	err = s.Provider.EnsureEthernetSegment(ctx, &provider.EnsureEthernetSegmentRequest{
 		EthernetSegment: s.EthernetSegment,
 		Interface:       intf,
-		ProviderConfig:  s.ProviderConfig,
+		ProviderConfig:  cfg,
 	})
 
 	cond := conditions.FromError(err)
@@ -342,7 +339,7 @@ func (r *EthernetSegmentReconciler) reconcile(ctx context.Context, s *ethernetSe
 	status, err := s.Provider.GetEthernetSegmentStatus(ctx, &provider.EthernetSegmentStatusRequest{
 		EthernetSegment: s.EthernetSegment,
 		Interface:       intf,
-		ProviderConfig:  s.ProviderConfig,
+		ProviderConfig:  cfg,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get ethernet segment status: %w", err)

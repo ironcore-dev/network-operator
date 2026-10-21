@@ -153,13 +153,6 @@ func (r *RoutingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -335,11 +328,10 @@ func (r *RoutingPolicyReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 
 // scope holds the different objects that are read and used during the reconcile.
 type routingPolicyScope struct {
-	Device         *v1alpha1.Device
-	RoutingPolicy  *v1alpha1.RoutingPolicy
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.RoutingPolicyProvider
+	Device        *v1alpha1.Device
+	RoutingPolicy *v1alpha1.RoutingPolicy
+	Connection    *deviceutil.Connection
+	Provider      provider.RoutingPolicyProvider
 }
 
 func (r *RoutingPolicyReconciler) reconcile(ctx context.Context, s *routingPolicyScope) (reterr error) {
@@ -362,6 +354,11 @@ func (r *RoutingPolicyReconciler) reconcile(ctx context.Context, s *routingPolic
 		s.RoutingPolicy.Status.StatementsSummary = fmt.Sprintf("%d statements", len(s.RoutingPolicy.Spec.Statements))
 	}
 
+	cfg, err := validateProviderConfigRef(ctx, r, s.RoutingPolicy, s.RoutingPolicy.Spec.ProviderConfigRef, v1alpha1.RoutingPolicyDependencies)
+	if err != nil {
+		return err
+	}
+
 	statements, err := r.reconcileStatements(ctx, s)
 	if err != nil {
 		return err
@@ -380,7 +377,7 @@ func (r *RoutingPolicyReconciler) reconcile(ctx context.Context, s *routingPolic
 	err = s.Provider.EnsureRoutingPolicy(ctx, &provider.EnsureRoutingPolicyRequest{
 		Name:           s.RoutingPolicy.Spec.Name,
 		Statements:     statements,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 	})
 
 	cond := conditions.FromError(err)

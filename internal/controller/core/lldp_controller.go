@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -16,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/events"
@@ -200,11 +198,10 @@ func (r *LLDPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 }
 
 type lldpScope struct {
-	Device         *v1alpha1.Device
-	LLDP           *v1alpha1.LLDP
-	Connection     *deviceutil.Connection
-	Provider       provider.LLDPProvider
-	ProviderConfig *provider.ProviderConfig
+	Device     *v1alpha1.Device
+	LLDP       *v1alpha1.LLDP
+	Connection *deviceutil.Connection
+	Provider   provider.LLDPProvider
 }
 
 func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (reterr error) {
@@ -228,7 +225,8 @@ func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (reterr er
 		return err
 	}
 
-	if err := r.validateProviderConfigRef(ctx, s); err != nil {
+	cfg, err := validateProviderConfigRef(ctx, r, s.LLDP, s.LLDP.Spec.ProviderConfigRef, v1alpha1.LLDPDependencies)
+	if err != nil {
 		return err
 	}
 
@@ -249,7 +247,7 @@ func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (reterr er
 	// Ensure the LLDP is realized on the remote device.
 	err = s.Provider.EnsureLLDP(ctx, &provider.LLDPRequest{
 		LLDP:           s.LLDP,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 		Interfaces:     interfaces,
 	})
 
@@ -262,7 +260,7 @@ func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (reterr er
 
 	status, err := s.Provider.GetLLDPStatus(ctx, &provider.LLDPRequest{
 		LLDP:           s.LLDP,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get LLDP status: %w", err)
@@ -281,54 +279,6 @@ func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (reterr er
 	}
 	conditions.Set(s.LLDP, cond)
 
-	return nil
-}
-
-// validateProviderConfigRef checks if the referenced provider configuration exists and is compatible with the target platform.
-func (r *LLDPReconciler) validateProviderConfigRef(ctx context.Context, s *lldpScope) error {
-	if s.LLDP.Spec.ProviderConfigRef == nil {
-		return nil
-	}
-
-	cfg, err := provider.GetProviderConfig(ctx, r, s.LLDP.Namespace, s.LLDP.Spec.ProviderConfigRef)
-	if err != nil {
-		conditions.Set(s.LLDP, metav1.Condition{
-			Type:    v1alpha1.ConfiguredCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  v1alpha1.IncompatibleProviderConfigRef,
-			Message: fmt.Sprintf("Failed to get ProviderConfigRef: %v", err),
-		})
-		return err
-	}
-
-	gv, err := schema.ParseGroupVersion(s.LLDP.Spec.ProviderConfigRef.APIVersion)
-	if err != nil {
-		conditions.Set(s.LLDP, metav1.Condition{
-			Type:    v1alpha1.ConfiguredCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  v1alpha1.IncompatibleProviderConfigRef,
-			Message: fmt.Sprintf("ProviderConfigRef is not compatible with Device: %v", err),
-		})
-		return reconcile.TerminalError(fmt.Errorf("invalid API version %q: %w", s.LLDP.Spec.ProviderConfigRef.APIVersion, err))
-	}
-
-	gvk := schema.GroupVersionKind{
-		Group:   gv.Group,
-		Version: gv.Version,
-		Kind:    s.LLDP.Spec.ProviderConfigRef.Kind,
-	}
-
-	if ok := slices.Contains(v1alpha1.LLDPDependencies, gvk); !ok {
-		conditions.Set(s.LLDP, metav1.Condition{
-			Type:    v1alpha1.ConfiguredCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  v1alpha1.IncompatibleProviderConfigRef,
-			Message: fmt.Sprintf("ProviderConfigRef kind '%s' with API version '%s' is not compatible with this device type", s.LLDP.Spec.ProviderConfigRef.Kind, s.LLDP.Spec.ProviderConfigRef.APIVersion),
-		})
-		return reconcile.TerminalError(fmt.Errorf("unsupported ProviderConfigRef Kind %q on this provider", gv))
-	}
-
-	s.ProviderConfig = cfg
 	return nil
 }
 

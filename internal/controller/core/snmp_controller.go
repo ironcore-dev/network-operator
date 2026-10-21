@@ -152,13 +152,6 @@ func (r *SNMPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -255,11 +248,10 @@ func (r *SNMPReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 
 // scope holds the different objects that are read and used during the reconcile.
 type snmpScope struct {
-	Device         *v1alpha1.Device
-	SNMP           *v1alpha1.SNMP
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.SNMPProvider
+	Device     *v1alpha1.Device
+	SNMP       *v1alpha1.SNMP
+	Connection *deviceutil.Connection
+	Provider   provider.SNMPProvider
 }
 
 func (r *SNMPReconciler) reconcile(ctx context.Context, s *snmpScope) (reterr error) {
@@ -280,6 +272,11 @@ func (r *SNMPReconciler) reconcile(ctx context.Context, s *snmpScope) (reterr er
 		}
 	}
 
+	cfg, err := validateProviderConfigRef(ctx, r, s.SNMP, s.SNMP.Spec.ProviderConfigRef, v1alpha1.SNMPDependencies)
+	if err != nil {
+		return err
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -290,9 +287,9 @@ func (r *SNMPReconciler) reconcile(ctx context.Context, s *snmpScope) (reterr er
 	}()
 
 	// Ensure the SNMP is realized on the provider.
-	err := s.Provider.EnsureSNMP(ctx, &provider.EnsureSNMPRequest{
+	err = s.Provider.EnsureSNMP(ctx, &provider.EnsureSNMPRequest{
 		SNMP:           s.SNMP,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 	})
 
 	conditions.Set(s.SNMP, conditions.FromError(err))

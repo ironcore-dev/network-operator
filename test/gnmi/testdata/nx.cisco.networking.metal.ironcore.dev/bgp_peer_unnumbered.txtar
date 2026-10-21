@@ -1,3 +1,14 @@
+-- interfaceconfigs/uplink-nxconfig --
+apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
+kind: InterfaceConfig
+metadata:
+  name: uplink-nxconfig
+  namespace: default
+spec:
+  ipv6:
+    suppressRouterAdvertisement: false
+    routerAdvertisementInterval: 4s
+
 -- interfaces/uplink --
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
@@ -16,17 +27,6 @@ spec:
     name: uplink-nxconfig
   ipv6:
     useLinkLocalOnly: true
-
--- interfaceconfigs/uplink-nxconfig --
-apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
-kind: InterfaceConfig
-metadata:
-  name: uplink-nxconfig
-  namespace: default
-spec:
-  ipv6:
-    suppressRouterAdvertisement: false
-    routerAdvertisementInterval: 4s
 
 -- bgps/fabric-bgp --
 apiVersion: networking.metal.ironcore.dev/v1alpha1

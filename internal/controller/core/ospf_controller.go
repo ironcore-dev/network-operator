@@ -159,13 +159,6 @@ func (r *OSPFReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -283,11 +276,10 @@ func (r *OSPFReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 
 // scope holds the different objects that are read and used during the reconcile.
 type ospfScope struct {
-	Device         *v1alpha1.Device
-	OSPF           *v1alpha1.OSPF
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.OSPFProvider
+	Device     *v1alpha1.Device
+	OSPF       *v1alpha1.OSPF
+	Connection *deviceutil.Connection
+	Provider   provider.OSPFProvider
 }
 
 func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (reterr error) {
@@ -307,6 +299,11 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (reterr er
 	defer func() {
 		conditions.RecomputeReady(s.OSPF)
 	}()
+
+	cfg, err := validateProviderConfigRef(ctx, r, s.OSPF, s.OSPF.Spec.ProviderConfigRef, v1alpha1.OSPFDependencies)
+	if err != nil {
+		return err
+	}
 
 	var interfaces []provider.OSPFInterface
 	for _, ref := range s.OSPF.Spec.InterfaceRefs {
@@ -371,10 +368,10 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (reterr er
 	}()
 
 	// Ensure the OSPF is realized on the provider.
-	err := s.Provider.EnsureOSPF(ctx, &provider.EnsureOSPFRequest{
+	err = s.Provider.EnsureOSPF(ctx, &provider.EnsureOSPFRequest{
 		OSPF:           s.OSPF,
 		Interfaces:     interfaces,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 	})
 
 	cond := conditions.FromError(err)
@@ -387,7 +384,7 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (reterr er
 	status, err := s.Provider.GetOSPFStatus(ctx, &provider.OSPFStatusRequest{
 		OSPF:           s.OSPF,
 		Interfaces:     interfaces,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get ospf status: %w", err)
