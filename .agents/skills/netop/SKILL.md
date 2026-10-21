@@ -1,7 +1,7 @@
 ---
 name: netop
 description: Run local checks (vet, lint, test, gnmi test) and/or manual integration tests against real devices (build, deploy, apply CRs, validate with gnmic). Each phase can be run independently.
-argument-hint: [check | test | all] [--device <addr:port>] [--cr <file.yaml>] [--expected <file.json>]
+argument-hint: "[check | test | all] [--device <addr:port>] [--cr <file.yaml>] [--expected <file.json>]"
 allowed-tools: [Bash, Read, AskUserQuestion]
 allowed-bash: ["make vet", "make fmt", "make test", "make test-gnmi", "make lint", "kubectl get *", "kubectl describe *", "kubectl logs *", "kubectl apply *", "kubectl wait *", "kind get *", "gnmic *", "git diff *", "git status", "docker info"]
 ---

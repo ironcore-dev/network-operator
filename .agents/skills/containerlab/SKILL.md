@@ -1,7 +1,7 @@
 ---
 name: containerlab
 description: Deploy a containerlab network device. Defaults to a topology with Nokia SRL, Juniper vJunos-Evolved, and Cisco N9Kv. Pass a topology file path or image to override.
-argument-hint: [--topology <path>] [--image <image>] [--output <path>]
+argument-hint: "[--topology <path>] [--image <image>] [--output <path>]"
 allowed-tools: [Bash, Read, Write, AskUserQuestion]
 allowed-bash: ["containerlab *", "docker *", "gnmic *", "curl *"]
 ---
