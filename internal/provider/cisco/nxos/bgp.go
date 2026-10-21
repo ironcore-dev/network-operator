@@ -479,7 +479,13 @@ const (
 	PeerAsnTypeInternal PeerAsnType = "internal"
 )
 
-const RouteReflectorClient = "rr-client"
+// PeerAfControl represents the control options for a BGP peer address family.
+type PeerAfControl string
+
+const (
+	RouteReflectorClient PeerAfControl = "rr-client" // value: 4
+	NextHopSelf          PeerAfControl = "nh-self"   // value: 8
+)
 
 const PeerControlType = "bfd"
 

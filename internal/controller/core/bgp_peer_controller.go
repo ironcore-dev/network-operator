@@ -371,19 +371,12 @@ func (r *BGPPeerReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 				},
 			}),
 		).
-		// Watches enqueues BGPPeers when a referenced RoutingPolicy is created or deleted.
-		// Only triggers on create and delete events since RoutingPolicy names are immutable.
+		// Watches enqueue BGPPeers when a referenced RoutingPolicy is created, deleted,
+		// or its desired configuration changes.
 		Watches(
 			&v1alpha1.RoutingPolicy{},
 			handler.EnqueueRequestsFromMapFunc(r.routingPolicyToBGPPeers),
-			builder.WithPredicates(predicate.Funcs{
-				UpdateFunc: func(e event.UpdateEvent) bool {
-					return false
-				},
-				GenericFunc: func(e event.GenericEvent) bool {
-					return false
-				},
-			}),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
 		).
 		// Watches enqueues BGPPeers when a referenced Interface is created or deleted.
 		// Only triggers on create and delete events since interface names are immutable.
@@ -454,7 +447,7 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (ret
 		}
 	}
 
-	var inbound, outbound map[v1alpha1.BGPAddressFamilyType]string
+	var inbound, outbound map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy
 	if s.BGPPeer.Spec.AddressFamilies != nil {
 		inbound, outbound, err = r.reconcileRoutingPolicies(ctx, s.BGPPeer, s.Device)
 		if err != nil {
@@ -723,12 +716,12 @@ func (r *BGPPeerReconciler) reconcileVRF(ctx context.Context, peer *v1alpha1.BGP
 
 // reconcileRoutingPolicies resolves the inbound and outbound routing policy references
 // on each enabled address family of the BGPPeer.
-// Returns two maps from BGPAddressFamilyType to the device-level policy name.
+// Returns two maps from BGPAddressFamilyType to the resolved RoutingPolicy.
 // Sets ConfiguredCondition and returns a terminal error when a referenced policy
 // is not found or belongs to a different device.
-func (r *BGPPeerReconciler) reconcileRoutingPolicies(ctx context.Context, peer *v1alpha1.BGPPeer, device *v1alpha1.Device) (inbound, outbound map[v1alpha1.BGPAddressFamilyType]string, err error) {
-	inbound = make(map[v1alpha1.BGPAddressFamilyType]string)
-	outbound = make(map[v1alpha1.BGPAddressFamilyType]string)
+func (r *BGPPeerReconciler) reconcileRoutingPolicies(ctx context.Context, peer *v1alpha1.BGPPeer, device *v1alpha1.Device) (inbound, outbound map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy, err error) {
+	inbound = make(map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy)
+	outbound = make(map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy)
 
 	for afType, af := range map[v1alpha1.BGPAddressFamilyType]*v1alpha1.BGPPeerAddressFamily{
 		v1alpha1.BGPAddressFamilyIpv4Unicast: peer.Spec.AddressFamilies.Ipv4Unicast,
@@ -738,7 +731,7 @@ func (r *BGPPeerReconciler) reconcileRoutingPolicies(ctx context.Context, peer *
 		if af == nil || !af.Enabled {
 			continue
 		}
-		for ref, m := range map[*v1alpha1.LocalObjectReference]*map[v1alpha1.BGPAddressFamilyType]string{
+		for ref, m := range map[*v1alpha1.LocalObjectReference]*map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy{
 			af.InboundRoutingPolicyRef:  &inbound,
 			af.OutboundRoutingPolicyRef: &outbound,
 		} {
@@ -767,7 +760,7 @@ func (r *BGPPeerReconciler) reconcileRoutingPolicies(ctx context.Context, peer *
 				})
 				return nil, nil, reconcile.TerminalError(fmt.Errorf("routing policy %s belongs to different device", ref.Name))
 			}
-			(*m)[afType] = rp.Spec.Name
+			(*m)[afType] = rp
 		}
 	}
 
@@ -939,7 +932,7 @@ func (r *BGPPeerReconciler) vrfToBGPPeers(ctx context.Context, obj client.Object
 }
 
 // routingPolicyToBGPPeers is a [handler.MapFunc] to be used to enqueue requests for reconciliation
-// for BGPPeers when a RoutingPolicy referenced by one of their address families is created or deleted.
+// for BGPPeers when a RoutingPolicy referenced by one of their address families changes.
 func (r *BGPPeerReconciler) routingPolicyToBGPPeers(ctx context.Context, obj client.Object) []ctrl.Request {
 	rp, ok := obj.(*v1alpha1.RoutingPolicy)
 	if !ok {

@@ -103,7 +103,7 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 			if policy, ok := req.InboundRoutingPolicies[v1alpha1.BGPAddressFamilyIpv4Unicast]; ok {
 				safi.ApplyPolicy = &BGPNeighborApplyPolicy{
 					Config: &BGPNeighborApplyPolicyConfig{
-						ImportPolicy: []string{policy},
+						ImportPolicy: []string{policy.Spec.Name},
 					},
 				}
 			}
@@ -111,7 +111,7 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 				if safi.ApplyPolicy == nil {
 					safi.ApplyPolicy = &BGPNeighborApplyPolicy{Config: &BGPNeighborApplyPolicyConfig{}}
 				}
-				safi.ApplyPolicy.Config.ExportPolicy = []string{policy}
+				safi.ApplyPolicy.Config.ExportPolicy = []string{policy.Spec.Name}
 			}
 			neighbor.AfiSafis.AfiSafi.Set(safi)
 		}
@@ -126,7 +126,7 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 			if policy, ok := req.InboundRoutingPolicies[v1alpha1.BGPAddressFamilyIpv6Unicast]; ok {
 				safi.ApplyPolicy = &BGPNeighborApplyPolicy{
 					Config: &BGPNeighborApplyPolicyConfig{
-						ImportPolicy: []string{policy},
+						ImportPolicy: []string{policy.Spec.Name},
 					},
 				}
 			}
@@ -134,7 +134,7 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 				if safi.ApplyPolicy == nil {
 					safi.ApplyPolicy = &BGPNeighborApplyPolicy{Config: &BGPNeighborApplyPolicyConfig{}}
 				}
-				safi.ApplyPolicy.Config.ExportPolicy = []string{policy}
+				safi.ApplyPolicy.Config.ExportPolicy = []string{policy.Spec.Name}
 			}
 			neighbor.AfiSafis.AfiSafi.Set(safi)
 		}

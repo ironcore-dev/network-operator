@@ -264,11 +264,34 @@ spec:
                               required:
                               - communities
                               type: object
+                            setNextHop:
+                              description: SetNextHop configures the BGP next-hop
+                                for advertised routes.
+                              properties:
+                                ipAddr:
+                                  description: IPAddr specifies the next-hop IP address
+                                    to set for advertised routes when Type is Address.
+                                  format: ip
+                                  type: string
+                                type:
+                                  description: NextHopType specifies how to determine
+                                    the next-hop for advertised routes.
+                                  enum:
+                                  - Self
+                                  - Address
+                                  type: string
+                              required:
+                              - type
+                              type: object
+                              x-kubernetes-validations:
+                              - message: ipAddr must be specified only when type is
+                                  Address
+                                rule: has(self.ipAddr) == (self.type == 'Address')
                           type: object
                           x-kubernetes-validations:
                           - message: at least one BGP action must be specified
                             rule: has(self.setCommunity) || has(self.setExtCommunity)
-                              || has(self.setASPath)
+                              || has(self.setASPath) || has(self.setNextHop)
                         routeDisposition:
                           description: RouteDisposition specifies whether to accept
                             or reject the route.

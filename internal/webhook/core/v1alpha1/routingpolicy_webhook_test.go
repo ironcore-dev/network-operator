@@ -317,6 +317,52 @@ var _ = Describe("RoutingPolicy Webhook", func() {
 		})
 	})
 
+	Context("When validating setNextHop through the API server", func() {
+		It("Should enforce the next-hop type and address combination", func() {
+			addr := v1alpha1.MustParseAddr("192.0.2.1")
+			tests := []struct {
+				name   string
+				action *v1alpha1.SetNextHopAction
+				valid  bool
+			}{
+				{
+					name:   "self",
+					action: &v1alpha1.SetNextHopAction{Type: v1alpha1.NextHopSelf},
+					valid:  true,
+				},
+				{
+					name:   "address",
+					action: &v1alpha1.SetNextHopAction{Type: v1alpha1.NextHopAddress, IPAddr: &addr},
+					valid:  true,
+				},
+				{
+					name:   "self-with-address",
+					action: &v1alpha1.SetNextHopAction{Type: v1alpha1.NextHopSelf, IPAddr: &addr},
+				},
+				{
+					name:   "address-without-address",
+					action: &v1alpha1.SetNextHopAction{Type: v1alpha1.NextHopAddress},
+				},
+			}
+
+			for _, test := range tests {
+				policy := obj.DeepCopy()
+				policy.Name = "test-routingpolicy-" + test.name
+				policy.Spec.Name = policy.Name
+				policy.Spec.Statements[0].Actions.BgpActions = &v1alpha1.BgpActions{SetNextHop: test.action}
+
+				err := k8sClient.Create(ctx, policy)
+				if test.valid {
+					Expect(err).NotTo(HaveOccurred(), test.name)
+					Expect(k8sClient.Delete(ctx, policy)).To(Succeed())
+					continue
+				}
+				Expect(err).To(HaveOccurred(), test.name)
+				Expect(err.Error()).To(ContainSubstring("ipAddr must be specified only when type is Address"), test.name)
+			}
+		})
+	})
+
 	Context("When deleting RoutingPolicy under Validating Webhook", func() {
 		It("Should admit deletion", func() {
 			_, err := validator.ValidateDelete(ctx, obj)

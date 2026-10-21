@@ -130,7 +130,7 @@ const (
 )
 
 // BgpActions defines BGP-specific actions for a policy statement.
-// +kubebuilder:validation:XValidation:rule="has(self.setCommunity) || has(self.setExtCommunity) || has(self.setASPath)",message="at least one BGP action must be specified"
+// +kubebuilder:validation:XValidation:rule="has(self.setCommunity) || has(self.setExtCommunity) || has(self.setASPath) || has(self.setNextHop)",message="at least one BGP action must be specified"
 type BgpActions struct {
 	// SetCommunity configures BGP standard community attributes.
 	// +optional
@@ -143,7 +143,31 @@ type BgpActions struct {
 	// SetASPath configures modifications to the BGP AS path attribute.
 	// +optional
 	SetASPath *SetASPathAction `json:"setASPath,omitempty"`
+
+	// SetNextHop configures the BGP next-hop for advertised routes.
+	// +optional
+	SetNextHop *SetNextHopAction `json:"setNextHop,omitempty"`
 }
+
+// SetNextHopAction defines how to replace the BGP next-hop for advertised routes.
+// +kubebuilder:validation:XValidation:rule="has(self.ipAddr) == (self.type == 'Address')",message="ipAddr must be specified only when type is Address"
+type SetNextHopAction struct {
+	// NextHopType specifies how to determine the next-hop for advertised routes.
+	// +required
+	Type NextHopType `json:"type"`
+
+	// IPAddr specifies the next-hop IP address to set for advertised routes when Type is Address.
+	// +optional
+	IPAddr *IPAddr `json:"ipAddr,omitempty"`
+}
+
+// +kubebuilder:validation:Enum=Self;Address
+type NextHopType string
+
+const (
+	NextHopSelf    NextHopType = "Self"
+	NextHopAddress NextHopType = "Address"
+)
 
 // SetASPathAction defines actions to modify the BGP AS path attribute.
 // +kubebuilder:validation:XValidation:rule="has(self.prepend) || has(self.replace) || has(self.asNumber)",message="at least one AS path action must be specified"

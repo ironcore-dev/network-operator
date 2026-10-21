@@ -46,6 +46,24 @@ spec:
       routeTargetPolicy:
         retainAll: true
 
+-- routingpolicies/outbound-next-hop-self --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: RoutingPolicy
+metadata:
+  name: outbound-next-hop-self
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: OUTBOUND-NEXT-HOP-SELF
+  statements:
+    - sequence: 10
+      actions:
+        routeDisposition: AcceptRoute
+        bgpActions:
+          setNextHop:
+            type: Self
+
 -- bgppeers/spine1 --
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: BGPPeer
@@ -68,6 +86,8 @@ spec:
       enabled: true
       sendCommunity: Both
       routeReflectorClient: true
+      outboundRoutingPolicyRef:
+        name: outbound-next-hop-self
   ttl: 2
 
 -- state/preload --
@@ -155,6 +175,23 @@ spec:
         "adminSt": "enabled"
       }
     },
+    "rpm-items": {
+      "rtmap-items": {
+        "Rule-list": [
+          {
+            "name": "OUTBOUND-NEXT-HOP-SELF",
+            "ent-items": {
+              "Entry-list": [
+                {
+                  "action": "permit",
+                  "order": 10
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
     "bgp-items": {
       "inst-items": {
         "adminSt": "enabled",
@@ -201,10 +238,18 @@ spec:
                     "af-items": {
                       "PeerAf-list": [
                         {
-                          "ctrl": "rr-client",
+                          "ctrl": "rr-client,nh-self",
                           "sendComExt": "enabled",
                           "sendComStd": "enabled",
-                          "type": "l2vpn-evpn"
+                          "type": "l2vpn-evpn",
+                          "rtctrl-items": {
+                            "RtCtrlP-list": [
+                              {
+                                "direction": "out",
+                                "rtMap": "OUTBOUND-NEXT-HOP-SELF"
+                              }
+                            ]
+                          }
                         }
                       ]
                     }
@@ -270,6 +315,11 @@ spec:
       },
       "evpn-items": {
         "adminSt": "enabled"
+      }
+    },
+    "rpm-items": {
+      "rtmap-items": {
+        "Rule-list": []
       }
     },
     "bgp-items": {}

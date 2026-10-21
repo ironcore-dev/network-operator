@@ -1271,6 +1271,7 @@ _Appears in:_
 | `setCommunity` _[SetCommunityAction](#setcommunityaction)_ | SetCommunity configures BGP standard community attributes. |  | Optional: \{\} <br /> |
 | `setExtCommunity` _[SetExtCommunityAction](#setextcommunityaction)_ | SetExtCommunity configures BGP extended community attributes. |  | Optional: \{\} <br /> |
 | `setASPath` _[SetASPathAction](#setaspathaction)_ | SetASPath configures modifications to the BGP AS path attribute. |  | Optional: \{\} <br /> |
+| `setNextHop` _[SetNextHopAction](#setnexthopaction)_ | SetNextHop configures the BGP next-hop for advertised routes. |  | Optional: \{\} <br /> |
 
 
 #### Certificate
@@ -2527,6 +2528,7 @@ _Validation:_
 _Appears in:_
 - [IPAddressSpec](#ipaddressspec)
 - [PingProbe](#pingprobe)
+- [SetNextHopAction](#setnexthopaction)
 
 
 
@@ -3404,6 +3406,24 @@ _Appears in:_
 | `interfaceRef` _[LocalObjectReference](#localobjectreference)_ | InterfaceRef is a reference to the Interface resource that this static route is associated with.<br />The referenced Interface must exist in the same namespace. |  | Optional: \{\} <br /> |
 | `address` _string_ | Address is the IP address of the next hop for the static route. |  | Format: ipv4 <br />Required: \{\} <br /> |
 | `metric` _integer_ | Metric assigns a priority to the static route. Lower values indicate higher priority. |  | Optional: \{\} <br /> |
+
+
+#### NextHopType
+
+_Underlying type:_ _string_
+
+
+
+_Validation:_
+- Enum: [Self Address]
+
+_Appears in:_
+- [SetNextHopAction](#setnexthopaction)
+
+| Field | Description |
+| --- | --- |
+| `Self` |  |
+| `Address` |  |
 
 
 #### OSPF
@@ -4453,6 +4473,23 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `communities` _string array_ | Communities is the list of BGP extended communities to set.<br />The communities must be in the format defined by [RFC 4360].<br />[RFC 4360]: https://datatracker.ietf.org/doc/html/rfc4360 |  | MinItems: 1 <br />Required: \{\} <br /> |
 | `operation` _[CommunityOperation](#communityoperation)_ | Operation controls whether the communities are added to the route's existing<br />communities (Add) or replace them (Replace). | Replace | Enum: [Add Replace] <br />Optional: \{\} <br /> |
+
+
+#### SetNextHopAction
+
+
+
+SetNextHopAction defines how to replace the BGP next-hop for advertised routes.
+
+
+
+_Appears in:_
+- [BgpActions](#bgpactions)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `type` _[NextHopType](#nexthoptype)_ | NextHopType specifies how to determine the next-hop for advertised routes. |  | Enum: [Self Address] <br />Required: \{\} <br /> |
+| `ipAddr` _[IPAddr](#ipaddr)_ | IPAddr specifies the next-hop IP address to set for advertised routes when Type is Address. |  | Format: ip <br />Type: string <br />Optional: \{\} <br /> |
 
 
 #### Severity
