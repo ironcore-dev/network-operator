@@ -152,13 +152,6 @@ func (r *AAAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -249,11 +242,10 @@ func (r *AAAReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 
 // aaaScope holds the different objects that are read and used during the reconcile.
 type aaaScope struct {
-	Device         *v1alpha1.Device
-	AAA            *v1alpha1.AAA
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.AAAProvider
+	Device     *v1alpha1.Device
+	AAA        *v1alpha1.AAA
+	Connection *deviceutil.Connection
+	Provider   provider.AAAProvider
 }
 
 func (r *AAAReconciler) reconcile(ctx context.Context, s *aaaScope) (reterr error) {
@@ -272,6 +264,11 @@ func (r *AAAReconciler) reconcile(ctx context.Context, s *aaaScope) (reterr erro
 		if err := controllerutil.SetOwnerReference(s.Device, s.AAA, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
+	}
+
+	cfg, err := validateProviderConfigRef(ctx, r, s.AAA, s.AAA.Spec.ProviderConfigRef, v1alpha1.AAADependencies)
+	if err != nil {
+		return err
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
@@ -307,9 +304,9 @@ func (r *AAAReconciler) reconcile(ctx context.Context, s *aaaScope) (reterr erro
 	}
 
 	// Ensure the AAA is realized on the provider.
-	err := s.Provider.EnsureAAA(ctx, &provider.EnsureAAARequest{
+	err = s.Provider.EnsureAAA(ctx, &provider.EnsureAAARequest{
 		AAA:              s.AAA,
-		ProviderConfig:   s.ProviderConfig,
+		ProviderConfig:   cfg,
 		TACACSServerKeys: tacacsKeys,
 		RADIUSServerKeys: radiusKeys,
 	})

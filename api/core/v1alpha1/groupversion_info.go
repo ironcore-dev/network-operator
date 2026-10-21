@@ -212,6 +212,9 @@ const (
 	// IncompatibleProviderConfigRef indicates that the referenced provider configuration is not compatible with the target platform.
 	IncompatibleProviderConfigRef = "IncompatibleProviderConfigRef"
 
+	// ProviderConfigNotFoundReason indicates that the provider configuration referenced by providerConfigRef was not found.
+	ProviderConfigNotFoundReason = "ProviderConfigNotFound"
+
 	// DuplicateResourceOnDevice indicates that a resource of the same type as the one being created already exists on the target device.
 	DuplicateResourceOnDevice = "DuplicateResourceOnDevice"
 )

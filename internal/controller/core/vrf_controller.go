@@ -154,13 +154,6 @@ func (r *VRFReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -204,11 +197,10 @@ func (r *VRFReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 
 // scope holds the different objects that are read and used during the reconcile.
 type vrfScope struct {
-	Device         *v1alpha1.Device
-	VRF            *v1alpha1.VRF
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.VRFProvider
+	Device     *v1alpha1.Device
+	VRF        *v1alpha1.VRF
+	Connection *deviceutil.Connection
+	Provider   provider.VRFProvider
 }
 
 func (r *VRFReconciler) reconcile(ctx context.Context, s *vrfScope) (reterr error) {
@@ -224,6 +216,11 @@ func (r *VRFReconciler) reconcile(ctx context.Context, s *vrfScope) (reterr erro
 		}
 	}
 
+	cfg, err := validateProviderConfigRef(ctx, r, s.VRF, s.VRF.Spec.ProviderConfigRef, v1alpha1.VRFDependencies)
+	if err != nil {
+		return err
+	}
+
 	// Connect to remote device using the provider.
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
@@ -235,9 +232,9 @@ func (r *VRFReconciler) reconcile(ctx context.Context, s *vrfScope) (reterr erro
 	}()
 
 	// Realize the VRF on the remote device using the provider.
-	err := s.Provider.EnsureVRF(ctx, &provider.VRFRequest{
+	err = s.Provider.EnsureVRF(ctx, &provider.VRFRequest{
 		VRF:            s.VRF,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 	})
 
 	cond := conditions.FromError(err)

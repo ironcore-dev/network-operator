@@ -153,13 +153,6 @@ func (r *PIMReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -272,11 +265,10 @@ func (r *PIMReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 
 // scope holds the different objects that are read and used during the reconcile.
 type pimScope struct {
-	Device         *v1alpha1.Device
-	PIM            *v1alpha1.PIM
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.PIMProvider
+	Device     *v1alpha1.Device
+	PIM        *v1alpha1.PIM
+	Connection *deviceutil.Connection
+	Provider   provider.PIMProvider
 }
 
 func (r *PIMReconciler) reconcile(ctx context.Context, s *pimScope) (reterr error) {
@@ -291,6 +283,11 @@ func (r *PIMReconciler) reconcile(ctx context.Context, s *pimScope) (reterr erro
 		if err := controllerutil.SetOwnerReference(s.Device, s.PIM, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
+	}
+
+	cfg, err := validateProviderConfigRef(ctx, r, s.PIM, s.PIM.Spec.ProviderConfigRef, v1alpha1.PIMDependencies)
+	if err != nil {
+		return err
 	}
 
 	var interfaces []provider.PIMInterface
@@ -335,10 +332,10 @@ func (r *PIMReconciler) reconcile(ctx context.Context, s *pimScope) (reterr erro
 	}()
 
 	// Ensure the PIM is realized on the provider.
-	err := s.Provider.EnsurePIM(ctx, &provider.EnsurePIMRequest{
+	err = s.Provider.EnsurePIM(ctx, &provider.EnsurePIMRequest{
 		PIM:            s.PIM,
 		Interfaces:     interfaces,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 	})
 
 	cond := conditions.FromError(err)
