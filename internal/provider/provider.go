@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"maps"
 	"net/netip"
+	"reflect"
 	"slices"
 	"sync"
 	"time"
@@ -1110,8 +1111,7 @@ type NotImplementedError[T any] struct {
 }
 
 func (e NotImplementedError[T]) Error() string {
-	var zero T
-	return fmt.Sprintf("provider %q does not implement %T", e.ProviderName, zero)
+	return fmt.Sprintf("provider %q does not implement %s", e.ProviderName, reflect.TypeFor[T]())
 }
 
 // LoadProvider returns a provider instance cast to the requested interface type T.
