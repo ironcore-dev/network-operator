@@ -649,7 +649,8 @@ func (*FabricFwdAnycastMAC) XPath() string {
 	return "System/hmm-items/fwdinst-items/amac"
 }
 
-// Range returns a compact comma-separated string for index ranges.
+// Range returns a compact comma-separated string for index ranges, merging
+// adjacent ranges. Input ranges must be non-overlapping VLAN ranges (1–4094).
 // Single-value ranges are rendered as an ID (for example, "15"), while wider
 // ranges are rendered as start-end (for example, "10-12").
 func Range(r []v1alpha1.IndexRange) string {
@@ -659,12 +660,26 @@ func Range(r []v1alpha1.IndexRange) string {
 
 	// Sort the ranges by their start value to ensure proper range formatting.
 	// Validation ensures that the ranges are non-overlapping and non-adjacent.
+	r = slices.Clone(r)
 	slices.SortFunc(r, func(a, b v1alpha1.IndexRange) int {
 		return cmp.Compare(a.Start, b.Start)
 	})
 
+	// Keep merged ranges in r[:n], extending the last range when adjacent
+	// or appending a new range when there is a gap.
+	n := 1
+	for _, ir := range r[1:] {
+		last := &r[n-1]
+		if ir.Start != last.End+1 {
+			r[n] = ir
+			n++
+			continue
+		}
+		last.End = ir.End
+	}
+
 	var ranges []string
-	for _, ir := range r {
+	for _, ir := range r[:n] {
 		if ir.Start == ir.End {
 			ranges = append(ranges, strconv.FormatInt(ir.Start, 10))
 			continue

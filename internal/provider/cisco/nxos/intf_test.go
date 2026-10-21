@@ -149,12 +149,32 @@ func TestRange(t *testing.T) {
 			},
 			want: "10-20,30-40",
 		},
+		{
+			name: "adjacent singletons",
+			in: []corev1alpha1.IndexRange{
+				{Start: 613, End: 613},
+				{Start: 990, End: 990},
+				{Start: 992, End: 992},
+				{Start: 993, End: 993},
+				{Start: 994, End: 994},
+				{Start: 995, End: 995},
+				{Start: 996, End: 996},
+			},
+			want: "613,990,992-996",
+		},
+		{
+			name: "unsorted adjacent ranges and singletons",
+			in: []corev1alpha1.IndexRange{
+				{Start: 15, End: 20}, {Start: 10, End: 13}, {Start: 14, End: 14},
+			},
+			want: "10-20",
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if got := Range(test.in); got != test.want {
-				t.Fatalf("Range() = %q, want %q", got, test.want)
+				t.Errorf("Range() = %q, want %q", got, test.want)
 			}
 		})
 	}
