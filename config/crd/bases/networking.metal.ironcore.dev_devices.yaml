@@ -20,6 +20,9 @@ spec:
     - jsonPath: .spec.endpoint.address
       name: Endpoint
       type: string
+    - jsonPath: .status.provider
+      name: Provider
+      type: string
     - jsonPath: .status.manufacturer
       name: Manufacturer
       priority: 1
@@ -448,6 +451,10 @@ spec:
                   - name
                   type: object
                 type: array
+              provider:
+                description: Provider is the shortened name of the provider implementation
+                  used to reconcile the Device.
+                type: string
               provisioning:
                 description: Provisioning is the list of provisioning attempts for
                   the Device.

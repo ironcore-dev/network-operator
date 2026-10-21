@@ -88,6 +88,7 @@ var _ = Describe("Device Controller", func() {
 				resource := &v1alpha1.Device{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
 				g.Expect(resource.Status.Phase).To(Equal(v1alpha1.DevicePhaseRunning))
+				g.Expect(resource.Status.Provider).To(Equal("test-provider"))
 				g.Expect(resource.Status.Conditions).To(HaveLen(3))
 				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
 				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))

@@ -136,6 +136,10 @@ type DeviceStatus struct {
 	// +required
 	Phase DevicePhase `json:"phase,omitempty"`
 
+	// Provider is the shortened name of the provider implementation used to reconcile the Device.
+	// +optional
+	Provider string `json:"provider,omitempty"`
+
 	// Hostname is the hostname of the Device.
 	// +optional
 	Hostname string `json:"hostname,omitempty"`
@@ -288,6 +292,7 @@ const (
 // +kubebuilder:resource:singular=device
 // +kubebuilder:resource:shortName=dev
 // +kubebuilder:printcolumn:name="Endpoint",type=string,JSONPath=`.spec.endpoint.address`
+// +kubebuilder:printcolumn:name="Provider",type=string,JSONPath=".status.provider"
 // +kubebuilder:printcolumn:name="Manufacturer",type=string,JSONPath=".status.manufacturer",priority=1
 // +kubebuilder:printcolumn:name="Model",type=string,JSONPath=".status.model",priority=1
 // +kubebuilder:printcolumn:name="SerialNumber",type=string,JSONPath=".status.serialNumber",priority=1

@@ -123,6 +123,8 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		}
 	}()
 
+	obj.Status.Provider = strings.TrimSuffix(obj.Spec.Provider, "."+v1alpha1.GroupVersion.Group)
+
 	switch obj.Status.Phase {
 	case v1alpha1.DevicePhasePending:
 		if obj.Spec.Provisioning == nil {
