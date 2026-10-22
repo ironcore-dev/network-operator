@@ -179,14 +179,7 @@ spec:
             {
               "name": "default",
               "if-items": {
-                "If-list": [
-                  {
-                    "id": "eth1/1",
-                    "ctrl": "redirects",
-                    "raIntvl": 600,
-                    "raIntvlMin": 200
-                  }
-                ]
+                "If-list": []
               }
             }
           ]

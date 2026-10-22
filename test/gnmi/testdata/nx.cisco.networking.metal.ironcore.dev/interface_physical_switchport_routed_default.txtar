@@ -1,0 +1,136 @@
+# Switchport on a device whose ports are routed by default (no system default switchport)
+-- interfaces/eth1-10 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: eth1-10
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: eth1/3
+  description: Host access port
+  adminState: Up
+  type: Physical
+  switchport:
+    mode: Access
+    accessVlan: 10
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "ethpm-items": {
+      "inst-items": {
+        "systemDefaultLayer": "Layer3"
+      }
+    }
+  }
+}
+
+-- state/expect --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "ethpm-items": {
+      "inst-items": {
+        "systemDefaultLayer": "Layer3"
+      }
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "accessVlan": "vlan-10",
+            "adminSt": "up",
+            "descr": "Host access port",
+            "FECMode": "auto",
+            "id": "eth1/3",
+            "layer": "Layer2",
+            "mtu": 1500,
+            "medium": "broadcast",
+            "mode": "access",
+            "nativeVlan": "vlan-1",
+            "userCfgdFlags": "admin_layer,admin_state",
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            }
+          }
+        ]
+      }
+    },
+    "stp-items": {
+      "inst-items": {
+        "if-items": {
+          "If-list": [
+            {
+              "mode": "default",
+              "bpdufilter": "default",
+              "bpduguard": "default",
+              "id": "eth1/3"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+-- state/delete --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "ethpm-items": {
+      "inst-items": {
+        "systemDefaultLayer": "Layer3"
+      }
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "accessVlan": "unknown",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "FECMode": "auto",
+            "id": "eth1/3",
+            "layer": "Layer3",
+            "mtu": 1500,
+            "medium": "broadcast",
+            "mode": "access",
+            "nativeVlan": "unknown",
+            "userCfgdFlags": "",
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            },
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            },
+            "trunkVlans": "1-4094"
+          }
+        ]
+      }
+    },
+    "stp-items": {
+      "inst-items": {
+        "if-items": {
+          "If-list": [
+            {
+              "mode": "default",
+              "bpdufilter": "default",
+              "bpduguard": "default",
+              "id": "eth1/3"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

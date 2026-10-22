@@ -23,6 +23,7 @@ const Manufacturer = "Cisco"
 var (
 	_ gnmiext.DataElement = (*SystemJumboMTU)(nil)
 	_ gnmiext.Defaultable = (*SystemJumboMTU)(nil)
+	_ gnmiext.DataElement = (*SystemDefaultLayer)(nil)
 	_ gnmiext.DataElement = (*Model)(nil)
 	_ gnmiext.DataElement = (*SerialNumber)(nil)
 	_ gnmiext.DataElement = (*FirmwareVersion)(nil)
@@ -38,6 +39,14 @@ func (s *SystemJumboMTU) XPath() string {
 
 func (s *SystemJumboMTU) Default() {
 	*s = 9216
+}
+
+// SystemDefaultLayer is the layer of an unconfigured physical interface, as
+// set by "system default switchport".
+type SystemDefaultLayer Layer
+
+func (*SystemDefaultLayer) XPath() string {
+	return "System/ethpm-items/inst-items/systemDefaultLayer"
 }
 
 // DHCPRelayServerIDOverrideDisable toggles the global
