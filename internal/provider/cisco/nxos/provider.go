@@ -1496,11 +1496,20 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 	}
 
+	// Whether a physical or aggregate interface ends up Layer3, in which case
+	// NX-OS rejects any spanning tree configuration on it.
+	var routed bool
+
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
+		layer, err := p.systemDefaultLayer(ctx)
+		if err != nil {
+			return err
+		}
+
 		p := new(PhysIf)
-		p.Default()
 		p.ID = name
+		p.Reset(layer)
 		if req.Interface.Spec.Description != "" {
 			p.Descr = NewOption(req.Interface.Spec.Description)
 		}
@@ -1530,14 +1539,24 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		}
 
+		switch {
 		// If this Physical interface is a member of an L3 Aggregate (port-channel),
 		// it must be Layer3 on NX-OS even though it has no IP address of its own.
-		if req.IPv4 != nil || req.IPv6 != nil || (req.AggregateParent != nil && (req.AggregateParent.Spec.IPv4 != nil || req.AggregateParent.Spec.IPv6 != nil)) {
+		case req.IPv4 != nil || req.IPv6 != nil || (req.AggregateParent != nil && (req.AggregateParent.Spec.IPv4 != nil || req.AggregateParent.Spec.IPv6 != nil)):
 			p.Layer = Layer3
 			p.RtvrfMbrItems = NewVrfMember(name, vrf)
 			p.AccessVlan = string(AdjOperStUnknown)
 			p.NativeVlan = string(AdjOperStUnknown)
+
+		// Switchports and members of an L2 Aggregate are Layer2 whatever the
+		// system default layer. Anything else keeps the system default.
+		case req.Interface.Spec.Switchport != nil || req.AggregateParent != nil:
+			p.Layer = Layer2
+			p.RtvrfMbrItems = nil
+			p.AccessVlan = DefaultVLAN
+			p.NativeVlan = DefaultVLAN
 		}
+		routed = p.Layer == Layer3
 
 		if isPointToPoint(req.Interface.Spec.IPv4) || (req.AggregateParent != nil && isPointToPoint(req.AggregateParent.Spec.IPv4)) {
 			p.Medium = MediumPointToPoint
@@ -1639,6 +1658,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			pc.AccessVlan = "unknown"
 			pc.NativeVlan = "unknown"
 		}
+		routed = pc.Layer == Layer3
 
 		if isPointToPoint(req.Interface.Spec.IPv4) {
 			pc.Medium = MediumPointToPoint
@@ -1857,7 +1877,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		})
 	}
 
-	if (req.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical || req.Interface.Spec.Type == v1alpha1.InterfaceTypeAggregate) && req.IPv4 == nil && req.IPv6 == nil && (req.AggregateParent == nil || (req.AggregateParent.Spec.IPv4 == nil && req.AggregateParent.Spec.IPv6 == nil)) {
+	if (req.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical || req.Interface.Spec.Type == v1alpha1.InterfaceTypeAggregate) && !routed {
 		stp := new(SpanningTree)
 		stp.Default()
 		stp.IfName = name
@@ -1932,8 +1952,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	// Neighbor Discovery is owned wherever the interface carries IPv6
 	// configuration: settings the provider config leaves out, and every setting
 	// where there is no provider config at all, are reset to the platform
-	// default. The object only exists while the interface is routed, so it needs
-	// no cleanup of its own.
+	// default. DeleteInterface removes the object.
 	if ipv6Addr != nil {
 		nd := &NDIf{
 			ID:         name,
@@ -2031,6 +2050,20 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	return p.Do(ctx, sb)
 }
 
+// systemDefaultLayer returns the layer of an unconfigured physical interface on
+// the device. A device that does not report it is treated as Layer2, the DME's
+// own default.
+func (p *Provider) systemDefaultLayer(ctx context.Context) (Layer, error) {
+	layer := new(SystemDefaultLayer)
+	if err := p.client.GetConfig(ctx, layer); err != nil {
+		if errors.Is(err, gnmiext.ErrNil) {
+			return Layer2, nil
+		}
+		return "", err
+	}
+	return Layer(*layer), nil
+}
+
 func (p *Provider) DeleteInterface(ctx context.Context, req *provider.DeleteInterfaceRequest) error {
 	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
 
@@ -2055,6 +2088,14 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.DeleteInte
 		sb.Delete(addr)
 	}
 
+	nds := new(NDList)
+	if err := p.client.GetConfig(ctx, nds); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	if nd := nds.GetNDIfByInterface(name); nd != nil {
+		sb.Delete(nd)
+	}
+
 	bfd := new(BFD)
 	bfd.ID = name
 	sb.Delete(bfd)
@@ -2067,9 +2108,18 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.DeleteInte
 
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
+		layer, err := p.systemDefaultLayer(ctx)
+		if err != nil {
+			return err
+		}
+
+		// NX-OS cannot delete a physical interface, so reset it to an unconfigured
+		// one. That is not the DME default a Delete would write, but depends on
+		// the system default layer.
 		i := new(PhysIf)
 		i.ID = name
-		sb.Delete(i)
+		i.Reset(layer)
+		sb.Update(i)
 		sb.Patch(&TrunkVlans{IfName: name, Vlans: DefaultVLANRange})
 
 		icmp := new(ICMPIf)

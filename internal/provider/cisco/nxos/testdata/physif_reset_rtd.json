@@ -1,0 +1,26 @@
+{
+  "intf-items": {
+    "phys-items": {
+      "PhysIf-list": [
+        {
+          "accessVlan": "unknown",
+          "descr": "DME_UNSET_PROPERTY_MARKER",
+          "FECMode": "auto",
+          "id": "eth1/2",
+          "layer": "Layer3",
+          "mtu": 1500,
+          "medium": "broadcast",
+          "mode": "access",
+          "nativeVlan": "unknown",
+          "userCfgdFlags": "",
+          "rtvrfMbr-items": {
+            "tDn": "/System/inst-items/Inst-list[name='default']"
+          },
+          "physExtd-items": {
+            "bufferBoost": "enable"
+          }
+        }
+      ]
+    }
+  }
+}
