@@ -82,6 +82,8 @@ export default withMermaid({
                     { text: 'Config Backups', link: '/concepts/config-backup' },
                     { text: 'Pausing Reconciliation', link: '/concepts/pausing' },
                     { text: 'Numbered Resources', link: '/concepts/numbered-resources' },
+                    { text: 'Device Provisioning', link: '/concepts/provisioning' },
+                    { text: 'ZTP for Cisco NX-OS', link: '/concepts/ztp-nxos' },
                 ],
             },
             {
