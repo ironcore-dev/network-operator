@@ -155,13 +155,6 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -264,11 +257,10 @@ func (r *CertificateReconciler) SetupWithManager(ctx context.Context, mgr ctrl.M
 
 // scope holds the different objects that are read and used during the reconcile.
 type certificateScope struct {
-	Device         *v1alpha1.Device
-	Certificate    *v1alpha1.Certificate
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.CertificateProvider
+	Device      *v1alpha1.Device
+	Certificate *v1alpha1.Certificate
+	Connection  *deviceutil.Connection
+	Provider    provider.CertificateProvider
 }
 
 func (r *CertificateReconciler) reconcile(ctx context.Context, s *certificateScope) (reterr error) {
@@ -289,6 +281,11 @@ func (r *CertificateReconciler) reconcile(ctx context.Context, s *certificateSco
 		}
 	}
 
+	cfg, err := validateProviderConfigRef(ctx, r, s.Certificate, s.Certificate.Spec.ProviderConfigRef, v1alpha1.CertificateDependencies)
+	if err != nil {
+		return err
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -307,7 +304,7 @@ func (r *CertificateReconciler) reconcile(ctx context.Context, s *certificateSco
 	err = s.Provider.EnsureCertificate(ctx, &provider.EnsureCertificateRequest{
 		ID:             s.Certificate.Spec.ID,
 		Certificate:    cert,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 	})
 
 	conditions.Set(s.Certificate, conditions.FromError(err))

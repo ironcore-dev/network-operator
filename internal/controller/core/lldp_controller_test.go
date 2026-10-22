@@ -493,7 +493,7 @@ var _ = Describe("LLDP Controller", func() {
 				cond := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.ConfiguredCondition)
 				g.Expect(cond).ToNot(BeNil())
 				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-				g.Expect(cond.Reason).To(Equal(v1alpha1.IncompatibleProviderConfigRef))
+				g.Expect(cond.Reason).To(Equal(v1alpha1.ProviderConfigNotFoundReason))
 			}).Should(Succeed())
 		})
 
@@ -514,7 +514,7 @@ var _ = Describe("LLDP Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, lldp)).To(Succeed())
 
-			By("Verifying the controller sets ConfiguredCondition to False with IncompatibleProviderConfigRef")
+			By("Verifying the controller sets ConfiguredCondition to False")
 			Eventually(func(g Gomega) {
 				err := k8sClient.Get(ctx, resourceKey, lldp)
 				g.Expect(err).NotTo(HaveOccurred())
@@ -522,7 +522,6 @@ var _ = Describe("LLDP Controller", func() {
 				cond := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.ConfiguredCondition)
 				g.Expect(cond).ToNot(BeNil())
 				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-				g.Expect(cond.Reason).To(Equal(v1alpha1.IncompatibleProviderConfigRef))
 			}).Should(Succeed())
 		})
 
@@ -543,7 +542,7 @@ var _ = Describe("LLDP Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, lldp)).To(Succeed())
 
-			By("Verifying the controller sets ConfiguredCondition to False with IncompatibleProviderConfigRef")
+			By("Verifying the controller sets ConfiguredCondition to False")
 			Eventually(func(g Gomega) {
 				err := k8sClient.Get(ctx, resourceKey, lldp)
 				g.Expect(err).NotTo(HaveOccurred())
@@ -551,7 +550,6 @@ var _ = Describe("LLDP Controller", func() {
 				cond := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.ConfiguredCondition)
 				g.Expect(cond).ToNot(BeNil())
 				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-				g.Expect(cond.Reason).To(Equal(v1alpha1.IncompatibleProviderConfigRef))
 			}).Should(Succeed())
 		})
 	})

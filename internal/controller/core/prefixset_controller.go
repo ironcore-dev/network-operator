@@ -152,13 +152,6 @@ func (r *PrefixSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -255,11 +248,10 @@ func (r *PrefixSetReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 
 // scope holds the different objects that are read and used during the reconcile.
 type prefixSetScope struct {
-	Device         *v1alpha1.Device
-	PrefixSet      *v1alpha1.PrefixSet
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.PrefixSetProvider
+	Device     *v1alpha1.Device
+	PrefixSet  *v1alpha1.PrefixSet
+	Connection *deviceutil.Connection
+	Provider   provider.PrefixSetProvider
 }
 
 func (r *PrefixSetReconciler) reconcile(ctx context.Context, s *prefixSetScope) (reterr error) {
@@ -282,6 +274,11 @@ func (r *PrefixSetReconciler) reconcile(ctx context.Context, s *prefixSetScope) 
 		s.PrefixSet.Status.EntriesSummary = fmt.Sprintf("%d prefixes", len(s.PrefixSet.Spec.Entries))
 	}
 
+	cfg, err := validateProviderConfigRef(ctx, r, s.PrefixSet, s.PrefixSet.Spec.ProviderConfigRef, v1alpha1.PrefixSetDependencies)
+	if err != nil {
+		return err
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -292,9 +289,9 @@ func (r *PrefixSetReconciler) reconcile(ctx context.Context, s *prefixSetScope) 
 	}()
 
 	// Ensure the PrefixSet is realized on the provider.
-	err := s.Provider.EnsurePrefixSet(ctx, &provider.PrefixSetRequest{
+	err = s.Provider.EnsurePrefixSet(ctx, &provider.PrefixSetRequest{
 		PrefixSet:      s.PrefixSet,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 	})
 
 	cond := conditions.FromError(err)

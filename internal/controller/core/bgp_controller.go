@@ -166,13 +166,6 @@ func (r *BGPReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -333,11 +326,10 @@ func (r *BGPReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 
 // scope holds the different objects that are read and used during the reconcile.
 type bgpScope struct {
-	Device         *v1alpha1.Device
-	BGP            *v1alpha1.BGP
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.BGPProvider
+	Device     *v1alpha1.Device
+	BGP        *v1alpha1.BGP
+	Connection *deviceutil.Connection
+	Provider   provider.BGPProvider
 }
 
 func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (reterr error) {
@@ -354,8 +346,12 @@ func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (reterr erro
 		}
 	}
 
+	cfg, err := validateProviderConfigRef(ctx, r, s.BGP, s.BGP.Spec.ProviderConfigRef, v1alpha1.BGPDependencies)
+	if err != nil {
+		return err
+	}
+
 	var vrf *v1alpha1.VRF
-	var err error
 	if s.BGP.Spec.VrfRef != nil {
 		vrf, err = r.reconcileVRF(ctx, s.BGP, s.Device)
 		if err != nil {
@@ -383,7 +379,7 @@ func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (reterr erro
 	// Ensure the BGP is realized on the provider.
 	err = s.Provider.EnsureBGP(ctx, &provider.EnsureBGPRequest{
 		BGP:                             s.BGP,
-		ProviderConfig:                  s.ProviderConfig,
+		ProviderConfig:                  cfg,
 		VRF:                             vrf,
 		RedistributeDirectRoutePolicies: redistPolicies,
 	})

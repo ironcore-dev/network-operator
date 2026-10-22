@@ -152,13 +152,6 @@ func (r *DNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -255,11 +248,10 @@ func (r *DNSReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 
 // scope holds the different objects that are read and used during the reconcile.
 type dnsScope struct {
-	Device         *v1alpha1.Device
-	DNS            *v1alpha1.DNS
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.DNSProvider
+	Device     *v1alpha1.Device
+	DNS        *v1alpha1.DNS
+	Connection *deviceutil.Connection
+	Provider   provider.DNSProvider
 }
 
 func (r *DNSReconciler) reconcile(ctx context.Context, s *dnsScope) (reterr error) {
@@ -280,6 +272,11 @@ func (r *DNSReconciler) reconcile(ctx context.Context, s *dnsScope) (reterr erro
 		}
 	}
 
+	cfg, err := validateProviderConfigRef(ctx, r, s.DNS, s.DNS.Spec.ProviderConfigRef, v1alpha1.DNSDependencies)
+	if err != nil {
+		return err
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -290,9 +287,9 @@ func (r *DNSReconciler) reconcile(ctx context.Context, s *dnsScope) (reterr erro
 	}()
 
 	// Ensure the DNS is realized on the provider.
-	err := s.Provider.EnsureDNS(ctx, &provider.EnsureDNSRequest{
+	err = s.Provider.EnsureDNS(ctx, &provider.EnsureDNSRequest{
 		DNS:            s.DNS,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 	})
 
 	cond := conditions.FromError(err)

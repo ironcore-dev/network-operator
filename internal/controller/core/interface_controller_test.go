@@ -12,6 +12,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -154,6 +155,9 @@ var _ = Describe("Interface Controller", func() {
 		})
 
 		It("Should finalize an Interface when its provider config was deleted first", func() {
+			// Register ConfigMap as a valid dependency for this test so the GVK validation passes.
+			v1alpha1.RegisterInterfaceDependency(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"})
+
 			config := &corev1.ConfigMap{
 				Name:      name,
 				Namespace: metav1.NamespaceDefault,

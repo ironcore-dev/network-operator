@@ -152,13 +152,6 @@ func (r *SyslogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -255,11 +248,10 @@ func (r *SyslogReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manage
 
 // scope holds the different objects that are read and used during the reconcile.
 type syslogScope struct {
-	Device         *v1alpha1.Device
-	Syslog         *v1alpha1.Syslog
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.SyslogProvider
+	Device     *v1alpha1.Device
+	Syslog     *v1alpha1.Syslog
+	Connection *deviceutil.Connection
+	Provider   provider.SyslogProvider
 }
 
 func (r *SyslogReconciler) reconcile(ctx context.Context, s *syslogScope) (reterr error) {
@@ -282,6 +274,11 @@ func (r *SyslogReconciler) reconcile(ctx context.Context, s *syslogScope) (reter
 		s.Syslog.Status.ServersSummary = fmt.Sprintf("%d servers", len(s.Syslog.Spec.Servers))
 	}
 
+	cfg, err := validateProviderConfigRef(ctx, r, s.Syslog, s.Syslog.Spec.ProviderConfigRef, v1alpha1.SyslogDependencies)
+	if err != nil {
+		return err
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -292,9 +289,9 @@ func (r *SyslogReconciler) reconcile(ctx context.Context, s *syslogScope) (reter
 	}()
 
 	// Ensure the Syslog is realized on the provider.
-	err := s.Provider.EnsureSyslog(ctx, &provider.EnsureSyslogRequest{
+	err = s.Provider.EnsureSyslog(ctx, &provider.EnsureSyslogRequest{
 		Syslog:         s.Syslog,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 	})
 
 	cond := conditions.FromError(err)
