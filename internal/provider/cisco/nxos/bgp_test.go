@@ -4,12 +4,21 @@
 package nxos
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
 	"maps"
+	"reflect"
 	"testing"
+
+	gpb "github.com/openconfig/gnmi/proto/gnmi"
+	"google.golang.org/grpc"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
 
 func init() {
@@ -63,7 +72,7 @@ func init() {
 		BfdType: BfdTypeNone,
 	}
 	bgpPeer.AfItems.PeerAfList.Set(&BGPPeerAfItem{
-		Ctrl:       Option[string]{Value: NewOption(string(RouteReflectorClient)).Value},
+		Ctrl:       RouteReflectorClient,
 		SendComExt: AdminStEnabled,
 		SendComStd: AdminStEnabled,
 		Type:       AddressFamilyL2EVPN,
@@ -242,6 +251,174 @@ func TestValidateRoutingPolicies(t *testing.T) {
 	}
 }
 
+func TestEnsureBGPRedistributionNextHop(t *testing.T) {
+	addr := v1alpha1.MustParseAddr("192.0.2.1")
+	tests := []struct {
+		name    string
+		af      v1alpha1.BGPAddressFamilyType
+		nextHop *v1alpha1.SetNextHopAction
+	}{
+		{name: "IPv4 address", af: v1alpha1.BGPAddressFamilyIpv4Unicast, nextHop: &v1alpha1.SetNextHopAction{Type: v1alpha1.NextHopAddress, IPAddr: &addr}},
+		{name: "IPv6 self", af: v1alpha1.BGPAddressFamilyIpv6Unicast, nextHop: &v1alpha1.SetNextHopAction{Type: v1alpha1.NextHopSelf}},
+		{name: "no next-hop action", af: v1alpha1.BGPAddressFamilyIpv4Unicast},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			deviceErr := errors.New("device error")
+			client := &gnmiext.ClientMock{
+				GetConfigFunc: func(context.Context, ...gnmiext.DataElement) error { return deviceErr },
+			}
+			p := &Provider{client: client}
+			err := p.EnsureBGP(t.Context(), &provider.EnsureBGPRequest{
+				RedistributeDirectRoutePolicies: map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy{
+					test.af: newRoutingPolicy(newAcceptStatement(10, nil), newAcceptStatement(20, test.nextHop)),
+				},
+			})
+			if test.nextHop == nil {
+				if !errors.Is(err, deviceErr) {
+					t.Fatalf("EnsureBGP() error = %v, want device error", err)
+				}
+				return
+			}
+			status, ok := apistatus.FromError(err)
+			if !ok || status.Code != apistatus.CodeUnsupportedField {
+				t.Fatalf("EnsureBGP() error = %v, want UnsupportedField", err)
+			}
+			wantField := "spec.addressFamilies." + string(test.af) + ".redistributeDirectRoutes.routingPolicyRef"
+			if len(status.FieldViolations) != 1 || status.FieldViolations[0].Field != wantField {
+				t.Errorf("EnsureBGP() violations = %v, want field %s", status.FieldViolations, wantField)
+			}
+			if len(client.GetConfigCalls()) != 0 {
+				t.Error("EnsureBGP() contacted the device before rejecting an omitted next-hop action")
+			}
+		})
+	}
+}
+
+func TestPeerAfControl(t *testing.T) {
+	tests := []struct {
+		control string
+		want    PeerAfControl
+		round   string
+	}{
+		{control: "rr-client", want: RouteReflectorClient, round: "rr-client"},
+		{control: "nh-self", want: NextHopSelf, round: "nh-self"},
+		{control: "dis-peer-as-check", want: DisablePeerASCheck, round: "dis-peer-as-check"},
+		{control: "allow-self-as", want: AllowSelfAS, round: "allow-self-as"},
+		{control: "default-originate", want: DefaultOriginate, round: "default-originate"},
+		{control: "advertisement-interval", want: AdvertisementInterval, round: "advertisement-interval"},
+		{control: "suppress-inactive", want: SuppressInactive, round: "suppress-inactive"},
+		{control: "nh-self-all", want: NextHopSelfAll, round: "nh-self-all"},
+		{control: "rr-client,nh-self", want: RouteReflectorClient | NextHopSelf, round: "nh-self,rr-client"},
+		{control: "nh-self,rr-client", want: RouteReflectorClient | NextHopSelf, round: "nh-self,rr-client"},
+		{control: "", want: 0, round: ""},
+	}
+	for _, test := range tests {
+		var got PeerAfControl
+		if err := got.UnmarshalText([]byte(test.control)); err != nil {
+			t.Errorf("UnmarshalText(%q) returned %v", test.control, err)
+			continue
+		}
+		if got != test.want {
+			t.Errorf("UnmarshalText(%q) = %d, want %d", test.control, got, test.want)
+		}
+		if s := got.String(); s != test.round {
+			t.Errorf("UnmarshalText(%q).String() = %q, want %q", test.control, s, test.round)
+		}
+	}
+	var control PeerAfControl
+	if err := control.UnmarshalText([]byte("rr-client,bogus")); err == nil {
+		t.Error("UnmarshalText did not reject an unknown control")
+	}
+}
+
+func TestPeerAfControlJSONOrderIndependent(t *testing.T) {
+	want := RouteReflectorClient | NextHopSelf | DisablePeerASCheck
+	for _, control := range []string{"rr-client,dis-peer-as-check,nh-self", "nh-self,rr-client,dis-peer-as-check"} {
+		var item BGPPeerAfItem
+		if err := json.Unmarshal([]byte(`{"ctrl":"`+control+`"}`), &item); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		if item.Ctrl != want {
+			t.Errorf("json.Unmarshal() control = %d, want %d", item.Ctrl, want)
+		}
+	}
+	b, err := json.Marshal(want)
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	if string(b) != `"dis-peer-as-check,nh-self,rr-client"` {
+		t.Errorf("json.Marshal() = %s, want %q", b, "dis-peer-as-check,nh-self,rr-client")
+	}
+	var unset BGPPeerAfItem
+	if err := json.Unmarshal([]byte(`{"ctrl":"DME_UNSET_PROPERTY_MARKER"}`), &unset); err != nil {
+		t.Fatalf("json.Unmarshal() unset marker error = %v", err)
+	}
+	if unset.Ctrl != 0 {
+		t.Errorf("json.Unmarshal() unset marker control = %d, want 0", unset.Ctrl)
+	}
+}
+
+func TestBGPPeerControlDriftReconciliation(t *testing.T) {
+	state := []byte(`{"addr":"192.0.2.1","ttl":2,"af-items":{"PeerAf-list":[{"type":"ipv4-ucast","ctrl":"dis-peer-as-check,nh-self"}]}}`)
+	sets := 0
+	conn := &bgpControlClientConn{invoke: func(_ context.Context, _ string, args, reply any, _ ...grpc.CallOption) error {
+		switch req := args.(type) {
+		case *gpb.CapabilityRequest:
+			reply.(*gpb.CapabilityResponse).SupportedEncodings = []gpb.Encoding{gpb.Encoding_JSON}
+		case *gpb.GetRequest:
+			reply.(*gpb.GetResponse).Notification = []*gpb.Notification{{Update: []*gpb.Update{{
+				Path: req.GetPath()[0], Val: &gpb.TypedValue{Value: &gpb.TypedValue_JsonVal{JsonVal: state}},
+			}}}}
+		case *gpb.SetRequest:
+			sets++
+			state = req.GetUpdate()[0].GetVal().GetJsonVal()
+			// NX-OS reads unset properties back as null.
+			state = bytes.ReplaceAll(state, []byte(`"DME_UNSET_PROPERTY_MARKER"`), []byte(`null`))
+		default:
+			t.Fatalf("unexpected gNMI request %T", req)
+		}
+		return nil
+	}}
+	client, err := gnmiext.New(t.Context(), conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	peer := &BGPPeerAddr{VRFName: DefaultVRFName, Addr: "192.0.2.1", TTL: NewOption[int32](2)}
+	peer.AfItems.PeerAfList.Set(&BGPPeerAfItem{Type: AddressFamilyIPv4Unicast, Ctrl: NextHopSelf})
+	for range 2 {
+		if err := client.Patch(t.Context(), peer); err != nil {
+			t.Fatalf("Patch() error = %v", err)
+		}
+	}
+	if sets != 1 {
+		t.Errorf("got %d Set requests, want one drift correction and no subsequent write", sets)
+	}
+}
+
+type bgpControlClientConn struct {
+	grpc.ClientConnInterface
+	invoke func(context.Context, string, any, any, ...grpc.CallOption) error
+}
+
+func (c *bgpControlClientConn) Invoke(ctx context.Context, method string, args, reply any, opts ...grpc.CallOption) error {
+	return c.invoke(ctx, method, args, reply, opts...)
+}
+
+func TestPeerAfControlJSONNullIsUpToDate(t *testing.T) {
+	want := BGPPeerAfItem{}
+	var got BGPPeerAfItem
+	if err := json.Unmarshal([]byte(`{"ctrl":null}`), &got); err != nil {
+		t.Fatalf("json.Unmarshal() null control error = %v", err)
+	}
+	if got.Ctrl != 0 {
+		t.Fatalf("json.Unmarshal() null control = %d, want 0", got.Ctrl)
+	}
+	if !reflect.DeepEqual(&want, &got) {
+		t.Errorf("null control read-back differs from desired unset control: got %#v, want %#v", got, want)
+	}
+}
+
 func TestBGPPeerAfItemsPreservesControlsAndPolicies(t *testing.T) {
 	inbound := &v1alpha1.RoutingPolicy{Spec: v1alpha1.RoutingPolicySpec{Name: "ROUTE_MAP_IN"}}
 	outbound := &v1alpha1.RoutingPolicy{Spec: v1alpha1.RoutingPolicySpec{Name: "ROUTE_MAP_OUT"}}
@@ -260,8 +437,8 @@ func TestBGPPeerAfItemsPreservesControlsAndPolicies(t *testing.T) {
 	if !ok {
 		t.Fatal("bgpPeerAfItems() did not return l2vpn-evpn")
 	}
-	if item.Ctrl.Value == nil || *item.Ctrl.Value != "rr-client,nh-self" {
-		t.Fatalf("bgpPeerAfItems() ctrl = %v, want rr-client,nh-self", item.Ctrl.Value)
+	if item.Ctrl != RouteReflectorClient|NextHopSelf {
+		t.Fatalf("bgpPeerAfItems() ctrl = %v, want rr-client and nh-self", item.Ctrl)
 	}
 	in, ok := item.RtCtrlPItems.RtCtrlPList.Get(RtCtrlDirectionIn)
 	if !ok || in.RtMap != "ROUTE_MAP_IN" {
@@ -277,8 +454,8 @@ func TestBGPPeerAfItemsPreservesControlsAndPolicies(t *testing.T) {
 	if !ok {
 		t.Fatal("bgpPeerAfItems() did not return l2vpn-evpn after removing next-hop-self")
 	}
-	if item.Ctrl.Value == nil || *item.Ctrl.Value != "rr-client" {
-		t.Fatalf("bgpPeerAfItems() ctrl after removing next-hop-self = %v, want rr-client", item.Ctrl.Value)
+	if item.Ctrl != RouteReflectorClient {
+		t.Fatalf("bgpPeerAfItems() ctrl after removing next-hop-self = %v, want rr-client", item.Ctrl)
 	}
 	out, ok = item.RtCtrlPItems.RtCtrlPList.Get(RtCtrlDirectionOut)
 	if !ok || out.RtMap != "ROUTE_MAP_OUT" {

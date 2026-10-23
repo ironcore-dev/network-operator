@@ -7,6 +7,8 @@ import (
 	"encoding"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -336,10 +338,10 @@ const (
 )
 
 type BGPPeerAfItem struct {
-	Ctrl       Option[string] `json:"ctrl"`
-	SendComExt AdminSt        `json:"sendComExt"`
-	SendComStd AdminSt        `json:"sendComStd"`
-	Type       AddressFamily  `json:"type"`
+	Ctrl       PeerAfControl `json:"ctrl"`
+	SendComExt AdminSt       `json:"sendComExt"`
+	SendComStd AdminSt       `json:"sendComStd"`
+	Type       AddressFamily `json:"type"`
 
 	RtCtrlPItems struct {
 		RtCtrlPList gnmiext.List[RtCtrlDirection, *BGPPeerAfRtCtrlP] `json:"RtCtrlP-list,omitzero"`
@@ -480,12 +482,115 @@ const (
 )
 
 // PeerAfControl represents the control options for a BGP peer address family.
-type PeerAfControl string
+type PeerAfControl uint16
 
+// Values match the NX-OS DME ctrl bit assignments.
 const (
-	RouteReflectorClient PeerAfControl = "rr-client" // value: 4
-	NextHopSelf          PeerAfControl = "nh-self"   // value: 8
+	RouteReflectorClient  PeerAfControl = 1 << 2
+	NextHopSelf           PeerAfControl = 1 << 3
+	DisablePeerASCheck    PeerAfControl = 1 << 4
+	AllowSelfAS           PeerAfControl = 1 << 5
+	DefaultOriginate      PeerAfControl = 1 << 6
+	AdvertisementInterval PeerAfControl = 1 << 7
+	SuppressInactive      PeerAfControl = 1 << 8
+	NextHopSelfAll        PeerAfControl = 1 << 9
 )
+
+var (
+	_ fmt.Stringer             = PeerAfControl(0)
+	_ json.Marshaler           = PeerAfControl(0)
+	_ json.Unmarshaler         = (*PeerAfControl)(nil)
+	_ encoding.TextMarshaler   = PeerAfControl(0)
+	_ encoding.TextUnmarshaler = (*PeerAfControl)(nil)
+)
+
+// MarshalJSON implements json.Marshaler.
+func (c PeerAfControl) MarshalJSON() ([]byte, error) {
+	if c == 0 {
+		return []byte(`"DME_UNSET_PROPERTY_MARKER"`), nil
+	}
+	return json.Marshal(c.String())
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (c *PeerAfControl) UnmarshalJSON(b []byte) error {
+	var value string
+	if err := json.Unmarshal(b, &value); err != nil {
+		return err
+	}
+	if value == "DME_UNSET_PROPERTY_MARKER" {
+		*c = 0
+		return nil
+	}
+	return c.UnmarshalText([]byte(value))
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (c *PeerAfControl) UnmarshalText(b []byte) error {
+	var controls PeerAfControl
+	for control := range strings.SplitSeq(string(b), ",") {
+		switch strings.TrimSpace(control) {
+		case "rr-client":
+			controls |= RouteReflectorClient
+		case "nh-self":
+			controls |= NextHopSelf
+		case "dis-peer-as-check":
+			controls |= DisablePeerASCheck
+		case "allow-self-as":
+			controls |= AllowSelfAS
+		case "default-originate":
+			controls |= DefaultOriginate
+		case "advertisement-interval":
+			controls |= AdvertisementInterval
+		case "suppress-inactive":
+			controls |= SuppressInactive
+		case "nh-self-all":
+			controls |= NextHopSelfAll
+		case "":
+			// ignore empty control
+		default:
+			return fmt.Errorf("bgp peer address family: unknown control %q", control)
+		}
+	}
+	*c = controls
+	return nil
+}
+
+// MarshalText implements encoding.TextMarshaler.
+func (c PeerAfControl) MarshalText() ([]byte, error) {
+	return []byte(c.String()), nil
+}
+
+// String implements fmt.Stringer.
+func (c PeerAfControl) String() string {
+	var controls []string
+	if c&RouteReflectorClient != 0 {
+		controls = append(controls, "rr-client")
+	}
+	if c&NextHopSelf != 0 {
+		controls = append(controls, "nh-self")
+	}
+	if c&DisablePeerASCheck != 0 {
+		controls = append(controls, "dis-peer-as-check")
+	}
+	if c&AllowSelfAS != 0 {
+		controls = append(controls, "allow-self-as")
+	}
+	if c&DefaultOriginate != 0 {
+		controls = append(controls, "default-originate")
+	}
+	if c&AdvertisementInterval != 0 {
+		controls = append(controls, "advertisement-interval")
+	}
+	if c&SuppressInactive != 0 {
+		controls = append(controls, "suppress-inactive")
+	}
+	if c&NextHopSelfAll != 0 {
+		controls = append(controls, "nh-self-all")
+	}
+	slices.Sort(controls)
+	return strings.Join(controls, ",")
+}
 
 const PeerControlType = "bfd"
 

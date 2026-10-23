@@ -551,6 +551,23 @@ func (p *Provider) DeleteBanner(ctx context.Context, req *provider.DeleteBannerR
 }
 
 func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest) (reterr error) { //nolint:gocyclo
+	// Next-hop Self is implemented on peers, not in the route map. Redistribution
+	// has no equivalent control, so these actions would otherwise be lost.
+	for af, policy := range req.RedistributeDirectRoutePolicies {
+		if policy == nil {
+			continue
+		}
+		for i := range policy.Spec.Statements {
+			bgp := policy.Spec.Statements[i].Actions.BgpActions
+			if bgp != nil && bgp.SetNextHop != nil {
+				return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+					Field:       fmt.Sprintf("spec.addressFamilies.%s.redistributeDirectRoutes.routingPolicyRef", af),
+					Description: "NX-OS provider does not support set-next-hop in a redistribution routing policy",
+				})
+			}
+		}
+	}
+
 	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
 
 	f := new(Feature)
@@ -1033,16 +1050,14 @@ func bgpPeerAfItems(req *provider.EnsureBGPPeerRequest, hasNextHopSelf map[v1alp
 		}
 
 		afType := t.ToAddressFamilyType()
-		ctrl := make([]string, 0, 2)
+		var ctrl PeerAfControl
 		if af.RouteReflectorClient {
-			ctrl = append(ctrl, string(RouteReflectorClient))
+			ctrl |= RouteReflectorClient
 		}
 		if hasNextHopSelf[afType] {
-			ctrl = append(ctrl, string(NextHopSelf))
+			ctrl |= NextHopSelf
 		}
-		if len(ctrl) > 0 {
-			item.Ctrl = NewOption(strings.Join(ctrl, ","))
-		}
+		item.Ctrl = ctrl
 
 		if policy, ok := req.InboundRoutingPolicies[afType]; ok {
 			item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionIn, RtMap: policy.Spec.Name})

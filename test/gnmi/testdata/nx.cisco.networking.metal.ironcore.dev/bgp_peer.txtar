@@ -238,7 +238,7 @@ spec:
                     "af-items": {
                       "PeerAf-list": [
                         {
-                          "ctrl": "rr-client,nh-self",
+                          "ctrl": "nh-self,rr-client",
                           "sendComExt": "enabled",
                           "sendComStd": "enabled",
                           "type": "l2vpn-evpn",
