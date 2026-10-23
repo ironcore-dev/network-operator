@@ -1015,8 +1015,9 @@ type EnsureStaticRouteRequest struct {
 }
 
 type DeleteStaticRouteRequest struct {
-	StaticRoute *v1alpha1.StaticRoute
-	VRF         *v1alpha1.VRF
+	StaticRoute  *v1alpha1.StaticRoute
+	VRF          *v1alpha1.VRF
+	InterfaceMap map[string]*v1alpha1.Interface
 }
 
 var mu sync.RWMutex

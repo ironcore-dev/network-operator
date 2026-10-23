@@ -63,3 +63,23 @@ func NewStaticRouteNexthop(address, vrf, intf string, metric *int32) *StaticRout
 		NhIf:   intf,
 	}
 }
+
+var _ gnmiext.DataElement = (*StaticRouteBFDAssociation)(nil)
+
+// StaticRouteBFDAssociation is a single RtStaticBfd-list entry under a VRF's
+// IPv4 routing domain, keyed by its interface and next-hop. Each entry is
+// addressable on its own so each intf/nexthop pair can be added or removed
+// independently. VRF is not serialized; it is only used to build the XPath.
+type StaticRouteBFDAssociation struct {
+	VRF     string `json:"-"`
+	Intf    string `json:"intf"`
+	Nexthop string `json:"nexthop"`
+}
+
+func (*StaticRouteBFDAssociation) IsListItem() {}
+
+func (a *StaticRouteBFDAssociation) XPath() string {
+	return "System/ipv4-items/inst-items/dom-items/Dom-list[name=" + a.VRF +
+		"]/rtstaticbfd-items/RtStaticBfd-list[intf=" + a.Intf +
+		"][nexthop=" + a.Nexthop + "]"
+}

@@ -307,6 +307,7 @@ type staticRouteScope struct {
 	Device         *v1alpha1.Device
 	StaticRoute    *v1alpha1.StaticRoute
 	Connection     *deviceutil.Connection
+	InterfaceMap   map[string]*v1alpha1.Interface
 	ProviderConfig *provider.ProviderConfig
 	Provider       provider.StaticRouteProvider
 }
@@ -341,6 +342,7 @@ func (r *StaticRouteReconciler) reconcile(ctx context.Context, s *staticRouteSco
 	if err != nil {
 		return err
 	}
+	s.InterfaceMap = intfMap
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
@@ -468,9 +470,32 @@ func (r *StaticRouteReconciler) finalize(ctx context.Context, s *staticRouteScop
 		}
 	}
 
+	// list interfaces referenced by the static route
+	intfMap := make(map[string]*v1alpha1.Interface)
+	for _, nexthop := range s.StaticRoute.Spec.NextHops {
+		if nexthop.InterfaceRef == nil {
+			continue
+		}
+		intf := new(v1alpha1.Interface)
+		key := client.ObjectKey{
+			Name:      nexthop.InterfaceRef.Name,
+			Namespace: s.StaticRoute.Namespace,
+		}
+
+		if err := r.Get(ctx, key, intf); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			return err
+		}
+		intfMap[intf.Name] = intf
+	}
+	s.InterfaceMap = intfMap
+
 	return s.Provider.DeleteStaticRoute(ctx, &provider.DeleteStaticRouteRequest{
-		StaticRoute: s.StaticRoute,
-		VRF:         vrf,
+		StaticRoute:  s.StaticRoute,
+		VRF:          vrf,
+		InterfaceMap: s.InterfaceMap,
 	})
 }
 
