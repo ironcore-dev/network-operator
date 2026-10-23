@@ -630,6 +630,18 @@ func main() { //nolint:gocyclo
 		os.Exit(1)
 	}
 
+	if err := (&corecontroller.MacSecReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorder("macsec-controller"),
+		WatchFilterValue: watchFilterValue,
+		Locker:           locker,
+		RequeueInterval:  requeueInterval,
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "MacSec")
+		os.Exit(1)
+	}
+
 	if err := (&corecontroller.ConfigBackupReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
