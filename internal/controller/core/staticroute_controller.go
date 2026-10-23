@@ -197,7 +197,7 @@ func (r *StaticRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 const (
 	staticRouteVrfRefKey       = ".spec.vrfRef.name"
-	staticRouteInterfaceRefKey = ".spec.interfaceRef.name"
+	staticRouteInterfaceRefKey = ".spec.nextHops.interfaceRef.name"
 )
 
 // SetupWithManager sets up the controller with the Manager.
@@ -222,6 +222,19 @@ func (r *StaticRouteReconciler) SetupWithManager(ctx context.Context, mgr ctrl.M
 			return nil
 		}
 		return []string{sr.Spec.VrfRef.Name}
+	}); err != nil {
+		return err
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.StaticRoute{}, staticRouteInterfaceRefKey, func(obj client.Object) []string {
+		sr := obj.(*v1alpha1.StaticRoute)
+		var names []string
+		for _, nh := range sr.Spec.NextHops {
+			if nh != nil && nh.InterfaceRef != nil {
+				names = append(names, nh.InterfaceRef.Name)
+			}
+		}
+		return names
 	}); err != nil {
 		return err
 	}
