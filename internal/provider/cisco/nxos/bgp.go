@@ -189,9 +189,20 @@ func (af *BGPDomAfItem) XPath() string {
 // connected routes into a BGP address family.
 func NewInterLeakPDirect(rtMap string) *InterLeakP {
 	return &InterLeakP{
-		Asn:   "none",
-		Inst:  "none",
+		Asn:   interLeakNone,
+		Inst:  interLeakNone,
 		Proto: RtLeakProtoDirect,
+		RtMap: rtMap,
+	}
+}
+
+// NewInterLeakPStatic creates an InterLeakP entry for redistributing static
+// routes into a BGP address family.
+func NewInterLeakPStatic(rtMap string) *InterLeakP {
+	return &InterLeakP{
+		Asn:   interLeakNone,
+		Inst:  interLeakNone,
+		Proto: RtLeakProtoStatic,
 		RtMap: rtMap,
 	}
 }

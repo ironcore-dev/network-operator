@@ -648,6 +648,9 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 			if rp := req.RedistributeDirectRoutePolicies[v1alpha1.BGPAddressFamilyIpv4Unicast]; rp != nil {
 				item.InterLeakPItems.InterLeakPList.Set(NewInterLeakPDirect(rp.Spec.Name))
 			}
+			if rp := req.RedistributeStaticRoutePolicies[v1alpha1.BGPAddressFamilyIpv4Unicast]; rp != nil {
+				item.InterLeakPItems.InterLeakPList.Set(NewInterLeakPStatic(rp.Spec.Name))
+			}
 			item.ExportGwIP = AdminStDisabled
 			if cfg.Spec.AddressFamilies.Ipv4UnicastExportGatewayIP() {
 				item.ExportGwIP = AdminStEnabled
@@ -668,6 +671,9 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 			}
 			if rp := req.RedistributeDirectRoutePolicies[v1alpha1.BGPAddressFamilyIpv6Unicast]; rp != nil {
 				item.InterLeakPItems.InterLeakPList.Set(NewInterLeakPDirect(rp.Spec.Name))
+			}
+			if rp := req.RedistributeStaticRoutePolicies[v1alpha1.BGPAddressFamilyIpv6Unicast]; rp != nil {
+				item.InterLeakPItems.InterLeakPList.Set(NewInterLeakPStatic(rp.Spec.Name))
 			}
 			item.ExportGwIP = AdminStDisabled
 			if cfg.Spec.AddressFamilies.Ipv6UnicastExportGatewayIP() {
@@ -2639,8 +2645,8 @@ func (p *Provider) EnsureOSPF(ctx context.Context, req *provider.EnsureOSPFReque
 		}
 		rd := new(InterLeakP)
 		rd.Proto = rc.Protocol
-		rd.Asn = "none"
-		rd.Inst = "none"
+		rd.Asn = interLeakNone
+		rd.Inst = interLeakNone
 		rd.RtMap = rc.RouteMapName
 		dom.InterleakItems.InterLeakPList.Set(rd)
 	}

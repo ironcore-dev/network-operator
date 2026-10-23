@@ -522,6 +522,10 @@ type EnsureBGPRequest struct {
 	// RoutingPolicy to apply when redistributing directly connected routes.
 	// Absent key means no redistribution is configured for that family.
 	RedistributeDirectRoutePolicies map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy
+	// RedistributeStaticRoutePolicies maps each address family to the resolved
+	// RoutingPolicy to apply when redistributing static routes.
+	// Absent key means no redistribution is configured for that family.
+	RedistributeStaticRoutePolicies map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy
 }
 
 type DeleteBGPRequest struct {
