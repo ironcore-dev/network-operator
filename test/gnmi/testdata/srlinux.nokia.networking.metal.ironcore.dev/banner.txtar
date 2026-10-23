@@ -1,0 +1,46 @@
+# Banner PreLogin
+-- banners/banner --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Banner
+metadata:
+  name: banner
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  type: PreLogin
+  message:
+    inline: "Unauthorized access is prohibited."
+
+-- state/preload --
+{
+  "srl_nokia-system:system": {
+    "srl_nokia-system-info:information": {
+      "version": "v24.3.1"
+    }
+  }
+}
+
+-- state/expect --
+
+{
+  "srl_nokia-system:system": {
+    "srl_nokia-system-info:information": {
+      "version": "v24.3.1"
+    },
+    "srl_nokia-system-banner:banner": {
+      "login-banner": "Unauthorized access is prohibited."
+    }
+  }
+}
+
+-- state/delete --
+
+{
+  "srl_nokia-system:system": {
+    "srl_nokia-system-info:information": {
+      "version": "v24.3.1"
+    },
+    "srl_nokia-system-banner:banner": {}
+  }
+}
