@@ -218,6 +218,10 @@ func init() {
 
 	Register("physif_trunk_vlans", &TrunkVlans{IfName: "eth1/10", Vlans: "10"})
 
+	reset := &PhysIf{ID: "eth1/2"}
+	reset.Reset(Layer3)
+	Register("physif_reset_rtd", reset)
+
 	Register("subinterface", &EncapRoutedInterface{
 		ID:         "eth1/1.100",
 		MTU:        1500,

@@ -245,14 +245,7 @@ spec:
             {
               "name": "default",
               "if-items": {
-                "If-list": [
-                  {
-                    "id": "eth1/1",
-                    "ctrl": "redirects",
-                    "raIntvl": 4,
-                    "raIntvlMin": 4
-                  }
-                ]
+                "If-list": []
               }
             }
           ]
@@ -270,4 +263,3 @@ spec:
     "bgp-items": {}
   }
 }
-
