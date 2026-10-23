@@ -6,7 +6,7 @@ tool github.com/matryer/moq
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.47.3
-	github.com/aws/aws-sdk-go-v2/credentials v1.20.6
+	github.com/aws/aws-sdk-go-v2/credentials v1.20.9
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.3
 	github.com/benjamintf1/unmarshalledmatchers v1.0.0
 	github.com/felix-kaestner/copy v0.0.0-20250930112410-8fbc5c5b74a5
