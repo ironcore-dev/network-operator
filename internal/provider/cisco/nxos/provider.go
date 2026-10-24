@@ -551,6 +551,23 @@ func (p *Provider) DeleteBanner(ctx context.Context, req *provider.DeleteBannerR
 }
 
 func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest) (reterr error) { //nolint:gocyclo
+	// Next-hop Self is implemented on peers, not in the route map. Redistribution
+	// has no equivalent control, so these actions would otherwise be lost.
+	for af, policy := range req.RedistributeDirectRoutePolicies {
+		if policy == nil {
+			continue
+		}
+		for i := range policy.Spec.Statements {
+			bgp := policy.Spec.Statements[i].Actions.BgpActions
+			if bgp != nil && bgp.SetNextHop != nil {
+				return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+					Field:       fmt.Sprintf("spec.addressFamilies.%s.redistributeDirectRoutes.routingPolicyRef", af),
+					Description: "NX-OS provider does not support set-next-hop in a redistribution routing policy",
+				})
+			}
+		}
+	}
+
 	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
 
 	f := new(Feature)
@@ -802,6 +819,11 @@ func (p *Provider) deleteBGP(ctx context.Context, vrfName string) error {
 }
 
 func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPeerRequest) error {
+	hasNexthopAction, err := validateRoutingPolicies(req.InboundRoutingPolicies, req.OutboundRoutingPolicies)
+	if err != nil {
+		return err
+	}
+
 	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
 
 	// Ensure that the BGP domain exists before configuring a peer under it.
@@ -842,7 +864,7 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		LocalAsnItems: localAsn,
 		BfdType:       BfdTypeNone,
 	}
-	base.AfItems.PeerAfList = bgpPeerAfItems(req)
+	base.AfItems.PeerAfList = bgpPeerAfItems(req, hasNexthopAction)
 
 	if req.BGPPeer.Spec.BFD != nil && req.BGPPeer.Spec.BFD.Enabled {
 		// As PeerControl and BfdMultihop are only set when BFD is configured in the spec, this will not
@@ -909,6 +931,63 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 	return p.client.Do(ctx, sb)
 }
 
+// validateRoutingPolicies returns the address families for which NX-OS must enable
+// next-hop-self. NX-OS applies this setting to the entire peer address family, so every
+// statement that can accept a route must use next-hop-self when any statement does.
+func validateRoutingPolicies(inbound, outbound map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy) (map[v1alpha1.BGPAddressFamilyType]bool, error) {
+	nextHopSelf := make(map[v1alpha1.BGPAddressFamilyType]bool)
+	for af, policy := range inbound {
+		if policy == nil {
+			continue
+		}
+		for i := range policy.Spec.Statements {
+			bgp := policy.Spec.Statements[i].Actions.BgpActions
+			if bgp != nil && bgp.SetNextHop != nil {
+				return nil, apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+					Field:       fmt.Sprintf("spec.addressFamilies.%s.inboundRoutingPolicyRef", af),
+					Description: "NX-OS does not support set-next-hop in an inbound routing policy",
+				})
+			}
+		}
+	}
+
+	for af, policy := range outbound {
+		if policy == nil {
+			continue
+		}
+		hasSelf := false
+		hasAcceptWithoutSelf := false
+		for i := range policy.Spec.Statements {
+			stmt := &policy.Spec.Statements[i]
+			if stmt.Actions.RouteDisposition != v1alpha1.AcceptRoute {
+				continue
+			}
+			bgp := stmt.Actions.BgpActions
+			if bgp == nil || bgp.SetNextHop == nil {
+				hasAcceptWithoutSelf = true
+				continue
+			}
+			if bgp.SetNextHop.Type != v1alpha1.NextHopSelf {
+				return nil, apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+					Field:       fmt.Sprintf("spec.addressFamilies.%s.outboundRoutingPolicyRef", af),
+					Description: "NX-OS only supports set-next-hop Self on an outbound routing policy",
+				})
+			}
+			hasSelf = true
+		}
+		if hasSelf && hasAcceptWithoutSelf {
+			return nil, apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+				Field:       fmt.Sprintf("spec.addressFamilies.%s.outboundRoutingPolicyRef", af),
+				Description: "NX-OS cannot apply next-hop-self to only some accepted routes of a peer address family",
+			})
+		}
+		if hasSelf {
+			nextHopSelf[af] = true
+		}
+	}
+	return nextHopSelf, nil
+}
+
 // bgpPeerLocalAsn builds the local AS configuration shared by both peer kinds.
 func bgpPeerLocalAsn(req *provider.EnsureBGPPeerRequest) (items BGPPeerLocalAsn, err error) {
 	if req.BGPPeer.Spec.LocalAS == nil {
@@ -945,7 +1024,7 @@ func bgpPeerLocalAsn(req *provider.EnsureBGPPeerRequest) (items BGPPeerLocalAsn,
 }
 
 // bgpPeerAfItems builds the per-address-family configuration shared by both peer kinds.
-func bgpPeerAfItems(req *provider.EnsureBGPPeerRequest) gnmiext.List[AddressFamily, *BGPPeerAfItem] {
+func bgpPeerAfItems(req *provider.EnsureBGPPeerRequest, hasNextHopSelf map[v1alpha1.BGPAddressFamilyType]bool) gnmiext.List[AddressFamily, *BGPPeerAfItem] {
 	var list gnmiext.List[AddressFamily, *BGPPeerAfItem]
 	if req.BGPPeer.Spec.AddressFamilies == nil {
 		return list
@@ -969,15 +1048,22 @@ func bgpPeerAfItems(req *provider.EnsureBGPPeerRequest) gnmiext.List[AddressFami
 		if af.SendCommunity == v1alpha1.BGPCommunityTypeExtended || af.SendCommunity == v1alpha1.BGPCommunityTypeBoth {
 			item.SendComExt = AdminStEnabled
 		}
-		if af.RouteReflectorClient {
-			item.Ctrl = NewOption(RouteReflectorClient)
-		}
+
 		afType := t.ToAddressFamilyType()
-		if name, ok := req.InboundRoutingPolicies[afType]; ok {
-			item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionIn, RtMap: name})
+		var ctrl PeerAfControl
+		if af.RouteReflectorClient {
+			ctrl |= RouteReflectorClient
 		}
-		if name, ok := req.OutboundRoutingPolicies[afType]; ok {
-			item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionOut, RtMap: name})
+		if hasNextHopSelf[afType] {
+			ctrl |= NextHopSelf
+		}
+		item.Ctrl = ctrl
+
+		if policy, ok := req.InboundRoutingPolicies[afType]; ok {
+			item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionIn, RtMap: policy.Spec.Name})
+		}
+		if policy, ok := req.OutboundRoutingPolicies[afType]; ok {
+			item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionOut, RtMap: policy.Spec.Name})
 		}
 		list.Set(item)
 	}
