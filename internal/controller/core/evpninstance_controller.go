@@ -154,13 +154,6 @@ func (r *EVPNInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -310,11 +303,10 @@ func (r *EVPNInstanceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 
 // eviScope holds the different objects that are read and used during the reconcile.
 type eviScope struct {
-	Device         *v1alpha1.Device
-	EVPNInstance   *v1alpha1.EVPNInstance
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.EVPNInstanceProvider
+	Device       *v1alpha1.Device
+	EVPNInstance *v1alpha1.EVPNInstance
+	Connection   *deviceutil.Connection
+	Provider     provider.EVPNInstanceProvider
 }
 
 func (r *EVPNInstanceReconciler) reconcile(ctx context.Context, s *eviScope) (reterr error) {
@@ -331,6 +323,11 @@ func (r *EVPNInstanceReconciler) reconcile(ctx context.Context, s *eviScope) (re
 		if err := controllerutil.SetOwnerReference(s.Device, s.EVPNInstance, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
+	}
+
+	cfg, err := validateProviderConfigRef(ctx, r, s.EVPNInstance, s.EVPNInstance.Spec.ProviderConfigRef, v1alpha1.EVPNInstanceDependencies)
+	if err != nil {
+		return err
 	}
 
 	var vlan *v1alpha1.VLAN
@@ -361,9 +358,9 @@ func (r *EVPNInstanceReconciler) reconcile(ctx context.Context, s *eviScope) (re
 	}()
 
 	// Ensure the EVPNInstance is realized on the provider.
-	err := s.Provider.EnsureEVPNInstance(ctx, &provider.EVPNInstanceRequest{
+	err = s.Provider.EnsureEVPNInstance(ctx, &provider.EVPNInstanceRequest{
 		EVPNInstance:   s.EVPNInstance,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 		VLAN:           vlan,
 		VRF:            vrf,
 	})

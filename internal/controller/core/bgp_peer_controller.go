@@ -174,13 +174,6 @@ func (r *BGPPeerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ 
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -404,11 +397,10 @@ func (r *BGPPeerReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 
 // scope holds the different objects that are read and used during the reconcile.
 type bgpPeerScope struct {
-	Device         *v1alpha1.Device
-	BGPPeer        *v1alpha1.BGPPeer
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.BGPPeerProvider
+	Device     *v1alpha1.Device
+	BGPPeer    *v1alpha1.BGPPeer
+	Connection *deviceutil.Connection
+	Provider   provider.BGPPeerProvider
 }
 
 func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (reterr error) {
@@ -428,6 +420,11 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (ret
 	defer func() {
 		conditions.RecomputeReady(s.BGPPeer)
 	}()
+
+	cfg, err := validateProviderConfigRef(ctx, r, s.BGPPeer, s.BGPPeer.Spec.ProviderConfigRef, v1alpha1.BGPPeerDependencies)
+	if err != nil {
+		return err
+	}
 
 	bgp, err := r.reconcileBGP(ctx, s.BGPPeer, s.Device)
 	if err != nil {
@@ -497,7 +494,7 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (ret
 	// Ensure the BGPPeer is realized on the provider.
 	err = s.Provider.EnsureBGPPeer(ctx, &provider.EnsureBGPPeerRequest{
 		BGPPeer:                 s.BGPPeer,
-		ProviderConfig:          s.ProviderConfig,
+		ProviderConfig:          cfg,
 		SourceInterface:         sourceInterface,
 		PeerInterface:           peerInterface,
 		BGP:                     bgp,
@@ -515,7 +512,7 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (ret
 
 	status, err := s.Provider.GetPeerStatus(ctx, &provider.BGPPeerStatusRequest{
 		BGPPeer:        s.BGPPeer,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 		PeerInterface:  peerInterface,
 		VRF:            vrf,
 	})

@@ -150,13 +150,6 @@ func (r *StaticRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
 		if err := r.Update(ctx, obj); err != nil {
@@ -304,11 +297,10 @@ func (r *StaticRouteReconciler) SetupWithManager(ctx context.Context, mgr ctrl.M
 
 // staticRouteScope holds the different objects that are read and used during the reconcile.
 type staticRouteScope struct {
-	Device         *v1alpha1.Device
-	StaticRoute    *v1alpha1.StaticRoute
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.StaticRouteProvider
+	Device      *v1alpha1.Device
+	StaticRoute *v1alpha1.StaticRoute
+	Connection  *deviceutil.Connection
+	Provider    provider.StaticRouteProvider
 }
 
 func (r *StaticRouteReconciler) reconcile(ctx context.Context, s *staticRouteScope) (reterr error) {
@@ -327,6 +319,11 @@ func (r *StaticRouteReconciler) reconcile(ctx context.Context, s *staticRouteSco
 	defer func() {
 		conditions.RecomputeReady(s.StaticRoute)
 	}()
+
+	cfg, err := validateProviderConfigRef(ctx, r, s.StaticRoute, s.StaticRoute.Spec.ProviderConfigRef, v1alpha1.StaticRouteDependencies)
+	if err != nil {
+		return err
+	}
 
 	var vrf *v1alpha1.VRF
 	if s.StaticRoute.Spec.VrfRef != nil {
@@ -353,7 +350,7 @@ func (r *StaticRouteReconciler) reconcile(ctx context.Context, s *staticRouteSco
 
 	err = s.Provider.EnsureStaticRoute(ctx, &provider.EnsureStaticRouteRequest{
 		StaticRoute:    s.StaticRoute,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 		VRF:            vrf,
 		InterfaceMap:   intfMap,
 	})

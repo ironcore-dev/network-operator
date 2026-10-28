@@ -152,13 +152,6 @@ func (r *ManagementAccessReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -258,7 +251,6 @@ type managementAccessScope struct {
 	Device           *v1alpha1.Device
 	ManagementAccess *v1alpha1.ManagementAccess
 	Connection       *deviceutil.Connection
-	ProviderConfig   *provider.ProviderConfig
 	Provider         provider.ManagementAccessProvider
 }
 
@@ -278,6 +270,11 @@ func (r *ManagementAccessReconciler) reconcile(ctx context.Context, s *managemen
 		}
 	}
 
+	cfg, err := validateProviderConfigRef(ctx, r, s.ManagementAccess, s.ManagementAccess.Spec.ProviderConfigRef, v1alpha1.ManagementAccessDependencies)
+	if err != nil {
+		return err
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -288,9 +285,9 @@ func (r *ManagementAccessReconciler) reconcile(ctx context.Context, s *managemen
 	}()
 
 	// Ensure the ManagementAccess is realized on the provider.
-	err := s.Provider.EnsureManagementAccess(ctx, &provider.EnsureManagementAccessRequest{
+	err = s.Provider.EnsureManagementAccess(ctx, &provider.EnsureManagementAccessRequest{
 		ManagementAccess: s.ManagementAccess,
-		ProviderConfig:   s.ProviderConfig,
+		ProviderConfig:   cfg,
 	})
 
 	cond := conditions.FromError(err)

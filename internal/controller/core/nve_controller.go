@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -16,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
@@ -153,13 +151,6 @@ func (r *NetworkVirtualizationEdgeReconciler) Reconcile(ctx context.Context, req
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -203,11 +194,10 @@ func (r *NetworkVirtualizationEdgeReconciler) Reconcile(ctx context.Context, req
 
 // nveScope holds k8s objects used during a reconciliation.
 type nveScope struct {
-	Device         *v1alpha1.Device
-	NVE            *v1alpha1.NetworkVirtualizationEdge
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.NVEProvider
+	Device     *v1alpha1.Device
+	NVE        *v1alpha1.NetworkVirtualizationEdge
+	Connection *deviceutil.Connection
+	Provider   provider.NVEProvider
 }
 
 func (r *NetworkVirtualizationEdgeReconciler) reconcile(ctx context.Context, s *nveScope) (reterr error) {
@@ -230,7 +220,8 @@ func (r *NetworkVirtualizationEdgeReconciler) reconcile(ctx context.Context, s *
 		return err
 	}
 
-	if err := r.validateProviderConfigRef(ctx, s); err != nil {
+	cfg, err := validateProviderConfigRef(ctx, r, s.NVE, s.NVE.Spec.ProviderConfigRef, v1alpha1.NetworkVirtualizationEdgeDependencies)
+	if err != nil {
 		return err
 	}
 
@@ -258,7 +249,7 @@ func (r *NetworkVirtualizationEdgeReconciler) reconcile(ctx context.Context, s *
 
 	err = s.Provider.EnsureNVE(ctx, &provider.NVERequest{
 		NVE:                    s.NVE,
-		ProviderConfig:         s.ProviderConfig,
+		ProviderConfig:         cfg,
 		SourceInterface:        sourceIf,
 		AnycastSourceInterface: anycastIf,
 	})
@@ -271,7 +262,7 @@ func (r *NetworkVirtualizationEdgeReconciler) reconcile(ctx context.Context, s *
 
 	status, err := s.Provider.GetNVEStatus(ctx, &provider.NVERequest{
 		NVE:            s.NVE,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get NVE status: %w", err)
@@ -359,38 +350,6 @@ func (r *NetworkVirtualizationEdgeReconciler) reconcileInterfaceRef(ctx context.
 		return nil, reconcile.TerminalError(fmt.Errorf("interface '%s' deviceRef '%s' does not match NVE deviceRef '%s'", intf.Name, intf.Spec.DeviceRef.Name, s.NVE.Spec.DeviceRef.Name))
 	}
 	return intf, nil
-}
-
-// validateProviderConfigRef checks if the referenced provider configuration is compatible with the target platform.
-func (r *NetworkVirtualizationEdgeReconciler) validateProviderConfigRef(_ context.Context, s *nveScope) error {
-	if s.NVE.Spec.ProviderConfigRef == nil {
-		return nil
-	}
-	gv, err := schema.ParseGroupVersion(s.NVE.Spec.ProviderConfigRef.APIVersion)
-	if err != nil {
-		conditions.Set(s.NVE, metav1.Condition{
-			Type:    v1alpha1.ConfiguredCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  v1alpha1.IncompatibleProviderConfigRef,
-			Message: fmt.Sprintf("ProviderConfigRef is not compatible with Device: %v", err),
-		})
-		return reconcile.TerminalError(fmt.Errorf("invalid API version %q: %w", s.NVE.Spec.ProviderConfigRef.APIVersion, err))
-	}
-
-	if found := slices.Contains(v1alpha1.NetworkVirtualizationEdgeDependencies, schema.GroupVersionKind{
-		Group:   gv.Group,
-		Version: gv.Version,
-		Kind:    s.NVE.Spec.ProviderConfigRef.Kind,
-	}); !found {
-		conditions.Set(s.NVE, metav1.Condition{
-			Type:    v1alpha1.ConfiguredCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  v1alpha1.IncompatibleProviderConfigRef,
-			Message: fmt.Sprintf("ProviderConfigRef is not compatible with Device: %v", err),
-		})
-		return reconcile.TerminalError(fmt.Errorf("unsupported provider config ref kind %q for NVE on the provider", gv))
-	}
-	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

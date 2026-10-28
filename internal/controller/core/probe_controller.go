@@ -146,13 +146,6 @@ func (r *ProbeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ct
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -297,11 +290,10 @@ func (r *ProbeReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager
 }
 
 type probeScope struct {
-	Device         *v1alpha1.Device
-	Probe          *v1alpha1.Probe
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.ProbeProvider
+	Device     *v1alpha1.Device
+	Probe      *v1alpha1.Probe
+	Connection *deviceutil.Connection
+	Provider   provider.ProbeProvider
 }
 
 // AssertionError indicates the probe executed successfully but the assertion was not met.
@@ -322,6 +314,11 @@ func (r *ProbeReconciler) reconcile(ctx context.Context, s *probeScope) (res ctr
 		if err := controllerutil.SetOwnerReference(s.Device, s.Probe, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return ctrl.Result{}, err
 		}
+	}
+
+	cfg, err := validateProviderConfigRef(ctx, r, s.Probe, s.Probe.Spec.ProviderConfigRef, v1alpha1.ProbeListDependencies)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	var schedule cron.Schedule
@@ -379,7 +376,7 @@ func (r *ProbeReconciler) reconcile(ctx context.Context, s *probeScope) (res ctr
 		return ctrl.Result{}, nil
 	}
 
-	message, err := r.executeProbe(ctx, s)
+	message, err := r.executeProbe(ctx, s, cfg)
 
 	now := metav1.Now()
 	s.Probe.Status.LastRunTime = &now
@@ -424,7 +421,7 @@ func (r *ProbeReconciler) reconcile(ctx context.Context, s *probeScope) (res ctr
 }
 
 // executeProbe dispatches to the appropriate provider method based on probe type.
-func (r *ProbeReconciler) executeProbe(ctx context.Context, s *probeScope) (string, error) { //nolint:gocyclo
+func (r *ProbeReconciler) executeProbe(ctx context.Context, s *probeScope, cfg *provider.ProviderConfig) (string, error) { //nolint:gocyclo
 	spec := s.Probe.Spec
 	var err error
 
@@ -432,7 +429,7 @@ func (r *ProbeReconciler) executeProbe(ctx context.Context, s *probeScope) (stri
 	case v1alpha1.ProbeTypePing:
 		req := &provider.PingRequest{
 			Address:        spec.Ping.Address.String(),
-			ProviderConfig: s.ProviderConfig,
+			ProviderConfig: cfg,
 		}
 		if spec.Ping.SourceInterface != nil {
 			req.SourceInterface, err = r.resolveInterfaceName(ctx, s, spec.Ping.SourceInterface)
@@ -488,7 +485,7 @@ func (r *ProbeReconciler) executeProbe(ctx context.Context, s *probeScope) (stri
 
 	case v1alpha1.ProbeTypeMACTableEntry:
 		req := &provider.MACTableRequest{
-			ProviderConfig: s.ProviderConfig,
+			ProviderConfig: cfg,
 		}
 		if spec.MACTableEntry.VLAN != nil {
 			req.VLAN, err = r.resolveVLANID(ctx, s, spec.MACTableEntry.VLAN)
@@ -510,7 +507,7 @@ func (r *ProbeReconciler) executeProbe(ctx context.Context, s *probeScope) (stri
 
 	case v1alpha1.ProbeTypeRoutePresence:
 		req := &provider.RouteTableRequest{
-			ProviderConfig: s.ProviderConfig,
+			ProviderConfig: cfg,
 		}
 		if spec.RoutePresence.VRF != nil {
 			req.VRF, err = r.resolveVRFName(ctx, s, spec.RoutePresence.VRF)
@@ -532,7 +529,7 @@ func (r *ProbeReconciler) executeProbe(ctx context.Context, s *probeScope) (stri
 
 	case v1alpha1.ProbeTypeVTEPPeerConnectivity:
 		peers, err := s.Provider.GetVTEPPeers(ctx, &provider.VTEPPeersRequest{
-			ProviderConfig: s.ProviderConfig,
+			ProviderConfig: cfg,
 		})
 		if err != nil {
 			return "", err

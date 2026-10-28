@@ -155,13 +155,6 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -264,11 +257,10 @@ func (r *UserReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 
 // scope holds the different objects that are read and used during the reconcile.
 type userScope struct {
-	Device         *v1alpha1.Device
-	User           *v1alpha1.User
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.UserProvider
+	Device     *v1alpha1.Device
+	User       *v1alpha1.User
+	Connection *deviceutil.Connection
+	Provider   provider.UserProvider
 }
 
 func (r *UserReconciler) reconcile(ctx context.Context, s *userScope) (reterr error) {
@@ -287,6 +279,11 @@ func (r *UserReconciler) reconcile(ctx context.Context, s *userScope) (reterr er
 		if err := controllerutil.SetOwnerReference(s.Device, s.User, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
+	}
+
+	cfg, err := validateProviderConfigRef(ctx, r, s.User, s.User.Spec.ProviderConfigRef, v1alpha1.UserDependencies)
+	if err != nil {
+		return err
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
@@ -324,7 +321,7 @@ func (r *UserReconciler) reconcile(ctx context.Context, s *userScope) (reterr er
 		Password:       string(pwd),
 		Roles:          roles,
 		SSHKey:         sshKey,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 	})
 
 	conditions.Set(s.User, conditions.FromError(err))
