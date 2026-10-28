@@ -96,6 +96,24 @@ type Iface struct {
 	Mode         gnmiext.Empty    `json:"interface-virtual,omitzero"`
 	Bundle       Bundle           `json:"Cisco-IOS-XR-bundlemgr-cfg:bundle,omitzero"`
 	SubInterface VlanSubInterface `json:"Cisco-IOS-XR-l2-eth-infra-cfg:vlan-sub-configuration,omitzero"`
+
+	// MacSec binds a MACsec policy and PSK keychain to the interface. Only set for
+	// physical interfaces that reference a MacSec resource.
+	// Cisco-IOS-XR-um-macsec-cfg:macsec
+	MacSec IfaceMacSec `json:"Cisco-IOS-XR-crypto-macsec-mka-if-cfg:macsec,omitzero"`
+}
+
+// IfaceMacSec is the interface-level MACsec binding. It references a MacSecPolicy
+// and KeyChain already configured on the device by their shared name.
+type IfaceMacSec struct {
+	PSKKeyChain PSKKeyChain `json:"psk-key-chain,omitzero"`
+}
+
+type PSKKeyChain struct {
+	// KeyChainName is the name of the keychain to use, matching KeyChain.Name.
+	KeyChainName string `json:"key-chain-name,omitzero"`
+	// Policy is the name of the MACsec policy to apply, matching MacSecPolicy.Name.
+	Policy string `json:"policy-name,omitzero"`
 }
 
 type BundleMember struct {
@@ -176,7 +194,7 @@ type VlanIdentifier struct {
 }
 
 func (i *Iface) XPath() string {
-	return fmt.Sprintf("Cisco-IOS-XR-ifmgr-cfg:interface-configurations/interface-configuration[active=act][interface-name=%s]", i.Name)
+	return fmt.Sprintf("Cisco-IOS-XR-ifmgr-cfg:interface-configurations/interface-configuration[active=pre][interface-name=%s]", i.Name)
 }
 
 func (i *Iface) String() string {
