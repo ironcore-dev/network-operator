@@ -40,9 +40,9 @@ import (
 // bgpVrfRefIndexKey is the field index key for BGP.Spec.VrfRef.Name.
 const bgpVrfRefIndexKey = ".spec.vrfRef.name"
 
-// bgpRedistributeDirectRoutePolicyIndexKey is the field index key for all
-// RoutingPolicy names referenced by BGP address families.
-const bgpRedistributeDirectRoutePolicyIndexKey = ".spec.addressFamilies.redistributeDirectRoutePolicyRefs"
+// bgpRedistributeRoutePolicyIndexKey is the field index key for all
+// RoutingPolicy names referenced for redistribution by BGP address families.
+const bgpRedistributeRoutePolicyIndexKey = ".spec.addressFamilies.redistributeRoutePolicyRefs"
 
 // BGPReconciler reconciles a BGP object
 type BGPReconciler struct {
@@ -247,7 +247,7 @@ func (r *BGPReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 		return err
 	}
 
-	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.BGP{}, bgpRedistributeDirectRoutePolicyIndexKey, func(obj client.Object) []string {
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.BGP{}, bgpRedistributeRoutePolicyIndexKey, func(obj client.Object) []string {
 		o := obj.(*v1alpha1.BGP)
 		if o.Spec.AddressFamilies == nil {
 			return nil
@@ -257,10 +257,15 @@ func (r *BGPReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 			o.Spec.AddressFamilies.Ipv4Unicast,
 			o.Spec.AddressFamilies.Ipv6Unicast,
 		} {
-			if af == nil || af.RedistributeDirectRoutes == nil {
+			if af == nil {
 				continue
 			}
-			names = append(names, af.RedistributeDirectRoutes.RoutingPolicyRef.Name)
+			if af.RedistributeDirectRoutes != nil {
+				names = append(names, af.RedistributeDirectRoutes.RoutingPolicyRef.Name)
+			}
+			if af.RedistributeStaticRoutes != nil {
+				names = append(names, af.RedistributeStaticRoutes.RoutingPolicyRef.Name)
+			}
 		}
 		return names
 	}); err != nil {
@@ -365,9 +370,25 @@ func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (reterr erro
 		}
 	}
 
-	var redistPolicies map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy
+	var redistDirectPolicies, redistStaticPolicies map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy
 	if s.BGP.Spec.AddressFamilies != nil {
-		redistPolicies, err = r.reconcileRedistributeDirectPolicies(ctx, s.BGP, s.Device)
+		redistDirectPolicies, err = r.reconcileRedistributePolicies(ctx, s.BGP, s.Device,
+			func(af *v1alpha1.BGPUnicastAddressFamily) *v1alpha1.LocalObjectReference {
+				if af.RedistributeDirectRoutes == nil {
+					return nil
+				}
+				return &af.RedistributeDirectRoutes.RoutingPolicyRef
+			})
+		if err != nil {
+			return err
+		}
+		redistStaticPolicies, err = r.reconcileRedistributePolicies(ctx, s.BGP, s.Device,
+			func(af *v1alpha1.BGPUnicastAddressFamily) *v1alpha1.LocalObjectReference {
+				if af.RedistributeStaticRoutes == nil {
+					return nil
+				}
+				return &af.RedistributeStaticRoutes.RoutingPolicyRef
+			})
 		if err != nil {
 			return err
 		}
@@ -387,7 +408,8 @@ func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (reterr erro
 		BGP:                             s.BGP,
 		ProviderConfig:                  s.ProviderConfig,
 		VRF:                             vrf,
-		RedistributeDirectRoutePolicies: redistPolicies,
+		RedistributeDirectRoutePolicies: redistDirectPolicies,
+		RedistributeStaticRoutePolicies: redistStaticPolicies,
 	})
 
 	cond := conditions.FromError(err)
@@ -475,12 +497,13 @@ func (r *BGPReconciler) reconcileVRF(ctx context.Context, bgp *v1alpha1.BGP, dev
 	return vrf, nil
 }
 
-// reconcileRedistributeDirectPolicies resolves the RoutingPolicyRef for
-// redistribute direct on each address family of the BGP instance.
+// reconcileRedistributePolicies resolves the RoutingPolicyRef returned by ref
+// for each unicast address family of the BGP instance. ref returns nil when the
+// family has no redistribution of the relevant kind configured.
 // Returns a map from BGPAddressFamilyType to the resolved RoutingPolicy.
 // Sets ReadyCondition and returns a terminal error when a referenced policy
 // is not found or belongs to a different device.
-func (r *BGPReconciler) reconcileRedistributeDirectPolicies(ctx context.Context, bgp *v1alpha1.BGP, device *v1alpha1.Device) (map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy, error) {
+func (r *BGPReconciler) reconcileRedistributePolicies(ctx context.Context, bgp *v1alpha1.BGP, device *v1alpha1.Device, ref func(*v1alpha1.BGPUnicastAddressFamily) *v1alpha1.LocalObjectReference) (map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy, error) {
 	afs := map[v1alpha1.BGPAddressFamilyType]*v1alpha1.BGPUnicastAddressFamily{
 		v1alpha1.BGPAddressFamilyIpv4Unicast: bgp.Spec.AddressFamilies.Ipv4Unicast,
 		v1alpha1.BGPAddressFamilyIpv6Unicast: bgp.Spec.AddressFamilies.Ipv6Unicast,
@@ -488,22 +511,25 @@ func (r *BGPReconciler) reconcileRedistributeDirectPolicies(ctx context.Context,
 
 	policies := make(map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy, 2)
 	for afType, af := range afs {
-		if af == nil || af.RedistributeDirectRoutes == nil {
+		if af == nil {
 			continue
 		}
-		ref := af.RedistributeDirectRoutes.RoutingPolicyRef
+		policyRef := ref(af)
+		if policyRef == nil {
+			continue
+		}
 		rp := new(v1alpha1.RoutingPolicy)
-		if err := r.Get(ctx, types.NamespacedName{Name: ref.Name, Namespace: bgp.Namespace}, rp); err != nil {
+		if err := r.Get(ctx, types.NamespacedName{Name: policyRef.Name, Namespace: bgp.Namespace}, rp); err != nil {
 			if apierrors.IsNotFound(err) {
 				conditions.Set(bgp, metav1.Condition{
 					Type:    v1alpha1.ConfiguredCondition,
 					Status:  metav1.ConditionFalse,
 					Reason:  v1alpha1.WaitingForDependenciesReason,
-					Message: fmt.Sprintf("RoutingPolicy %s not found", ref.Name),
+					Message: fmt.Sprintf("RoutingPolicy %s not found", policyRef.Name),
 				})
-				return nil, reconcile.TerminalError(fmt.Errorf("routing policy %s not found", ref.Name))
+				return nil, reconcile.TerminalError(fmt.Errorf("routing policy %s not found", policyRef.Name))
 			}
-			return nil, fmt.Errorf("failed to get routing policy %s: %w", ref.Name, err)
+			return nil, fmt.Errorf("failed to get routing policy %s: %w", policyRef.Name, err)
 		}
 
 		if rp.Spec.DeviceRef.Name != device.Name {
@@ -511,9 +537,9 @@ func (r *BGPReconciler) reconcileRedistributeDirectPolicies(ctx context.Context,
 				Type:    v1alpha1.ConfiguredCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  v1alpha1.CrossDeviceReferenceReason,
-				Message: fmt.Sprintf("RoutingPolicy %s belongs to device %s, not %s", ref.Name, rp.Spec.DeviceRef.Name, device.Name),
+				Message: fmt.Sprintf("RoutingPolicy %s belongs to device %s, not %s", policyRef.Name, rp.Spec.DeviceRef.Name, device.Name),
 			})
-			return nil, reconcile.TerminalError(fmt.Errorf("routing policy %s belongs to different device", ref.Name))
+			return nil, reconcile.TerminalError(fmt.Errorf("routing policy %s belongs to different device", policyRef.Name))
 		}
 		policies[afType] = rp
 	}
@@ -628,7 +654,7 @@ func (r *BGPReconciler) routingPolicyToBGPs(ctx context.Context, obj client.Obje
 	if err := r.List(
 		ctx, list,
 		client.InNamespace(rp.Namespace),
-		client.MatchingFields{bgpRedistributeDirectRoutePolicyIndexKey: rp.Name},
+		client.MatchingFields{bgpRedistributeRoutePolicyIndexKey: rp.Name},
 	); err != nil {
 		log.Error(err, "Failed to list BGPs")
 		return nil

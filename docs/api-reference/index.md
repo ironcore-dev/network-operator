@@ -1111,6 +1111,23 @@ _Appears in:_
 | `routingPolicyRef` _[LocalObjectReference](#localobjectreference)_ | RoutingPolicyRef references a RoutingPolicy to apply during redistribution. |  | Required: \{\} <br /> |
 
 
+#### BGPRedistributeStaticRoutes
+
+
+
+BGPRedistributeStaticRoutes configures redistribution of static routes into
+a BGP address family.
+
+
+
+_Appears in:_
+- [BGPUnicastAddressFamily](#bgpunicastaddressfamily)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `routingPolicyRef` _[LocalObjectReference](#localobjectreference)_ | RoutingPolicyRef references a RoutingPolicy to apply during redistribution. |  | Required: \{\} <br /> |
+
+
 #### BGPRouteTargetPolicy
 
 
@@ -1181,6 +1198,7 @@ _Appears in:_
 | `enabled` _boolean_ | Enabled determines whether this address family is activated for BGP sessions.<br />When false, the address family is not negotiated with peers. |  | Optional: \{\} <br /> |
 | `multipath` _[BGPMultipath](#bgpmultipath)_ | Multipath configures address family specific multipath behavior.<br />When specified, overrides global multipath settings for this address family. |  | Optional: \{\} <br /> |
 | `redistributeDirectRoutes` _[BGPRedistributeDirectRoutes](#bgpredistributedirectroutes)_ | RedistributeDirectRoutes controls redistribution of directly connected<br />routes into this BGP address family. |  | Optional: \{\} <br /> |
+| `redistributeStaticRoutes` _[BGPRedistributeStaticRoutes](#bgpredistributestaticroutes)_ | RedistributeStaticRoutes controls redistribution of static routes into<br />this BGP address family. |  | Optional: \{\} <br /> |
 
 
 #### Banner
@@ -2957,6 +2975,7 @@ _Appears in:_
 - [BGPPeerReference](#bgppeerreference)
 - [BGPPeerSpec](#bgppeerspec)
 - [BGPRedistributeDirectRoutes](#bgpredistributedirectroutes)
+- [BGPRedistributeStaticRoutes](#bgpredistributestaticroutes)
 - [BGPSpec](#bgpspec)
 - [BannerSpec](#bannerspec)
 - [BorderGatewaySpec](#bordergatewayspec)

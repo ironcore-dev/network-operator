@@ -1,0 +1,38 @@
+{
+  "bgp-items": {
+    "inst-items": {
+      "dom-items": {
+        "Dom-list": [
+          {
+            "name": "default",
+            "af-items": {
+              "DomAf-list": [
+                {
+                  "exportGwIp": "disabled",
+                  "advertL2vpnEvpn": "disabled",
+                  "type": "ipv4-ucast",
+                  "interleak-items": {
+                    "InterLeakP-list": [
+                      {
+                        "asn": "none",
+                        "inst": "none",
+                        "proto": "direct",
+                        "rtMap": "ROUTE_MAP_DIRECT"
+                      },
+                      {
+                        "asn": "none",
+                        "inst": "none",
+                        "proto": "static",
+                        "rtMap": "ROUTE_MAP_STATIC"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

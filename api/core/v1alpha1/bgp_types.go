@@ -136,11 +136,24 @@ type BGPUnicastAddressFamily struct {
 	// routes into this BGP address family.
 	// +optional
 	RedistributeDirectRoutes *BGPRedistributeDirectRoutes `json:"redistributeDirectRoutes,omitempty"`
+
+	// RedistributeStaticRoutes controls redistribution of static routes into
+	// this BGP address family.
+	// +optional
+	RedistributeStaticRoutes *BGPRedistributeStaticRoutes `json:"redistributeStaticRoutes,omitempty"`
 }
 
 // BGPRedistributeDirectRoutes configures redistribution of directly connected
 // routes into a BGP address family.
 type BGPRedistributeDirectRoutes struct {
+	// RoutingPolicyRef references a RoutingPolicy to apply during redistribution.
+	// +required
+	RoutingPolicyRef LocalObjectReference `json:"routingPolicyRef"`
+}
+
+// BGPRedistributeStaticRoutes configures redistribution of static routes into
+// a BGP address family.
+type BGPRedistributeStaticRoutes struct {
 	// RoutingPolicyRef references a RoutingPolicy to apply during redistribution.
 	// +required
 	RoutingPolicyRef LocalObjectReference `json:"routingPolicyRef"`
