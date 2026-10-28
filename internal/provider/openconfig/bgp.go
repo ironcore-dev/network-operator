@@ -124,7 +124,10 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 	sb.Update(proto)
 
 	// Handle redistribution into BGP via table-connections, one per source protocol.
-	addTableConnections := func(src PolicyType, policies map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy) error {
+	for src, policies := range map[PolicyType]map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy{
+		PolicyTypeDirectlyConnected: req.RedistributeDirectRoutePolicies,
+		PolicyTypeStatic:            req.RedistributeStaticRoutePolicies,
+	} {
 		for afType, policy := range policies {
 			af, err := toAddressFamily(afType)
 			if err != nil {
@@ -143,13 +146,6 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 				},
 			})
 		}
-		return nil
-	}
-	if err := addTableConnections(PolicyTypeDirectlyConnected, req.RedistributeDirectRoutePolicies); err != nil {
-		return err
-	}
-	if err := addTableConnections(PolicyTypeStatic, req.RedistributeStaticRoutePolicies); err != nil {
-		return err
 	}
 
 	return p.client.Do(ctx, sb)
