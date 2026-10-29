@@ -11,6 +11,14 @@ const (
 	AdminStDisabled AdminSt = "disabled"
 )
 
+// adminSt maps a boolean to its AdminSt representation ("enabled"/"disabled").
+func adminSt(enabled bool) AdminSt {
+	if enabled {
+		return AdminStEnabled
+	}
+	return AdminStDisabled
+}
+
 // AdminSt2 represents the administrative state of a component ("up" or "down").
 type AdminSt2 string
 

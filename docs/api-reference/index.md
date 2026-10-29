@@ -858,6 +858,25 @@ _Appears in:_
 | `L2vpnEvpn` | BGPAddressFamilyL2vpnEvpn represents the L2VPN EVPN address family (AFI=25, SAFI=70).<br /> |
 
 
+#### BGPAggregateAddress
+
+
+
+BGPAggregateAddress configures a single BGP aggregate-address entry.
+
+
+
+_Appears in:_
+- [BGPUnicastAddressFamily](#bgpunicastaddressfamily)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `prefix` _string_ | Prefix is the aggregate prefix to advertise in CIDR notation. |  | Format: cidr <br />Required: \{\} <br /> |
+| `summaryOnly` _boolean_ | SummaryOnly suppresses advertisement of more-specific prefixes covered by this aggregate. |  | Optional: \{\} <br /> |
+| `asSet` _boolean_ | AsSet generates the AS_SET path attribute on the aggregate from the aggregated routes,<br />preserving their AS path information. |  | Optional: \{\} <br /> |
+| `attributeMap` _[LocalObjectReference](#localobjectreference)_ | AttributeMap references a RoutingPolicy whose route-map is applied to the aggregate advertisement. |  | Optional: \{\} <br /> |
+
+
 #### BGPCommunityType
 
 _Underlying type:_ _string_
@@ -1199,6 +1218,7 @@ _Appears in:_
 | `multipath` _[BGPMultipath](#bgpmultipath)_ | Multipath configures address family specific multipath behavior.<br />When specified, overrides global multipath settings for this address family. |  | Optional: \{\} <br /> |
 | `redistributeDirectRoutes` _[BGPRedistributeDirectRoutes](#bgpredistributedirectroutes)_ | RedistributeDirectRoutes controls redistribution of directly connected<br />routes into this BGP address family. |  | Optional: \{\} <br /> |
 | `redistributeStaticRoutes` _[BGPRedistributeStaticRoutes](#bgpredistributestaticroutes)_ | RedistributeStaticRoutes controls redistribution of static routes into<br />this BGP address family. |  | Optional: \{\} <br /> |
+| `aggregateAddresses` _[BGPAggregateAddress](#bgpaggregateaddress) array_ | AggregateAddresses configures BGP aggregate-address entries for this address family.<br />Each entry summarizes a group of more-specific prefixes into a single advertisement. |  | Optional: \{\} <br /> |
 
 
 #### Banner
@@ -2970,6 +2990,7 @@ _Appears in:_
 - [AAASpec](#aaaspec)
 - [AccessControlListSpec](#accesscontrollistspec)
 - [Aggregation](#aggregation)
+- [BGPAggregateAddress](#bgpaggregateaddress)
 - [BGPPeerAddressFamily](#bgppeeraddressfamily)
 - [BGPPeerLocalAddress](#bgppeerlocaladdress)
 - [BGPPeerReference](#bgppeerreference)

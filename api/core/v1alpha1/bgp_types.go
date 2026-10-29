@@ -141,6 +141,10 @@ type BGPUnicastAddressFamily struct {
 	// this BGP address family.
 	// +optional
 	RedistributeStaticRoutes *BGPRedistributeStaticRoutes `json:"redistributeStaticRoutes,omitempty"`
+	// AggregateAddresses configures BGP aggregate-address entries for this address family.
+	// Each entry summarizes a group of more-specific prefixes into a single advertisement.
+	// +optional
+	AggregateAddresses []BGPAggregateAddress `json:"aggregateAddresses,omitempty"`
 }
 
 // BGPRedistributeDirectRoutes configures redistribution of directly connected
@@ -157,6 +161,24 @@ type BGPRedistributeStaticRoutes struct {
 	// RoutingPolicyRef references a RoutingPolicy to apply during redistribution.
 	// +required
 	RoutingPolicyRef LocalObjectReference `json:"routingPolicyRef"`
+}
+
+// BGPAggregateAddress configures a single BGP aggregate-address entry.
+type BGPAggregateAddress struct {
+	// Prefix is the aggregate prefix to advertise in CIDR notation.
+	// +required
+	// +kubebuilder:validation:Format=cidr
+	Prefix string `json:"prefix"`
+	// SummaryOnly suppresses advertisement of more-specific prefixes covered by this aggregate.
+	// +optional
+	SummaryOnly bool `json:"summaryOnly,omitempty"`
+	// AsSet generates the AS_SET path attribute on the aggregate from the aggregated routes,
+	// preserving their AS path information.
+	// +optional
+	AsSet bool `json:"asSet,omitempty"`
+	// AttributeMap references a RoutingPolicy whose route-map is applied to the aggregate advertisement.
+	// +optional
+	AttributeMap *LocalObjectReference `json:"attributeMap,omitempty"`
 }
 
 // BGPL2vpnEvpn defines the configuration for L2VPN EVPN address family.

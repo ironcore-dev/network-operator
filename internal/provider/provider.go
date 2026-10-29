@@ -526,6 +526,11 @@ type EnsureBGPRequest struct {
 	// RoutingPolicy to apply when redistributing static routes.
 	// Absent key means no redistribution is configured for that family.
 	RedistributeStaticRoutePolicies map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy
+
+	// AggregateAttributeMaps holds the attribute-map RoutingPolicy for each aggregate
+	// address, keyed by address family and then by aggregate prefix. An absent prefix
+	// key means the aggregate has no attribute-map configured.
+	AggregateAttributeMaps map[v1alpha1.BGPAddressFamilyType]map[string]*v1alpha1.RoutingPolicy
 }
 
 type DeleteBGPRequest struct {

@@ -120,6 +120,10 @@ type BGPDomAfItem struct {
 	InterLeakPItems struct {
 		InterLeakPList gnmiext.List[InterLeakPKey, *InterLeakP] `json:"InterLeakP-list,omitzero"`
 	} `json:"interleak-items,omitzero"`
+
+	AggAddrItems struct {
+		AggAddrList gnmiext.List[string, *BGPAggAddr] `json:"AggAddr-list,omitzero"`
+	} `json:"aggaddr-items,omitzero"`
 }
 
 var (
@@ -141,6 +145,9 @@ func (af BGPDomAfItem) MarshalJSON() ([]byte, error) {
 			InterLeakPItems struct {
 				InterLeakPList gnmiext.List[InterLeakPKey, *InterLeakP] `json:"InterLeakP-list,omitzero"`
 			} `json:"interleak-items,omitzero"`
+			AggAddrItems struct {
+				AggAddrList gnmiext.List[string, *BGPAggAddr] `json:"AggAddr-list,omitzero"`
+			} `json:"aggaddr-items,omitzero"`
 		}{
 			MaxEcmp:         af.MaxEcmp,
 			MaxExtEcmp:      af.MaxExtEcmp,
@@ -148,6 +155,7 @@ func (af BGPDomAfItem) MarshalJSON() ([]byte, error) {
 			AdvertL2vpnEvpn: af.AdvertL2vpnEvpn,
 			Type:            af.Type,
 			InterLeakPItems: af.InterLeakPItems,
+			AggAddrItems:    af.AggAddrItems,
 		})
 	}
 	// ExportGwIP and AdvertL2vpnEvpn are not valid for l2vpn-evpn; set to disabled.
@@ -206,6 +214,21 @@ func NewInterLeakPStatic(rtMap string) *InterLeakP {
 		RtMap: rtMap,
 	}
 }
+
+// BGPAggAddr is a BGP aggregate-address entry under a VRF address family. It is
+// always nested in a BGPDomAfItem (never set on its own), so it carries no
+// VRF/AF context — adding json:"-" fields here would break the idempotency
+// DeepEqual, since the device GET cannot repopulate them.
+// asSet and summaryOnly are AdminSt ("enabled"/"disabled") — the device always
+// reports them, so they must be set explicitly (not omitted) to stay idempotent.
+type BGPAggAddr struct {
+	Addr        string  `json:"addr"`
+	AsSet       AdminSt `json:"asSet"`
+	SummaryOnly AdminSt `json:"summaryOnly"`
+	AttrMap     string  `json:"attrMap,omitempty"`
+}
+
+func (a *BGPAggAddr) Key() string { return a.Addr }
 
 func (af *BGPDomAfItem) SetMultipath(m *v1alpha1.BGPMultipath) error {
 	// Default from YANG model

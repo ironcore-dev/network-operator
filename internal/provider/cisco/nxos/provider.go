@@ -651,6 +651,24 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 			if rp := req.RedistributeStaticRoutePolicies[v1alpha1.BGPAddressFamilyIpv4Unicast]; rp != nil {
 				item.InterLeakPItems.InterLeakPList.Set(NewInterLeakPStatic(rp.Spec.Name))
 			}
+
+			aggAddrs := req.AggregateAttributeMaps[v1alpha1.BGPAddressFamilyIpv4Unicast]
+			for _, aggAddr := range af.AggregateAddresses {
+				var attrMap string
+				if aggAddrs != nil {
+					if a, exist := aggAddrs[aggAddr.Prefix]; exist {
+						attrMap = a.Spec.Name
+					}
+				}
+
+				item.AggAddrItems.AggAddrList.Set(&BGPAggAddr{
+					Addr:        aggAddr.Prefix,
+					AttrMap:     attrMap,
+					SummaryOnly: adminSt(aggAddr.SummaryOnly),
+					AsSet:       adminSt(aggAddr.AsSet),
+				})
+			}
+
 			item.ExportGwIP = AdminStDisabled
 			if cfg.Spec.AddressFamilies.Ipv4UnicastExportGatewayIP() {
 				item.ExportGwIP = AdminStEnabled
@@ -674,6 +692,22 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 			}
 			if rp := req.RedistributeStaticRoutePolicies[v1alpha1.BGPAddressFamilyIpv6Unicast]; rp != nil {
 				item.InterLeakPItems.InterLeakPList.Set(NewInterLeakPStatic(rp.Spec.Name))
+			}
+			aggAddrs := req.AggregateAttributeMaps[v1alpha1.BGPAddressFamilyIpv6Unicast]
+			for _, aggAddr := range af.AggregateAddresses {
+				var attrMap string
+				if aggAddrs != nil {
+					if a, exist := aggAddrs[aggAddr.Prefix]; exist {
+						attrMap = a.Spec.Name
+					}
+				}
+
+				item.AggAddrItems.AggAddrList.Set(&BGPAggAddr{
+					Addr:        aggAddr.Prefix,
+					AttrMap:     attrMap,
+					SummaryOnly: adminSt(aggAddr.SummaryOnly),
+					AsSet:       adminSt(aggAddr.AsSet),
+				})
 			}
 			item.ExportGwIP = AdminStDisabled
 			if cfg.Spec.AddressFamilies.Ipv6UnicastExportGatewayIP() {
