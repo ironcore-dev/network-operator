@@ -487,7 +487,9 @@ type DeviceState struct {
 	PIM                  *v1alpha1.PIM
 	BGP                  *v1alpha1.BGP
 	BGPVRF               *v1alpha1.VRF
+	BGPValidation        func(*provider.EnsureBGPRequest) error
 	BGPPeers             sets.Set[string]
+	BGPPeerPolicies      map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy
 	OSPF                 sets.Set[string]
 	VLANs                sets.Set[int16]
 	EVIs                 sets.Set[int32]
@@ -518,6 +520,7 @@ func NewDeviceState() *DeviceState {
 		ISIS:             sets.New[string](),
 		VRF:              sets.New[string](),
 		BGPPeers:         sets.New[string](),
+		BGPPeerPolicies:  make(map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy),
 		OSPF:             sets.New[string](),
 		VLANs:            sets.New[int16](),
 		EVIs:             sets.New[int32](),
@@ -916,6 +919,11 @@ func (p *Provider) EnsureBGP(_ context.Context, req *provider.EnsureBGPRequest) 
 	s := p.devices.StateFor(p.deviceName)
 	s.Lock()
 	defer s.Unlock()
+	if s.BGPValidation != nil {
+		if err := s.BGPValidation(req); err != nil {
+			return err
+		}
+	}
 	s.BGP = req.BGP
 	s.BGPVRF = req.VRF
 	return nil
@@ -935,6 +943,10 @@ func (p *Provider) EnsureBGPPeer(_ context.Context, req *provider.EnsureBGPPeerR
 	s.Lock()
 	defer s.Unlock()
 	s.BGPPeers.Insert(cmp.Or(req.PeerInterface, req.BGPPeer.Spec.Address))
+	s.BGPPeerPolicies = make(map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy, len(req.OutboundRoutingPolicies))
+	for af, policy := range req.OutboundRoutingPolicies {
+		s.BGPPeerPolicies[af] = policy.DeepCopy()
+	}
 	return nil
 }
 

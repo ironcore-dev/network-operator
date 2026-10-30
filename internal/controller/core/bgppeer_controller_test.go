@@ -71,6 +71,15 @@ var _ = Describe("BGPPeer Controller", func() {
 				g.Expect(list.Items).To(BeEmpty())
 			}).Should(Succeed())
 
+			By("Cleaning up RoutingPolicy resources for this device")
+			policyList := &v1alpha1.RoutingPolicyList{}
+			Expect(k8sClient.List(ctx, policyList, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+			for i := range policyList.Items {
+				if policyList.Items[i].Spec.DeviceRef.Name == device.Name {
+					Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &policyList.Items[i]))).To(Succeed())
+				}
+			}
+
 			By("Cleaning up Interface resources for this device")
 			intfList := &v1alpha1.InterfaceList{}
 			Expect(k8sManager.GetClient().List(ctx, intfList, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name})).To(Succeed())
@@ -167,6 +176,83 @@ var _ = Describe("BGPPeer Controller", func() {
 			By("Verifying the BGP peer is configured in the provider")
 			Eventually(func(g Gomega) {
 				g.Expect(testDevices.StateFor(device.Name).BGPPeers.Has(host)).To(BeTrue(), "Provider should have BGP peer configured")
+			}).Should(Succeed())
+		})
+
+		It("Should reconcile a BGP peer when we change a referenced RoutingPolicy", func() {
+			state := testDevices.StateFor(device.Name)
+			bgp := &v1alpha1.BGP{
+				GenerateName: "test-bgppeer-bgp-",
+				Namespace:    metav1.NamespaceDefault,
+				Spec: v1alpha1.BGPSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
+					ASNumber:  intstr.FromInt(65000),
+					RouterID:  "10.0.0.10",
+				},
+			}
+			Expect(k8sClient.Create(ctx, bgp)).To(Succeed())
+			Eventually(func(g Gomega) {
+				current := new(v1alpha1.BGP)
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgp), current)).To(Succeed())
+				g.Expect(conditions.IsReady(current)).To(BeTrue())
+			}).Should(Succeed())
+
+			policy := &v1alpha1.RoutingPolicy{
+				GenerateName: "test-bgppeer-policy-",
+				Namespace:    metav1.NamespaceDefault,
+				Spec: v1alpha1.RoutingPolicySpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
+					Name:      "OUTBOUND",
+					Statements: []v1alpha1.PolicyStatement{{
+						Sequence: 10,
+						Actions:  v1alpha1.PolicyActions{RouteDisposition: v1alpha1.AcceptRoute},
+					}},
+				},
+			}
+			Expect(k8sClient.Create(ctx, policy)).To(Succeed())
+
+			peer := &v1alpha1.BGPPeer{
+				GenerateName: "test-bgppeer-",
+				Namespace:    metav1.NamespaceDefault,
+				Spec: v1alpha1.BGPPeerSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
+					BgpRef:    v1alpha1.LocalObjectReference{Name: bgp.Name},
+					Address:   host,
+					ASNumber:  intstr.FromInt(65001),
+					AddressFamilies: &v1alpha1.BGPPeerAddressFamilies{
+						Ipv4Unicast: &v1alpha1.BGPPeerAddressFamily{
+							Enabled:                  true,
+							OutboundRoutingPolicyRef: &v1alpha1.LocalObjectReference{Name: policy.Name},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, peer)).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				state.Lock()
+				defer state.Unlock()
+				resolved := state.BGPPeerPolicies[v1alpha1.BGPAddressFamilyIpv4Unicast]
+				g.Expect(resolved).NotTo(BeNil())
+				g.Expect(resolved.Spec.Statements).To(HaveLen(1))
+			}).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				current := new(v1alpha1.RoutingPolicy)
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(policy), current)).To(Succeed())
+				current.Spec.Statements = append(current.Spec.Statements, v1alpha1.PolicyStatement{
+					Sequence: 20,
+					Actions:  v1alpha1.PolicyActions{RouteDisposition: v1alpha1.RejectRoute},
+				})
+				g.Expect(k8sClient.Update(ctx, current)).To(Succeed())
+			}).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				state.Lock()
+				defer state.Unlock()
+				resolved := state.BGPPeerPolicies[v1alpha1.BGPAddressFamilyIpv4Unicast]
+				g.Expect(resolved).NotTo(BeNil())
+				g.Expect(resolved.Spec.Statements).To(HaveLen(2))
 			}).Should(Succeed())
 		})
 
