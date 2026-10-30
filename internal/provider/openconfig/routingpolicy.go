@@ -75,6 +75,12 @@ func (p *Provider) EnsureRoutingPolicy(ctx context.Context, req *provider.Ensure
 					Description: "openconfig provider does not support AS-path manipulation on SRLinux",
 				})
 			}
+			if stmt.Actions.BgpActions.SetNextHop != nil {
+				return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+					Field:       "spec.statements[].actions.bgpActions.setNextHop",
+					Description: "openconfig provider does not implement the BGP next-hop in BGP actions",
+				})
+			}
 		}
 
 		pd.Statements.Statement.Set(s)
