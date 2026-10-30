@@ -29,7 +29,7 @@ spec:
   mtu: 1500
   switchport:
     mode: Trunk
-    nativeVlan: 1
+    nativeVlan: 10
     allowedVlans: [10]
   aggregation:
     controlProtocol:
@@ -65,12 +65,13 @@ spec:
             "layer": "Layer2",
             "mtu": 1500,
             "medium": "broadcast",
-            "mode": "access",
-            "nativeVlan": "vlan-1",
+            "mode": "trunk",
+            "nativeVlan": "vlan-10",
             "userCfgdFlags": "admin_layer,admin_mtu,admin_state",
             "physExtd-items": {
               "bufferBoost": "enable"
-            }
+            },
+            "trunkVlans": "10"
           }
         ]
       },
@@ -87,7 +88,7 @@ spec:
             "medium": "broadcast",
             "mode": "trunk",
             "pcMode": "active",
-            "nativeVlan": "vlan-1",
+            "nativeVlan": "vlan-10",
             "suspIndividual": "enable",
             "userCfgdFlags": "admin_layer,admin_mtu,admin_state",
             "rsmbrIfs-items": {
