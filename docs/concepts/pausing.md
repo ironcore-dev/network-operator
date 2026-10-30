@@ -19,6 +19,17 @@ spec:
     address: 10.0.0.1
 ```
 
+::: tip
+You can pause and unpause a device using `kubectl patch`:
+```bash
+# Pause
+kubectl patch device leaf-01 --type merge -p '{"spec":{"paused":true}}'
+
+# Unpause
+kubectl patch device leaf-01 --type merge -p '{"spec":{"paused":false}}'
+```
+:::
+
 ## Pausing Individual Resources
 
 The `networking.metal.ironcore.dev/paused` annotation can be applied to any
