@@ -487,7 +487,6 @@ type DeviceState struct {
 	PIM                  *v1alpha1.PIM
 	BGP                  *v1alpha1.BGP
 	BGPVRF               *v1alpha1.VRF
-	BGPValidation        func(*provider.EnsureBGPRequest) error
 	BGPPeers             sets.Set[string]
 	BGPPeerPolicies      map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy
 	OSPF                 sets.Set[string]
@@ -919,11 +918,6 @@ func (p *Provider) EnsureBGP(_ context.Context, req *provider.EnsureBGPRequest) 
 	s := p.devices.StateFor(p.deviceName)
 	s.Lock()
 	defer s.Unlock()
-	if s.BGPValidation != nil {
-		if err := s.BGPValidation(req); err != nil {
-			return err
-		}
-	}
 	s.BGP = req.BGP
 	s.BGPVRF = req.VRF
 	return nil

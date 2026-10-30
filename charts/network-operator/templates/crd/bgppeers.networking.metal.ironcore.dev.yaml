@@ -132,6 +132,11 @@ spec:
                         - name
                         type: object
                         x-kubernetes-map-type: atomic
+                      nextHopSelf:
+                        description: |-
+                          NextHopSelf enables next-hop-self for routes advertised to this peer in this address family.
+                          If a RoutingPolicy also sets the next hop, then the precedence depends on the provider and platform implementation.
+                        type: boolean
                       outboundRoutingPolicyRef:
                         description: |-
                           OutboundRoutingPolicyRef references a RoutingPolicy applied to routes advertised to this peer
@@ -190,6 +195,11 @@ spec:
                         - name
                         type: object
                         x-kubernetes-map-type: atomic
+                      nextHopSelf:
+                        description: |-
+                          NextHopSelf enables next-hop-self for routes advertised to this peer in this address family.
+                          If a RoutingPolicy also sets the next hop, then the precedence depends on the provider and platform implementation.
+                        type: boolean
                       outboundRoutingPolicyRef:
                         description: |-
                           OutboundRoutingPolicyRef references a RoutingPolicy applied to routes advertised to this peer
@@ -248,6 +258,11 @@ spec:
                         - name
                         type: object
                         x-kubernetes-map-type: atomic
+                      nextHopSelf:
+                        description: |-
+                          NextHopSelf enables next-hop-self for routes advertised to this peer in this address family.
+                          If a RoutingPolicy also sets the next hop, then the precedence depends on the provider and platform implementation.
+                        type: boolean
                       outboundRoutingPolicyRef:
                         description: |-
                           OutboundRoutingPolicyRef references a RoutingPolicy applied to routes advertised to this peer
