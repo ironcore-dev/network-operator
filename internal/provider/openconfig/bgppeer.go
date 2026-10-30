@@ -31,6 +31,21 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		})
 	}
 
+	if spec.AddressFamilies != nil {
+		for name, af := range map[string]*v1alpha1.BGPPeerAddressFamily{
+			"ipv4Unicast": spec.AddressFamilies.Ipv4Unicast,
+			"ipv6Unicast": spec.AddressFamilies.Ipv6Unicast,
+			"l2vpnEvpn":   spec.AddressFamilies.L2vpnEvpn,
+		} {
+			if af != nil && af.NextHopSelf {
+				return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+					Field:       "spec.addressFamilies." + name + ".nextHopSelf",
+					Description: "openconfig provider does not support next-hop-self on a BGP peer, use routing policies instead",
+				})
+			}
+		}
+	}
+
 	peerAS, err := asnToUint32(spec.ASNumber)
 	if err != nil {
 		return err
@@ -103,7 +118,7 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 			if policy, ok := req.InboundRoutingPolicies[v1alpha1.BGPAddressFamilyIpv4Unicast]; ok {
 				safi.ApplyPolicy = &BGPNeighborApplyPolicy{
 					Config: &BGPNeighborApplyPolicyConfig{
-						ImportPolicy: []string{policy},
+						ImportPolicy: []string{policy.Spec.Name},
 					},
 				}
 			}
@@ -111,7 +126,7 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 				if safi.ApplyPolicy == nil {
 					safi.ApplyPolicy = &BGPNeighborApplyPolicy{Config: &BGPNeighborApplyPolicyConfig{}}
 				}
-				safi.ApplyPolicy.Config.ExportPolicy = []string{policy}
+				safi.ApplyPolicy.Config.ExportPolicy = []string{policy.Spec.Name}
 			}
 			neighbor.AfiSafis.AfiSafi.Set(safi)
 		}
@@ -126,7 +141,7 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 			if policy, ok := req.InboundRoutingPolicies[v1alpha1.BGPAddressFamilyIpv6Unicast]; ok {
 				safi.ApplyPolicy = &BGPNeighborApplyPolicy{
 					Config: &BGPNeighborApplyPolicyConfig{
-						ImportPolicy: []string{policy},
+						ImportPolicy: []string{policy.Spec.Name},
 					},
 				}
 			}
@@ -134,7 +149,7 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 				if safi.ApplyPolicy == nil {
 					safi.ApplyPolicy = &BGPNeighborApplyPolicy{Config: &BGPNeighborApplyPolicyConfig{}}
 				}
-				safi.ApplyPolicy.Config.ExportPolicy = []string{policy}
+				safi.ApplyPolicy.Config.ExportPolicy = []string{policy.Spec.Name}
 			}
 			neighbor.AfiSafis.AfiSafi.Set(safi)
 		}

@@ -283,7 +283,14 @@ func (r *RoutingPolicyReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		bldr = bldr.Watches(
 			obj,
 			handler.EnqueueRequestsFromMapFunc(r.routingPoliciesForProviderConfig),
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
 		)
 	}
 
@@ -384,7 +391,6 @@ func (r *RoutingPolicyReconciler) reconcile(ctx context.Context, s *routingPolic
 	})
 
 	cond := conditions.FromError(err)
-	// As this resource is configuration only, we use the Configured condition as top-level Ready condition.
 	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.RoutingPolicy, cond)
 

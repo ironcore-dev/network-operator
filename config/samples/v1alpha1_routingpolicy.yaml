@@ -183,3 +183,22 @@ spec:
       regex: "65200:[0-9][0-9]"
     - sequence: 15
       regex: "65300:[0-9]+"
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: RoutingPolicy
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: bgp-next-hop-self
+spec:
+  deviceRef:
+    name: leaf1
+  name: BGP-NEXT-HOP-SELF
+  statements:
+    - sequence: 10
+      actions:
+        routeDisposition: AcceptRoute
+        bgpActions:
+          setNextHop:
+            ipAddr: 10.0.0.1

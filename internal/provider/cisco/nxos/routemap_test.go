@@ -3,7 +3,94 @@
 
 package nxos
 
-import "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+import (
+	"context"
+	"encoding/json"
+	"testing"
+
+	gpb "github.com/openconfig/gnmi/proto/gnmi"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
+)
+
+type routeMapClientConn struct {
+	grpc.ClientConnInterface
+	invoke func(context.Context, string, any, any, ...grpc.CallOption) error
+}
+
+func (c *routeMapClientConn) Invoke(ctx context.Context, method string, args, reply any, opts ...grpc.CallOption) error {
+	return c.invoke(ctx, method, args, reply, opts...)
+}
+
+func TestEnsureRoutingPolicyNextHop(t *testing.T) {
+	var state []byte
+	sets := 0
+	conn := &routeMapClientConn{invoke: func(_ context.Context, _ string, args, reply any, _ ...grpc.CallOption) error {
+		switch req := args.(type) {
+		case *gpb.CapabilityRequest:
+			reply.(*gpb.CapabilityResponse).SupportedEncodings = []gpb.Encoding{gpb.Encoding_JSON}
+		case *gpb.GetRequest:
+			if state == nil {
+				return status.Error(codes.NotFound, "not configured")
+			}
+			reply.(*gpb.GetResponse).Notification = []*gpb.Notification{{Update: []*gpb.Update{{
+				Path: req.GetPath()[0], Val: &gpb.TypedValue{Value: &gpb.TypedValue_JsonVal{JsonVal: state}},
+			}}}}
+		case *gpb.SetRequest:
+			if len(req.Replace) != 1 {
+				t.Fatalf("Expected one route-map replacement, got %v", req)
+			}
+			sets++
+			state = req.Replace[0].Val.GetJsonVal()
+		default:
+			t.Fatalf("Unexpected gNMI request %T", req)
+		}
+		return nil
+	}}
+	client, err := gnmiext.New(t.Context(), conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := &Provider{client: client}
+	for step, address := range []string{"10.0.0.1", "10.0.0.2", "2001:db8::1", ""} {
+		bgp := &v1alpha1.BgpActions{}
+		if address != "" {
+			addr := v1alpha1.MustParseAddr(address)
+			bgp.SetNextHop = &v1alpha1.SetNextHopAction{IPAddr: addr}
+		}
+		req := &provider.EnsureRoutingPolicyRequest{Name: "RM-IMPORT", Statements: []provider.PolicyStatement{{
+			Sequence: 60, Actions: v1alpha1.PolicyActions{RouteDisposition: v1alpha1.AcceptRoute, BgpActions: bgp},
+		}}}
+		for range 2 {
+			if err := p.EnsureRoutingPolicy(t.Context(), req); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if sets != step+1 {
+			t.Fatalf("Step %d: got %d Set requests, want %d", step, sets, step+1)
+		}
+		var rm RouteMap
+		if err := json.Unmarshal(state, &rm); err != nil {
+			t.Fatal(err)
+		}
+		entry, ok := rm.EntItems.EntryList.Get(60)
+		if !ok || entry.Action != ActionPermit {
+			t.Fatalf("Missing permit entry 60 in %s", state)
+		}
+		if address == "" {
+			if len(entry.NhItems.SetNhList) != 0 {
+				t.Fatalf("Next-hop configuration was not removed: %s", state)
+			}
+		} else if nextHop, ok := entry.NhItems.SetNhList.Get(address); !ok || nextHop.Addr != address || len(entry.NhItems.SetNhList) != 1 {
+			t.Fatalf("Expected next-hop %s in %s", address, state)
+		}
+	}
+}
 
 func init() {
 	e := &RouteMapEntry{}

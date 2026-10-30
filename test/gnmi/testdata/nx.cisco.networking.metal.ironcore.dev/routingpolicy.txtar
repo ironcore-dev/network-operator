@@ -111,6 +111,14 @@ spec:
               - "65000:10"
               - "65000:20"
             operation: Replace
+          setNextHop:
+            ipAddr: 10.0.0.1
+    - sequence: 60
+      actions:
+        routeDisposition: AcceptRoute
+        bgpActions:
+          setNextHop:
+            ipAddr: "2001:db8::1"
 
 -- state/preload --
 {
@@ -251,7 +259,7 @@ spec:
                   "action": "permit",
                   "order": 40,
                   "mextcomm-items": {
-                    "criteria":"sub-group",
+                    "criteria": "sub-group",
                     "rsextCommAtt-items": {
                       "RsExtCommAtt-list": [
                         {
@@ -292,6 +300,24 @@ spec:
                         }
                       ]
                     }
+                  },
+                  "nh-items": {
+                    "SetNh-list": [
+                      {
+                        "addr": "10.0.0.1"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "action": "permit",
+                  "order": 60,
+                  "nh-items": {
+                    "SetNh-list": [
+                      {
+                        "addr": "2001:db8::1"
+                      }
+                    ]
                   }
                 }
               ]
