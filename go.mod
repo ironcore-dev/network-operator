@@ -2,6 +2,8 @@ module github.com/ironcore-dev/network-operator
 
 go 1.27.3
 
+godebug multipathtcp=0
+
 tool github.com/matryer/moq
 
 require (
