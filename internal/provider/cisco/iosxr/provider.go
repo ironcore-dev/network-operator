@@ -525,8 +525,22 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		peer.BFD = bfd
 	}
 
-	if req.BGPPeer.Spec.AddressFamilies != nil && (req.BGPPeer.Spec.AddressFamilies.Ipv6Unicast != nil || req.BGPPeer.Spec.AddressFamilies.L2vpnEvpn != nil) {
-		return errors.New("bgp peer: ipv6 unicast or l2vpnEvpn address family is currently not supported")
+	if req.BGPPeer.Spec.AddressFamilies != nil {
+		if req.BGPPeer.Spec.AddressFamilies.Ipv6Unicast != nil || req.BGPPeer.Spec.AddressFamilies.L2vpnEvpn != nil {
+			return errors.New("bgp peer: ipv6 unicast or l2vpnEvpn address family is currently not supported")
+		}
+		for name, af := range map[string]*v1alpha1.BGPPeerAddressFamily{
+			"ipv4Unicast": req.BGPPeer.Spec.AddressFamilies.Ipv4Unicast,
+			"ipv6Unicast": req.BGPPeer.Spec.AddressFamilies.Ipv6Unicast,
+			"l2vpnEvpn":   req.BGPPeer.Spec.AddressFamilies.L2vpnEvpn,
+		} {
+			if af != nil && af.NextHopSelf {
+				return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+					Field:       "spec.addressFamilies." + name + ".nextHopSelf",
+					Description: "iosxr provider does not currently implement support for next-hop-self on a BGP peer, use routing policies instead",
+				})
+			}
+		}
 	}
 
 	// Configure Router Address Family

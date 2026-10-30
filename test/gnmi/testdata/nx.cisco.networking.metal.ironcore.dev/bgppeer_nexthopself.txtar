@@ -1,0 +1,425 @@
+-- interfaces/loopback0 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: loopback0
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: lo0
+  adminState: Up
+  type: Loopback
+  ipv4:
+    addresses:
+      - 10.0.0.1/32
+      - 10.0.1.1/32
+  ipv6:
+    addresses:
+      - 2001:db8::1/128
+
+
+-- bgps/bgp --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGP
+metadata:
+  name: bgp0
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  asNumber: 65000
+  routerId: "10.0.0.1"
+  addressFamilies:
+    ipv4Unicast:
+      enabled: true
+    ipv6Unicast:
+      enabled: true
+
+-- bgppeers/bgppeer1 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGPPeer
+metadata:
+  name: bgppeer1
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  bgpRef:
+    name: bgp0
+  address: "10.0.0.2"
+  asNumber: 65000
+  description: "peering A"
+  localAddress:
+    interfaceRef:
+      name: loopback0
+  addressFamilies:
+    ipv4Unicast:
+      enabled: true
+      nextHopSelf: true
+      routeReflectorClient: true
+    ipv6Unicast:
+      enabled: true
+      nextHopSelf: true
+      routeReflectorClient: true
+  ttl: 2
+
+-- bgppeers/bgppeer2 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGPPeer
+metadata:
+  name: bgppeer2
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  bgpRef:
+    name: bgp0
+  address: "10.0.1.2"
+  asNumber: 65000
+  description: "peering B"
+  localAddress:
+    interfaceRef:
+      name: loopback0
+  addressFamilies:
+    ipv4Unicast:
+      enabled: true
+    ipv6Unicast:
+      enabled: true
+  ttl: 2
+
+-- state/preload --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "intf-items": {
+      "lb-items": {
+        "LbRtdIf-list": [
+          {
+            "adminSt": "up",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "id": "lo0",
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            }
+          }
+        ]
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo0",
+                    "addr-items": {
+                      "Addr-list": [
+                        {
+                          "addr": "10.0.0.1/32",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "primary"
+                        },
+                        {
+                          "addr": "10.0.1.1/32",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "secondary"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo0",
+                    "ctrl": "port-unreachable,redirect"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "fm-items": {
+      "bgp-items": {
+        "adminSt": "enabled"
+      },
+      "evpn-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "bgp-items": {
+      "inst-items": {
+        "adminSt": "enabled",
+        "asn": "65000",
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "rtrId": "10.0.0.1",
+              "rtrIdAuto": "disabled",
+              "peercont-items": {
+                "PeerCont-list": [
+                  {
+                    "name": "__operator-managed--default__"
+                  }
+                ]
+              },
+              "af-items": {
+                "DomAf-list": [
+                  {
+                    "maxEcmp": 1,
+                    "maxExtEcmp": 1,
+                    "exportGwIp": "disabled",
+                    "advertL2vpnEvpn": "disabled",
+                    "type": "ipv4-ucast"
+                  },
+                  {
+                    "maxEcmp": 1,
+                    "maxExtEcmp": 1,
+                    "exportGwIp": "disabled",
+                    "advertL2vpnEvpn": "disabled",
+                    "type": "ipv6-ucast"
+                  }
+                ]
+              },
+              "peer-items": {
+                "Peer-list": [
+                  {
+                    "addr": "10.0.0.2",
+                    "adminSt": "enabled",
+                    "asn": "65000",
+                    "asnType": "none",
+                    "ctrl": "DME_UNSET_PROPERTY_MARKER",
+                    "bfdType": "none",
+                    "name": "peering A",
+                    "srcIf": "lo0",
+                    "ttl": 2,
+                    "af-items": {
+                      "PeerAf-list": [
+                        {
+                          "ctrl": "nh-self,rr-client",
+                          "sendComExt": "disabled",
+                          "sendComStd": "disabled",
+                          "type": "ipv4-ucast"
+                        },
+                        {
+                          "ctrl": "nh-self,rr-client",
+                          "sendComExt": "disabled",
+                          "sendComStd": "disabled",
+                          "type": "ipv6-ucast"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "addr": "10.0.1.2",
+                    "adminSt": "enabled",
+                    "asn": "65000",
+                    "asnType": "none",
+                    "ctrl": "DME_UNSET_PROPERTY_MARKER",
+                    "bfdType": "none",
+                    "name": "peering B",
+                    "srcIf": "lo0",
+                    "ttl": 2,
+                    "af-items": {
+                      "PeerAf-list": [
+                        {
+                          "ctrl": "DME_UNSET_PROPERTY_MARKER",
+                          "sendComExt": "disabled",
+                          "sendComStd": "disabled",
+                          "type": "ipv4-ucast"
+                        },
+                        {
+                          "ctrl": "DME_UNSET_PROPERTY_MARKER",
+                          "sendComExt": "disabled",
+                          "sendComStd": "disabled",
+                          "type": "ipv6-ucast"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "ipv6-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo0",
+                    "addr-items": {
+                      "Addr-list": [
+                        {
+                          "addr": "2001:db8::1/128",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "primary"
+                        }
+                      ]
+                    },
+                    "useLinkLocalAddr": "disabled"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "nd-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo0",
+                    "ctrl": "redirects",
+                    "raIntvl": 600,
+                    "raIntvlMin": 200
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+-- state/delete --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "intf-items": {
+      "lb-items": {
+        "LbRtdIf-list": []
+      }
+    },
+    "ipv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": []
+              }
+            }
+          ]
+        }
+      }
+    },
+    "icmpv4-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo0",
+                    "ctrl": "port-unreachable,redirect"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "fm-items": {
+      "bgp-items": {
+        "adminSt": "enabled"
+      },
+      "evpn-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "bgp-items": {},
+    "ipv6-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": []
+              }
+            }
+          ]
+        }
+      }
+    },
+    "nd-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo0",
+                    "ctrl": "redirects",
+                    "raIntvl": 600,
+                    "raIntvlMin": 200
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
