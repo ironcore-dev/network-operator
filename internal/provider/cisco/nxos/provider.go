@@ -2910,6 +2910,7 @@ func (p *Provider) DeletePrefixSet(ctx context.Context, req *provider.DeletePref
 	return p.client.Delete(ctx, s)
 }
 
+// EnsureRoutingPolicy installs the route-map definition and its statement actions.
 func (p *Provider) EnsureRoutingPolicy(ctx context.Context, req *provider.EnsureRoutingPolicyRequest) error {
 	rm := new(RouteMap)
 	rm.Name = req.Name
@@ -2938,6 +2939,10 @@ func (p *Provider) EnsureRoutingPolicy(ctx context.Context, req *provider.Ensure
 		}
 
 		if stmt.Actions.BgpActions != nil {
+			if stmt.Actions.BgpActions.SetNextHop != nil {
+				nextHop := stmt.Actions.BgpActions.SetNextHop
+				e.NhItems.SetNhList.Set(&RouteMapNextHop{Addr: nextHop.IPAddr.String()})
+			}
 			if stmt.Actions.BgpActions.SetCommunity != nil {
 				if err := e.SetCommunities(stmt.Actions.BgpActions.SetCommunity.Communities, stmt.Actions.BgpActions.SetCommunity.Operation); err != nil {
 					return err

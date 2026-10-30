@@ -130,7 +130,7 @@ const (
 )
 
 // BgpActions defines BGP-specific actions for a policy statement.
-// +kubebuilder:validation:XValidation:rule="has(self.setCommunity) || has(self.setExtCommunity) || has(self.setASPath)",message="at least one BGP action must be specified"
+// +kubebuilder:validation:XValidation:rule="has(self.setCommunity) || has(self.setExtCommunity) || has(self.setASPath) || has(self.setNextHop)",message="at least one BGP action must be specified"
 type BgpActions struct {
 	// SetCommunity configures BGP standard community attributes.
 	// +optional
@@ -143,6 +143,17 @@ type BgpActions struct {
 	// SetASPath configures modifications to the BGP AS path attribute.
 	// +optional
 	SetASPath *SetASPathAction `json:"setASPath,omitempty"`
+
+	// SetNextHop configures the BGP next-hop for advertised routes.
+	// +optional
+	SetNextHop *SetNextHopAction `json:"setNextHop,omitempty"`
+}
+
+// SetNextHopAction defines how to replace the BGP next-hop for advertised routes.
+type SetNextHopAction struct {
+	// IPAddr specifies the next-hop IP address to set for advertised routes.
+	// +required
+	IPAddr IPAddr `json:"ipAddr"`
 }
 
 // SetASPathAction defines actions to modify the BGP AS path attribute.

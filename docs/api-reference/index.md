@@ -1290,6 +1290,7 @@ _Appears in:_
 | `setCommunity` _[SetCommunityAction](#setcommunityaction)_ | SetCommunity configures BGP standard community attributes. |  | Optional: \{\} <br /> |
 | `setExtCommunity` _[SetExtCommunityAction](#setextcommunityaction)_ | SetExtCommunity configures BGP extended community attributes. |  | Optional: \{\} <br /> |
 | `setASPath` _[SetASPathAction](#setaspathaction)_ | SetASPath configures modifications to the BGP AS path attribute. |  | Optional: \{\} <br /> |
+| `setNextHop` _[SetNextHopAction](#setnexthopaction)_ | SetNextHop configures the BGP next-hop for advertised routes. |  | Optional: \{\} <br /> |
 
 
 #### Certificate
@@ -2546,6 +2547,7 @@ _Validation:_
 _Appears in:_
 - [IPAddressSpec](#ipaddressspec)
 - [PingProbe](#pingprobe)
+- [SetNextHopAction](#setnexthopaction)
 
 
 
@@ -4473,6 +4475,22 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `communities` _string array_ | Communities is the list of BGP extended communities to set.<br />The communities must be in the format defined by [RFC 4360].<br />[RFC 4360]: https://datatracker.ietf.org/doc/html/rfc4360 |  | MinItems: 1 <br />Required: \{\} <br /> |
 | `operation` _[CommunityOperation](#communityoperation)_ | Operation controls whether the communities are added to the route's existing<br />communities (Add) or replace them (Replace). | Replace | Enum: [Add Replace] <br />Optional: \{\} <br /> |
+
+
+#### SetNextHopAction
+
+
+
+SetNextHopAction defines how to replace the BGP next-hop for advertised routes.
+
+
+
+_Appears in:_
+- [BgpActions](#bgpactions)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `ipAddr` _[IPAddr](#ipaddr)_ | IPAddr specifies the next-hop IP address to set for advertised routes. |  | Format: ip <br />Type: string <br />Required: \{\} <br /> |
 
 
 #### Severity
