@@ -17,7 +17,7 @@ require (
 	github.com/onsi/gomega v1.44.0
 	github.com/openconfig/gnmi v0.14.1
 	github.com/openconfig/gnoi v0.8.0
-	github.com/openconfig/ygot v0.35.0
+	github.com/openconfig/ygot v0.36.0
 	github.com/pin/tftp/v3 v3.2.0
 	github.com/prometheus/client_golang v1.25.0
 	github.com/robfig/cron/v3 v3.0.1
