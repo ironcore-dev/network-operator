@@ -384,7 +384,6 @@ func (r *RoutingPolicyReconciler) reconcile(ctx context.Context, s *routingPolic
 	})
 
 	cond := conditions.FromError(err)
-	// As this resource is configuration only, we use the Configured condition as top-level Ready condition.
 	cond.Type = v1alpha1.ReadyCondition
 	conditions.Set(s.RoutingPolicy, cond)
 

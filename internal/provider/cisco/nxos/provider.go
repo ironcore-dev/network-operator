@@ -975,15 +975,22 @@ func bgpPeerAfItems(req *provider.EnsureBGPPeerRequest) gnmiext.List[AddressFami
 		if af.SendCommunity == v1alpha1.BGPCommunityTypeExtended || af.SendCommunity == v1alpha1.BGPCommunityTypeBoth {
 			item.SendComExt = AdminStEnabled
 		}
-		if af.RouteReflectorClient {
-			item.Ctrl = NewOption(RouteReflectorClient)
-		}
+
 		afType := t.ToAddressFamilyType()
-		if name, ok := req.InboundRoutingPolicies[afType]; ok {
-			item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionIn, RtMap: name})
+		var ctrl PeerAfControl
+		if af.RouteReflectorClient {
+			ctrl |= PeerAfControlRouteReflectorClient
 		}
-		if name, ok := req.OutboundRoutingPolicies[afType]; ok {
-			item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionOut, RtMap: name})
+		if af.NextHopSelf {
+			ctrl |= PeerAfControlNextHopSelf
+		}
+		item.Ctrl = ctrl
+
+		if policy, ok := req.InboundRoutingPolicies[afType]; ok {
+			item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionIn, RtMap: policy})
+		}
+		if policy, ok := req.OutboundRoutingPolicies[afType]; ok {
+			item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionOut, RtMap: policy})
 		}
 		list.Set(item)
 	}

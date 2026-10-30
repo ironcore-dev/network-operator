@@ -1001,6 +1001,7 @@ _Appears in:_
 | `enabled` _boolean_ | Enabled determines whether this address family is activated for this specific peer.<br />When false, the address family is not negotiated with this peer.<br />Defaults to false. |  | Optional: \{\} <br /> |
 | `sendCommunity` _[BGPCommunityType](#bgpcommunitytype)_ | SendCommunity specifies which community attributes should be sent to this BGP peer<br />for this address family. If not specified, no community attributes are sent. |  | Enum: [Standard Extended Both] <br />Optional: \{\} <br /> |
 | `routeReflectorClient` _boolean_ | RouteReflectorClient indicates whether this peer should be treated as a route reflector client<br />for this specific address family. Defaults to false. |  | Optional: \{\} <br /> |
+| `nextHopSelf` _boolean_ | NextHopSelf enables next-hop-self for routes advertised to this peer in this address family.<br />If a RoutingPolicy also sets the next hop, then the precedence depends on the provider and platform implementation. |  | Optional: \{\} <br /> |
 | `inboundRoutingPolicyRef` _[LocalObjectReference](#localobjectreference)_ | InboundRoutingPolicyRef references a RoutingPolicy applied to routes received from this peer<br />for this address family. |  | Optional: \{\} <br /> |
 | `outboundRoutingPolicyRef` _[LocalObjectReference](#localobjectreference)_ | OutboundRoutingPolicyRef references a RoutingPolicy applied to routes advertised to this peer<br />for this address family. |  | Optional: \{\} <br /> |
 
