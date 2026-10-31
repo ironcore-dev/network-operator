@@ -266,6 +266,12 @@ func (r *BGPReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 			if af.RedistributeStaticRoutes != nil {
 				names = append(names, af.RedistributeStaticRoutes.RoutingPolicyRef.Name)
 			}
+
+			for _, aggAddr := range af.AggregateAddresses {
+				if aggAddr.AttributeMap != nil {
+					names = append(names, aggAddr.AttributeMap.Name)
+				}
+			}
 		}
 		return names
 	}); err != nil {
@@ -371,6 +377,7 @@ func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (reterr erro
 	}
 
 	var redistDirectPolicies, redistStaticPolicies map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy
+	var aggregateAttributeMaps map[v1alpha1.BGPAddressFamilyType]map[string]*v1alpha1.RoutingPolicy
 	if s.BGP.Spec.AddressFamilies != nil {
 		redistDirectPolicies, err = r.reconcileRedistributePolicies(ctx, s.BGP, s.Device,
 			func(af *v1alpha1.BGPUnicastAddressFamily) *v1alpha1.LocalObjectReference {
@@ -392,6 +399,11 @@ func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (reterr erro
 		if err != nil {
 			return err
 		}
+
+		aggregateAttributeMaps, err = r.resolveAggregateAddressPolicies(ctx, s.BGP, s.Device)
+		if err != nil {
+			return err
+		}
 	}
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
@@ -410,8 +422,8 @@ func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (reterr erro
 		VRF:                             vrf,
 		RedistributeDirectRoutePolicies: redistDirectPolicies,
 		RedistributeStaticRoutePolicies: redistStaticPolicies,
+		AggregateAttributeMaps:          aggregateAttributeMaps,
 	})
-
 	cond := conditions.FromError(err)
 
 	conditions.Set(s.BGP, cond)
@@ -495,6 +507,60 @@ func (r *BGPReconciler) reconcileVRF(ctx context.Context, bgp *v1alpha1.BGP, dev
 	}
 
 	return vrf, nil
+}
+
+// resolveAggregateAddressPolicies resolves the attribute-map RoutingPolicy referenced
+// by each aggregate address of the BGP instance's unicast address families. The result
+// is keyed by address family and then by aggregate prefix; aggregates without an
+// attribute-map are omitted. Sets ConfiguredCondition and returns a terminal error when
+// a referenced policy is not found or belongs to a different device.
+func (r *BGPReconciler) resolveAggregateAddressPolicies(ctx context.Context, bgp *v1alpha1.BGP, device *v1alpha1.Device) (map[v1alpha1.BGPAddressFamilyType]map[string]*v1alpha1.RoutingPolicy, error) {
+	afs := map[v1alpha1.BGPAddressFamilyType]*v1alpha1.BGPUnicastAddressFamily{
+		v1alpha1.BGPAddressFamilyIpv4Unicast: bgp.Spec.AddressFamilies.Ipv4Unicast,
+		v1alpha1.BGPAddressFamilyIpv6Unicast: bgp.Spec.AddressFamilies.Ipv6Unicast,
+	}
+
+	result := make(map[v1alpha1.BGPAddressFamilyType]map[string]*v1alpha1.RoutingPolicy, 2)
+
+	for afType, af := range afs {
+		if af == nil {
+			continue
+		}
+		rps := map[string]*v1alpha1.RoutingPolicy{}
+		for _, aggAddr := range af.AggregateAddresses {
+			if aggAddr.AttributeMap == nil {
+				continue
+			}
+			rp := new(v1alpha1.RoutingPolicy)
+			if err := r.Get(ctx, types.NamespacedName{Name: aggAddr.AttributeMap.Name, Namespace: bgp.Namespace}, rp); err != nil {
+				if apierrors.IsNotFound(err) {
+					conditions.Set(bgp, metav1.Condition{
+						Type:    v1alpha1.ConfiguredCondition,
+						Status:  metav1.ConditionFalse,
+						Reason:  v1alpha1.WaitingForDependenciesReason,
+						Message: fmt.Sprintf("RoutingPolicy %s not found", aggAddr.AttributeMap.Name),
+					})
+					return nil, reconcile.TerminalError(fmt.Errorf("routing policy %s not found", aggAddr.AttributeMap.Name))
+				}
+				return nil, fmt.Errorf("failed to get routing policy %s: %w", aggAddr.AttributeMap.Name, err)
+			}
+			if rp.Spec.DeviceRef.Name != device.Name {
+				conditions.Set(bgp, metav1.Condition{
+					Type:    v1alpha1.ConfiguredCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  v1alpha1.CrossDeviceReferenceReason,
+					Message: fmt.Sprintf("RoutingPolicy %s belongs to device %s, not %s", aggAddr.AttributeMap.Name, rp.Spec.DeviceRef.Name, device.Name),
+				})
+				return nil, reconcile.TerminalError(fmt.Errorf("routing policy %s belongs to different device", aggAddr.AttributeMap.Name))
+			}
+
+			rps[aggAddr.Prefix] = rp
+		}
+
+		result[afType] = rps
+	}
+
+	return result, nil
 }
 
 // reconcileRedistributePolicies resolves the RoutingPolicyRef returned by ref

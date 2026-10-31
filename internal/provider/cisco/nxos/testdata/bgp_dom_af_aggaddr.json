@@ -1,0 +1,32 @@
+{
+  "bgp-items": {
+    "inst-items": {
+      "dom-items": {
+        "Dom-list": [
+          {
+            "name": "default",
+            "af-items": {
+              "DomAf-list": [
+                {
+                  "exportGwIp": "disabled",
+                  "advertL2vpnEvpn": "disabled",
+                  "type": "ipv4-ucast",
+                  "aggaddr-items": {
+                    "AggAddr-list": [
+                      {
+                        "addr": "10.0.0.0/8",
+                        "asSet": "enabled",
+                        "summaryOnly": "enabled",
+                        "attrMap": "AGGREGATE_MAP"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

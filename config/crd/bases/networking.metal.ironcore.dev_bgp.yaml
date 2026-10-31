@@ -77,6 +77,47 @@ spec:
                       Ipv4Unicast configures IPv4 unicast address family support.
                       Enables exchange of IPv4 unicast routes between BGP peers.
                     properties:
+                      aggregateAddresses:
+                        description: |-
+                          AggregateAddresses configures BGP aggregate-address entries for this address family.
+                          Each entry summarizes a group of more-specific prefixes into a single advertisement.
+                        items:
+                          description: BGPAggregateAddress configures a single BGP
+                            aggregate-address entry.
+                          properties:
+                            asSet:
+                              description: |-
+                                AsSet generates the AS_SET path attribute on the aggregate from the aggregated routes,
+                                preserving their AS path information.
+                              type: boolean
+                            attributeMap:
+                              description: AttributeMap references a RoutingPolicy
+                                whose route-map is applied to the aggregate advertisement.
+                              properties:
+                                name:
+                                  description: |-
+                                    Name of the referent.
+                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  maxLength: 63
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            prefix:
+                              description: Prefix is the aggregate prefix to advertise
+                                in CIDR notation.
+                              format: cidr
+                              type: string
+                            summaryOnly:
+                              description: SummaryOnly suppresses advertisement of
+                                more-specific prefixes covered by this aggregate.
+                              type: boolean
+                          required:
+                          - prefix
+                          type: object
+                        type: array
                       enabled:
                         description: |-
                           Enabled determines whether this address family is activated for BGP sessions.
@@ -175,6 +216,47 @@ spec:
                       Ipv6Unicast configures IPv6 unicast address family support.
                       Enables exchange of IPv6 unicast routes between BGP peers.
                     properties:
+                      aggregateAddresses:
+                        description: |-
+                          AggregateAddresses configures BGP aggregate-address entries for this address family.
+                          Each entry summarizes a group of more-specific prefixes into a single advertisement.
+                        items:
+                          description: BGPAggregateAddress configures a single BGP
+                            aggregate-address entry.
+                          properties:
+                            asSet:
+                              description: |-
+                                AsSet generates the AS_SET path attribute on the aggregate from the aggregated routes,
+                                preserving their AS path information.
+                              type: boolean
+                            attributeMap:
+                              description: AttributeMap references a RoutingPolicy
+                                whose route-map is applied to the aggregate advertisement.
+                              properties:
+                                name:
+                                  description: |-
+                                    Name of the referent.
+                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  maxLength: 63
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            prefix:
+                              description: Prefix is the aggregate prefix to advertise
+                                in CIDR notation.
+                              format: cidr
+                              type: string
+                            summaryOnly:
+                              description: SummaryOnly suppresses advertisement of
+                                more-specific prefixes covered by this aggregate.
+                              type: boolean
+                          required:
+                          - prefix
+                          type: object
+                        type: array
                       enabled:
                         description: |-
                           Enabled determines whether this address family is activated for BGP sessions.
