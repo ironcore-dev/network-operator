@@ -30,6 +30,12 @@ const (
 	// FabricLabel is applied to all sub-resources created by a Fabric controller,
 	// with the value set to the owning Fabric's name.
 	FabricLabel = "evpn.networking.metal.ironcore.dev/fabric"
+
+	// NetworkLabel identifies the Network associated with an EVPN resource.
+	NetworkLabel = "evpn.networking.metal.ironcore.dev/network"
+
+	// NetworkAttachmentLabel identifies the NetworkAttachment that realizes an EVPN resource.
+	NetworkAttachmentLabel = "evpn.networking.metal.ironcore.dev/network-attachment"
 )
 
 // Fabric condition types.
@@ -51,4 +57,34 @@ const (
 
 	// NoResourcesReason indicates no child resources exist yet for this condition.
 	NoResourcesReason = "NoResources"
+
+	// NoMatchingInterfacesReason indicates that an Interface selector matched no Interfaces.
+	NoMatchingInterfacesReason = "NoMatchingInterfaces"
+
+	// InvalidInterfaceReason indicates that a selected Interface cannot realize the attachment.
+	InvalidInterfaceReason = "InvalidInterface"
+
+	// DeviceResolutionFailedReason indicates that selected Interfaces reference unresolved Devices.
+	DeviceResolutionFailedReason = "DeviceResolutionFailed"
+
+	// FabricResolutionFailedReason indicates that selected Devices do not resolve to exactly one Fabric.
+	FabricResolutionFailedReason = "FabricResolutionFailed"
+
+	// EncapsulationConflictReason indicates that attachments request the same encapsulation on a Device.
+	EncapsulationConflictReason = "EncapsulationConflict"
+
+	// NetworkNotFoundReason indicates that the referenced Network does not exist.
+	NetworkNotFoundReason = "NetworkNotFound"
+
+	// InvalidVNIReason indicates that an allocated VNI is invalid.
+	InvalidVNIReason = "InvalidVNI"
+
+	// UnsupportedASNumberReason indicates that the Fabric AS number cannot be used for route-target derivation.
+	UnsupportedASNumberReason = "UnsupportedASNumber"
+
+	// ResourceConflictReason indicates that an existing resource prevents attachment realization.
+	ResourceConflictReason = "ResourceConflict"
+
+	// StretchedNetworkNotSupportedReason indicates that a Network resolves to multiple Fabrics.
+	StretchedNetworkNotSupportedReason = "StretchedNetworkNotSupported"
 )

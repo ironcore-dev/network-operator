@@ -24,8 +24,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	corev1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	evpnv1alpha1 "github.com/ironcore-dev/network-operator/api/evpn/v1alpha1"
+	overlayv1alpha1 "github.com/ironcore-dev/network-operator/api/overlay/v1alpha1"
 	poolv1alpha1 "github.com/ironcore-dev/network-operator/api/pool/v1alpha1"
 	poolcontroller "github.com/ironcore-dev/network-operator/internal/controller/pool"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
@@ -63,8 +64,9 @@ var _ = BeforeSuite(func() {
 	ctx, cancel = context.WithCancel(ctrl.SetupSignalHandler())
 
 	Expect(evpnv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-	Expect(corev1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(v1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(poolv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(overlayv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	// +kubebuilder:scaffold:scheme
 
@@ -104,11 +106,53 @@ var _ = BeforeSuite(func() {
 
 	provider.Register("test-provider", NewProvider)
 
+	for _, obj := range []client.Object{&v1alpha1.Interface{}, &v1alpha1.VLAN{}, &v1alpha1.EVPNInstance{}} {
+		err = k8sManager.GetFieldIndexer().IndexField(ctx, obj, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+			switch obj := obj.(type) {
+			case *v1alpha1.Interface:
+				return []string{obj.Spec.DeviceRef.Name}
+			case *v1alpha1.VLAN:
+				return []string{obj.Spec.DeviceRef.Name}
+			case *v1alpha1.EVPNInstance:
+				return []string{obj.Spec.DeviceRef.Name}
+			default:
+				panic(fmt.Sprintf("unexpected device resource %T", obj))
+			}
+		})
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	err = (&NetworkReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&NetworkAttachmentReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&FabricReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
 	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&poolcontroller.IndexPoolReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&poolcontroller.IndexReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&poolcontroller.IPAddressPoolReconciler{

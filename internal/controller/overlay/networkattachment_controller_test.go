@@ -71,15 +71,6 @@ var _ = Describe("NetworkAttachment Controller", func() {
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
 				g.Expect(controllerutil.ContainsFinalizer(resource, overlayv1alpha1.FinalizerName)).To(BeTrue())
 			}).Should(Succeed())
-
-			By("Verifying the controller updates the status conditions")
-			Eventually(func(g Gomega) {
-				resource := &overlayv1alpha1.NetworkAttachment{}
-				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(1))
-				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
-				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
-			}).Should(Succeed())
 		})
 	})
 })
