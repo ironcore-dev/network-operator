@@ -3079,6 +3079,7 @@ _Appears in:_
 - [MacSecSpec](#macsecspec)
 - [ManagementAccessSpec](#managementaccessspec)
 - [NTPSpec](#ntpspec)
+- [NetworkAttachmentInterfaceStatus](#networkattachmentinterfacestatus)
 - [NetworkAttachmentSpec](#networkattachmentspec)
 - [NetworkVirtualizationEdgeSpec](#networkvirtualizationedgespec)
 - [NextHop](#nexthop)
@@ -4913,6 +4914,7 @@ _Appears in:_
 - [MacSecSpec](#macsecspec)
 - [ManagementAccessSpec](#managementaccessspec)
 - [NTPSpec](#ntpspec)
+- [NetworkAttachmentStatus](#networkattachmentstatus)
 - [NetworkVirtualizationEdgeSpec](#networkvirtualizationedgespec)
 - [OSPFSpec](#ospfspec)
 - [PIMSpec](#pimspec)
@@ -6348,6 +6350,23 @@ NetworkAttachment is the Schema for the networkattachments API
 | `status` _[NetworkAttachmentStatus](#networkattachmentstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
 
 
+#### NetworkAttachmentInterfaceStatus
+
+
+
+NetworkAttachmentInterfaceStatus records realized VLAN membership on an Interface.
+
+
+
+_Appears in:_
+- [NetworkAttachmentStatus](#networkattachmentstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceRef` _[LocalObjectReference](#localobjectreference)_ | deviceRef references the Device that owns the Interface. |  | Required: \{\} <br /> |
+| `interfaceRef` _[LocalObjectReference](#localobjectreference)_ | interfaceRef references the realized Interface. |  | Required: \{\} <br /> |
+
+
 #### NetworkAttachmentSpec
 
 
@@ -6380,6 +6399,8 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the NetworkAttachment resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+| `forwardingContextRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | forwardingContextRef references the forwarding context realizing this attachment. |  | Optional: \{\} <br /> |
+| `interfaces` _[NetworkAttachmentInterfaceStatus](#networkattachmentinterfacestatus) array_ | interfaces records Interface/VLAN memberships owned by this attachment.<br />Entries may represent memberships being provisioned or cleaned up. |  | Optional: \{\} <br /> |
 
 
 #### NetworkSpec

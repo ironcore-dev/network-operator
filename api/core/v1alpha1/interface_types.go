@@ -4,6 +4,8 @@
 package v1alpha1
 
 import (
+	"fmt"
+	"sort"
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -234,6 +236,86 @@ type Encapsulation struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=4094
 	OuterTag int32 `json:"outerTag,omitempty"`
+}
+
+// AddAllowedVLAN adds a VLAN to the explicit allowed VLAN list.
+// It reports whether the list changed.
+func (s *Switchport) AddAllowedVLAN(vlan int32) (bool, error) {
+	if err := s.ValidateAllowedVLAN(vlan); err != nil {
+		return false, err
+	}
+	value := int64(vlan)
+	// An existing range already allows the VLAN, so no mutation is needed.
+	for _, vlanRange := range s.AllowedVlans {
+		if vlanRange.Start <= value && value <= vlanRange.End {
+			return false, nil
+		}
+	}
+	// Appending a singleton makes an implicit all-VLAN list explicit and takes ownership of it.
+	s.AllowedVlans = append(s.AllowedVlans, IndexRange{Start: value, End: value})
+	s.SortAllowedVLANs()
+	return true, nil
+}
+
+// RemoveAllowedVLAN removes a VLAN from the explicit allowed VLAN list.
+// It reports whether the list changed.
+func (s *Switchport) RemoveAllowedVLAN(vlan int32) (bool, error) {
+	if err := s.ValidateAllowedVLAN(vlan); err != nil {
+		return false, err
+	}
+	value := int64(vlan)
+	// Find the single range containing the VLAN and remove only that value from it.
+	for i, vlanRange := range s.AllowedVlans {
+		if value < vlanRange.Start || value > vlanRange.End {
+			continue
+		}
+		switch {
+		// Remove the whole singleton range.
+		case vlanRange.Start == value && vlanRange.End == value:
+			s.AllowedVlans = append(s.AllowedVlans[:i], s.AllowedVlans[i+1:]...)
+		// Shrink the range past its first VLAN.
+		case vlanRange.Start == value:
+			s.AllowedVlans[i].Start++
+		// Shrink the range before its last VLAN.
+		case vlanRange.End == value:
+			s.AllowedVlans[i].End--
+		// Split the range around an interior VLAN.
+		default:
+			s.AllowedVlans[i].End = value - 1
+			s.AllowedVlans = append(s.AllowedVlans, IndexRange{Start: value + 1, End: vlanRange.End})
+			s.SortAllowedVLANs()
+		}
+		if len(s.AllowedVlans) == 0 {
+			// nil restores the API default after the final explicit VLAN is removed.
+			s.AllowedVlans = nil
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+// SortAllowedVLANs orders the explicit allowed VLAN ranges by start and then end in-place.
+func (s *Switchport) SortAllowedVLANs() {
+	sort.Slice(s.AllowedVlans, func(i, j int) bool {
+		if s.AllowedVlans[i].Start != s.AllowedVlans[j].Start {
+			return s.AllowedVlans[i].Start < s.AllowedVlans[j].Start
+		}
+		return s.AllowedVlans[i].End < s.AllowedVlans[j].End
+	})
+}
+
+// ValidateAllowedVLAN validates that the switchport permits changing the given VLAN.
+func (s *Switchport) ValidateAllowedVLAN(vlan int32) error {
+	if s.Mode != SwitchportModeTrunk {
+		return fmt.Errorf("switchport mode %q does not support allowed VLANs", s.Mode)
+	}
+	if s.AllowedVlansMode == AllowedVlansModeUnmanaged {
+		return fmt.Errorf("allowed VLAN mode %q does not permit changes", s.AllowedVlansMode)
+	}
+	if vlan < 1 || vlan > 4094 {
+		return fmt.Errorf("VLAN %d is outside the valid range 1..4094", vlan)
+	}
+	return nil
 }
 
 // AllowedVlansMode defines how trunk allowed VLANs are managed.

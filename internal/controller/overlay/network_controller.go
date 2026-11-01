@@ -137,8 +137,7 @@ func (r *NetworkReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *NetworkReconciler) reconcile(_ context.Context, net *overlayv1alpha1.Network) (ctrl.Result, error) { //nolint:unparam
-	conditions.RecomputeReady(net)
+func (r *NetworkReconciler) reconcile(_ context.Context, net *overlayv1alpha1.Network) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
