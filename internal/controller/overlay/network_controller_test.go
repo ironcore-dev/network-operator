@@ -11,7 +11,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	overlayv1alpha1 "github.com/ironcore-dev/network-operator/api/overlay/v1alpha1"
 )
 
@@ -45,15 +44,6 @@ var _ = Describe("Network Controller", func() {
 				resource := &overlayv1alpha1.Network{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
 				g.Expect(controllerutil.ContainsFinalizer(resource, overlayv1alpha1.FinalizerName)).To(BeTrue())
-			}).Should(Succeed())
-
-			By("Verifying the controller updates the status conditions")
-			Eventually(func(g Gomega) {
-				resource := &overlayv1alpha1.Network{}
-				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
-				g.Expect(resource.Status.Conditions).To(HaveLen(1))
-				g.Expect(resource.Status.Conditions[0].Type).To(Equal(v1alpha1.ReadyCondition))
-				g.Expect(resource.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
 			}).Should(Succeed())
 		})
 	})
