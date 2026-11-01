@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/provider"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 )
@@ -153,6 +154,12 @@ func (al *Actions) String() string {
 
 func NewActions(actions v1alpha1.PolicyActions) (Actions, error) {
 	var result Actions
+	if actions.BgpActions != nil && actions.BgpActions.SetNextHop != nil {
+		return result, apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
+			Field:       "spec.statements[].actions.bgpActions.setNextHop",
+			Description: "iosxr provider does not support setting the BGP next-hop",
+		})
+	}
 
 	if actions.BgpActions != nil && actions.BgpActions.SetCommunity != nil {
 		result.Actions = append(result.Actions, &CommAction{

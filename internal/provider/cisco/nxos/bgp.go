@@ -7,6 +7,8 @@ import (
 	"encoding"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -347,10 +349,10 @@ const (
 )
 
 type BGPPeerAfItem struct {
-	Ctrl       Option[string] `json:"ctrl"`
-	SendComExt AdminSt        `json:"sendComExt"`
-	SendComStd AdminSt        `json:"sendComStd"`
-	Type       AddressFamily  `json:"type"`
+	Ctrl       PeerAfControl `json:"ctrl"`
+	SendComExt AdminSt       `json:"sendComExt"`
+	SendComStd AdminSt       `json:"sendComStd"`
+	Type       AddressFamily `json:"type"`
 
 	RtCtrlPItems struct {
 		RtCtrlPList gnmiext.List[RtCtrlDirection, *BGPPeerAfRtCtrlP] `json:"RtCtrlP-list,omitzero"`
@@ -490,7 +492,126 @@ const (
 	PeerAsnTypeInternal PeerAsnType = "internal"
 )
 
-const RouteReflectorClient = "rr-client"
+// PeerAfControl represents the control options for a BGP peer address family.
+// It supports a combination of the following flags:
+// 4 - rr-client
+// 8 - nh-self
+// 16 - dis-peer-as-check
+// 32 - allow-self-as
+// 64 - default-originate
+// 128 - advertisement-interval
+// 256 - suppress-inactive
+// 512 - nh-self-all
+type PeerAfControl uint16
+
+// Values match the NX-OS DME ctrl bit assignments.
+const (
+	PeerAfControlRouteReflectorClient PeerAfControl = 1 << (iota + 2)
+	PeerAfControlNextHopSelf
+	PeerAfControlDisablePeerASCheck
+	PeerAfControlAllowSelfAS
+	PeerAfControlDefaultOriginate
+	PeerAfControlAdvertisementInterval
+	PeerAfControlSuppressInactive
+	PeerAfControlNextHopSelfAll
+)
+
+var (
+	_ fmt.Stringer             = PeerAfControl(0)
+	_ json.Marshaler           = PeerAfControl(0)
+	_ json.Unmarshaler         = (*PeerAfControl)(nil)
+	_ encoding.TextMarshaler   = PeerAfControl(0)
+	_ encoding.TextUnmarshaler = (*PeerAfControl)(nil)
+)
+
+// MarshalJSON implements json.Marshaler.
+func (c PeerAfControl) MarshalJSON() ([]byte, error) {
+	if c == 0 {
+		return []byte(`"DME_UNSET_PROPERTY_MARKER"`), nil
+	}
+	return json.Marshal(c.String())
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (c *PeerAfControl) UnmarshalJSON(b []byte) error {
+	var value string
+	if err := json.Unmarshal(b, &value); err != nil {
+		return err
+	}
+	// A real device would not return this marker, we only handle it for testing purposes.
+	if value == "DME_UNSET_PROPERTY_MARKER" {
+		*c = 0
+		return nil
+	}
+	return c.UnmarshalText([]byte(value))
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (c *PeerAfControl) UnmarshalText(b []byte) error {
+	var controls PeerAfControl
+	for control := range strings.SplitSeq(string(b), ",") {
+		switch strings.TrimSpace(control) {
+		case "rr-client":
+			controls |= PeerAfControlRouteReflectorClient
+		case "nh-self":
+			controls |= PeerAfControlNextHopSelf
+		case "dis-peer-as-check":
+			controls |= PeerAfControlDisablePeerASCheck
+		case "allow-self-as":
+			controls |= PeerAfControlAllowSelfAS
+		case "default-originate":
+			controls |= PeerAfControlDefaultOriginate
+		case "advertisement-interval":
+			controls |= PeerAfControlAdvertisementInterval
+		case "suppress-inactive":
+			controls |= PeerAfControlSuppressInactive
+		case "nh-self-all":
+			controls |= PeerAfControlNextHopSelfAll
+		case "":
+			// ignore empty control
+		default:
+			return fmt.Errorf("bgp peer address family: unknown control %q", control)
+		}
+	}
+	*c = controls
+	return nil
+}
+
+// MarshalText implements encoding.TextMarshaler.
+func (c PeerAfControl) MarshalText() ([]byte, error) {
+	return []byte(c.String()), nil
+}
+
+// String implements fmt.Stringer.
+func (c PeerAfControl) String() string {
+	var controls []string
+	if c&PeerAfControlRouteReflectorClient != 0 {
+		controls = append(controls, "rr-client")
+	}
+	if c&PeerAfControlNextHopSelf != 0 {
+		controls = append(controls, "nh-self")
+	}
+	if c&PeerAfControlDisablePeerASCheck != 0 {
+		controls = append(controls, "dis-peer-as-check")
+	}
+	if c&PeerAfControlAllowSelfAS != 0 {
+		controls = append(controls, "allow-self-as")
+	}
+	if c&PeerAfControlDefaultOriginate != 0 {
+		controls = append(controls, "default-originate")
+	}
+	if c&PeerAfControlAdvertisementInterval != 0 {
+		controls = append(controls, "advertisement-interval")
+	}
+	if c&PeerAfControlSuppressInactive != 0 {
+		controls = append(controls, "suppress-inactive")
+	}
+	if c&PeerAfControlNextHopSelfAll != 0 {
+		controls = append(controls, "nh-self-all")
+	}
+	slices.Sort(controls)
+	return strings.Join(controls, ",")
+}
 
 const PeerControlType = "bfd"
 

@@ -372,15 +372,18 @@ func (r *BGPPeerReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 			}),
 		).
 		// Watches enqueues BGPPeers when a referenced RoutingPolicy is created or deleted.
-		// Only triggers on create and delete events since RoutingPolicy names are immutable.
+		// Triggers on create, delete, and update events when the RoutingPolicy's readiness changes.
+		// Policies attached to the peer may include actions in conflict with activated control settings, i.e., NextHopSelf.
 		Watches(
 			&v1alpha1.RoutingPolicy{},
 			handler.EnqueueRequestsFromMapFunc(r.routingPolicyToBGPPeers),
 			builder.WithPredicates(predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					return false
+					oldPolicy := e.ObjectOld.(*v1alpha1.RoutingPolicy)
+					newPolicy := e.ObjectNew.(*v1alpha1.RoutingPolicy)
+					return conditions.IsReady(oldPolicy) != conditions.IsReady(newPolicy)
 				},
-				GenericFunc: func(e event.GenericEvent) bool {
+				GenericFunc: func(event.GenericEvent) bool {
 					return false
 				},
 			}),
@@ -722,9 +725,8 @@ func (r *BGPPeerReconciler) reconcileVRF(ctx context.Context, peer *v1alpha1.BGP
 
 // reconcileRoutingPolicies resolves the inbound and outbound routing policy references
 // on each enabled address family of the BGPPeer.
-// Returns two maps from BGPAddressFamilyType to the device-level policy name.
 // Sets ConfiguredCondition and returns a terminal error when a referenced policy
-// is not found or belongs to a different device.
+// is not found, belongs to a different device, or it is not yet ready.
 func (r *BGPPeerReconciler) reconcileRoutingPolicies(ctx context.Context, peer *v1alpha1.BGPPeer, device *v1alpha1.Device) (inbound, outbound map[v1alpha1.BGPAddressFamilyType]string, err error) {
 	inbound = make(map[v1alpha1.BGPAddressFamilyType]string)
 	outbound = make(map[v1alpha1.BGPAddressFamilyType]string)
@@ -765,6 +767,15 @@ func (r *BGPPeerReconciler) reconcileRoutingPolicies(ctx context.Context, peer *
 					Message: fmt.Sprintf("RoutingPolicy %s belongs to device %s, not %s", ref.Name, rp.Spec.DeviceRef.Name, device.Name),
 				})
 				return nil, nil, reconcile.TerminalError(fmt.Errorf("routing policy %s belongs to different device", ref.Name))
+			}
+			if !conditions.IsReady(rp) {
+				conditions.Set(peer, metav1.Condition{
+					Type:    v1alpha1.ConfiguredCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  v1alpha1.WaitingForDependenciesReason,
+					Message: fmt.Sprintf("Waiting for RoutingPolicy %s to become ready", ref.Name),
+				})
+				return nil, nil, reconcile.TerminalError(fmt.Errorf("routing policy %s is not yet ready", ref.Name))
 			}
 			(*m)[afType] = rp.Spec.Name
 		}
