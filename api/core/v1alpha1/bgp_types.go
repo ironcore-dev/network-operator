@@ -167,18 +167,20 @@ type BGPRedistributeStaticRoutes struct {
 type BGPAggregateAddress struct {
 	// Prefix is the aggregate prefix to advertise in CIDR notation.
 	// +required
-	// +kubebuilder:validation:Format=cidr
-	Prefix string `json:"prefix"`
+	Prefix IPPrefix `json:"prefix"`
 	// SummaryOnly suppresses advertisement of more-specific prefixes covered by this aggregate.
 	// +optional
 	SummaryOnly bool `json:"summaryOnly,omitempty"`
-	// AsSet generates the AS_SET path attribute on the aggregate from the aggregated routes,
-	// preserving their AS path information.
+	// AttributeMap holds an optional reference to a RoutingPolicy applied to the aggregate advertisement.
 	// +optional
-	AsSet bool `json:"asSet,omitempty"`
-	// AttributeMap references a RoutingPolicy whose route-map is applied to the aggregate advertisement.
-	// +optional
-	AttributeMap *LocalObjectReference `json:"attributeMap,omitempty"`
+	AttributeMap *BGPAggregateAttributeMap `json:"attributeMap,omitempty"`
+}
+
+// BGPAggregateAttributeMap references a RoutingPolicy to apply to a BGP aggregate advertisement.
+type BGPAggregateAttributeMap struct {
+	// RoutingPolicyRef references the RoutingPolicy to apply.
+	// +required
+	RoutingPolicyRef LocalObjectReference `json:"routingPolicyRef"`
 }
 
 // BGPL2vpnEvpn defines the configuration for L2VPN EVPN address family.

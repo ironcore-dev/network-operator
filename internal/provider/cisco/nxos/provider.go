@@ -656,16 +656,16 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 			for _, aggAddr := range af.AggregateAddresses {
 				var attrMap string
 				if aggAddrs != nil {
-					if a, exist := aggAddrs[aggAddr.Prefix]; exist {
+					if a, exist := aggAddrs[aggAddr.Prefix.String()]; exist {
 						attrMap = a.Spec.Name
 					}
 				}
 
 				item.AggAddrItems.AggAddrList.Set(&BGPAggAddr{
-					Addr:        aggAddr.Prefix,
-					AttrMap:     attrMap,
+					Addr:        aggAddr.Prefix.String(),
+					AttrMap:     NewOption(attrMap),
 					SummaryOnly: adminSt(aggAddr.SummaryOnly),
-					AsSet:       adminSt(aggAddr.AsSet),
+					AsSet:       AdminStDisabled,
 				})
 			}
 
@@ -697,16 +697,16 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 			for _, aggAddr := range af.AggregateAddresses {
 				var attrMap string
 				if aggAddrs != nil {
-					if a, exist := aggAddrs[aggAddr.Prefix]; exist {
+					if a, exist := aggAddrs[aggAddr.Prefix.String()]; exist {
 						attrMap = a.Spec.Name
 					}
 				}
 
 				item.AggAddrItems.AggAddrList.Set(&BGPAggAddr{
-					Addr:        aggAddr.Prefix,
-					AttrMap:     attrMap,
+					Addr:        aggAddr.Prefix.String(),
+					AttrMap:     NewOption(attrMap),
 					SummaryOnly: adminSt(aggAddr.SummaryOnly),
-					AsSet:       adminSt(aggAddr.AsSet),
+					AsSet:       AdminStDisabled,
 				})
 			}
 			item.ExportGwIP = AdminStDisabled

@@ -222,10 +222,10 @@ func NewInterLeakPStatic(rtMap string) *InterLeakP {
 // asSet and summaryOnly are AdminSt ("enabled"/"disabled") — the device always
 // reports them, so they must be set explicitly (not omitted) to stay idempotent.
 type BGPAggAddr struct {
-	Addr        string  `json:"addr"`
-	AsSet       AdminSt `json:"asSet"`
-	SummaryOnly AdminSt `json:"summaryOnly"`
-	AttrMap     string  `json:"attrMap,omitempty"`
+	Addr        string         `json:"addr"`
+	AsSet       AdminSt        `json:"asSet"`
+	SummaryOnly AdminSt        `json:"summaryOnly"`
+	AttrMap     Option[string] `json:"attrMap"`
 }
 
 func (a *BGPAggAddr) Key() string { return a.Addr }

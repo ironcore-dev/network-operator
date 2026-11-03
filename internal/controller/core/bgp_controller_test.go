@@ -353,9 +353,11 @@ var _ = Describe("BGP Controller", func() {
 							Enabled: true,
 							AggregateAddresses: []v1alpha1.BGPAggregateAddress{
 								{
-									Prefix:       "10.0.0.0/8",
-									SummaryOnly:  true,
-									AttributeMap: &v1alpha1.LocalObjectReference{Name: "test-aggaddr-policy"},
+									Prefix:      v1alpha1.MustParsePrefix("10.0.0.0/8"),
+									SummaryOnly: true,
+									AttributeMap: &v1alpha1.BGPAggregateAttributeMap{
+										RoutingPolicyRef: v1alpha1.LocalObjectReference{Name: "test-aggaddr-policy"},
+									},
 								},
 							},
 						},

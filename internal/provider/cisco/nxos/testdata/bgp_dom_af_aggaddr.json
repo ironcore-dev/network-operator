@@ -15,7 +15,7 @@
                     "AggAddr-list": [
                       {
                         "addr": "10.0.0.0/8",
-                        "asSet": "enabled",
+                        "asSet": "disabled",
                         "summaryOnly": "enabled",
                         "attrMap": "AGGREGATE_MAP"
                       }

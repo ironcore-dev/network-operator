@@ -269,7 +269,7 @@ func (r *BGPReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 
 			for _, aggAddr := range af.AggregateAddresses {
 				if aggAddr.AttributeMap != nil {
-					names = append(names, aggAddr.AttributeMap.Name)
+					names = append(names, aggAddr.AttributeMap.RoutingPolicyRef.Name)
 				}
 			}
 		}
@@ -532,29 +532,29 @@ func (r *BGPReconciler) resolveAggregateAddressPolicies(ctx context.Context, bgp
 				continue
 			}
 			rp := new(v1alpha1.RoutingPolicy)
-			if err := r.Get(ctx, types.NamespacedName{Name: aggAddr.AttributeMap.Name, Namespace: bgp.Namespace}, rp); err != nil {
+			if err := r.Get(ctx, types.NamespacedName{Name: aggAddr.AttributeMap.RoutingPolicyRef.Name, Namespace: bgp.Namespace}, rp); err != nil {
 				if apierrors.IsNotFound(err) {
 					conditions.Set(bgp, metav1.Condition{
 						Type:    v1alpha1.ConfiguredCondition,
 						Status:  metav1.ConditionFalse,
 						Reason:  v1alpha1.WaitingForDependenciesReason,
-						Message: fmt.Sprintf("RoutingPolicy %s not found", aggAddr.AttributeMap.Name),
+						Message: fmt.Sprintf("RoutingPolicy %s not found", aggAddr.AttributeMap.RoutingPolicyRef.Name),
 					})
-					return nil, reconcile.TerminalError(fmt.Errorf("routing policy %s not found", aggAddr.AttributeMap.Name))
+					return nil, reconcile.TerminalError(fmt.Errorf("routing policy %s not found", aggAddr.AttributeMap.RoutingPolicyRef.Name))
 				}
-				return nil, fmt.Errorf("failed to get routing policy %s: %w", aggAddr.AttributeMap.Name, err)
+				return nil, fmt.Errorf("failed to get routing policy %s: %w", aggAddr.AttributeMap.RoutingPolicyRef.Name, err)
 			}
 			if rp.Spec.DeviceRef.Name != device.Name {
 				conditions.Set(bgp, metav1.Condition{
 					Type:    v1alpha1.ConfiguredCondition,
 					Status:  metav1.ConditionFalse,
 					Reason:  v1alpha1.CrossDeviceReferenceReason,
-					Message: fmt.Sprintf("RoutingPolicy %s belongs to device %s, not %s", aggAddr.AttributeMap.Name, rp.Spec.DeviceRef.Name, device.Name),
+					Message: fmt.Sprintf("RoutingPolicy %s belongs to device %s, not %s", aggAddr.AttributeMap.RoutingPolicyRef.Name, rp.Spec.DeviceRef.Name, device.Name),
 				})
-				return nil, reconcile.TerminalError(fmt.Errorf("routing policy %s belongs to different device", aggAddr.AttributeMap.Name))
+				return nil, reconcile.TerminalError(fmt.Errorf("routing policy %s belongs to different device", aggAddr.AttributeMap.RoutingPolicyRef.Name))
 			}
 
-			rps[aggAddr.Prefix] = rp
+			rps[aggAddr.Prefix.String()] = rp
 		}
 
 		result[afType] = rps

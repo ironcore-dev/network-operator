@@ -16,7 +16,8 @@
                       {
                         "addr": "20.0.0.0/8",
                         "asSet": "disabled",
-                        "summaryOnly": "disabled"
+                        "summaryOnly": "disabled",
+                        "attrMap": "DME_UNSET_PROPERTY_MARKER"
                       }
                     ]
                   }
