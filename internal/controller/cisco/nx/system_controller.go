@@ -249,14 +249,14 @@ func (r *SystemReconciler) reconcile(ctx context.Context, s *systemScope) (reter
 
 	s.System.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
-	defer conditions.RecomputeReady(s.System)
-
 	// Ensure the System is owned by the Device.
 	if !controllerutil.HasControllerReference(s.System) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.System, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
 	}
+
+	defer conditions.RecomputeReady(s.System)
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)

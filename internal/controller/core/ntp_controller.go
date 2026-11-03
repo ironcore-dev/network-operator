@@ -269,16 +269,14 @@ func (r *NTPReconciler) reconcile(ctx context.Context, s *ntpScope) (reterr erro
 
 	s.NTP.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
-	defer func() {
-		conditions.RecomputeReady(s.NTP)
-	}()
-
 	// Ensure the NTP is owned by the Device.
 	if !controllerutil.HasControllerReference(s.NTP) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.NTP, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
 	}
+
+	defer conditions.RecomputeReady(s.NTP)
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)

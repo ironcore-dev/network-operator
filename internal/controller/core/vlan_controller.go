@@ -284,9 +284,7 @@ func (r *VLANReconciler) reconcile(ctx context.Context, s *vlanScope) (reterr er
 		}
 	}
 
-	defer func() {
-		conditions.RecomputeReady(s.VLAN)
-	}()
+	defer conditions.RecomputeReady(s.VLAN)
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)

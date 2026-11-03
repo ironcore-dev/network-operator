@@ -304,9 +304,7 @@ func (r *OSPFReconciler) reconcile(ctx context.Context, s *ospfScope) (reterr er
 		}
 	}
 
-	defer func() {
-		conditions.RecomputeReady(s.OSPF)
-	}()
+	defer conditions.RecomputeReady(s.OSPF)
 
 	var interfaces []provider.OSPFInterface
 	for _, ref := range s.OSPF.Spec.InterfaceRefs {

@@ -504,9 +504,7 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (reterr e
 		}
 	}
 
-	defer func() {
-		conditions.RecomputeReady(s.Interface)
-	}()
+	defer conditions.RecomputeReady(s.Interface)
 
 	var members []*v1alpha1.Interface
 	if s.Interface.Spec.Aggregation != nil {

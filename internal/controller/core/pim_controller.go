@@ -286,16 +286,14 @@ func (r *PIMReconciler) reconcile(ctx context.Context, s *pimScope) (reterr erro
 
 	s.PIM.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
-	defer func() {
-		conditions.RecomputeReady(s.PIM)
-	}()
-
 	// Ensure the PIM is owned by the Device.
 	if !controllerutil.HasControllerReference(s.PIM) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.PIM, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
 	}
+
+	defer conditions.RecomputeReady(s.PIM)
 
 	var interfaces []provider.PIMInterface
 	for _, intf := range s.PIM.Spec.InterfaceRefs {

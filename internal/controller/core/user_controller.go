@@ -278,16 +278,14 @@ func (r *UserReconciler) reconcile(ctx context.Context, s *userScope) (reterr er
 
 	s.User.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
-	defer func() {
-		conditions.RecomputeReady(s.User)
-	}()
-
 	// Ensure the User is owned by the Device.
 	if !controllerutil.HasControllerReference(s.User) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.User, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
 	}
+
+	defer conditions.RecomputeReady(s.User)
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)

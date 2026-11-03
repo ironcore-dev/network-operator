@@ -263,16 +263,14 @@ func (r *AAAReconciler) reconcile(ctx context.Context, s *aaaScope) (reterr erro
 
 	s.AAA.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
-	defer func() {
-		conditions.RecomputeReady(s.AAA)
-	}()
-
 	// Ensure the AAA is owned by the Device.
 	if !controllerutil.HasControllerReference(s.AAA) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.AAA, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
 	}
+
+	defer conditions.RecomputeReady(s.AAA)
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)

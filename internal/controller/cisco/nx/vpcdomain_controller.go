@@ -288,6 +288,8 @@ func (r *VPCDomainReconciler) reconcile(ctx context.Context, s *vpcdomainScope) 
 		}
 	}
 
+	defer conditions.RecomputeReady(s.VPCDomain)
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -295,10 +297,6 @@ func (r *VPCDomainReconciler) reconcile(ctx context.Context, s *vpcdomainScope) 
 		if err := s.Provider.Disconnect(ctx, s.Connection); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
-	}()
-
-	defer func() {
-		conditions.RecomputeReady(s.VPCDomain)
 	}()
 
 	peerLink, err := r.reconcilePeerLink(ctx, s)

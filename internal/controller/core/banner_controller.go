@@ -285,16 +285,14 @@ func (r *BannerReconciler) reconcile(ctx context.Context, s *bannerScope) (reter
 
 	s.Banner.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
-	defer func() {
-		conditions.RecomputeReady(s.Banner)
-	}()
-
 	// Ensure the Banner is owned by the Device.
 	if !controllerutil.HasControllerReference(s.Banner) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.Banner, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
 	}
+
+	defer conditions.RecomputeReady(s.Banner)
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)

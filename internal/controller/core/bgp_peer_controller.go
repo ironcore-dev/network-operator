@@ -425,9 +425,7 @@ func (r *BGPPeerReconciler) reconcile(ctx context.Context, s *bgpPeerScope) (ret
 		}
 	}
 
-	defer func() {
-		conditions.RecomputeReady(s.BGPPeer)
-	}()
+	defer conditions.RecomputeReady(s.BGPPeer)
 
 	bgp, err := r.reconcileBGP(ctx, s.BGPPeer, s.Device)
 	if err != nil {

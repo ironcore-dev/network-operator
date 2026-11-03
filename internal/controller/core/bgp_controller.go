@@ -352,14 +352,14 @@ func (r *BGPReconciler) reconcile(ctx context.Context, s *bgpScope) (reterr erro
 
 	s.BGP.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
-	defer conditions.RecomputeReady(s.BGP)
-
 	// Ensure the BGP is owned by the Device.
 	if !controllerutil.HasControllerReference(s.BGP) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.BGP, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
 	}
+
+	defer conditions.RecomputeReady(s.BGP)
 
 	var vrf *v1alpha1.VRF
 	var err error

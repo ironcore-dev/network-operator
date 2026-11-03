@@ -222,9 +222,7 @@ func (r *NetworkVirtualizationEdgeReconciler) reconcile(ctx context.Context, s *
 		}
 	}
 
-	defer func() {
-		conditions.RecomputeReady(s.NVE)
-	}()
+	defer conditions.RecomputeReady(s.NVE)
 
 	if err := r.validateUniqueNVEPerDevice(ctx, s); err != nil {
 		return err
