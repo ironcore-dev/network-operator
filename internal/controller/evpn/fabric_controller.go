@@ -1008,12 +1008,11 @@ func (r *FabricReconciler) reconcileBGP(ctx context.Context, device *v1alpha1.De
 		bgp.Spec.AdminState = v1alpha1.AdminStateUp
 		bgp.Spec.ASNumber = fabric.Spec.Overlay.IBGP.ASNumber
 		bgp.Spec.RouterID = routerID
+		// "retain route-target all" is an eBGP-only construct; iBGP route
+		// reflectors reflect all EVPN routes regardless of imported RTs.
 		bgp.Spec.AddressFamilies = &v1alpha1.BGPAddressFamilies{
 			L2vpnEvpn: &v1alpha1.BGPL2vpnEvpn{
 				Enabled: true,
-				RouteTargetPolicy: &v1alpha1.BGPRouteTargetPolicy{
-					RetainAll: true,
-				},
 			},
 		}
 		return controllerutil.SetOwnerReference(fabric, bgp, r.Scheme)
