@@ -265,6 +265,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `deviceSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#labelselector-v1-meta)_ | deviceSelector identifies which devices are configured as VTEPs. |  | Required: \{\} <br /> |
+| `anycastVTEP` _boolean_ | anycastVTEP enables allocation of an anycast VTEP loopback (lo2) on each<br />VTEP device. Disabling it removes the lo2 Claim and Interface the fabric<br />previously created; the underlying IP is released or retained per the<br />pool's reclaim policy. | false | Optional: \{\} <br /> |
 | `anycastGateway` _[FabricAnycastGatewaySpec](#fabricanycastgatewayspec)_ | anycastGateway configures the anycast gateway shared across all VTEP devices. |  | Optional: \{\} <br /> |
 
 

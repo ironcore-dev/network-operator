@@ -604,6 +604,14 @@ spec:
                     required:
                     - virtualMAC
                     type: object
+                  anycastVTEP:
+                    default: false
+                    description: |-
+                      anycastVTEP enables allocation of an anycast VTEP loopback (lo2) on each
+                      VTEP device. Disabling it removes the lo2 Claim and Interface the fabric
+                      previously created; the underlying IP is released or retained per the
+                      pool's reclaim policy.
+                    type: boolean
                   deviceSelector:
                     description: deviceSelector identifies which devices are configured
                       as VTEPs.
