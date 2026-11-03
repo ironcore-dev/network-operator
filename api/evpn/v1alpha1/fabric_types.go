@@ -236,6 +236,14 @@ type FabricVTEPSpec struct {
 	// +required
 	DeviceSelector metav1.LabelSelector `json:"deviceSelector"`
 
+	// anycastVTEP enables allocation of an anycast VTEP loopback (lo2) on each
+	// VTEP device. Disabling it removes the lo2 Claim and Interface the fabric
+	// previously created; the underlying IP is released or retained per the
+	// pool's reclaim policy.
+	// +optional
+	// +kubebuilder:default=false
+	AnycastVTEP bool `json:"anycastVTEP,omitempty"`
+
 	// anycastGateway configures the anycast gateway shared across all VTEP devices.
 	// +optional
 	AnycastGateway *FabricAnycastGatewaySpec `json:"anycastGateway,omitempty"`

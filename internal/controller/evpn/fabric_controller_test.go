@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
@@ -35,7 +36,7 @@ import (
 //
 //	lo0  (Router-ID)    — all 4 devices
 //	lo1  (primary VTEP) — leaf-1, leaf-2
-//	lo2  (anycast VTEP) — leaf-1, leaf-2
+//	lo2  (anycast VTEP) — leaf-1, leaf-2 (only when spec.vtep.anycastVTEP is true)
 //	lo100 (anycast RP)  — 1 Claim shared across spine-1, spine-2
 var _ = Describe("Fabric Controller", func() {
 	Context("When reconciling with unnumbered underlay addressing", func() {
@@ -211,6 +212,7 @@ var _ = Describe("Fabric Controller", func() {
 					},
 					VTEP: evpnv1alpha1.FabricVTEPSpec{
 						DeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "leaf"}},
+						AnycastVTEP:    true,
 					},
 					VNIPool: corev1alpha1.TypedLocalObjectReference{
 						APIVersion: poolv1alpha1.GroupVersion.String(),
@@ -569,6 +571,117 @@ var _ = Describe("Fabric Controller", func() {
 					HaveField("Status", metav1.ConditionFalse),
 				)))
 			}).Should(Succeed())
+		})
+
+		It("Should gate the lo2 anycast VTEP loopback on spec.vtep.anycastVTEP and clean it up on a transition to false", func() {
+			By("Creating the Fabric with anycastVTEP disabled")
+			fabric := &evpnv1alpha1.Fabric{
+				Name:      "anycast-fabric",
+				Namespace: metav1.NamespaceDefault,
+				Spec: evpnv1alpha1.FabricSpec{
+					DeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"topology.kubernetes.io/zone": "test-zone"}},
+					Loopbacks:      evpnv1alpha1.FabricLoopbacksSpec{IPAddressPoolRef: corev1alpha1.LocalObjectReference{Name: loopbackPool.Name}},
+					Underlay: evpnv1alpha1.FabricUnderlaySpec{
+						Protocol:          evpnv1alpha1.UnderlayProtocolOSPF,
+						InterfaceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "fabric"}},
+						Addressing:        evpnv1alpha1.FabricUnderlayAddressingSpec{Unnumbered: true},
+					},
+					Overlay: evpnv1alpha1.FabricOverlaySpec{
+						Protocol: evpnv1alpha1.OverlayProtocolIBGP,
+						IBGP: &evpnv1alpha1.FabricIBGPSpec{
+							ASNumber: intstr.FromInt(65000),
+							RouteReflectors: []evpnv1alpha1.RouteReflectorGroup{{
+								Name:                 "spines",
+								DeviceSelector:       metav1.LabelSelector{MatchLabels: map[string]string{"role": "spine"}},
+								ClientDeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "leaf"}},
+							}},
+						},
+					},
+					BUM: evpnv1alpha1.FabricBUMSpec{
+						Type: evpnv1alpha1.BUMTypeMulticast,
+						PIM: &evpnv1alpha1.FabricPIMSpec{
+							AnycastRendezvousPoints: []evpnv1alpha1.AnycastRendezvousPoint{{
+								Name:                 "spine-rp",
+								MulticastGroups:      []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("224.0.0.0/4")},
+								DeviceSelector:       metav1.LabelSelector{MatchLabels: map[string]string{"role": "spine"}},
+								ClientDeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "leaf"}},
+							}},
+						},
+					},
+					VTEP: evpnv1alpha1.FabricVTEPSpec{
+						DeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "leaf"}},
+						AnycastVTEP:    false,
+					},
+					VNIPool: corev1alpha1.TypedLocalObjectReference{APIVersion: poolv1alpha1.GroupVersion.String(), Kind: "IndexPool", Name: indexPool.Name},
+				},
+			}
+			Expect(k8sClient.Create(ctx, fabric)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, fabric))).To(Succeed())
+				Expect(k8sClient.DeleteAllOf(ctx, &poolv1alpha1.Claim{}, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+				Eventually(func(g Gomega) {
+					list := &poolv1alpha1.ClaimList{}
+					g.Expect(k8sClient.List(ctx, list, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+					g.Expect(list.Items).To(BeEmpty())
+				}).Should(Succeed())
+			})
+
+			By("Verifying lo1 is created but lo2 is not")
+			for _, d := range []*corev1alpha1.Device{leaf1, leaf2} {
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-lo1", Namespace: metav1.NamespaceDefault}, &poolv1alpha1.Claim{})).To(Succeed())
+				}).Should(Succeed())
+				Consistently(func(g Gomega) {
+					g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-lo2", Namespace: metav1.NamespaceDefault}, &poolv1alpha1.Claim{}))).To(BeTrue())
+					g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-lo2", Namespace: metav1.NamespaceDefault}, &corev1alpha1.Interface{}))).To(BeTrue())
+				}, "1s").Should(Succeed())
+			}
+
+			By("Verifying the NVE has no anycast source interface reference")
+			for _, d := range []*corev1alpha1.Device{leaf1, leaf2} {
+				Eventually(func(g Gomega) {
+					nve := &corev1alpha1.NetworkVirtualizationEdge{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-nve", Namespace: metav1.NamespaceDefault}, nve)).To(Succeed())
+					g.Expect(nve.Spec.AnycastSourceInterfaceRef).To(BeNil())
+				}).Should(Succeed())
+			}
+
+			By("Enabling anycastVTEP and verifying lo2 Claim, Interface, and NVE reference appear")
+			Eventually(func(g Gomega) {
+				f := &evpnv1alpha1.Fabric{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(fabric), f)).To(Succeed())
+				f.Spec.VTEP.AnycastVTEP = true
+				g.Expect(k8sClient.Update(ctx, f)).To(Succeed())
+			}).Should(Succeed())
+
+			for _, d := range []*corev1alpha1.Device{leaf1, leaf2} {
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-lo2", Namespace: metav1.NamespaceDefault}, &poolv1alpha1.Claim{})).To(Succeed())
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-lo2", Namespace: metav1.NamespaceDefault}, &corev1alpha1.Interface{})).To(Succeed())
+					nve := &corev1alpha1.NetworkVirtualizationEdge{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-nve", Namespace: metav1.NamespaceDefault}, nve)).To(Succeed())
+					g.Expect(nve.Spec.AnycastSourceInterfaceRef).NotTo(BeNil())
+					g.Expect(nve.Spec.AnycastSourceInterfaceRef.Name).To(Equal(fabric.Name + "-" + d.Name + "-lo2"))
+				}).Should(Succeed())
+			}
+
+			By("Disabling anycastVTEP again and verifying lo2 Claim and Interface are cleaned up")
+			Eventually(func(g Gomega) {
+				f := &evpnv1alpha1.Fabric{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(fabric), f)).To(Succeed())
+				f.Spec.VTEP.AnycastVTEP = false
+				g.Expect(k8sClient.Update(ctx, f)).To(Succeed())
+			}).Should(Succeed())
+
+			for _, d := range []*corev1alpha1.Device{leaf1, leaf2} {
+				Eventually(func(g Gomega) {
+					g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-lo2", Namespace: metav1.NamespaceDefault}, &poolv1alpha1.Claim{}))).To(BeTrue())
+					g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-lo2", Namespace: metav1.NamespaceDefault}, &corev1alpha1.Interface{}))).To(BeTrue())
+					nve := &corev1alpha1.NetworkVirtualizationEdge{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-nve", Namespace: metav1.NamespaceDefault}, nve)).To(Succeed())
+					g.Expect(nve.Spec.AnycastSourceInterfaceRef).To(BeNil())
+				}).Should(Succeed())
+			}
 		})
 	})
 
