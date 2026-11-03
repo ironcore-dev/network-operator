@@ -29,6 +29,7 @@ spec:
     protocol: IBGP
     ibgp:
       asNumber: 65000
+      maximumPaths: 4
       routeReflectors:
         - name: spine-rrs
           deviceSelector:

@@ -11,6 +11,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -184,7 +185,8 @@ var _ = Describe("Fabric Controller", func() {
 					Overlay: evpnv1alpha1.FabricOverlaySpec{
 						Protocol: evpnv1alpha1.OverlayProtocolIBGP,
 						IBGP: &evpnv1alpha1.FabricIBGPSpec{
-							ASNumber: intstr.FromInt(65000),
+							ASNumber:     intstr.FromInt(65000),
+							MaximumPaths: ptr.To[int8](4),
 							RouteReflectors: []evpnv1alpha1.RouteReflectorGroup{
 								{
 									Name:                 "spines",
@@ -402,6 +404,12 @@ var _ = Describe("Fabric Controller", func() {
 					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn).NotTo(BeNil())
 					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn.Enabled).To(BeTrue())
 					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn.RouteTargetPolicy).To(BeNil())
+
+					// iBGP EVPN multipath must reflect the fabric maximumPaths.
+					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn.Multipath).NotTo(BeNil())
+					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn.Multipath.Enabled).To(BeTrue())
+					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn.Multipath.Ibgp).NotTo(BeNil())
+					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn.Multipath.Ibgp.MaximumPaths).To(Equal(int8(4)))
 
 					g.Expect(bgp.OwnerReferences).To(ContainElement(SatisfyAll(
 						HaveField("Kind", "Fabric"),
