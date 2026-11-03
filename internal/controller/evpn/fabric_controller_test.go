@@ -397,12 +397,11 @@ var _ = Describe("Fabric Controller", func() {
 					g.Expect(lo0.Spec.IPv4).NotTo(BeNil())
 					g.Expect(bgp.Spec.RouterID).To(Equal(lo0.Spec.IPv4.Addresses[0].Addr().String()))
 
-					// L2VPN EVPN must be enabled with retainAll.
+					// iBGP fabric: retain route-target all is not configured.
 					g.Expect(bgp.Spec.AddressFamilies).NotTo(BeNil())
 					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn).NotTo(BeNil())
 					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn.Enabled).To(BeTrue())
-					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn.RouteTargetPolicy).NotTo(BeNil())
-					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn.RouteTargetPolicy.RetainAll).To(BeTrue())
+					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn.RouteTargetPolicy).To(BeNil())
 
 					g.Expect(bgp.OwnerReferences).To(ContainElement(SatisfyAll(
 						HaveField("Kind", "Fabric"),
