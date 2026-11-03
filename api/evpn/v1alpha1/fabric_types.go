@@ -141,6 +141,14 @@ type FabricIBGPSpec struct {
 	// +listMapKey=name
 	// +kubebuilder:validation:MinItems=1
 	RouteReflectors []RouteReflectorGroup `json:"routeReflectors"`
+
+	// maximumPaths sets the maximum number of equal-cost iBGP paths used for
+	// L2VPN EVPN multipath load balancing on every device in the fabric. When
+	// omitted, the platform default (single best path) applies.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=64
+	MaximumPaths *int8 `json:"maximumPaths,omitempty"`
 }
 
 // RouteReflectorGroup defines a set of BGP route reflectors and their clients.

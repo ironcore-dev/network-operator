@@ -124,6 +124,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | asNumber is the BGP autonomous system number shared by all devices in the<br />iBGP fabric. Supports both plain format (1-4294967295) and dotted notation<br />(1-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
 | `routeReflectors` _[RouteReflectorGroup](#routereflectorgroup) array_ | routeReflectors lists the route reflector groups that provide iBGP scalability.<br />Each group designates a set of reflectors and their client devices. |  | MinItems: 1 <br />Required: \{\} <br /> |
+| `maximumPaths` _integer_ | maximumPaths sets the maximum number of equal-cost iBGP paths used for<br />L2VPN EVPN multipath load balancing on every device in the fabric. When<br />omitted, the platform default (single best path) applies. |  | Maximum: 64 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 
 
 #### FabricLoopbacksSpec
