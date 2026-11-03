@@ -263,7 +263,6 @@ type aclScope struct {
 }
 
 func (r *AccessControlListReconciler) reconcile(ctx context.Context, s *aclScope) (reterr error) {
-	defer conditions.RecomputeReady(s.ACL)
 	if s.ACL.Labels == nil {
 		s.ACL.Labels = make(map[string]string)
 	}
@@ -276,6 +275,8 @@ func (r *AccessControlListReconciler) reconcile(ctx context.Context, s *aclScope
 			return err
 		}
 	}
+
+	defer conditions.RecomputeReady(s.ACL)
 
 	if len(s.ACL.Spec.Entries) == 1 {
 		s.ACL.Status.EntriesSummary = "1 entry"

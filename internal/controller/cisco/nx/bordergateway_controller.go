@@ -329,14 +329,14 @@ func (r *BorderGatewayReconciler) reconcile(ctx context.Context, s *borderGatewa
 
 	s.BorderGateway.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
-	defer conditions.RecomputeReady(s.BorderGateway)
-
 	// Ensure the BorderGateway is owned by the Device.
 	if !controllerutil.HasControllerReference(s.BorderGateway) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.BorderGateway, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
 	}
+
+	defer conditions.RecomputeReady(s.BorderGateway)
 
 	sourceInterface, err := r.reconcileSourceInterface(ctx, s)
 	if err != nil {

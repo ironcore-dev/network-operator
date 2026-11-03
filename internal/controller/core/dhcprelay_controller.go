@@ -222,16 +222,14 @@ func (r *DHCPRelayReconciler) reconcile(ctx context.Context, s *dhcprelayScope) 
 	}
 	s.DHCPRelay.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
-	defer func() {
-		conditions.RecomputeReady(s.DHCPRelay)
-	}()
-
 	// Ensure the DHCPRelay is owned by the Device.
 	if !controllerutil.HasControllerReference(s.DHCPRelay) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.DHCPRelay, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
 	}
+
+	defer conditions.RecomputeReady(s.DHCPRelay)
 
 	if err := r.validateProviderConfigRef(ctx, s); err != nil {
 		return err

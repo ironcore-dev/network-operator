@@ -217,16 +217,14 @@ func (r *VRFReconciler) reconcile(ctx context.Context, s *vrfScope) (reterr erro
 	}
 	s.VRF.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
-	defer func() {
-		conditions.RecomputeReady(s.VRF)
-	}()
-
 	// Ensure the VRF is owned by the Device.
 	if !controllerutil.HasControllerReference(s.VRF) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.VRF, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
 	}
+
+	defer conditions.RecomputeReady(s.VRF)
 
 	// Connect to remote device using the provider.
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {

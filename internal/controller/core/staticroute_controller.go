@@ -324,9 +324,7 @@ func (r *StaticRouteReconciler) reconcile(ctx context.Context, s *staticRouteSco
 		}
 	}
 
-	defer func() {
-		conditions.RecomputeReady(s.StaticRoute)
-	}()
+	defer conditions.RecomputeReady(s.StaticRoute)
 
 	var vrf *v1alpha1.VRF
 	if s.StaticRoute.Spec.VrfRef != nil {

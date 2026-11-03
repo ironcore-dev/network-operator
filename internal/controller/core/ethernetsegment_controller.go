@@ -307,9 +307,7 @@ func (r *EthernetSegmentReconciler) reconcile(ctx context.Context, s *ethernetSe
 		}
 	}
 
-	defer func() {
-		conditions.RecomputeReady(s.EthernetSegment)
-	}()
+	defer conditions.RecomputeReady(s.EthernetSegment)
 
 	intf, err := r.reconcileInterface(ctx, s)
 	if err != nil {

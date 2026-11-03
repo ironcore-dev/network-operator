@@ -269,14 +269,14 @@ func (r *ManagementAccessReconciler) reconcile(ctx context.Context, s *managemen
 
 	s.ManagementAccess.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
-	defer conditions.RecomputeReady(s.ManagementAccess)
-
 	// Ensure the ManagementAccess is owned by the Device.
 	if !controllerutil.HasControllerReference(s.ManagementAccess) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.ManagementAccess, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
 	}
+
+	defer conditions.RecomputeReady(s.ManagementAccess)
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)

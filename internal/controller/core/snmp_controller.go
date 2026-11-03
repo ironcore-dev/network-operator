@@ -269,16 +269,14 @@ func (r *SNMPReconciler) reconcile(ctx context.Context, s *snmpScope) (reterr er
 
 	s.SNMP.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
-	defer func() {
-		conditions.RecomputeReady(s.SNMP)
-	}()
-
 	// Ensure the SNMP is owned by the Device.
 	if !controllerutil.HasControllerReference(s.SNMP) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.SNMP, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
 	}
+
+	defer conditions.RecomputeReady(s.SNMP)
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)

@@ -269,16 +269,14 @@ func (r *PrefixSetReconciler) reconcile(ctx context.Context, s *prefixSetScope) 
 
 	s.PrefixSet.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
-	defer func() {
-		conditions.RecomputeReady(s.PrefixSet)
-	}()
-
 	// Ensure the PrefixSet is owned by the Device.
 	if !controllerutil.HasControllerReference(s.PrefixSet) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.PrefixSet, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
 	}
+
+	defer conditions.RecomputeReady(s.PrefixSet)
 
 	if len(s.PrefixSet.Spec.Entries) == 1 {
 		s.PrefixSet.Status.EntriesSummary = "1 prefix"
