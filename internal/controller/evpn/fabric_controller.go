@@ -1315,6 +1315,22 @@ func (r *FabricReconciler) reconcilePIM(ctx context.Context, deviceName string, 
 	return nil
 }
 
+// nveL2MulticastGroup resolves the global Layer 2 BUM mcast-group for VTEP NVEs:
+// spec.bum.defaultMulticastGroup if set, else the first PIM RP group as a fallback.
+// Returns nil when BUM is not Multicast.
+// FIXME: the RP-derivation fallback is migration-only; remove once all fabrics set
+// spec.bum.defaultMulticastGroup.
+func nveL2MulticastGroup(fabric *evpnv1alpha1.Fabric) *v1alpha1.IPPrefix {
+	if fabric.Spec.BUM.Type != evpnv1alpha1.BUMTypeMulticast {
+		return nil
+	}
+	if fabric.Spec.BUM.DefaultMulticastGroup != nil {
+		return fabric.Spec.BUM.DefaultMulticastGroup
+	}
+	// API validation guarantees PIM, an RP, and a group exist in the fallback case.
+	return &fabric.Spec.BUM.PIM.AnycastRendezvousPoints[0].MulticastGroups[0]
+}
+
 // reconcileVTEPNVE creates one NetworkVirtualizationEdge resource per VTEP device.
 // The NVE references lo1 (primary VTEP) as source, and lo2 (anycast VTEP) as anycast
 // source when spec.vtep.anycastVTEP is enabled.
@@ -1329,6 +1345,8 @@ func (r *FabricReconciler) reconcileVTEPNVE(ctx context.Context, fabric *evpnv1a
 		return ctrl.Result{}, fmt.Errorf("listing VTEP devices: %w", err)
 	}
 
+	l2Group := nveL2MulticastGroup(fabric)
+
 	for i := range devices.Items {
 		device := &devices.Items[i]
 
@@ -1342,7 +1360,7 @@ func (r *FabricReconciler) reconcileVTEPNVE(ctx context.Context, fabric *evpnv1a
 			continue
 		}
 
-		if err := r.reconcileNVE(ctx, device, fabric, lo1Name, lo2Name); err != nil {
+		if err := r.reconcileNVE(ctx, device, fabric, lo1Name, lo2Name, l2Group); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -1350,7 +1368,7 @@ func (r *FabricReconciler) reconcileVTEPNVE(ctx context.Context, fabric *evpnv1a
 }
 
 // reconcileNVE creates or updates the NetworkVirtualizationEdge resource for a VTEP device.
-func (r *FabricReconciler) reconcileNVE(ctx context.Context, device *v1alpha1.Device, fabric *evpnv1alpha1.Fabric, lo1Name, lo2Name string) error {
+func (r *FabricReconciler) reconcileNVE(ctx context.Context, device *v1alpha1.Device, fabric *evpnv1alpha1.Fabric, lo1Name, lo2Name string, l2Group *v1alpha1.IPPrefix) error {
 	name := fmt.Sprintf("%s-%s-nve", fabric.Name, device.Name)
 
 	nve := &v1alpha1.NetworkVirtualizationEdge{
@@ -1371,6 +1389,11 @@ func (r *FabricReconciler) reconcileNVE(ctx context.Context, device *v1alpha1.De
 			nve.Spec.AnycastSourceInterfaceRef = &v1alpha1.LocalObjectReference{Name: lo2Name}
 		} else {
 			nve.Spec.AnycastSourceInterfaceRef = nil
+		}
+		// Explicit nil self-corrects when BUM leaves Multicast.
+		nve.Spec.MulticastGroups = nil
+		if l2Group != nil {
+			nve.Spec.MulticastGroups = &v1alpha1.MulticastGroups{L2: l2Group}
 		}
 		if fabric.Spec.VTEP.AnycastGateway != nil {
 			nve.Spec.AnycastGateway = &v1alpha1.AnycastGateway{

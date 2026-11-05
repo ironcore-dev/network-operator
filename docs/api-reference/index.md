@@ -107,6 +107,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `type` _[BUMType](#bumtype)_ | type selects the BUM forwarding mechanism. |  | Enum: [Multicast] <br />Required: \{\} <br /> |
 | `pim` _[FabricPIMSpec](#fabricpimspec)_ | pim configures PIM sparse mode when type is Multicast. |  | Optional: \{\} <br /> |
+| `defaultMulticastGroup` _[IPPrefix](#ipprefix)_ | defaultMulticastGroup is the IPv4 multicast group programmed as the global<br />Layer 2 BUM mcast-group on every VTEP NVE. If unset, it is derived from the<br />first entry of the first pim.anycastRendezvousPoints group; this derivation<br />is a migration fallback for fabrics authored before this field existed and<br />is only allowed when that group serves a single multicastGroups entry,<br />otherwise the field is required. Per-VNI mcast-group overrides are not supported. |  | Format: cidr <br />Type: string <br />Optional: \{\} <br /> |
 
 
 #### FabricIBGPSpec
@@ -2596,6 +2597,7 @@ _Validation:_
 _Appears in:_
 - [ACLEntry](#aclentry)
 - [AnycastRendezvousPoint](#anycastrendezvouspoint)
+- [FabricBUMSpec](#fabricbumspec)
 - [IPAddressPoolSpec](#ipaddresspoolspec)
 - [IPPrefixPoolSpec](#ipprefixpoolspec)
 - [IPPrefixSpec](#ipprefixspec)
