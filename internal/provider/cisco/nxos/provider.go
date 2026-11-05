@@ -975,15 +975,22 @@ func bgpPeerAfItems(req *provider.EnsureBGPPeerRequest) gnmiext.List[AddressFami
 		if af.SendCommunity == v1alpha1.BGPCommunityTypeExtended || af.SendCommunity == v1alpha1.BGPCommunityTypeBoth {
 			item.SendComExt = AdminStEnabled
 		}
-		if af.RouteReflectorClient {
-			item.Ctrl = NewOption(RouteReflectorClient)
-		}
+
 		afType := t.ToAddressFamilyType()
-		if name, ok := req.InboundRoutingPolicies[afType]; ok {
-			item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionIn, RtMap: name})
+		var ctrl PeerAfControl
+		if af.RouteReflectorClient {
+			ctrl |= PeerAfControlRouteReflectorClient
 		}
-		if name, ok := req.OutboundRoutingPolicies[afType]; ok {
-			item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionOut, RtMap: name})
+		if af.NextHopSelf {
+			ctrl |= PeerAfControlNextHopSelf
+		}
+		item.Ctrl = ctrl
+
+		if policy, ok := req.InboundRoutingPolicies[afType]; ok {
+			item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionIn, RtMap: policy})
+		}
+		if policy, ok := req.OutboundRoutingPolicies[afType]; ok {
+			item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionOut, RtMap: policy})
 		}
 		list.Set(item)
 	}
@@ -2903,6 +2910,7 @@ func (p *Provider) DeletePrefixSet(ctx context.Context, req *provider.DeletePref
 	return p.client.Delete(ctx, s)
 }
 
+// EnsureRoutingPolicy installs the route-map definition and its statement actions.
 func (p *Provider) EnsureRoutingPolicy(ctx context.Context, req *provider.EnsureRoutingPolicyRequest) error {
 	rm := new(RouteMap)
 	rm.Name = req.Name
@@ -2931,6 +2939,10 @@ func (p *Provider) EnsureRoutingPolicy(ctx context.Context, req *provider.Ensure
 		}
 
 		if stmt.Actions.BgpActions != nil {
+			if stmt.Actions.BgpActions.SetNextHop != nil {
+				nextHop := stmt.Actions.BgpActions.SetNextHop
+				e.NhItems.SetNhList.Set(&RouteMapNextHop{Addr: nextHop.IPAddr.String()})
+			}
 			if stmt.Actions.BgpActions.SetCommunity != nil {
 				if err := e.SetCommunities(stmt.Actions.BgpActions.SetCommunity.Communities, stmt.Actions.BgpActions.SetCommunity.Operation); err != nil {
 					return err

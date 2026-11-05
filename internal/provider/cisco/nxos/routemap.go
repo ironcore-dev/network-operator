@@ -24,8 +24,11 @@ func (rm *RouteMap) XPath() string {
 }
 
 type RouteMapEntry struct {
-	Action    Action `json:"action"`
-	Order     int32  `json:"order"`
+	Action  Action `json:"action"`
+	Order   int32  `json:"order"`
+	NhItems struct {
+		SetNhList gnmiext.List[string, *RouteMapNextHop] `json:"SetNh-list,omitzero"`
+	} `json:"nh-items,omitzero"`
 	SrttItems struct {
 		Additive  AdminSt `json:"additive"`
 		ItemItems struct {
@@ -74,6 +77,12 @@ type RouteMapEntry struct {
 }
 
 func (e *RouteMapEntry) Key() int32 { return e.Order }
+
+type RouteMapNextHop struct {
+	Addr string `json:"addr"`
+}
+
+func (n *RouteMapNextHop) Key() string { return n.Addr }
 
 func (e *RouteMapEntry) SetCommunities(communities []string, operation v1alpha1.CommunityOperation) error {
 	for _, comm := range communities {

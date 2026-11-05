@@ -3,6 +3,10 @@
 
 package nxos
 
+import (
+	"testing"
+)
+
 func init() {
 	bgp := &BGP{AdminSt: AdminStEnabled, Asn: "65000"}
 	Register("bgp", bgp)
@@ -61,7 +65,7 @@ func init() {
 		BfdType: BfdTypeNone,
 	}
 	bgpPeer.AfItems.PeerAfList.Set(&BGPPeerAfItem{
-		Ctrl:       Option[string]{Value: new(RouteReflectorClient)},
+		Ctrl:       PeerAfControlRouteReflectorClient,
 		SendComExt: AdminStEnabled,
 		SendComStd: AdminStEnabled,
 		Type:       AddressFamilyL2EVPN,
@@ -138,4 +142,41 @@ func init() {
 		TTL:     NewOption[int32](2),
 		BfdType: BfdTypeNone,
 	})
+}
+
+func TestPeerAfControl(t *testing.T) {
+	tests := []struct {
+		control string
+		want    PeerAfControl
+		round   string
+	}{
+		{control: "rr-client", want: PeerAfControlRouteReflectorClient, round: "rr-client"},
+		{control: "nh-self", want: PeerAfControlNextHopSelf, round: "nh-self"},
+		{control: "dis-peer-as-check", want: PeerAfControlDisablePeerASCheck, round: "dis-peer-as-check"},
+		{control: "allow-self-as", want: PeerAfControlAllowSelfAS, round: "allow-self-as"},
+		{control: "default-originate", want: PeerAfControlDefaultOriginate, round: "default-originate"},
+		{control: "advertisement-interval", want: PeerAfControlAdvertisementInterval, round: "advertisement-interval"},
+		{control: "suppress-inactive", want: PeerAfControlSuppressInactive, round: "suppress-inactive"},
+		{control: "nh-self-all", want: PeerAfControlNextHopSelfAll, round: "nh-self-all"},
+		{control: "rr-client,nh-self", want: PeerAfControlRouteReflectorClient | PeerAfControlNextHopSelf, round: "nh-self,rr-client"},
+		{control: "nh-self,rr-client", want: PeerAfControlRouteReflectorClient | PeerAfControlNextHopSelf, round: "nh-self,rr-client"},
+		{control: "", want: 0, round: ""},
+	}
+	for _, test := range tests {
+		var got PeerAfControl
+		if err := got.UnmarshalText([]byte(test.control)); err != nil {
+			t.Errorf("UnmarshalText(%q) returned %v", test.control, err)
+			continue
+		}
+		if got != test.want {
+			t.Errorf("UnmarshalText(%q) = %d, want %d", test.control, got, test.want)
+		}
+		if s := got.String(); s != test.round {
+			t.Errorf("UnmarshalText(%q).String() = %q, want %q", test.control, s, test.round)
+		}
+	}
+	var control PeerAfControl
+	if err := control.UnmarshalText([]byte("rr-client,bogus")); err == nil {
+		t.Error("UnmarshalText did not reject an unknown control")
+	}
 }

@@ -148,6 +148,7 @@ k8s_resource(new_name='peer-spine1', objects=['leaf1-spine1:bgppeer'], resource_
 k8s_resource(new_name='peer-spine2', objects=['leaf1-spine2:bgppeer'], resource_deps=['bgp', 'lo0'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='peer-spine1-filtered', objects=['leaf1-spine1-filtered:bgppeer'], resource_deps=['bgp', 'lo0', 'bgp-import-policy'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='peer-spine1-unnumbered', objects=['leaf1-spine1-unnumbered:bgppeer'], resource_deps=['bgp', 'eth1-4'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='peer-spine1-next-hop-self', objects=['leaf1-spine1-next-hop-self:bgppeer'], resource_deps=['bgp', 'lo0', 'bgp-next-hop-self'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_ospf.yaml')
 k8s_resource(new_name='ospf-underlay', objects=['underlay:ospf'], resource_deps=['lo0', 'lo1', 'eth1-1', 'eth1-2'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
@@ -166,6 +167,7 @@ k8s_resource(new_name='ccloud-prefixset', objects=['ccloud-prefixset:prefixset']
 
 k8s_yaml('./config/samples/v1alpha1_routingpolicy.yaml')
 k8s_resource(new_name='bgp-import-policy', objects=['bgp-import-policy:routingpolicy', 'internal-networks:prefixset', 'partner-networks:prefixset', 'blocked-networks:prefixset', 'communityset-regular:communityset', 'communityset-extended:communityset'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='bgp-next-hop-self', objects=['bgp-next-hop-self:routingpolicy'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/cisco/nx/v1alpha1_vpcdomain.yaml')
 k8s_resource(new_name='vpcdomain', objects=['leaf1-vpcdomain:vpcdomain', 'leaf1-vrfvpckeepalive:vrf', 'eth1-30:interface', 'vpc-peer-link:interfaceconfig', 'eth1-31:interface','eth1-32:interface', 'po1:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
