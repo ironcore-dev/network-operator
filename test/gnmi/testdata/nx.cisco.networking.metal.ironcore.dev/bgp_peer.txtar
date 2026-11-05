@@ -204,6 +204,7 @@ spec:
                           "ctrl": "rr-client",
                           "sendComExt": "enabled",
                           "sendComStd": "enabled",
+                          "rewriteRtAsn": "disabled",
                           "type": "l2vpn-evpn"
                         }
                       ]

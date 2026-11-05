@@ -865,6 +865,22 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		adminSt = AdminStDisabled
 	}
 
+	var cfg nxv1alpha1.BGPPeerConfig
+	if req.ProviderConfig != nil {
+		if err := req.ProviderConfig.Into(&cfg); err != nil {
+			return err
+		}
+	}
+
+	if cfg.Spec.AddressFamilies.L2vpnEvpnRewriteRouteTargetASN() &&
+		!req.BGPPeer.Spec.IsExternalASNumber() &&
+		req.BGPPeer.Spec.ASNumber.String() == req.BGP.Spec.ASNumber.String() {
+		return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+			Field:       "spec.providerConfigRef -> addressFamilies.l2vpnEvpn.rewriteRouteTargetASN",
+			Description: "rewriteRouteTargetASN is only valid for eBGP peers; the peer ASN matches the local BGP instance ASN",
+		})
+	}
+
 	// A peer with a dynamic AS number carries no AS number of its own.
 	asn, asnType := req.BGPPeer.Spec.ASNumber.String(), PeerAsnTypeNone
 	if req.BGPPeer.Spec.IsExternalASNumber() {
@@ -885,7 +901,7 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		LocalAsnItems: localAsn,
 		BfdType:       BfdTypeNone,
 	}
-	base.AfItems.PeerAfList = bgpPeerAfItems(req)
+	base.AfItems.PeerAfList = bgpPeerAfItems(req, cfg.Spec.AddressFamilies.L2vpnEvpnRewriteRouteTargetASN())
 
 	if req.BGPPeer.Spec.BFD != nil && req.BGPPeer.Spec.BFD.Enabled {
 		// As PeerControl and BfdMultihop are only set when BFD is configured in the spec, this will not
@@ -988,7 +1004,7 @@ func bgpPeerLocalAsn(req *provider.EnsureBGPPeerRequest) (items BGPPeerLocalAsn,
 }
 
 // bgpPeerAfItems builds the per-address-family configuration shared by both peer kinds.
-func bgpPeerAfItems(req *provider.EnsureBGPPeerRequest) gnmiext.List[AddressFamily, *BGPPeerAfItem] {
+func bgpPeerAfItems(req *provider.EnsureBGPPeerRequest, rewriteRouteTargetASN bool) gnmiext.List[AddressFamily, *BGPPeerAfItem] {
 	var list gnmiext.List[AddressFamily, *BGPPeerAfItem]
 	if req.BGPPeer.Spec.AddressFamilies == nil {
 		return list
@@ -1021,6 +1037,12 @@ func bgpPeerAfItems(req *provider.EnsureBGPPeerRequest) gnmiext.List[AddressFami
 		}
 		if name, ok := req.OutboundRoutingPolicies[afType]; ok {
 			item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionOut, RtMap: name})
+		}
+		if t == AddressFamilyL2EVPN {
+			item.RewriteRtAsn = AdminStDisabled
+			if rewriteRouteTargetASN {
+				item.RewriteRtAsn = AdminStEnabled
+			}
 		}
 		list.Set(item)
 	}
