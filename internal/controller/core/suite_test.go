@@ -506,6 +506,7 @@ type DeviceState struct {
 	ConfigBackups        []*provider.ConfigBackupFile
 	StorageTotal         int64
 	StaticRoutes         sets.Set[string]
+	StaticRouteBFD       map[string]*v1alpha1.BFD
 }
 
 func NewDeviceState() *DeviceState {
@@ -529,6 +530,7 @@ func NewDeviceState() *DeviceState {
 		EthernetSegments: make(map[string]string),
 		StorageTotal:     int64(1024 * 1024 * 100),
 		StaticRoutes:     sets.New[string](),
+		StaticRouteBFD:   make(map[string]*v1alpha1.BFD),
 	}
 }
 
@@ -1255,7 +1257,9 @@ func (p *Provider) EnsureStaticRoute(_ context.Context, req *provider.EnsureStat
 	s := p.devices.StateFor(p.deviceName)
 	s.Lock()
 	defer s.Unlock()
-	s.StaticRoutes.Insert(req.StaticRoute.Spec.Prefix.String())
+	prefix := req.StaticRoute.Spec.Prefix.String()
+	s.StaticRoutes.Insert(prefix)
+	s.StaticRouteBFD[prefix] = req.StaticRoute.Spec.BFD
 	return nil
 }
 
@@ -1263,7 +1267,9 @@ func (p *Provider) DeleteStaticRoute(_ context.Context, req *provider.DeleteStat
 	s := p.devices.StateFor(p.deviceName)
 	s.Lock()
 	defer s.Unlock()
-	s.StaticRoutes.Delete(req.StaticRoute.Spec.Prefix.String())
+	prefix := req.StaticRoute.Spec.Prefix.String()
+	s.StaticRoutes.Delete(prefix)
+	delete(s.StaticRouteBFD, prefix)
 	return nil
 }
 

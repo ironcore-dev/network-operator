@@ -501,7 +501,7 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 	}
 
 	if req.BGPPeer.Spec.BFD != nil && req.BGPPeer.Spec.BFD.Enabled {
-		bfd := &BFD{}
+		bfd := &BFDConfig{}
 		if req.BGPPeer.Spec.BFD.RequiredMinimumReceive != nil {
 			ms := req.BGPPeer.Spec.BFD.RequiredMinimumReceive.Duration
 			if ms < 0 || ms > math.MaxUint32 {
@@ -693,16 +693,24 @@ func (p *Provider) EnsureStaticRoute(ctx context.Context, req *provider.EnsureSt
 	var nexthopAddress NexthopAddresses
 	var nexthopInterface NexthopInterfaces
 
+	var bfd *BFD
+	if specBFD := req.StaticRoute.Spec.BFD; specBFD != nil && specBFD.Enabled {
+		var err error
+		if bfd, err = NewBFD(specBFD); err != nil {
+			return err
+		}
+	}
+
 	prefixIP := req.StaticRoute.Spec.Prefix
 	for _, nextHop := range req.StaticRoute.Spec.NextHops {
 		if nextHop.InterfaceRef != nil {
 			intfName := req.InterfaceMap[nextHop.InterfaceRef.Name].Spec.Name
 			nexthopInterface.NexthopInterface = append(nexthopInterface.NexthopInterface,
-				NewNexthopInterface(intfName, nextHop.Address, nextHop.Metric))
+				NewNexthopInterface(intfName, nextHop.Address, nextHop.Metric, bfd))
 			continue
 		}
 		nexthopAddress.NexthopAddress = append(nexthopAddress.NexthopAddress,
-			NewNexthopAddress(nextHop.Address, nextHop.Metric))
+			NewNexthopAddress(nextHop.Address, nextHop.Metric, bfd))
 	}
 
 	prefix := Prefix{

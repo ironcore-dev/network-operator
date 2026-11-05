@@ -159,6 +159,11 @@ spec:
                 ]
               }
             }
+          },
+          "fm-items": {
+            "bfd-items": {
+              "adminSt": "enabled"
+            }
           }
         }
       }
@@ -212,6 +217,11 @@ spec:
                   }
                 ]
               }
+            }
+          },
+          "fm-items": {
+            "bfd-items": {
+              "adminSt": "enabled"
             }
           }
         }

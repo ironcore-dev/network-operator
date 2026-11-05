@@ -5,6 +5,7 @@ package core
 
 import (
 	"net/netip"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -160,6 +161,62 @@ var _ = Describe("StaticRoute Controller", func() {
 			Expect(k8sClient.Delete(ctx, staticRoute)).To(Succeed())
 			Eventually(func(g Gomega) {
 				g.Expect(testDevices.StateFor(name).StaticRoutes.Len()).To(Equal(0), "Provider should not have the StaticRoute configured")
+			}).Should(Succeed())
+		})
+
+		It("Should pass the BFD configuration to the provider", func() {
+			By("Creating a StaticRoute with BFD enabled")
+			distance := int32(1)
+			txInterval := metav1.Duration{Duration: 300 * time.Millisecond}
+			rxInterval := metav1.Duration{Duration: 500 * time.Millisecond}
+			multiplier := int32(3)
+			staticRoute := &v1alpha1.StaticRoute{
+				GenerateName: "test-staticroute-bfd-",
+				Namespace:    metav1.NamespaceDefault,
+				Spec: v1alpha1.StaticRouteSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{
+						Name: name,
+					},
+					VrfRef: &v1alpha1.LocalObjectReference{
+						Name: vrfName,
+					},
+					Prefix: v1alpha1.IPPrefix{
+						Prefix: netip.MustParsePrefix("10.1.0.0/24"),
+					},
+					NextHops: []*v1alpha1.NextHop{
+						{
+							Address: "192.168.1.1",
+							Metric:  &distance,
+						},
+					},
+					BFD: &v1alpha1.BFD{
+						Enabled:                  true,
+						DesiredMinimumTxInterval: &txInterval,
+						RequiredMinimumReceive:   &rxInterval,
+						DetectionMultiplier:      &multiplier,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, staticRoute)).To(Succeed())
+			staticRouteKey := client.ObjectKeyFromObject(staticRoute)
+
+			By("Verifying the controller updates the status conditions")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.StaticRoute{}
+				g.Expect(k8sClient.Get(ctx, staticRouteKey, resource)).To(Succeed())
+				cond := meta.FindStatusCondition(resource.Status.Conditions, v1alpha1.ReadyCondition)
+				g.Expect(cond).NotTo(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			}).Should(Succeed())
+
+			By("Verifying the BFD configuration reached the provider")
+			Eventually(func(g Gomega) {
+				bfd := testDevices.StateFor(name).StaticRouteBFD["10.1.0.0/24"]
+				g.Expect(bfd).NotTo(BeNil(), "Provider should have received the BFD configuration")
+				g.Expect(bfd.Enabled).To(BeTrue())
+				g.Expect(bfd.DesiredMinimumTxInterval).To(Equal(&txInterval))
+				g.Expect(bfd.RequiredMinimumReceive).To(Equal(&rxInterval))
+				g.Expect(bfd.DetectionMultiplier).To(Equal(&multiplier))
 			}).Should(Succeed())
 		})
 

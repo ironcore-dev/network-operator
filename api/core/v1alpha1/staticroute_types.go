@@ -46,6 +46,10 @@ type StaticRouteSpec struct {
 	// +required
 	// +kubebuilder:validation:MinItems=1
 	NextHops []*NextHop `json:"nextHops,omitempty"`
+
+	// BFD defines the Bidirectional Forwarding Detection configuration for this static route.
+	// +optional
+	BFD *BFD `json:"bfd,omitempty"`
 }
 
 type NextHop struct {

@@ -1,0 +1,47 @@
+{
+  "router": {
+    "static": {
+      "address-family": {
+        "ipv4": {
+          "unicast": {
+            "prefixes": {
+              "prefix": {
+                "nexthop-addresses": {
+                  "nexthop-address": [
+                    {
+                      "address": "10.10.0.1",
+                      "bfd": {
+                        "fast-detect": {
+                          "minimum-interval": 300,
+                          "multiplier": 3
+                        }
+                      },
+                      "distance-metric": 12
+                    }
+                  ]
+                },
+                "nexthop-interface-addresses": {
+                  "nexthop-interface-address": [
+                    {
+                      "address": "10.9.2.1",
+                      "bfd": {
+                        "fast-detect": {
+                          "minimum-interval": 300,
+                          "multiplier": 3
+                        }
+                      },
+                      "distance-metric": 10,
+                      "interface-name": "TwentyFiveGigE0/0/0/34"
+                    }
+                  ]
+                },
+                "prefix-address": "192.168.2.0",
+                "prefix-length": 24
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
