@@ -1,0 +1,86 @@
+# Aggregate (LAG) L3 interface with an LACP member port
+-- interfaces/ethernet-1-10 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: ethernet-1-10
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: ethernet-1/10
+  description: Member of lag1
+  adminState: Up
+  type: Physical
+-- interfaces/lag1 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: lag1
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: lag1
+  description: L3 LAG
+  adminState: Up
+  type: Aggregate
+  ipv4:
+    addresses:
+      - 10.0.100.0/31
+  aggregation:
+    controlProtocol:
+      mode: Active
+    memberInterfaceRefs:
+      - name: ethernet-1-10
+
+-- state/preload --
+{}
+
+-- state/expect --
+{
+  "srl_nokia-interfaces:interface": [
+    {
+      "name": "ethernet-1/10",
+      "admin-state": "enable",
+      "description": "Member of lag1",
+      "ethernet": {
+        "aggregate-id": "lag1"
+      }
+    },
+    {
+      "name": "lag1",
+      "admin-state": "enable",
+      "description": "L3 LAG",
+      "srl_nokia-interfaces-lag:lag": {
+        "lag-type": "lacp",
+        "srl_nokia-lacp:lacp": {
+          "lacp-mode": "ACTIVE"
+        }
+      },
+      "subinterface": [
+        {
+          "index": 0,
+          "admin-state": "enable",
+          "type": "srl_nokia-interfaces:routed",
+          "ipv4": {
+            "admin-state": "enable",
+            "address": [
+              { "ip-prefix": "10.0.100.0/31" }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
+
+-- state/delete --
+{
+  "srl_nokia-interfaces:interface": [
+    {
+      "name": "ethernet-1/10",
+      "admin-state": "disable"
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+# Physical interface with IPv4 address and MTU
+-- interfaces/ethernet-1-1 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: ethernet-1-1
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: ethernet-1/1
+  description: uplink
+  adminState: Up
+  type: Physical
+  mtu: 9000
+  ipv4:
+    addresses:
+      - 10.0.0.1/31
+
+-- state/preload --
+{}
+
+-- state/expect --
+{
+  "srl_nokia-interfaces:interface": [
+    {
+      "name": "ethernet-1/1",
+      "admin-state": "enable",
+      "description": "uplink",
+      "mtu": 9000,
+      "subinterface": [
+        {
+          "index": 0,
+          "admin-state": "enable",
+          "type": "srl_nokia-interfaces:routed",
+          "ipv4": {
+            "admin-state": "enable",
+            "address": [
+              { "ip-prefix": "10.0.0.1/31" }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
+
+-- state/delete --
+{
+  "srl_nokia-interfaces:interface": [
+    {
+      "name": "ethernet-1/1",
+      "admin-state": "disable"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+# Physical interface with IPv6 link-local only (no global address)
+-- interfaces/ethernet-1-5 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: ethernet-1-5
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: ethernet-1/5
+  adminState: Up
+  type: Physical
+  ipv6:
+    useLinkLocalOnly: true
+
+-- state/preload --
+{}
+
+-- state/expect --
+{
+  "srl_nokia-interfaces:interface": [
+    {
+      "name": "ethernet-1/5",
+      "admin-state": "enable",
+      "subinterface": [
+        {
+          "index": 0,
+          "admin-state": "enable",
+          "type": "srl_nokia-interfaces:routed",
+          "ipv6": {
+            "admin-state": "enable"
+          }
+        }
+      ]
+    }
+  ]
+}
+
+-- state/delete --
+{
+  "srl_nokia-interfaces:interface": [
+    {
+      "name": "ethernet-1/5",
+      "admin-state": "disable"
+    }
+  ]
+}
