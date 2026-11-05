@@ -1155,10 +1155,8 @@ var _ = Describe("nveL2MulticastGroup", func() {
 		Expect(nveL2MulticastGroup(fabric).String()).To(Equal("224.0.0.0/4"))
 	})
 
-	It("returns nil when no group is configured", func() {
-		fabric := &evpnv1alpha1.Fabric{Spec: evpnv1alpha1.FabricSpec{BUM: evpnv1alpha1.FabricBUMSpec{
-			Type: evpnv1alpha1.BUMTypeMulticast,
-		}}}
+	It("returns nil when BUM is not Multicast", func() {
+		fabric := &evpnv1alpha1.Fabric{Spec: evpnv1alpha1.FabricSpec{BUM: evpnv1alpha1.FabricBUMSpec{}}}
 		Expect(nveL2MulticastGroup(fabric)).To(BeNil())
 	})
 })
