@@ -54,4 +54,5 @@ resources:
 - cisco/nx/v1alpha1_evpninstanceconfig.yaml
 - cisco/nx/v1alpha1_ethernetsegmentconfig.yaml
 - cisco/nx/v1alpha1_pimconfig.yaml
+- cisco/nx/v1alpha1_bgppeerconfig.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

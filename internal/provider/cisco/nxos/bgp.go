@@ -373,7 +373,10 @@ type BGPPeerAfItem struct {
 	Ctrl       Option[string] `json:"ctrl"`
 	SendComExt AdminSt        `json:"sendComExt"`
 	SendComStd AdminSt        `json:"sendComStd"`
-	Type       AddressFamily  `json:"type"`
+	// RewriteRtAsn is only valid for the l2vpn-evpn type, where it is always
+	// present ("enabled" or "disabled"). It is absent for all other SAFIs.
+	RewriteRtAsn AdminSt       `json:"rewriteRtAsn,omitempty"`
+	Type         AddressFamily `json:"type"`
 
 	RtCtrlPItems struct {
 		RtCtrlPList gnmiext.List[RtCtrlDirection, *BGPPeerAfRtCtrlP] `json:"RtCtrlP-list,omitzero"`

@@ -193,6 +193,7 @@ rules:
   resources:
   - aaaconfigs
   - bgpconfigs
+  - bgppeerconfigs
   - ethernetsegmentconfigs
   - evpninstanceconfigs
   - interfaceconfigs

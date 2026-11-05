@@ -88,26 +88,28 @@ spec:
                           description: BGPAggregateAddress configures a single BGP
                             aggregate-address entry.
                           properties:
-                            asSet:
-                              description: |-
-                                AsSet generates the AS_SET path attribute on the aggregate from the aggregated routes,
-                                preserving their AS path information.
-                              type: boolean
                             attributeMap:
-                              description: AttributeMap references a RoutingPolicy
-                                whose route-map is applied to the aggregate advertisement.
+                              description: AttributeMap holds an optional reference
+                                to a RoutingPolicy applied to the aggregate advertisement.
                               properties:
-                                name:
-                                  description: |-
-                                    Name of the referent.
-                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  maxLength: 63
-                                  minLength: 1
-                                  type: string
+                                routingPolicyRef:
+                                  description: RoutingPolicyRef references the RoutingPolicy
+                                    to apply.
+                                  properties:
+                                    name:
+                                      description: |-
+                                        Name of the referent.
+                                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      maxLength: 63
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                  x-kubernetes-map-type: atomic
                               required:
-                              - name
+                              - routingPolicyRef
                               type: object
-                              x-kubernetes-map-type: atomic
                             prefix:
                               description: Prefix is the aggregate prefix to advertise
                                 in CIDR notation.
@@ -227,26 +229,28 @@ spec:
                           description: BGPAggregateAddress configures a single BGP
                             aggregate-address entry.
                           properties:
-                            asSet:
-                              description: |-
-                                AsSet generates the AS_SET path attribute on the aggregate from the aggregated routes,
-                                preserving their AS path information.
-                              type: boolean
                             attributeMap:
-                              description: AttributeMap references a RoutingPolicy
-                                whose route-map is applied to the aggregate advertisement.
+                              description: AttributeMap holds an optional reference
+                                to a RoutingPolicy applied to the aggregate advertisement.
                               properties:
-                                name:
-                                  description: |-
-                                    Name of the referent.
-                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  maxLength: 63
-                                  minLength: 1
-                                  type: string
+                                routingPolicyRef:
+                                  description: RoutingPolicyRef references the RoutingPolicy
+                                    to apply.
+                                  properties:
+                                    name:
+                                      description: |-
+                                        Name of the referent.
+                                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      maxLength: 63
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                  x-kubernetes-map-type: atomic
                               required:
-                              - name
+                              - routingPolicyRef
                               type: object
-                              x-kubernetes-map-type: atomic
                             prefix:
                               description: Prefix is the aggregate prefix to advertise
                                 in CIDR notation.

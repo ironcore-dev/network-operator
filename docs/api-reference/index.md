@@ -875,10 +875,25 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `prefix` _string_ | Prefix is the aggregate prefix to advertise in CIDR notation. |  | Format: cidr <br />Required: \{\} <br /> |
+| `prefix` _[IPPrefix](#ipprefix)_ | Prefix is the aggregate prefix to advertise in CIDR notation. |  | Format: cidr <br />Type: string <br />Required: \{\} <br /> |
 | `summaryOnly` _boolean_ | SummaryOnly suppresses advertisement of more-specific prefixes covered by this aggregate. |  | Optional: \{\} <br /> |
-| `asSet` _boolean_ | AsSet generates the AS_SET path attribute on the aggregate from the aggregated routes,<br />preserving their AS path information. |  | Optional: \{\} <br /> |
-| `attributeMap` _[LocalObjectReference](#localobjectreference)_ | AttributeMap references a RoutingPolicy whose route-map is applied to the aggregate advertisement. |  | Optional: \{\} <br /> |
+| `attributeMap` _[BGPAggregateAttributeMap](#bgpaggregateattributemap)_ | AttributeMap holds an optional reference to a RoutingPolicy applied to the aggregate advertisement. |  | Optional: \{\} <br /> |
+
+
+#### BGPAggregateAttributeMap
+
+
+
+BGPAggregateAttributeMap references a RoutingPolicy to apply to a BGP aggregate advertisement.
+
+
+
+_Appears in:_
+- [BGPAggregateAddress](#bgpaggregateaddress)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `routingPolicyRef` _[LocalObjectReference](#localobjectreference)_ | RoutingPolicyRef references the RoutingPolicy to apply. |  | Required: \{\} <br /> |
 
 
 #### BGPCommunityType
@@ -2617,6 +2632,7 @@ _Validation:_
 _Appears in:_
 - [ACLEntry](#aclentry)
 - [AnycastRendezvousPoint](#anycastrendezvouspoint)
+- [BGPAggregateAddress](#bgpaggregateaddress)
 - [FabricBUMSpec](#fabricbumspec)
 - [IPAddressPoolSpec](#ipaddresspoolspec)
 - [IPPrefixPoolSpec](#ipprefixpoolspec)
@@ -3026,7 +3042,7 @@ _Appears in:_
 - [AAASpec](#aaaspec)
 - [AccessControlListSpec](#accesscontrollistspec)
 - [Aggregation](#aggregation)
-- [BGPAggregateAddress](#bgpaggregateaddress)
+- [BGPAggregateAttributeMap](#bgpaggregateattributemap)
 - [BGPPeerAddressFamily](#bgppeeraddressfamily)
 - [BGPPeerLocalAddress](#bgppeerlocaladdress)
 - [BGPPeerReference](#bgppeerreference)
@@ -5145,6 +5161,7 @@ Package v1alpha1 contains API Schema definitions for the nx.cisco.networking.met
 ### Resource Types
 - [AAAConfig](#aaaconfig)
 - [BGPConfig](#bgpconfig)
+- [BGPPeerConfig](#bgppeerconfig)
 - [BorderGateway](#bordergateway)
 - [EVPNInstanceConfig](#evpninstanceconfig)
 - [EthernetSegmentConfig](#ethernetsegmentconfig)
@@ -5296,6 +5313,75 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `advertisePIP` _boolean_ | AdvertisePIP controls whether the BGP EVPN address-family should advertise the primary IP address (PIP) as the next-hop<br />when advertising prefix routes or loopback interface routes in BGP on vPC enabled leaf or border leaf switches. | false | Optional: \{\} <br /> |
+
+
+#### BGPPeerConfig
+
+
+
+BGPPeerConfig is the Schema for the bgppeerconfigs API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `nx.cisco.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `BGPPeerConfig` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[BGPPeerConfigSpec](#bgppeerconfigspec)_ | spec defines the desired state of BGPPeerConfig |  | Required: \{\} <br /> |
+
+
+#### BGPPeerConfigAddressFamilies
+
+
+
+BGPPeerConfigAddressFamilies defines the Cisco NX-OS specific configuration for a BGP peer's
+supported address families. Only l2vpn-evpn is configurable, which is enforced structurally
+by exposing solely the L2vpnEvpn field.
+
+
+
+_Appears in:_
+- [BGPPeerConfigSpec](#bgppeerconfigspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `l2vpnEvpn` _[BGPPeerConfigL2vpnEvpn](#bgppeerconfigl2vpnevpn)_ | L2vpnEvpn configures L2VPN EVPN address family support for this peer. |  | Optional: \{\} <br /> |
+
+
+#### BGPPeerConfigL2vpnEvpn
+
+
+
+BGPPeerConfigL2vpnEvpn defines the Cisco NX-OS specific configuration for the
+L2VPN EVPN address family of a BGP peer.
+
+
+
+_Appears in:_
+- [BGPPeerConfigAddressFamilies](#bgppeerconfigaddressfamilies)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `rewriteRouteTargetASN` _boolean_ | RewriteRouteTargetASN rewrites the AS portion of auto-generated EVPN Route Targets<br />when advertising to this peer. Only valid for l2vpn-evpn with rt auto. |  | Optional: \{\} <br /> |
+
+
+#### BGPPeerConfigSpec
+
+
+
+BGPPeerConfigSpec defines the Cisco NX-OS specific BGP peer configuration.
+
+
+
+_Appears in:_
+- [BGPPeerConfig](#bgppeerconfig)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `addressFamilies` _[BGPPeerConfigAddressFamilies](#bgppeerconfigaddressfamilies)_ | AddressFamilies configures supported BGP address families and their Cisco NX-OS specific settings. |  | Optional: \{\} <br /> |
 
 
 #### BGPPeerReference
