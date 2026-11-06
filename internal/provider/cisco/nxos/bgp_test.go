@@ -50,6 +50,15 @@ func init() {
 	rdstStaticItem.InterLeakPItems.InterLeakPList.Set(NewInterLeakPStatic("ROUTE_MAP_STATIC"))
 	Register("bgp_dom_af_rdst_static", rdstStaticItem)
 
+	aggAddrItem := &BGPDomAfItem{VRFName: DefaultVRFName, Type: AddressFamilyIPv4Unicast, ExportGwIP: AdminStDisabled, AdvertL2vpnEvpn: AdminStDisabled}
+	aggAddrItem.AggAddrItems.AggAddrList.Set(&BGPAggAddr{Addr: "10.0.0.0/8", SummaryOnly: AdminStEnabled, AsSet: AdminStDisabled, AttrMap: NewOption("AGGREGATE_MAP")})
+	Register("bgp_dom_af_aggaddr", aggAddrItem)
+
+	// Plain aggregate: no attribute-map; attrMap marshals to DME_UNSET_PROPERTY_MARKER for idempotency.
+	aggAddrPlain := &BGPDomAfItem{VRFName: DefaultVRFName, Type: AddressFamilyIPv4Unicast, ExportGwIP: AdminStDisabled, AdvertL2vpnEvpn: AdminStDisabled}
+	aggAddrPlain.AggAddrItems.AggAddrList.Set(&BGPAggAddr{Addr: "20.0.0.0/8", SummaryOnly: AdminStDisabled, AsSet: AdminStDisabled})
+	Register("bgp_dom_af_aggaddr_plain", aggAddrPlain)
+
 	bgpPeer := &BGPPeerAddr{
 		VRFName: DefaultVRFName,
 		AdminSt: AdminStEnabled,

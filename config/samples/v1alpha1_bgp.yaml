@@ -87,3 +87,26 @@ spec:
       redistributeStaticRoutes:
         routingPolicyRef:
           name: bgp-import-policy
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGP
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: bgp-aggaddr
+spec:
+  deviceRef:
+    name: leaf1
+  asNumber: 65000
+  routerId: 10.0.0.10
+  addressFamilies:
+    ipv4Unicast:
+      enabled: true
+      aggregateAddresses:
+        - prefix: 10.0.0.0/8
+          summaryOnly: true
+        - prefix: 172.16.0.0/12
+          attributeMap:
+            routingPolicyRef:
+              name: bgp-import-policy
