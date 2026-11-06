@@ -1315,22 +1315,6 @@ func (r *FabricReconciler) reconcilePIM(ctx context.Context, deviceName string, 
 	return nil
 }
 
-// nveL2MulticastGroup resolves the global Layer 2 BUM mcast-group for VTEP NVEs:
-// spec.bum.defaultMulticastGroup if set, else the first PIM RP group as a fallback.
-// Returns nil when BUM is not Multicast.
-// FIXME: the RP-derivation fallback is migration-only; remove once all fabrics set
-// spec.bum.defaultMulticastGroup.
-func nveL2MulticastGroup(fabric *evpnv1alpha1.Fabric) *v1alpha1.IPPrefix {
-	if fabric.Spec.BUM.Type != evpnv1alpha1.BUMTypeMulticast {
-		return nil
-	}
-	if fabric.Spec.BUM.DefaultMulticastGroup != nil {
-		return fabric.Spec.BUM.DefaultMulticastGroup
-	}
-	// API validation guarantees PIM, an RP, and a group exist in the fallback case.
-	return &fabric.Spec.BUM.PIM.AnycastRendezvousPoints[0].MulticastGroups[0]
-}
-
 // reconcileVTEPNVE creates one NetworkVirtualizationEdge resource per VTEP device.
 // The NVE references lo1 (primary VTEP) as source, and lo2 (anycast VTEP) as anycast
 // source when spec.vtep.anycastVTEP is enabled.
@@ -1345,7 +1329,12 @@ func (r *FabricReconciler) reconcileVTEPNVE(ctx context.Context, fabric *evpnv1a
 		return ctrl.Result{}, fmt.Errorf("listing VTEP devices: %w", err)
 	}
 
-	l2Group := nveL2MulticastGroup(fabric)
+	// Global Layer 2 BUM mcast-group for VTEP NVEs; set only when BUM is Multicast
+	// (API validation guarantees the field is present in that case).
+	var l2Group *v1alpha1.IPPrefix
+	if fabric.Spec.BUM.Type == evpnv1alpha1.BUMTypeMulticast {
+		l2Group = fabric.Spec.BUM.DefaultMulticastGroup
+	}
 
 	for i := range devices.Items {
 		device := &devices.Items[i]

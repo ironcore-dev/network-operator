@@ -21,6 +21,9 @@ import (
 	poolv1alpha1 "github.com/ironcore-dev/network-operator/api/pool/v1alpha1"
 )
 
+// defaultMulticastGroup is the BUM L2 mcast-group shared by the fabric test fixtures.
+var defaultMulticastGroup = corev1alpha1.MustParsePrefix("224.0.0.0/4")
+
 // Minimal 2-spine / 2-leaf EVPN/VXLAN topology used by the tests below.
 // All four devices share the "topology.kubernetes.io/zone: test-zone" label;
 // the "role" label drives per-role loopback allocation.
@@ -198,7 +201,8 @@ var _ = Describe("Fabric Controller", func() {
 						},
 					},
 					BUM: evpnv1alpha1.FabricBUMSpec{
-						Type: evpnv1alpha1.BUMTypeMulticast,
+						Type:                  evpnv1alpha1.BUMTypeMulticast,
+						DefaultMulticastGroup: &defaultMulticastGroup,
 						PIM: &evpnv1alpha1.FabricPIMSpec{
 							AnycastRendezvousPoints: []evpnv1alpha1.AnycastRendezvousPoint{
 								{
@@ -538,8 +542,7 @@ var _ = Describe("Fabric Controller", func() {
 					g.Expect(nve.Spec.AnycastSourceInterfaceRef).NotTo(BeNil())
 					g.Expect(nve.Spec.AnycastSourceInterfaceRef.Name).To(Equal(fabric.Name + "-" + leaf.Name + "-lo2"))
 
-					// L2 BUM mcast-group falls back to the PIM RP group when
-					// spec.bum.defaultMulticastGroup is unset.
+					// L2 BUM mcast-group is taken from spec.bum.defaultMulticastGroup.
 					g.Expect(nve.Spec.MulticastGroups).NotTo(BeNil())
 					g.Expect(nve.Spec.MulticastGroups.L2).NotTo(BeNil())
 					g.Expect(nve.Spec.MulticastGroups.L2.String()).To(Equal("224.0.0.0/4"))
@@ -605,7 +608,8 @@ var _ = Describe("Fabric Controller", func() {
 						},
 					},
 					BUM: evpnv1alpha1.FabricBUMSpec{
-						Type: evpnv1alpha1.BUMTypeMulticast,
+						Type:                  evpnv1alpha1.BUMTypeMulticast,
+						DefaultMulticastGroup: &defaultMulticastGroup,
 						PIM: &evpnv1alpha1.FabricPIMSpec{
 							AnycastRendezvousPoints: []evpnv1alpha1.AnycastRendezvousPoint{{
 								Name:                 "spine-rp",
@@ -845,7 +849,8 @@ var _ = Describe("Fabric Controller", func() {
 						},
 					},
 					BUM: evpnv1alpha1.FabricBUMSpec{
-						Type: evpnv1alpha1.BUMTypeMulticast,
+						Type:                  evpnv1alpha1.BUMTypeMulticast,
+						DefaultMulticastGroup: &defaultMulticastGroup,
 						PIM: &evpnv1alpha1.FabricPIMSpec{
 							AnycastRendezvousPoints: []evpnv1alpha1.AnycastRendezvousPoint{
 								{
@@ -1053,7 +1058,8 @@ var _ = Describe("Fabric Controller", func() {
 						},
 					},
 					BUM: evpnv1alpha1.FabricBUMSpec{
-						Type: evpnv1alpha1.BUMTypeMulticast,
+						Type:                  evpnv1alpha1.BUMTypeMulticast,
+						DefaultMulticastGroup: &defaultMulticastGroup,
 						PIM: &evpnv1alpha1.FabricPIMSpec{
 							AnycastRendezvousPoints: []evpnv1alpha1.AnycastRendezvousPoint{
 								{
@@ -1124,39 +1130,5 @@ var _ = Describe("Fabric Controller", func() {
 				}).Should(Succeed())
 			}
 		})
-	})
-})
-
-var _ = Describe("nveL2MulticastGroup", func() {
-	rpGroup := func(groups ...string) evpnv1alpha1.FabricPIMSpec {
-		prefixes := make([]corev1alpha1.IPPrefix, 0, len(groups))
-		for _, g := range groups {
-			prefixes = append(prefixes, corev1alpha1.MustParsePrefix(g))
-		}
-		return evpnv1alpha1.FabricPIMSpec{
-			AnycastRendezvousPoints: []evpnv1alpha1.AnycastRendezvousPoint{{Name: "rp", MulticastGroups: prefixes}},
-		}
-	}
-
-	It("returns the explicit defaultMulticastGroup when set", func() {
-		explicit := corev1alpha1.MustParsePrefix("239.0.0.1/32")
-		pim := rpGroup("224.0.0.0/4")
-		fabric := &evpnv1alpha1.Fabric{Spec: evpnv1alpha1.FabricSpec{BUM: evpnv1alpha1.FabricBUMSpec{
-			Type: evpnv1alpha1.BUMTypeMulticast, PIM: &pim, DefaultMulticastGroup: &explicit,
-		}}}
-		Expect(nveL2MulticastGroup(fabric)).To(Equal(&explicit))
-	})
-
-	It("falls back to the first RP multicastGroups entry when the field is unset", func() {
-		pim := rpGroup("224.0.0.0/4")
-		fabric := &evpnv1alpha1.Fabric{Spec: evpnv1alpha1.FabricSpec{BUM: evpnv1alpha1.FabricBUMSpec{
-			Type: evpnv1alpha1.BUMTypeMulticast, PIM: &pim,
-		}}}
-		Expect(nveL2MulticastGroup(fabric).String()).To(Equal("224.0.0.0/4"))
-	})
-
-	It("returns nil when BUM is not Multicast", func() {
-		fabric := &evpnv1alpha1.Fabric{Spec: evpnv1alpha1.FabricSpec{BUM: evpnv1alpha1.FabricBUMSpec{}}}
-		Expect(nveL2MulticastGroup(fabric)).To(BeNil())
 	})
 })

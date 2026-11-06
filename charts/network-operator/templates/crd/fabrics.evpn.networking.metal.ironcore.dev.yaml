@@ -70,11 +70,8 @@ spec:
                   defaultMulticastGroup:
                     description: |-
                       defaultMulticastGroup is the IPv4 multicast group programmed as the global
-                      Layer 2 BUM mcast-group on every VTEP NVE. If unset, it is derived from the
-                      first entry of the first pim.anycastRendezvousPoints group; this derivation
-                      is a migration fallback for fabrics authored before this field existed and
-                      is only allowed when that group serves a single multicastGroups entry,
-                      otherwise the field is required. Per-VNI mcast-group overrides are not supported.
+                      Layer 2 BUM mcast-group on every VTEP NVE. Required when type is Multicast.
+                      Per-VNI mcast-group overrides are not supported.
                     format: cidr
                     type: string
                   pim:
@@ -225,10 +222,8 @@ spec:
                 x-kubernetes-validations:
                 - message: pim must be set when type is Multicast
                   rule: self.type != 'Multicast' || has(self.pim)
-                - message: defaultMulticastGroup is required when the first rendezvous
-                    point serves more than one multicastGroups entry
-                  rule: self.type != 'Multicast' || !has(self.pim) || size(self.pim.anycastRendezvousPoints[0].multicastGroups)
-                    <= 1 || has(self.defaultMulticastGroup)
+                - message: defaultMulticastGroup is required when type is Multicast
+                  rule: self.type != 'Multicast' || has(self.defaultMulticastGroup)
               deviceSelector:
                 description: |-
                   deviceSelector identifies which devices are members of this fabric.
