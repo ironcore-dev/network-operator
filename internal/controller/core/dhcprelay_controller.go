@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -16,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/events"
@@ -159,13 +157,6 @@ func (r *DHCPRelayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -209,11 +200,10 @@ func (r *DHCPRelayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 // scope holds the different objects that are read and used during the reconcile.
 type dhcprelayScope struct {
-	Device         *v1alpha1.Device
-	DHCPRelay      *v1alpha1.DHCPRelay
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.DHCPRelayProvider
+	Device     *v1alpha1.Device
+	DHCPRelay  *v1alpha1.DHCPRelay
+	Connection *deviceutil.Connection
+	Provider   provider.DHCPRelayProvider
 }
 
 func (r *DHCPRelayReconciler) reconcile(ctx context.Context, s *dhcprelayScope) (reterr error) {
@@ -233,16 +223,16 @@ func (r *DHCPRelayReconciler) reconcile(ctx context.Context, s *dhcprelayScope) 
 		}
 	}
 
-	if err := r.validateProviderConfigRef(ctx, s); err != nil {
+	cfg, err := validateProviderConfigRef(ctx, r, s.DHCPRelay, s.DHCPRelay.Spec.ProviderConfigRef, v1alpha1.DHCPRelayDependencies)
+	if err != nil {
 		return err
 	}
 
 	req := provider.DHCPRelayRequest{
 		DHCPRelay:      s.DHCPRelay,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 	}
 
-	var err error
 	if s.DHCPRelay.Spec.VrfRef != nil {
 		if req.VRF, err = r.reconcileVRFRef(ctx, *s.DHCPRelay.Spec.VrfRef, s); err != nil {
 			return err
@@ -380,37 +370,6 @@ func (r *DHCPRelayReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 			}),
 		).
 		Complete(r)
-}
-
-// validateProviderConfigRef checks if the referenced provider configuration is compatible with the target platform.
-func (r *DHCPRelayReconciler) validateProviderConfigRef(_ context.Context, s *dhcprelayScope) error {
-	if s.DHCPRelay.Spec.ProviderConfigRef == nil {
-		return nil
-	}
-
-	gv, err := schema.ParseGroupVersion(s.DHCPRelay.Spec.ProviderConfigRef.APIVersion)
-	if err != nil {
-		conditions.Set(s.DHCPRelay, metav1.Condition{
-			Type:    v1alpha1.ConfiguredCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  v1alpha1.IncompatibleProviderConfigRef,
-			Message: fmt.Sprintf("Invalid API version in ProviderConfigRef: %v", err),
-		})
-		return reconcile.TerminalError(fmt.Errorf("invalid API version %q: %w", s.DHCPRelay.Spec.ProviderConfigRef.APIVersion, err))
-	}
-
-	gvk := gv.WithKind(s.DHCPRelay.Spec.ProviderConfigRef.Kind)
-	if ok := slices.Contains(v1alpha1.DHCPRelayDependencies, gvk); !ok {
-		conditions.Set(s.DHCPRelay, metav1.Condition{
-			Type:    v1alpha1.ConfiguredCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  v1alpha1.IncompatibleProviderConfigRef,
-			Message: fmt.Sprintf("ProviderConfigRef kind '%s' with API version '%s' is not compatible with this type", s.DHCPRelay.Spec.ProviderConfigRef.Kind, s.DHCPRelay.Spec.ProviderConfigRef.APIVersion),
-		})
-		return reconcile.TerminalError(fmt.Errorf("unsupported ProviderConfigRef Kind %q on this provider", gv))
-	}
-
-	return nil
 }
 
 // validateUniqueResource checks that there is only one DHCPRelay resource per interface

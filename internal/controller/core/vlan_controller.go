@@ -156,13 +156,6 @@ func (r *VLANReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -263,11 +256,10 @@ func (r *VLANReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 
 // vlanScope holds the different objects that are read and used during the reconcile.
 type vlanScope struct {
-	Device         *v1alpha1.Device
-	VLAN           *v1alpha1.VLAN
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.VLANProvider
+	Device     *v1alpha1.Device
+	VLAN       *v1alpha1.VLAN
+	Connection *deviceutil.Connection
+	Provider   provider.VLANProvider
 }
 
 func (r *VLANReconciler) reconcile(ctx context.Context, s *vlanScope) (reterr error) {
@@ -288,6 +280,11 @@ func (r *VLANReconciler) reconcile(ctx context.Context, s *vlanScope) (reterr er
 		conditions.RecomputeReady(s.VLAN)
 	}()
 
+	cfg, err := validateProviderConfigRef(ctx, r, s.VLAN, s.VLAN.Spec.ProviderConfigRef, v1alpha1.VLANDependencies)
+	if err != nil {
+		return err
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -298,9 +295,9 @@ func (r *VLANReconciler) reconcile(ctx context.Context, s *vlanScope) (reterr er
 	}()
 
 	// Ensure the VLAN is realized on the provider.
-	err := s.Provider.EnsureVLAN(ctx, &provider.VLANRequest{
+	err = s.Provider.EnsureVLAN(ctx, &provider.VLANRequest{
 		VLAN:           s.VLAN,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 	})
 
 	cond := conditions.FromError(err)
@@ -308,7 +305,7 @@ func (r *VLANReconciler) reconcile(ctx context.Context, s *vlanScope) (reterr er
 
 	status, err := s.Provider.GetVLANStatus(ctx, &provider.VLANRequest{
 		VLAN:           s.VLAN,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get vlan status: %w", err)

@@ -152,13 +152,6 @@ func (r *AccessControlListReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -255,11 +248,10 @@ func (r *AccessControlListReconciler) SetupWithManager(ctx context.Context, mgr 
 
 // scope holds the different objects that are read and used during the reconcile.
 type aclScope struct {
-	Device         *v1alpha1.Device
-	ACL            *v1alpha1.AccessControlList
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.ACLProvider
+	Device     *v1alpha1.Device
+	ACL        *v1alpha1.AccessControlList
+	Connection *deviceutil.Connection
+	Provider   provider.ACLProvider
 }
 
 func (r *AccessControlListReconciler) reconcile(ctx context.Context, s *aclScope) (reterr error) {
@@ -283,6 +275,11 @@ func (r *AccessControlListReconciler) reconcile(ctx context.Context, s *aclScope
 		s.ACL.Status.EntriesSummary = fmt.Sprintf("%d entries", len(s.ACL.Spec.Entries))
 	}
 
+	cfg, err := validateProviderConfigRef(ctx, r, s.ACL, s.ACL.Spec.ProviderConfigRef, v1alpha1.AccessControlListDependencies)
+	if err != nil {
+		return err
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -293,9 +290,9 @@ func (r *AccessControlListReconciler) reconcile(ctx context.Context, s *aclScope
 	}()
 
 	// Ensure the AccessControlList is realized on the provider.
-	err := s.Provider.EnsureACL(ctx, &provider.ACLRequest{
+	err = s.Provider.EnsureACL(ctx, &provider.ACLRequest{
 		ACL:            s.ACL,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 	})
 
 	cond := conditions.FromError(err)

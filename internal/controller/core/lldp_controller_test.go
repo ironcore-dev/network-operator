@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
@@ -469,6 +470,10 @@ var _ = Describe("LLDP Controller", func() {
 		})
 
 		It("Should handle missing ProviderConfigRef", func() {
+			v1alpha1.RegisterLLDPDependency(schema.GroupVersionKind{
+				Group: "nx.cisco.networking.metal.ironcore.dev", Version: "v1alpha1", Kind: "LLDPConfig",
+			})
+
 			By("Creating LLDP with a non-existent ProviderConfigRef")
 			lldp = &v1alpha1.LLDP{
 				Name:      deviceName + "-lldp",
@@ -493,7 +498,7 @@ var _ = Describe("LLDP Controller", func() {
 				cond := meta.FindStatusCondition(lldp.Status.Conditions, v1alpha1.ConfiguredCondition)
 				g.Expect(cond).ToNot(BeNil())
 				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-				g.Expect(cond.Reason).To(Equal(v1alpha1.IncompatibleProviderConfigRef))
+				g.Expect(cond.Reason).To(Equal(v1alpha1.ProviderConfigNotFoundReason))
 			}).Should(Succeed())
 		})
 

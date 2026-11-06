@@ -165,13 +165,6 @@ func (r *ConfigBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -273,11 +266,10 @@ func (r *ConfigBackupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 }
 
 type configBackupScope struct {
-	Device         *v1alpha1.Device
-	ConfigBackup   *v1alpha1.ConfigBackup
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.ConfigBackupProvider
+	Device       *v1alpha1.Device
+	ConfigBackup *v1alpha1.ConfigBackup
+	Connection   *deviceutil.Connection
+	Provider     provider.ConfigBackupProvider
 }
 
 func (r *ConfigBackupReconciler) reconcile(ctx context.Context, s *configBackupScope) (res ctrl.Result, reterr error) { //nolint:gocyclo
@@ -293,8 +285,12 @@ func (r *ConfigBackupReconciler) reconcile(ctx context.Context, s *configBackupS
 		}
 	}
 
+	cfg, err := validateProviderConfigRef(ctx, r, s.ConfigBackup, s.ConfigBackup.Spec.ProviderConfigRef, v1alpha1.ConfigBackupListDependencies)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	var store ObjectStorage
-	var err error
 	if s.ConfigBackup.Spec.Type == v1alpha1.ConfigBackupTypeRemote {
 		store, err = r.objectStorageClient(ctx, s)
 		if err != nil {
@@ -394,7 +390,7 @@ func (r *ConfigBackupReconciler) reconcile(ctx context.Context, s *configBackupS
 
 	req := &provider.ConfigBackupRequest{
 		ConfigBackup:   s.ConfigBackup,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 	}
 
 	// Refresh storage and backup inventory status regardless of whether a new backup is created.

@@ -137,13 +137,6 @@ func (r *CommunitySetReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
 		if err := r.Update(ctx, obj); err != nil {
@@ -233,11 +226,10 @@ func (r *CommunitySetReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 }
 
 type communitySetScope struct {
-	Device         *v1alpha1.Device
-	CommunitySet   *v1alpha1.CommunitySet
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.CommunitySetProvider
+	Device       *v1alpha1.Device
+	CommunitySet *v1alpha1.CommunitySet
+	Connection   *deviceutil.Connection
+	Provider     provider.CommunitySetProvider
 }
 
 func (r *CommunitySetReconciler) reconcile(ctx context.Context, s *communitySetScope) (reterr error) {
@@ -252,6 +244,11 @@ func (r *CommunitySetReconciler) reconcile(ctx context.Context, s *communitySetS
 		}
 	}
 
+	cfg, err := validateProviderConfigRef(ctx, r, s.CommunitySet, s.CommunitySet.Spec.ProviderConfigRef, v1alpha1.CommunitySetDependencies)
+	if err != nil {
+		return err
+	}
+
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -261,9 +258,9 @@ func (r *CommunitySetReconciler) reconcile(ctx context.Context, s *communitySetS
 		}
 	}()
 
-	err := s.Provider.EnsureCommunitySet(ctx, &provider.CommunitySetRequest{
+	err = s.Provider.EnsureCommunitySet(ctx, &provider.CommunitySetRequest{
 		CommunitySet:   s.CommunitySet,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 	})
 
 	cond := conditions.FromError(err)

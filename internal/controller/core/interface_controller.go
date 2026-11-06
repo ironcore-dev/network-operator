@@ -164,13 +164,6 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Spec.ProviderConfigRef != nil {
-		s.ProviderConfig, err = provider.GetProviderConfig(ctx, r, obj.Namespace, obj.Spec.ProviderConfigRef)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
 	if !controllerutil.ContainsFinalizer(obj, v1alpha1.FinalizerName) {
 		controllerutil.AddFinalizer(obj, v1alpha1.FinalizerName)
@@ -482,11 +475,10 @@ func (interfaceUpdatePredicate) Update(e event.UpdateEvent) bool {
 
 // scope holds the different objects that are read and used during the reconcile.
 type scope struct {
-	Device         *v1alpha1.Device
-	Interface      *v1alpha1.Interface
-	Connection     *deviceutil.Connection
-	ProviderConfig *provider.ProviderConfig
-	Provider       provider.InterfaceProvider
+	Device     *v1alpha1.Device
+	Interface  *v1alpha1.Interface
+	Connection *deviceutil.Connection
+	Provider   provider.InterfaceProvider
 }
 
 func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (reterr error) {
@@ -507,6 +499,11 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (reterr e
 	defer func() {
 		conditions.RecomputeReady(s.Interface)
 	}()
+
+	cfg, err := validateProviderConfigRef(ctx, r, s.Interface, s.Interface.Spec.ProviderConfigRef, v1alpha1.InterfaceDependencies)
+	if err != nil {
+		return err
+	}
 
 	var members []*v1alpha1.Interface
 	if s.Interface.Spec.Aggregation != nil {
@@ -580,9 +577,9 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (reterr e
 	}()
 
 	// Ensure the Interface is realized on the provider.
-	err := s.Provider.EnsureInterface(ctx, &provider.EnsureInterfaceRequest{
+	err = s.Provider.EnsureInterface(ctx, &provider.EnsureInterfaceRequest{
 		Interface:       s.Interface,
-		ProviderConfig:  s.ProviderConfig,
+		ProviderConfig:  cfg,
 		IPv4:            ip,
 		IPv6:            ipv6,
 		Members:         members,
@@ -601,7 +598,7 @@ func (r *InterfaceReconciler) reconcile(ctx context.Context, s *scope) (reterr e
 
 	status, err := s.Provider.GetInterfaceStatus(ctx, &provider.InterfaceRequest{
 		Interface:      s.Interface,
-		ProviderConfig: s.ProviderConfig,
+		ProviderConfig: cfg,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get interface status: %w", err)
