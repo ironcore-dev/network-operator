@@ -182,7 +182,7 @@ const (
 // FabricBUMSpec defines how BUM (Broadcast, Unknown unicast, Multicast) traffic
 // is forwarded across the fabric.
 // +kubebuilder:validation:XValidation:rule="self.type != 'Multicast' || has(self.pim)",message="pim must be set when type is Multicast"
-// +kubebuilder:validation:XValidation:rule="self.type != 'Multicast' || !has(self.pim) || size(self.pim.anycastRendezvousPoints[0].multicastGroups) <= 1 || has(self.defaultMulticastGroup)",message="defaultMulticastGroup is required when the first rendezvous point serves more than one multicastGroups entry"
+// +kubebuilder:validation:XValidation:rule="self.type != 'Multicast' || has(self.defaultMulticastGroup)",message="defaultMulticastGroup is required when type is Multicast"
 type FabricBUMSpec struct {
 	// type selects the BUM forwarding mechanism.
 	// +required
@@ -193,11 +193,8 @@ type FabricBUMSpec struct {
 	PIM *FabricPIMSpec `json:"pim,omitempty"`
 
 	// defaultMulticastGroup is the IPv4 multicast group programmed as the global
-	// Layer 2 BUM mcast-group on every VTEP NVE. If unset, it is derived from the
-	// first entry of the first pim.anycastRendezvousPoints group; this derivation
-	// is a migration fallback for fabrics authored before this field existed and
-	// is only allowed when that group serves a single multicastGroups entry,
-	// otherwise the field is required. Per-VNI mcast-group overrides are not supported.
+	// Layer 2 BUM mcast-group on every VTEP NVE. Required when type is Multicast.
+	// Per-VNI mcast-group overrides are not supported.
 	// +optional
 	DefaultMulticastGroup *corev1alpha1.IPPrefix `json:"defaultMulticastGroup,omitempty"`
 }
