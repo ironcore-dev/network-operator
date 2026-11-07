@@ -847,6 +847,26 @@ func main() { //nolint:gocyclo
 		os.Exit(1)
 	}
 
+	if err := (&evpncontroller.NetworkReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorder("evpn-network-controller"),
+		WatchFilterValue: watchFilterValue,
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "EVPNNetwork")
+		os.Exit(1)
+	}
+
+	if err := (&evpncontroller.NetworkAttachmentReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorder("evpn-networkattachment-controller"),
+		WatchFilterValue: watchFilterValue,
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "EVPNNetworkAttachment")
+		os.Exit(1)
+	}
+
 	if err := (&corecontroller.ProbeReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),

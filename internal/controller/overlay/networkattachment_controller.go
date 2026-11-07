@@ -137,8 +137,7 @@ func (r *NetworkAttachmentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *NetworkAttachmentReconciler) reconcile(_ context.Context, na *overlayv1alpha1.NetworkAttachment) (ctrl.Result, error) { //nolint:unparam
-	conditions.RecomputeReady(na)
+func (r *NetworkAttachmentReconciler) reconcile(_ context.Context, na *overlayv1alpha1.NetworkAttachment) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 

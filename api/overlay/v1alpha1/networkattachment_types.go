@@ -4,6 +4,8 @@
 package v1alpha1
 
 import (
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -26,6 +28,7 @@ type NetworkAttachmentSpec struct {
 
 	// Encapsulation defines the encapsulation parameters for this attachment.
 	// +required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="encapsulation is immutable"
 	Encapsulation Encapsulation `json:"encapsulation"`
 }
 
@@ -51,6 +54,11 @@ type Encapsulation struct {
 	ID int32 `json:"id"`
 }
 
+// Key returns the stable identity of the encapsulation.
+func (e Encapsulation) Key() string {
+	return fmt.Sprintf("%s/%d", e.Type, e.ID)
+}
+
 // NetworkAttachmentStatus defines the observed state of NetworkAttachment.
 type NetworkAttachmentStatus struct {
 	// For Kubernetes API conventions, see:
@@ -65,6 +73,27 @@ type NetworkAttachmentStatus struct {
 	// +patchMergeKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// forwardingContextRef references the forwarding context realizing this attachment.
+	// +optional
+	ForwardingContextRef *corev1alpha1.TypedLocalObjectReference `json:"forwardingContextRef,omitempty"`
+
+	// interfaces records Interface/VLAN memberships owned by this attachment.
+	// Entries may represent memberships being provisioned or cleaned up.
+	// +optional
+	// +listType=atomic
+	Interfaces []NetworkAttachmentInterfaceStatus `json:"interfaces,omitempty"`
+}
+
+// NetworkAttachmentInterfaceStatus records realized VLAN membership on an Interface.
+type NetworkAttachmentInterfaceStatus struct {
+	// deviceRef references the Device that owns the Interface.
+	// +required
+	DeviceRef corev1alpha1.LocalObjectReference `json:"deviceRef"`
+
+	// interfaceRef references the realized Interface.
+	// +required
+	InterfaceRef corev1alpha1.LocalObjectReference `json:"interfaceRef"`
 }
 
 // +kubebuilder:object:root=true
