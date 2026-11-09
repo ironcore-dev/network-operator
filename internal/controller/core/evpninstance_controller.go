@@ -324,14 +324,14 @@ func (r *EVPNInstanceReconciler) reconcile(ctx context.Context, s *eviScope) (re
 
 	s.EVPNInstance.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
-	defer conditions.RecomputeReady(s.EVPNInstance)
-
 	// Ensure the EVPNInstance is owned by the Device.
 	if !controllerutil.HasControllerReference(s.EVPNInstance) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.EVPNInstance, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
 	}
+
+	defer conditions.RecomputeReady(s.EVPNInstance)
 
 	var vlan *v1alpha1.VLAN
 	if s.EVPNInstance.Spec.Type == v1alpha1.EVPNInstanceTypeBridged && s.EVPNInstance.Spec.VLANRef != nil {

@@ -33,6 +33,7 @@ resources:
 - bases/networking.metal.ironcore.dev_aaa.yaml
 - bases/networking.metal.ironcore.dev_probes.yaml
 - bases/networking.metal.ironcore.dev_consoleconnections.yaml
+- bases/networking.metal.ironcore.dev_macsecs.yaml
 - bases/pool.networking.metal.ironcore.dev_indexpools.yaml
 - bases/pool.networking.metal.ironcore.dev_ipaddresspools.yaml
 - bases/pool.networking.metal.ironcore.dev_ipprefixpools.yaml
@@ -55,6 +56,7 @@ resources:
 - bases/nx.cisco.networking.metal.ironcore.dev_evpninstanceconfigs.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_ethernetsegmentconfigs.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_pimconfigs.yaml
+- bases/nx.cisco.networking.metal.ironcore.dev_bgppeerconfigs.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches: []

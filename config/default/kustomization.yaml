@@ -214,7 +214,7 @@ replacements:
 #         delimiter: '/'
 #         index: 0
 #         create: true
-# - source:
+#  - source:
 #     kind: Certificate
 #     group: cert-manager.io
 #     version: v1

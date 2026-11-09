@@ -71,6 +71,19 @@ var _ = Describe("BGPPeer Controller", func() {
 				g.Expect(list.Items).To(BeEmpty())
 			}).Should(Succeed())
 
+			By("Cleaning up RoutingPolicy resources for this device")
+			policyList := &v1alpha1.RoutingPolicyList{}
+			Expect(k8sManager.GetClient().List(ctx, policyList, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name})).To(Succeed())
+			for i := range policyList.Items {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, &policyList.Items[i]))).To(Succeed())
+			}
+			By("Waiting for RoutingPolicy resources to be fully deleted")
+			Eventually(func(g Gomega) {
+				list := &v1alpha1.RoutingPolicyList{}
+				g.Expect(k8sManager.GetClient().List(ctx, list, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name})).To(Succeed())
+				g.Expect(list.Items).To(BeEmpty())
+			}).Should(Succeed())
+
 			By("Cleaning up Interface resources for this device")
 			intfList := &v1alpha1.InterfaceList{}
 			Expect(k8sManager.GetClient().List(ctx, intfList, client.InNamespace(metav1.NamespaceDefault), client.MatchingFields{v1alpha1.DeviceRefIndexKey: device.Name})).To(Succeed())

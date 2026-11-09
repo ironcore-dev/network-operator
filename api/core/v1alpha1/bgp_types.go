@@ -141,6 +141,10 @@ type BGPUnicastAddressFamily struct {
 	// this BGP address family.
 	// +optional
 	RedistributeStaticRoutes *BGPRedistributeStaticRoutes `json:"redistributeStaticRoutes,omitempty"`
+	// AggregateAddresses configures BGP aggregate-address entries for this address family.
+	// Each entry summarizes a group of more-specific prefixes into a single advertisement.
+	// +optional
+	AggregateAddresses []BGPAggregateAddress `json:"aggregateAddresses,omitempty"`
 }
 
 // BGPRedistributeDirectRoutes configures redistribution of directly connected
@@ -155,6 +159,26 @@ type BGPRedistributeDirectRoutes struct {
 // a BGP address family.
 type BGPRedistributeStaticRoutes struct {
 	// RoutingPolicyRef references a RoutingPolicy to apply during redistribution.
+	// +required
+	RoutingPolicyRef LocalObjectReference `json:"routingPolicyRef"`
+}
+
+// BGPAggregateAddress configures a single BGP aggregate-address entry.
+type BGPAggregateAddress struct {
+	// Prefix is the aggregate prefix to advertise in CIDR notation.
+	// +required
+	Prefix IPPrefix `json:"prefix"`
+	// SummaryOnly suppresses advertisement of more-specific prefixes covered by this aggregate.
+	// +optional
+	SummaryOnly bool `json:"summaryOnly,omitempty"`
+	// AttributeMap holds an optional reference to a RoutingPolicy applied to the aggregate advertisement.
+	// +optional
+	AttributeMap *BGPAggregateAttributeMap `json:"attributeMap,omitempty"`
+}
+
+// BGPAggregateAttributeMap references a RoutingPolicy to apply to a BGP aggregate advertisement.
+type BGPAggregateAttributeMap struct {
+	// RoutingPolicyRef references the RoutingPolicy to apply.
 	// +required
 	RoutingPolicyRef LocalObjectReference `json:"routingPolicyRef"`
 }

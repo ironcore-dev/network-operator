@@ -114,6 +114,26 @@ webhooks:
     service:
       name: {{ include "network-operator.resourceName" (dict "suffix" "webhook-service" "context" $) }}
       namespace: {{ .Release.Namespace }}
+      path: /validate-networking-metal-ironcore-dev-v1alpha1-macsec
+  failurePolicy: Fail
+  name: macsec-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - networking.metal.ironcore.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - macsec
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ include "network-operator.resourceName" (dict "suffix" "webhook-service" "context" $) }}
+      namespace: {{ .Release.Namespace }}
       path: /validate-nx-cisco-networking-metal-ironcore-dev-v1alpha1-networkvirtualizationedgeconfig
   failurePolicy: Fail
   name: networkvirtualizationedgeconfig-cisco-nx-v1alpha1.kb.io

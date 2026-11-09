@@ -47,6 +47,7 @@ func NewCmdNet(streams genericiooptions.IOStreams, version string) *cobra.Comman
 		NewCmdVersion(o, version),
 		NewCmdCompletion(cmd),
 	)
+	cmd.AddCommand(NewCmdMaintenance(o)...)
 
 	return cmd
 }

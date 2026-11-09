@@ -220,9 +220,7 @@ func (r *LLDPReconciler) reconcile(ctx context.Context, s *lldpScope) (reterr er
 		}
 	}
 
-	defer func() {
-		conditions.RecomputeReady(s.LLDP)
-	}()
+	defer conditions.RecomputeReady(s.LLDP)
 
 	if err := r.validateUniqueLLDPPerDevice(ctx, s); err != nil {
 		return err

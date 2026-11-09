@@ -269,16 +269,14 @@ func (r *DNSReconciler) reconcile(ctx context.Context, s *dnsScope) (reterr erro
 
 	s.DNS.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
-	defer func() {
-		conditions.RecomputeReady(s.DNS)
-	}()
-
 	// Ensure the DNS is owned by the Device.
 	if !controllerutil.HasControllerReference(s.DNS) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.DNS, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
 	}
+
+	defer conditions.RecomputeReady(s.DNS)
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)

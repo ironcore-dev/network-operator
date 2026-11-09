@@ -1,0 +1,172 @@
+# Aggregate Interface without switchport or addresses on a device whose ports are routed by default (no system default switchport)
+-- interfaces/eth1-3 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: eth1-3
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: eth1/3
+  description: Member of po3
+  adminState: Up
+  type: Physical
+
+-- interfaces/po3 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: po3
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: po3
+  description: Routed Port-Channel
+  adminState: Up
+  type: Aggregate
+  aggregation:
+    controlProtocol:
+      mode: Active
+    memberInterfaceRefs:
+      - name: eth1-3
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "ethpm-items": {
+      "inst-items": {
+        "systemDefaultLayer": "Layer3"
+      }
+    }
+  }
+}
+
+-- state/expect --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "ethpm-items": {
+      "inst-items": {
+        "systemDefaultLayer": "Layer3"
+      }
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "accessVlan": "unknown",
+            "adminSt": "up",
+            "descr": "Member of po3",
+            "FECMode": "auto",
+            "id": "eth1/3",
+            "layer": "Layer3",
+            "mtu": 1500,
+            "medium": "broadcast",
+            "mode": "access",
+            "nativeVlan": "unknown",
+            "userCfgdFlags": "admin_layer,admin_state",
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            },
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            }
+          }
+        ]
+      },
+      "aggr-items": {
+        "AggrIf-list": [
+          {
+            "accessVlan": "unknown",
+            "adminSt": "up",
+            "descr": "Routed Port-Channel",
+            "id": "po3",
+            "lacpVpcConvergence": "disable",
+            "layer": "Layer3",
+            "mtu": 1500,
+            "medium": "broadcast",
+            "mode": "access",
+            "pcMode": "active",
+            "nativeVlan": "unknown",
+            "suspIndividual": "enable",
+            "userCfgdFlags": "admin_layer,admin_state",
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            },
+            "rsmbrIfs-items": {
+              "RsMbrIfs-list": [
+                {
+                  "tDn": "/System/intf-items/phys-items/PhysIf-list[id='eth1/3']"
+                }
+              ]
+            },
+            "aggrExtd-items": {
+              "bufferBoost": "enable"
+            }
+          }
+        ]
+      }
+    },
+    "fm-items": {
+      "lacp-items": {
+        "adminSt": "enabled"
+      }
+    }
+  }
+}
+
+-- state/delete --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "ethpm-items": {
+      "inst-items": {
+        "systemDefaultLayer": "Layer3"
+      }
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "accessVlan": "unknown",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "FECMode": "auto",
+            "id": "eth1/3",
+            "layer": "Layer3",
+            "mtu": 1500,
+            "medium": "broadcast",
+            "mode": "access",
+            "nativeVlan": "unknown",
+            "userCfgdFlags": "",
+            "rtvrfMbr-items": {
+              "tDn": "/System/inst-items/Inst-list[name='default']"
+            },
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            },
+            "trunkVlans": "1-4094"
+          }
+        ]
+      },
+      "aggr-items": {
+        "AggrIf-list": []
+      }
+    },
+    "fm-items": {
+      "lacp-items": {
+        "adminSt": "enabled"
+      }
+    }
+  }
+}

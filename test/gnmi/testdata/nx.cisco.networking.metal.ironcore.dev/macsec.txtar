@@ -1,0 +1,229 @@
+-- interface/eth1-1 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: eth1-1
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: eth1/1
+  description: macse interface
+  adminState: Up
+  type: Physical
+
+-- secret/secret1 --
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret1
+  namespace: default
+type: Opaque
+data:
+  key: dGVzdC1wc2s=
+
+-- macsec/secure-layer2 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: MacSec
+metadata:
+  name: secure-layer2
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  interfaceRef:
+    name: eth1-1
+  name: secure-layer2
+  preSharedKeys:
+    - secretRef:
+        name: secret1
+      connectivityKeyName: "1234567"
+      algorithm: AES-128-CMAC
+      startTime: "2026-01-01T00:00:00Z"
+      endTime: "2027-01-01T09:34:01Z"
+  policy:
+    cipherSuite: GCM-AES-256
+    confidentialityOffset: 30
+    keyServerPriority: 8
+    relayProtection: 32
+
+-- state/preload --
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    }
+  }
+}
+
+-- state/expect --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "fm-items": {
+      "macsec-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "kcmgr-items": {
+      "keychains-items": {
+        "macseckeychain-items": {
+          "MacsecKeychain-list": [
+            {
+              "keychainName": "secure-layer2",
+              "macseckeyid-items": {
+                "MacsecKeyId-list": [
+                  {
+                    "cryptographicAlgo": "AES_128_CMAC",
+                    "encryptType": "type7",
+                    "keyHexString": "0010161510161B1504",
+                    "keyId": "1234567",
+                    "macsecsendlifetime-items": {
+                      "duration": 31570441,
+                      "infinite": "disabled",
+                      "startDay": 1,
+                      "startMonth": "Jan",
+                      "startTime": "00:00:00",
+                      "startYear": 2026
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "macsec-items": {
+      "inst-items": {
+        "policy-items": {
+          "Policy-list": [
+            {
+              "cipherSuite": "GCM-AES-256",
+              "confOffset": "CONF-OFFSET-30",
+              "keySvrPrio": 8,
+              "policyName": "secure-layer2",
+              "replayWindow": 32
+            }
+          ]
+        },
+        "if-items": {
+          "If-list": [
+            {
+              "id": "eth1/1",
+              "keychainName": "secure-layer2",
+              "policyName": "secure-layer2"
+            }
+          ]
+        }
+      }
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "accessVlan": "vlan-1",
+            "adminSt": "up",
+            "descr": "macse interface",
+            "FECMode": "auto",
+            "id": "eth1/1",
+            "layer": "Layer2",
+            "mtu": 1500,
+            "medium": "broadcast",
+            "mode": "access",
+            "nativeVlan": "vlan-1",
+            "userCfgdFlags": "admin_layer,admin_state",
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            }
+          }
+        ]
+      }
+    },
+    "stp-items": {
+      "inst-items": {
+        "if-items": {
+          "If-list": [
+            {
+              "bpdufilter": "default",
+              "bpduguard": "default",
+              "id": "eth1/1",
+              "mode": "default"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+-- state/delete --
+
+{
+  "System": {
+    "procsys-items": {
+      "bootTime": "1700000000"
+    },
+    "fm-items": {
+      "macsec-items": {
+        "adminSt": "enabled"
+      }
+    },
+    "intf-items": {
+      "phys-items": {
+        "PhysIf-list": [
+          {
+            "accessVlan": "vlan-1",
+            "descr": "DME_UNSET_PROPERTY_MARKER",
+            "FECMode": "auto",
+            "id": "eth1/1",
+            "layer": "Layer2",
+            "mtu": 1500,
+            "medium": "broadcast",
+            "mode": "access",
+            "nativeVlan": "vlan-1",
+            "userCfgdFlags": "",
+            "physExtd-items": {
+              "bufferBoost": "enable"
+            },
+            "trunkVlans": "1-4094"
+          }
+        ]
+      }
+    },
+    "macsec-items": {
+      "inst-items": {
+        "policy-items": {
+          "Policy-list": []
+        },
+        "if-items": {
+          "If-list": []
+        }
+      }
+    },
+    "kcmgr-items": {
+      "keychains-items": {
+        "macseckeychain-items": {
+          "MacsecKeychain-list": []
+        }
+      }
+    },
+    "stp-items": {
+      "inst-items": {
+        "if-items": {
+          "If-list": [
+            {
+              "bpdufilter": "default",
+              "bpduguard": "default",
+              "id": "eth1/1",
+              "mode": "default"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

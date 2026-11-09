@@ -125,6 +125,20 @@ func (p *PhysIf) Default() {
 	p.PhysExtdItems.BufferBoost = AdminStEnable
 }
 
+// Reset sets the receiver to an unconfigured interface on a device whose
+// system default layer is the given one. [PhysIf.Default] is the DME's own
+// default, a switchport; a routed interface has no VLANs instead and is a member
+// of the default VRF. The receiver's ID must be set.
+func (p *PhysIf) Reset(layer Layer) {
+	p.Default()
+	if layer == Layer3 {
+		p.Layer = Layer3
+		p.AccessVlan = string(AdjOperStUnknown)
+		p.NativeVlan = string(AdjOperStUnknown)
+		p.RtvrfMbrItems = NewVrfMember(p.ID, DefaultVRFName)
+	}
+}
+
 type PhysIfOperItems struct {
 	ID         string `json:"-"`
 	OperSt     OperSt `json:"operSt"`
@@ -476,8 +490,9 @@ func (a *IntfAddrItems) XPath() string {
 }
 
 // NDIf represents the IPv6 Neighbor Discovery configuration of an interface.
-// The device only keeps this object for as long as the interface is routed,
-// so it needs no explicit cleanup when the interface is deleted.
+// The device only keeps this object for as long as the interface is routed.
+// A deleted interface stays routed where that is the system default layer, so
+// it is deleted along with the interface.
 type NDIf struct {
 	ID         string      `json:"id"`
 	Ctrl       NDCtrlFlags `json:"ctrl"`
@@ -495,6 +510,39 @@ func (*NDIf) IsListItem() {}
 func (n *NDIf) XPath() string {
 	return "System/nd-items/inst-items/dom-items/Dom-list[name=" + n.Vrf + "]/if-items/If-list[id=" + n.ID + "]"
 }
+
+func (n *NDIf) Key() string { return n.ID }
+
+// NDList is the IPv6 Neighbor Discovery configuration of all interfaces, in all VRFs.
+type NDList struct {
+	DomList gnmiext.List[string, *NDDom] `json:"Dom-list,omitzero"`
+}
+
+func (*NDList) XPath() string {
+	return "System/nd-items/inst-items/dom-items"
+}
+
+// GetNDIfByInterface returns the Neighbor Discovery configuration of the
+// given interface, or nil if it has none.
+func (l *NDList) GetNDIfByInterface(name string) *NDIf {
+	for _, dom := range l.DomList {
+		if item, ok := dom.IfItems.IfList[name]; ok {
+			nd := *item
+			nd.Vrf = dom.Name
+			return &nd
+		}
+	}
+	return nil
+}
+
+type NDDom struct {
+	Name    string `json:"name"`
+	IfItems struct {
+		IfList gnmiext.List[string, *NDIf] `json:"If-list,omitzero"`
+	} `json:"if-items,omitzero"`
+}
+
+func (d *NDDom) Key() string { return d.Name }
 
 const (
 	// NDRAIntervalDefault and NDRAIntervalMinDefault are the NX-OS defaults,

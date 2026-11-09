@@ -64,6 +64,9 @@ resources:
 - lldp_admin_role.yaml
 - lldp_editor_role.yaml
 - lldp_viewer_role.yaml
+- macsec_admin_role.yaml
+- macsec_editor_role.yaml
+- macsec_viewer_role.yaml
 - managementaccess_admin_role.yaml
 - managementaccess_editor_role.yaml
 - managementaccess_viewer_role.yaml
@@ -137,6 +140,9 @@ resources:
 - cisco/nx/bgpconfig_admin_role.yaml
 - cisco/nx/bgpconfig_editor_role.yaml
 - cisco/nx/bgpconfig_viewer_role.yaml
+- cisco/nx/bgppeerconfig_admin_role.yaml
+- cisco/nx/bgppeerconfig_editor_role.yaml
+- cisco/nx/bgppeerconfig_viewer_role.yaml
 - cisco/nx/pimconfig_admin_role.yaml
 - cisco/nx/pimconfig_editor_role.yaml
 - cisco/nx/pimconfig_viewer_role.yaml

@@ -300,11 +300,11 @@ var _ = Describe("BGP Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, bgp)).To(Succeed())
 
-			By("Expecting ReadyCondition to be False with WaitingForDependencies reason")
+			By("Expecting ConfiguredCondition to be False with WaitingForDependencies reason")
 			Eventually(func(g Gomega) {
 				resource := &v1alpha1.BGP{}
 				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgp), resource)).To(Succeed())
-				cond := conditions.Get(resource, v1alpha1.ReadyCondition)
+				cond := conditions.Get(resource, v1alpha1.ConfiguredCondition)
 				g.Expect(cond).ToNot(BeNil())
 				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(cond.Reason).To(Equal(v1alpha1.WaitingForDependenciesReason))
@@ -317,6 +317,72 @@ var _ = Describe("BGP Controller", func() {
 				Spec: v1alpha1.RoutingPolicySpec{
 					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
 					Name:      "test-static-policy",
+					Statements: []v1alpha1.PolicyStatement{
+						{
+							Sequence: 10,
+							Actions: v1alpha1.PolicyActions{
+								RouteDisposition: v1alpha1.AcceptRoute,
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, rp)).To(Succeed())
+
+			By("Expecting ReadyCondition to become True after the RoutingPolicy is created")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.BGP{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgp), resource)).To(Succeed())
+				cond := conditions.Get(resource, v1alpha1.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			}).Should(Succeed())
+		})
+
+		It("Should reconcile BGP when a referenced aggregate-address RoutingPolicy is created", func() {
+			By("Creating a BGP with an aggregateAddresses attributeMap ref pointing to a non-existent RoutingPolicy")
+			bgp := &v1alpha1.BGP{
+				GenerateName: "test-bgp-",
+				Namespace:    metav1.NamespaceDefault,
+				Spec: v1alpha1.BGPSpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
+					ASNumber:  intstr.FromInt(65000),
+					RouterID:  "10.0.0.22",
+					AddressFamilies: &v1alpha1.BGPAddressFamilies{
+						Ipv4Unicast: &v1alpha1.BGPUnicastAddressFamily{
+							Enabled: true,
+							AggregateAddresses: []v1alpha1.BGPAggregateAddress{
+								{
+									Prefix:      v1alpha1.MustParsePrefix("10.0.0.0/8"),
+									SummaryOnly: true,
+									AttributeMap: &v1alpha1.BGPAggregateAttributeMap{
+										RoutingPolicyRef: v1alpha1.LocalObjectReference{Name: "test-aggaddr-policy"},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, bgp)).To(Succeed())
+
+			By("Expecting ConfiguredCondition to be False with WaitingForDependencies reason")
+			Eventually(func(g Gomega) {
+				resource := &v1alpha1.BGP{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(bgp), resource)).To(Succeed())
+				cond := conditions.Get(resource, v1alpha1.ConfiguredCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(cond.Reason).To(Equal(v1alpha1.WaitingForDependenciesReason))
+			}).Should(Succeed())
+
+			By("Creating the RoutingPolicy")
+			rp := &v1alpha1.RoutingPolicy{
+				Name:      "test-aggaddr-policy",
+				Namespace: metav1.NamespaceDefault,
+				Spec: v1alpha1.RoutingPolicySpec{
+					DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
+					Name:      "test-aggaddr-policy",
 					Statements: []v1alpha1.PolicyStatement{
 						{
 							Sequence: 10,

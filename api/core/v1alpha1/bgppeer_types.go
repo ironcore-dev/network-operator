@@ -186,6 +186,11 @@ type BGPPeerAddressFamily struct {
 	// +optional
 	RouteReflectorClient bool `json:"routeReflectorClient,omitempty"`
 
+	// NextHopSelf enables next-hop-self for routes advertised to this peer in this address family.
+	// If a RoutingPolicy also sets the next hop, then the precedence depends on the provider and platform implementation.
+	// +optional
+	NextHopSelf bool `json:"nextHopSelf,omitempty"`
+
 	// InboundRoutingPolicyRef references a RoutingPolicy applied to routes received from this peer
 	// for this address family.
 	// +optional

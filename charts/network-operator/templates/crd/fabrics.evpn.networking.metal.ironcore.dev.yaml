@@ -67,6 +67,13 @@ spec:
               bum:
                 description: bum defines how BUM traffic is forwarded across the fabric.
                 properties:
+                  defaultMulticastGroup:
+                    description: |-
+                      defaultMulticastGroup is the IPv4 multicast group programmed as the global
+                      Layer 2 BUM mcast-group on every VTEP NVE. Required when type is Multicast.
+                      Per-VNI mcast-group overrides are not supported.
+                    format: cidr
+                    type: string
                   pim:
                     description: pim configures PIM sparse mode when type is Multicast.
                     properties:
@@ -215,6 +222,8 @@ spec:
                 x-kubernetes-validations:
                 - message: pim must be set when type is Multicast
                   rule: self.type != 'Multicast' || has(self.pim)
+                - message: defaultMulticastGroup is required when type is Multicast
+                  rule: self.type != 'Multicast' || has(self.defaultMulticastGroup)
               deviceSelector:
                 description: |-
                   deviceSelector identifies which devices are members of this fabric.
@@ -307,6 +316,14 @@ spec:
                           iBGP fabric. Supports both plain format (1-4294967295) and dotted notation
                           (1-65535.0-65535) as per RFC 5396.
                         x-kubernetes-int-or-string: true
+                      maximumPaths:
+                        description: |-
+                          maximumPaths sets the maximum number of equal-cost iBGP paths used for
+                          L2VPN EVPN multipath load balancing on every device in the fabric. When
+                          omitted, the platform default (single best path) applies.
+                        maximum: 64
+                        minimum: 1
+                        type: integer
                       routeReflectors:
                         description: |-
                           routeReflectors lists the route reflector groups that provide iBGP scalability.
@@ -596,6 +613,14 @@ spec:
                     required:
                     - virtualMAC
                     type: object
+                  anycastVTEP:
+                    default: false
+                    description: |-
+                      anycastVTEP enables allocation of an anycast VTEP loopback (lo2) on each
+                      VTEP device. Disabling it removes the lo2 Claim and Interface the fabric
+                      previously created; the underlying IP is released or retained per the
+                      pool's reclaim policy.
+                    type: boolean
                   deviceSelector:
                     description: deviceSelector identifies which devices are configured
                       as VTEPs.

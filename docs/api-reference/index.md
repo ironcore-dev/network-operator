@@ -107,6 +107,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `type` _[BUMType](#bumtype)_ | type selects the BUM forwarding mechanism. |  | Enum: [Multicast] <br />Required: \{\} <br /> |
 | `pim` _[FabricPIMSpec](#fabricpimspec)_ | pim configures PIM sparse mode when type is Multicast. |  | Optional: \{\} <br /> |
+| `defaultMulticastGroup` _[IPPrefix](#ipprefix)_ | defaultMulticastGroup is the IPv4 multicast group programmed as the global<br />Layer 2 BUM mcast-group on every VTEP NVE. Required when type is Multicast.<br />Per-VNI mcast-group overrides are not supported. |  | Format: cidr <br />Type: string <br />Optional: \{\} <br /> |
 
 
 #### FabricIBGPSpec
@@ -124,6 +125,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `asNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | asNumber is the BGP autonomous system number shared by all devices in the<br />iBGP fabric. Supports both plain format (1-4294967295) and dotted notation<br />(1-65535.0-65535) as per RFC 5396. |  | Required: \{\} <br /> |
 | `routeReflectors` _[RouteReflectorGroup](#routereflectorgroup) array_ | routeReflectors lists the route reflector groups that provide iBGP scalability.<br />Each group designates a set of reflectors and their client devices. |  | MinItems: 1 <br />Required: \{\} <br /> |
+| `maximumPaths` _integer_ | maximumPaths sets the maximum number of equal-cost iBGP paths used for<br />L2VPN EVPN multipath load balancing on every device in the fabric. When<br />omitted, the platform default (single best path) applies. |  | Maximum: 64 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 
 
 #### FabricLoopbacksSpec
@@ -264,6 +266,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `deviceSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#labelselector-v1-meta)_ | deviceSelector identifies which devices are configured as VTEPs. |  | Required: \{\} <br /> |
+| `anycastVTEP` _boolean_ | anycastVTEP enables allocation of an anycast VTEP loopback (lo2) on each<br />VTEP device. Disabling it removes the lo2 Claim and Interface the fabric<br />previously created; the underlying IP is released or retained per the<br />pool's reclaim policy. | false | Optional: \{\} <br /> |
 | `anycastGateway` _[FabricAnycastGatewaySpec](#fabricanycastgatewayspec)_ | anycastGateway configures the anycast gateway shared across all VTEP devices. |  | Optional: \{\} <br /> |
 
 
@@ -344,6 +347,7 @@ Package v1alpha1 contains API Schema definitions for the networking.metal.ironco
 - [ISIS](#isis)
 - [Interface](#interface)
 - [LLDP](#lldp)
+- [MacSec](#macsec)
 - [ManagementAccess](#managementaccess)
 - [NTP](#ntp)
 - [NetworkVirtualizationEdge](#networkvirtualizationedge)
@@ -858,6 +862,40 @@ _Appears in:_
 | `L2vpnEvpn` | BGPAddressFamilyL2vpnEvpn represents the L2VPN EVPN address family (AFI=25, SAFI=70).<br /> |
 
 
+#### BGPAggregateAddress
+
+
+
+BGPAggregateAddress configures a single BGP aggregate-address entry.
+
+
+
+_Appears in:_
+- [BGPUnicastAddressFamily](#bgpunicastaddressfamily)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `prefix` _[IPPrefix](#ipprefix)_ | Prefix is the aggregate prefix to advertise in CIDR notation. |  | Format: cidr <br />Type: string <br />Required: \{\} <br /> |
+| `summaryOnly` _boolean_ | SummaryOnly suppresses advertisement of more-specific prefixes covered by this aggregate. |  | Optional: \{\} <br /> |
+| `attributeMap` _[BGPAggregateAttributeMap](#bgpaggregateattributemap)_ | AttributeMap holds an optional reference to a RoutingPolicy applied to the aggregate advertisement. |  | Optional: \{\} <br /> |
+
+
+#### BGPAggregateAttributeMap
+
+
+
+BGPAggregateAttributeMap references a RoutingPolicy to apply to a BGP aggregate advertisement.
+
+
+
+_Appears in:_
+- [BGPAggregateAddress](#bgpaggregateaddress)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `routingPolicyRef` _[LocalObjectReference](#localobjectreference)_ | RoutingPolicyRef references the RoutingPolicy to apply. |  | Required: \{\} <br /> |
+
+
 #### BGPCommunityType
 
 _Underlying type:_ _string_
@@ -1001,6 +1039,7 @@ _Appears in:_
 | `enabled` _boolean_ | Enabled determines whether this address family is activated for this specific peer.<br />When false, the address family is not negotiated with this peer.<br />Defaults to false. |  | Optional: \{\} <br /> |
 | `sendCommunity` _[BGPCommunityType](#bgpcommunitytype)_ | SendCommunity specifies which community attributes should be sent to this BGP peer<br />for this address family. If not specified, no community attributes are sent. |  | Enum: [Standard Extended Both] <br />Optional: \{\} <br /> |
 | `routeReflectorClient` _boolean_ | RouteReflectorClient indicates whether this peer should be treated as a route reflector client<br />for this specific address family. Defaults to false. |  | Optional: \{\} <br /> |
+| `nextHopSelf` _boolean_ | NextHopSelf enables next-hop-self for routes advertised to this peer in this address family.<br />If a RoutingPolicy also sets the next hop, then the precedence depends on the provider and platform implementation. |  | Optional: \{\} <br /> |
 | `inboundRoutingPolicyRef` _[LocalObjectReference](#localobjectreference)_ | InboundRoutingPolicyRef references a RoutingPolicy applied to routes received from this peer<br />for this address family. |  | Optional: \{\} <br /> |
 | `outboundRoutingPolicyRef` _[LocalObjectReference](#localobjectreference)_ | OutboundRoutingPolicyRef references a RoutingPolicy applied to routes advertised to this peer<br />for this address family. |  | Optional: \{\} <br /> |
 
@@ -1199,6 +1238,7 @@ _Appears in:_
 | `multipath` _[BGPMultipath](#bgpmultipath)_ | Multipath configures address family specific multipath behavior.<br />When specified, overrides global multipath settings for this address family. |  | Optional: \{\} <br /> |
 | `redistributeDirectRoutes` _[BGPRedistributeDirectRoutes](#bgpredistributedirectroutes)_ | RedistributeDirectRoutes controls redistribution of directly connected<br />routes into this BGP address family. |  | Optional: \{\} <br /> |
 | `redistributeStaticRoutes` _[BGPRedistributeStaticRoutes](#bgpredistributestaticroutes)_ | RedistributeStaticRoutes controls redistribution of static routes into<br />this BGP address family. |  | Optional: \{\} <br /> |
+| `aggregateAddresses` _[BGPAggregateAddress](#bgpaggregateaddress) array_ | AggregateAddresses configures BGP aggregate-address entries for this address family.<br />Each entry summarizes a group of more-specific prefixes into a single advertisement. |  | Optional: \{\} <br /> |
 
 
 #### Banner
@@ -1289,6 +1329,7 @@ _Appears in:_
 | `setCommunity` _[SetCommunityAction](#setcommunityaction)_ | SetCommunity configures BGP standard community attributes. |  | Optional: \{\} <br /> |
 | `setExtCommunity` _[SetExtCommunityAction](#setextcommunityaction)_ | SetExtCommunity configures BGP extended community attributes. |  | Optional: \{\} <br /> |
 | `setASPath` _[SetASPathAction](#setaspathaction)_ | SetASPath configures modifications to the BGP AS path attribute. |  | Optional: \{\} <br /> |
+| `setNextHop` _[SetNextHopAction](#setnexthopaction)_ | SetNextHop configures the BGP next-hop for advertised routes. |  | Optional: \{\} <br /> |
 
 
 #### Certificate
@@ -1528,6 +1569,19 @@ _Appears in:_
 | --- | --- |
 | `Standard` | CommunitySetTypeStandard is a standard BGP community-list.<br /> |
 | `Extended` | CommunitySetTypeExtended is an extended BGP community-list.<br /> |
+
+
+#### ConfidentialityOffset
+
+_Underlying type:_ _integer_
+
+/ ConfidentialityOffset represents the number of octets in an Ethernet frame that are sent in unencrypted plain-text.
+
+
+
+_Appears in:_
+- [MacSecPolicy](#macsecpolicy)
+
 
 
 #### ConfigBackup
@@ -1923,6 +1977,24 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `mode` _[LACPMode](#lacpmode)_ | Mode defines the LACP mode for the aggregate interface. |  | Enum: [Active Passive Static] <br />Required: \{\} <br /> |
+
+
+#### CryptographicAlgorithm
+
+_Underlying type:_ _string_
+
+CryptographicAlgorithm is the MKA key-derivation algorithm used for a pre-shared key.
+
+_Validation:_
+- Enum: [AES-128-CMAC AES-256-CMAC]
+
+_Appears in:_
+- [PreSharedKey](#presharedkey)
+
+| Field | Description |
+| --- | --- |
+| `AES-128-CMAC` | AES128CMAC is the AES-128-CMAC key-derivation algorithm.<br /> |
+| `AES-256-CMAC` | AES256CMAC is the AES-256-CMAC key-derivation algorithm.<br /> |
 
 
 #### DFElectionMode
@@ -2545,6 +2617,7 @@ _Validation:_
 _Appears in:_
 - [IPAddressSpec](#ipaddressspec)
 - [PingProbe](#pingprobe)
+- [SetNextHopAction](#setnexthopaction)
 
 
 
@@ -2562,6 +2635,8 @@ _Validation:_
 _Appears in:_
 - [ACLEntry](#aclentry)
 - [AnycastRendezvousPoint](#anycastrendezvouspoint)
+- [BGPAggregateAddress](#bgpaggregateaddress)
+- [FabricBUMSpec](#fabricbumspec)
 - [IPAddressPoolSpec](#ipaddresspoolspec)
 - [IPPrefixPoolSpec](#ipprefixpoolspec)
 - [IPPrefixSpec](#ipprefixspec)
@@ -2970,6 +3045,7 @@ _Appears in:_
 - [AAASpec](#aaaspec)
 - [AccessControlListSpec](#accesscontrollistspec)
 - [Aggregation](#aggregation)
+- [BGPAggregateAttributeMap](#bgpaggregateattributemap)
 - [BGPPeerAddressFamily](#bgppeeraddressfamily)
 - [BGPPeerLocalAddress](#bgppeerlocaladdress)
 - [BGPPeerReference](#bgppeerreference)
@@ -3000,6 +3076,7 @@ _Appears in:_
 - [KeepAlive](#keepalive)
 - [LLDPInterface](#lldpinterface)
 - [LLDPSpec](#lldpspec)
+- [MacSecSpec](#macsecspec)
 - [ManagementAccessSpec](#managementaccessspec)
 - [NTPSpec](#ntpspec)
 - [NetworkAttachmentSpec](#networkattachmentspec)
@@ -3011,6 +3088,7 @@ _Appears in:_
 - [PIMInterface](#piminterface)
 - [PIMSpec](#pimspec)
 - [Peer](#peer)
+- [PreSharedKey](#presharedkey)
 - [PrefixSetMatchCondition](#prefixsetmatchcondition)
 - [PrefixSetSpec](#prefixsetspec)
 - [ProbeSpec](#probespec)
@@ -3083,6 +3161,81 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `macAddress` _string_ | MACAddress is the MAC address to look for in the device's MAC table. |  | Pattern: `^([0-9a-fA-F]\{2\}:)\{5\}[0-9a-fA-F]\{2\}$` <br />Required: \{\} <br /> |
 | `vlan` _[VLANSource](#vlansource)_ | VLAN constrains the lookup to a specific VLAN. |  | Optional: \{\} <br /> |
+
+
+#### MacSec
+
+
+
+MacSec is the Schema for the macsecs API.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `MacSec` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[MacSecSpec](#macsecspec)_ |  |  |  |
+| `status` _[MacSecStatus](#macsecstatus)_ |  |  |  |
+
+
+#### MacSecPolicy
+
+
+
+
+
+
+
+_Appears in:_
+- [MacSecSpec](#macsecspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `cipherSuite` _string_ | CipherSuite is the MACSec cipher suite to be used. |  | Required: \{\} <br /> |
+| `confidentialityOffset` _[ConfidentialityOffset](#confidentialityoffset)_ | ConfidentialityOffset specifies the number of octets in an Ethernet frame that are sent in unencrypted plain-text |  | Required: \{\} <br /> |
+| `keyServerPriority` _integer_ | KeyServerPriority specifies the key server priority used by the MACsec Key Agreement (MKA) protocol to select the key server when<br />MACsec is enabled using static connectivity association key (CAK) security mode. |  | Required: \{\} <br /> |
+| `relayProtection` _integer_ | RelayProtection specifies the number of out-of-order packets that can be received before the secure channel is considered to be inoperable.<br />A value of 0 means that frames are accepted only in the correct order. |  | Required: \{\} <br /> |
+
+
+#### MacSecSpec
+
+
+
+MacSecSpec defines the desired state of MacSec.
+
+
+
+_Appears in:_
+- [MacSec](#macsec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceRef` _[LocalObjectReference](#localobjectreference)_ | DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.<br />Immutable. |  | Required: \{\} <br /> |
+| `providerConfigRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | ProviderConfigRef is a reference to a resource holding the provider-specific configuration.<br />This reference is used to link the MacSec to its provider-specific configuration. |  | Optional: \{\} <br /> |
+| `name` _string_ | Name is the name of the MacSec configuration.<br />Immutable. |  | MaxLength: 255 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `interfaceRef` _[LocalObjectReference](#localobjectreference)_ | InterfaceRef is a reference to the interface on which MACsec is enabled. The interface must exist on the Device specified by deviceRef.<br />Immutable. |  | Required: \{\} <br /> |
+| `preSharedKeys` _[PreSharedKey](#presharedkey) array_ | PreSharedKeys is a list of pre-shared keys used for MACSec encryption.<br />Specify multiple keys if needed for redundancy rotation.<br />Sort them in the order they should be used for redundancy rotation. |  | MinItems: 1 <br />Required: \{\} <br /> |
+| `policy` _[MacSecPolicy](#macsecpolicy)_ | Policy defines the MACSec policy configuration. |  | Required: \{\} <br /> |
+
+
+#### MacSecStatus
+
+
+
+MacSecStatus defines the observed state of MacSec.
+
+
+
+_Appears in:_
+- [MacSec](#macsec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the MacSec. |  | Optional: \{\} <br /> |
 
 
 #### ManagementAccess
@@ -3792,6 +3945,27 @@ _Appears in:_
 | `Local` | PortIDTypeLocal is an alphanumeric string that and is locally assigned<br /> |
 
 
+#### PreSharedKey
+
+
+
+PreSharedKey defines a single MACsec pre-shared key: a reference to the Secret
+holding the raw key material plus the key metadata.
+
+
+
+_Appears in:_
+- [MacSecSpec](#macsecspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `secretRef` _[LocalObjectReference](#localobjectreference)_ | SecretRef references the Secret (in the same namespace) holding the raw key material<br />under the data key "key". The Secret must contain only the key material. |  | Required: \{\} <br /> |
+| `connectivityKeyName` _string_ | ConnectivityKeyName is the connectivity association key name (CKN). |  | MaxLength: 64 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `algorithm` _[CryptographicAlgorithm](#cryptographicalgorithm)_ | Algorithm is the cryptographic algorithm used for this key. |  | Enum: [AES-128-CMAC AES-256-CMAC] <br />Required: \{\} <br /> |
+| `startTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | StartTime is when this key becomes active.<br />The clock and date rendered into the device configuration are taken in UTC,<br />so a value with any timezone offset is normalized to UTC before being realized. |  | Required: \{\} <br /> |
+| `endTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | EndTime is when this key expires. Must be after startTime.<br />The clock and date rendered into the device configuration are taken in UTC,<br />so a value with any timezone offset is normalized to UTC before being realized.<br />Validates if the string is a valid datetime in RFC3339 format. |  | Required: \{\} <br /> |
+
+
 #### PrefixEntry
 
 
@@ -4474,6 +4648,22 @@ _Appears in:_
 | `operation` _[CommunityOperation](#communityoperation)_ | Operation controls whether the communities are added to the route's existing<br />communities (Add) or replace them (Replace). | Replace | Enum: [Add Replace] <br />Optional: \{\} <br /> |
 
 
+#### SetNextHopAction
+
+
+
+SetNextHopAction defines how to replace the BGP next-hop for advertised routes.
+
+
+
+_Appears in:_
+- [BgpActions](#bgpactions)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `address` _[IPAddr](#ipaddr)_ | Address specifies the next-hop IP address to set for advertised routes. |  | Format: ip <br />Type: string <br />Required: \{\} <br /> |
+
+
 #### Severity
 
 _Underlying type:_ _string_
@@ -4720,6 +4910,7 @@ _Appears in:_
 - [IndexSpec](#indexspec)
 - [InterfaceSpec](#interfacespec)
 - [LLDPSpec](#lldpspec)
+- [MacSecSpec](#macsecspec)
 - [ManagementAccessSpec](#managementaccessspec)
 - [NTPSpec](#ntpspec)
 - [NetworkVirtualizationEdgeSpec](#networkvirtualizationedgespec)
@@ -4989,6 +5180,7 @@ Package v1alpha1 contains API Schema definitions for the nx.cisco.networking.met
 ### Resource Types
 - [AAAConfig](#aaaconfig)
 - [BGPConfig](#bgpconfig)
+- [BGPPeerConfig](#bgppeerconfig)
 - [BorderGateway](#bordergateway)
 - [EVPNInstanceConfig](#evpninstanceconfig)
 - [EthernetSegmentConfig](#ethernetsegmentconfig)
@@ -5140,6 +5332,75 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `advertisePIP` _boolean_ | AdvertisePIP controls whether the BGP EVPN address-family should advertise the primary IP address (PIP) as the next-hop<br />when advertising prefix routes or loopback interface routes in BGP on vPC enabled leaf or border leaf switches. | false | Optional: \{\} <br /> |
+
+
+#### BGPPeerConfig
+
+
+
+BGPPeerConfig is the Schema for the bgppeerconfigs API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `nx.cisco.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `BGPPeerConfig` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[BGPPeerConfigSpec](#bgppeerconfigspec)_ | spec defines the desired state of BGPPeerConfig |  | Required: \{\} <br /> |
+
+
+#### BGPPeerConfigAddressFamilies
+
+
+
+BGPPeerConfigAddressFamilies defines the Cisco NX-OS specific configuration for a BGP peer's
+supported address families. Only l2vpn-evpn is configurable, which is enforced structurally
+by exposing solely the L2vpnEvpn field.
+
+
+
+_Appears in:_
+- [BGPPeerConfigSpec](#bgppeerconfigspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `l2vpnEvpn` _[BGPPeerConfigL2vpnEvpn](#bgppeerconfigl2vpnevpn)_ | L2vpnEvpn configures L2VPN EVPN address family support for this peer. |  | Optional: \{\} <br /> |
+
+
+#### BGPPeerConfigL2vpnEvpn
+
+
+
+BGPPeerConfigL2vpnEvpn defines the Cisco NX-OS specific configuration for the
+L2VPN EVPN address family of a BGP peer.
+
+
+
+_Appears in:_
+- [BGPPeerConfigAddressFamilies](#bgppeerconfigaddressfamilies)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `rewriteRouteTargetASN` _boolean_ | RewriteRouteTargetASN rewrites the AS portion of auto-generated EVPN Route Targets<br />when advertising to this peer. Only valid for l2vpn-evpn with rt auto. |  | Optional: \{\} <br /> |
+
+
+#### BGPPeerConfigSpec
+
+
+
+BGPPeerConfigSpec defines the Cisco NX-OS specific BGP peer configuration.
+
+
+
+_Appears in:_
+- [BGPPeerConfig](#bgppeerconfig)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `addressFamilies` _[BGPPeerConfigAddressFamilies](#bgppeerconfigaddressfamilies)_ | AddressFamilies configures supported BGP address families and their Cisco NX-OS specific settings. |  | Optional: \{\} <br /> |
 
 
 #### BGPPeerReference

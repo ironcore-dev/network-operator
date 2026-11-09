@@ -141,6 +141,14 @@ type FabricIBGPSpec struct {
 	// +listMapKey=name
 	// +kubebuilder:validation:MinItems=1
 	RouteReflectors []RouteReflectorGroup `json:"routeReflectors"`
+
+	// maximumPaths sets the maximum number of equal-cost iBGP paths used for
+	// L2VPN EVPN multipath load balancing on every device in the fabric. When
+	// omitted, the platform default (single best path) applies.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=64
+	MaximumPaths *int8 `json:"maximumPaths,omitempty"`
 }
 
 // RouteReflectorGroup defines a set of BGP route reflectors and their clients.
@@ -174,6 +182,7 @@ const (
 // FabricBUMSpec defines how BUM (Broadcast, Unknown unicast, Multicast) traffic
 // is forwarded across the fabric.
 // +kubebuilder:validation:XValidation:rule="self.type != 'Multicast' || has(self.pim)",message="pim must be set when type is Multicast"
+// +kubebuilder:validation:XValidation:rule="self.type != 'Multicast' || has(self.defaultMulticastGroup)",message="defaultMulticastGroup is required when type is Multicast"
 type FabricBUMSpec struct {
 	// type selects the BUM forwarding mechanism.
 	// +required
@@ -182,6 +191,12 @@ type FabricBUMSpec struct {
 	// pim configures PIM sparse mode when type is Multicast.
 	// +optional
 	PIM *FabricPIMSpec `json:"pim,omitempty"`
+
+	// defaultMulticastGroup is the IPv4 multicast group programmed as the global
+	// Layer 2 BUM mcast-group on every VTEP NVE. Required when type is Multicast.
+	// Per-VNI mcast-group overrides are not supported.
+	// +optional
+	DefaultMulticastGroup *corev1alpha1.IPPrefix `json:"defaultMulticastGroup,omitempty"`
 }
 
 // FabricPIMSpec configures PIM sparse mode for BUM traffic.
@@ -227,6 +242,14 @@ type FabricVTEPSpec struct {
 	// deviceSelector identifies which devices are configured as VTEPs.
 	// +required
 	DeviceSelector metav1.LabelSelector `json:"deviceSelector"`
+
+	// anycastVTEP enables allocation of an anycast VTEP loopback (lo2) on each
+	// VTEP device. Disabling it removes the lo2 Claim and Interface the fabric
+	// previously created; the underlying IP is released or retained per the
+	// pool's reclaim policy.
+	// +optional
+	// +kubebuilder:default=false
+	AnycastVTEP bool `json:"anycastVTEP,omitempty"`
 
 	// anycastGateway configures the anycast gateway shared across all VTEP devices.
 	// +optional

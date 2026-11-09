@@ -9,8 +9,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -18,6 +20,9 @@ import (
 	evpnv1alpha1 "github.com/ironcore-dev/network-operator/api/evpn/v1alpha1"
 	poolv1alpha1 "github.com/ironcore-dev/network-operator/api/pool/v1alpha1"
 )
+
+// defaultMulticastGroup is the BUM L2 mcast-group shared by the fabric test fixtures.
+var defaultMulticastGroup = corev1alpha1.MustParsePrefix("224.0.0.0/4")
 
 // Minimal 2-spine / 2-leaf EVPN/VXLAN topology used by the tests below.
 // All four devices share the "topology.kubernetes.io/zone: test-zone" label;
@@ -34,7 +39,7 @@ import (
 //
 //	lo0  (Router-ID)    — all 4 devices
 //	lo1  (primary VTEP) — leaf-1, leaf-2
-//	lo2  (anycast VTEP) — leaf-1, leaf-2
+//	lo2  (anycast VTEP) — leaf-1, leaf-2 (only when spec.vtep.anycastVTEP is true)
 //	lo100 (anycast RP)  — 1 Claim shared across spine-1, spine-2
 var _ = Describe("Fabric Controller", func() {
 	Context("When reconciling with unnumbered underlay addressing", func() {
@@ -184,7 +189,8 @@ var _ = Describe("Fabric Controller", func() {
 					Overlay: evpnv1alpha1.FabricOverlaySpec{
 						Protocol: evpnv1alpha1.OverlayProtocolIBGP,
 						IBGP: &evpnv1alpha1.FabricIBGPSpec{
-							ASNumber: intstr.FromInt(65000),
+							ASNumber:     intstr.FromInt(65000),
+							MaximumPaths: ptr.To[int8](4),
 							RouteReflectors: []evpnv1alpha1.RouteReflectorGroup{
 								{
 									Name:                 "spines",
@@ -195,7 +201,8 @@ var _ = Describe("Fabric Controller", func() {
 						},
 					},
 					BUM: evpnv1alpha1.FabricBUMSpec{
-						Type: evpnv1alpha1.BUMTypeMulticast,
+						Type:                  evpnv1alpha1.BUMTypeMulticast,
+						DefaultMulticastGroup: &defaultMulticastGroup,
 						PIM: &evpnv1alpha1.FabricPIMSpec{
 							AnycastRendezvousPoints: []evpnv1alpha1.AnycastRendezvousPoint{
 								{
@@ -209,6 +216,7 @@ var _ = Describe("Fabric Controller", func() {
 					},
 					VTEP: evpnv1alpha1.FabricVTEPSpec{
 						DeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "leaf"}},
+						AnycastVTEP:    true,
 					},
 					VNIPool: corev1alpha1.TypedLocalObjectReference{
 						APIVersion: poolv1alpha1.GroupVersion.String(),
@@ -397,12 +405,17 @@ var _ = Describe("Fabric Controller", func() {
 					g.Expect(lo0.Spec.IPv4).NotTo(BeNil())
 					g.Expect(bgp.Spec.RouterID).To(Equal(lo0.Spec.IPv4.Addresses[0].Addr().String()))
 
-					// L2VPN EVPN must be enabled with retainAll.
+					// iBGP fabric: retain route-target all is not configured.
 					g.Expect(bgp.Spec.AddressFamilies).NotTo(BeNil())
 					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn).NotTo(BeNil())
 					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn.Enabled).To(BeTrue())
-					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn.RouteTargetPolicy).NotTo(BeNil())
-					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn.RouteTargetPolicy.RetainAll).To(BeTrue())
+					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn.RouteTargetPolicy).To(BeNil())
+
+					// iBGP EVPN multipath must reflect the fabric maximumPaths.
+					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn.Multipath).NotTo(BeNil())
+					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn.Multipath.Enabled).To(BeTrue())
+					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn.Multipath.Ibgp).NotTo(BeNil())
+					g.Expect(bgp.Spec.AddressFamilies.L2vpnEvpn.Multipath.Ibgp.MaximumPaths).To(Equal(int8(4)))
 
 					g.Expect(bgp.OwnerReferences).To(ContainElement(SatisfyAll(
 						HaveField("Kind", "Fabric"),
@@ -529,6 +542,12 @@ var _ = Describe("Fabric Controller", func() {
 					g.Expect(nve.Spec.AnycastSourceInterfaceRef).NotTo(BeNil())
 					g.Expect(nve.Spec.AnycastSourceInterfaceRef.Name).To(Equal(fabric.Name + "-" + leaf.Name + "-lo2"))
 
+					// L2 BUM mcast-group is taken from spec.bum.defaultMulticastGroup.
+					g.Expect(nve.Spec.MulticastGroups).NotTo(BeNil())
+					g.Expect(nve.Spec.MulticastGroups.L2).NotTo(BeNil())
+					g.Expect(nve.Spec.MulticastGroups.L2.String()).To(Equal("224.0.0.0/4"))
+					g.Expect(nve.Spec.MulticastGroups.L3).To(BeNil())
+
 					g.Expect(nve.OwnerReferences).To(ContainElement(SatisfyAll(
 						HaveField("Kind", "Fabric"),
 						HaveField("Name", fabric.Name),
@@ -562,6 +581,118 @@ var _ = Describe("Fabric Controller", func() {
 					HaveField("Status", metav1.ConditionFalse),
 				)))
 			}).Should(Succeed())
+		})
+
+		It("Should gate the lo2 anycast VTEP loopback on spec.vtep.anycastVTEP and clean it up on a transition to false", func() {
+			By("Creating the Fabric with anycastVTEP disabled")
+			fabric := &evpnv1alpha1.Fabric{
+				Name:      "anycast-fabric",
+				Namespace: metav1.NamespaceDefault,
+				Spec: evpnv1alpha1.FabricSpec{
+					DeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"topology.kubernetes.io/zone": "test-zone"}},
+					Loopbacks:      evpnv1alpha1.FabricLoopbacksSpec{IPAddressPoolRef: corev1alpha1.LocalObjectReference{Name: loopbackPool.Name}},
+					Underlay: evpnv1alpha1.FabricUnderlaySpec{
+						Protocol:          evpnv1alpha1.UnderlayProtocolOSPF,
+						InterfaceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "fabric"}},
+						Addressing:        evpnv1alpha1.FabricUnderlayAddressingSpec{Unnumbered: true},
+					},
+					Overlay: evpnv1alpha1.FabricOverlaySpec{
+						Protocol: evpnv1alpha1.OverlayProtocolIBGP,
+						IBGP: &evpnv1alpha1.FabricIBGPSpec{
+							ASNumber: intstr.FromInt(65000),
+							RouteReflectors: []evpnv1alpha1.RouteReflectorGroup{{
+								Name:                 "spines",
+								DeviceSelector:       metav1.LabelSelector{MatchLabels: map[string]string{"role": "spine"}},
+								ClientDeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "leaf"}},
+							}},
+						},
+					},
+					BUM: evpnv1alpha1.FabricBUMSpec{
+						Type:                  evpnv1alpha1.BUMTypeMulticast,
+						DefaultMulticastGroup: &defaultMulticastGroup,
+						PIM: &evpnv1alpha1.FabricPIMSpec{
+							AnycastRendezvousPoints: []evpnv1alpha1.AnycastRendezvousPoint{{
+								Name:                 "spine-rp",
+								MulticastGroups:      []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("224.0.0.0/4")},
+								DeviceSelector:       metav1.LabelSelector{MatchLabels: map[string]string{"role": "spine"}},
+								ClientDeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "leaf"}},
+							}},
+						},
+					},
+					VTEP: evpnv1alpha1.FabricVTEPSpec{
+						DeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "leaf"}},
+						AnycastVTEP:    false,
+					},
+					VNIPool: corev1alpha1.TypedLocalObjectReference{APIVersion: poolv1alpha1.GroupVersion.String(), Kind: "IndexPool", Name: indexPool.Name},
+				},
+			}
+			Expect(k8sClient.Create(ctx, fabric)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, fabric))).To(Succeed())
+				Expect(k8sClient.DeleteAllOf(ctx, &poolv1alpha1.Claim{}, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+				Eventually(func(g Gomega) {
+					list := &poolv1alpha1.ClaimList{}
+					g.Expect(k8sClient.List(ctx, list, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+					g.Expect(list.Items).To(BeEmpty())
+				}).Should(Succeed())
+			})
+
+			By("Verifying lo1 is created but lo2 is not")
+			for _, d := range []*corev1alpha1.Device{leaf1, leaf2} {
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-lo1", Namespace: metav1.NamespaceDefault}, &poolv1alpha1.Claim{})).To(Succeed())
+				}).Should(Succeed())
+				Consistently(func(g Gomega) {
+					g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-lo2", Namespace: metav1.NamespaceDefault}, &poolv1alpha1.Claim{}))).To(BeTrue())
+					g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-lo2", Namespace: metav1.NamespaceDefault}, &corev1alpha1.Interface{}))).To(BeTrue())
+				}, "1s").Should(Succeed())
+			}
+
+			By("Verifying the NVE has no anycast source interface reference")
+			for _, d := range []*corev1alpha1.Device{leaf1, leaf2} {
+				Eventually(func(g Gomega) {
+					nve := &corev1alpha1.NetworkVirtualizationEdge{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-nve", Namespace: metav1.NamespaceDefault}, nve)).To(Succeed())
+					g.Expect(nve.Spec.AnycastSourceInterfaceRef).To(BeNil())
+				}).Should(Succeed())
+			}
+
+			By("Enabling anycastVTEP and verifying lo2 Claim, Interface, and NVE reference appear")
+			Eventually(func(g Gomega) {
+				f := &evpnv1alpha1.Fabric{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(fabric), f)).To(Succeed())
+				f.Spec.VTEP.AnycastVTEP = true
+				g.Expect(k8sClient.Update(ctx, f)).To(Succeed())
+			}).Should(Succeed())
+
+			for _, d := range []*corev1alpha1.Device{leaf1, leaf2} {
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-lo2", Namespace: metav1.NamespaceDefault}, &poolv1alpha1.Claim{})).To(Succeed())
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-lo2", Namespace: metav1.NamespaceDefault}, &corev1alpha1.Interface{})).To(Succeed())
+					nve := &corev1alpha1.NetworkVirtualizationEdge{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-nve", Namespace: metav1.NamespaceDefault}, nve)).To(Succeed())
+					g.Expect(nve.Spec.AnycastSourceInterfaceRef).NotTo(BeNil())
+					g.Expect(nve.Spec.AnycastSourceInterfaceRef.Name).To(Equal(fabric.Name + "-" + d.Name + "-lo2"))
+				}).Should(Succeed())
+			}
+
+			By("Disabling anycastVTEP again and verifying lo2 Claim and Interface are cleaned up")
+			Eventually(func(g Gomega) {
+				f := &evpnv1alpha1.Fabric{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(fabric), f)).To(Succeed())
+				f.Spec.VTEP.AnycastVTEP = false
+				g.Expect(k8sClient.Update(ctx, f)).To(Succeed())
+			}).Should(Succeed())
+
+			for _, d := range []*corev1alpha1.Device{leaf1, leaf2} {
+				Eventually(func(g Gomega) {
+					g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-lo2", Namespace: metav1.NamespaceDefault}, &poolv1alpha1.Claim{}))).To(BeTrue())
+					g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-lo2", Namespace: metav1.NamespaceDefault}, &corev1alpha1.Interface{}))).To(BeTrue())
+					nve := &corev1alpha1.NetworkVirtualizationEdge{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + d.Name + "-nve", Namespace: metav1.NamespaceDefault}, nve)).To(Succeed())
+					g.Expect(nve.Spec.AnycastSourceInterfaceRef).To(BeNil())
+				}).Should(Succeed())
+			}
 		})
 	})
 
@@ -718,7 +849,8 @@ var _ = Describe("Fabric Controller", func() {
 						},
 					},
 					BUM: evpnv1alpha1.FabricBUMSpec{
-						Type: evpnv1alpha1.BUMTypeMulticast,
+						Type:                  evpnv1alpha1.BUMTypeMulticast,
+						DefaultMulticastGroup: &defaultMulticastGroup,
 						PIM: &evpnv1alpha1.FabricPIMSpec{
 							AnycastRendezvousPoints: []evpnv1alpha1.AnycastRendezvousPoint{
 								{
@@ -926,7 +1058,8 @@ var _ = Describe("Fabric Controller", func() {
 						},
 					},
 					BUM: evpnv1alpha1.FabricBUMSpec{
-						Type: evpnv1alpha1.BUMTypeMulticast,
+						Type:                  evpnv1alpha1.BUMTypeMulticast,
+						DefaultMulticastGroup: &defaultMulticastGroup,
 						PIM: &evpnv1alpha1.FabricPIMSpec{
 							AnycastRendezvousPoints: []evpnv1alpha1.AnycastRendezvousPoint{
 								{

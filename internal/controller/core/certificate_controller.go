@@ -278,16 +278,14 @@ func (r *CertificateReconciler) reconcile(ctx context.Context, s *certificateSco
 
 	s.Certificate.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
-	defer func() {
-		conditions.RecomputeReady(s.Certificate)
-	}()
-
 	// Ensure the Certificate is owned by the Device.
 	if !controllerutil.HasControllerReference(s.Certificate) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.Certificate, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
 	}
+
+	defer conditions.RecomputeReady(s.Certificate)
 
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)

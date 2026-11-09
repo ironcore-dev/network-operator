@@ -31,12 +31,14 @@ import (
 	"github.com/go-logr/logr"
 	systempb "github.com/openconfig/gnoi/system"
 	"google.golang.org/grpc"
+	corev1 "k8s.io/api/core/v1"
 
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/apistatus"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
 	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/encryption"
 	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
 	"github.com/ironcore-dev/network-operator/internal/transport/grpcext"
 	"github.com/ironcore-dev/network-operator/internal/transport/nxapi"
@@ -56,6 +58,7 @@ var (
 	_ provider.EVPNInstanceProvider     = (*Provider)(nil)
 	_ provider.InterfaceProvider        = (*Provider)(nil)
 	_ provider.ISISProvider             = (*Provider)(nil)
+	_ provider.MacSecProvider           = (*Provider)(nil)
 	_ provider.ManagementAccessProvider = (*Provider)(nil)
 	_ provider.NTPProvider              = (*Provider)(nil)
 	_ provider.OSPFProvider             = (*Provider)(nil)
@@ -651,6 +654,24 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 			if rp := req.RedistributeStaticRoutePolicies[v1alpha1.BGPAddressFamilyIpv4Unicast]; rp != nil {
 				item.InterLeakPItems.InterLeakPList.Set(NewInterLeakPStatic(rp.Spec.Name))
 			}
+
+			aggAddrs := req.AggregateAttributeMaps[v1alpha1.BGPAddressFamilyIpv4Unicast]
+			for _, aggAddr := range af.AggregateAddresses {
+				var attrMap string
+				if aggAddrs != nil {
+					if a, exist := aggAddrs[aggAddr.Prefix.String()]; exist {
+						attrMap = a.Spec.Name
+					}
+				}
+
+				item.AggAddrItems.AggAddrList.Set(&BGPAggAddr{
+					Addr:        aggAddr.Prefix.String(),
+					AttrMap:     NewOption(attrMap),
+					SummaryOnly: adminSt(aggAddr.SummaryOnly),
+					AsSet:       AdminStDisabled,
+				})
+			}
+
 			item.ExportGwIP = AdminStDisabled
 			if cfg.Spec.AddressFamilies.Ipv4UnicastExportGatewayIP() {
 				item.ExportGwIP = AdminStEnabled
@@ -674,6 +695,22 @@ func (p *Provider) EnsureBGP(ctx context.Context, req *provider.EnsureBGPRequest
 			}
 			if rp := req.RedistributeStaticRoutePolicies[v1alpha1.BGPAddressFamilyIpv6Unicast]; rp != nil {
 				item.InterLeakPItems.InterLeakPList.Set(NewInterLeakPStatic(rp.Spec.Name))
+			}
+			aggAddrs := req.AggregateAttributeMaps[v1alpha1.BGPAddressFamilyIpv6Unicast]
+			for _, aggAddr := range af.AggregateAddresses {
+				var attrMap string
+				if aggAddrs != nil {
+					if a, exist := aggAddrs[aggAddr.Prefix.String()]; exist {
+						attrMap = a.Spec.Name
+					}
+				}
+
+				item.AggAddrItems.AggAddrList.Set(&BGPAggAddr{
+					Addr:        aggAddr.Prefix.String(),
+					AttrMap:     NewOption(attrMap),
+					SummaryOnly: adminSt(aggAddr.SummaryOnly),
+					AsSet:       AdminStDisabled,
+				})
 			}
 			item.ExportGwIP = AdminStDisabled
 			if cfg.Spec.AddressFamilies.Ipv6UnicastExportGatewayIP() {
@@ -828,6 +865,22 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		adminSt = AdminStDisabled
 	}
 
+	var cfg nxv1alpha1.BGPPeerConfig
+	if req.ProviderConfig != nil {
+		if err := req.ProviderConfig.Into(&cfg); err != nil {
+			return err
+		}
+	}
+
+	if cfg.Spec.AddressFamilies.L2vpnEvpnRewriteRouteTargetASN() &&
+		!req.BGPPeer.Spec.IsExternalASNumber() &&
+		req.BGPPeer.Spec.ASNumber.String() == req.BGP.Spec.ASNumber.String() {
+		return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+			Field:       "spec.providerConfigRef -> addressFamilies.l2vpnEvpn.rewriteRouteTargetASN",
+			Description: "rewriteRouteTargetASN is only valid for eBGP peers; the peer ASN matches the local BGP instance ASN",
+		})
+	}
+
 	// A peer with a dynamic AS number carries no AS number of its own.
 	asn, asnType := req.BGPPeer.Spec.ASNumber.String(), PeerAsnTypeNone
 	if req.BGPPeer.Spec.IsExternalASNumber() {
@@ -848,7 +901,7 @@ func (p *Provider) EnsureBGPPeer(ctx context.Context, req *provider.EnsureBGPPee
 		LocalAsnItems: localAsn,
 		BfdType:       BfdTypeNone,
 	}
-	base.AfItems.PeerAfList = bgpPeerAfItems(req)
+	base.AfItems.PeerAfList = bgpPeerAfItems(req, cfg.Spec.AddressFamilies.L2vpnEvpnRewriteRouteTargetASN())
 
 	if req.BGPPeer.Spec.BFD != nil && req.BGPPeer.Spec.BFD.Enabled {
 		// As PeerControl and BfdMultihop are only set when BFD is configured in the spec, this will not
@@ -951,7 +1004,7 @@ func bgpPeerLocalAsn(req *provider.EnsureBGPPeerRequest) (items BGPPeerLocalAsn,
 }
 
 // bgpPeerAfItems builds the per-address-family configuration shared by both peer kinds.
-func bgpPeerAfItems(req *provider.EnsureBGPPeerRequest) gnmiext.List[AddressFamily, *BGPPeerAfItem] {
+func bgpPeerAfItems(req *provider.EnsureBGPPeerRequest, rewriteRouteTargetASN bool) gnmiext.List[AddressFamily, *BGPPeerAfItem] {
 	var list gnmiext.List[AddressFamily, *BGPPeerAfItem]
 	if req.BGPPeer.Spec.AddressFamilies == nil {
 		return list
@@ -975,15 +1028,28 @@ func bgpPeerAfItems(req *provider.EnsureBGPPeerRequest) gnmiext.List[AddressFami
 		if af.SendCommunity == v1alpha1.BGPCommunityTypeExtended || af.SendCommunity == v1alpha1.BGPCommunityTypeBoth {
 			item.SendComExt = AdminStEnabled
 		}
-		if af.RouteReflectorClient {
-			item.Ctrl = NewOption(RouteReflectorClient)
-		}
+
 		afType := t.ToAddressFamilyType()
-		if name, ok := req.InboundRoutingPolicies[afType]; ok {
-			item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionIn, RtMap: name})
+		var ctrl PeerAfControl
+		if af.RouteReflectorClient {
+			ctrl |= PeerAfControlRouteReflectorClient
 		}
-		if name, ok := req.OutboundRoutingPolicies[afType]; ok {
-			item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionOut, RtMap: name})
+		if af.NextHopSelf {
+			ctrl |= PeerAfControlNextHopSelf
+		}
+		item.Ctrl = ctrl
+
+		if policy, ok := req.InboundRoutingPolicies[afType]; ok {
+			item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionIn, RtMap: policy})
+		}
+		if policy, ok := req.OutboundRoutingPolicies[afType]; ok {
+			item.RtCtrlPItems.RtCtrlPList.Set(&BGPPeerAfRtCtrlP{Direction: RtCtrlDirectionOut, RtMap: policy})
+		}
+		if t == AddressFamilyL2EVPN {
+			item.RewriteRtAsn = AdminStDisabled
+			if rewriteRouteTargetASN {
+				item.RewriteRtAsn = AdminStEnabled
+			}
 		}
 		list.Set(item)
 	}
@@ -1502,11 +1568,23 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 	}
 
+	// Whether a physical or aggregate interface ends up Layer3, in which case
+	// NX-OS rejects any spanning tree configuration on it.
+	var routed bool
+
+	// The physical interface, which is patched once more at the end.
+	var physIf *PhysIf
+
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
+		layer, err := p.systemDefaultLayer(ctx)
+		if err != nil {
+			return err
+		}
+
 		p := new(PhysIf)
-		p.Default()
 		p.ID = name
+		p.Reset(layer)
 		if req.Interface.Spec.Description != "" {
 			p.Descr = NewOption(req.Interface.Spec.Description)
 		}
@@ -1536,6 +1614,13 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			}
 		}
 
+		// NX-OS copies the switchport configuration of a port-channel to its
+		// members, so a member takes it from its parent instead of its own spec.
+		switchport := req.Interface.Spec.Switchport
+		if req.AggregateParent != nil {
+			switchport = req.AggregateParent.Spec.Switchport
+		}
+
 		// If this Physical interface is a member of an L3 Aggregate (port-channel),
 		// it must be Layer3 on NX-OS even though it has no IP address of its own.
 		if req.IPv4 != nil || req.IPv6 != nil || (req.AggregateParent != nil && (req.AggregateParent.Spec.IPv4 != nil || req.AggregateParent.Spec.IPv6 != nil)) {
@@ -1549,28 +1634,34 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			p.Medium = MediumPointToPoint
 		}
 
+		// A switchport is Layer2 whatever the system default layer.
 		var trunkVlans *TrunkVlans
-		if req.Interface.Spec.Switchport != nil {
-			switch req.Interface.Spec.Switchport.Mode {
+		if switchport != nil {
+			p.Layer = Layer2
+			p.RtvrfMbrItems = nil
+			p.AccessVlan = DefaultVLAN
+			p.NativeVlan = DefaultVLAN
+			switch switchport.Mode {
 			case v1alpha1.SwitchportModeAccess:
 				p.Mode = SwitchportModeAccess
-				p.AccessVlan = fmt.Sprintf("vlan-%d", req.Interface.Spec.Switchport.AccessVlan)
+				p.AccessVlan = fmt.Sprintf("vlan-%d", switchport.AccessVlan)
 			case v1alpha1.SwitchportModeTrunk:
 				p.Mode = SwitchportModeTrunk
-				if req.Interface.Spec.Switchport.NativeVlan != 0 {
-					p.NativeVlan = fmt.Sprintf("vlan-%d", req.Interface.Spec.Switchport.NativeVlan)
+				if switchport.NativeVlan != 0 {
+					p.NativeVlan = fmt.Sprintf("vlan-%d", switchport.NativeVlan)
 				}
-				if req.Interface.Spec.Switchport.AllowedVlansMode != v1alpha1.AllowedVlansModeUnmanaged {
+				if switchport.AllowedVlansMode != v1alpha1.AllowedVlansModeUnmanaged {
 					vlans := DefaultVLANRange
-					if len(req.Interface.Spec.Switchport.AllowedVlans) > 0 {
-						vlans = Range(req.Interface.Spec.Switchport.AllowedVlans)
+					if len(switchport.AllowedVlans) > 0 {
+						vlans = Range(switchport.AllowedVlans)
 					}
 					trunkVlans = &TrunkVlans{IfName: name, Vlans: vlans}
 				}
 			default:
-				return fmt.Errorf("invalid switchport mode: %s", req.Interface.Spec.Switchport.Mode)
+				return fmt.Errorf("invalid switchport mode: %s", switchport.Mode)
 			}
 		}
+		routed = p.Layer == Layer3
 
 		if cfg.Spec.BufferBoost != nil && !cfg.Spec.BufferBoost.Enabled {
 			p.PhysExtdItems.BufferBoost = AdminStDisable
@@ -1588,6 +1679,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		if trunkVlans != nil {
 			sb.Patch(trunkVlans)
 		}
+		physIf = p
 
 	case v1alpha1.InterfaceTypeLoopback:
 		lb := new(Loopback)
@@ -1603,6 +1695,11 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		sb.Patch(lb)
 
 	case v1alpha1.InterfaceTypeAggregate:
+		layer, err := p.systemDefaultLayer(ctx)
+		if err != nil {
+			return err
+		}
+
 		f := new(Feature)
 		f.Name = "lacp"
 		f.AdminSt = AdminStEnabled
@@ -1639,12 +1736,15 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 			pc.UserCfgdFlags |= UserFlagAdminMTU
 		}
 
-		if req.IPv4 != nil || req.IPv6 != nil {
+		// Like a physical interface, a port-channel with neither IP nor switchport
+		// configuration keeps the system default layer. Its members do the same.
+		if req.IPv4 != nil || req.IPv6 != nil || (layer == Layer3 && req.Interface.Spec.Switchport == nil) {
 			pc.Layer = Layer3
 			pc.RtvrfMbrItems = NewVrfMember(name, vrf)
 			pc.AccessVlan = "unknown"
 			pc.NativeVlan = "unknown"
 		}
+		routed = pc.Layer == Layer3
 
 		if isPointToPoint(req.Interface.Spec.IPv4) {
 			pc.Medium = MediumPointToPoint
@@ -1863,7 +1963,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		})
 	}
 
-	if (req.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical || req.Interface.Spec.Type == v1alpha1.InterfaceTypeAggregate) && req.IPv4 == nil && req.IPv6 == nil && (req.AggregateParent == nil || (req.AggregateParent.Spec.IPv4 == nil && req.AggregateParent.Spec.IPv6 == nil)) {
+	if (req.Interface.Spec.Type == v1alpha1.InterfaceTypePhysical || req.Interface.Spec.Type == v1alpha1.InterfaceTypeAggregate) && !routed {
 		stp := new(SpanningTree)
 		stp.Default()
 		stp.IfName = name
@@ -1938,8 +2038,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	// Neighbor Discovery is owned wherever the interface carries IPv6
 	// configuration: settings the provider config leaves out, and every setting
 	// where there is no provider config at all, are reset to the platform
-	// default. The object only exists while the interface is routed, so it needs
-	// no cleanup of its own.
+	// default. DeleteInterface removes the object.
 	if ipv6Addr != nil {
 		nd := &NDIf{
 			ID:         name,
@@ -2034,7 +2133,31 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 		}
 	}
 
-	return p.Do(ctx, sb)
+	if err := p.Do(ctx, sb); err != nil {
+		return err
+	}
+
+	// NX-OS resets the MTU of a physical interface whose layer it changes, even
+	// when the same request sets the MTU. Patching the interface again restores
+	// it, and writes nothing when there was no such reset.
+	if physIf != nil {
+		return p.client.Do(ctx, new(gnmiext.SetBuilder).Patch(physIf))
+	}
+	return nil
+}
+
+// systemDefaultLayer returns the layer of an unconfigured physical interface on
+// the device. A device that does not report it is treated as Layer2, the DME's
+// own default.
+func (p *Provider) systemDefaultLayer(ctx context.Context) (Layer, error) {
+	layer := new(SystemDefaultLayer)
+	if err := p.client.GetConfig(ctx, layer); err != nil {
+		if errors.Is(err, gnmiext.ErrNil) {
+			return Layer2, nil
+		}
+		return "", err
+	}
+	return Layer(*layer), nil
 }
 
 func (p *Provider) DeleteInterface(ctx context.Context, req *provider.DeleteInterfaceRequest) error {
@@ -2061,6 +2184,14 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.DeleteInte
 		sb.Delete(addr)
 	}
 
+	nds := new(NDList)
+	if err := p.client.GetConfig(ctx, nds); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	if nd := nds.GetNDIfByInterface(name); nd != nil {
+		sb.Delete(nd)
+	}
+
 	bfd := new(BFD)
 	bfd.ID = name
 	sb.Delete(bfd)
@@ -2073,9 +2204,18 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.DeleteInte
 
 	switch req.Interface.Spec.Type {
 	case v1alpha1.InterfaceTypePhysical:
+		layer, err := p.systemDefaultLayer(ctx)
+		if err != nil {
+			return err
+		}
+
+		// NX-OS cannot delete a physical interface, so reset it to an unconfigured
+		// one. That is not the DME default a Delete would write, but depends on
+		// the system default layer.
 		i := new(PhysIf)
 		i.ID = name
-		sb.Delete(i)
+		i.Reset(layer)
+		sb.Update(i)
 		sb.Patch(&TrunkVlans{IfName: name, Vlans: DefaultVLANRange})
 
 		icmp := new(ICMPIf)
@@ -2903,6 +3043,7 @@ func (p *Provider) DeletePrefixSet(ctx context.Context, req *provider.DeletePref
 	return p.client.Delete(ctx, s)
 }
 
+// EnsureRoutingPolicy installs the route-map definition and its statement actions.
 func (p *Provider) EnsureRoutingPolicy(ctx context.Context, req *provider.EnsureRoutingPolicyRequest) error {
 	rm := new(RouteMap)
 	rm.Name = req.Name
@@ -2931,6 +3072,10 @@ func (p *Provider) EnsureRoutingPolicy(ctx context.Context, req *provider.Ensure
 		}
 
 		if stmt.Actions.BgpActions != nil {
+			if stmt.Actions.BgpActions.SetNextHop != nil {
+				nextHop := stmt.Actions.BgpActions.SetNextHop
+				e.NhItems.SetNhList.Set(&RouteMapNextHop{Addr: nextHop.Address.String()})
+			}
 			if stmt.Actions.BgpActions.SetCommunity != nil {
 				if err := e.SetCommunities(stmt.Actions.BgpActions.SetCommunity.Communities, stmt.Actions.BgpActions.SetCommunity.Operation); err != nil {
 					return err
@@ -4837,6 +4982,117 @@ func (p *Provider) DeleteStaticRoute(ctx context.Context, req *provider.DeleteSt
 		Prefix: req.StaticRoute.Spec.Prefix.String(),
 	}
 	return p.client.Delete(ctx, route)
+}
+
+// EnsureMacSec realizes the MacSec policy and keychain on the device. The
+// macsec feature is enabled first (in its own Set RPC via p.Do) before the
+// dependent policy and keychain configuration is pushed.
+func (p *Provider) EnsureMacSec(ctx context.Context, req *provider.EnsureMacSecRequest) error {
+	sb := new(gnmiext.SetBuilder).Limit(maxSetOperations)
+
+	f := new(Feature)
+	f.Name = "macsec"
+	f.AdminSt = AdminStEnabled
+	sb.Update(f)
+
+	cipherSuite, err := ExtractCipherSuite(req.MacSec.Spec.Policy.CipherSuite)
+	if err != nil {
+		return err
+	}
+
+	confOffset, err := ExtractConfOffset(uint16(req.MacSec.Spec.Policy.ConfidentialityOffset))
+	if err != nil {
+		return err
+	}
+
+	policy := &MacSecPolicy{
+		PolicyName:        req.MacSec.Spec.Name,
+		CipherSuite:       cipherSuite,
+		ConfOffset:        confOffset,
+		KeyServerPriority: req.MacSec.Spec.Policy.KeyServerPriority,
+		ReplayWindow:      req.MacSec.Spec.Policy.RelayProtection,
+	}
+	sb.Patch(policy)
+
+	chain := &KeyChain{Name: req.MacSec.Spec.Name}
+
+	secrets := make(map[string]*corev1.Secret, len(req.Secrets))
+	for i := range req.Secrets {
+		secrets[req.Secrets[i].Name] = &req.Secrets[i]
+	}
+
+	for i := range req.MacSec.Spec.PreSharedKeys {
+		psk := &req.MacSec.Spec.PreSharedKeys[i]
+		secret, ok := secrets[psk.SecretRef.Name]
+		if !ok {
+			return fmt.Errorf("pre-shared key secret %q not found", psk.SecretRef.Name)
+		}
+
+		lifetime := NewLifetime(psk.StartTime.Time, psk.EndTime.Time)
+		cryptoAlg, err := ExtractCryptographicAlgo(psk.Algorithm)
+		if err != nil {
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "spec.preSharedKeys[].algorithm",
+				Description: fmt.Sprintf("unsupported cryptographic algorithm: %s", psk.Algorithm),
+			})
+		}
+
+		keyHexString, err := encryption.EncryptType7(string(secret.Data[preSharedKeyDataKey]), 0)
+		if err != nil {
+			return apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
+				Field:       "spec.preSharedKeys[].keyRef",
+				Description: fmt.Sprintf("failed to encode key material for %q: %v", psk.ConnectivityKeyName, err),
+			})
+		}
+
+		key := MacSecKey{
+			ID:           psk.ConnectivityKeyName,
+			OctetString:  keyHexString,
+			EncryptType:  EncryptTypeType7,
+			CryptoAlg:    cryptoAlg,
+			SendLifetime: lifetime,
+		}
+		chain.Keys.KeyList.Set(&key)
+	}
+	sb.Update(chain)
+
+	name, err := ShortName(req.SourceInterface.Spec.Name)
+	if err != nil {
+		return err
+	}
+
+	intf := MacSecInterface{
+		ID:           name,
+		KeychainName: req.MacSec.Spec.Name,
+		PolicyName:   req.MacSec.Spec.Name,
+	}
+	sb.Patch(&intf)
+
+	return p.Do(ctx, sb)
+}
+
+// DeleteMacSec removes the MacSec policy and keychain from the device, along
+// with the interface binding that references them.
+func (p *Provider) DeleteMacSec(ctx context.Context, req *provider.DeleteMacSecRequest) error {
+	elems := []gnmiext.DataElement{}
+	if req.SourceInterface != nil {
+		name, err := ShortName(req.SourceInterface.Spec.Name)
+		if err != nil {
+			return err
+		}
+		elems = append(elems, &MacSecInterface{ID: name})
+	}
+	elems = append(elems,
+		&MacSecPolicy{PolicyName: req.MacSec.Spec.Name},
+		&KeyChain{Name: req.MacSec.Spec.Name},
+	)
+	return p.client.Delete(ctx, elems...)
+}
+
+// GetMacSecStatus is not yet implemented; the controller does not consume it.
+func (p *Provider) GetMacSecStatus(ctx context.Context, req *provider.EnsureMacSecRequest) (provider.MacSecStatus, error) {
+	// TODO(sven-rosenzweig): Implement MacSec status retrieval
+	return provider.MacSecStatus{}, nil
 }
 
 func init() {

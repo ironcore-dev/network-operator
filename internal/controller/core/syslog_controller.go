@@ -269,16 +269,14 @@ func (r *SyslogReconciler) reconcile(ctx context.Context, s *syslogScope) (reter
 
 	s.Syslog.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
-	defer func() {
-		conditions.RecomputeReady(s.Syslog)
-	}()
-
 	// Ensure the Syslog is owned by the Device.
 	if !controllerutil.HasControllerReference(s.Syslog) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.Syslog, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 			return err
 		}
 	}
+
+	defer conditions.RecomputeReady(s.Syslog)
 
 	if len(s.Syslog.Spec.Servers) == 1 {
 		s.Syslog.Status.ServersSummary = "1 server"

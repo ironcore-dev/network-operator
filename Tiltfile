@@ -109,6 +109,10 @@ k8s_resource(new_name='acl', objects=['acl:accesscontrollist'], trigger_mode=TRI
 k8s_yaml('./config/samples/v1alpha1_certificate.yaml')
 k8s_resource(new_name='trustpoint', objects=['network-operator:issuer', 'network-operator-ca:certificate', 'trustpoint:certificate'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
+k8s_yaml('./config/samples/v1alpha1_macsec.yaml')
+k8s_resource(new_name='macsec-eth1-1', objects=['secure-layer2:macsec'], resource_deps=['leaf1', 'eth1-1'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+k8s_resource(new_name='macsec-secrets', objects=['secret1:secret', 'secret2-rollover:secret'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+
 k8s_yaml('./config/samples/v1alpha1_snmp.yaml')
 k8s_resource(new_name='snmp', objects=['snmp:snmp'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
@@ -134,6 +138,7 @@ k8s_yaml('./config/samples/v1alpha1_bgp.yaml')
 k8s_resource(new_name='bgp', objects=['bgp:bgp'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='bgp-vrf-cc-admin', objects=['bgp-vrf-cc-admin:bgp'], resource_deps=['vrf-admin'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='bgp-rdst', objects=['bgp-rdst:bgp'], resource_deps=['bgp-import-policy'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='bgp-aggaddr', objects=['bgp-aggaddr:bgp'], resource_deps=['bgp-import-policy'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_communityset.yaml')
 k8s_resource(new_name='communityset', objects=['communityset:communityset'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
@@ -143,11 +148,15 @@ k8s_resource(new_name='bgpconfig-adv-pip', objects=['bgpconfig-adv-pip:bgpconfig
 k8s_resource(new_name='bgpconfig-export-gw', objects=['bgpconfig-export-gw:bgpconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='bgpconfig-adv-l2vpn-evpn', objects=['bgpconfig-adv-l2vpn-evpn:bgpconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
+k8s_yaml('./config/samples/cisco/nx/v1alpha1_bgppeerconfig.yaml')
+k8s_resource(new_name='bgppeerconfig-rewrite-rt-asn', objects=['bgppeerconfig-rewrite-rt-asn:bgppeerconfig'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+
 k8s_yaml('./config/samples/v1alpha1_bgppeer.yaml')
 k8s_resource(new_name='peer-spine1', objects=['leaf1-spine1:bgppeer'], resource_deps=['bgp', 'lo0'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='peer-spine2', objects=['leaf1-spine2:bgppeer'], resource_deps=['bgp', 'lo0'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='peer-spine1-filtered', objects=['leaf1-spine1-filtered:bgppeer'], resource_deps=['bgp', 'lo0', 'bgp-import-policy'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='peer-spine1-unnumbered', objects=['leaf1-spine1-unnumbered:bgppeer'], resource_deps=['bgp', 'eth1-4'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='peer-spine1-next-hop-self', objects=['leaf1-spine1-next-hop-self:bgppeer'], resource_deps=['bgp', 'lo0', 'bgp-next-hop-self'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/v1alpha1_ospf.yaml')
 k8s_resource(new_name='ospf-underlay', objects=['underlay:ospf'], resource_deps=['lo0', 'lo1', 'eth1-1', 'eth1-2'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
@@ -166,6 +175,7 @@ k8s_resource(new_name='ccloud-prefixset', objects=['ccloud-prefixset:prefixset']
 
 k8s_yaml('./config/samples/v1alpha1_routingpolicy.yaml')
 k8s_resource(new_name='bgp-import-policy', objects=['bgp-import-policy:routingpolicy', 'internal-networks:prefixset', 'partner-networks:prefixset', 'blocked-networks:prefixset', 'communityset-regular:communityset', 'communityset-extended:communityset'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
+k8s_resource(new_name='bgp-next-hop-self', objects=['bgp-next-hop-self:routingpolicy'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
 k8s_yaml('./config/samples/cisco/nx/v1alpha1_vpcdomain.yaml')
 k8s_resource(new_name='vpcdomain', objects=['leaf1-vpcdomain:vpcdomain', 'leaf1-vrfvpckeepalive:vrf', 'eth1-30:interface', 'vpc-peer-link:interfaceconfig', 'eth1-31:interface','eth1-32:interface', 'po1:interface'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])

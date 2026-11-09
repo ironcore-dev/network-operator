@@ -186,6 +186,15 @@ func registerControllers(ctx context.Context, mgr ctrl.Manager, recorder *events
 	}).SetupWithManager(ctx, mgr)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&core.MacSecReconciler{
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		Recorder:        recorder,
+		Locker:          locker,
+		RequeueInterval: time.Minute,
+	}).SetupWithManager(ctx, mgr)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&core.VLANReconciler{
 		Client:          mgr.GetClient(),
 		Scheme:          mgr.GetScheme(),

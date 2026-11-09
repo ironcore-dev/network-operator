@@ -406,7 +406,10 @@ func (r *FabricReconciler) reconcileSystemLoopbacks(ctx context.Context, fabric 
 	return ctrl.Result{}, nil
 }
 
-// reconcileVTEPLoopbacks ensures lo1 (primary VTEP) and lo2 (anycast VTEP) exist on VTEP devices.
+// reconcileVTEPLoopbacks ensures lo1 (primary VTEP) on VTEP devices, plus lo2 (anycast
+// VTEP) when spec.vtep.anycastVTEP is enabled. When disabled, any previously created lo2
+// Interface and Claim are removed; deleting the Claim is safe because IP stability across
+// a re-enable is handled at the allocation layer (reclaim policy / allow-binding).
 func (r *FabricReconciler) reconcileVTEPLoopbacks(ctx context.Context, fabric *evpnv1alpha1.Fabric, state *ReconcileState) (ctrl.Result, error) {
 	selector, err := metav1.LabelSelectorAsSelector(&fabric.Spec.VTEP.DeviceSelector)
 	if err != nil {
@@ -417,8 +420,12 @@ func (r *FabricReconciler) reconcileVTEPLoopbacks(ctx context.Context, fabric *e
 		return ctrl.Result{}, fmt.Errorf("listing VTEP devices: %w", err)
 	}
 	slices.SortFunc(devices.Items, func(a, b v1alpha1.Device) int { return cmp.Compare(a.Name, b.Name) })
+	ids := []int{LoopbackVTEP}
+	if fabric.Spec.VTEP.AnycastVTEP {
+		ids = append(ids, LoopbackVTEPAnycast)
+	}
 	for i := range devices.Items {
-		for _, id := range []int{LoopbackVTEP, LoopbackVTEPAnycast} {
+		for _, id := range ids {
 			claimName := fmt.Sprintf("%s-%s-lo%d", fabric.Name, devices.Items[i].Name, id)
 			claim, err := r.reconcileLoopbackClaim(ctx, fabric, claimName)
 			if err != nil {
@@ -432,8 +439,35 @@ func (r *FabricReconciler) reconcileVTEPLoopbacks(ctx context.Context, fabric *e
 				state.loopbacks[devices.Items[i].Name] = append(state.loopbacks[devices.Items[i].Name], intf)
 			}
 		}
+		if !fabric.Spec.VTEP.AnycastVTEP {
+			if err := r.deleteVTEPAnycastLoopback(ctx, fabric, devices.Items[i].Name); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
 	}
 	return ctrl.Result{}, nil
+}
+
+// deleteVTEPAnycastLoopback removes the lo2 Interface and Claim for a VTEP device.
+func (r *FabricReconciler) deleteVTEPAnycastLoopback(ctx context.Context, fabric *evpnv1alpha1.Fabric, deviceName string) error {
+	name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, deviceName, LoopbackVTEPAnycast)
+	intf := &v1alpha1.Interface{Name: name, Namespace: fabric.Namespace}
+	if err := r.Delete(ctx, intf); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("deleting anycast VTEP interface %s: %w", name, err)
+		}
+	} else {
+		r.Recorder.Eventf(fabric, nil, "Normal", "InterfaceDeleted", "Reconcile", "Deleted anycast VTEP interface %s", name)
+	}
+	claim := &poolv1alpha1.Claim{Name: name, Namespace: fabric.Namespace}
+	if err := r.Delete(ctx, claim); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("deleting anycast VTEP claim %s: %w", name, err)
+		}
+	} else {
+		r.Recorder.Eventf(fabric, nil, "Normal", "ClaimDeleted", "Reconcile", "Deleted anycast VTEP claim %s", name)
+	}
+	return nil
 }
 
 // reconcileAnycastRPLoopbacks ensures lo100 (PIM anycast RP) exists on RP devices.
@@ -1008,13 +1042,19 @@ func (r *FabricReconciler) reconcileBGP(ctx context.Context, device *v1alpha1.De
 		bgp.Spec.AdminState = v1alpha1.AdminStateUp
 		bgp.Spec.ASNumber = fabric.Spec.Overlay.IBGP.ASNumber
 		bgp.Spec.RouterID = routerID
-		bgp.Spec.AddressFamilies = &v1alpha1.BGPAddressFamilies{
-			L2vpnEvpn: &v1alpha1.BGPL2vpnEvpn{
+		// "retain route-target all" is an eBGP-only construct; iBGP route
+		// reflectors reflect all EVPN routes regardless of imported RTs.
+		l2vpnEvpn := &v1alpha1.BGPL2vpnEvpn{
+			Enabled: true,
+		}
+		if mp := fabric.Spec.Overlay.IBGP.MaximumPaths; mp != nil {
+			l2vpnEvpn.Multipath = &v1alpha1.BGPMultipath{
 				Enabled: true,
-				RouteTargetPolicy: &v1alpha1.BGPRouteTargetPolicy{
-					RetainAll: true,
-				},
-			},
+				Ibgp:    &v1alpha1.BGPMultipathIbgp{MaximumPaths: *mp},
+			}
+		}
+		bgp.Spec.AddressFamilies = &v1alpha1.BGPAddressFamilies{
+			L2vpnEvpn: l2vpnEvpn,
 		}
 		return controllerutil.SetOwnerReference(fabric, bgp, r.Scheme)
 	})
@@ -1276,7 +1316,8 @@ func (r *FabricReconciler) reconcilePIM(ctx context.Context, deviceName string, 
 }
 
 // reconcileVTEPNVE creates one NetworkVirtualizationEdge resource per VTEP device.
-// The NVE references lo1 (primary VTEP) as source and lo2 (anycast VTEP) as anycast source.
+// The NVE references lo1 (primary VTEP) as source, and lo2 (anycast VTEP) as anycast
+// source when spec.vtep.anycastVTEP is enabled.
 func (r *FabricReconciler) reconcileVTEPNVE(ctx context.Context, fabric *evpnv1alpha1.Fabric, state *ReconcileState) (ctrl.Result, error) {
 	selector, err := metav1.LabelSelectorAsSelector(&fabric.Spec.VTEP.DeviceSelector)
 	if err != nil {
@@ -1286,6 +1327,13 @@ func (r *FabricReconciler) reconcileVTEPNVE(ctx context.Context, fabric *evpnv1a
 	devices := &v1alpha1.DeviceList{}
 	if err := r.List(ctx, devices, client.InNamespace(fabric.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
 		return ctrl.Result{}, fmt.Errorf("listing VTEP devices: %w", err)
+	}
+
+	// Global Layer 2 BUM mcast-group for VTEP NVEs; set only when BUM is Multicast
+	// (API validation guarantees the field is present in that case).
+	var l2Group *v1alpha1.IPPrefix
+	if fabric.Spec.BUM.Type == evpnv1alpha1.BUMTypeMulticast {
+		l2Group = fabric.Spec.BUM.DefaultMulticastGroup
 	}
 
 	for i := range devices.Items {
@@ -1301,7 +1349,7 @@ func (r *FabricReconciler) reconcileVTEPNVE(ctx context.Context, fabric *evpnv1a
 			continue
 		}
 
-		if err := r.reconcileNVE(ctx, device, fabric, lo1Name, lo2Name); err != nil {
+		if err := r.reconcileNVE(ctx, device, fabric, lo1Name, lo2Name, l2Group); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -1309,7 +1357,7 @@ func (r *FabricReconciler) reconcileVTEPNVE(ctx context.Context, fabric *evpnv1a
 }
 
 // reconcileNVE creates or updates the NetworkVirtualizationEdge resource for a VTEP device.
-func (r *FabricReconciler) reconcileNVE(ctx context.Context, device *v1alpha1.Device, fabric *evpnv1alpha1.Fabric, lo1Name, lo2Name string) error {
+func (r *FabricReconciler) reconcileNVE(ctx context.Context, device *v1alpha1.Device, fabric *evpnv1alpha1.Fabric, lo1Name, lo2Name string, l2Group *v1alpha1.IPPrefix) error {
 	name := fmt.Sprintf("%s-%s-nve", fabric.Name, device.Name)
 
 	nve := &v1alpha1.NetworkVirtualizationEdge{
@@ -1326,7 +1374,16 @@ func (r *FabricReconciler) reconcileNVE(ctx context.Context, device *v1alpha1.De
 		nve.Spec.HostReachability = v1alpha1.HostReachabilityTypeBGP
 		nve.Spec.SuppressARP = true
 		nve.Spec.SourceInterfaceRef = v1alpha1.LocalObjectReference{Name: lo1Name}
-		nve.Spec.AnycastSourceInterfaceRef = &v1alpha1.LocalObjectReference{Name: lo2Name}
+		if fabric.Spec.VTEP.AnycastVTEP {
+			nve.Spec.AnycastSourceInterfaceRef = &v1alpha1.LocalObjectReference{Name: lo2Name}
+		} else {
+			nve.Spec.AnycastSourceInterfaceRef = nil
+		}
+		// Explicit nil self-corrects when BUM leaves Multicast.
+		nve.Spec.MulticastGroups = nil
+		if l2Group != nil {
+			nve.Spec.MulticastGroups = &v1alpha1.MulticastGroups{L2: l2Group}
+		}
 		if fabric.Spec.VTEP.AnycastGateway != nil {
 			nve.Spec.AnycastGateway = &v1alpha1.AnycastGateway{
 				VirtualMAC: fabric.Spec.VTEP.AnycastGateway.VirtualMAC,

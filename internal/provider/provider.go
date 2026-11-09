@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
+
 package provider
 
 import (
@@ -14,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -526,6 +528,11 @@ type EnsureBGPRequest struct {
 	// RoutingPolicy to apply when redistributing static routes.
 	// Absent key means no redistribution is configured for that family.
 	RedistributeStaticRoutePolicies map[v1alpha1.BGPAddressFamilyType]*v1alpha1.RoutingPolicy
+
+	// AggregateAttributeMaps holds the attribute-map RoutingPolicy for each aggregate
+	// address, keyed by address family and then by aggregate prefix. An absent prefix
+	// key means the aggregate has no attribute-map configured.
+	AggregateAttributeMaps map[v1alpha1.BGPAddressFamilyType]map[string]*v1alpha1.RoutingPolicy
 }
 
 type DeleteBGPRequest struct {
@@ -559,11 +566,11 @@ type EnsureBGPPeerRequest struct {
 	// VRF is the resolved VRF referenced by BGP.Spec.VrfRef.
 	// When nil, the provider shall use the default VRF.
 	VRF *v1alpha1.VRF
-	// InboundRoutingPolicies maps each address family to the device-level name of
-	// the inbound routing policy to apply. Absent key means no policy is configured.
+	// InboundRoutingPolicies maps each address family to the device-level name of the inbound routing policy to apply.
+	// Absent key means no policy is configured.
 	InboundRoutingPolicies map[v1alpha1.BGPAddressFamilyType]string
-	// OutboundRoutingPolicies maps each address family to the device-level name of
-	// the outbound routing policy to apply. Absent key means no policy is configured.
+	// OutboundRoutingPolicies maps each address family to the device-level name of the outbound routing policy to apply.
+	// Absent key means no policy is configured.
 	OutboundRoutingPolicies map[v1alpha1.BGPAddressFamilyType]string
 }
 
@@ -775,6 +782,43 @@ func (MatchCommunitySetCondition) isPolicyCondition() {}
 
 type DeleteRoutingPolicyRequest struct {
 	Name string
+}
+
+// MacSecProvider is the interface for the realization of the MacSec objects over different providers.
+type MacSecProvider interface {
+	Provider
+
+	// EnsureMacSec call is responsible for MacSec realization on the provider.
+	EnsureMacSec(context.Context, *EnsureMacSecRequest) error
+	// DeleteMacSec call is responsible for MacSec deletion on the provider.
+	DeleteMacSec(context.Context, *DeleteMacSecRequest) error
+	// GetMacSecStatus call is responsible for retrieving the current status of the MacSec from the provider.
+	GetMacSecStatus(context.Context, *EnsureMacSecRequest) (MacSecStatus, error)
+}
+
+type EnsureMacSecRequest struct {
+	MacSec  *v1alpha1.MacSec
+	Secrets []corev1.Secret
+	// SourceInterface is the interface on which MacSec is configured.
+	SourceInterface *v1alpha1.Interface
+}
+
+type DeleteMacSecRequest struct {
+	MacSec *v1alpha1.MacSec
+	// SourceInterface is the interface on which MacSec is configured.
+	SourceInterface *v1alpha1.Interface
+}
+
+type MacSecStatus struct {
+	// OverallStatus indicates whether all keys are valid
+	OperStatus bool
+	// KeyValidities provides the validity status for each individual key configured on the device.
+	KeyValidities []KeyValidity
+}
+
+type KeyValidity struct {
+	KeyName string
+	Valid   bool
 }
 
 type NVEProvider interface {

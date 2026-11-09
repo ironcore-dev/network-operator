@@ -1,19 +1,8 @@
--- interfaceconfigs/bgpconfig --
-apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
-kind: BGPConfig
-metadata:
-  name: settings
-  namespace: default
-spec:
-  addressFamilies:
-    l2vpnEvpn:
-      advertisePIP: true
-
--- interfaces/loopback-vtep --
+-- interfaces/loopback0 --
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: Interface
 metadata:
-  name: loopback-vtep
+  name: loopback0
   namespace: default
 spec:
   deviceRef:
@@ -24,53 +13,83 @@ spec:
   ipv4:
     addresses:
       - 10.0.0.1/32
+      - 10.0.1.1/32
+  ipv6:
+    addresses:
+      - 2001:db8::1/128
 
--- bgps/evpn-bgp --
+
+-- bgps/bgp --
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: BGP
 metadata:
-  name: evpn-bgp
+  name: bgp0
   namespace: default
 spec:
   deviceRef:
     name: device
   asNumber: 65000
   routerId: "10.0.0.1"
-  providerConfigRef:
-    apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
-    kind: BGPConfig
-    name: settings
   addressFamilies:
-    l2vpnEvpn:
+    ipv4Unicast:
       enabled: true
-      routeTargetPolicy:
-        retainAll: true
+    ipv6Unicast:
+      enabled: true
 
--- bgppeers/spine1 --
+-- bgppeers/bgppeer1 --
 apiVersion: networking.metal.ironcore.dev/v1alpha1
 kind: BGPPeer
 metadata:
-  name: spine1
+  name: bgppeer1
   namespace: default
 spec:
   deviceRef:
     name: device
   bgpRef:
-    name: evpn-bgp
+    name: bgp0
   address: "10.0.0.2"
   asNumber: 65000
-  description: "EVPN peering with spine1"
+  description: "peering A"
   localAddress:
     interfaceRef:
-      name: loopback-vtep
+      name: loopback0
   addressFamilies:
-    l2vpnEvpn:
+    ipv4Unicast:
       enabled: true
-      sendCommunity: Both
+      nextHopSelf: true
+      routeReflectorClient: true
+    ipv6Unicast:
+      enabled: true
+      nextHopSelf: true
       routeReflectorClient: true
   ttl: 2
 
+-- bgppeers/bgppeer2 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: BGPPeer
+metadata:
+  name: bgppeer2
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  bgpRef:
+    name: bgp0
+  address: "10.0.1.2"
+  asNumber: 65000
+  description: "peering B"
+  localAddress:
+    interfaceRef:
+      name: loopback0
+  addressFamilies:
+    ipv4Unicast:
+      enabled: true
+    ipv6Unicast:
+      enabled: true
+  ttl: 2
+
 -- state/preload --
+
 {
   "System": {
     "procsys-items": {
@@ -117,6 +136,12 @@ spec:
                           "pref": 0,
                           "tag": 0,
                           "type": "primary"
+                        },
+                        {
+                          "addr": "10.0.1.1/32",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "secondary"
                         }
                       ]
                     }
@@ -179,10 +204,14 @@ spec:
                     "maxExtEcmp": 1,
                     "exportGwIp": "disabled",
                     "advertL2vpnEvpn": "disabled",
-                    "type": "l2vpn-evpn",
-                    "advPip": "enabled",
-                    "retainRttAll": "enabled",
-                    "retainRttRtMap": "DME_UNSET_PROPERTY_MARKER"
+                    "type": "ipv4-ucast"
+                  },
+                  {
+                    "maxEcmp": 1,
+                    "maxExtEcmp": 1,
+                    "exportGwIp": "disabled",
+                    "advertL2vpnEvpn": "disabled",
+                    "type": "ipv6-ucast"
                   }
                 ]
               },
@@ -195,19 +224,102 @@ spec:
                     "asnType": "none",
                     "ctrl": "DME_UNSET_PROPERTY_MARKER",
                     "bfdType": "none",
-                    "name": "EVPN peering with spine1",
+                    "name": "peering A",
                     "srcIf": "lo0",
                     "ttl": 2,
                     "af-items": {
                       "PeerAf-list": [
                         {
-                          "ctrl": "rr-client",
-                          "sendComExt": "enabled",
-                          "sendComStd": "enabled",
-                          "type": "l2vpn-evpn"
+                          "ctrl": "nh-self,rr-client",
+                          "sendComExt": "disabled",
+                          "sendComStd": "disabled",
+                          "type": "ipv4-ucast"
+                        },
+                        {
+                          "ctrl": "nh-self,rr-client",
+                          "sendComExt": "disabled",
+                          "sendComStd": "disabled",
+                          "type": "ipv6-ucast"
                         }
                       ]
                     }
+                  },
+                  {
+                    "addr": "10.0.1.2",
+                    "adminSt": "enabled",
+                    "asn": "65000",
+                    "asnType": "none",
+                    "ctrl": "DME_UNSET_PROPERTY_MARKER",
+                    "bfdType": "none",
+                    "name": "peering B",
+                    "srcIf": "lo0",
+                    "ttl": 2,
+                    "af-items": {
+                      "PeerAf-list": [
+                        {
+                          "ctrl": "DME_UNSET_PROPERTY_MARKER",
+                          "sendComExt": "disabled",
+                          "sendComStd": "disabled",
+                          "type": "ipv4-ucast"
+                        },
+                        {
+                          "ctrl": "DME_UNSET_PROPERTY_MARKER",
+                          "sendComExt": "disabled",
+                          "sendComStd": "disabled",
+                          "type": "ipv6-ucast"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "ipv6-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo0",
+                    "addr-items": {
+                      "Addr-list": [
+                        {
+                          "addr": "2001:db8::1/128",
+                          "pref": 0,
+                          "tag": 0,
+                          "type": "primary"
+                        }
+                      ]
+                    },
+                    "useLinkLocalAddr": "disabled"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "nd-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": [
+                  {
+                    "id": "lo0",
+                    "ctrl": "redirects",
+                    "raIntvl": 600,
+                    "raIntvlMin": 200
                   }
                 ]
               }
@@ -272,6 +384,35 @@ spec:
         "adminSt": "enabled"
       }
     },
-    "bgp-items": {}
+    "bgp-items": {},
+    "ipv6-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": []
+              }
+            }
+          ]
+        }
+      }
+    },
+    "nd-items": {
+      "inst-items": {
+        "dom-items": {
+          "Dom-list": [
+            {
+              "name": "default",
+              "if-items": {
+                "If-list": []
+              }
+            }
+          ]
+        }
+      }
+    }
   }
 }
+
