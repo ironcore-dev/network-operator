@@ -1,0 +1,111 @@
+# DNS Configuration
+-- dnses/dns --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: DNS
+metadata:
+  name: dns
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  domain: example.com
+  sourceInterfaceName: mgmt0
+  servers:
+    - address: 8.8.8.8
+      vrfName: mgmt
+    - address: 1.1.1.1
+      vrfName: mgmt
+
+-- state/preload --
+{
+  "srl_nokia-system:system": {
+    "srl_nokia-system-info:information": {
+      "version": "v24.3.1"
+    }
+  },
+  "srl_nokia-interfaces:interface": [
+    {
+      "name": "mgmt0",
+      "subinterface": [
+        {
+          "index": 0,
+          "srl_nokia-if-ip:ipv4": {
+            "address": [
+              {
+                "ip-prefix": "192.0.2.10/24"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
+
+-- state/expect --
+
+{
+  "srl_nokia-system:system": {
+    "srl_nokia-system-info:information": {
+      "version": "v24.3.1"
+    },
+    "srl_nokia-dns:dns-instance": [
+      {
+        "name": "mgmt",
+        "network-instance": "mgmt",
+        "source-address": "192.0.2.10",
+        "search-list": [
+          "example.com"
+        ],
+        "server-list": [
+          "8.8.8.8",
+          "1.1.1.1"
+        ]
+      }
+    ]
+  },
+  "srl_nokia-interfaces:interface": [
+    {
+      "name": "mgmt0",
+      "subinterface": [
+        {
+          "index": 0,
+          "srl_nokia-if-ip:ipv4": {
+            "address": [
+              {
+                "ip-prefix": "192.0.2.10/24"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
+
+-- state/delete --
+
+{
+  "srl_nokia-system:system": {
+    "srl_nokia-system-info:information": {
+      "version": "v24.3.1"
+    }
+  },
+  "srl_nokia-interfaces:interface": [
+    {
+      "name": "mgmt0",
+      "subinterface": [
+        {
+          "index": 0,
+          "srl_nokia-if-ip:ipv4": {
+            "address": [
+              {
+                "ip-prefix": "192.0.2.10/24"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
