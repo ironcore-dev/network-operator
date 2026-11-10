@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <title>Wire-API - Concept T2 - Hex + inverted Y with central controller hex + 3 fleet-hex ends</title>
+
+  <!-- Big hex frame -->
+  <path d="M 60 8 L 105 34 L 105 86 L 60 112 L 15 86 L 15 34 Z"
+        fill="none" stroke="#0b3d91" stroke-width="4"
+        stroke-linejoin="round"/>
+
+  <!-- Inverted Y branches (drawn first so central hex overlays them cleanly) -->
+  <g fill="none" stroke="#0b3d91" stroke-width="4" stroke-linecap="round">
+    <line x1="60" y1="60" x2="60" y2="36"/>
+    <line x1="60" y1="60" x2="40" y2="75"/>
+    <line x1="60" y1="60" x2="80" y2="75"/>
+  </g>
+
+  <!-- Central controller hex (filled = distinguishes from fleet) at (60, 60), R=8 -->
+  <path d="M 60,52 L 66.93,56 L 66.93,64 L 60,68 L 53.07,64 L 53.07,56 Z"
+        fill="#0b3d91" stroke="#0b3d91" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- 3 fleet-hex nodes at the ends -->
+  <g fill="none" stroke="#0b3d91" stroke-width="2.8" stroke-linejoin="round">
+    <path d="M 60,24 L 65.2,27 L 65.2,33 L 60,36 L 54.8,33 L 54.8,27 Z"/>
+    <path d="M 35,73 L 40.2,76 L 40.2,82 L 35,85 L 29.8,82 L 29.8,76 Z"/>
+    <path d="M 85,73 L 90.2,76 L 90.2,82 L 85,85 L 79.8,82 L 79.8,76 Z"/>
+  </g>
+</svg>

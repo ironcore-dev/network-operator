@@ -14,7 +14,7 @@ export default withMermaid({
             'link',
             {
                 rel: 'icon',
-                href: 'https://raw.githubusercontent.com/ironcore-dev/ironcore/refs/heads/main/docs/assets/logo_borderless.svg',
+                href: '/logo.svg',
             },
         ],
         ['meta', { property: 'og:type', content: 'website' }],
@@ -82,7 +82,7 @@ export default withMermaid({
         },
 
         logo: {
-            src: 'https://raw.githubusercontent.com/ironcore-dev/ironcore/refs/heads/main/docs/assets/logo_borderless.svg',
+            src: '/logo.svg',
             width: 24,
             height: 24,
         },
