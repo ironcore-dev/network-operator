@@ -98,7 +98,8 @@ var _ = Describe("Network Controller", func() {
 						},
 					},
 					BUM: evpnv1alpha1.FabricBUMSpec{
-						Type: evpnv1alpha1.BUMTypeMulticast,
+						Type:                  evpnv1alpha1.BUMTypeMulticast,
+						DefaultMulticastGroup: new(v1alpha1.MustParsePrefix("224.0.0.0/4")),
 						PIM: &evpnv1alpha1.FabricPIMSpec{
 							AnycastRendezvousPoints: []evpnv1alpha1.AnycastRendezvousPoint{{
 								Name:                 "unused",
