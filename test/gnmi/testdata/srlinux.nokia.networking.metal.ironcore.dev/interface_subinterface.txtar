@@ -1,0 +1,94 @@
+# Dot1q subinterface with IPv4 address and BFD
+-- interfaces/ethernet-1-2 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: ethernet-1-2
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: ethernet-1/2
+  adminState: Up
+  type: Physical
+-- interfaces/ethernet-1-2-100 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: ethernet-1-2-100
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: ethernet-1/2.100
+  adminState: Up
+  type: Subinterface
+  parentInterfaceRef:
+    name: ethernet-1-2
+  encapsulation:
+    type: "802.1q"
+    tag: 100
+  ipv4:
+    addresses:
+      - 10.10.0.1/24
+  bfd:
+    enabled: true
+    desiredMinimumTxInterval: 250ms
+    detectionMultiplier: 3
+
+-- state/preload --
+{}
+
+-- state/expect --
+{
+  "srl_nokia-interfaces:interface": [
+    {
+      "name": "ethernet-1/2",
+      "admin-state": "enable",
+      "srl_nokia-interfaces-vlans:vlan-tagging": true,
+      "subinterface": [
+        {
+          "index": 100,
+          "admin-state": "enable",
+          "type": "srl_nokia-interfaces:routed",
+          "srl_nokia-interfaces-vlans:vlan": {
+            "encap": {
+              "single-tagged": {
+                "vlan-id": 100
+              }
+            }
+          },
+          "ipv4": {
+            "admin-state": "enable",
+            "address": [
+              { "ip-prefix": "10.10.0.1/24" }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "srl_nokia-bfd:bfd": {
+    "subinterface": [
+      {
+        "id": "ethernet-1/2.100",
+        "admin-state": "enable",
+        "desired-minimum-transmit-interval": 250000,
+        "detection-multiplier": 3
+      }
+    ]
+  }
+}
+
+-- state/delete --
+{
+  "srl_nokia-interfaces:interface": [
+    {
+      "name": "ethernet-1/2",
+      "admin-state": "disable"
+    }
+  ],
+  "srl_nokia-bfd:bfd": {
+    "subinterface": []
+  }
+}

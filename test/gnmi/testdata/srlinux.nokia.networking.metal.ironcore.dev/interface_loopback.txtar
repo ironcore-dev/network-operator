@@ -1,0 +1,57 @@
+# Loopback interface with IPv4 and IPv6 addresses
+-- interfaces/lo0 --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: lo0
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: lo0
+  description: loopback
+  adminState: Up
+  type: Loopback
+  ipv4:
+    addresses:
+      - 10.0.1.10/32
+  ipv6:
+    addresses:
+      - 2001:db8::1/128
+
+-- state/preload --
+{}
+
+-- state/expect --
+{
+  "srl_nokia-interfaces:interface": [
+    {
+      "name": "lo0",
+      "admin-state": "enable",
+      "description": "loopback",
+      "subinterface": [
+        {
+          "index": 0,
+          "admin-state": "enable",
+          "ipv4": {
+            "admin-state": "enable",
+            "address": [
+              { "ip-prefix": "10.0.1.10/32" }
+            ]
+          },
+          "ipv6": {
+            "admin-state": "enable",
+            "address": [
+              { "ip-prefix": "2001:db8::1/128" }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
+
+-- state/delete --
+{
+  "srl_nokia-interfaces:interface": []
+}

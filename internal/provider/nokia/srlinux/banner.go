@@ -48,7 +48,7 @@ func toBannerType(t v1alpha1.BannerType) (BannerType, error) {
 		return BannerTypeMOTD, nil
 	default:
 		return "", apistatus.NewInvalidArgumentError(apistatus.FieldViolation{
-			Field:       "spec.type",
+			Field:       fieldSpecType,
 			Description: fmt.Sprintf("unsupported banner type %q", t),
 		})
 	}
