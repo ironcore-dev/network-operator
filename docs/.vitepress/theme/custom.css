@@ -26,20 +26,20 @@
         drop-shadow(0 0 6px rgba(52, 116, 254, 1))
         drop-shadow(0 0 16px rgba(52, 116, 254, 0.8));
     padding: 0;
-    width: 400px;
-    height: 400px;
-    max-width: 400px;
-    max-height: 400px;
 }
 
-.VPHero .image-container {
-    width: 400px;
-    height: 400px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    top: 50%;
-    transform: translateY(-50%);
+@media (min-width: 960px) {
+    .VPHero .VPImage {
+        width: 440px;
+        height: 440px;
+        max-width: 440px;
+        max-height: 440px;
+    }
+
+    .VPHero .image-container {
+        width: 440px;
+        height: 440px;
+    }
 }
 
 /* used in reference/default-theme-search */
