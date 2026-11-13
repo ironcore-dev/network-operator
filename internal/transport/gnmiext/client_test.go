@@ -102,6 +102,72 @@ func TestClient_New(t *testing.T) {
 	}
 }
 
+func TestClient_WithOrigin(t *testing.T) {
+	tests := []struct {
+		name    string
+		call    func(Client, context.Context, ...DataElement) error
+		element DataElement
+		wantSet int
+	}{
+		{name: "GetConfig", call: Client.GetConfig, element: new(Hostname)},
+		{name: "GetState", call: Client.GetState, element: new(HostnameState)},
+		{name: "Update", call: Client.Update, element: new(Hostname("new-hostname")), wantSet: 1},
+		{name: "Patch", call: Client.Patch, element: new(Hostname("new-hostname")), wantSet: 1},
+	}
+	for _, origin := range []string{"", "openconfig"} {
+		for _, test := range tests {
+			t.Run(test.name+"/origin="+origin, func(t *testing.T) {
+				var wantPrefix *gpb.Path
+				if origin != "" {
+					wantPrefix = &gpb.Path{Origin: origin}
+				}
+				getCalls, setCalls := 0, 0
+				conn := &MockClientConn{
+					CapabilitiesFunc: func(ctx context.Context, req *gpb.CapabilityRequest) (*gpb.CapabilityResponse, error) {
+						return &gpb.CapabilityResponse{SupportedEncodings: []gpb.Encoding{gpb.Encoding_JSON}}, nil
+					},
+					GetFunc: func(ctx context.Context, req *gpb.GetRequest) (*gpb.GetResponse, error) {
+						getCalls++
+						if !proto.Equal(req.Prefix, wantPrefix) {
+							t.Errorf("GetRequest prefix = %v, want %v", req.Prefix, wantPrefix)
+						}
+						return &gpb.GetResponse{
+							Notification: []*gpb.Notification{
+								{
+									Update: []*gpb.Update{
+										{
+											Val: &gpb.TypedValue{
+												Value: &gpb.TypedValue_JsonVal{JsonVal: []byte(`"test-hostname"`)},
+											},
+										},
+									},
+								},
+							},
+						}, nil
+					},
+					SetFunc: func(ctx context.Context, req *gpb.SetRequest) (*gpb.SetResponse, error) {
+						setCalls++
+						if !proto.Equal(req.Prefix, wantPrefix) {
+							t.Errorf("SetRequest prefix = %v, want %v", req.Prefix, wantPrefix)
+						}
+						return &gpb.SetResponse{}, nil
+					},
+				}
+				client, err := New(t.Context(), conn, WithOrigin(origin))
+				if err != nil {
+					t.Fatalf("New() error = %v", err)
+				}
+				if err := test.call(client, t.Context(), test.element); err != nil {
+					t.Fatalf("%s() error = %v", test.name, err)
+				}
+				if getCalls != 1 || setCalls != test.wantSet {
+					t.Errorf("RPC calls: Get = %d, Set = %d, want Get = 1, Set = %d", getCalls, setCalls, test.wantSet)
+				}
+			})
+		}
+	}
+}
+
 func TestClient_GetConfig(t *testing.T) {
 	tests := []struct {
 		name    string
