@@ -3595,7 +3595,22 @@ func (p *Provider) EnsureSystemSettings(ctx context.Context, s *nxv1alpha1.Syste
 
 	sys := new(SystemJumboMTU)
 	*sys = SystemJumboMTU(s.Spec.JumboMTU)
-	sb.Patch(long, res, sys)
+
+	l2rib := new(HMMFwdEvpn)
+	l2rib.Default()
+	if s.Spec.L2RIB.Moves != 0 {
+		l2rib.DdHmmoves = uint16(s.Spec.L2RIB.Moves) //nolint:gosec // validated: max 1000 fits uint16
+	}
+	if s.Spec.L2RIB.DurationSeconds != 0 {
+		l2rib.DdHnsecs = uint16(s.Spec.L2RIB.DurationSeconds) //nolint:gosec // validated: max 36000 fits uint16
+	}
+	if s.Spec.L2RIB.RecoveryTimeoutSeconds != 0 {
+		l2rib.Dhrtimeout = uint16(s.Spec.L2RIB.RecoveryTimeoutSeconds) //nolint:gosec // validated: max 36000 fits uint16
+	}
+	if s.Spec.L2RIB.RecoveryCount != 0 {
+		l2rib.Dhrcount = uint16(s.Spec.L2RIB.RecoveryCount) //nolint:gosec // validated: max 3000 fits uint16
+	}
+	sb.Patch(long, res, sys, l2rib)
 
 	// The override leaf lives under the dhcp feature tree, which only exists while the
 	// feature is enabled. Read the current feature state to decide how to realize it.
@@ -3631,6 +3646,7 @@ func (p *Provider) ResetSystemSettings(ctx context.Context) error {
 		new(VLANReservation),
 		new(SystemJumboMTU),
 		new(DHCPRelayServerIDOverrideDisable),
+		new(HMMFwdEvpn),
 	)
 }
 

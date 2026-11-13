@@ -56,6 +56,13 @@ type SystemSpec struct {
 	// +optional
 	// +kubebuilder:default={relayServerIdOverrideDisable:false}
 	DHCP DHCP `json:"dhcp,omitzero"`
+
+	// L2RIB groups L2RIB (Layer-2 Routing Information Base) system settings.
+	// Configures duplicate host IP address detection
+	// (CLI: "l2rib dup-host-ip-addr-detection").
+	// +optional
+	// +kubebuilder:default={moves:5,durationSeconds:180,recoveryTimeoutSeconds:30,recoveryCount:5}
+	L2RIB L2RIB `json:"l2rib,omitzero"`
 }
 
 // DHCP groups DHCP-related system settings. These require the dhcp feature,
@@ -69,6 +76,42 @@ type DHCP struct {
 	// +optional
 	// +kubebuilder:default=false
 	RelayServerIDOverrideDisable bool `json:"relayServerIdOverrideDisable"`
+}
+
+// L2RIB groups L2RIB duplicate host IP address detection settings,
+// realized as "l2rib dup-host-ip-addr-detection" on the device.
+type L2RIB struct {
+	// Moves is the number of host IP moves allowed within DurationSeconds before
+	// the host IP address is flagged as a duplicate (CLI: num-moves).
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=1000
+	// +kubebuilder:default=5
+	Moves int32 `json:"moves"`
+
+	// DurationSeconds is the detection window in seconds during which moves are
+	// counted (CLI: num-moves-interval).
+	// +optional
+	// +kubebuilder:validation:Minimum=2
+	// +kubebuilder:validation:Maximum=36000
+	// +kubebuilder:default=180
+	DurationSeconds int32 `json:"durationSeconds"`
+
+	// RecoveryTimeoutSeconds is the time in seconds after which a duplicate-marked
+	// host IP address is re-evaluated (CLI: retry-timeout). Minimum is 30.
+	// +optional
+	// +kubebuilder:validation:Minimum=30
+	// +kubebuilder:validation:Maximum=36000
+	// +kubebuilder:default=30
+	RecoveryTimeoutSeconds int32 `json:"recoveryTimeoutSeconds"`
+
+	// RecoveryCount is the number of recovery attempts before the duplicate
+	// detection is considered permanent (CLI: retry-count).
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=3000
+	// +kubebuilder:default=5
+	RecoveryCount int32 `json:"recoveryCount"`
 }
 
 // SystemStatus defines the observed state of System.
