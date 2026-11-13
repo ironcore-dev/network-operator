@@ -10,17 +10,19 @@ import (
 
 // RoutingDomainSpec defines the desired state of RoutingDomain
 type RoutingDomainSpec struct {
+	// name of the VRF created for the RoutingDomain.
 	// +required
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:MaxLength=32
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Name is immutable"
 	Name string `json:"name"`
 }
 
 // RoutingDomainStatus defines the observed state of RoutingDomain.
 type RoutingDomainStatus struct {
-
-	// The conditions are a list of status objects that describe the state of the RoutingDomain.
+	// conditions represent the current state of the RoutingDomain resource.
+	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
+	// The status of each condition is one of True, False, or Unknown.
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge
