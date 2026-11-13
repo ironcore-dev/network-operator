@@ -12,13 +12,15 @@ import (
 
 // NetworkSpec defines the desired state of Network
 type NetworkSpec struct {
-	RoutingDomainRef v1alpha1.LocalObjectReference `json:"routingDomainRef,omitempty"`
-	IPv4             *IPv4                         `json:"ipv4,omitempty"`
+	// +optional
+	RoutingDomainRef *v1alpha1.LocalObjectReference `json:"routingDomainRef,omitempty"`
+	// +optional
+	IPv4 *IPv4 `json:"ipv4,omitempty"`
 }
 
 type IPv4 struct {
 	// Address is the IP prefix for the SVI's Anycast Gateway
-	Address string `json:"cidr,omitempty"`
+	Address v1alpha1.IPPrefix `json:"address,omitempty"`
 }
 
 // NetworkStatus defines the observed state of Network.

@@ -2640,6 +2640,7 @@ _Appears in:_
 - [IPAddressPoolSpec](#ipaddresspoolspec)
 - [IPPrefixPoolSpec](#ipprefixpoolspec)
 - [IPPrefixSpec](#ipprefixspec)
+- [IPv4](#ipv4)
 - [InterfaceIPv4](#interfaceipv4)
 - [InterfaceIPv6](#interfaceipv6)
 - [MulticastGroups](#multicastgroups)
@@ -6327,7 +6328,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `cidr` _string_ | Address is the IP prefix for the SVI's Anycast Gateway |  |  |
+| `address` _[IPPrefix](#ipprefix)_ | Address is the IP prefix for the SVI's Anycast Gateway |  | Format: cidr <br />Type: string <br /> |
 
 
 #### Network
@@ -6434,8 +6435,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `routingDomainRef` _[LocalObjectReference](#localobjectreference)_ |  |  |  |
-| `ipv4` _[IPv4](#ipv4)_ |  |  |  |
+| `routingDomainRef` _[LocalObjectReference](#localobjectreference)_ |  |  | Optional: \{\} <br /> |
+| `ipv4` _[IPv4](#ipv4)_ |  |  | Optional: \{\} <br /> |
 
 
 #### NetworkStatus
@@ -6486,7 +6487,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `name` _string_ |  |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `name` _string_ |  |  | MaxLength: 32 <br />MinLength: 1 <br />Required: \{\} <br /> |
 
 
 #### RoutingDomainStatus
