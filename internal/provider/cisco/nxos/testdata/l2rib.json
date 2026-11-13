@@ -1,0 +1,13 @@
+{
+  "hmm-items": {
+    "fwdinst-items": {
+      "evpn-items": {
+        "adminSt": "enabled",
+        "ddHmmoves": 10,
+        "ddHnsecs": 300,
+        "dhrtimeout": 60,
+        "dhrcount": 3
+      }
+    }
+  }
+}

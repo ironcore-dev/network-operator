@@ -103,6 +103,54 @@ spec:
                 maximum: 9216
                 minimum: 1501
                 type: integer
+              l2rib:
+                default:
+                  durationSeconds: 180
+                  moves: 5
+                  recoveryCount: 5
+                  recoveryTimeoutSeconds: 30
+                description: |-
+                  L2RIB groups L2RIB (Layer-2 Routing Information Base) system settings.
+                  Configures duplicate host IP address detection
+                  (CLI: "l2rib dup-host-ip-addr-detection").
+                properties:
+                  durationSeconds:
+                    default: 180
+                    description: |-
+                      DurationSeconds is the detection window in seconds during which moves are
+                      counted (CLI: num-moves-interval).
+                    format: int32
+                    maximum: 36000
+                    minimum: 2
+                    type: integer
+                  moves:
+                    default: 5
+                    description: |-
+                      Moves is the number of host IP moves allowed within DurationSeconds before
+                      the host IP address is flagged as a duplicate (CLI: num-moves).
+                    format: int32
+                    maximum: 1000
+                    minimum: 1
+                    type: integer
+                  recoveryCount:
+                    default: 5
+                    description: |-
+                      RecoveryCount is the number of recovery attempts before the duplicate
+                      detection is considered permanent (CLI: retry-count).
+                    format: int32
+                    maximum: 3000
+                    minimum: 1
+                    type: integer
+                  recoveryTimeoutSeconds:
+                    default: 30
+                    description: |-
+                      RecoveryTimeoutSeconds is the time in seconds after which a duplicate-marked
+                      host IP address is re-evaluated (CLI: retry-timeout). Minimum is 30.
+                    format: int32
+                    maximum: 36000
+                    minimum: 30
+                    type: integer
+                type: object
               relayServerIdOverrideDisable:
                 default: false
                 description: |-
