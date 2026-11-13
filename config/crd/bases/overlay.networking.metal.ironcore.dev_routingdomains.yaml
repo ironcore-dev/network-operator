@@ -50,7 +50,8 @@ spec:
             description: spec defines the desired state of RoutingDomain
             properties:
               name:
-                maxLength: 63
+                description: name of the VRF created for the RoutingDomain.
+                maxLength: 32
                 minLength: 1
                 type: string
                 x-kubernetes-validations:
@@ -63,8 +64,10 @@ spec:
             description: status defines the observed state of RoutingDomain
             properties:
               conditions:
-                description: The conditions are a list of status objects that describe
-                  the state of the RoutingDomain.
+                description: |-
+                  conditions represent the current state of the RoutingDomain resource.
+                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
+                  The status of each condition is one of True, False, or Unknown.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.

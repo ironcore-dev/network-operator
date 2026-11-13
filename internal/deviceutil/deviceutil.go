@@ -8,14 +8,18 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	evpnv1alpha1 "github.com/ironcore-dev/network-operator/api/evpn/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/clientutil"
 )
 
@@ -164,4 +168,54 @@ func GetDeviceConnection(ctx context.Context, r client.Reader, obj *v1alpha1.Dev
 		Password:   string(pass),
 		TLS:        conf,
 	}, nil
+}
+
+// SelectFabric resolves the fabric for the given devices and list of fabrics. It returns an error if no fabric can be resolved or if there are conflicting fabrics for the devices.
+func SelectFabric(devices map[string]*v1alpha1.Device, fabrics []evpnv1alpha1.Fabric) (*evpnv1alpha1.Fabric, error) {
+	if len(devices) == 0 {
+		return nil, errors.New("no devices selected for fabric resolution")
+	}
+	selectors := make([]labels.Selector, len(fabrics))
+	for i := range fabrics {
+		selector, err := metav1.LabelSelectorAsSelector(&fabrics[i].Spec.DeviceSelector)
+		if err != nil {
+			return nil, fmt.Errorf("parse device selector for fabric: %q: %w", fabrics[i].Name, err)
+		}
+		selectors[i] = selector
+	}
+	var fabric *evpnv1alpha1.Fabric
+	var errs []error
+	for _, name := range slices.Sorted(maps.Keys(devices)) {
+		device := devices[name]
+		if device == nil {
+			errs = append(errs, fmt.Errorf("device %q is nil", name))
+			continue
+		}
+		var matched *evpnv1alpha1.Fabric
+		var matches []string
+		for i := range fabrics {
+			if selectors[i].Matches(labels.Set(device.Labels)) {
+				matched = &fabrics[i]
+				matches = append(matches, fabrics[i].Name)
+			}
+		}
+		switch len(matches) {
+		case 0:
+			errs = append(errs, fmt.Errorf("device %q does not match any fabric", device.Name))
+		case 1:
+			if fabric == nil {
+				fabric = matched
+				continue
+			}
+			if client.ObjectKeyFromObject(fabric) != client.ObjectKeyFromObject(matched) {
+				errs = append(errs, fmt.Errorf("device %q resolves to fabric %q, want %q", device.Name, matched.Name, fabric.Name))
+			}
+		default:
+			errs = append(errs, fmt.Errorf("device %q matches %d fabrics %q, want exactly one", device.Name, len(matches), matches))
+		}
+	}
+	if len(errs) > 0 {
+		return nil, kerrors.NewAggregate(errs)
+	}
+	return fabric, nil
 }
