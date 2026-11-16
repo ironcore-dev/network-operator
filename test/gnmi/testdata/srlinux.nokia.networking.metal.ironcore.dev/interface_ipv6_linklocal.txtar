@@ -19,7 +19,7 @@ spec:
 
 -- state/expect --
 {
-  "srl_nokia-interfaces:interface": [
+  "interface": [
     {
       "name": "ethernet-1/5",
       "admin-state": "enable",
@@ -39,7 +39,7 @@ spec:
 
 -- state/delete --
 {
-  "srl_nokia-interfaces:interface": [
+  "interface": [
     {
       "name": "ethernet-1/5",
       "admin-state": "disable"

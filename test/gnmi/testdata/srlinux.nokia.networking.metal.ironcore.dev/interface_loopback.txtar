@@ -24,7 +24,7 @@ spec:
 
 -- state/expect --
 {
-  "srl_nokia-interfaces:interface": [
+  "interface": [
     {
       "name": "lo0",
       "admin-state": "enable",
@@ -53,5 +53,5 @@ spec:
 
 -- state/delete --
 {
-  "srl_nokia-interfaces:interface": []
+  "interface": []
 }

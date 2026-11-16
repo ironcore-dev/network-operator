@@ -41,11 +41,11 @@ spec:
 
 -- state/expect --
 {
-  "srl_nokia-interfaces:interface": [
+  "interface": [
     {
       "name": "ethernet-1/2",
       "admin-state": "enable",
-      "srl_nokia-interfaces-vlans:vlan-tagging": true,
+      "vlan-tagging": true,
       "subinterface": [
         {
           "index": 100,
@@ -68,7 +68,7 @@ spec:
       ]
     }
   ],
-  "srl_nokia-bfd:bfd": {
+  "bfd": {
     "subinterface": [
       {
         "id": "ethernet-1/2.100",
@@ -82,13 +82,13 @@ spec:
 
 -- state/delete --
 {
-  "srl_nokia-interfaces:interface": [
+  "interface": [
     {
       "name": "ethernet-1/2",
       "admin-state": "disable"
     }
   ],
-  "srl_nokia-bfd:bfd": {
+  "bfd": {
     "subinterface": []
   }
 }

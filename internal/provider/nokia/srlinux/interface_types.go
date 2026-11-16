@@ -54,7 +54,7 @@ type ifaceConfig struct {
 }
 
 func (i *ifaceConfig) XPath() string {
-	return fmt.Sprintf("srl_nokia-interfaces:interface[name=%s]", i.Name)
+	return fmt.Sprintf("interface[name=%s]", i.Name)
 }
 
 // ethernetConfig holds the interface-level ethernet container. Only aggregate-id
@@ -85,7 +85,7 @@ type vlanTagging struct {
 }
 
 func (v *vlanTagging) XPath() string {
-	return fmt.Sprintf("srl_nokia-interfaces:interface[name=%s]/srl_nokia-interfaces-vlans:vlan-tagging", v.Name)
+	return fmt.Sprintf("interface[name=%s]/vlan-tagging", v.Name)
 }
 
 func (v vlanTagging) MarshalJSON() ([]byte, error) {
@@ -112,7 +112,7 @@ type subinterface struct {
 }
 
 func (s *subinterface) XPath() string {
-	return fmt.Sprintf("srl_nokia-interfaces:interface[name=%s]/subinterface[index=%d]", s.ParentName, s.Index)
+	return fmt.Sprintf("interface[name=%s]/subinterface[index=%d]", s.ParentName, s.Index)
 }
 
 // MarshalJSON injects the list key (index) into the payload. The field itself is
@@ -185,7 +185,7 @@ type bfdSubinterface struct {
 }
 
 func (b *bfdSubinterface) XPath() string {
-	return fmt.Sprintf("srl_nokia-bfd:bfd/subinterface[id=%s]", b.ID)
+	return fmt.Sprintf("bfd/subinterface[id=%s]", b.ID)
 }
 
 // MarshalJSON injects the list key (id) into the payload; see subinterface.MarshalJSON.
@@ -223,7 +223,7 @@ type ifaceOperState struct {
 }
 
 func (s *ifaceOperState) XPath() string {
-	return fmt.Sprintf("srl_nokia-interfaces:interface[name=%s]", s.Name)
+	return fmt.Sprintf("interface[name=%s]", s.Name)
 }
 
 const operStateUp = "up"
