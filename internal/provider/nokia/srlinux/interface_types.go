@@ -17,18 +17,17 @@ var (
 	_ gnmiext.DataElement = (*vlanTagging)(nil)
 	_ gnmiext.DataElement = (*bfdSubinterface)(nil)
 	_ gnmiext.DataElement = (*ifaceOperState)(nil)
+
+	_ json.Marshaler   = (*subinterface)(nil)
+	_ json.Marshaler   = (*bfdSubinterface)(nil)
+	_ json.Marshaler   = vlanTagging{}
+	_ json.Unmarshaler = (*vlanTagging)(nil)
 )
 
-// SR Linux leaf values. Admin-state defaults to "enable" on the device, so it is
-// always written explicitly to keep the Get-and-Check diff stable (an omitted
-// value would read back as the platform default and trigger a spurious Set).
+// subIfTypeRouted is the module-qualified YANG identity SR Linux returns for a
+// routed subinterface. The value must be stored qualified or the Get-and-Check
+// diff would never match the device's read-back value.
 const (
-	adminEnable  = "enable"
-	adminDisable = "disable"
-
-	// subIfTypeRouted is the module-qualified YANG identity SR Linux returns for a
-	// routed subinterface. The value must be stored qualified or the Get-and-Check
-	// diff would never match the device's read-back value.
 	subIfTypeRouted = "srl_nokia-interfaces:routed"
 
 	lagTypeLACP   = "lacp"
@@ -47,7 +46,7 @@ const (
 // name would fail to unmarshal and break idempotency.
 type ifaceConfig struct {
 	Name        string          `json:"-"`
-	AdminState  string          `json:"admin-state"`
+	AdminState  AdminSt         `json:"admin-state"`
 	Description string          `json:"description,omitempty"`
 	MTU         uint16          `json:"mtu,omitempty"`
 	Ethernet    *ethernetConfig `json:"ethernet,omitempty"`
@@ -104,7 +103,7 @@ func (v *vlanTagging) UnmarshalJSON(b []byte) error {
 type subinterface struct {
 	ParentName string   `json:"-"`
 	Index      uint32   `json:"-"`
-	AdminState string   `json:"admin-state"`
+	AdminState AdminSt  `json:"admin-state"`
 	Type       string   `json:"type,omitempty"`
 	IPMTU      uint16   `json:"ip-mtu,omitempty"`
 	VLAN       *subVLAN `json:"srl_nokia-interfaces-vlans:vlan,omitempty"`
@@ -151,13 +150,13 @@ type doubleTagged struct {
 // subIPv4 maps the subinterface ipv4 container. SR Linux has no primary/secondary
 // distinction: addresses are a plain list of ip-prefix (CIDR) strings.
 type subIPv4 struct {
-	AdminState string                           `json:"admin-state"`
+	AdminState AdminSt                          `json:"admin-state"`
 	Address    gnmiext.List[string, *ipAddress] `json:"address,omitempty"`
 	Unnumbered *unnumbered                      `json:"unnumbered,omitempty"`
 }
 
 type subIPv6 struct {
-	AdminState string                           `json:"admin-state"`
+	AdminState AdminSt                          `json:"admin-state"`
 	Address    gnmiext.List[string, *ipAddress] `json:"address,omitempty"`
 }
 
@@ -171,18 +170,18 @@ func (a *ipAddress) Key() string { return a.IPPrefix }
 // unnumbered maps the ipv4 unnumbered container; interface references the borrowed
 // source (e.g. "system0.0").
 type unnumbered struct {
-	AdminState string `json:"admin-state"`
-	Interface  string `json:"interface,omitempty"`
+	AdminState AdminSt `json:"admin-state"`
+	Interface  string  `json:"interface,omitempty"`
 }
 
 // bfdSubinterface maps an entry of the top-level srl_nokia-bfd:bfd/subinterface
 // list. Its id is "<interface>.<index>". Intervals are expressed in microseconds.
 type bfdSubinterface struct {
-	ID                   string `json:"-"`
-	AdminState           string `json:"admin-state"`
-	DesiredMinTxInterval uint32 `json:"desired-minimum-transmit-interval,omitempty"`
-	RequiredMinRx        uint32 `json:"required-minimum-receive,omitempty"`
-	DetectionMultiplier  uint8  `json:"detection-multiplier,omitempty"`
+	ID                   string  `json:"-"`
+	AdminState           AdminSt `json:"admin-state"`
+	DesiredMinTxInterval uint32  `json:"desired-minimum-transmit-interval,omitempty"`
+	RequiredMinRx        uint32  `json:"required-minimum-receive,omitempty"`
+	DetectionMultiplier  uint8   `json:"detection-multiplier,omitempty"`
 }
 
 func (b *bfdSubinterface) XPath() string {

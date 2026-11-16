@@ -149,7 +149,7 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.DeleteInte
 		// A physical port cannot be removed; reset it to administratively down and
 		// clear any layer-3 config by replacing it with a bare disabled interface.
 		sb := new(gnmiext.SetBuilder)
-		sb.Update(&ifaceConfig{Name: spec.Name, AdminState: adminDisable})
+		sb.Update(&ifaceConfig{Name: spec.Name, AdminState: AdminStDisable})
 		sb.Delete(&bfdSubinterface{ID: spec.Name + ".0"})
 		return p.client.Do(ctx, sb)
 
@@ -213,11 +213,11 @@ func (*Provider) LoopbackInterfaceName(id int) (string, error) {
 }
 
 // toAdminState maps the API admin state to the SR Linux enable/disable leaf.
-func toAdminState(s v1alpha1.AdminState) string {
+func toAdminState(s v1alpha1.AdminState) AdminSt {
 	if s == v1alpha1.AdminStateDown {
-		return adminDisable
+		return AdminStDisable
 	}
-	return adminEnable
+	return AdminStEnable
 }
 
 // ipSubinterface builds subinterface index 0 for the named interface carrying the
@@ -237,7 +237,7 @@ func ipSubinterface(name string, index uint32, routed bool, req *provider.Ensure
 	sub := &subinterface{
 		ParentName: name,
 		Index:      index,
-		AdminState: adminEnable,
+		AdminState: AdminStEnable,
 		IPv4:       v4,
 		IPv6:       v6,
 	}
@@ -252,15 +252,15 @@ func ipSubinterface(name string, index uint32, routed bool, req *provider.Ensure
 func buildIPv4(ip provider.IPv4) *subIPv4 {
 	switch v := ip.(type) {
 	case provider.IPv4AddressList:
-		out := &subIPv4{AdminState: adminEnable}
+		out := &subIPv4{AdminState: AdminStEnable}
 		for _, prefix := range v {
 			out.Address.Set(&ipAddress{IPPrefix: prefix.String()})
 		}
 		return out
 	case provider.IPv4Unnumbered:
 		return &subIPv4{
-			AdminState: adminEnable,
-			Unnumbered: &unnumbered{AdminState: adminEnable, Interface: v.SourceInterface},
+			AdminState: AdminStEnable,
+			Unnumbered: &unnumbered{AdminState: AdminStEnable, Interface: v.SourceInterface},
 		}
 	default:
 		return nil
@@ -272,13 +272,13 @@ func buildIPv4(ip provider.IPv4) *subIPv4 {
 func buildIPv6(ip provider.IPv6) *subIPv6 {
 	switch v := ip.(type) {
 	case provider.IPv6AddressList:
-		out := &subIPv6{AdminState: adminEnable}
+		out := &subIPv6{AdminState: AdminStEnable}
 		for _, prefix := range v {
 			out.Address.Set(&ipAddress{IPPrefix: prefix.String()})
 		}
 		return out
 	case provider.IPv6LinkLocalOnly:
-		return &subIPv6{AdminState: adminEnable}
+		return &subIPv6{AdminState: AdminStEnable}
 	default:
 		return nil
 	}
@@ -351,9 +351,9 @@ func parseSubinterfaceName(name string) (string, uint32, error) {
 // bfdFromSpec maps the BFD spec to a bfd subinterface entry for the given id
 // ("<interface>.<index>"). Intervals are converted to microseconds.
 func bfdFromSpec(id string, bfd *v1alpha1.BFD) *bfdSubinterface {
-	out := &bfdSubinterface{ID: id, AdminState: adminDisable}
+	out := &bfdSubinterface{ID: id, AdminState: AdminStDisable}
 	if bfd.Enabled {
-		out.AdminState = adminEnable
+		out.AdminState = AdminStEnable
 	}
 	if bfd.DesiredMinimumTxInterval != nil {
 		out.DesiredMinTxInterval = uint32(bfd.DesiredMinimumTxInterval.Microseconds()) //nolint:gosec

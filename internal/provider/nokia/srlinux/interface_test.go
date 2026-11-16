@@ -85,7 +85,7 @@ func TestEnsureInterfacePhysicalIPv4(t *testing.T) {
 
 	els := captureSet(t, func(p *Provider) error { return p.EnsureInterface(t.Context(), req) })
 	iface := findIface(t, els)
-	if iface.Name != "ethernet-1/1" || iface.AdminState != adminEnable || iface.Description != "uplink" || iface.MTU != 9000 {
+	if iface.Name != "ethernet-1/1" || iface.AdminState != AdminStEnable || iface.Description != "uplink" || iface.MTU != 9000 {
 		t.Fatalf("unexpected interface config: %+v", iface)
 	}
 	sub := findSub(t, els)
@@ -199,7 +199,7 @@ func TestEnsureInterfaceBFD(t *testing.T) {
 	if bfd == nil {
 		t.Fatal("no bfd subinterface queued")
 	}
-	if bfd.ID != "ethernet-1/3.0" || bfd.AdminState != adminEnable || bfd.DesiredMinTxInterval != 250000 || bfd.DetectionMultiplier != 3 {
+	if bfd.ID != "ethernet-1/3.0" || bfd.AdminState != AdminStEnable || bfd.DesiredMinTxInterval != 250000 || bfd.DetectionMultiplier != 3 {
 		t.Fatalf("unexpected bfd config: %+v", bfd)
 	}
 }
@@ -247,7 +247,7 @@ func TestDeleteInterface(t *testing.T) {
 		return p.DeleteInterface(t.Context(), &provider.DeleteInterfaceRequest{Interface: phys.Interface})
 	})
 	iface := findIface(t, els)
-	if iface.AdminState != adminDisable {
+	if iface.AdminState != AdminStDisable {
 		t.Fatalf("physical delete must disable the port, got %q", iface.AdminState)
 	}
 
@@ -262,7 +262,7 @@ func TestDeleteInterface(t *testing.T) {
 
 func TestBuildIPv4Unnumbered(t *testing.T) {
 	v4 := buildIPv4(provider.IPv4Unnumbered{SourceInterface: "system0.0"})
-	if v4 == nil || v4.Unnumbered == nil || v4.Unnumbered.Interface != "system0.0" || v4.Unnumbered.AdminState != adminEnable {
+	if v4 == nil || v4.Unnumbered == nil || v4.Unnumbered.Interface != "system0.0" || v4.Unnumbered.AdminState != AdminStEnable {
 		t.Fatalf("unexpected unnumbered config: %+v", v4)
 	}
 	if len(v4.Address) != 0 {
@@ -272,7 +272,7 @@ func TestBuildIPv4Unnumbered(t *testing.T) {
 
 func TestBuildIPv6LinkLocalOnly(t *testing.T) {
 	v6 := buildIPv6(provider.IPv6LinkLocalOnly{})
-	if v6 == nil || v6.AdminState != adminEnable {
+	if v6 == nil || v6.AdminState != AdminStEnable {
 		t.Fatalf("link-local-only must enable ipv6, got %+v", v6)
 	}
 	if len(v6.Address) != 0 {
