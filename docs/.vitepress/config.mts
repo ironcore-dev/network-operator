@@ -70,8 +70,9 @@ export default withMermaid({
                     { text: 'IronCore', link: 'https://ironcore.dev/' },
                     {
                         text: 'CobaltCore',
-                        link: 'https://cobaltcore-dev.github.io/docs/',
+                        link: 'https://cobaltcore.dev/',
                     },
+                    { text: 'Cloudoperators', link: 'https://cloudoperators.dev/' },
                 ],
             },
         ],
