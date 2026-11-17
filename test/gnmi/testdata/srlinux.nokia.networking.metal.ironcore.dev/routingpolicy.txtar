@@ -1,0 +1,262 @@
+# RoutingPolicy accept-loopbacks with referenced PrefixSet
+-- prefixsets/pfx-loopbacks --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: PrefixSet
+metadata:
+  name: pfx-loopbacks
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: LOOPBACKS
+  entries:
+    - sequence: 10
+      prefix: 10.0.0.0/24
+    - sequence: 20
+      prefix: 10.1.0.0/16
+-- routingpolicies/accept-loopbacks --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: RoutingPolicy
+metadata:
+  name: accept-loopbacks
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: accept-loopbacks
+  statements:
+    - sequence: 10
+      conditions:
+        matchPrefixSet:
+          prefixSetRef:
+            name: pfx-loopbacks
+      actions:
+        routeDisposition: AcceptRoute
+    - sequence: 65535
+      actions:
+        routeDisposition: RejectRoute
+
+-- communitysets/cs-no-export --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: CommunitySet
+metadata:
+  name: cs-no-export
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: NO_EXPORT
+  type: Standard
+  members:
+    - sequence: 10
+      regex: "65000:100"
+
+-- communitysets/cs-rt-import --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: CommunitySet
+metadata:
+  name: cs-rt-import
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: RT_IMPORT
+  type: Extended
+  members:
+    - sequence: 10
+      regex: "target:65000:20"
+
+-- routingpolicies/tag-community --
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: RoutingPolicy
+metadata:
+  name: tag-community
+  namespace: default
+spec:
+  deviceRef:
+    name: device
+  name: tag-community
+  statements:
+    - sequence: 10
+      conditions:
+        matchCommunitySet:
+          communitySetRef:
+            name: cs-no-export
+      actions:
+        routeDisposition: AcceptRoute
+        bgpActions:
+          setNextHop:
+            address: 10.0.0.1
+          setASPath:
+            prepend:
+              asNumber: 65000
+          setCommunity:
+            communities:
+              - "65001:200"
+            operation: Replace
+    - sequence: 20
+      actions:
+        routeDisposition: AcceptRoute
+        bgpActions:
+          setASPath:
+            asNumber: 65100
+          setExtCommunity:
+            communities:
+              - "target:65000:10"
+            operation: Replace
+    - sequence: 30
+      actions:
+        routeDisposition: AcceptRoute
+        bgpActions:
+          setCommunity:
+            communities:
+              - "65003:300"
+              - "65003:400"
+            operation: Add
+    - sequence: 40
+      conditions:
+        matchExtendedCommunitySet:
+          communitySetRef:
+            name: cs-rt-import
+          matchSetOption: All
+      actions:
+        routeDisposition: AcceptRoute
+
+-- state/preload --
+{}
+
+-- state/expect --
+
+{
+  "routing-policy": {
+    "community-set": [
+      {
+        "name": "rp-tag-community-10",
+        "member": [
+          "65001:200"
+        ]
+      },
+      {
+        "name": "rp-tag-community-20-ext",
+        "member": [
+          "target:65000:10"
+        ]
+      },
+      {
+        "name": "rp-tag-community-30",
+        "member": [
+          "65003:300",
+          "65003:400"
+        ]
+      }
+    ],
+    "policy": [
+      {
+        "name": "accept-loopbacks",
+        "statement": [
+          {
+            "action": {
+              "policy-result": "accept"
+            },
+            "match": {
+              "prefix": {
+                "match-set-options": "any",
+                "prefix-set": "LOOPBACKS"
+              }
+            },
+            "name": "10"
+          },
+          {
+            "action": {
+              "policy-result": "reject"
+            },
+            "name": "65535"
+          }
+        ]
+      },
+      {
+        "name": "tag-community",
+        "statement": [
+          {
+            "action": {
+              "policy-result": "accept",
+              "bgp": {
+                "as-path": {
+                  "prepend": {
+                    "as-number": 65000,
+                    "repeat-n": 1
+                  }
+                },
+                "communities": {
+                  "replace": "rp-tag-community-10"
+                },
+                "next-hop": {
+                  "set": "10.0.0.1"
+                }
+              }
+            },
+            "match": {
+              "bgp": {
+                "standard-community": {
+                  "match-set-options": "any",
+                  "standard-community-set": "NO_EXPORT"
+                }
+              }
+            },
+            "name": "10"
+          },
+          {
+            "action": {
+              "policy-result": "accept",
+              "bgp": {
+                "as-path": {
+                  "replace": [
+                    65100
+                  ]
+                },
+                "communities": {
+                  "replace": "rp-tag-community-20-ext"
+                }
+              }
+            },
+            "name": "20"
+          },
+          {
+            "action": {
+              "policy-result": "accept",
+              "bgp": {
+                "communities": {
+                  "add": "rp-tag-community-30"
+                }
+              }
+            },
+            "name": "30"
+          },
+          {
+            "action": {
+              "policy-result": "accept"
+            },
+            "match": {
+              "bgp": {
+                "extended-community": {
+                  "extended-community-set": "RT_IMPORT",
+                  "match-set-options": "all"
+                }
+              }
+            },
+            "name": "40"
+          }
+        ]
+      }
+    ]
+  }
+}
+
+-- state/delete --
+
+{
+  "routing-policy": {
+    "community-set": [],
+    "policy": []
+  }
+}
