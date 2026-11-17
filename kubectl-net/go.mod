@@ -1,6 +1,6 @@
 module github.com/ironcore-dev/network-operator/kubectl-net
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/ironcore-dev/network-operator v0.0.0-20260917125130-19eb933a2f91
