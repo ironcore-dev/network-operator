@@ -35,8 +35,6 @@ const (
 
 	lacpModeActive  = "ACTIVE"
 	lacpModePassive = "PASSIVE"
-
-	fieldSpecType = "spec.type"
 )
 
 // ifaceConfig holds the interface-level leaves of an SR Linux interface. It is

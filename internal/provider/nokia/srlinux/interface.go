@@ -27,7 +27,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 	// a half-configured interface.
 	if spec.Type == v1alpha1.InterfaceTypeRoutedVLAN {
 		return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
-			Field:       fieldSpecType,
+			Field:       "spec.type", //nolint:goconst
 			Description: "srlinux provider does not yet support RoutedVLAN interfaces (requires mac-vrf/network-instance support)",
 		})
 	}
@@ -80,7 +80,7 @@ func (p *Provider) EnsureInterface(ctx context.Context, req *provider.EnsureInte
 
 	default:
 		return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
-			Field:       fieldSpecType,
+			Field:       "spec.type",
 			Description: fmt.Sprintf("unsupported interface type %q", spec.Type),
 		})
 	}
@@ -177,13 +177,13 @@ func (p *Provider) DeleteInterface(ctx context.Context, req *provider.DeleteInte
 
 	case v1alpha1.InterfaceTypeRoutedVLAN:
 		return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
-			Field:       fieldSpecType,
+			Field:       "spec.type",
 			Description: "srlinux provider does not yet support RoutedVLAN interfaces (requires mac-vrf/network-instance support)",
 		})
 
 	default:
 		return apistatus.NewUnsupportedFieldError(apistatus.FieldViolation{
-			Field:       fieldSpecType,
+			Field:       "spec.type",
 			Description: fmt.Sprintf("unsupported interface type %q for delete", spec.Type),
 		})
 	}
