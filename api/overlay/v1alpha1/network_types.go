@@ -6,10 +6,22 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
 
 // NetworkSpec defines the desired state of Network
-type NetworkSpec struct{}
+type NetworkSpec struct {
+	// +optional
+	RoutingDomainRef *v1alpha1.LocalObjectReference `json:"routingDomainRef,omitempty"`
+	// +optional
+	IPv4 *IPv4 `json:"ipv4,omitempty"`
+}
+
+type IPv4 struct {
+	// Address is the IP prefix for the SVI's Anycast Gateway
+	Address v1alpha1.IPPrefix `json:"address,omitempty"`
+}
 
 // NetworkStatus defines the observed state of Network.
 type NetworkStatus struct {

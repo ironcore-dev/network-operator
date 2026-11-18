@@ -194,6 +194,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 
 .PHONY: helm
 helm: kubebuilder
+	@rm -rf charts/chart
 	@mv charts/network-operator charts/chart
 	$(KUBEBUILDER) edit --plugins=helm/v2-alpha --output-dir=charts
 	@mv charts/chart charts/network-operator && rm -rf dist

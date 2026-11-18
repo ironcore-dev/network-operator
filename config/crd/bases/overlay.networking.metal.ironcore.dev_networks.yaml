@@ -47,6 +47,30 @@ spec:
             description: |-
               Specification of the desired state of the resource.
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              ipv4:
+                properties:
+                  address:
+                    description: Address is the IP prefix for the SVI's Anycast Gateway
+                    format: cidr
+                    type: string
+                type: object
+              routingDomainRef:
+                description: |-
+                  LocalObjectReference contains enough information to locate a
+                  referenced object inside the same namespace.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
             type: object
           status:
             description: |-

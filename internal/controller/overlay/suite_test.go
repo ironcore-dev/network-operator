@@ -58,7 +58,7 @@ var _ = BeforeSuite(func() {
 	Expect(corev1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(poolv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(poolv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-	Expect(overlayv1alpha1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(overlayv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	// +kubebuilder:scaffold:scheme
 
