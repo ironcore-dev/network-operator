@@ -9,17 +9,15 @@ updates:
     schedule:
       interval: "weekly"
       day: "friday"
+    groups:
+      go-minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
     ignore:
       # Ignore k8s.io/* and controller-runtime dependencies, as they are bumped together manually.
       - dependency-name: "k8s.io/*"
       - dependency-name: "sigs.k8s.io/controller-runtime"
-
-  # Go modules — test/gnmi module
-  - package-ecosystem: "gomod"
-    directory: "/test/gnmi"
-    schedule:
-      interval: "weekly"
-      day: "friday"
 
   # Docker — root Dockerfile
   - package-ecosystem: "docker"
@@ -55,6 +53,11 @@ updates:
     schedule:
       interval: "weekly"
       day: "friday"
+    groups:
+      docs-minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
 
   # Helm — network-operator chart
   - package-ecosystem: "helm"
@@ -69,3 +72,8 @@ updates:
     schedule:
       interval: "weekly"
       day: "friday"
+    groups:
+      gha-minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
