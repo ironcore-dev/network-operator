@@ -13,3 +13,8 @@ spec:
   vlanLongName: true
   dhcp:
     relayServerIdOverrideDisable: true
+  l2rib:
+    moves: 5
+    durationSeconds: 180
+    recoveryTimeoutSeconds: 30
+    recoveryCount: 5

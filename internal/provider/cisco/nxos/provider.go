@@ -3595,7 +3595,28 @@ func (p *Provider) EnsureSystemSettings(ctx context.Context, s *nxv1alpha1.Syste
 
 	sys := new(SystemJumboMTU)
 	*sys = SystemJumboMTU(s.Spec.JumboMTU)
+
 	sb.Patch(long, res, sys)
+
+	// The evpn-items path only exists while the EVPN feature is enabled. Writing it on a
+	// device without EVPN is rejected, so require the feature when the user configures l2rib.
+	if s.Spec.L2RIB != nil {
+		evpn := &Feature{Name: FeatureEVPN}
+		if err := p.client.GetConfig(ctx, evpn); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+		if evpn.AdminSt != AdminStEnabled {
+			return apistatus.NewFailedPreconditionError("evpn feature must be enabled to configure l2rib dup-host-ip-addr-detection")
+		}
+
+		hmm := new(HMMFwdEvpn)
+		hmm.AdminSt = AdminStEnabled
+		hmm.DdHmmoves = cmp.Or(uint16(s.Spec.L2RIB.Moves), hmmFwdEvpnDefaultMoves)                             //nolint:gosec // validated: max 1000 fits uint16
+		hmm.DdHnsecs = cmp.Or(uint16(s.Spec.L2RIB.DurationSeconds), hmmFwdEvpnDefaultDuration)                 //nolint:gosec // validated: max 36000 fits uint16
+		hmm.Dhrtimeout = cmp.Or(uint16(s.Spec.L2RIB.RecoveryTimeoutSeconds), hmmFwdEvpnDefaultRecoveryTimeout) //nolint:gosec // validated: max 36000 fits uint16
+		hmm.Dhrcount = cmp.Or(uint16(s.Spec.L2RIB.RecoveryCount), hmmFwdEvpnDefaultRecoveryCount)              //nolint:gosec // validated: max 3000 fits uint16
+		sb.Patch(hmm)
+	}
 
 	// The override leaf lives under the dhcp feature tree, which only exists while the
 	// feature is enabled. Read the current feature state to decide how to realize it.
@@ -3625,13 +3646,21 @@ func (p *Provider) EnsureSystemSettings(ctx context.Context, s *nxv1alpha1.Syste
 }
 
 func (p *Provider) ResetSystemSettings(ctx context.Context) error {
-	return p.client.Delete(
-		ctx,
+	elems := []gnmiext.DataElement{
 		new(VLANSystem),
 		new(VLANReservation),
 		new(SystemJumboMTU),
 		new(DHCPRelayServerIDOverrideDisable),
-	)
+	}
+	// evpn-items only exists while the EVPN feature is enabled; only reset it when present.
+	evpn := &Feature{Name: FeatureEVPN}
+	if err := p.client.GetConfig(ctx, evpn); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+		return err
+	}
+	if evpn.AdminSt == AdminStEnabled {
+		elems = append(elems, new(HMMFwdEvpn))
+	}
+	return p.client.Delete(ctx, elems...)
 }
 
 // VPCDomainStatus represents the operational status of a vPC configuration on the device.
