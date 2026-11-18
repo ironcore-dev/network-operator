@@ -35,3 +35,20 @@ and prints a structured report. See AGENTS.md for commands, rules, and output fo
 **Phase 2 — test:** deploys the operator to a local kind cluster, applies CRs,
 and validates device state via gnmic. Installs cert-manager and builds/loads the
 controller image if needed.
+
+## `/cisco-yang-explore`
+
+Navigate a Cisco NX-OS 10.6-4 YANG path and explain its structure, leaves, and enum values:
+
+```
+/cisco-yang-explore System/bgp-items/inst-items/dom-items/Dom-list[name={vrf}]/af-items/DomAf-list[type=ipv4-ucast]/interleak-items/InterLeakP-list[proto=static]
+```
+
+Locates the terminal node in the vendor YANG model, follows `uses`/grouping references,
+resolves enum typedefs, and produces a structured report of the node's type, keys, leaves,
+and raw definition block. Optionally pass a second line `Attributes: attr1, attr2, ...` to
+look up specific leaves.
+
+The models come from the `YangModels/yang` repo. On first use the skill asks where to clone
+them (default `/tmp/cisco-yang-explore`) and does a sparse, shallow clone of only the
+`vendor/cisco/nx/10.6-4` subdirectory to avoid the 4GB+ full checkout.
