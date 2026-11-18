@@ -7,6 +7,7 @@ func init() {
 	Register("syslog_origin", &SyslogOrigin{Idtype: "hostname"})
 	Register("syslog_history", &SyslogHistory{Level: Informational, Size: 500})
 	Register("syslog_srcif", &SyslogSrcIf{AdminSt: AdminStEnabled, IfName: "mgmt0"})
+	Register("syslog_timestamp", &SyslogTimestamp{Format: "milliseconds"})
 
 	reItems := new(SyslogRemoteItems)
 	reItems.RemoteDestList.Set(&SyslogRemote{

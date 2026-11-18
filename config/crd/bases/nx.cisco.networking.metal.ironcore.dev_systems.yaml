@@ -121,6 +121,15 @@ spec:
                 maximum: 4032
                 minimum: 1
                 type: integer
+              syslogTimestampFormat:
+                description: |-
+                  SyslogTimestampFormat sets the granularity of timestamps in syslog messages.
+                  When unset, no timestamp format is configured and the device default applies.
+                enum:
+                - microseconds
+                - milliseconds
+                - seconds
+                type: string
               vlanLongName:
                 default: false
                 description: |-

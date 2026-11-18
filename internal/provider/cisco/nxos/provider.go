@@ -3597,6 +3597,12 @@ func (p *Provider) EnsureSystemSettings(ctx context.Context, s *nxv1alpha1.Syste
 	*sys = SystemJumboMTU(s.Spec.JumboMTU)
 	sb.Patch(long, res, sys)
 
+	if s.Spec.SyslogTimestampFormat != nil {
+		ts := new(SyslogTimestamp)
+		ts.Format = string(*s.Spec.SyslogTimestampFormat)
+		sb.Patch(ts)
+	}
+
 	// The override leaf lives under the dhcp feature tree, which only exists while the
 	// feature is enabled. Read the current feature state to decide how to realize it.
 	dhcp := &Feature{Name: FeatureDHCP}
@@ -3631,6 +3637,7 @@ func (p *Provider) ResetSystemSettings(ctx context.Context) error {
 		new(VLANReservation),
 		new(SystemJumboMTU),
 		new(DHCPRelayServerIDOverrideDisable),
+		new(SyslogTimestamp),
 	)
 }
 

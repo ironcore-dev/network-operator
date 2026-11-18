@@ -6067,6 +6067,25 @@ _Appears in:_
 | `traffic` _[TrafficType](#traffictype)_ | Traffic specifies the type of BUM traffic the storm control applies to. |  | Enum: [Broadcast Multicast Unicast] <br />Required: \{\} <br /> |
 
 
+#### SyslogTimestampFormat
+
+_Underlying type:_ _string_
+
+SyslogTimestampFormat controls the timestamp granularity in syslog messages.
+
+_Validation:_
+- Enum: [microseconds milliseconds seconds]
+
+_Appears in:_
+- [SystemSpec](#systemspec)
+
+| Field | Description |
+| --- | --- |
+| `microseconds` |  |
+| `milliseconds` |  |
+| `seconds` |  |
+
+
 #### System
 
 
@@ -6105,6 +6124,7 @@ _Appears in:_
 | `vlanLongName` _boolean_ | VlanLongName enables or disables 128-character VLAN names<br />Disabled by default. | false | Optional: \{\} <br /> |
 | `relayServerIdOverrideDisable` _boolean_ | RelayServerIDOverrideDisable enables the global command<br />"ip dhcp relay information option server-id-override-disable".<br />Deprecated: use dhcp.relayServerIdOverrideDisable instead. This field is kept<br />only for migration and will be removed in a future release. While both are set,<br />the setting is enabled if either is true. | false | Optional: \{\} <br /> |
 | `dhcp` _[DHCP](#dhcp)_ | DHCP groups DHCP-related system settings. | \{ relayServerIdOverrideDisable:false \} | Optional: \{\} <br /> |
+| `syslogTimestampFormat` _[SyslogTimestampFormat](#syslogtimestampformat)_ | SyslogTimestampFormat sets the granularity of timestamps in syslog messages.<br />When unset, no timestamp format is configured and the device default applies. |  | Enum: [microseconds milliseconds seconds] <br />Optional: \{\} <br /> |
 
 
 #### SystemStatus

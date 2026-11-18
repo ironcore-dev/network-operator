@@ -14,6 +14,7 @@ var (
 	_ gnmiext.DataElement = (*SyslogHistory)(nil)
 	_ gnmiext.DataElement = (*SyslogRemoteItems)(nil)
 	_ gnmiext.DataElement = (*SyslogFacilityItems)(nil)
+	_ gnmiext.DataElement = (*SyslogTimestamp)(nil)
 )
 
 type SyslogOrigin struct {
@@ -81,6 +82,14 @@ func (*SyslogFacility) IsListItem() {}
 
 func (s *SyslogFacility) XPath() string {
 	return "System/logging-items/loglevel-items/facility-items[facilityName=" + s.FacilityName + "]"
+}
+
+type SyslogTimestamp struct {
+	Format string `json:"format"`
+}
+
+func (*SyslogTimestamp) XPath() string {
+	return "System/syslog-items/timestamp-items"
 }
 
 type Transport string

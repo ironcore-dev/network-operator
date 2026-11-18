@@ -10,6 +10,16 @@ import (
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 )
 
+// SyslogTimestampFormat controls the timestamp granularity in syslog messages.
+// +kubebuilder:validation:Enum=microseconds;milliseconds;seconds
+type SyslogTimestampFormat string
+
+const (
+	SyslogTimestampFormatMicroseconds SyslogTimestampFormat = "microseconds"
+	SyslogTimestampFormatMilliseconds SyslogTimestampFormat = "milliseconds"
+	SyslogTimestampFormatSeconds      SyslogTimestampFormat = "seconds"
+)
+
 // SystemSpec defines the desired state of System
 type SystemSpec struct {
 	// DeviceName is the name of the Device this object belongs to. The Device object must exist in the same namespace.
@@ -56,6 +66,11 @@ type SystemSpec struct {
 	// +optional
 	// +kubebuilder:default={relayServerIdOverrideDisable:false}
 	DHCP DHCP `json:"dhcp,omitzero"`
+
+	// SyslogTimestampFormat sets the granularity of timestamps in syslog messages.
+	// When unset, no timestamp format is configured and the device default applies.
+	// +optional
+	SyslogTimestampFormat *SyslogTimestampFormat `json:"syslogTimestampFormat,omitempty"`
 }
 
 // DHCP groups DHCP-related system settings. These require the dhcp feature,
