@@ -5,15 +5,19 @@ package evpn
 
 import (
 	"fmt"
+	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	corev1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
@@ -42,6 +46,83 @@ var defaultMulticastGroup = corev1alpha1.MustParsePrefix("224.0.0.0/4")
 //	lo2  (anycast VTEP) — leaf-1, leaf-2 (only when spec.vtep.anycastVTEP is true)
 //	lo100 (anycast RP)  — 1 Claim shared across spine-1, spine-2
 var _ = Describe("Fabric Controller", func() {
+	DescribeTable("Generating complete Anycast-RP membership", func(memberCount int, missingLoopback bool) {
+		scheme := runtime.NewScheme()
+		Expect(corev1alpha1.AddToScheme(scheme)).To(Succeed())
+		Expect(evpnv1alpha1.AddToScheme(scheme)).To(Succeed())
+		fabric := &evpnv1alpha1.Fabric{
+			Name: "fabric", Namespace: metav1.NamespaceDefault, UID: "fabric-uid",
+			Spec: evpnv1alpha1.FabricSpec{BUM: evpnv1alpha1.FabricBUMSpec{
+				PIM: &evpnv1alpha1.FabricPIMSpec{AnycastRendezvousPoints: []evpnv1alpha1.AnycastRendezvousPoint{{
+					Name:                 "spine-rp",
+					DeviceSelector:       metav1.LabelSelector{MatchLabels: map[string]string{"role": "spine"}},
+					ClientDeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "leaf"}},
+				}}},
+			}},
+		}
+		state := &ReconcileState{loopbacks: make(map[string][]*corev1alpha1.Interface)}
+		objects := make([]client.Object, 0, memberCount+1)
+		objects = append(objects, &corev1alpha1.Device{
+			Name: "leaf", Namespace: fabric.Namespace, Labels: map[string]string{"role": "leaf"},
+		})
+		memberAddrs := make([]string, 0, memberCount)
+		for i := range memberCount {
+			name := fmt.Sprintf("spine-%d", i)
+			objects = append(objects, &corev1alpha1.Device{
+				Name: name, Namespace: fabric.Namespace, Labels: map[string]string{"role": "spine"},
+			})
+			addr := fmt.Sprintf("10.0.0.%d", memberCount-i)
+			memberAddrs = append(memberAddrs, addr)
+			state.loopbacks[name] = []*corev1alpha1.Interface{
+				{Name: "fabric-" + name + "-lo100", Spec: corev1alpha1.InterfaceSpec{
+					IPv4: &corev1alpha1.InterfaceIPv4{Addresses: []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.0.0.100/32")}},
+				}},
+				{Name: "fabric-" + name + "-lo0", Spec: corev1alpha1.InterfaceSpec{
+					IPv4: &corev1alpha1.InterfaceIPv4{Addresses: []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix(addr + "/32")}},
+				}},
+			}
+		}
+		r := &FabricReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build(), Scheme: scheme, Recorder: events.NewFakeRecorder(10)}
+		if missingLoopback {
+			lo0 := state.loopbacks["spine-1"][1]
+			state.loopbacks["spine-1"] = state.loopbacks["spine-1"][:1]
+			_, err := r.reconcileMulticastPIM(ctx, fabric, state)
+			Expect(err).NotTo(HaveOccurred())
+			pims := &corev1alpha1.PIMList{}
+			Expect(r.List(ctx, pims)).To(Succeed())
+			Expect(pims.Items).To(BeEmpty())
+			state.loopbacks["spine-1"] = append(state.loopbacks["spine-1"], lo0)
+		}
+		_, err := r.reconcileMulticastPIM(ctx, fabric, state)
+		Expect(err).NotTo(HaveOccurred())
+		pims := &corev1alpha1.PIMList{}
+		Expect(r.List(ctx, pims)).To(Succeed())
+		Expect(pims.Items).To(HaveLen(memberCount + 1))
+		slices.Sort(memberAddrs)
+		for i := range pims.Items {
+			pim := &pims.Items[i]
+			Expect(pim.Spec.RendezvousPoints).To(HaveLen(1))
+			rp := pim.Spec.RendezvousPoints[0]
+			Expect(rp.Address).To(Equal("10.0.0.100"))
+			if pim.Spec.DeviceRef.Name == "leaf" {
+				Expect(rp.AnycastAddresses).To(BeEmpty())
+			} else {
+				Expect(rp.AnycastAddresses).To(Equal(memberAddrs))
+			}
+		}
+		_, err = r.reconcileMulticastPIM(ctx, fabric, state)
+		Expect(err).NotTo(HaveOccurred())
+		for i := range pims.Items {
+			pim := &corev1alpha1.PIM{}
+			Expect(r.Get(ctx, client.ObjectKeyFromObject(&pims.Items[i]), pim)).To(Succeed())
+			Expect(pim.ResourceVersion).To(Equal(pims.Items[i].ResourceVersion))
+		}
+	},
+		Entry("with one RP", 1, false),
+		Entry("with two RPs", 2, false),
+		Entry("after a missing RP loopback is allocated", 2, true),
+	)
+
 	Context("When reconciling with unnumbered underlay addressing", func() {
 		var (
 			loopbackPool *poolv1alpha1.IPAddressPool
@@ -478,7 +559,7 @@ var _ = Describe("Fabric Controller", func() {
 					g.Expect(pim.Spec.DeviceRef.Name).To(Equal(spine.Name))
 					g.Expect(pim.Spec.AdminState).To(Equal(corev1alpha1.AdminStateUp))
 
-					// RP must have a rendezvous point entry with anycast addresses (other spine lo0 IPs).
+					// RP must have a rendezvous point entry with the complete member set.
 					g.Expect(pim.Spec.RendezvousPoints).To(HaveLen(1))
 					rp := pim.Spec.RendezvousPoints[0]
 
@@ -491,8 +572,15 @@ var _ = Describe("Fabric Controller", func() {
 					g.Expect(rp.MulticastGroups).To(HaveLen(1))
 					g.Expect(rp.MulticastGroups[0].String()).To(Equal("224.0.0.0/4"))
 
-					// AnycastAddresses should contain the other spine's lo0 IP (not self).
-					g.Expect(rp.AnycastAddresses).To(HaveLen(1))
+					memberAddrs := make([]string, 0, 2)
+					for _, member := range []*corev1alpha1.Device{spine1, spine2} {
+						lo0 := &corev1alpha1.Interface{}
+						g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + member.Name + "-lo0", Namespace: metav1.NamespaceDefault}, lo0)).To(Succeed())
+						g.Expect(lo0.Spec.IPv4).NotTo(BeNil())
+						g.Expect(lo0.Spec.IPv4.Addresses).To(HaveLen(1))
+						memberAddrs = append(memberAddrs, lo0.Spec.IPv4.Addresses[0].Addr().String())
+					}
+					g.Expect(rp.AnycastAddresses).To(ConsistOf(memberAddrs))
 
 					// Interface refs should include lo0, lo100, and the uplink.
 					g.Expect(pim.Spec.InterfaceRefs).To(ContainElement(HaveField("Name", fabric.Name+"-"+spine.Name+"-lo0")))

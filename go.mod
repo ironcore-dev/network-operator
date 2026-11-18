@@ -11,6 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.21.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.10
 	github.com/benjamintf1/unmarshalledmatchers v1.0.0
+	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/felix-kaestner/copy v0.0.0-20250930112410-8fbc5c5b74a5
 	github.com/go-crypt/crypt v0.14.15
 	github.com/go-logr/logr v1.4.4
@@ -62,7 +63,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
-	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.10.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.1 // indirect

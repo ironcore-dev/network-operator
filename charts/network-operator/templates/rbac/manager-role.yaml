@@ -238,6 +238,32 @@ rules:
   - patch
   - update
 - apiGroups:
+  - nx.overlay.networking.metal.ironcore.dev
+  resources:
+  - evpninterconnects
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nx.overlay.networking.metal.ironcore.dev
+  resources:
+  - evpninterconnects/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - nx.overlay.networking.metal.ironcore.dev
+  resources:
+  - evpninterconnects/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - overlay.networking.metal.ironcore.dev
   resources:
   - networkattachments
