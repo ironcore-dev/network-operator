@@ -21,6 +21,11 @@ spec:
   "System": {
     "procsys-items": {
       "bootTime": "1700000000"
+    },
+    "fm-items": {
+      "evpn-items": {
+        "adminSt": "enabled"
+      }
     }
   }
 }
@@ -31,6 +36,11 @@ spec:
   "System": {
     "procsys-items": {
       "bootTime": "1700000000"
+    },
+    "fm-items": {
+      "evpn-items": {
+        "adminSt": "enabled"
+      }
     },
     "vlanmgr-items": {
       "inst-items": {
@@ -67,6 +77,11 @@ spec:
   "System": {
     "procsys-items": {
       "bootTime": "1700000000"
+    },
+    "fm-items": {
+      "evpn-items": {
+        "adminSt": "enabled"
+      }
     },
     "vlanmgr-items": {
       "inst-items": {

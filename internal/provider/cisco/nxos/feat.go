@@ -13,6 +13,9 @@ var (
 // FeatureDHCP is the NX-OS feature name for DHCP.
 const FeatureDHCP = "dhcp"
 
+// FeatureEVPN is the NX-OS feature name for EVPN ("nv overlay evpn").
+const FeatureEVPN = "evpn"
+
 // Feature represents a dynamic feature configuration on a NX-OS device.
 type Feature struct {
 	Name    string  `json:"-"`

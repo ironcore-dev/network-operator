@@ -107,15 +107,12 @@ spec:
                 minimum: 1501
                 type: integer
               l2rib:
-                default:
-                  durationSeconds: 180
-                  moves: 5
-                  recoveryCount: 5
-                  recoveryTimeoutSeconds: 30
                 description: |-
                   L2RIB groups L2RIB (Layer-2 Routing Information Base) system settings.
                   Configures duplicate host IP address detection
                   (CLI: "l2rib dup-host-ip-addr-detection").
+                  This path only exists when the EVPN feature is enabled on the device;
+                  setting it on a device without EVPN is rejected.
                 properties:
                   durationSeconds:
                     default: 180

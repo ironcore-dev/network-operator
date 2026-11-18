@@ -60,9 +60,10 @@ type SystemSpec struct {
 	// L2RIB groups L2RIB (Layer-2 Routing Information Base) system settings.
 	// Configures duplicate host IP address detection
 	// (CLI: "l2rib dup-host-ip-addr-detection").
+	// This path only exists when the EVPN feature is enabled on the device;
+	// setting it on a device without EVPN is rejected.
 	// +optional
-	// +kubebuilder:default={moves:5,durationSeconds:180,recoveryTimeoutSeconds:30,recoveryCount:5}
-	L2RIB L2RIB `json:"l2rib,omitzero"`
+	L2RIB *L2RIB `json:"l2rib,omitempty"`
 }
 
 // DHCP groups DHCP-related system settings. These require the dhcp feature,

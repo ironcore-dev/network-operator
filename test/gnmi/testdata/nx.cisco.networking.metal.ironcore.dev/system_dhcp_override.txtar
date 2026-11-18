@@ -57,17 +57,6 @@ spec:
       "inst-items": {
         "relayInformationOptionServerIdOverrideDisableEnabled": 1
       }
-    },
-    "hmm-items": {
-      "fwdinst-items": {
-        "evpn-items": {
-          "adminSt": "enabled",
-          "ddHmmoves": 5,
-          "ddHnsecs": 180,
-          "dhrtimeout": 30,
-          "dhrcount": 5
-        }
-      }
     }
   }
 }
@@ -100,17 +89,6 @@ spec:
     },
     "dhcp-items": {
       "inst-items": {}
-    },
-    "hmm-items": {
-      "fwdinst-items": {
-        "evpn-items": {
-          "adminSt": "enabled",
-          "ddHmmoves": 5,
-          "ddHnsecs": 180,
-          "dhrtimeout": 30,
-          "dhrcount": 5
-        }
-      }
     }
   }
 }
