@@ -6,6 +6,7 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -141,6 +143,9 @@ func (s *Server) Get(_ context.Context, req *gpb.GetRequest) (*gpb.GetResponse, 
 // Set updates the state of the server for the requested path
 func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, error) {
 	log.Printf("Received Set request: %v", req)
+	s.state.Lock()
+	defer s.state.Unlock()
+	staged := &State{Buf: append([]byte(nil), s.state.Buf...)}
 	res := make([]*gpb.UpdateResult, 0, len(req.GetDelete())+len(req.GetUpdate()))
 	for _, del := range req.GetDelete() {
 		log.Printf("Deleting path: %v", del)
@@ -148,7 +153,7 @@ func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, 
 			Path: del,
 			Op:   gpb.UpdateResult_DELETE,
 		})
-		if err := s.state.Del(del); err != nil {
+		if err := staged.Del(del); err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to delete path: %v", err)
 		}
 	}
@@ -158,12 +163,8 @@ func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, 
 			Path: replace.GetPath(),
 			Op:   gpb.UpdateResult_REPLACE,
 		})
-		// Delete the existing value at the path and set the new value.
-		if err := s.state.Del(replace.GetPath()); err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to delete path for replace: %v", err)
-		}
-		if err := s.state.Set(replace.GetPath(), replace.GetVal().GetJsonVal()); err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to set path for replace: %v", err)
+		if err := staged.Set(replace.GetPath(), replace.GetVal().GetJsonVal()); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "failed to replace path: %v", err)
 		}
 	}
 	for _, update := range req.GetUpdate() {
@@ -173,11 +174,12 @@ func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, 
 			Op:   gpb.UpdateResult_UPDATE,
 		})
 		// The value will automatically be merged into the existing state.
-		if err := s.state.Set(update.GetPath(), update.GetVal().GetJsonVal()); err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to set path for update: %v", err)
+		if err := staged.Update(update.GetPath(), update.GetVal().GetJsonVal()); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "failed to update path: %v", err)
 		}
 	}
 	// TODO: Handle UnionReplace
+	s.state.Buf = staged.Buf
 	return &gpb.SetResponse{
 		Response:  res,
 		Timestamp: time.Now().UnixNano(),
@@ -294,6 +296,18 @@ func setKey(buf []byte, path, v string) ([]byte, error) {
 
 // Set sets the value at the specified path in the state.
 func (s *State) Set(path *gpb.Path, raw []byte) (err error) {
+	return s.set(path, raw, false)
+}
+
+// Update merges the value at the specified path without removing existing object fields.
+func (s *State) Update(path *gpb.Path, raw []byte) error {
+	return s.set(path, raw, true)
+}
+
+func (s *State) set(path *gpb.Path, raw []byte, merge bool) (err error) {
+	if !json.Valid(raw) {
+		return errors.New("invalid JSON value")
+	}
 	s.Lock()
 	defer s.Unlock()
 
@@ -332,6 +346,14 @@ func (s *State) Set(path *gpb.Path, raw []byte) (err error) {
 		}
 	}
 
+	if merge {
+		if current := gjson.GetBytes(buf, sb.String()); current.Exists() {
+			raw, err = jsonpatch.MergePatch([]byte(current.Raw), raw)
+			if err != nil {
+				return fmt.Errorf("merging update: %w", err)
+			}
+		}
+	}
 	buf, err = sjson.SetRawBytes(buf, sb.String(), raw)
 	if err != nil {
 		return fmt.Errorf("sjson.SetRawBytes: %w", err)
