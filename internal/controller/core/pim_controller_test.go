@@ -4,6 +4,9 @@
 package core
 
 import (
+	"fmt"
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -13,9 +16,90 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/provider"
 )
 
 var _ = Describe("PIM Controller", func() {
+	DescribeTable("Resolving local and remote RP members", func(members, localAddresses []string, wantLocal string, wantPeers []string, wantError bool) {
+		pim := &v1alpha1.PIM{Spec: v1alpha1.PIMSpec{
+			DeviceRef:        v1alpha1.LocalObjectReference{Name: "device"},
+			RendezvousPoints: []v1alpha1.RendezvousPoint{{Address: "10.0.0.100", AnycastAddresses: slices.Clone(members)}},
+		}}
+		interfaces := make([]provider.PIMInterface, 0, len(localAddresses)+2)
+		for i, addr := range localAddresses {
+			iface := &v1alpha1.Interface{Name: fmt.Sprintf("lo%d", i), Spec: v1alpha1.InterfaceSpec{
+				DeviceRef: pim.Spec.DeviceRef, Type: v1alpha1.InterfaceTypeLoopback,
+			}}
+			if addr != "" {
+				iface.Spec.IPv4 = &v1alpha1.InterfaceIPv4{Addresses: []v1alpha1.IPPrefix{
+					v1alpha1.MustParsePrefix(addr + "/32"), v1alpha1.MustParsePrefix("10.0.0.9/32"),
+				}}
+			}
+			interfaces = append(interfaces, provider.PIMInterface{Interface: iface})
+		}
+		// A matching address on an uplink or another Device does not identify the local RP.
+		for _, device := range []string{"device", "other-device"} {
+			iface := &v1alpha1.Interface{Name: device, Spec: v1alpha1.InterfaceSpec{
+				DeviceRef: v1alpha1.LocalObjectReference{Name: device}, Type: v1alpha1.InterfaceTypePhysical,
+				IPv4: &v1alpha1.InterfaceIPv4{Addresses: []v1alpha1.IPPrefix{v1alpha1.MustParsePrefix("10.0.0.2/32")}},
+			}}
+			if device == "other-device" {
+				iface.Spec.Type = v1alpha1.InterfaceTypeLoopback
+			}
+			interfaces = append(interfaces, provider.PIMInterface{Interface: iface})
+		}
+		resolved, err := resolvePIMRendezvousPoints(pim, interfaces)
+		if wantError {
+			Expect(err).To(MatchError(ContainSubstring("multiple local loopback interfaces")))
+			Expect(resolved).To(BeNil())
+			return
+		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resolved).To(HaveLen(1))
+		Expect(resolved[0].RendezvousPoint).To(BeIdenticalTo(&pim.Spec.RendezvousPoints[0]))
+		if wantLocal == "" {
+			Expect(resolved[0].LocalInterface).To(BeNil())
+		} else {
+			Expect(resolved[0].LocalInterface.Name).To(Equal(wantLocal))
+		}
+		Expect(resolved[0].PeerAddresses).To(ConsistOf(wantPeers))
+		Expect(pim.Spec.RendezvousPoints[0].AnycastAddresses).To(Equal(members))
+	},
+		Entry("complete membership", []string{"10.0.0.2", "10.0.0.1"}, []string{"10.0.0.1"}, "lo0", []string{"10.0.0.2"}, false),
+		Entry("single RP", []string{"10.0.0.1"}, []string{"10.0.0.1"}, "lo0", []string{}, false),
+		Entry("static RP", []string(nil), []string{"10.0.0.1"}, "", []string{}, false),
+		Entry("legacy remote members", []string{"10.0.0.2"}, []string{"10.0.0.1"}, "", []string{"10.0.0.2"}, false),
+		Entry("missing IPv4 address", []string{"10.0.0.1", "10.0.0.2"}, []string{""}, "", []string{"10.0.0.1", "10.0.0.2"}, false),
+		Entry("multiple local matches", []string{"10.0.0.1", "10.0.0.2"}, []string{"10.0.0.1", "10.0.0.2"}, "", []string{}, true),
+		Entry("secondary address remains a peer", []string{"10.0.0.1", "10.0.0.9"}, []string{"10.0.0.1"}, "lo0", []string{"10.0.0.9"}, false),
+	)
+
+	It("Resolves the local Interface independently for each RP group", func() {
+		pim := &v1alpha1.PIM{Spec: v1alpha1.PIMSpec{
+			DeviceRef: v1alpha1.LocalObjectReference{Name: "device"},
+			RendezvousPoints: []v1alpha1.RendezvousPoint{
+				{Address: "10.0.0.100", AnycastAddresses: []string{"10.0.0.1", "10.0.0.2"}},
+				{Address: "10.0.0.101", AnycastAddresses: []string{"10.0.0.3", "10.0.0.4"}},
+			},
+		}}
+		interfaces := make([]provider.PIMInterface, 0, 2)
+		for i, addr := range []string{"10.0.0.1/32", "10.0.0.3/32"} {
+			interfaces = append(interfaces, provider.PIMInterface{Interface: &v1alpha1.Interface{
+				Name: fmt.Sprintf("lo%d", i), Spec: v1alpha1.InterfaceSpec{
+					DeviceRef: pim.Spec.DeviceRef, Type: v1alpha1.InterfaceTypeLoopback,
+					IPv4: &v1alpha1.InterfaceIPv4{Addresses: []v1alpha1.IPPrefix{v1alpha1.MustParsePrefix(addr)}},
+				},
+			}})
+		}
+		resolved, err := resolvePIMRendezvousPoints(pim, interfaces)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resolved).To(HaveLen(2))
+		Expect(resolved[0].LocalInterface).To(BeIdenticalTo(interfaces[0].Interface))
+		Expect(resolved[0].PeerAddresses).To(Equal([]string{"10.0.0.2"}))
+		Expect(resolved[1].LocalInterface).To(BeIdenticalTo(interfaces[1].Interface))
+		Expect(resolved[1].PeerAddresses).To(Equal([]string{"10.0.0.4"}))
+	})
+
 	Context("When reconciling a resource", func() {
 		var (
 			name string

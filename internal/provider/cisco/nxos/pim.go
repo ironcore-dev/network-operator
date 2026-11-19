@@ -3,7 +3,21 @@
 
 package nxos
 
-import "github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
+import (
+	"slices"
+
+	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/transport/gnmiext"
+)
+
+func anycastRPMembers(rp provider.PIMRendezvousPoint) []string {
+	members := slices.Clone(rp.PeerAddresses)
+	if rp.LocalInterface != nil {
+		members = append(members, rp.LocalInterface.Spec.IPv4.Addresses[0].Addr().String())
+	}
+	slices.Sort(members)
+	return slices.Compact(members)
+}
 
 var (
 	_ gnmiext.DataElement = (*PIM)(nil)

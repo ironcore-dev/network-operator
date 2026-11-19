@@ -2892,7 +2892,8 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 	rpItems := new(StaticRPItems)
 	apItems := new(AnycastPeerItems)
 
-	for _, rendezvousPoint := range req.PIM.Spec.RendezvousPoints {
+	for _, resolved := range req.RendezvousPoints {
+		rendezvousPoint := resolved.RendezvousPoint
 		rp := new(StaticRP)
 		rp.Addr = rendezvousPoint.Address + "/32"
 		for _, group := range rendezvousPoint.MulticastGroups {
@@ -2905,7 +2906,7 @@ func (p *Provider) EnsurePIM(ctx context.Context, req *provider.EnsurePIMRequest
 		}
 		rpItems.StaticRPList.Set(rp)
 
-		for _, addr := range rendezvousPoint.AnycastAddresses {
+		for _, addr := range anycastRPMembers(resolved) {
 			peer := new(AnycastPeerAddr)
 			peer.Addr = rendezvousPoint.Address + "/32"
 			peer.RpSetAddr = addr + "/32"

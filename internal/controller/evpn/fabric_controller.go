@@ -1125,7 +1125,7 @@ func (r *FabricReconciler) reconcileBGPPeer(ctx context.Context, local, remote *
 }
 
 // reconcileMulticastPIM creates one PIM resource per device participating in any anycast
-// rendezvous point group. RP devices get anycastAddresses (peer lo0 IPs); client devices
+// rendezvous point group. RP devices get all member lo0 IPs, including self; client devices
 // get a static RP address only.
 func (r *FabricReconciler) reconcileMulticastPIM(ctx context.Context, fabric *evpnv1alpha1.Fabric, state *ReconcileState) (ctrl.Result, error) {
 	if fabric.Spec.BUM.PIM == nil {
@@ -1196,6 +1196,11 @@ func (r *FabricReconciler) reconcileMulticastPIM(ctx context.Context, fabric *ev
 
 			rpLo0Addrs = append(rpLo0Addrs, lo0.Spec.IPv4.Addresses[0].Addr().String())
 		}
+		if len(rpLo0Addrs) != len(rpDevices.Items) {
+			ctrl.LoggerFrom(ctx).V(1).Info("Skipping PIM reconciliation: RP lo0 addresses not yet allocated", "group", rpGroup.Name)
+			continue
+		}
+		slices.Sort(rpLo0Addrs)
 
 		// Configure RP devices.
 		for i := range rpDevices.Items {
@@ -1203,27 +1208,11 @@ func (r *FabricReconciler) reconcileMulticastPIM(ctx context.Context, fabric *ev
 
 			lo0Name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, device.Name, LoopbackRouterID)
 			lo100Name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, device.Name, LoopbackAnycastRP)
-			interfaces := state.loopbacks[device.Name]
-
-			idx := slices.IndexFunc(interfaces, func(intf *v1alpha1.Interface) bool { return intf.Name == lo0Name })
-			var selfAddr string
-			if idx >= 0 && interfaces[idx].Spec.IPv4 != nil && len(interfaces[idx].Spec.IPv4.Addresses) > 0 {
-				selfAddr = interfaces[idx].Spec.IPv4.Addresses[0].Addr().String()
-			}
-
-			// Exclude self from anycastAddresses.
-			var peerAddrs []string
-			for _, addr := range rpLo0Addrs {
-				if addr != selfAddr {
-					peerAddrs = append(peerAddrs, addr)
-				}
-			}
-			slices.Sort(peerAddrs)
 
 			rendezvousPoints[device.Name] = append(rendezvousPoints[device.Name], v1alpha1.RendezvousPoint{
 				Address:          anycastIP,
 				MulticastGroups:  rpGroup.MulticastGroups,
-				AnycastAddresses: peerAddrs,
+				AnycastAddresses: rpLo0Addrs,
 			})
 
 			// Interface refs for RP: lo0, lo100, uplinks.
