@@ -151,6 +151,7 @@ type client struct {
 	capabilities *Capabilities
 	logger       logr.Logger
 	target       string
+	origin       string
 }
 
 var _ Client = &client{}
@@ -187,7 +188,7 @@ func New(ctx context.Context, conn grpc.ClientConnInterface, opts ...Option) (Cl
 		}
 	}
 	logger := logr.FromSlogHandler(slog.Default().Handler())
-	c := &client{gnmi, encoding, capabilities, logger, ""}
+	c := &client{gnmi, encoding, capabilities, logger, "", ""}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -207,6 +208,13 @@ func WithLogger(logger logr.Logger) Option {
 func WithTarget(target string) Option {
 	return func(c *client) {
 		c.target = target
+	}
+}
+
+// WithOrigin sets the origin prefix for all paths in Get and Set operations.
+func WithOrigin(origin string) Option {
+	return func(c *client) {
+		c.origin = origin
 	}
 }
 
@@ -306,6 +314,9 @@ func (c *client) get(ctx context.Context, dt gnmipb.GetRequest_DataType, element
 		Type:     dt,
 		Encoding: c.encoding,
 	}
+	if c.origin != "" {
+		r.Prefix = &gnmipb.Path{Origin: c.origin}
+	}
 	for _, el := range elements {
 		path, err := StringToStructuredPath(el.XPath())
 		if err != nil {
@@ -386,6 +397,9 @@ func (c *client) set(ctx context.Context, r *gnmipb.SetRequest, patch bool, elem
 	op := "replace"
 	if patch {
 		op = "update"
+	}
+	if c.origin != "" {
+		r.Prefix = &gnmipb.Path{Origin: c.origin}
 	}
 	for _, el := range elements {
 		path, err := StringToStructuredPath(el.XPath())
