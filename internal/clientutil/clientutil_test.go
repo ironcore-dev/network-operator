@@ -4,6 +4,7 @@ package clientutil
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -544,5 +545,69 @@ func TestTemplate(t *testing.T) {
 			g.Expect(v).ToNot(BeNil())
 			g.Expect(v).To(Equal(test.want))
 		})
+	}
+}
+
+type countingReader struct {
+	klient.Reader
+	gets int
+}
+
+func (r *countingReader) Get(ctx context.Context, key klient.ObjectKey, obj klient.Object, opts ...klient.GetOption) error {
+	r.gets++
+	return r.Reader.Get(ctx, key, obj, opts...)
+}
+
+func TestReferenceNamespaces(t *testing.T) {
+	methods := []struct {
+		name string
+		read func(*Client, string) error
+	}{
+		{"Secret", func(c *Client, ns string) error {
+			_, err := c.Secret(t.Context(), &v1alpha1.SecretKeySelector{Name: "auth", Namespace: ns, Key: "username"})
+			return err
+		}},
+		{"ConfigMap", func(c *Client, ns string) error {
+			_, err := c.ConfigMap(t.Context(), &v1alpha1.ConfigMapKeySelector{Name: "config", Namespace: ns, Key: "key"})
+			return err
+		}},
+		{"BasicAuth", func(c *Client, ns string) error {
+			_, _, err := c.BasicAuth(t.Context(), &v1alpha1.SecretReference{Name: "auth", Namespace: ns})
+			return err
+		}},
+		{"TLSSecretPEM", func(c *Client, ns string) error {
+			_, err := c.TLSSecretPEM(t.Context(), &v1alpha1.SecretReference{Name: "tls", Namespace: ns})
+			return err
+		}},
+	}
+	for _, method := range methods {
+		for _, ns := range []string{"", "tenant-a", "tenant-b"} {
+			t.Run(method.name+"/"+ns, func(t *testing.T) {
+				objects := make([]klient.Object, 0, 6)
+				for _, namespace := range []string{"tenant-a", "tenant-b"} {
+					objects = append(objects,
+						&corev1.Secret{
+							Name: "auth", Namespace: namespace, Type: corev1.SecretTypeBasicAuth,
+							Data: map[string][]byte{"username": []byte("user"), "password": []byte("password")},
+						},
+						&corev1.Secret{
+							Name: "tls", Namespace: namespace, Type: corev1.SecretTypeTLS,
+							Data: map[string][]byte{"tls.crt": []byte("certificate"), "tls.key": []byte("private-key")},
+						},
+						&corev1.ConfigMap{Name: "config", Namespace: namespace, Data: map[string]string{"key": "value"}},
+					)
+				}
+				reader := &countingReader{Reader: fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(objects...).Build()}
+				err := method.read(NewClient(reader, "tenant-a"), ns)
+				g := NewWithT(t)
+				if ns == "tenant-b" {
+					g.Expect(err).To(MatchError(ContainSubstring("cross-namespace reference")))
+					g.Expect(reader.gets).To(BeZero(), "must reject before reading the referenced resource")
+				} else {
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(reader.gets).To(Equal(1))
+				}
+			})
+		}
 	}
 }

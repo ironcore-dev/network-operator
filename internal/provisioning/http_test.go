@@ -1103,3 +1103,30 @@ func init() {
 	utilruntime.Must(v1alpha1.AddToScheme(scheme.Scheme))
 	provider.Register("test-provider", func() provider.Provider { return &MockProvider{} })
 }
+
+func TestGetDeviceCertificateRejectsCrossNamespaceSecret(t *testing.T) {
+	device := testDevice.DeepCopy()
+	certificate := &v1alpha1.Certificate{
+		Name: "certificate", Namespace: device.Namespace, Spec: v1alpha1.CertificateSpec{
+			DeviceRef: v1alpha1.LocalObjectReference{Name: device.Name},
+			SecretRef: v1alpha1.SecretReference{Name: "victim-tls", Namespace: "tenant-b"},
+		},
+	}
+	secret := &corev1.Secret{
+		Name: "victim-tls", Namespace: "tenant-b", Type: corev1.SecretTypeTLS,
+		Data: map[string][]byte{"tls.crt": []byte("victim-certificate"), "tls.key": []byte("victim-private-key")},
+	}
+	utilruntime.Must(v1alpha1.AddToScheme(scheme.Scheme))
+	c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(device, certificate, secret).
+		WithIndex(&v1alpha1.Certificate{}, v1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+			return []string{obj.(*v1alpha1.Certificate).Spec.DeviceRef.Name}
+		}).Build()
+	server := &HTTPServer{Client: c, Logger: klog.Background()}
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/provisioning/device-certificate?serial=ABC123", http.NoBody)
+	req.Header.Set("Authorization", "Bearer validtoken")
+	response := httptest.NewRecorder()
+	server.GetDeviceCertificate(response, req)
+	require.Equal(t, http.StatusInternalServerError, response.Code)
+	assert.NotContains(t, response.Body.String(), "victim-private-key")
+	assert.NotContains(t, response.Body.String(), "victim-certificate")
+}

@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap/zapcore"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -28,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
+	webhookrefv1alpha1 "github.com/ironcore-dev/network-operator/internal/webhook/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -124,6 +126,27 @@ var _ = BeforeSuite(func() {
 	err = SetupMacSecWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = webhookrefv1alpha1.SetupDeviceWebhookWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = webhookrefv1alpha1.SetupCertificateWebhookWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = webhookrefv1alpha1.SetupConfigBackupWebhookWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = webhookrefv1alpha1.SetupConsoleConnectionWebhookWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = webhookrefv1alpha1.SetupUserWebhookWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = webhookrefv1alpha1.SetupAAAWebhookWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = webhookrefv1alpha1.SetupBannerWebhookWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
 	// +kubebuilder:scaffold:webhook
 
 	go func() {
@@ -175,3 +198,25 @@ func getFirstFoundEnvTestBinaryDir() string {
 	}
 	return ""
 }
+
+var _ = Describe("Reference namespace admission", func() {
+	It("Rejects cross-namespace creation and updates through the API server", func() {
+		device := &v1alpha1.Device{
+			Spec: v1alpha1.DeviceSpec{
+				Provider: "test-provider",
+				Endpoint: v1alpha1.Endpoint{
+					Address:   "192.168.1.10:9339",
+					SecretRef: &v1alpha1.SecretReference{Name: "credentials", Namespace: "tenant-b"},
+				},
+			},
+		}
+		device.SetGenerateName("reference-admission-")
+		device.SetNamespace("default")
+		Expect(apierrors.IsInvalid(k8sClient.Create(ctx, device))).To(BeTrue())
+		device.Spec.Endpoint.SecretRef.Namespace = "default"
+		Expect(k8sClient.Create(ctx, device)).To(Succeed())
+		DeferCleanup(func() { Expect(k8sClient.Delete(ctx, device)).To(Succeed()) })
+		device.Spec.Endpoint.SecretRef.Namespace = "tenant-b"
+		Expect(apierrors.IsInvalid(k8sClient.Update(ctx, device))).To(BeTrue())
+	})
+})

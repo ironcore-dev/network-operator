@@ -56,7 +56,7 @@ func TypedLocalObjectRefFromObject(obj client.Object) *TypedLocalObjectReference
 }
 
 // SecretReference represents a Secret Reference. It has enough information to retrieve a Secret
-// in any namespace.
+// in the referencing object's namespace.
 // +structType=atomic
 type SecretReference struct {
 	// Name is unique within a namespace to reference a secret resource.
@@ -67,6 +67,7 @@ type SecretReference struct {
 
 	// Namespace defines the space within which the secret name must be unique.
 	// If omitted, the namespace of the object being reconciled will be used.
+	// If specified, it must match that object's namespace.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63
@@ -88,7 +89,7 @@ type SecretKeySelector struct {
 }
 
 // ConfigMapReference represents a ConfigMap Reference. It has enough information to retrieve a ConfigMap
-// in any namespace.
+// in the referencing object's namespace.
 // +structType=atomic
 type ConfigMapReference struct {
 	// Name is unique within a namespace to reference a configmap resource.
@@ -99,6 +100,7 @@ type ConfigMapReference struct {
 
 	// Namespace defines the space within which the configmap name must be unique.
 	// If omitted, the namespace of the object being reconciled will be used.
+	// If specified, it must match that object's namespace.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63

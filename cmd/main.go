@@ -59,6 +59,7 @@ import (
 	webhooknxv1alpha1 "github.com/ironcore-dev/network-operator/internal/webhook/cisco/nx/v1alpha1"
 	webhookv1alpha1 "github.com/ironcore-dev/network-operator/internal/webhook/core/v1alpha1"
 	webhookpoolv1alpha1 "github.com/ironcore-dev/network-operator/internal/webhook/pool/v1alpha1"
+	webhookrefv1alpha1 "github.com/ironcore-dev/network-operator/internal/webhook/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -734,6 +735,34 @@ func main() { //nolint:gocyclo
 	}
 
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err := webhookrefv1alpha1.SetupDeviceWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "Device")
+			os.Exit(1)
+		}
+		if err := webhookrefv1alpha1.SetupCertificateWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "Certificate")
+			os.Exit(1)
+		}
+		if err := webhookrefv1alpha1.SetupConfigBackupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "ConfigBackup")
+			os.Exit(1)
+		}
+		if err := webhookrefv1alpha1.SetupConsoleConnectionWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "ConsoleConnection")
+			os.Exit(1)
+		}
+		if err := webhookrefv1alpha1.SetupUserWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "User")
+			os.Exit(1)
+		}
+		if err := webhookrefv1alpha1.SetupAAAWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "AAA")
+			os.Exit(1)
+		}
+		if err := webhookrefv1alpha1.SetupBannerWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "Banner")
+			os.Exit(1)
+		}
 		if err := webhookv1alpha1.SetupVRFWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "VRF")
 			os.Exit(1)
