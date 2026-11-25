@@ -96,6 +96,9 @@ var _ = Describe("Network Controller", func() {
 								ClientDeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"never": "match"}},
 							}},
 						},
+						RouteTargetAllocation: evpnv1alpha1.FabricRouteTargetAllocationSpec{
+							Strategy: evpnv1alpha1.RouteTargetAllocationStrategyASNDerived,
+						},
 					},
 					BUM: evpnv1alpha1.FabricBUMSpec{
 						Type:                  evpnv1alpha1.BUMTypeMulticast,
