@@ -12,15 +12,20 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/zap/zapcore"
 
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
+	corev1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	nxoverlayv1alpha1 "github.com/ironcore-dev/network-operator/api/nx.overlay/v1alpha1"
+	poolv1alpha1 "github.com/ironcore-dev/network-operator/api/pool/v1alpha1"
+	poolcontroller "github.com/ironcore-dev/network-operator/internal/controller/pool"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -28,11 +33,11 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	ctx       context.Context
-	cancel    context.CancelFunc
-	testEnv   *envtest.Environment
-	cfg       *rest.Config
-	k8sClient client.Client
+	ctx        context.Context
+	cancel     context.CancelFunc
+	testEnv    *envtest.Environment
+	k8sClient  client.Client
+	k8sManager ctrl.Manager
 )
 
 func TestControllers(t *testing.T) {
@@ -42,13 +47,20 @@ func TestControllers(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	logf.SetLogger(zap.New(
+		zap.WriteTo(GinkgoWriter),
+		zap.UseDevMode(true),
+		zap.Level(zapcore.Level(-3)),
+	))
 
-	ctx, cancel = context.WithCancel(context.TODO())
+	SetDefaultEventuallyTimeout(time.Minute)
+	SetDefaultEventuallyPollingInterval(200 * time.Millisecond)
 
-	var err error
-	err = nxoverlayv1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
+	ctx, cancel = context.WithCancel(ctrl.SetupSignalHandler())
+
+	Expect(nxoverlayv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(corev1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(poolv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	// +kubebuilder:scaffold:scheme
 
@@ -63,22 +75,61 @@ var _ = BeforeSuite(func() {
 		testEnv.BinaryAssetsDirectory = getFirstFoundEnvTestBinaryDir()
 	}
 
-	// cfg is defined in this file globally.
-	cfg, err = testEnv.Start()
+	cfg, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
+
+	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:                 scheme.Scheme,
+		Metrics:                metricsserver.Options{BindAddress: "0"},
+		HealthProbeBindAddress: "0",
+	})
+	Expect(err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	err = (&EVPNInterconnectReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&poolcontroller.IndexPoolReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&poolcontroller.IndexReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&poolcontroller.ClaimReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	go func() {
+		defer GinkgoRecover()
+		err := k8sManager.Start(ctx)
+		Expect(err).NotTo(HaveOccurred(), "failed to run manager")
+	}()
+
+	Eventually(func() bool {
+		return k8sManager.GetCache().WaitForCacheSync(ctx)
+	}).Should(BeTrue())
 })
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	cancel()
-	Eventually(func() error {
-		return testEnv.Stop()
-	}, time.Minute, time.Second).Should(Succeed())
+	err := testEnv.Stop()
+	Expect(err).NotTo(HaveOccurred())
 })
 
 // getFirstFoundEnvTestBinaryDir locates the first binary in the specified path.
