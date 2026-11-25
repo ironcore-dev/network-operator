@@ -179,8 +179,9 @@ spec:
                 type: array
                 x-kubernetes-list-type: atomic
               ipAddressPoolRef:
-                description: ipPrefixPoolRef references the IPPrefixPool from which
-                  IP addresses for DCI interfaces are allocated.
+                description: |-
+                  ipAddressPoolRef references the IPAddressPool from which multisite loopback addresses are allocated.
+                  Immutable.
                 properties:
                   name:
                     description: |-
@@ -193,6 +194,9 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
+                x-kubernetes-validations:
+                - message: ipAddressPoolRef is immutable
+                  rule: self == oldSelf
               multiSiteIDIndexPoolRef:
                 description: multiSiteIDPool represents the pool of Multi-Site IDs
                   (VNIs) for the EVPN interconnect.

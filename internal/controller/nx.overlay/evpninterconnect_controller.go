@@ -8,7 +8,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"maps"
+	"slices"
+	"strconv"
 	"strings"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,14 +25,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	nxoverlayv1alpha1 "github.com/ironcore-dev/network-operator/api/nx.overlay/v1alpha1"
+	poolv1alpha1 "github.com/ironcore-dev/network-operator/api/pool/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
+	"github.com/ironcore-dev/network-operator/internal/provider"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+)
 
-	poolv1alpha1 "github.com/ironcore-dev/network-operator/api/pool/v1alpha1"
+const (
+	loopbackID              = 9
+	loopbackDeviceLabel     = "nx.overlay.networking.metal.ironcore.dev/loopback-device"
+	dependencyRetryInterval = 5 * time.Second
+	delayRestoreTime        = 180 * time.Second
 )
 
 // EVPNInterconnectReconciler reconciles a EVPNInterconnect object
@@ -41,8 +53,10 @@ type EVPNInterconnectReconciler struct {
 // +kubebuilder:rbac:groups=nx.overlay.networking.metal.ironcore.dev,resources=evpninterconnects/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=nx.overlay.networking.metal.ironcore.dev,resources=evpninterconnects/finalizers,verbs=update
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=claims,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=interfaces,verbs=get;list;watch;patch
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=devices,verbs=get;list;watch
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=interfaces,verbs=get;list;watch;create;patch;delete
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=networkvirtualizationedges,verbs=get;list;watch
+// +kubebuilder:rbac:groups=nx.cisco.networking.metal.ironcore.dev,resources=bordergateways,verbs=get;list;watch;create;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -53,11 +67,9 @@ type EVPNInterconnectReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.24.1/pkg/reconcile
-func (r *EVPNInterconnectReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *EVPNInterconnectReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 	log.Info("Reconciling resource")
-
-	var reterr error
 
 	ic := new(nxoverlayv1alpha1.EVPNInterconnect)
 	if err := r.Get(ctx, req.NamespacedName, ic); err != nil {
@@ -71,9 +83,13 @@ func (r *EVPNInterconnectReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if !ic.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(ic, nxoverlayv1alpha1.FinalizerName) {
-			if err := r.finalize(ctx, ic); err != nil {
+			res, err := r.finalize(ctx, ic)
+			if err != nil {
 				log.Error(err, "Failed to finalize resource")
 				return ctrl.Result{}, err
+			}
+			if !res.IsZero() {
+				return res, nil
 			}
 			controllerutil.RemoveFinalizer(ic, nxoverlayv1alpha1.FinalizerName)
 			if err := r.Update(ctx, ic); err != nil {
@@ -127,10 +143,8 @@ func (r *EVPNInterconnectReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	return res, nil
 }
 
-func (r *EVPNInterconnectReconciler) finalize(ctx context.Context, ic *nxoverlayv1alpha1.EVPNInterconnect) error {
-	_ = ctx
-	_ = ic
-	return nil
+func (r *EVPNInterconnectReconciler) finalize(ctx context.Context, ic *nxoverlayv1alpha1.EVPNInterconnect) (ctrl.Result, error) {
+	return r.cleanup(ctx, ic, nil)
 }
 
 func (r *EVPNInterconnectReconciler) reconcile(ctx context.Context, ic *nxoverlayv1alpha1.EVPNInterconnect) (ctrl.Result, error) {
@@ -141,13 +155,8 @@ func (r *EVPNInterconnectReconciler) reconcile(ctx context.Context, ic *nxoverla
 		// conditions.RecomputeReady(fabric)
 	}()
 
-	// TODO
-
-	state := &ReconcileState{
-		vteps:      make(map[string][]v1alpha1.NetworkVirtualizationEdge),
-		devices:    make(map[string]v1alpha1.Device),
-		interfaces: make(map[string]v1alpha1.Interface),
-	}
+	state := &ReconcileState{loopbacks: make(map[string]*v1alpha1.Interface)}
+	// NVE discovery will populate VTEPs when implemented.
 
 	// The ordering of phases is critical. Each phase may depend on resources
 	// provisioned by earlier phases:
@@ -155,17 +164,17 @@ func (r *EVPNInterconnectReconciler) reconcile(ctx context.Context, ic *nxoverla
 	//  1. claimMultiSiteID - claims the Multi-Site ID from the pool
 	//  1. reconcileInterfaces - configures addressing and MTU
 	//  1. reconcileUnderlay (configures underlay e.g., create OSPF brick)
-	//  1. reconcileVTEP - creates a VTEP brick and claims an IP address from the pool
-	//  1. reconcileBorderGateway - creates BGW brick (BGP peer configuration)
+	//  1. reconcileLoopbacks - allocates addresses and creates multisite loopback9
+	//  1. reconcileBorderGateway - waits for the Fabric NVE before configuring multisite
 
 	// Phases that find their prerequisites missing (e.g. Claims not yet allocated)
-	// skip the affected device and return without error. The Owns() watches on
-	// Claim and Interface will re-enqueue the Fabric once the dependency appears.
+	// skip the affected device or requeue without error. Resource watches enqueue
+	// the interconnect when dependencies change.
 	phases := []ReconcileFunc{
 		r.claimMultiSiteID,
 		r.reconcileInterfaces,
+		r.reconcileLoopbacks,
 		r.reconcileUnderlay,
-		r.reconcileVTEP,
 		r.reconcileBorderGateway,
 	}
 	for _, phase := range phases {
@@ -201,7 +210,11 @@ func (r *EVPNInterconnectReconciler) claimMultiSiteID(ctx context.Context, ic *n
 		return ctrl.Result{}, nil
 	}
 
-	state.multiSiteID = claim
+	id, err := strconv.ParseInt(claim.Status.Value, 10, 64)
+	if err != nil {
+		return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("parsing allocated multi-site ID %q: %w", claim.Status.Value, err))
+	}
+	state.multiSiteID = id
 	return ctrl.Result{}, nil
 }
 
@@ -210,6 +223,8 @@ func (r *EVPNInterconnectReconciler) reconcileInterfaces(ctx context.Context, ic
 
 	seenInterfaces := make(map[string]bool)
 	seenDevices := make(map[string]bool)
+	devices := make(map[string]*v1alpha1.Device)
+	interfaces := make(map[string]*v1alpha1.Interface)
 	resolved := make([]*v1alpha1.Interface, 0, len(ic.Spec.Interfaces))
 
 	for i := range ic.Spec.Interfaces {
@@ -230,6 +245,7 @@ func (r *EVPNInterconnectReconciler) reconcileInterfaces(ctx context.Context, ic
 			return ctrl.Result{}, fmt.Errorf("getting interface %q: %w", dci.InterfaceRef.Name, err)
 		}
 		resolved = append(resolved, intf)
+		interfaces[interfaceName] = intf
 
 		deviceName := intf.Spec.DeviceRef.Name
 		if seenDevices[deviceName] {
@@ -246,8 +262,7 @@ func (r *EVPNInterconnectReconciler) reconcileInterfaces(ctx context.Context, ic
 			return ctrl.Result{}, fmt.Errorf("getting device %q: %w", deviceName, err)
 		}
 
-		state.devices[deviceName] = *device
-		state.interfaces[interfaceName] = *intf
+		devices[deviceName] = device
 	}
 
 	if len(seenDevices) != 2 {
@@ -275,6 +290,8 @@ func (r *EVPNInterconnectReconciler) reconcileInterfaces(ctx context.Context, ic
 		log.Info("Patched DCI interface", "interface", intf.Name)
 	}
 
+	state.devices = devices
+	state.interfaces = interfaces
 	return ctrl.Result{}, nil
 }
 
@@ -282,11 +299,136 @@ func (r *EVPNInterconnectReconciler) reconcileUnderlay(ctx context.Context, ic *
 	return ctrl.Result{}, nil
 }
 
-func (r *EVPNInterconnectReconciler) reconcileVTEP(ctx context.Context, ic *nxoverlayv1alpha1.EVPNInterconnect, state *ReconcileState) (ctrl.Result, error) {
+// reconcileLoopbacks creates the separate multisite source loopback on each device.
+func (r *EVPNInterconnectReconciler) reconcileLoopbacks(ctx context.Context, ic *nxoverlayv1alpha1.EVPNInterconnect, state *ReconcileState) (ctrl.Result, error) {
+	// A nil device map means discovery has not run, rather than an empty membership.
+	if state.devices == nil {
+		return ctrl.Result{}, nil
+	}
+	if res, err := r.cleanup(ctx, ic, state.devices); err != nil || !res.IsZero() {
+		return res, err
+	}
+	state.loopbacks = make(map[string]*v1alpha1.Interface)
+	for _, deviceName := range slices.Sorted(maps.Keys(state.devices)) {
+		device := state.devices[deviceName]
+		name := fmt.Sprintf("%s-%s-lo%d", ic.Name, device.Name, loopbackID)
+		claim := &poolv1alpha1.Claim{Name: name, Namespace: ic.Namespace}
+		_, err := controllerutil.CreateOrPatch(ctx, r.Client, claim, func() error {
+			if claim.Labels == nil {
+				claim.Labels = make(map[string]string)
+			}
+			claim.Labels[loopbackDeviceLabel] = device.Name
+			claim.Spec.PoolRef = v1alpha1.TypedLocalObjectReference{
+				APIVersion: poolv1alpha1.GroupVersion.String(), Kind: "IPAddressPool", Name: ic.Spec.IPAddressPoolRef.Name,
+			}
+			return controllerutil.SetControllerReference(ic, claim, r.Scheme)
+		})
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("reconciling loopback claim %s: %w", name, err)
+		}
+		if !claim.DeletionTimestamp.IsZero() {
+			return ctrl.Result{RequeueAfter: dependencyRetryInterval}, nil
+		}
+		cond := conditions.Get(claim, poolv1alpha1.AllocatedCondition)
+		if cond == nil || cond.Status != metav1.ConditionTrue || claim.Status.Value == "" {
+			continue
+		}
+		prefix, err := v1alpha1.ParsePrefix(claim.Status.Value + "/32")
+		if err != nil {
+			return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("parsing allocated address %q: %w", claim.Status.Value, err))
+		}
+		if !prefix.Addr().Is4() {
+			return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("allocated loopback address %q must be IPv4", claim.Status.Value))
+		}
+		prov, err := provider.LoadProvider[provider.InterfaceProvider](device.Spec.Provider)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("loading interface provider for device %s: %w", device.Name, err)
+		}
+		handle, err := prov.LoopbackInterfaceName(loopbackID)
+		if err != nil {
+			return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("resolving loopback interface name for device %s: %w", device.Name, err))
+		}
+		intf := &v1alpha1.Interface{Name: name, Namespace: ic.Namespace}
+		_, err = controllerutil.CreateOrPatch(ctx, r.Client, intf, func() error {
+			intf.Spec.DeviceRef = v1alpha1.LocalObjectReference{Name: device.Name}
+			intf.Spec.Name = handle
+			intf.Spec.Type = v1alpha1.InterfaceTypeLoopback
+			intf.Spec.AdminState = v1alpha1.AdminStateUp
+			intf.Spec.Description = "Multisite border gateway source"
+			if intf.Spec.IPv4 == nil {
+				intf.Spec.IPv4 = &v1alpha1.InterfaceIPv4{}
+			}
+			intf.Spec.IPv4.Addresses = []v1alpha1.IPPrefix{prefix}
+			return controllerutil.SetControllerReference(ic, intf, r.Scheme)
+		})
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("reconciling loopback interface %s: %w", name, err)
+		}
+		if !intf.DeletionTimestamp.IsZero() {
+			return ctrl.Result{RequeueAfter: dependencyRetryInterval}, nil
+		}
+		state.loopbacks[device.Name] = intf
+	}
 	return ctrl.Result{}, nil
 }
 
 func (r *EVPNInterconnectReconciler) reconcileBorderGateway(ctx context.Context, ic *nxoverlayv1alpha1.EVPNInterconnect, state *ReconcileState) (ctrl.Result, error) {
+	if len(state.devices) == 0 {
+		return ctrl.Result{}, nil
+	}
+	pending := false
+	for _, deviceName := range slices.Sorted(maps.Keys(state.devices)) {
+		nves := state.vteps[deviceName]
+		if len(nves) > 1 {
+			return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("multiple NVEs target device %s", deviceName))
+		}
+		if len(nves) == 0 || !nves[0].DeletionTimestamp.IsZero() || !conditions.IsConfigured(&nves[0]) {
+			ctrl.LoggerFrom(ctx).V(1).Info("Waiting for configured Fabric NVE", "device", deviceName)
+			pending = true
+		}
+	}
+	if pending || state.multiSiteID == 0 {
+		return ctrl.Result{RequeueAfter: dependencyRetryInterval}, nil
+	}
+	refs := make(map[string][]nxv1alpha1.InterconnectInterfaceReference)
+	for _, dci := range ic.Spec.Interfaces {
+		intf := state.interfaces[dci.InterfaceRef.Name]
+		if intf == nil || !intf.DeletionTimestamp.IsZero() {
+			return ctrl.Result{RequeueAfter: dependencyRetryInterval}, nil
+		}
+		refs[intf.Spec.DeviceRef.Name] = append(refs[intf.Spec.DeviceRef.Name], nxv1alpha1.InterconnectInterfaceReference{
+			LocalObjectReference: dci.InterfaceRef, Tracking: nxv1alpha1.InterconnectTrackingTypeDCI,
+		})
+	}
+	for _, deviceName := range slices.Sorted(maps.Keys(state.devices)) {
+		loopback := state.loopbacks[deviceName]
+		if loopback == nil || !loopback.DeletionTimestamp.IsZero() {
+			pending = true
+			continue
+		}
+		name := fmt.Sprintf("%s-%s-bgw", ic.Name, deviceName)
+		bgw := &nxv1alpha1.BorderGateway{Name: name, Namespace: ic.Namespace}
+		_, err := controllerutil.CreateOrPatch(ctx, r.Client, bgw, func() error {
+			bgw.Spec.DeviceRef = v1alpha1.LocalObjectReference{Name: deviceName}
+			bgw.Spec.AdminState = v1alpha1.AdminStateUp
+			bgw.Spec.MultisiteID = state.multiSiteID
+			bgw.Spec.SourceInterfaceRef = v1alpha1.LocalObjectReference{Name: loopback.Name}
+			bgw.Spec.InterconnectInterfaceRefs = refs[deviceName]
+			if bgw.Spec.DelayRestoreTime.Duration == 0 {
+				bgw.Spec.DelayRestoreTime = metav1.Duration{Duration: delayRestoreTime}
+			}
+			return controllerutil.SetControllerReference(ic, bgw, r.Scheme)
+		})
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("reconciling BorderGateway %s: %w", name, err)
+		}
+		if !bgw.DeletionTimestamp.IsZero() {
+			pending = true
+		}
+	}
+	if pending {
+		return ctrl.Result{RequeueAfter: dependencyRetryInterval}, nil
+	}
 	return ctrl.Result{}, nil
 }
 
@@ -296,10 +438,11 @@ type ReconcileFunc func(context.Context, *nxoverlayv1alpha1.EVPNInterconnect, *R
 
 // ReconcileState accumulates EVPN Interconnect state across reconciliation phases
 type ReconcileState struct {
-	vteps       map[string][]v1alpha1.NetworkVirtualizationEdge // DCI-facing VTEPs in the group
-	multiSiteID *poolv1alpha1.Claim                             // Multi-Site ID claimed from index pool
-	devices     map[string]v1alpha1.Device
-	interfaces  map[string]v1alpha1.Interface
+	devices     map[string]*v1alpha1.Device
+	vteps       map[string][]v1alpha1.NetworkVirtualizationEdge // NVEs keyed by device name
+	interfaces  map[string]*v1alpha1.Interface                  // DCI interfaces keyed by resource name
+	loopbacks   map[string]*v1alpha1.Interface
+	multiSiteID int64
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -307,14 +450,90 @@ func (r *EVPNInterconnectReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&nxoverlayv1alpha1.EVPNInterconnect{}).
 		Owns(&poolv1alpha1.Claim{}).
-		// Re-reconcile when a referenced DCI Interface's spec changes so drift is re-converged
+		Owns(&v1alpha1.Interface{}).
+		Owns(&nxv1alpha1.BorderGateway{}).
 		Watches(
 			&v1alpha1.Interface{},
 			handler.EnqueueRequestsFromMapFunc(r.interfacesToInterconnects),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
 		).
+		Watches(
+			&v1alpha1.NetworkVirtualizationEdge{},
+			handler.EnqueueRequestsFromMapFunc(r.dependenciesToInterconnects),
+		).
 		Named("nx.overlay-evpninterconnect").
 		Complete(r)
+}
+
+// cleanup deletes resources controlled by ic in dependency order: BorderGateways,
+// Interfaces, then Claims, keeping loopback addresses allocated until their users
+// are gone. It requeues until each resource type is fully deleted, including any
+// pending child finalizers, before proceeding to the next type.
+//
+// A nil devices map selects all controlled resources for interconnect deletion.
+// A non-nil map retains resources for devices still present; only BorderGateways,
+// Interfaces, and device-labeled loopback Claims for removed devices are selected.
+// An empty, non-nil map therefore removes all device resources but retains Claims
+// without a loopback device label, such as the Multi-Site ID Claim.
+func (r *EVPNInterconnectReconciler) cleanup(ctx context.Context, ic *nxoverlayv1alpha1.EVPNInterconnect, devices map[string]*v1alpha1.Device) (ctrl.Result, error) {
+	for _, list := range []client.ObjectList{&nxv1alpha1.BorderGatewayList{}, &v1alpha1.InterfaceList{}, &poolv1alpha1.ClaimList{}} {
+		if err := r.List(ctx, list, client.InNamespace(ic.Namespace)); err != nil {
+			return ctrl.Result{}, fmt.Errorf("listing owned %T resources: %w", list, err)
+		}
+		var objects []client.Object
+		switch list := list.(type) {
+		case *nxv1alpha1.BorderGatewayList:
+			for i := range list.Items {
+				if _, keep := devices[list.Items[i].Spec.DeviceRef.Name]; !keep {
+					objects = append(objects, &list.Items[i])
+				}
+			}
+		case *v1alpha1.InterfaceList:
+			for i := range list.Items {
+				if _, keep := devices[list.Items[i].Spec.DeviceRef.Name]; !keep {
+					objects = append(objects, &list.Items[i])
+				}
+			}
+		case *poolv1alpha1.ClaimList:
+			for i := range list.Items {
+				deviceName, loopback := list.Items[i].Labels[loopbackDeviceLabel]
+				if _, keep := devices[deviceName]; devices == nil || (loopback && !keep) {
+					objects = append(objects, &list.Items[i])
+				}
+			}
+		}
+		pending := false
+		for _, obj := range objects {
+			if !metav1.IsControlledBy(obj, ic) {
+				continue
+			}
+			pending = true
+			if !obj.GetDeletionTimestamp().IsZero() {
+				continue
+			}
+			uid := obj.GetUID()
+			if err := r.Delete(ctx, obj, client.Preconditions{UID: &uid}); err != nil && !apierrors.IsNotFound(err) {
+				return ctrl.Result{}, fmt.Errorf("deleting owned resource %s: %w", obj.GetName(), err)
+			}
+		}
+		if pending {
+			return ctrl.Result{RequeueAfter: dependencyRetryInterval}, nil
+		}
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *EVPNInterconnectReconciler) dependenciesToInterconnects(ctx context.Context, obj client.Object) []ctrl.Request {
+	interconnects := &nxoverlayv1alpha1.EVPNInterconnectList{}
+	if err := r.List(ctx, interconnects, client.InNamespace(obj.GetNamespace())); err != nil {
+		ctrl.LoggerFrom(ctx).Error(err, "Failed to list EVPNInterconnects")
+		return nil
+	}
+	requests := make([]ctrl.Request, 0, len(interconnects.Items))
+	for i := range interconnects.Items {
+		requests = append(requests, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(&interconnects.Items[i])})
+	}
+	return requests
 }
 
 // hash returns a deterministic 128-bit hash of the ordered object UIDs,

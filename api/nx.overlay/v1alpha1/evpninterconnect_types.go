@@ -31,8 +31,10 @@ type EVPNInterconnectSpec struct {
 	// +required
 	MultiSiteIDIndexPoolRef corev1alpha1.TypedLocalObjectReference `json:"multiSiteIDIndexPoolRef"`
 
-	// ipPrefixPoolRef references the IPPrefixPool from which IP addresses for DCI interfaces are allocated.
+	// ipAddressPoolRef references the IPAddressPool from which multisite loopback addresses are allocated.
+	// Immutable.
 	// +required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="ipAddressPoolRef is immutable"
 	IPAddressPoolRef corev1alpha1.LocalObjectReference `json:"ipAddressPoolRef"`
 }
 
