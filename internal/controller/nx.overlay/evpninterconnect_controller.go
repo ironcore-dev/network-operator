@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -57,6 +58,7 @@ type EVPNInterconnectReconciler struct {
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=interfaces,verbs=get;list;watch;create;patch;delete
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=networkvirtualizationedges,verbs=get;list;watch
 // +kubebuilder:rbac:groups=nx.cisco.networking.metal.ironcore.dev,resources=bordergateways,verbs=get;list;watch;create;patch;delete
+// +kubebuilder:rbac:groups=core.networking.metal.ironcore.dev,resources=ospfs,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -296,7 +298,91 @@ func (r *EVPNInterconnectReconciler) reconcileInterfaces(ctx context.Context, ic
 }
 
 func (r *EVPNInterconnectReconciler) reconcileUnderlay(ctx context.Context, ic *nxoverlayv1alpha1.EVPNInterconnect, state *ReconcileState) (ctrl.Result, error) {
+	switch ic.Spec.DCI.Underlay.Protocol {
+	case nxoverlayv1alpha1.UnderlayProtocolOSPF:
+		return r.reconcileOSPF(ctx, ic, state)
+	case nxoverlayv1alpha1.UnderlayProtocolBGP:
+		return ctrl.Result{}, reconcile.TerminalError(errors.New("BGP underlay is not supported, yet"))
+	default:
+		return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("unknown underlay protocol %q", ic.Spec.DCI.Underlay.Protocol))
+	}
+}
+
+func (r *EVPNInterconnectReconciler) reconcileOSPF(ctx context.Context, ic *nxoverlayv1alpha1.EVPNInterconnect, state *ReconcileState) (ctrl.Result, error) {
+	if len(state.interfaces) == 0 {
+		return ctrl.Result{}, errors.New("no interfaces resolved: reconcileInterfaces must run before reconcileUnderlay")
+	}
+	if len(state.loopbacks) == 0 {
+		return ctrl.Result{}, errors.New("no loopback interfaces resolved: reconcileLoopbacks must run before reconcileUnderlay")
+	}
+	if len(state.devices) == 0 {
+		return ctrl.Result{}, errors.New("no devices resolved: reconcileInterfaces must run before reconcileUnderlay")
+	}
+
+	byDevice := make(map[string][]*v1alpha1.Interface)
+	for _, intf := range state.interfaces {
+		byDevice[intf.Spec.DeviceRef.Name] = append(byDevice[intf.Spec.DeviceRef.Name], intf)
+	}
+	for deviceName, intfs := range byDevice {
+		routerID, err := ospfRouterID(intfs)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("device %s: %w", deviceName, err)
+		}
+
+		loopback := state.loopbacks[deviceName]
+		if loopback == nil {
+			return ctrl.Result{}, fmt.Errorf("no loopback for device %s", deviceName)
+		}
+
+		name := "underlay-" + hash(ic, state.devices[deviceName])
+		ospf := &v1alpha1.OSPF{Name: name, Namespace: ic.Namespace}
+		res, err := controllerutil.CreateOrPatch(ctx, r.Client, ospf, func() error {
+			if ospf.Labels == nil {
+				ospf.Labels = make(map[string]string)
+			}
+			ospf.Labels[nxoverlayv1alpha1.EVPNInterconnectLabel] = ic.Name
+			ospf.Spec.DeviceRef = v1alpha1.LocalObjectReference{Name: deviceName}
+			ospf.Spec.Instance = "UNDERLAY"
+			ospf.Spec.RouterID = routerID
+			ospf.Spec.InterfaceRefs = make([]v1alpha1.OSPFInterface, 0, len(intfs)+1)
+			for _, intf := range intfs {
+				ospf.Spec.InterfaceRefs = append(ospf.Spec.InterfaceRefs, v1alpha1.OSPFInterface{
+					Name: intf.Name,
+					Area: "0.0.0.0",
+				})
+			}
+			passive := true
+			ospf.Spec.InterfaceRefs = append(ospf.Spec.InterfaceRefs, v1alpha1.OSPFInterface{
+				Name:    loopback.Name,
+				Area:    "0.0.0.0",
+				Passive: &passive,
+			})
+			return controllerutil.SetOwnerReference(ic, ospf, r.Scheme)
+		})
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("reconciling OSPF %s: %w", name, err)
+		}
+		if res == controllerutil.OperationResultCreated {
+			ctrl.LoggerFrom(ctx).Info("Created underlay OSPF", "ospf", name)
+		}
+	}
 	return ctrl.Result{}, nil
+}
+
+func ospfRouterID(intfs []*v1alpha1.Interface) (string, error) {
+	routerID := ""
+	for _, intf := range intfs {
+		if intf.Spec.IPv4 == nil || len(intf.Spec.IPv4.Addresses) == 0 {
+			return "", fmt.Errorf("interface %s has no IPv4 address", intf.Name)
+		}
+		addr := intf.Spec.IPv4.Addresses[0].Addr().String()
+		if routerID == "" {
+			routerID = addr
+		} else if routerID != addr {
+			return "", fmt.Errorf("interface %s has address %s, expected %s: all interfaces on the same device must share the same router-id", intf.Name, addr, routerID)
+		}
+	}
+	return routerID, nil
 }
 
 // reconcileLoopbacks creates the separate multisite source loopback on each device.
@@ -451,6 +537,7 @@ func (r *EVPNInterconnectReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&nxoverlayv1alpha1.EVPNInterconnect{}).
 		Owns(&poolv1alpha1.Claim{}).
 		Owns(&v1alpha1.Interface{}).
+		Owns(&v1alpha1.OSPF{}).
 		Owns(&nxv1alpha1.BorderGateway{}).
 		Watches(
 			&v1alpha1.Interface{},
