@@ -22,10 +22,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
+	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	corev1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	nxoverlayv1alpha1 "github.com/ironcore-dev/network-operator/api/nx.overlay/v1alpha1"
 	poolv1alpha1 "github.com/ironcore-dev/network-operator/api/pool/v1alpha1"
 	poolcontroller "github.com/ironcore-dev/network-operator/internal/controller/pool"
+	"github.com/ironcore-dev/network-operator/internal/provider"
+	"github.com/ironcore-dev/network-operator/internal/provider/cisco/nxos"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -61,6 +64,9 @@ var _ = BeforeSuite(func() {
 	Expect(nxoverlayv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(corev1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(poolv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+
+	Expect(nxv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	provider.Register("interconnect-test-nxos", nxos.NewProvider)
 
 	// +kubebuilder:scaffold:scheme
 
@@ -105,6 +111,16 @@ var _ = BeforeSuite(func() {
 	err = (&poolcontroller.IndexReconciler{
 		Client: k8sManager.GetClient(),
 		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&poolcontroller.IPAddressPoolReconciler{
+		Client: k8sManager.GetClient(), Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&poolcontroller.IPAddressReconciler{
+		Client: k8sManager.GetClient(), Scheme: k8sManager.GetScheme(),
 	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
