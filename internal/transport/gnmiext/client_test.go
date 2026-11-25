@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"reflect"
 	"slices"
 	"testing"
@@ -17,6 +18,7 @@ import (
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
@@ -1542,11 +1544,14 @@ type MockClientConn struct {
 
 	// SetFunc allows mocking of the Set RPC response.
 	SetFunc func(ctx context.Context, req *gpb.SetRequest) (*gpb.SetResponse, error)
+
+	// SubscribeFunc allows mocking of the Subscribe RPC responses.
+	SubscribeFunc func(ctx context.Context, req *gpb.SubscribeRequest) ([]*gpb.SubscribeResponse, error)
 }
 
 func (m *MockClientConn) Invoke(ctx context.Context, method string, args, reply any, opts ...grpc.CallOption) error {
 	switch method {
-	case "/gnmi.gNMI/Capabilities":
+	case gpb.GNMI_Capabilities_FullMethodName:
 		if m.CapabilitiesFunc == nil {
 			return status.Error(codes.Unimplemented, "Capabilities RPC not mocked")
 		}
@@ -1558,7 +1563,7 @@ func (m *MockClientConn) Invoke(ctx context.Context, method string, args, reply 
 		proto.Merge(reply.(*gpb.CapabilityResponse), res)
 		return nil
 
-	case "/gnmi.gNMI/Get":
+	case gpb.GNMI_Get_FullMethodName:
 		if m.GetFunc == nil {
 			return status.Error(codes.Unimplemented, "Get RPC not mocked")
 		}
@@ -1570,7 +1575,7 @@ func (m *MockClientConn) Invoke(ctx context.Context, method string, args, reply 
 		proto.Merge(reply.(*gpb.GetResponse), res)
 		return nil
 
-	case "/gnmi.gNMI/Set":
+	case gpb.GNMI_Set_FullMethodName:
 		if m.SetFunc == nil {
 			return status.Error(codes.Unimplemented, "Set RPC not mocked")
 		}
@@ -1587,8 +1592,42 @@ func (m *MockClientConn) Invoke(ctx context.Context, method string, args, reply 
 	}
 }
 
-func (m *MockClientConn) NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-	return nil, status.Errorf(codes.Unimplemented, "streaming method %s not mocked", method)
+func (m *MockClientConn) NewStream(ctx context.Context, _ *grpc.StreamDesc, method string, _ ...grpc.CallOption) (grpc.ClientStream, error) {
+	if method != gpb.GNMI_Subscribe_FullMethodName || m.SubscribeFunc == nil {
+		return nil, status.Errorf(codes.Unimplemented, "streaming method %s not mocked", method)
+	}
+	return &mockClientStream{context: func() context.Context { return ctx }, subscribe: m.SubscribeFunc}, nil
+}
+
+type mockClientStream struct {
+	context   func() context.Context
+	subscribe func(context.Context, *gpb.SubscribeRequest) ([]*gpb.SubscribeResponse, error)
+	responses []*gpb.SubscribeResponse
+	err       error
+}
+
+func (s *mockClientStream) Header() (metadata.MD, error) { return metadata.MD{}, nil }
+func (s *mockClientStream) Trailer() metadata.MD         { return nil }
+func (s *mockClientStream) CloseSend() error             { return nil }
+func (s *mockClientStream) Context() context.Context     { return s.context() }
+
+func (s *mockClientStream) SendMsg(msg any) error {
+	s.responses, s.err = s.subscribe(s.context(), msg.(*gpb.SubscribeRequest))
+	return nil
+}
+
+func (s *mockClientStream) RecvMsg(msg any) error {
+	if len(s.responses) == 0 {
+		if s.err != nil {
+			err := s.err
+			s.err = nil
+			return err
+		}
+		return io.EOF
+	}
+	proto.Merge(msg.(*gpb.SubscribeResponse), s.responses[0])
+	s.responses = s.responses[1:]
+	return nil
 }
 
 // Interface implements the [Marshaler] interface.
@@ -1634,4 +1673,140 @@ func (i *Interface) UnmarshalYANG(caps *Capabilities, data []byte) error {
 	}
 	i.Name = res.ID
 	return nil
+}
+
+type subscribeState struct {
+	Hostname string `json:"hostname"`
+}
+
+func (*subscribeState) XPath() string { return "openconfig-system:system/state" }
+
+func TestClient_SubscribeOnce(t *testing.T) {
+	path, err := StringToStructuredPath(new(subscribeState).XPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name         string
+		checkRequest bool
+		responses    []*gpb.SubscribeResponse
+		serverErr    error
+		want         *subscribeState
+		wantErr      bool
+		wantNil      bool
+	}{
+		{
+			name:         "aggregated update",
+			checkRequest: true,
+			responses: []*gpb.SubscribeResponse{
+				{Response: &gpb.SubscribeResponse_Update{Update: &gpb.Notification{Update: []*gpb.Update{{
+					Path: path,
+					Val:  &gpb.TypedValue{Value: &gpb.TypedValue_JsonIetfVal{JsonIetfVal: []byte(`{"hostname":"leaf-1"}`)}},
+				}}}}},
+				{Response: &gpb.SubscribeResponse_SyncResponse{SyncResponse: true}},
+			},
+			want: &subscribeState{Hostname: "leaf-1"},
+		},
+		{
+			name: "EOF after update",
+			responses: []*gpb.SubscribeResponse{{Response: &gpb.SubscribeResponse_Update{Update: &gpb.Notification{
+				Update: []*gpb.Update{{
+					Path: path,
+					Val:  &gpb.TypedValue{Value: &gpb.TypedValue_JsonIetfVal{JsonIetfVal: []byte(`{"hostname":"leaf-1"}`)}},
+				}},
+			}}}},
+			want: &subscribeState{Hostname: "leaf-1"},
+		},
+		{
+			name:    "EOF without update",
+			wantErr: true,
+			wantNil: true,
+		},
+		{
+			name: "sync without update",
+			responses: []*gpb.SubscribeResponse{{
+				Response: &gpb.SubscribeResponse_SyncResponse{SyncResponse: true},
+			}},
+			wantErr: true,
+			wantNil: true,
+		},
+		{
+			name: "multiple updates",
+			responses: []*gpb.SubscribeResponse{
+				{Response: &gpb.SubscribeResponse_Update{Update: &gpb.Notification{Update: []*gpb.Update{{
+					Path: path,
+					Val:  &gpb.TypedValue{Value: &gpb.TypedValue_JsonIetfVal{JsonIetfVal: []byte(`{"hostname":"leaf-1"}`)}},
+				}}}}},
+				{Response: &gpb.SubscribeResponse_Update{Update: &gpb.Notification{Update: []*gpb.Update{{
+					Path: path,
+					Val:  &gpb.TypedValue{Value: &gpb.TypedValue_JsonIetfVal{JsonIetfVal: []byte(`{"hostname":"leaf-2"}`)}},
+				}}}}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "delete",
+			responses: []*gpb.SubscribeResponse{
+				{Response: &gpb.SubscribeResponse_Update{Update: &gpb.Notification{Delete: []*gpb.Path{path}}}},
+			},
+			wantErr: true,
+			wantNil: true,
+		},
+		{
+			name: "false sync response",
+			responses: []*gpb.SubscribeResponse{{
+				Response: &gpb.SubscribeResponse_SyncResponse{SyncResponse: false},
+			}},
+			wantErr: true,
+		},
+		{
+			name: "missing value",
+			responses: []*gpb.SubscribeResponse{{
+				Response: &gpb.SubscribeResponse_Update{Update: &gpb.Notification{Update: []*gpb.Update{{Path: path}}}},
+			}},
+			wantErr: true,
+		},
+		{
+			name:      "receive error",
+			serverErr: status.Error(codes.Unavailable, "device unavailable"),
+			wantErr:   true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			conn := &MockClientConn{SubscribeFunc: func(_ context.Context, req *gpb.SubscribeRequest) ([]*gpb.SubscribeResponse, error) {
+				if test.checkRequest {
+					list := req.GetSubscribe()
+					if list.GetMode() != gpb.SubscriptionList_ONCE {
+						t.Errorf("mode = %v, want ONCE", list.GetMode())
+					}
+					if list.GetEncoding() != gpb.Encoding_JSON_IETF {
+						t.Errorf("encoding = %v, want JSON_IETF", list.GetEncoding())
+					}
+					if !list.GetAllowAggregation() {
+						t.Error("allow_aggregation = false, want true")
+					}
+					if len(list.GetSubscription()) != 1 || !proto.Equal(list.GetSubscription()[0].GetPath(), path) {
+						t.Errorf("subscriptions = %v, want path %v", list.GetSubscription(), path)
+					}
+				}
+				return test.responses, test.serverErr
+			}}
+			client := &client{
+				gnmi:     gpb.NewGNMIClient(conn),
+				encoding: gpb.Encoding_JSON_IETF,
+			}
+			state := new(subscribeState)
+			err := client.SubscribeOnce(t.Context(), state)
+			if (err != nil) != test.wantErr {
+				t.Fatalf("SubscribeOnce() error = %v, wantErr %v", err, test.wantErr)
+			}
+			if test.wantNil && !errors.Is(err, ErrNil) {
+				t.Fatalf("SubscribeOnce() error = %v, want ErrNil", err)
+			}
+			if test.want != nil && !reflect.DeepEqual(state, test.want) {
+				t.Fatalf("SubscribeOnce() = %+v, want %+v", state, test.want)
+			}
+		})
+	}
 }

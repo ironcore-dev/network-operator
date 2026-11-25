@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"reflect"
 	"slices"
@@ -137,6 +138,7 @@ type Client interface {
 	Capabilities() *Capabilities
 	GetConfig(context.Context, ...DataElement) error
 	GetState(context.Context, ...DataElement) error
+	SubscribeOnce(context.Context, DataElement) error
 	Do(context.Context, *SetBuilder) error
 	Patch(context.Context, ...DataElement) error
 	Update(context.Context, ...DataElement) error
@@ -228,6 +230,64 @@ func (c *client) GetConfig(ctx context.Context, elements ...DataElement) error {
 // If some of the values for the given xpaths are not defined, [ErrNil] is returned.
 func (c *client) GetState(ctx context.Context, elements ...DataElement) error {
 	return c.get(ctx, gnmipb.GetRequest_STATE, elements...)
+}
+
+// SubscribeOnce retrieves one aggregated snapshot for the element.
+func (c *client) SubscribeOnce(ctx context.Context, element DataElement) (err error) {
+	path, err := StringToStructuredPath(element.XPath())
+	if err != nil {
+		return err
+	}
+	stream, err := c.gnmi.Subscribe(ctx)
+	if err != nil {
+		return fmt.Errorf("gnmiext: failed to perform subscribe rpc: %w", err)
+	}
+	defer func() { err = errors.Join(err, stream.CloseSend()) }()
+	if err := stream.Send(&gnmipb.SubscribeRequest{
+		Request: &gnmipb.SubscribeRequest_Subscribe{Subscribe: &gnmipb.SubscriptionList{
+			Mode:             gnmipb.SubscriptionList_ONCE,
+			Encoding:         c.encoding,
+			AllowAggregation: true,
+			Subscription:     []*gnmipb.Subscription{{Path: path}},
+		}},
+	}); err != nil {
+		return fmt.Errorf("gnmiext: failed to send subscribe request: %w", err)
+	}
+	var data []byte
+	for {
+		response, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("gnmiext: failed to receive subscribe response: %w", err)
+		}
+		switch value := response.GetResponse().(type) {
+		case *gnmipb.SubscribeResponse_Update:
+			if len(value.Update.GetDelete()) > 0 {
+				return ErrNil
+			}
+			if len(value.Update.GetUpdate()) != 1 || data != nil {
+				return errors.New("gnmiext: expected one aggregated subscribe update")
+			}
+			data, err = c.Decode(value.Update.GetUpdate()[0].GetVal())
+			if err != nil {
+				return err
+			}
+		case *gnmipb.SubscribeResponse_SyncResponse:
+			if !value.SyncResponse {
+				return errors.New("gnmiext: received false sync response")
+			}
+			goto done
+		default:
+			return fmt.Errorf("gnmiext: unexpected subscribe response type: %T", value)
+		}
+	}
+done:
+	if len(data) == 0 || string(data) == "null" {
+		return ErrNil
+	}
+	return c.Unmarshal(data, element)
 }
 
 // Update replaces the configuration for the given set of items.

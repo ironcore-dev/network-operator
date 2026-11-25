@@ -36,6 +36,9 @@ var _ Client = &ClientMock{}
 //			PatchFunc: func(contextMoqParam context.Context, dataElements ...DataElement) error {
 //				panic("mock out the Patch method")
 //			},
+//			SubscribeOnceFunc: func(contextMoqParam context.Context, dataElement DataElement) error {
+//				panic("mock out the SubscribeOnce method")
+//			},
 //			UpdateFunc: func(contextMoqParam context.Context, dataElements ...DataElement) error {
 //				panic("mock out the Update method")
 //			},
@@ -63,6 +66,9 @@ type ClientMock struct {
 
 	// PatchFunc mocks the Patch method.
 	PatchFunc func(contextMoqParam context.Context, dataElements ...DataElement) error
+
+	// SubscribeOnceFunc mocks the SubscribeOnce method.
+	SubscribeOnceFunc func(contextMoqParam context.Context, dataElement DataElement) error
 
 	// UpdateFunc mocks the Update method.
 	UpdateFunc func(contextMoqParam context.Context, dataElements ...DataElement) error
@@ -106,6 +112,13 @@ type ClientMock struct {
 			// DataElements is the dataElements argument value.
 			DataElements []DataElement
 		}
+		// SubscribeOnce holds details about calls to the SubscribeOnce method.
+		SubscribeOnce []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// DataElement is the dataElement argument value.
+			DataElement DataElement
+		}
 		// Update holds details about calls to the Update method.
 		Update []struct {
 			// ContextMoqParam is the contextMoqParam argument value.
@@ -114,13 +127,14 @@ type ClientMock struct {
 			DataElements []DataElement
 		}
 	}
-	lockCapabilities sync.RWMutex
-	lockDelete       sync.RWMutex
-	lockDo           sync.RWMutex
-	lockGetConfig    sync.RWMutex
-	lockGetState     sync.RWMutex
-	lockPatch        sync.RWMutex
-	lockUpdate       sync.RWMutex
+	lockCapabilities  sync.RWMutex
+	lockDelete        sync.RWMutex
+	lockDo            sync.RWMutex
+	lockGetConfig     sync.RWMutex
+	lockGetState      sync.RWMutex
+	lockPatch         sync.RWMutex
+	lockSubscribeOnce sync.RWMutex
+	lockUpdate        sync.RWMutex
 }
 
 // Capabilities calls CapabilitiesFunc.
@@ -369,6 +383,49 @@ func (mock *ClientMock) ResetPatchCalls() {
 	mock.lockPatch.Unlock()
 }
 
+// SubscribeOnce calls SubscribeOnceFunc.
+func (mock *ClientMock) SubscribeOnce(contextMoqParam context.Context, dataElement DataElement) error {
+	if mock.SubscribeOnceFunc == nil {
+		panic("ClientMock.SubscribeOnceFunc: method is nil but Client.SubscribeOnce was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		DataElement     DataElement
+	}{
+		ContextMoqParam: contextMoqParam,
+		DataElement:     dataElement,
+	}
+	mock.lockSubscribeOnce.Lock()
+	mock.calls.SubscribeOnce = append(mock.calls.SubscribeOnce, callInfo)
+	mock.lockSubscribeOnce.Unlock()
+	return mock.SubscribeOnceFunc(contextMoqParam, dataElement)
+}
+
+// SubscribeOnceCalls gets all the calls that were made to SubscribeOnce.
+// Check the length with:
+//
+//	len(mockedClient.SubscribeOnceCalls())
+func (mock *ClientMock) SubscribeOnceCalls() []struct {
+	ContextMoqParam context.Context
+	DataElement     DataElement
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		DataElement     DataElement
+	}
+	mock.lockSubscribeOnce.RLock()
+	calls = mock.calls.SubscribeOnce
+	mock.lockSubscribeOnce.RUnlock()
+	return calls
+}
+
+// ResetSubscribeOnceCalls reset all the calls that were made to SubscribeOnce.
+func (mock *ClientMock) ResetSubscribeOnceCalls() {
+	mock.lockSubscribeOnce.Lock()
+	mock.calls.SubscribeOnce = nil
+	mock.lockSubscribeOnce.Unlock()
+}
+
 // Update calls UpdateFunc.
 func (mock *ClientMock) Update(contextMoqParam context.Context, dataElements ...DataElement) error {
 	if mock.UpdateFunc == nil {
@@ -437,6 +494,10 @@ func (mock *ClientMock) ResetCalls() {
 	mock.lockPatch.Lock()
 	mock.calls.Patch = nil
 	mock.lockPatch.Unlock()
+
+	mock.lockSubscribeOnce.Lock()
+	mock.calls.SubscribeOnce = nil
+	mock.lockSubscribeOnce.Unlock()
 
 	mock.lockUpdate.Lock()
 	mock.calls.Update = nil
