@@ -199,6 +199,9 @@ var _ = Describe("Fabric Controller", func() {
 								},
 							},
 						},
+						RouteTargetAllocation: evpnv1alpha1.FabricRouteTargetAllocationSpec{
+							Strategy: evpnv1alpha1.RouteTargetAllocationStrategyASNDerived,
+						},
 					},
 					BUM: evpnv1alpha1.FabricBUMSpec{
 						Type:                  evpnv1alpha1.BUMTypeMulticast,
@@ -606,6 +609,9 @@ var _ = Describe("Fabric Controller", func() {
 								ClientDeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "leaf"}},
 							}},
 						},
+						RouteTargetAllocation: evpnv1alpha1.FabricRouteTargetAllocationSpec{
+							Strategy: evpnv1alpha1.RouteTargetAllocationStrategyASNDerived,
+						},
 					},
 					BUM: evpnv1alpha1.FabricBUMSpec{
 						Type:                  evpnv1alpha1.BUMTypeMulticast,
@@ -847,6 +853,9 @@ var _ = Describe("Fabric Controller", func() {
 								},
 							},
 						},
+						RouteTargetAllocation: evpnv1alpha1.FabricRouteTargetAllocationSpec{
+							Strategy: evpnv1alpha1.RouteTargetAllocationStrategyASNDerived,
+						},
 					},
 					BUM: evpnv1alpha1.FabricBUMSpec{
 						Type:                  evpnv1alpha1.BUMTypeMulticast,
@@ -1055,6 +1064,9 @@ var _ = Describe("Fabric Controller", func() {
 									ClientDeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"role": "leaf"}},
 								},
 							},
+						},
+						RouteTargetAllocation: evpnv1alpha1.FabricRouteTargetAllocationSpec{
+							Strategy: evpnv1alpha1.RouteTargetAllocationStrategyASNDerived,
 						},
 					},
 					BUM: evpnv1alpha1.FabricBUMSpec{

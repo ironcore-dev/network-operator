@@ -101,6 +101,9 @@ var _ = Describe("NetworkAttachment Controller", func() {
 								ClientDeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"never": "match"}},
 							}},
 						},
+						RouteTargetAllocation: evpnv1alpha1.FabricRouteTargetAllocationSpec{
+							Strategy: evpnv1alpha1.RouteTargetAllocationStrategyASNDerived,
+						},
 					},
 					BUM: evpnv1alpha1.FabricBUMSpec{
 						Type:                  evpnv1alpha1.BUMTypeMulticast,
@@ -820,6 +823,9 @@ var _ = Describe("NetworkAttachment Controller", func() {
 								ClientDeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"never": "match"}},
 							}},
 						},
+						RouteTargetAllocation: evpnv1alpha1.FabricRouteTargetAllocationSpec{
+							Strategy: evpnv1alpha1.RouteTargetAllocationStrategyASNDerived,
+						},
 					},
 					BUM: evpnv1alpha1.FabricBUMSpec{
 						Type:                  evpnv1alpha1.BUMTypeMulticast,
@@ -1010,6 +1016,92 @@ var _ = Describe("NetworkAttachment Controller", func() {
 					HaveField("Status", metav1.ConditionFalse),
 					HaveField("Reason", evpnv1alpha1.UnsupportedASNumberReason),
 				)))
+			}).Should(Succeed())
+		})
+
+		It("derives route targets from a fixed Global Administrator regardless of the Fabric ASN", func() {
+			By("Replacing the Fabric with one using FixedGlobalAdministrator and a four-octet ASN")
+			// routeTargetAllocation is immutable, so the strategy must be set at
+			// creation. Delete the default-strategy Fabric and its VNI Claim, then
+			// recreate the Fabric with the fixed strategy.
+			oldFabric := &evpnv1alpha1.Fabric{}
+			Expect(k8sClient.Get(ctx, fabricKey, oldFabric)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, oldFabric)).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, fabricKey, &evpnv1alpha1.Fabric{}))).To(BeTrue())
+			}).Should(Succeed())
+			Expect(k8sClient.DeleteAllOf(ctx, &poolv1alpha1.Claim{}, client.InNamespace(fabricKey.Namespace), client.MatchingLabels{evpnv1alpha1.FabricLabel: oldFabric.Name})).To(Succeed())
+			// Wait for the Claim and its VNI Index to be released so the recreated
+			// Fabric re-allocates the same first-free VNI (10000), on which the
+			// expected route target depends.
+			Eventually(func(g Gomega) {
+				claims := &poolv1alpha1.ClaimList{}
+				g.Expect(k8sClient.List(ctx, claims, client.InNamespace(fabricKey.Namespace), client.MatchingLabels{evpnv1alpha1.FabricLabel: oldFabric.Name})).To(Succeed())
+				g.Expect(claims.Items).To(BeEmpty())
+				indices := &poolv1alpha1.IndexList{}
+				g.Expect(k8sClient.List(ctx, indices, client.InNamespace(vniPoolKey.Namespace))).To(Succeed())
+				g.Expect(indices.Items).NotTo(ContainElement(HaveField("Spec.PoolRef.Name", vniPoolKey.Name)))
+			}).Should(Succeed())
+
+			fabric := oldFabric.DeepCopy()
+			fabric.ObjectMeta = metav1.ObjectMeta{Name: oldFabric.Name, Namespace: oldFabric.Namespace}
+			// The four-octet ASN proves it is not used when the Global Administrator is fixed.
+			fabric.Spec.Overlay.IBGP.ASNumber = intstr.FromString("65536")
+			fabric.Spec.Overlay.RouteTargetAllocation = evpnv1alpha1.FabricRouteTargetAllocationSpec{
+				Strategy:                 evpnv1alpha1.RouteTargetAllocationStrategyFixedGlobalAdministrator,
+				FixedGlobalAdministrator: new(int32(500)),
+			}
+			Expect(k8sClient.Create(ctx, fabric)).To(Succeed())
+
+			By("Creating a matching Physical Exact trunk Interface")
+			intf := &v1alpha1.Interface{
+				GenerateName: "attachment-interface-",
+				Namespace:    key.Namespace,
+				Labels:       map[string]string{"pod": "ap101"},
+				Spec: v1alpha1.InterfaceSpec{
+					DeviceRef:  v1alpha1.LocalObjectReference{Name: deviceKey.Name},
+					Name:       "Ethernet1/1",
+					AdminState: v1alpha1.AdminStateUp,
+					Type:       v1alpha1.InterfaceTypePhysical,
+					Switchport: &v1alpha1.Switchport{
+						Mode:             v1alpha1.SwitchportModeTrunk,
+						AllowedVlansMode: v1alpha1.AllowedVlansModeExact,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, intf)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed())
+			})
+
+			By("Realizing an EVPNInstance with the pinned Global Administrator in its route target")
+			na := &overlayv1alpha1.NetworkAttachment{}
+			Expect(k8sClient.Get(ctx, key, na)).To(Succeed())
+			Eventually(func(g Gomega) {
+				evis := &v1alpha1.EVPNInstanceList{}
+				g.Expect(k8sManager.GetClient().List(ctx, evis, client.InNamespace(key.Namespace), client.MatchingFields{controllerOwnerUIDKey: string(na.UID)})).To(Succeed())
+				g.Expect(evis.Items).To(HaveLen(1))
+				// RouteTarget = GlobalAdministrator(500):LocalAdministrator, where
+				// LocalAdministrator = (1<<28) | VNI(10000) = 268445456.
+				g.Expect(evis.Items[0].Spec.VNI).To(Equal(int32(10000)))
+				g.Expect(evis.Items[0].Spec.RouteTargets).To(Equal([]v1alpha1.EVPNRouteTarget{{Value: "500:268445456", Action: v1alpha1.RouteTargetActionBoth}}))
+			}).Should(Succeed())
+		})
+
+		It("rejects mutation of routeTargetAllocation", func() {
+			// Retry on conflict: the Fabric controller writes concurrently, so a
+			// single-shot Update could lose to a 409 before CEL validation runs.
+			Eventually(func(g Gomega) {
+				fabric := &evpnv1alpha1.Fabric{}
+				g.Expect(k8sClient.Get(ctx, fabricKey, fabric)).To(Succeed())
+				g.Expect(fabric.Spec.Overlay.RouteTargetAllocation.Strategy).To(Equal(evpnv1alpha1.RouteTargetAllocationStrategyASNDerived))
+				fabric.Spec.Overlay.RouteTargetAllocation = evpnv1alpha1.FabricRouteTargetAllocationSpec{
+					Strategy:                 evpnv1alpha1.RouteTargetAllocationStrategyFixedGlobalAdministrator,
+					FixedGlobalAdministrator: new(int32(500)),
+				}
+				err := k8sClient.Update(ctx, fabric)
+				g.Expect(err).To(HaveOccurred())
+				g.Expect(err.Error()).To(ContainSubstring("routeTargetAllocation is immutable"))
 			}).Should(Succeed())
 		})
 

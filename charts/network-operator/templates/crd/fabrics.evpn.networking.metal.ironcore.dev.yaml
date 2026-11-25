@@ -456,12 +456,50 @@ spec:
                     enum:
                     - IBGP
                     type: string
+                  routeTargetAllocation:
+                    default:
+                      strategy: ASNDerived
+                    description: |-
+                      routeTargetAllocation controls how auto-derived route targets source their
+                      Global Administrator sub-field. Defaults to the ASNDerived strategy (RFC 8365
+                      auto-derivation from the fabric iBGP AS number). It is immutable: changing it
+                      would re-derive every route target on the fabric and break established EVPN
+                      adjacencies.
+                    properties:
+                      fixedGlobalAdministrator:
+                        description: |-
+                          fixedGlobalAdministrator is the Global Administrator value used when strategy
+                          is FixedGlobalAdministrator.
+                        format: int32
+                        maximum: 65535
+                        minimum: 1
+                        type: integer
+                      strategy:
+                        description: strategy selects how the Global Administrator
+                          sub-field is sourced.
+                        enum:
+                        - ASNDerived
+                        - FixedGlobalAdministrator
+                        type: string
+                    required:
+                    - strategy
+                    type: object
+                    x-kubernetes-validations:
+                    - message: fixedGlobalAdministrator must be set when strategy
+                        is FixedGlobalAdministrator
+                      rule: self.strategy != 'FixedGlobalAdministrator' || has(self.fixedGlobalAdministrator)
+                    - message: fixedGlobalAdministrator must not be set when strategy
+                        is ASNDerived
+                      rule: self.strategy != 'ASNDerived' || !has(self.fixedGlobalAdministrator)
                 required:
                 - protocol
+                - routeTargetAllocation
                 type: object
                 x-kubernetes-validations:
                 - message: ibgp must be set when protocol is IBGP
                   rule: self.protocol != 'IBGP' || has(self.ibgp)
+                - message: routeTargetAllocation is immutable
+                  rule: self.routeTargetAllocation == oldSelf.routeTargetAllocation
               underlay:
                 description: underlay defines the underlay routing configuration for
                   the fabric.

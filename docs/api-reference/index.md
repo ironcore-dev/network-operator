@@ -159,6 +159,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `protocol` _[OverlayProtocol](#overlayprotocol)_ | protocol is the control-plane protocol used for the EVPN overlay. |  | Enum: [IBGP] <br />Required: \{\} <br /> |
 | `ibgp` _[FabricIBGPSpec](#fabricibgpspec)_ | ibgp configures the iBGP overlay when protocol is IBGP. |  | Optional: \{\} <br /> |
+| `routeTargetAllocation` _[FabricRouteTargetAllocationSpec](#fabricroutetargetallocationspec)_ | routeTargetAllocation controls how auto-derived route targets source their<br />Global Administrator sub-field. Defaults to the ASNDerived strategy (RFC 8365<br />auto-derivation from the fabric iBGP AS number). It is immutable: changing it<br />would re-derive every route target on the fabric and break established EVPN<br />adjacencies. | \{ strategy:ASNDerived \} | Required: \{\} <br /> |
 
 
 #### FabricPIMSpec
@@ -175,6 +176,24 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `anycastRendezvousPoints` _[AnycastRendezvousPoint](#anycastrendezvouspoint) array_ | anycastRendezvousPoints lists the anycast rendezvous point groups used for<br />PIM sparse mode. Anycast RPs share the same IP address across multiple<br />devices for redundancy. |  | MinItems: 1 <br />Required: \{\} <br /> |
+
+
+#### FabricRouteTargetAllocationSpec
+
+
+
+FabricRouteTargetAllocationSpec controls route-target derivation per
+RFC 8365 section 5.1.2.1.
+
+
+
+_Appears in:_
+- [FabricOverlaySpec](#fabricoverlayspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `strategy` _[RouteTargetAllocationStrategy](#routetargetallocationstrategy)_ | strategy selects how the Global Administrator sub-field is sourced. |  | Enum: [ASNDerived FixedGlobalAdministrator] <br />Required: \{\} <br /> |
+| `fixedGlobalAdministrator` _integer_ | fixedGlobalAdministrator is the Global Administrator value used when strategy<br />is FixedGlobalAdministrator. |  | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 
 
 #### FabricSpec
@@ -303,6 +322,31 @@ _Appears in:_
 | `name` _string_ | name is a unique identifier for this route reflector group within the fabric. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
 | `deviceSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#labelselector-v1-meta)_ | deviceSelector identifies which devices act as route reflectors in this group. |  | Required: \{\} <br /> |
 | `clientDeviceSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#labelselector-v1-meta)_ | clientDeviceSelector identifies the devices that are route reflector clients<br />for this group. |  | Required: \{\} <br /> |
+
+
+#### RouteTargetAllocationStrategy
+
+_Underlying type:_ _string_
+
+RouteTargetAllocationStrategy selects how the Global Administrator sub-field
+of auto-derived route targets (RFC 8365 section 5.1.2.1) is sourced. The Local
+Administrator sub-field is always auto-derived (A=0, Type=VXLAN, D-ID=0,
+Service ID=VNI) regardless of strategy.
+
+The Global Administrator is capped at 2 octets (1..65535) for every strategy:
+the 24-bit VNI must occupy the Local Administrator's Service ID field, leaving
+no room to widen the Global Administrator without losing the VNI.
+
+_Validation:_
+- Enum: [ASNDerived FixedGlobalAdministrator]
+
+_Appears in:_
+- [FabricRouteTargetAllocationSpec](#fabricroutetargetallocationspec)
+
+| Field | Description |
+| --- | --- |
+| `ASNDerived` | RouteTargetAllocationStrategyASNDerived uses the fabric iBGP AS number as the<br />Global Administrator; the ASN must be 2-octet (1..65535).<br /> |
+| `FixedGlobalAdministrator` | RouteTargetAllocationStrategyFixedGlobalAdministrator uses a fixed value as<br />the Global Administrator so route targets stay identical across fabrics. Use<br />it when a VNI/Network must span multiple fabrics (e.g. an EVPN Border Gateway<br />scenario). The fabric ASN never enters the route target, so it may be 4-octet;<br />a deliberate deviation from RFC 8365 ASN-based RT auto-derivation.<br /> |
 
 
 #### UnderlayProtocol

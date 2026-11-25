@@ -603,17 +603,32 @@ func (r *NetworkAttachmentReconciler) resolveVNIClaim(ctx context.Context, na *o
 }
 
 func (r *NetworkAttachmentReconciler) computeVNIRouteTarget(na *overlayv1alpha1.NetworkAttachment, fabric *evpnv1alpha1.Fabric, claim *poolv1alpha1.Claim) (vni uint64, rt string, err error) {
-	asNumber := fabric.Spec.Overlay.IBGP.ASNumber.String()
-	// RFC 8365 auto-derivation requires a 2-byte ASN; bit size 16 rejects larger and dotted ASNs.
-	asn, err := strconv.ParseUint(asNumber, 10, 16)
-	if err != nil || asn == 0 {
-		conditions.Set(na, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  evpnv1alpha1.UnsupportedASNumberReason,
-			Message: fmt.Sprintf("Fabric %q has unsupported AS number %q, want 1..65535", fabric.Name, asNumber),
-		})
-		return 0, "", reconcile.TerminalError(fmt.Errorf("fabric %q has unsupported AS number %q, want 1..65535", fabric.Name, asNumber))
+	// The Global Administrator sub-field defaults to the fabric AS number
+	// (ASNDerived, RFC 8365 auto-derivation). FixedGlobalAdministrator pins it to
+	// an explicit value so a VNI/Network that spans multiple fabrics (e.g. an EVPN
+	// Border Gateway scenario) derives identical route targets regardless of each
+	// fabric's ASN. Either way the value is at most 2 octets: a wider Global
+	// Administrator would leave no room for the 24-bit VNI in the route target.
+	var globalAdministrator uint64
+	allocation := fabric.Spec.Overlay.RouteTargetAllocation
+	if allocation.Strategy == evpnv1alpha1.RouteTargetAllocationStrategyFixedGlobalAdministrator {
+		// The fixed value replaces the ASN in the Global Administrator, so the
+		// fabric AS number is not parsed here and may be a 4-octet ASN.
+		globalAdministrator = uint64(*allocation.FixedGlobalAdministrator) // #nosec G115 -- the API bounds fixedGlobalAdministrator to 1..65535.
+	} else {
+		asNumber := fabric.Spec.Overlay.IBGP.ASNumber.String()
+		// ASNDerived requires a 2-byte ASN; bit size 16 rejects larger and dotted ASNs.
+		asn, parseErr := strconv.ParseUint(asNumber, 10, 16)
+		if parseErr != nil || asn == 0 {
+			conditions.Set(na, metav1.Condition{
+				Type:    v1alpha1.ReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  evpnv1alpha1.UnsupportedASNumberReason,
+				Message: fmt.Sprintf("Fabric %q has unsupported AS number %q, want 1..65535", fabric.Name, asNumber),
+			})
+			return 0, "", reconcile.TerminalError(fmt.Errorf("fabric %q has unsupported AS number %q, want 1..65535", fabric.Name, asNumber))
+		}
+		globalAdministrator = asn
 	}
 
 	vni, err = strconv.ParseUint(claim.Status.Value, 10, 24)
@@ -639,7 +654,7 @@ func (r *NetworkAttachmentReconciler) computeVNIRouteTarget(na *overlayv1alpha1.
 	localAdministrator := uint32(1<<28) | uint32(vni)
 
 	// Represent the RFC 8365 auto-derived route target in ASN:local-administrator notation.
-	rt = fmt.Sprintf("%d:%d", asn, localAdministrator)
+	rt = fmt.Sprintf("%d:%d", globalAdministrator, localAdministrator)
 
 	return vni, rt, nil
 }

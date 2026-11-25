@@ -113,6 +113,7 @@ const (
 
 // FabricOverlaySpec defines the overlay control-plane configuration.
 // +kubebuilder:validation:XValidation:rule="self.protocol != 'IBGP' || has(self.ibgp)",message="ibgp must be set when protocol is IBGP"
+// +kubebuilder:validation:XValidation:rule="self.routeTargetAllocation == oldSelf.routeTargetAllocation",message="routeTargetAllocation is immutable"
 type FabricOverlaySpec struct {
 	// protocol is the control-plane protocol used for the EVPN overlay.
 	// +required
@@ -121,6 +122,55 @@ type FabricOverlaySpec struct {
 	// ibgp configures the iBGP overlay when protocol is IBGP.
 	// +optional
 	IBGP *FabricIBGPSpec `json:"ibgp,omitempty"`
+
+	// routeTargetAllocation controls how auto-derived route targets source their
+	// Global Administrator sub-field. Defaults to the ASNDerived strategy (RFC 8365
+	// auto-derivation from the fabric iBGP AS number). It is immutable: changing it
+	// would re-derive every route target on the fabric and break established EVPN
+	// adjacencies.
+	// +required
+	// +kubebuilder:default={strategy:ASNDerived}
+	RouteTargetAllocation FabricRouteTargetAllocationSpec `json:"routeTargetAllocation"`
+}
+
+// RouteTargetAllocationStrategy selects how the Global Administrator sub-field
+// of auto-derived route targets (RFC 8365 section 5.1.2.1) is sourced. The Local
+// Administrator sub-field is always auto-derived (A=0, Type=VXLAN, D-ID=0,
+// Service ID=VNI) regardless of strategy.
+//
+// The Global Administrator is capped at 2 octets (1..65535) for every strategy:
+// the 24-bit VNI must occupy the Local Administrator's Service ID field, leaving
+// no room to widen the Global Administrator without losing the VNI.
+// +kubebuilder:validation:Enum=ASNDerived;FixedGlobalAdministrator
+type RouteTargetAllocationStrategy string
+
+const (
+	// RouteTargetAllocationStrategyASNDerived uses the fabric iBGP AS number as the
+	// Global Administrator; the ASN must be 2-octet (1..65535).
+	RouteTargetAllocationStrategyASNDerived RouteTargetAllocationStrategy = "ASNDerived"
+	// RouteTargetAllocationStrategyFixedGlobalAdministrator uses a fixed value as
+	// the Global Administrator so route targets stay identical across fabrics. Use
+	// it when a VNI/Network must span multiple fabrics (e.g. an EVPN Border Gateway
+	// scenario). The fabric ASN never enters the route target, so it may be 4-octet;
+	// a deliberate deviation from RFC 8365 ASN-based RT auto-derivation.
+	RouteTargetAllocationStrategyFixedGlobalAdministrator RouteTargetAllocationStrategy = "FixedGlobalAdministrator"
+)
+
+// FabricRouteTargetAllocationSpec controls route-target derivation per
+// RFC 8365 section 5.1.2.1.
+// +kubebuilder:validation:XValidation:rule="self.strategy != 'FixedGlobalAdministrator' || has(self.fixedGlobalAdministrator)",message="fixedGlobalAdministrator must be set when strategy is FixedGlobalAdministrator"
+// +kubebuilder:validation:XValidation:rule="self.strategy != 'ASNDerived' || !has(self.fixedGlobalAdministrator)",message="fixedGlobalAdministrator must not be set when strategy is ASNDerived"
+type FabricRouteTargetAllocationSpec struct {
+	// strategy selects how the Global Administrator sub-field is sourced.
+	// +required
+	Strategy RouteTargetAllocationStrategy `json:"strategy"`
+
+	// fixedGlobalAdministrator is the Global Administrator value used when strategy
+	// is FixedGlobalAdministrator.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	FixedGlobalAdministrator *int32 `json:"fixedGlobalAdministrator,omitempty"`
 }
 
 // FabricIBGPSpec configures the iBGP overlay control plane.
