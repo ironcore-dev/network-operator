@@ -6275,6 +6275,7 @@ _Appears in:_
 Package v1alpha1 contains API Schema definitions for the overlay.networking.metal.ironcore.dev v1alpha1 API group.
 
 ### Resource Types
+- [ExternalPeering](#externalpeering)
 - [Network](#network)
 - [NetworkAttachment](#networkattachment)
 - [RoutingDomain](#routingdomain)
@@ -6313,6 +6314,54 @@ _Appears in:_
 | Field | Description |
 | --- | --- |
 | `VLAN` | EncapsulationTypeVLAN uses IEEE 802.1Q VLAN tagging.<br /> |
+
+
+#### ExternalPeering
+
+
+
+ExternalPeering is the Schema for the externalpeerings API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `overlay.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `ExternalPeering` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[ExternalPeeringSpec](#externalpeeringspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[ExternalPeeringStatus](#externalpeeringstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### ExternalPeeringSpec
+
+
+
+ExternalPeeringSpec defines the desired state of ExternalPeering
+
+
+
+_Appears in:_
+- [ExternalPeering](#externalpeering)
+
+
+
+#### ExternalPeeringStatus
+
+
+
+ExternalPeeringStatus defines the observed state of ExternalPeering.
+
+
+
+_Appears in:_
+- [ExternalPeering](#externalpeering)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the ExternalPeering resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
 
 
 #### IPv4
@@ -6487,7 +6536,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `name` _string_ |  |  | MaxLength: 32 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `name` _string_ | name of the VRF created for the RoutingDomain. |  | MaxLength: 32 <br />MinLength: 1 <br />Required: \{\} <br /> |
 
 
 #### RoutingDomainStatus
@@ -6503,7 +6552,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the RoutingDomain. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the RoutingDomain resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
 
 
 

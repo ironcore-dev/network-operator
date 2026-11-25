@@ -240,6 +240,7 @@ rules:
 - apiGroups:
   - overlay.networking.metal.ironcore.dev
   resources:
+  - exernalpeerings
   - networkattachments
   - networks
   - routingdomains
@@ -254,6 +255,7 @@ rules:
 - apiGroups:
   - overlay.networking.metal.ironcore.dev
   resources:
+  - exernalpeerings/finalizers
   - networkattachments/finalizers
   - networks/finalizers
   - routingdomains/finalizers
@@ -262,6 +264,7 @@ rules:
 - apiGroups:
   - overlay.networking.metal.ironcore.dev
   resources:
+  - exernalpeerings/status
   - networkattachments/status
   - networks/status
   - routingdomains/status
