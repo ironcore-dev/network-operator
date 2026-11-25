@@ -29,6 +29,7 @@ var _ = Describe("BorderGateway Controller", func() {
 			device := &v1alpha1.Device{
 				GenerateName: "test-bgw-",
 				Namespace:    metav1.NamespaceDefault,
+				Labels:       map[string]string{"test-label": "preserved"},
 				Spec: v1alpha1.DeviceSpec{
 					Provider: "test-provider",
 					Endpoint: v1alpha1.Endpoint{
@@ -91,6 +92,9 @@ var _ = Describe("BorderGateway Controller", func() {
 
 			By("Cleaning up the Device resource")
 			device := &v1alpha1.Device{}
+			Expect(k8sClient.Get(ctx, key, device)).To(Succeed())
+			Expect(device.Labels).NotTo(HaveKey(nxv1alpha1.BorderGatewayLabel))
+			Expect(device.Labels).To(HaveKeyWithValue("test-label", "preserved"))
 			device.Name = name
 			device.Namespace = metav1.NamespaceDefault
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed())
@@ -109,6 +113,14 @@ var _ = Describe("BorderGateway Controller", func() {
 				resource := &nxv1alpha1.BorderGateway{}
 				g.Expect(k8sClient.Get(ctx, key, resource)).To(Succeed())
 				g.Expect(resource.Labels).To(HaveKeyWithValue(v1alpha1.DeviceLabel, name))
+			}).Should(Succeed())
+
+			By("Adding the BorderGateway label to the device")
+			Eventually(func(g Gomega) {
+				device := &v1alpha1.Device{}
+				g.Expect(k8sClient.Get(ctx, key, device)).To(Succeed())
+				g.Expect(device.Labels).To(HaveKeyWithValue(nxv1alpha1.BorderGatewayLabel, name))
+				g.Expect(device.Labels).To(HaveKeyWithValue("test-label", "preserved"))
 			}).Should(Succeed())
 
 			By("Adding the device as a owner reference")
