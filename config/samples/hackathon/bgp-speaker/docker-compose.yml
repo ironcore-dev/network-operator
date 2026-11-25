@@ -1,0 +1,25 @@
+services:
+  frr:
+    image: quay.io/frrouting/frr:10.7.1
+    container_name: bgp-speaker
+    restart: unless-stopped
+    # Scoped privileges FRR needs to manage routes, netlink, and raw sockets.
+    # (Equivalent to `privileged: true`, but narrower.)
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - NET_RAW
+    sysctls:
+      net.ipv4.ip_forward: 1
+      net.ipv6.conf.all.forwarding: 1
+    volumes:
+      - ./frr:/etc/frr
+    # Publish BGP on the host's 0.0.0.0:179. This is what makes FRR reachable
+    # from another container via host.docker.internal:179 on Docker Desktop.
+    # Do NOT narrow this to 127.0.0.1:179:179 — container->host reachability
+    # through host.docker.internal is not reliable when bound to loopback only.
+    ports:
+      - "179:179"
+    # Keeps `host.docker.internal` resolvable for peers on plain Docker/Linux too.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
