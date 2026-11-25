@@ -48,6 +48,10 @@ const DeviceLabel = "networking.metal.ironcore.dev/device-name"
 // each resource controller so it can list its resources by device name.
 const DeviceRefIndexKey = ".spec.deviceRef.name"
 
+// ControllerOwnerUIDKey is the field index key for the controller owner UID,
+// registered by controllers that need to list resources by their controlling owner.
+const ControllerOwnerUIDKey = ".metadata.controller.uid"
+
 // DeviceSerialLabel is a label applied to any Network API object to indicate the serial number
 // of the device it is associated with. This label is used by the http provisioning server
 // to find the device when a provisioning request is received.

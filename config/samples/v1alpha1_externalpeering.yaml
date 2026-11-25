@@ -1,0 +1,24 @@
+apiVersion: overlay.networking.metal.ironcore.dev/v1alpha1
+kind: ExternalPeering
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: externalpeering-sample
+spec:
+  deviceSelector:
+    matchLabels:
+      networking.metal.ironcore.dev/role: leaf
+  routingDomainRef:
+    name: routingdomain-sample
+  peering:
+    sourceAddress:
+      type: Loopback
+      ipAddressPoolRef:
+        name: my-pool
+    localASNumber: 65000
+    remoteASNumber: 65001
+    listenRange: 10.69.69.69/24
+    addressFamilies:
+      ipv4Unicast:
+        enabled: true

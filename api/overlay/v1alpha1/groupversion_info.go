@@ -30,4 +30,8 @@ var (
 const (
 	// FinalizerName is the identifier used by overlay controllers to perform cleanup before a resource is deleted.
 	FinalizerName = "overlay.networking.metal.ironcore.dev/finalizer"
+
+	// ExternalPeeringLabel is applied to all sub-resources created by an ExternalPeering controller,
+	// linking them back to the owning ExternalPeering resource.
+	ExternalPeeringLabel = "overlay.networking.metal.ironcore.dev/external-peering"
 )

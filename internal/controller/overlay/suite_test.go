@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -26,6 +27,7 @@ import (
 	evpnv1alpha1 "github.com/ironcore-dev/network-operator/api/evpn/v1alpha1"
 	overlayv1alpha1 "github.com/ironcore-dev/network-operator/api/overlay/v1alpha1"
 	poolv1alpha1 "github.com/ironcore-dev/network-operator/api/pool/v1alpha1"
+	poolcontroller "github.com/ironcore-dev/network-operator/internal/controller/pool"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -93,6 +95,30 @@ var _ = BeforeSuite(func() {
 		}
 	}()
 
+	// Register field indexes required by the ExternalPeering controller.
+	for _, obj := range []client.Object{&corev1alpha1.VRF{}, &corev1alpha1.BGP{}} {
+		err = k8sManager.GetFieldIndexer().IndexField(ctx, obj, corev1alpha1.DeviceRefIndexKey, func(obj client.Object) []string {
+			switch o := obj.(type) {
+			case *corev1alpha1.VRF:
+				return []string{o.Spec.DeviceRef.Name}
+			case *corev1alpha1.BGP:
+				return []string{o.Spec.DeviceRef.Name}
+			default:
+				return nil
+			}
+		})
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	err = k8sManager.GetFieldIndexer().IndexField(ctx, &corev1alpha1.VRF{}, corev1alpha1.ControllerOwnerUIDKey, func(obj client.Object) []string {
+		owner := metav1.GetControllerOf(obj)
+		if owner == nil {
+			return nil
+		}
+		return []string{string(owner.UID)}
+	})
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&NetworkReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
@@ -105,6 +131,31 @@ var _ = BeforeSuite(func() {
 		Scheme:   k8sManager.GetScheme(),
 		Recorder: recorder,
 	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&ExternalPeeringReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: recorder,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&poolcontroller.IPAddressPoolReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&poolcontroller.IPAddressReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&poolcontroller.ClaimReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})

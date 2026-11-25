@@ -779,6 +779,7 @@ BFD defines the Bidirectional Forwarding Detection configuration for interfaces,
 _Appears in:_
 - [BGPPeerSpec](#bgppeerspec)
 - [InterfaceSpec](#interfacespec)
+- [Peering](#peering)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -2644,6 +2645,7 @@ _Appears in:_
 - [InterfaceIPv4](#interfaceipv4)
 - [InterfaceIPv6](#interfaceipv6)
 - [MulticastGroups](#multicastgroups)
+- [Peering](#peering)
 - [PrefixEntry](#prefixentry)
 - [RendezvousPoint](#rendezvouspoint)
 - [RoutePresenceProbe](#routepresenceprobe)
@@ -3025,6 +3027,7 @@ LocalAS defines the local AS configuration and how it factors in BGP announcemen
 
 _Appears in:_
 - [BGPPeerSpec](#bgppeerspec)
+- [Peering](#peering)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -3066,6 +3069,7 @@ _Appears in:_
 - [DevicePort](#deviceport)
 - [EVPNInstanceSpec](#evpninstancespec)
 - [EthernetSegmentSpec](#ethernetsegmentspec)
+- [ExternalPeeringSpec](#externalpeeringspec)
 - [FabricLoopbacksSpec](#fabricloopbacksspec)
 - [FabricUnderlayAddressingSpec](#fabricunderlayaddressingspec)
 - [ISISSpec](#isisspec)
@@ -3097,6 +3101,7 @@ _Appears in:_
 - [ProbeSpec](#probespec)
 - [RoutingPolicySpec](#routingpolicyspec)
 - [SNMPSpec](#snmpspec)
+- [SourceAddress](#sourceaddress)
 - [StaticRouteSpec](#staticroutespec)
 - [SyslogSpec](#syslogspec)
 - [SystemSpec](#systemspec)
@@ -3916,6 +3921,7 @@ _Appears in:_
 
 
 _Appears in:_
+- [RoutingPolicySpec](#routingpolicyspec)
 - [RoutingPolicySpec](#routingpolicyspec)
 
 | Field | Description | Default | Validation |
@@ -6275,10 +6281,47 @@ _Appears in:_
 Package v1alpha1 contains API Schema definitions for the overlay.networking.metal.ironcore.dev v1alpha1 API group.
 
 ### Resource Types
+- [ExternalPeering](#externalpeering)
 - [Network](#network)
 - [NetworkAttachment](#networkattachment)
 - [RoutingDomain](#routingdomain)
 
+
+
+#### BGPPeerAddressFamilies
+
+
+
+BGPPeerAddressFamilies defines the address family specific configuration for a BGP peer.
+
+
+
+_Appears in:_
+- [Peering](#peering)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `ipv4Unicast` _[BGPPeerAddressFamily](#bgppeeraddressfamily)_ | Ipv4Unicast configures IPv4 unicast address family settings for this peer.<br />Controls IPv4 unicast route exchange and peer-specific behavior. |  | Optional: \{\} <br /> |
+| `ipv6Unicast` _[BGPPeerAddressFamily](#bgppeeraddressfamily)_ | Ipv6Unicast configures IPv6 unicast address family settings for this peer.<br />Controls IPv6 unicast route exchange and peer-specific behavior. |  | Optional: \{\} <br /> |
+| `l2vpnEvpn` _[BGPPeerAddressFamily](#bgppeeraddressfamily)_ | L2vpnEvpn configures L2VPN EVPN address family settings for this peer.<br />Controls EVPN route exchange and peer-specific behavior. |  | Optional: \{\} <br /> |
+
+
+#### BGPPeerAddressFamily
+
+
+
+BGPPeerAddressFamily defines common configuration for a BGP peer's address family.
+
+
+
+_Appears in:_
+- [BGPPeerAddressFamilies](#bgppeeraddressfamilies)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `enabled` _boolean_ | Enabled determines whether this address family is activated for this specific peer.<br />When false, the address family is not negotiated with this peer.<br />Defaults to false. |  | Optional: \{\} <br /> |
+| `inboundRoutingPolicy` _[RoutingPolicy](#routingpolicy)_ | InboundRoutingPolicy defines a RoutingPolicy applied to routes received from this peer<br />for this address family. |  | Optional: \{\} <br /> |
+| `outboundRoutingPolicy` _[RoutingPolicy](#routingpolicy)_ | OutboundRoutingPolicy defines a RoutingPolicy applied to routes advertised to this peer<br />for this address family. |  | Optional: \{\} <br /> |
 
 
 #### Encapsulation
@@ -6313,6 +6356,59 @@ _Appears in:_
 | Field | Description |
 | --- | --- |
 | `VLAN` | EncapsulationTypeVLAN uses IEEE 802.1Q VLAN tagging.<br /> |
+
+
+#### ExternalPeering
+
+
+
+ExternalPeering is the Schema for the externalpeerings API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `overlay.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `ExternalPeering` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[ExternalPeeringSpec](#externalpeeringspec)_ | Specification of the desired state of the resource.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Required: \{\} <br /> |
+| `status` _[ExternalPeeringStatus](#externalpeeringstatus)_ | Status of the resource. This is set and updated automatically.<br />Read-only.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status |  | Optional: \{\} <br /> |
+
+
+#### ExternalPeeringSpec
+
+
+
+ExternalPeeringSpec defines the desired state of ExternalPeering
+
+
+
+_Appears in:_
+- [ExternalPeering](#externalpeering)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `deviceSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#labelselector-v1-meta)_ | deviceSelector identifies which devices are members of this external peering.<br />All devices whose labels match this selector will be enrolled. |  | Required: \{\} <br /> |
+| `routingDomainRef` _[LocalObjectReference](#localobjectreference)_ | routingDomainRef references the [RoutingDomain] used by this external peering.<br />Immutable. |  | Required: \{\} <br /> |
+| `peering` _[Peering](#peering)_ | peering is the specification of the bgp session attributes. |  | Required: \{\} <br /> |
+
+
+#### ExternalPeeringStatus
+
+
+
+ExternalPeeringStatus defines the observed state of ExternalPeering.
+
+
+
+_Appears in:_
+- [ExternalPeering](#externalpeering)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the ExternalPeering resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
 
 
 #### IPv4
@@ -6455,6 +6551,29 @@ _Appears in:_
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the Network resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
 
 
+#### Peering
+
+
+
+
+
+
+
+_Appears in:_
+- [ExternalPeeringSpec](#externalpeeringspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `sourceAddress` _[SourceAddress](#sourceaddress)_ | sourceAddress specifies the source address configuration for the BGP session. |  | Required: \{\} <br /> |
+| `localASNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | localASNumber is the autonomous system number (ASN) for the BGP router created for this external peering.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396.<br />Immutable. |  | Required: \{\} <br /> |
+| `remoteASNumber` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#intorstring-intstr-util)_ | remoteASNumber is the autonomous system number (ASN) of the external BGP peer.<br />Supports both plain format (1-4294967295) and dotted notation (0-65535.0-65535) as per RFC 5396.<br />Immutable. |  | Required: \{\} <br /> |
+| `listenRange` _[IPPrefix](#ipprefix)_ | listenRange is the IP address (range) of the external BGP peer.<br />If a single IP address is specified, it should be in given with a /32 CIDR notation.<br />Immutable. |  | Format: cidr <br />Type: string <br />Required: \{\} <br /> |
+| `addressFamilies` _[BGPPeerAddressFamilies](#bgppeeraddressfamilies)_ | AddressFamilies configures address family specific settings for this BGP peer.<br />Controls which address families are enabled and their specific configuration. |  | Optional: \{\} <br /> |
+| `localAS` _[LocalAS](#localas)_ | LocalAS configures the local AS number and how it factors into BGP announcements for this peer. |  | Optional: \{\} <br /> |
+| `ttl` _integer_ | TTL sets the time-to-live for eBGP sessions that span multiple hops.<br />When set, allows establishing eBGP sessions with non-directly-connected peers<br />by setting the IP TTL of outgoing BGP packets to this value.<br />When unset, eBGP multihop is disabled (equivalent to TTL=1 — directly connected peers only). |  | Maximum: 255 <br />Minimum: 2 <br />Optional: \{\} <br /> |
+| `bfd` _[BFD](#bfd)_ | BFD defines the Bidirectional Forwarding Detection configuration for the interface.<br />BFD is only applicable for Layer 3 interfaces. |  | Optional: \{\} <br /> |
+
+
 #### RoutingDomain
 
 
@@ -6487,7 +6606,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `name` _string_ |  |  | MaxLength: 32 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `name` _string_ | name of the VRF created for the RoutingDomain. |  | MaxLength: 32 <br />MinLength: 1 <br />Required: \{\} <br /> |
 
 
 #### RoutingDomainStatus
@@ -6503,7 +6622,92 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | The conditions are a list of status objects that describe the state of the RoutingDomain. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the RoutingDomain resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+
+
+#### RoutingPolicy
+
+
+
+
+
+
+
+_Appears in:_
+- [BGPPeerAddressFamily](#bgppeeraddressfamily)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `template` _[RoutingPolicyTemplate](#routingpolicytemplate)_ | Template defines the template for the RoutingPolicy. |  | Required: \{\} <br /> |
+
+
+#### RoutingPolicySpec
+
+
+
+RoutingPolicySpec defines the desired state of RoutingPolicy
+
+
+
+_Appears in:_
+- [RoutingPolicyTemplate](#routingpolicytemplate)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name is the identifier of the RoutingPolicy on the device.<br />Immutable. |  | MaxLength: 63 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `statements` _[PolicyStatement](#policystatement) array_ | A list of policy statements to apply. |  | MaxItems: 100 <br />MinItems: 1 <br />Required: \{\} <br /> |
+
+
+#### RoutingPolicyTemplate
+
+
+
+
+
+
+
+_Appears in:_
+- [RoutingPolicy](#routingpolicy)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `spec` _[RoutingPolicySpec](#routingpolicyspec)_ | Spec defines the desired state of the RoutingPolicy. |  | Required: \{\} <br /> |
+
+
+#### SourceAddress
+
+
+
+
+
+
+
+_Appears in:_
+- [Peering](#peering)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `type` _[SourceAddressType](#sourceaddresstype)_ | type is the type of source address used for the BGP session. |  | Enum: [Loopback] <br />Required: \{\} <br /> |
+| `name` _string_ | Name is the name of the interface. |  | MaxLength: 255 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `ipAddressPoolRef` _[LocalObjectReference](#localobjectreference)_ | ipAddressPoolRef references the [IPAddressPool] used for allocating interfaces addresses on the device(s).<br />Immutable. |  | Required: \{\} <br /> |
+
+
+#### SourceAddressType
+
+_Underlying type:_ _string_
+
+SourceAddressType defines the type of source address used for the BGP session.
+It can only be "Loopback".
+
+_Validation:_
+- Enum: [Loopback]
+
+_Appears in:_
+- [SourceAddress](#sourceaddress)
+
+| Field | Description |
+| --- | --- |
+| `Loopback` |  |
 
 
 

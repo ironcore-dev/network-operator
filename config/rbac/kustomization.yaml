@@ -179,3 +179,6 @@ resources:
 - overlay_routingdomain_admin_role.yaml
 - overlay_routingdomain_editor_role.yaml
 - overlay_routingdomain_viewer_role.yaml
+- overlay_externalpeering_admin_role.yaml
+- overlay_externalpeering_editor_role.yaml
+- overlay_externalpeering_viewer_role.yaml

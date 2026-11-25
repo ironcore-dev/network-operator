@@ -146,7 +146,7 @@ const (
 	networkAttachmentEncapsulationKey = ".spec.encapsulation"
 	networkAttachmentNetworkRefKey    = ".spec.networkRef.name"
 	networkAttachmentInterfaceRefKey  = ".status.interfaces.interfaceRef.name"
-	controllerOwnerUIDKey             = ".metadata.controller.uid"
+	controllerOwnerUIDKey             = v1alpha1.ControllerOwnerUIDKey
 )
 
 // SetupWithManager sets up the controller with the Manager.
