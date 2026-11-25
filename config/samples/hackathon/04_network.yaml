@@ -1,0 +1,13 @@
+apiVersion: overlay.networking.metal.ironcore.dev/v1alpha1
+kind: Network
+metadata:
+  name: hackathon-net
+  labels:
+    app.kubernetes.io/name: network-operator
+spec:
+  # Binds this Network to the RoutingDomain, so its VRF is realized on the
+  # devices reached through the NetworkAttachment below.
+  routingDomainRef:
+    name: hackathon-rd
+  ipv4:
+    address: 192.168.100.0/24

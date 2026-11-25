@@ -1,0 +1,17 @@
+apiVersion: overlay.networking.metal.ironcore.dev/v1alpha1
+kind: NetworkAttachment
+metadata:
+  name: hackathon-attach
+  labels:
+    app.kubernetes.io/name: network-operator
+spec:
+  networkRef:
+    name: hackathon-net
+  # Selects eth1/1 and eth1/2 on leaf1. Through their deviceRef the
+  # RoutingDomain controller resolves leaf1 and creates the VRF there.
+  interfaceSelector:
+    matchLabels:
+      networking.metal.ironcore.dev/attachment: hackathon
+  encapsulation:
+    type: VLAN
+    id: 100

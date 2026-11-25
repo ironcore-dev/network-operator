@@ -1,0 +1,9 @@
+apiVersion: overlay.networking.metal.ironcore.dev/v1alpha1
+kind: RoutingDomain
+metadata:
+  name: hackathon-rd
+  labels:
+    app.kubernetes.io/name: network-operator
+spec:
+  # Name of the VRF created on each device that carries this routing domain.
+  name: hackathon-vrf

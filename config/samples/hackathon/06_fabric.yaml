@@ -1,0 +1,78 @@
+# The RoutingDomain controller only realizes a VRF once it can resolve a Fabric
+# (with iBGP overlay config) for the device and allocate a VNI from the
+# Fabric's vniPool. This Fabric selects leaf1 via its zone label.
+apiVersion: evpn.networking.metal.ironcore.dev/v1alpha1
+kind: Fabric
+metadata:
+  name: hackathon-fabric
+  labels:
+    app.kubernetes.io/name: network-operator
+spec:
+  deviceSelector:
+    matchLabels:
+      topology.kubernetes.io/zone: hackathon
+  loopbacks:
+    ipAddressPoolRef:
+      name: hackathon-loopback-pool
+  underlay:
+    protocol: OSPF
+    interfaceSelector:
+      matchLabels:
+        networking.metal.ironcore.dev/role: fabric
+    addressing:
+      ipPrefixPoolRef:
+        name: hackathon-underlay-pool
+  overlay:
+    protocol: IBGP
+    ibgp:
+      asNumber: 65000
+      maximumPaths: 4
+      routeReflectors:
+        - name: hackathon-rrs
+          deviceSelector:
+            matchLabels:
+              networking.metal.ironcore.dev/role: evpn-spine
+          clientDeviceSelector:
+            matchLabels:
+              networking.metal.ironcore.dev/role: evpn-leaf
+  vtep:
+    deviceSelector:
+      matchLabels:
+        networking.metal.ironcore.dev/role: evpn-leaf
+    anycastGateway:
+      virtualMAC: f0:0c:c1:5c:00:00
+  vniPool:
+    apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+    kind: IndexPool
+    name: hackathon-vni-pool
+---
+apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+kind: IndexPool
+metadata:
+  name: hackathon-vni-pool
+  labels:
+    app.kubernetes.io/name: network-operator
+spec:
+  ranges:
+    - 10000..19999
+---
+apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+kind: IPAddressPool
+metadata:
+  name: hackathon-loopback-pool
+  labels:
+    app.kubernetes.io/name: network-operator
+spec:
+  prefixes:
+    - 10.0.0.0/16
+---
+apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+kind: IPPrefixPool
+metadata:
+  name: hackathon-underlay-pool
+  labels:
+    app.kubernetes.io/name: network-operator
+spec:
+  prefixes:
+    - 10.1.0.0/16
+  allocationPrefixLength: 31

@@ -1,0 +1,35 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: eth1-1
+  labels:
+    app.kubernetes.io/name: network-operator
+    networking.metal.ironcore.dev/device-name: leaf1
+    # Matched by the NetworkAttachment interfaceSelector.
+    networking.metal.ironcore.dev/attachment: hackathon
+spec:
+  deviceRef:
+    name: leaf1
+  name: eth1/1
+  description: Hackathon access port 1
+  adminState: Up
+  type: Physical
+  mtu: 1500
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: eth1-2
+  labels:
+    app.kubernetes.io/name: network-operator
+    networking.metal.ironcore.dev/device-name: leaf1
+    # Matched by the NetworkAttachment interfaceSelector.
+    networking.metal.ironcore.dev/attachment: hackathon
+spec:
+  deviceRef:
+    name: leaf1
+  name: eth1/2
+  description: Hackathon access port 2
+  adminState: Up
+  type: Physical
+  mtu: 1500

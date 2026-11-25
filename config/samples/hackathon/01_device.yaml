@@ -1,0 +1,26 @@
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Device
+metadata:
+  name: leaf1
+  labels:
+    app.kubernetes.io/name: network-operator
+    # Matched by the Fabric deviceSelector and the VTEP/iBGP-client selectors.
+    topology.kubernetes.io/zone: hackathon
+    networking.metal.ironcore.dev/role: evpn-leaf
+spec:
+  endpoint:
+    address: 192.168.5.2:9339
+    secretRef:
+      name: secret-basic-auth
+  provider: nx.cisco.networking.metal.ironcore.dev
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-basic-auth
+  labels:
+    app.kubernetes.io/name: network-operator
+type: kubernetes.io/basic-auth
+stringData:
+  username: admin
+  password: admin
