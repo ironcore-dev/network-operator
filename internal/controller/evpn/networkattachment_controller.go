@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -37,6 +36,8 @@ import (
 	overlayv1alpha1 "github.com/ironcore-dev/network-operator/api/overlay/v1alpha1"
 	poolv1alpha1 "github.com/ironcore-dev/network-operator/api/pool/v1alpha1"
 	"github.com/ironcore-dev/network-operator/internal/conditions"
+	"github.com/ironcore-dev/network-operator/internal/deviceutil"
+	"github.com/ironcore-dev/network-operator/internal/evpnutil"
 )
 
 // NetworkAttachmentReconciler reconciles a NetworkAttachment object.
@@ -56,6 +57,7 @@ type NetworkAttachmentReconciler struct {
 // +kubebuilder:rbac:groups=overlay.networking.metal.ironcore.dev,resources=networkattachments/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=overlay.networking.metal.ironcore.dev,resources=networkattachments/finalizers,verbs=update
 // +kubebuilder:rbac:groups=overlay.networking.metal.ironcore.dev,resources=networks,verbs=get;list;watch
+// +kubebuilder:rbac:groups=overlay.networking.metal.ironcore.dev,resources=routingdomains,verbs=get;list;watch
 // +kubebuilder:rbac:groups=evpn.networking.metal.ironcore.dev,resources=fabrics,verbs=get;list;watch
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=claims,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=devices,verbs=get;list;watch
@@ -184,7 +186,7 @@ func (r *NetworkAttachmentReconciler) SetupWithManager(ctx context.Context, mgr 
 		return err
 	}
 
-	for _, obj := range []client.Object{&v1alpha1.VLAN{}, &v1alpha1.EVPNInstance{}} {
+	for _, obj := range []client.Object{&v1alpha1.VLAN{}, &v1alpha1.EVPNInstance{}, &v1alpha1.Interface{}} {
 		if err := mgr.GetFieldIndexer().IndexField(ctx, obj, controllerOwnerUIDKey, func(obj client.Object) []string {
 			owner := metav1.GetControllerOf(obj)
 			if owner == nil {
@@ -201,6 +203,7 @@ func (r *NetworkAttachmentReconciler) SetupWithManager(ctx context.Context, mgr 
 		Named("evpn-networkattachment").
 		WithEventFilter(filter).
 		Owns(&v1alpha1.VLAN{}).
+		Owns(&v1alpha1.Interface{}).
 		Owns(&v1alpha1.EVPNInstance{}).
 		// Watches enqueues NetworkAttachments that request the same encapsulation.
 		Watches(
@@ -223,7 +226,28 @@ func (r *NetworkAttachmentReconciler) SetupWithManager(ctx context.Context, mgr 
 			handler.EnqueueRequestsFromMapFunc(r.networkToNetworkAttachments),
 			builder.WithPredicates(predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					return !equality.Semantic.DeepEqual(e.ObjectOld.GetDeletionTimestamp(), e.ObjectNew.GetDeletionTimestamp())
+					oldNetwork := e.ObjectOld.(*overlayv1alpha1.Network)
+					newNetwork := e.ObjectNew.(*overlayv1alpha1.Network)
+					deleted := !equality.Semantic.DeepEqual(oldNetwork.GetDeletionTimestamp(), newNetwork.GetDeletionTimestamp())
+					changed := !equality.Semantic.DeepEqual(oldNetwork.Spec, newNetwork.Spec)
+					return deleted || changed
+				},
+				GenericFunc: func(event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
+		// Watches enqueues NetworkAttachments when their referenced RoutingDomain is created, starts deletion, or is deleted.
+		Watches(
+			&overlayv1alpha1.RoutingDomain{},
+			handler.EnqueueRequestsFromMapFunc(r.routingDomainToNetworkAttachments),
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					oldRD := e.ObjectOld.(*overlayv1alpha1.RoutingDomain)
+					newRD := e.ObjectNew.(*overlayv1alpha1.RoutingDomain)
+					deleted := !equality.Semantic.DeepEqual(oldRD.GetDeletionTimestamp(), newRD.GetDeletionTimestamp())
+					changed := conditions.IsReady(oldRD) != conditions.IsReady(newRD)
+					return deleted || changed
 				},
 				GenericFunc: func(event.GenericEvent) bool {
 					return false
@@ -322,7 +346,7 @@ func (r *NetworkAttachmentReconciler) reconcile(ctx context.Context, na *overlay
 		if err := r.reconcileInterfaceMembership(ctx, na, nil); err != nil {
 			return err
 		}
-		if err := r.deleteStaleResources(ctx, na, nil); err != nil {
+		if err := r.deleteStaleResources(ctx, na, nil, nil); err != nil {
 			return err
 		}
 		conditions.Set(na, metav1.Condition{
@@ -342,7 +366,7 @@ func (r *NetworkAttachmentReconciler) reconcile(ctx context.Context, na *overlay
 		if err := r.reconcileInterfaceMembership(ctx, na, nil); err != nil {
 			return err
 		}
-		if err := r.deleteStaleResources(ctx, na, nil); err != nil {
+		if err := r.deleteStaleResources(ctx, na, nil, nil); err != nil {
 			return err
 		}
 		conditions.Set(na, metav1.Condition{
@@ -376,7 +400,7 @@ func (r *NetworkAttachmentReconciler) reconcile(ctx context.Context, na *overlay
 		return err
 	}
 
-	vni, routeTarget, err := r.computeVNIRouteTarget(na, fabric, claim)
+	vni, routeTarget, err := evpnutil.ComputeVNIRouteTarget(na, fabric, claim)
 	if err != nil {
 		return err
 	}
@@ -406,12 +430,20 @@ func (r *NetworkAttachmentReconciler) reconcile(ctx context.Context, na *overlay
 	if err := r.reconcileEncapsulation(ctx, na, devices, fabric, vni, routeTarget); err != nil {
 		return err
 	}
+	rd, err := r.resolveRoutingDomain(ctx, na, network)
+	if err != nil {
+		return err
+	}
+
+	if err := r.reconcileGateway(ctx, network, na, fabric, rd, devices); err != nil {
+		return err
+	}
 
 	if err := r.reconcileInterfaceMembership(ctx, na, desiredInterfaces); err != nil {
 		return err
 	}
 
-	if err := r.deleteStaleResources(ctx, na, devices); err != nil {
+	if err := r.deleteStaleResources(ctx, na, rd, devices); err != nil {
 		return err
 	}
 
@@ -501,49 +533,20 @@ func (r *NetworkAttachmentReconciler) resolveDevices(ctx context.Context, na *ov
 }
 
 func (r *NetworkAttachmentReconciler) resolveFabric(ctx context.Context, na *overlayv1alpha1.NetworkAttachment, devices map[string]*v1alpha1.Device) (*evpnv1alpha1.Fabric, error) {
-	var fabric *evpnv1alpha1.Fabric
-
 	fabrics := &evpnv1alpha1.FabricList{}
 	if err := r.List(ctx, fabrics, client.InNamespace(na.Namespace)); err != nil {
 		return nil, fmt.Errorf("list fabrics: %w", err)
 	}
 
-	var errs []error
-	for _, device := range devices {
-		var matchingFabrics []*evpnv1alpha1.Fabric
-		for i := range fabrics.Items {
-			fabricSelector, err := metav1.LabelSelectorAsSelector(&fabrics.Items[i].Spec.DeviceSelector)
-			if err != nil {
-				return nil, fmt.Errorf("parse device selector for fabric %q: %w", fabrics.Items[i].Name, err)
-			}
-			if fabricSelector.Matches(labels.Set(device.Labels)) {
-				matchingFabrics = append(matchingFabrics, &fabrics.Items[i])
-			}
-		}
-		switch len(matchingFabrics) {
-		case 0:
-			errs = append(errs, fmt.Errorf("device %q does not match any fabric", device.Name))
-		case 1:
-			matchedFabric := matchingFabrics[0]
-			if fabric == nil {
-				fabric = matchedFabric
-				continue
-			}
-			if fabric.Name != matchedFabric.Name {
-				errs = append(errs, fmt.Errorf("device %q resolves to fabric %q, want %q", device.Name, matchedFabric.Name, fabric.Name))
-			}
-		default:
-			errs = append(errs, fmt.Errorf("device %q matches %d fabrics, want exactly one", device.Name, len(matchingFabrics)))
-		}
-	}
-	if len(errs) > 0 {
+	fabric, err := deviceutil.SelectFabric(devices, fabrics.Items)
+	if err != nil {
 		conditions.Set(na, metav1.Condition{
 			Type:    v1alpha1.ReadyCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  evpnv1alpha1.FabricResolutionFailedReason,
-			Message: kerrors.NewAggregate(errs).Error(),
+			Message: err.Error(),
 		})
-		return nil, reconcile.TerminalError(kerrors.NewAggregate(errs))
+		return nil, reconcile.TerminalError(err)
 	}
 
 	if fabric.Spec.Overlay.IBGP == nil {
@@ -602,46 +605,20 @@ func (r *NetworkAttachmentReconciler) resolveVNIClaim(ctx context.Context, na *o
 	return claim, nil
 }
 
-func (r *NetworkAttachmentReconciler) computeVNIRouteTarget(na *overlayv1alpha1.NetworkAttachment, fabric *evpnv1alpha1.Fabric, claim *poolv1alpha1.Claim) (vni uint64, rt string, err error) {
-	asNumber := fabric.Spec.Overlay.IBGP.ASNumber.String()
-	// RFC 8365 auto-derivation requires a 2-byte ASN; bit size 16 rejects larger and dotted ASNs.
-	asn, err := strconv.ParseUint(asNumber, 10, 16)
-	if err != nil || asn == 0 {
-		conditions.Set(na, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  evpnv1alpha1.UnsupportedASNumberReason,
-			Message: fmt.Sprintf("Fabric %q has unsupported AS number %q, want 1..65535", fabric.Name, asNumber),
-		})
-		return 0, "", reconcile.TerminalError(fmt.Errorf("fabric %q has unsupported AS number %q, want 1..65535", fabric.Name, asNumber))
+func (r *NetworkAttachmentReconciler) resolveRoutingDomain(ctx context.Context, na *overlayv1alpha1.NetworkAttachment, network *overlayv1alpha1.Network) (*overlayv1alpha1.RoutingDomain, error) {
+	if network.Spec.RoutingDomainRef == nil {
+		return nil, nil //nolint:nilnil // An L2 Network has no RoutingDomain.
 	}
 
-	vni, err = strconv.ParseUint(claim.Status.Value, 10, 24)
-	if err != nil || vni == 0 || vni > 16777214 {
-		conditions.Set(na, metav1.Condition{
-			Type:    v1alpha1.ReadyCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  evpnv1alpha1.InvalidVNIReason,
-			Message: fmt.Sprintf("Claim %q has invalid VNI %q", claim.Name, claim.Status.Value),
-		})
-		return 0, "", reconcile.TerminalError(fmt.Errorf("claim %q has invalid VNI %q", claim.Name, claim.Status.Value))
+	rd := &overlayv1alpha1.RoutingDomain{}
+	err := r.Get(ctx, client.ObjectKey{Namespace: na.Namespace, Name: network.Spec.RoutingDomainRef.Name}, rd)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("get routing domain %q: %w", network.Spec.RoutingDomainRef.Name, err)
 	}
-
-	// RFC 8365 divides the 32-bit local administrator as follows:
-	//
-	//	bit 31       bits 30..28  bits 27..24  bits 23..0
-	//	+------------+------------+------------+----------------+
-	//	| A          | Type       | Domain ID  | Service ID     |
-	//	| 1 bit      | 3 bits     | 4 bits     | 24 bits        |
-	//	+------------+------------+------------+----------------+
-	//
-	// A=0 means auto-derived, Type=1 means VXLAN, Domain ID=0, and Service ID is the VNI.
-	localAdministrator := uint32(1<<28) | uint32(vni)
-
-	// Represent the RFC 8365 auto-derived route target in ASN:local-administrator notation.
-	rt = fmt.Sprintf("%d:%d", asn, localAdministrator)
-
-	return vni, rt, nil
+	if apierrors.IsNotFound(err) || !rd.DeletionTimestamp.IsZero() {
+		return nil, nil //nolint:nilnil // handle missing routing domain gracefully; the NetworkAttachment can still be realized without it
+	}
+	return rd, nil
 }
 
 func (r *NetworkAttachmentReconciler) validatePeerConflicts(ctx context.Context, na *overlayv1alpha1.NetworkAttachment, devices map[string]*v1alpha1.Device) error {
@@ -813,6 +790,40 @@ func (r *NetworkAttachmentReconciler) reconcileEncapsulation(ctx context.Context
 	return nil
 }
 
+func (r *NetworkAttachmentReconciler) reconcileGateway(ctx context.Context, network *overlayv1alpha1.Network, na *overlayv1alpha1.NetworkAttachment, fabric *evpnv1alpha1.Fabric, routingDomain *overlayv1alpha1.RoutingDomain, devices map[string]*v1alpha1.Device) error {
+	if routingDomain == nil {
+		return nil
+	}
+	for _, device := range devices {
+		sviGW := &v1alpha1.Interface{Name: "routing-" + hash(routingDomain, na, device) + "-svi", Namespace: na.Namespace}
+		_, err := controllerutil.CreateOrPatch(ctx, r.Client, sviGW, func() error {
+			if sviGW.Labels == nil {
+				sviGW.Labels = make(map[string]string)
+			}
+			sviGW.Labels[evpnv1alpha1.NetworkLabel] = network.Name
+			sviGW.Labels[evpnv1alpha1.NetworkAttachmentLabel] = na.Name
+			sviGW.Labels[evpnv1alpha1.RoutingDomainLabel] = routingDomain.Name
+			sviGW.Labels[evpnv1alpha1.FabricLabel] = fabric.Name
+
+			sviGW.Spec.Name = fmt.Sprintf("Vlan%d", na.Spec.Encapsulation.ID)
+			sviGW.Spec.DeviceRef = v1alpha1.LocalObjectReference{Name: device.Name}
+			sviGW.Spec.VlanRef = &v1alpha1.LocalObjectReference{Name: "attachment-" + hash(na, device) + "-vlan"}
+			sviGW.Spec.VrfRef = &v1alpha1.LocalObjectReference{Name: "routing-" + hash(routingDomain, device) + "-vrf"}
+			sviGW.Spec.Type = v1alpha1.InterfaceTypeRoutedVLAN
+			sviGW.Spec.AdminState = v1alpha1.AdminStateUp
+			sviGW.Spec.IPv4 = &v1alpha1.InterfaceIPv4{AnycastGateway: true}
+			if network.Spec.IPv4 != nil {
+				sviGW.Spec.IPv4.Addresses = []v1alpha1.IPPrefix{network.Spec.IPv4.Address}
+			}
+			return controllerutil.SetControllerReference(na, sviGW, r.Scheme)
+		})
+		if err != nil {
+			return fmt.Errorf("reconcile SVI Gateway on device %q: %w", device.Name, err)
+		}
+	}
+	return nil
+}
+
 func (r *NetworkAttachmentReconciler) reconcileInterfaceMembership(ctx context.Context, na *overlayv1alpha1.NetworkAttachment, desiredInterfaces map[string]overlayv1alpha1.NetworkAttachmentInterfaceStatus) error {
 	// Remove the allowed VLAN from owned Interfaces that are no longer selected.
 	for _, owned := range na.Status.Interfaces {
@@ -852,7 +863,7 @@ func (r *NetworkAttachmentReconciler) reconcileInterfaceMembership(ctx context.C
 	return nil
 }
 
-func (r *NetworkAttachmentReconciler) deleteStaleResources(ctx context.Context, na *overlayv1alpha1.NetworkAttachment, devices map[string]*v1alpha1.Device) error {
+func (r *NetworkAttachmentReconciler) deleteStaleResources(ctx context.Context, na *overlayv1alpha1.NetworkAttachment, rd *overlayv1alpha1.RoutingDomain, devices map[string]*v1alpha1.Device) error {
 	vlanRefs := sets.New[string]()
 
 	evis := &v1alpha1.EVPNInstanceList{}
@@ -873,6 +884,34 @@ func (r *NetworkAttachmentReconciler) deleteStaleResources(ctx context.Context, 
 		if evi.DeletionTimestamp.IsZero() {
 			if err := client.IgnoreNotFound(r.Delete(ctx, evi)); err != nil {
 				return fmt.Errorf("delete EVPN instance %q: %w", evi.Name, err)
+			}
+		}
+	}
+
+	anycastGWs := &v1alpha1.InterfaceList{}
+	if err := r.List(ctx, anycastGWs, client.InNamespace(na.Namespace), client.MatchingFields{controllerOwnerUIDKey: string(na.UID)}); err != nil {
+		return fmt.Errorf("list interfaces controlled by network attachment %q: %w", na.Name, err)
+	}
+	for i := range anycastGWs.Items {
+		anycastGW := &anycastGWs.Items[i]
+		if !metav1.IsControlledBy(anycastGW, na) {
+			continue
+		}
+		_, desired := devices[anycastGW.Spec.DeviceRef.Name]
+		// expect SVI gateway interfaces to point to the current RoutingDomain
+		expected := rd != nil &&
+			desired &&
+			// ensure obsolete SVIs are removed if the RoutingDomain was recreated
+			anycastGW.Name == "routing-"+hash(rd, na)+"-anycast"
+		if desired && expected {
+			continue
+		}
+		if anycastGW.Spec.VlanRef != nil && !vlanRefs.Has(anycastGW.Spec.VlanRef.Name) {
+			vlanRefs.Insert(anycastGW.Spec.VlanRef.Name)
+		}
+		if anycastGW.DeletionTimestamp.IsZero() {
+			if err := client.IgnoreNotFound(r.Delete(ctx, anycastGW)); err != nil {
+				return fmt.Errorf("delete SVI gateway interface %q: %w", anycastGW.Name, err)
 			}
 		}
 	}
@@ -1045,6 +1084,30 @@ func (r *NetworkAttachmentReconciler) networkToNetworkAttachments(ctx context.Co
 		requests = append(requests, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(&list.Items[i])})
 	}
 
+	return requests
+}
+
+func (r *NetworkAttachmentReconciler) routingDomainToNetworkAttachments(ctx context.Context, obj client.Object) []ctrl.Request {
+	rd, ok := obj.(*overlayv1alpha1.RoutingDomain)
+	if !ok {
+		panic(fmt.Sprintf("Expected a RoutingDomain but got a %T", obj))
+	}
+
+	requests := make([]ctrl.Request, 0)
+	nets := &overlayv1alpha1.NetworkList{}
+	if err := r.List(
+		ctx,
+		nets,
+		client.InNamespace(rd.Namespace),
+		client.MatchingFields{networkRoutingDomainRefIndexKey: rd.Name},
+	); err != nil {
+		ctrl.LoggerFrom(ctx, "RoutingDomain", klog.KObj(rd)).Error(err, "Failed to list Networks")
+		return nil
+	}
+	for n := range nets.Items {
+		net := &nets.Items[n]
+		requests = append(requests, r.networkToNetworkAttachments(ctx, net)...)
+	}
 	return requests
 }
 

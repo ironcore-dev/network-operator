@@ -867,6 +867,15 @@ func main() { //nolint:gocyclo
 		os.Exit(1)
 	}
 
+	if err := (&evpncontroller.RoutingDomainReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorder("routingdomain-controller"),
+	}).SetupWithManager(ctx, mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "evpn-routingdomain")
+		os.Exit(1)
+	}
+
 	if err := (&corecontroller.ProbeReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
@@ -907,6 +916,7 @@ func main() { //nolint:gocyclo
 		setupLog.Error(err, "Failed to create controller", "controller", "NetworkAttachment")
 		os.Exit(1)
 	}
+
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {

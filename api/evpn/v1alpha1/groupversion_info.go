@@ -36,6 +36,9 @@ const (
 
 	// NetworkAttachmentLabel identifies the NetworkAttachment that realizes an EVPN resource.
 	NetworkAttachmentLabel = "evpn.networking.metal.ironcore.dev/network-attachment"
+
+	// RoutingDomainLabel identifies the RoutingDomain associated with an EVPN resource.
+	RoutingDomainLabel = "evpn.networking.metal.ironcore.dev/routing-domain"
 )
 
 // Fabric condition types.
@@ -75,6 +78,9 @@ const (
 
 	// NetworkNotFoundReason indicates that the referenced Network does not exist.
 	NetworkNotFoundReason = "NetworkNotFound"
+
+	// RoutingDomainNotFoundReason indicates that the referenced RoutingDomain does not exist.
+	RoutingDomainNotFoundReason = "RoutingDomainNotFound"
 
 	// InvalidVNIReason indicates that an allocated VNI is invalid.
 	InvalidVNIReason = "InvalidVNI"
