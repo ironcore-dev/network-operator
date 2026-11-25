@@ -917,6 +917,16 @@ func main() { //nolint:gocyclo
 		os.Exit(1)
 	}
 
+	if err := (&overlaycontroller.ExternalPeeringReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorder("externalpeering-controller"),
+		WatchFilterValue: watchFilterValue,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "ExternalPeering")
+		os.Exit(1)
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {
