@@ -33,6 +33,18 @@ rules:
   - update
   - watch
 - apiGroups:
+  - core.networking.metal.ironcore.dev
+  resources:
+  - ospfs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - events.k8s.io
   resources:
   - events

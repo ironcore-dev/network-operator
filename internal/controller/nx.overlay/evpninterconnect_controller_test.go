@@ -779,3 +779,248 @@ var _ = Describe("reconcileInterfaces", func() {
 		Expect(intfA.Spec.IPv4).To(BeNil())
 	})
 })
+
+// newUnderlayInterface builds an Interface pointer with one IPv4 address on the given device.
+func newUnderlayInterface(name, deviceName, addr string) *corev1alpha1.Interface {
+	return &corev1alpha1.Interface{
+		Name:      name,
+		Namespace: metav1.NamespaceDefault,
+		Spec: corev1alpha1.InterfaceSpec{
+			DeviceRef: corev1alpha1.LocalObjectReference{Name: deviceName},
+			Type:      corev1alpha1.InterfaceTypePhysical,
+			IPv4: &corev1alpha1.InterfaceIPv4{
+				Addresses: []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix(addr)},
+			},
+		},
+	}
+}
+
+// newUnderlayLoopback builds a loopback Interface pointer on the given device.
+func newUnderlayLoopback(deviceName, addr string) *corev1alpha1.Interface {
+	return &corev1alpha1.Interface{
+		Name:      "lo0",
+		Namespace: metav1.NamespaceDefault,
+		Spec: corev1alpha1.InterfaceSpec{
+			DeviceRef: corev1alpha1.LocalObjectReference{Name: deviceName},
+			Type:      corev1alpha1.InterfaceTypeLoopback,
+			IPv4: &corev1alpha1.InterfaceIPv4{
+				Addresses: []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix(addr)},
+			},
+		},
+	}
+}
+
+// newUnderlayFakeReconciler creates an EVPNInterconnectReconciler backed by a fake client
+// seeded with the given objects, using the full scheme from the test suite.
+func newUnderlayFakeReconciler(objects ...client.Object) *EVPNInterconnectReconciler {
+	return &EVPNInterconnectReconciler{
+		Client: fake.NewClientBuilder().WithScheme(k8sClient.Scheme()).WithObjects(objects...).Build(),
+		Scheme: k8sClient.Scheme(),
+	}
+}
+
+var _ = Describe("reconcileUnderlay", func() {
+	It("dispatches to reconcileOSPF for OSPF protocol", func() {
+		ic := testInterconnect()
+		r := newUnderlayFakeReconciler(ic)
+		lb := newUnderlayLoopback("device-a", "192.0.2.1/32")
+		state := &ReconcileState{
+			interfaces: map[string]*corev1alpha1.Interface{
+				"eth0": newUnderlayInterface("eth0", "device-a", "10.0.0.1/30"),
+			},
+			loopbacks: map[string]*corev1alpha1.Interface{"device-a": lb},
+		}
+
+		_, err := r.reconcileUnderlay(ctx, ic, state)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("returns a terminal error for BGP protocol", func() {
+		ic := testInterconnect()
+		ic.Spec.DCI.Underlay.Protocol = nxoverlayv1alpha1.UnderlayProtocolBGP
+		r := newUnderlayFakeReconciler(ic)
+		state := &ReconcileState{interfaces: map[string]*corev1alpha1.Interface{}}
+
+		_, err := r.reconcileUnderlay(ctx, ic, state)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("BGP underlay is not supported"))
+	})
+
+	It("errors when state has no interfaces (OSPF)", func() {
+		ic := testInterconnect()
+		r := newUnderlayFakeReconciler(ic)
+		state := &ReconcileState{interfaces: map[string]*corev1alpha1.Interface{}}
+
+		_, err := r.reconcileUnderlay(ctx, ic, state)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("no interfaces resolved"))
+	})
+})
+
+var _ = Describe("reconcileOSPF", func() {
+	var (
+		ic    *nxoverlayv1alpha1.EVPNInterconnect
+		lb    *corev1alpha1.Interface
+		state *ReconcileState
+	)
+
+	BeforeEach(func() {
+		ic = testInterconnect()
+		lb = newUnderlayLoopback("device-a", "192.0.2.1/32")
+		deviceA := &corev1alpha1.Device{Name: "device-a", Namespace: metav1.NamespaceDefault, Spec: corev1alpha1.DeviceSpec{Provider: "interconnect-test-nxos"}}
+		deviceA.UID = "device-a-uid"
+		state = &ReconcileState{
+			interfaces: map[string]*corev1alpha1.Interface{
+				"eth0": newUnderlayInterface("eth0", "device-a", "10.0.0.1/30"),
+			},
+			loopbacks: map[string]*corev1alpha1.Interface{"device-a": lb},
+			devices:   map[string]*corev1alpha1.Device{"device-a": deviceA},
+		}
+	})
+
+	It("creates one OSPF resource per device", func() {
+		r := newUnderlayFakeReconciler(ic)
+
+		_, err := r.reconcileOSPF(ctx, ic, state)
+		Expect(err).NotTo(HaveOccurred())
+
+		ospfList := &corev1alpha1.OSPFList{}
+		Expect(r.List(ctx, ospfList)).To(Succeed())
+		Expect(ospfList.Items).To(HaveLen(1))
+
+		ospf := &ospfList.Items[0]
+		Expect(ospf.Name).To(Equal("underlay-" + hash(ic, state.devices["device-a"])))
+		Expect(ospf.Spec.DeviceRef.Name).To(Equal("device-a"))
+		Expect(ospf.Spec.Instance).To(Equal("UNDERLAY"))
+		Expect(ospf.Spec.RouterID).To(Equal("10.0.0.1"))
+		Expect(ospf.Labels[nxoverlayv1alpha1.EVPNInterconnectLabel]).To(Equal(ic.Name))
+		Expect(ospf.OwnerReferences).To(ContainElement(SatisfyAll(
+			HaveField("Kind", "EVPNInterconnect"),
+			HaveField("Name", ic.Name),
+		)))
+		Expect(ospf.Spec.InterfaceRefs).To(ContainElement(HaveField("Name", "eth0")))
+		Expect(ospf.Spec.InterfaceRefs).To(ContainElement(SatisfyAll(
+			HaveField("Name", "lo0"),
+			HaveField("Passive", Not(BeNil())),
+		)))
+	})
+
+	It("errors when loopbacks is empty in state", func() {
+		r := newUnderlayFakeReconciler(ic)
+		state.loopbacks = map[string]*corev1alpha1.Interface{}
+
+		_, err := r.reconcileOSPF(ctx, ic, state)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("no loopback interfaces resolved"))
+	})
+
+	It("errors when device has no loopback in state.loopbacks", func() {
+		r := newUnderlayFakeReconciler(ic)
+		// Keep a loopback for a different device so the non-empty guard passes
+		state.loopbacks["device-b"] = newUnderlayLoopback("device-b", "192.0.2.2/32")
+		delete(state.loopbacks, "device-a")
+
+		_, err := r.reconcileOSPF(ctx, ic, state)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("no loopback for device device-a"))
+	})
+
+	It("creates one OSPF resource per device when interfaces span two devices", func() {
+		lb2 := newUnderlayLoopback("device-b", "192.0.2.2/32")
+		deviceB := &corev1alpha1.Device{Name: "device-b", Namespace: metav1.NamespaceDefault, Spec: corev1alpha1.DeviceSpec{Provider: "interconnect-test-nxos"}}
+		deviceB.UID = "device-b-uid"
+		state.interfaces["eth1"] = newUnderlayInterface("eth1", "device-b", "10.0.0.2/30")
+		state.loopbacks["device-b"] = lb2
+		state.devices["device-b"] = deviceB
+		r := newUnderlayFakeReconciler(ic)
+
+		_, err := r.reconcileOSPF(ctx, ic, state)
+		Expect(err).NotTo(HaveOccurred())
+
+		ospfList := &corev1alpha1.OSPFList{}
+		Expect(r.List(ctx, ospfList)).To(Succeed())
+		Expect(ospfList.Items).To(HaveLen(2))
+
+		names := []string{ospfList.Items[0].Name, ospfList.Items[1].Name}
+		Expect(names).To(ConsistOf(
+			"underlay-"+hash(ic, state.devices["device-a"]),
+			"underlay-"+hash(ic, state.devices["device-b"]),
+		))
+	})
+
+	It("is idempotent: re-running does not change an existing OSPF resource", func() {
+		r := newUnderlayFakeReconciler(ic)
+
+		_, err := r.reconcileOSPF(ctx, ic, state)
+		Expect(err).NotTo(HaveOccurred())
+
+		ospf := &corev1alpha1.OSPF{}
+		ospfName := "underlay-" + hash(ic, state.devices["device-a"])
+		Expect(r.Get(ctx, client.ObjectKey{Name: ospfName, Namespace: metav1.NamespaceDefault}, ospf)).To(Succeed())
+		firstRV := ospf.ResourceVersion
+
+		_, err = r.reconcileOSPF(ctx, ic, state)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(r.Get(ctx, client.ObjectKey{Name: ospfName, Namespace: metav1.NamespaceDefault}, ospf)).To(Succeed())
+		Expect(ospf.ResourceVersion).To(Equal(firstRV))
+	})
+
+	It("groups multiple interfaces on the same device into one OSPF resource", func() {
+		state.interfaces["eth2"] = newUnderlayInterface("eth2", "device-a", "10.0.0.1/30")
+		r := newUnderlayFakeReconciler(ic)
+
+		_, err := r.reconcileOSPF(ctx, ic, state)
+		Expect(err).NotTo(HaveOccurred())
+
+		ospfList := &corev1alpha1.OSPFList{}
+		Expect(r.List(ctx, ospfList)).To(Succeed())
+		Expect(ospfList.Items).To(HaveLen(1))
+		// 2 DCI interfaces + 1 loopback
+		Expect(ospfList.Items[0].Spec.InterfaceRefs).To(HaveLen(3))
+	})
+})
+
+var _ = Describe("ospfRouterID", func() {
+	It("returns the IPv4 address of the first interface", func() {
+		intfs := []*corev1alpha1.Interface{
+			newUnderlayInterface("eth0", "device-a", "10.0.0.1/30"),
+		}
+		routerID, err := ospfRouterID(intfs)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(routerID).To(Equal("10.0.0.1"))
+	})
+
+	It("errors when an interface has no IPv4 address", func() {
+		intfs := []*corev1alpha1.Interface{
+			{Name: "eth0", Spec: corev1alpha1.InterfaceSpec{}},
+		}
+		_, err := ospfRouterID(intfs)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("eth0"))
+	})
+
+	DescribeTable("errors when interfaces on the same device disagree on router-id",
+		func(addr1, addr2 string) {
+			intfs := []*corev1alpha1.Interface{
+				newUnderlayInterface("eth0", "device-a", addr1),
+				newUnderlayInterface("eth1", "device-a", addr2),
+			}
+			_, err := ospfRouterID(intfs)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("eth1"))
+		},
+		Entry("different /30 addresses", "10.0.0.1/30", "10.0.0.5/30"),
+		Entry("different /31 addresses", "10.0.0.0/31", "10.0.0.2/31"),
+	)
+
+	It("accepts multiple interfaces that all share the same router-id", func() {
+		intfs := make([]*corev1alpha1.Interface, 3)
+		for i := range intfs {
+			intfs[i] = newUnderlayInterface(fmt.Sprintf("eth%d", i), "device-a", "10.0.0.1/30")
+		}
+		routerID, err := ospfRouterID(intfs)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(routerID).To(Equal("10.0.0.1"))
+	})
+})
