@@ -14,8 +14,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	nxoverlayv1alpha1 "github.com/ironcore-dev/network-operator/api/nx.overlay/v1alpha1"
@@ -37,6 +41,8 @@ type EVPNInterconnectReconciler struct {
 // +kubebuilder:rbac:groups=nx.overlay.networking.metal.ironcore.dev,resources=evpninterconnects/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=nx.overlay.networking.metal.ironcore.dev,resources=evpninterconnects/finalizers,verbs=update
 // +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=claims,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=interfaces,verbs=get;list;watch;patch
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=devices,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -137,10 +143,11 @@ func (r *EVPNInterconnectReconciler) reconcile(ctx context.Context, ic *nxoverla
 
 	// TODO
 
-	// state := &ReconcileState{
-	// 	loopbacks: make(map[string][]*v1alpha1.Interface),
-	// 	uplinks:   make(map[string][]*v1alpha1.Interface),
-	// }
+	state := &ReconcileState{
+		vteps:      make(map[string][]v1alpha1.NetworkVirtualizationEdge),
+		devices:    make(map[string]v1alpha1.Device),
+		interfaces: make(map[string]v1alpha1.Interface),
+	}
 
 	// The ordering of phases is critical. Each phase may depend on resources
 	// provisioned by earlier phases:
@@ -162,7 +169,7 @@ func (r *EVPNInterconnectReconciler) reconcile(ctx context.Context, ic *nxoverla
 		r.reconcileBorderGateway,
 	}
 	for _, phase := range phases {
-		res, err := phase(ctx, ic, &ReconcileState{})
+		res, err := phase(ctx, ic, state)
 		if err != nil || !res.IsZero() {
 			return res, err
 		}
@@ -199,6 +206,78 @@ func (r *EVPNInterconnectReconciler) claimMultiSiteID(ctx context.Context, ic *n
 }
 
 func (r *EVPNInterconnectReconciler) reconcileInterfaces(ctx context.Context, ic *nxoverlayv1alpha1.EVPNInterconnect, state *ReconcileState) (ctrl.Result, error) {
+	log := ctrl.LoggerFrom(ctx)
+
+	seenInterfaces := make(map[string]bool)
+	seenDevices := make(map[string]bool)
+	resolved := make([]*v1alpha1.Interface, 0, len(ic.Spec.Interfaces))
+
+	for i := range ic.Spec.Interfaces {
+		dci := &ic.Spec.Interfaces[i]
+
+		interfaceName := dci.InterfaceRef.Name
+		if seenInterfaces[interfaceName] {
+			return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("interface %q is referenced more than once", dci.InterfaceRef.Name))
+		}
+		seenInterfaces[interfaceName] = true
+
+		intf := &v1alpha1.Interface{}
+		if err := r.Get(ctx, client.ObjectKey{Namespace: ic.Namespace, Name: dci.InterfaceRef.Name}, intf); err != nil {
+			if apierrors.IsNotFound(err) {
+				log.V(1).Info("Referenced interface not found yet, waiting", "interface", dci.InterfaceRef.Name)
+				return ctrl.Result{}, nil
+			}
+			return ctrl.Result{}, fmt.Errorf("getting interface %q: %w", dci.InterfaceRef.Name, err)
+		}
+		if intf.Spec.Type != v1alpha1.InterfaceTypePhysical {
+			return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("interface %q has type %q, expected %q", dci.InterfaceRef.Name, intf.Spec.Type, v1alpha1.InterfaceTypePhysical))
+		}
+		resolved = append(resolved, intf)
+
+		deviceName := intf.Spec.DeviceRef.Name
+		if seenDevices[deviceName] {
+			continue
+		}
+		seenDevices[deviceName] = true
+
+		device := &v1alpha1.Device{}
+		if err := r.Get(ctx, client.ObjectKey{Namespace: ic.Namespace, Name: deviceName}, device); err != nil {
+			if apierrors.IsNotFound(err) {
+				log.V(1).Info("Referenced device not found yet, waiting", "device", deviceName)
+				return ctrl.Result{}, nil
+			}
+			return ctrl.Result{}, fmt.Errorf("getting device %q: %w", deviceName, err)
+		}
+
+		state.devices[deviceName] = *device
+		state.interfaces[interfaceName] = *intf
+	}
+
+	if len(seenDevices) != 2 {
+		return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("exactly two distinct devices required, found %d", len(seenDevices)))
+	}
+
+	for i := range ic.Spec.Interfaces {
+		dci := &ic.Spec.Interfaces[i]
+		intf := resolved[i]
+
+		orig := intf.DeepCopy()
+		intf.Spec.Switchport = nil
+		intf.Spec.IPv4 = &v1alpha1.InterfaceIPv4{
+			Addresses: []v1alpha1.IPPrefix{dci.Address},
+		}
+		if dci.MTU != nil {
+			intf.Spec.MTU = *dci.MTU
+		}
+		if equality.Semantic.DeepEqual(orig.Spec, intf.Spec) {
+			continue
+		}
+		if err := r.Patch(ctx, intf, client.MergeFrom(orig)); err != nil {
+			return ctrl.Result{}, fmt.Errorf("patching DCI interface %q: %w", intf.Name, err)
+		}
+		log.Info("Patched DCI interface", "interface", intf.Name)
+	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -222,6 +301,8 @@ type ReconcileFunc func(context.Context, *nxoverlayv1alpha1.EVPNInterconnect, *R
 type ReconcileState struct {
 	vteps       map[string][]v1alpha1.NetworkVirtualizationEdge // DCI-facing VTEPs in the group
 	multiSiteID *poolv1alpha1.Claim                             // Multi-Site ID claimed from index pool
+	devices     map[string]v1alpha1.Device
+	interfaces  map[string]v1alpha1.Interface
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -229,6 +310,12 @@ func (r *EVPNInterconnectReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&nxoverlayv1alpha1.EVPNInterconnect{}).
 		Owns(&poolv1alpha1.Claim{}).
+		// Re-reconcile when a referenced DCI Interface's spec changes so drift is re-converged
+		Watches(
+			&v1alpha1.Interface{},
+			handler.EnqueueRequestsFromMapFunc(r.interfacesToInterconnects),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		).
 		Named("nx.overlay-evpninterconnect").
 		Complete(r)
 }
@@ -245,4 +332,33 @@ func hash(objects ...client.Object) string {
 	}
 	hash := sha256.Sum256([]byte(strings.Join(uids, "/")))
 	return hex.EncodeToString(hash[:16])
+}
+
+// interfacesToInterconnects maps an Interface event to the EVPNInterconnects
+// that reference it by name in spec.interfaces.
+func (r *EVPNInterconnectReconciler) interfacesToInterconnects(ctx context.Context, obj client.Object) []ctrl.Request {
+	intf, ok := obj.(*v1alpha1.Interface)
+	if !ok {
+		panic(fmt.Sprintf("Expected an Interface but got a %T", obj))
+	}
+
+	log := ctrl.LoggerFrom(ctx)
+
+	icList := &nxoverlayv1alpha1.EVPNInterconnectList{}
+	if err := r.List(ctx, icList, client.InNamespace(intf.Namespace)); err != nil {
+		log.Error(err, "Failed to list EVPNInterconnects")
+		return nil
+	}
+
+	var requests []ctrl.Request
+	for i := range icList.Items {
+		ic := &icList.Items[i]
+		for j := range ic.Spec.Interfaces {
+			if ic.Spec.Interfaces[j].InterfaceRef.Name == intf.Name {
+				requests = append(requests, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(ic)})
+				break
+			}
+		}
+	}
+	return requests
 }
