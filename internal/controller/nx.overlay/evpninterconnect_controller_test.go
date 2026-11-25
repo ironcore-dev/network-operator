@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -22,6 +23,7 @@ import (
 	corev1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	nxoverlayv1alpha1 "github.com/ironcore-dev/network-operator/api/nx.overlay/v1alpha1"
 	poolv1alpha1 "github.com/ironcore-dev/network-operator/api/pool/v1alpha1"
+	"github.com/ironcore-dev/network-operator/internal/conditions"
 )
 
 var _ = Describe("EVPNInterconnect Controller", func() {
@@ -39,361 +41,374 @@ var _ = Describe("EVPNInterconnect Controller", func() {
 			"device-2": {Name: "device-2", Spec: corev1alpha1.DeviceSpec{Provider: "interconnect-test-nxos"}},
 		}}
 	})
-	It("creates owned bricks and finalizes them through the API server", func() {
-		r.Client = k8sClient
-		pool := &poolv1alpha1.IPAddressPool{
-			Name: "loopbacks", Namespace: ic.Namespace,
-			Spec: poolv1alpha1.IPAddressPoolSpec{Prefixes: []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.0.0.0/29")}},
-		}
-		Expect(k8sClient.Create(ctx, pool)).To(Succeed())
-		DeferCleanup(func() { Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, pool))).To(Succeed()) })
-		ic.UID, ic.ResourceVersion = "", ""
-		Expect(k8sClient.Create(ctx, ic)).To(Succeed())
-		DeferCleanup(func() {
-			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, ic))).To(Succeed())
-			Eventually(func() bool {
-				return apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(ic), &nxoverlayv1alpha1.EVPNInterconnect{}))
-			}).Should(BeTrue())
-		})
-		Eventually(func(g Gomega) {
-			g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(ic), ic)).To(Succeed())
-			g.Expect(controllerutil.ContainsFinalizer(ic, nxoverlayv1alpha1.FinalizerName)).To(BeTrue())
-			g.Expect(ic.Status.Conditions).To(HaveLen(3))
-		}).Should(Succeed())
-
-		// Device and NVE discovery are supplied; the pool controllers allocate real addresses.
-		state.interfaces = make(map[string]*corev1alpha1.Interface)
-		for i := range ic.Spec.Interfaces {
-			intf := &corev1alpha1.Interface{
-				Name: ic.Spec.Interfaces[i].InterfaceRef.Name, Namespace: ic.Namespace,
-				Spec: corev1alpha1.InterfaceSpec{
-					DeviceRef: corev1alpha1.LocalObjectReference{Name: fmt.Sprintf("device-%d", i+1)},
-					Name:      "Ethernet1/1", Type: corev1alpha1.InterfaceTypePhysical, AdminState: corev1alpha1.AdminStateUp,
-				},
-			}
-			Expect(k8sClient.Create(ctx, intf)).To(Succeed())
-			state.interfaces[intf.Name] = intf
-			DeferCleanup(func() { Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, intf))).To(Succeed()) })
-		}
-		Eventually(func(g Gomega) {
-			res, err := r.reconcileLoopbacks(ctx, ic, state)
-			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(res.IsZero()).To(BeTrue())
-			g.Expect(state.loopbacks).To(HaveLen(2))
-		}).Should(Succeed())
-		for deviceName := range state.devices {
-			state.vteps[deviceName] = []corev1alpha1.NetworkVirtualizationEdge{{
-				Name: "fabric-" + deviceName, Namespace: ic.Namespace,
-				Status: corev1alpha1.NetworkVirtualizationEdgeStatus{Conditions: []metav1.Condition{{
-					Type: corev1alpha1.ConfiguredCondition, Status: metav1.ConditionTrue,
-				}}},
-			}}
-		}
-		res, err := r.reconcileBorderGateway(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.IsZero()).To(BeTrue())
-		for deviceName := range state.devices {
-			loopbackName := fmt.Sprintf("%s-%s-lo9", ic.Name, deviceName)
-			claim := &poolv1alpha1.Claim{}
-			Expect(r.Get(ctx, client.ObjectKey{Namespace: ic.Namespace, Name: loopbackName}, claim)).To(Succeed())
-			Expect(metav1.IsControlledBy(claim, ic)).To(BeTrue())
-			intf := &corev1alpha1.Interface{}
-			Expect(r.Get(ctx, client.ObjectKey{Namespace: ic.Namespace, Name: loopbackName}, intf)).To(Succeed())
-			Expect(metav1.IsControlledBy(intf, ic)).To(BeTrue())
-			Expect(intf.Spec.Name).To(Equal("Loopback9"))
-			Expect(intf.Spec.IPv4.Addresses[0].Bits()).To(Equal(32))
-			bgw := &nxv1alpha1.BorderGateway{}
-			Expect(r.Get(ctx, client.ObjectKey{Namespace: ic.Namespace, Name: fmt.Sprintf("%s-%s-bgw", ic.Name, deviceName)}, bgw)).To(Succeed())
-			Expect(metav1.IsControlledBy(bgw, ic)).To(BeTrue())
-			owner := metav1.GetControllerOf(bgw)
-			Expect(owner.APIVersion).To(Equal(nxoverlayv1alpha1.GroupVersion.String()))
-			Expect(owner.Kind).To(Equal("EVPNInterconnect"))
-			Expect(owner.Name).To(Equal(ic.Name))
-			Expect(bgw.Spec.DeviceRef.Name).To(Equal(deviceName))
-			Expect(bgw.Spec.MultisiteID).To(Equal(state.multiSiteID))
-			Expect(bgw.Spec.SourceInterfaceRef.Name).To(Equal(loopbackName))
-			Expect(bgw.Spec.InterconnectInterfaceRefs).To(HaveLen(1))
-		}
-		Expect(r.Delete(ctx, ic)).To(Succeed())
-		Eventually(func() bool {
-			return apierrors.IsNotFound(r.Get(ctx, client.ObjectKeyFromObject(ic), &nxoverlayv1alpha1.EVPNInterconnect{}))
-		}).Should(BeTrue())
-		for _, list := range []client.ObjectList{&nxv1alpha1.BorderGatewayList{}, &poolv1alpha1.ClaimList{}} {
-			Expect(r.List(ctx, list, client.InNamespace(ic.Namespace))).To(Succeed())
-			Expect(list).To(HaveField("Items", BeEmpty()))
-		}
-		interfaces := &corev1alpha1.InterfaceList{}
-		Expect(r.List(ctx, interfaces, client.InNamespace(ic.Namespace))).To(Succeed())
-		Expect(interfaces.Items).To(HaveLen(2))
-		for i := range interfaces.Items {
-			Expect(interfaces.Items[i].Spec.Type).To(Equal(corev1alpha1.InterfaceTypePhysical))
-		}
-	})
-	It("rejects changing the loopback address pool through the API server", func() {
-		ic.UID, ic.ResourceVersion = "", ""
-		Expect(k8sClient.Create(ctx, ic)).To(Succeed())
-		DeferCleanup(func() {
+	Context("When reconciling the lifecycle", func() {
+		It("initializes conditions and finalizes through the API server", func() {
+			ic.UID, ic.ResourceVersion = "", ""
+			Expect(k8sClient.Create(ctx, ic)).To(Succeed())
+			DeferCleanup(func() { Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, ic))).To(Succeed()) })
+			key := client.ObjectKeyFromObject(ic)
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, key, ic)).To(Succeed())
+				g.Expect(controllerutil.ContainsFinalizer(ic, nxoverlayv1alpha1.FinalizerName)).To(BeTrue())
+				g.Expect(conditions.Get(ic, corev1alpha1.ReadyCondition)).NotTo(BeNil())
+			}).Should(Succeed())
 			Expect(k8sClient.Delete(ctx, ic)).To(Succeed())
 			Eventually(func() bool {
-				return apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(ic), &nxoverlayv1alpha1.EVPNInterconnect{}))
+				return apierrors.IsNotFound(k8sClient.Get(ctx, key, ic))
 			}).Should(BeTrue())
 		})
-		changed := ic.DeepCopy()
-		changed.Spec.IPAddressPoolRef.Name = "other-loopbacks"
-		err := k8sClient.Patch(ctx, changed, client.MergeFrom(ic))
-		Expect(apierrors.IsInvalid(err)).To(BeTrue())
-		Expect(err).To(MatchError(ContainSubstring("ipAddressPoolRef is immutable")))
-		Expect(k8sClient.Patch(ctx, ic.DeepCopy(), client.MergeFrom(ic))).To(Succeed())
-	})
-	It("allocates per-device loopbacks and repairs drift without redundant patches", func() {
-		_, err := r.reconcileLoopbacks(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(state.loopbacks).To(BeEmpty())
-		for i := 1; i <= 2; i++ {
-			allocateInterconnectClaim(r.Client, fmt.Sprintf("interconnect-device-%d-lo9", i), fmt.Sprintf("10.0.0.%d", i))
-		}
-		_, err = r.reconcileLoopbacks(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(state.loopbacks).To(HaveLen(2))
-		for name, intf := range state.loopbacks {
-			Expect(intf.Spec.Name).To(Equal("Loopback9"))
-			Expect(intf.Spec.DeviceRef.Name).To(Equal(name))
-			Expect(intf.Spec.Type).To(Equal(corev1alpha1.InterfaceTypeLoopback))
-			Expect(intf.Spec.AdminState).To(Equal(corev1alpha1.AdminStateUp))
-			Expect(intf.Spec.IPv4.Addresses[0].Bits()).To(Equal(32))
-			Expect(metav1.IsControlledBy(intf, ic)).To(BeTrue())
-		}
-		patches := recorded.patches
-		_, err = r.reconcileLoopbacks(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(recorded.patches).To(Equal(patches))
-		intf := state.loopbacks["device-1"]
-		intf.Spec.AdminState = corev1alpha1.AdminStateDown
-		intf.Spec.IPv4.Addresses = []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.9.9.9/32")}
-		intf.Labels = map[string]string{"unrelated": "keep"}
-		Expect(r.Update(ctx, intf)).To(Succeed())
-		_, err = r.reconcileLoopbacks(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(state.loopbacks["device-1"].Spec.AdminState).To(Equal(corev1alpha1.AdminStateUp))
-		Expect(state.loopbacks["device-1"].Spec.IPv4.Addresses[0].String()).To(Equal("10.0.0.1/32"))
-		Expect(state.loopbacks["device-1"].Labels).To(HaveKeyWithValue("unrelated", "keep"))
-		patches = recorded.patches
-		_, err = r.reconcileLoopbacks(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(recorded.patches).To(Equal(patches))
-	})
-	DescribeTable("rejects invalid loopback allocations", func(value string) {
-		_, err := r.reconcileLoopbacks(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		allocateInterconnectClaim(r.Client, "interconnect-device-1-lo9", value)
-		_, err = r.reconcileLoopbacks(ctx, ic, state)
-		Expect(errors.Is(err, reconcile.TerminalError(nil))).To(BeTrue())
-		Expect(state.loopbacks).To(BeEmpty())
-	}, Entry("malformed address", "invalid"), Entry("IPv6 address", "2001:db8::1"))
-	It("waits for a configured NVE at the current generation on every device", func() {
-		prepareInterconnectInterfaces(r, ic, state)
-		res, err := r.reconcileBorderGateway(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.RequeueAfter).To(Equal(dependencyRetryInterval))
-		nve := &corev1alpha1.NetworkVirtualizationEdge{
-			Name: "fabric-nve", Namespace: ic.Namespace, Generation: 2,
-			Spec: corev1alpha1.NetworkVirtualizationEdgeSpec{DeviceRef: corev1alpha1.LocalObjectReference{Name: "device-1"}},
-		}
-		nve.Status.Conditions = []metav1.Condition{{Type: corev1alpha1.ConfiguredCondition, Status: metav1.ConditionTrue, ObservedGeneration: 1}}
-		state.vteps[nve.Spec.DeviceRef.Name] = []corev1alpha1.NetworkVirtualizationEdge{*nve}
-		res, err = r.reconcileBorderGateway(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.RequeueAfter).To(Equal(dependencyRetryInterval))
-		nve.Status.Conditions[0].ObservedGeneration = nve.Generation
-		state.vteps[nve.Spec.DeviceRef.Name] = []corev1alpha1.NetworkVirtualizationEdge{*nve}
-		res, err = r.reconcileBorderGateway(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.RequeueAfter).To(Equal(dependencyRetryInterval))
-		nve2 := nve.DeepCopy()
-		nve2.Name, nve2.ResourceVersion = "fabric-nve-2", ""
-		nve2.Spec.DeviceRef.Name = "device-2"
-		state.vteps[nve2.Spec.DeviceRef.Name] = []corev1alpha1.NetworkVirtualizationEdge{*nve2}
-		patches := recorded.patches
-		res, err = r.reconcileBorderGateway(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.IsZero()).To(BeTrue())
-		Expect(recorded.patches).To(Equal(patches))
-		deleting := metav1.Now()
-		nve2.DeletionTimestamp = &deleting
-		state.vteps[nve2.Spec.DeviceRef.Name] = []corev1alpha1.NetworkVirtualizationEdge{*nve2}
-		res, err = r.reconcileBorderGateway(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.RequeueAfter).To(Equal(dependencyRetryInterval))
-		duplicate := nve.DeepCopy()
-		duplicate.Name, duplicate.ResourceVersion = "duplicate", ""
-		state.vteps[duplicate.Spec.DeviceRef.Name] = append(state.vteps[duplicate.Spec.DeviceRef.Name], *duplicate)
-		_, err = r.reconcileBorderGateway(ctx, ic, state)
-		Expect(errors.Is(err, reconcile.TerminalError(nil))).To(BeTrue())
+		It("rejects changing the loopback address pool through the API server", func() {
+			ic.UID, ic.ResourceVersion = "", ""
+			ic.Name = "immutable-interconnect"
+			Expect(k8sClient.Create(ctx, ic)).To(Succeed())
+			DeferCleanup(func() { Expect(k8sClient.Delete(ctx, ic)).To(Succeed()) })
+			changed := ic.DeepCopy()
+			changed.Spec.IPAddressPoolRef.Name = "other-loopbacks"
+			err := k8sClient.Update(ctx, changed)
+			Expect(apierrors.IsInvalid(err)).To(BeTrue())
+			Expect(err).To(MatchError(ContainSubstring("ipAddressPoolRef is immutable")))
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, client.ObjectKeyFromObject(ic), ic); err != nil {
+					return err
+				}
+				return k8sClient.Update(ctx, ic)
+			}).Should(Succeed())
+		})
 	})
 
-	It("creates an owned BorderGateway per device and reconciles interconnect fields", func() {
-		prepareInterconnectInterfaces(r, ic, state)
-		for deviceName := range state.devices {
-			nve := &corev1alpha1.NetworkVirtualizationEdge{
-				Name: "fabric-" + deviceName, Namespace: ic.Namespace,
-				Spec: corev1alpha1.NetworkVirtualizationEdgeSpec{DeviceRef: corev1alpha1.LocalObjectReference{Name: deviceName}},
+	Context("When reconciling loopbacks", func() {
+		It("allocates per-device loopbacks and repairs drift without redundant patches", func() {
+			_, err := r.reconcileLoopbacks(ctx, ic, state)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(state.loopbacks).To(BeEmpty())
+			for i := 1; i <= 2; i++ {
+				allocateInterconnectClaim(r.Client, fmt.Sprintf("interconnect-device-%d-lo9", i), fmt.Sprintf("10.0.0.%d", i))
 			}
-			nve.Status.Conditions = []metav1.Condition{{Type: corev1alpha1.ConfiguredCondition, Status: metav1.ConditionTrue}}
-			state.vteps[nve.Spec.DeviceRef.Name] = []corev1alpha1.NetworkVirtualizationEdge{*nve}
-		}
-		state.multiSiteID = 0
-		state.vteps["unrelated-device"] = []corev1alpha1.NetworkVirtualizationEdge{{Name: "unrelated"}}
-		res, err := r.reconcileBorderGateway(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.RequeueAfter).To(Equal(dependencyRetryInterval))
-		state.multiSiteID = 123
-		res, err = r.reconcileBorderGateway(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.IsZero()).To(BeTrue())
-		bgws := &nxv1alpha1.BorderGatewayList{}
-		Expect(r.List(ctx, bgws)).To(Succeed())
-		Expect(bgws.Items).To(HaveLen(2))
-		for i := range bgws.Items {
-			bgw := &bgws.Items[i]
-			Expect(metav1.IsControlledBy(bgw, ic)).To(BeTrue())
+			_, err = r.reconcileLoopbacks(ctx, ic, state)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(state.loopbacks).To(HaveLen(2))
+			for name, intf := range state.loopbacks {
+				Expect(intf.Spec.Name).To(Equal("Loopback9"))
+				Expect(intf.Spec.DeviceRef.Name).To(Equal(name))
+				Expect(intf.Spec.Type).To(Equal(corev1alpha1.InterfaceTypeLoopback))
+				Expect(intf.Spec.AdminState).To(Equal(corev1alpha1.AdminStateUp))
+				Expect(intf.Spec.IPv4.Addresses[0].Bits()).To(Equal(32))
+				Expect(metav1.IsControlledBy(intf, ic)).To(BeTrue())
+				claim := &poolv1alpha1.Claim{}
+				Expect(r.Get(ctx, client.ObjectKey{Namespace: ic.Namespace, Name: intf.Name}, claim)).To(Succeed())
+				Expect(metav1.IsControlledBy(claim, ic)).To(BeTrue())
+			}
+			patches := recorded.patches
+			_, err = r.reconcileLoopbacks(ctx, ic, state)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(recorded.patches).To(Equal(patches))
+			intf := state.loopbacks["device-1"]
+			intf.Spec.AdminState = corev1alpha1.AdminStateDown
+			intf.Spec.IPv4.Addresses = []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.9.9.9/32")}
+			intf.Labels = map[string]string{"unrelated": "keep"}
+			Expect(r.Update(ctx, intf)).To(Succeed())
+			_, err = r.reconcileLoopbacks(ctx, ic, state)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(state.loopbacks["device-1"].Spec.AdminState).To(Equal(corev1alpha1.AdminStateUp))
+			Expect(state.loopbacks["device-1"].Spec.IPv4.Addresses[0].String()).To(Equal("10.0.0.1/32"))
+			Expect(state.loopbacks["device-1"].Labels).To(HaveKeyWithValue("unrelated", "keep"))
+			patches = recorded.patches
+			_, err = r.reconcileLoopbacks(ctx, ic, state)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(recorded.patches).To(Equal(patches))
+		})
+		DescribeTable("rejects invalid loopback allocations", func(value string) {
+			_, err := r.reconcileLoopbacks(ctx, ic, state)
+			Expect(err).NotTo(HaveOccurred())
+			allocateInterconnectClaim(r.Client, "interconnect-device-1-lo9", value)
+			_, err = r.reconcileLoopbacks(ctx, ic, state)
+			Expect(errors.Is(err, reconcile.TerminalError(nil))).To(BeTrue())
+			Expect(state.loopbacks).To(BeEmpty())
+		}, Entry("malformed address", "invalid"), Entry("IPv6 address", "2001:db8::1"))
+	})
+
+	Context("When reconciling border gateways", func() {
+		BeforeEach(func() {
+			prepareInterconnectInterfaces(r, ic, state)
+			for deviceName := range state.devices {
+				nve := &corev1alpha1.NetworkVirtualizationEdge{
+					Name: "fabric-" + deviceName, Namespace: ic.Namespace, Generation: 2,
+					Spec: corev1alpha1.NetworkVirtualizationEdgeSpec{DeviceRef: corev1alpha1.LocalObjectReference{Name: deviceName}},
+				}
+				nve.Status.Conditions = []metav1.Condition{{Type: corev1alpha1.ConfiguredCondition, Status: metav1.ConditionTrue, ObservedGeneration: nve.Generation}}
+				state.vteps[nve.Spec.DeviceRef.Name] = []corev1alpha1.NetworkVirtualizationEdge{*nve}
+			}
+		})
+
+		DescribeTable("waits for dependencies or rejects ambiguous NVEs", func(prepare func(), terminal bool) {
+			prepare()
+			res, err := r.reconcileBorderGateway(ctx, ic, state)
+			if terminal {
+				Expect(errors.Is(err, reconcile.TerminalError(nil))).To(BeTrue())
+				return
+			}
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res.RequeueAfter).To(Equal(dependencyRetryInterval))
+			bgw := &nxv1alpha1.BorderGateway{}
+			Expect(apierrors.IsNotFound(r.Get(ctx, client.ObjectKey{Namespace: ic.Namespace, Name: "interconnect-device-1-bgw"}, bgw))).To(BeTrue())
+		},
+			Entry("unallocated multisite ID", func() { state.multiSiteID = 0 }, false),
+			Entry("missing NVE", func() { delete(state.vteps, "device-1") }, false),
+			Entry("stale NVE status", func() { state.vteps["device-1"][0].Status.Conditions[0].ObservedGeneration-- }, false),
+			Entry("deleting NVE", func() { now := metav1.Now(); state.vteps["device-1"][0].DeletionTimestamp = &now }, false),
+			Entry("missing loopback", func() { delete(state.loopbacks, "device-1") }, false),
+			Entry("missing DCI interface", func() { delete(state.interfaces, "dci-1") }, false),
+			Entry("deleting DCI interface", func() { now := metav1.Now(); state.interfaces["dci-1"].DeletionTimestamp = &now }, false),
+			Entry("multiple NVEs on a device", func() {
+				duplicate := state.vteps["device-1"][0].DeepCopy()
+				duplicate.Name = "duplicate"
+				state.vteps["device-1"] = append(state.vteps["device-1"], *duplicate)
+			}, true),
+		)
+
+		It("creates an owned BorderGateway per device and reconciles interconnect fields", func() {
+			state.vteps["unrelated-device"] = []corev1alpha1.NetworkVirtualizationEdge{{Name: "unrelated"}}
+			res, err := r.reconcileBorderGateway(ctx, ic, state)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res.IsZero()).To(BeTrue())
+			bgws := &nxv1alpha1.BorderGatewayList{}
+			Expect(r.List(ctx, bgws)).To(Succeed())
+			Expect(bgws.Items).To(HaveLen(2))
+			for i := range bgws.Items {
+				bgw := &bgws.Items[i]
+				Expect(metav1.IsControlledBy(bgw, ic)).To(BeTrue())
+				Expect(bgw.Spec.MultisiteID).To(Equal(int64(123)))
+				Expect(bgw.Spec.AdminState).To(Equal(corev1alpha1.AdminStateUp))
+				Expect(bgw.Spec.DelayRestoreTime.Duration).To(Equal(delayRestoreTime))
+				Expect(bgw.Spec.SourceInterfaceRef.Name).To(Equal(state.loopbacks[bgw.Spec.DeviceRef.Name].Name))
+				Expect(bgw.Spec.InterconnectInterfaceRefs).To(HaveLen(1))
+				Expect(bgw.Spec.InterconnectInterfaceRefs[0].Tracking).To(Equal(nxv1alpha1.InterconnectTrackingTypeDCI))
+				dci := &corev1alpha1.Interface{}
+				Expect(r.Get(ctx, client.ObjectKey{Namespace: ic.Namespace, Name: bgw.Spec.InterconnectInterfaceRefs[0].Name}, dci)).To(Succeed())
+				Expect(dci.Spec.DeviceRef).To(Equal(bgw.Spec.DeviceRef))
+			}
+			patches := recorded.patches
+			_, err = r.reconcileBorderGateway(ctx, ic, state)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(recorded.patches).To(Equal(patches))
+			bgw := &bgws.Items[0]
+			bgw.Spec.MultisiteID = 456
+			bgw.Spec.AdminState = corev1alpha1.AdminStateDown
+			bgw.Spec.DelayRestoreTime = metav1.Duration{Duration: 60 * time.Second}
+			bgw.Spec.BGPPeerRefs = []nxv1alpha1.BGPPeerReference{{Name: "peer", PeerType: nxv1alpha1.BGPPeerTypeFabricExternal}}
+			bgw.Spec.StormControl = []nxv1alpha1.StormControl{{Traffic: nxv1alpha1.TrafficTypeBroadcast, Level: "1"}}
+			bgw.Labels = map[string]string{"unrelated": "keep"}
+			Expect(r.Update(ctx, bgw)).To(Succeed())
+			_, err = r.reconcileBorderGateway(ctx, ic, state)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(r.Get(ctx, client.ObjectKeyFromObject(bgw), bgw)).To(Succeed())
 			Expect(bgw.Spec.MultisiteID).To(Equal(int64(123)))
 			Expect(bgw.Spec.AdminState).To(Equal(corev1alpha1.AdminStateUp))
-			Expect(bgw.Spec.DelayRestoreTime.Duration).To(Equal(delayRestoreTime))
-			Expect(bgw.Spec.SourceInterfaceRef.Name).To(Equal(state.loopbacks[bgw.Spec.DeviceRef.Name].Name))
-			Expect(bgw.Spec.InterconnectInterfaceRefs).To(HaveLen(1))
-			Expect(bgw.Spec.InterconnectInterfaceRefs[0].Tracking).To(Equal(nxv1alpha1.InterconnectTrackingTypeDCI))
-			dci := &corev1alpha1.Interface{}
-			Expect(r.Get(ctx, client.ObjectKey{Namespace: ic.Namespace, Name: bgw.Spec.InterconnectInterfaceRefs[0].Name}, dci)).To(Succeed())
-			Expect(dci.Spec.DeviceRef).To(Equal(bgw.Spec.DeviceRef))
-		}
-		patches := recorded.patches
-		_, err = r.reconcileBorderGateway(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(recorded.patches).To(Equal(patches))
-		bgw := &bgws.Items[0]
-		bgw.Spec.MultisiteID = 456
-		bgw.Spec.AdminState = corev1alpha1.AdminStateDown
-		bgw.Spec.DelayRestoreTime = metav1.Duration{Duration: 60 * time.Second}
-		bgw.Spec.BGPPeerRefs = []nxv1alpha1.BGPPeerReference{{Name: "peer", PeerType: nxv1alpha1.BGPPeerTypeFabricExternal}}
-		bgw.Spec.StormControl = []nxv1alpha1.StormControl{{Traffic: nxv1alpha1.TrafficTypeBroadcast, Level: "1"}}
-		bgw.Labels = map[string]string{"unrelated": "keep"}
-		Expect(r.Update(ctx, bgw)).To(Succeed())
-		_, err = r.reconcileBorderGateway(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(r.Get(ctx, client.ObjectKeyFromObject(bgw), bgw)).To(Succeed())
-		Expect(bgw.Spec.MultisiteID).To(Equal(int64(123)))
-		Expect(bgw.Spec.AdminState).To(Equal(corev1alpha1.AdminStateUp))
-		Expect(bgw.Spec.DelayRestoreTime.Duration).To(Equal(60 * time.Second))
-		Expect(bgw.Spec.BGPPeerRefs).To(HaveLen(1))
-		Expect(bgw.Spec.StormControl).To(HaveLen(1))
-		Expect(bgw.Labels).To(HaveKeyWithValue("unrelated", "keep"))
-		ic.Spec.Interfaces = ic.Spec.Interfaces[:1]
-		_, err = r.reconcileBorderGateway(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		bgw2 := &nxv1alpha1.BorderGateway{}
-		Expect(r.Get(ctx, client.ObjectKey{Namespace: ic.Namespace, Name: "interconnect-device-2-bgw"}, bgw2)).To(Succeed())
-		Expect(bgw2.Spec.InterconnectInterfaceRefs).To(BeEmpty())
+			Expect(bgw.Spec.DelayRestoreTime.Duration).To(Equal(60 * time.Second))
+			Expect(bgw.Spec.BGPPeerRefs).To(HaveLen(1))
+			Expect(bgw.Spec.StormControl).To(HaveLen(1))
+			Expect(bgw.Labels).To(HaveKeyWithValue("unrelated", "keep"))
+			ic.Spec.Interfaces = ic.Spec.Interfaces[:1]
+			_, err = r.reconcileBorderGateway(ctx, ic, state)
+			Expect(err).NotTo(HaveOccurred())
+			bgw2 := &nxv1alpha1.BorderGateway{}
+			Expect(r.Get(ctx, client.ObjectKey{Namespace: ic.Namespace, Name: "interconnect-device-2-bgw"}, bgw2)).To(Succeed())
+			Expect(bgw2.Spec.InterconnectInterfaceRefs).To(BeEmpty())
+		})
 	})
-	It("waits for source loopbacks and DCI references before creating BorderGateways", func() {
-		prepareInterconnectInterfaces(r, ic, state)
-		for deviceName := range state.devices {
-			nve := &corev1alpha1.NetworkVirtualizationEdge{
-				Name: "fabric-" + deviceName, Namespace: ic.Namespace,
-				Spec: corev1alpha1.NetworkVirtualizationEdgeSpec{DeviceRef: corev1alpha1.LocalObjectReference{Name: deviceName}},
-			}
-			nve.Status.Conditions = []metav1.Condition{{Type: corev1alpha1.ConfiguredCondition, Status: metav1.ConditionTrue}}
-			state.vteps[nve.Spec.DeviceRef.Name] = []corev1alpha1.NetworkVirtualizationEdge{*nve}
-		}
-		loopback := state.loopbacks["device-1"]
-		delete(state.loopbacks, "device-1")
-		res, err := r.reconcileBorderGateway(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.RequeueAfter).To(Equal(dependencyRetryInterval))
-		bgw := &nxv1alpha1.BorderGateway{}
-		key := client.ObjectKey{Namespace: ic.Namespace, Name: "interconnect-device-1-bgw"}
-		Expect(apierrors.IsNotFound(r.Get(ctx, key, bgw))).To(BeTrue())
-		state.loopbacks["device-1"] = loopback
-		dci := state.interfaces["dci-1"]
-		deleting := metav1.Now()
-		dci.DeletionTimestamp = &deleting
-		res, err = r.reconcileBorderGateway(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.RequeueAfter).To(Equal(dependencyRetryInterval))
-		Expect(apierrors.IsNotFound(r.Get(ctx, key, bgw))).To(BeTrue())
-		delete(state.interfaces, "dci-1")
-		res, err = r.reconcileBorderGateway(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.RequeueAfter).To(Equal(dependencyRetryInterval))
-		dci.DeletionTimestamp = nil
-		state.interfaces["dci-1"] = dci
-		res, err = r.reconcileBorderGateway(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.IsZero()).To(BeTrue())
-		Expect(r.Get(ctx, key, bgw)).To(Succeed())
-	})
-	It("watches Interfaces and NVEs in the interconnect namespace", func() {
+
+	DescribeTable("watches dependencies only in the interconnect namespace", func(dependency client.Object) {
 		other := testInterconnect()
 		other.Name, other.Namespace = "other", "other-namespace"
 		Expect(r.Create(ctx, other)).To(Succeed())
-		Expect(r.dependenciesToInterconnects(ctx, &corev1alpha1.NetworkVirtualizationEdge{Namespace: ic.Namespace})).To(Equal([]reconcile.Request{{NamespacedName: client.ObjectKeyFromObject(ic)}}))
-		Expect(r.dependenciesToInterconnects(ctx, &corev1alpha1.Interface{Namespace: ic.Namespace})).To(Equal([]reconcile.Request{{NamespacedName: client.ObjectKeyFromObject(ic)}}))
-	})
-	It("cleans dependents before loopbacks and Claims and retries failures", func() {
-		bgw := &nxv1alpha1.BorderGateway{Name: "bgw", Namespace: ic.Namespace, Finalizers: []string{"hold"}}
-		intf := &corev1alpha1.Interface{Name: "loopback", Namespace: ic.Namespace, Finalizers: []string{"hold"}}
-		claim := &poolv1alpha1.Claim{Name: "claim", Namespace: ic.Namespace}
-		for _, obj := range []client.Object{bgw, intf, claim} {
-			Expect(controllerutil.SetControllerReference(ic, obj, r.Scheme)).To(Succeed())
-			Expect(r.Create(ctx, obj)).To(Succeed())
-		}
-		foreign := &corev1alpha1.Interface{Name: "foreign", Namespace: ic.Namespace}
-		Expect(r.Create(ctx, foreign)).To(Succeed())
-		fabricNVE := &corev1alpha1.NetworkVirtualizationEdge{Name: "fabric-nve", Namespace: ic.Namespace}
-		Expect(r.Create(ctx, fabricNVE)).To(Succeed())
-		recorded.deleteError = errors.New("device cleanup unavailable")
-		_, err := r.finalize(ctx, ic)
-		Expect(err).To(MatchError(ContainSubstring("device cleanup unavailable")))
-		recorded.deleteError, recorded.deletes = nil, nil
-		res, err := r.finalize(ctx, ic)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.RequeueAfter).To(Equal(dependencyRetryInterval))
-		Expect(recorded.deletes).To(Equal([]string{"bgw"}))
-		res, err = r.finalize(ctx, ic)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.RequeueAfter).To(Equal(dependencyRetryInterval))
-		Expect(r.Get(ctx, client.ObjectKeyFromObject(claim), claim)).To(Succeed())
-		completeInterconnectChildDeletion(r.Client, bgw)
-		_, err = r.finalize(ctx, ic)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(recorded.deletes).To(Equal([]string{"bgw", "loopback"}))
-		Expect(r.Get(ctx, client.ObjectKeyFromObject(claim), claim)).To(Succeed())
-		completeInterconnectChildDeletion(r.Client, intf)
-		_, err = r.finalize(ctx, ic)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(recorded.deletes).To(Equal([]string{"bgw", "loopback", "claim"}))
-		res, err = r.finalize(ctx, ic)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.IsZero()).To(BeTrue())
-		Expect(r.Get(ctx, client.ObjectKeyFromObject(foreign), foreign)).To(Succeed())
-		Expect(r.Get(ctx, client.ObjectKeyFromObject(fabricNVE), fabricNVE)).To(Succeed())
-	})
-	It("cleans removed members without treating unpopulated discovery as empty membership", func() {
-		_, err := r.reconcileLoopbacks(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		allocateInterconnectClaim(r.Client, "interconnect-device-1-lo9", "10.0.0.1")
-		_, err = r.reconcileLoopbacks(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-		_, err = r.reconcileLoopbacks(ctx, ic, &ReconcileState{})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(recorded.deletes).To(BeEmpty())
-		delete(state.devices, "device-1")
-		for range 3 {
+		dependency.SetNamespace(ic.Namespace)
+		Expect(r.dependenciesToInterconnects(ctx, dependency)).To(Equal([]reconcile.Request{{NamespacedName: client.ObjectKeyFromObject(ic)}}))
+	},
+		Entry("Interfaces", &corev1alpha1.Interface{}),
+		Entry("NVEs", &corev1alpha1.NetworkVirtualizationEdge{}),
+	)
+
+	Context("When cleaning up owned resources", func() {
+		It("cleans dependents before loopbacks and Claims and retries failures", func() {
+			bgw := &nxv1alpha1.BorderGateway{Name: "bgw", Namespace: ic.Namespace, Finalizers: []string{"hold"}}
+			intf := &corev1alpha1.Interface{Name: "loopback", Namespace: ic.Namespace, Finalizers: []string{"hold"}}
+			claim := &poolv1alpha1.Claim{Name: "claim", Namespace: ic.Namespace}
+			for _, obj := range []client.Object{bgw, intf, claim} {
+				Expect(controllerutil.SetControllerReference(ic, obj, r.Scheme)).To(Succeed())
+				Expect(r.Create(ctx, obj)).To(Succeed())
+			}
+			foreign := &corev1alpha1.Interface{Name: "foreign", Namespace: ic.Namespace}
+			Expect(r.Create(ctx, foreign)).To(Succeed())
+			fabricNVE := &corev1alpha1.NetworkVirtualizationEdge{Name: "fabric-nve", Namespace: ic.Namespace}
+			Expect(r.Create(ctx, fabricNVE)).To(Succeed())
+			recorded.deleteError = errors.New("device cleanup unavailable")
+			_, err := r.finalize(ctx, ic)
+			Expect(err).To(MatchError(ContainSubstring("device cleanup unavailable")))
+			recorded.deleteError, recorded.deletes = nil, nil
+			res, err := r.finalize(ctx, ic)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res.RequeueAfter).To(Equal(dependencyRetryInterval))
+			Expect(recorded.deletes).To(Equal([]string{"bgw"}))
+			res, err = r.finalize(ctx, ic)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res.RequeueAfter).To(Equal(dependencyRetryInterval))
+			Expect(r.Get(ctx, client.ObjectKeyFromObject(claim), claim)).To(Succeed())
+			completeInterconnectChildDeletion(r.Client, bgw)
+			_, err = r.finalize(ctx, ic)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(recorded.deletes).To(Equal([]string{"bgw", "loopback"}))
+			Expect(r.Get(ctx, client.ObjectKeyFromObject(claim), claim)).To(Succeed())
+			completeInterconnectChildDeletion(r.Client, intf)
+			_, err = r.finalize(ctx, ic)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(recorded.deletes).To(Equal([]string{"bgw", "loopback", "claim"}))
+			res, err = r.finalize(ctx, ic)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res.IsZero()).To(BeTrue())
+			Expect(r.Get(ctx, client.ObjectKeyFromObject(foreign), foreign)).To(Succeed())
+			Expect(r.Get(ctx, client.ObjectKeyFromObject(fabricNVE), fabricNVE)).To(Succeed())
+		})
+		It("cleans removed members without treating unpopulated discovery as empty membership", func() {
+			_, err := r.reconcileLoopbacks(ctx, ic, state)
+			Expect(err).NotTo(HaveOccurred())
+			allocateInterconnectClaim(r.Client, "interconnect-device-1-lo9", "10.0.0.1")
 			_, err = r.reconcileLoopbacks(ctx, ic, state)
 			Expect(err).NotTo(HaveOccurred())
-		}
-		Expect(recorded.deletes).To(Equal([]string{"interconnect-device-1-lo9", "interconnect-device-1-lo9"}))
-		claim := &poolv1alpha1.Claim{}
-		Expect(r.Get(ctx, client.ObjectKey{Namespace: ic.Namespace, Name: "interconnect-device-2-lo9"}, claim)).To(Succeed())
+			_, err = r.reconcileLoopbacks(ctx, ic, &ReconcileState{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(recorded.deletes).To(BeEmpty())
+			delete(state.devices, "device-1")
+			for range 3 {
+				_, err = r.reconcileLoopbacks(ctx, ic, state)
+				Expect(err).NotTo(HaveOccurred())
+			}
+			Expect(recorded.deletes).To(Equal([]string{"interconnect-device-1-lo9", "interconnect-device-1-lo9"}))
+			claim := &poolv1alpha1.Claim{}
+			Expect(r.Get(ctx, client.ObjectKey{Namespace: ic.Namespace, Name: "interconnect-device-2-lo9"}, claim)).To(Succeed())
+		})
+	})
+
+	Context("When reconciling the underlay", func() {
+		BeforeEach(func() {
+			state = &ReconcileState{
+				devices: map[string]*corev1alpha1.Device{
+					"device-a": {Name: "device-a", UID: "device-a-uid"},
+				},
+				interfaces: map[string]*corev1alpha1.Interface{
+					"eth0": newUnderlayInterface("eth0", "device-a", "10.0.0.1/30"),
+				},
+				loopbacks: map[string]*corev1alpha1.Interface{
+					"device-a": {Name: "lo0", Namespace: ic.Namespace, Spec: corev1alpha1.InterfaceSpec{
+						DeviceRef: corev1alpha1.LocalObjectReference{Name: "device-a"},
+						Type:      corev1alpha1.InterfaceTypeLoopback,
+					}},
+				},
+			}
+		})
+
+		DescribeTable("rejects unsupported protocols and missing dependencies", func(protocol nxoverlayv1alpha1.UnderlayProtocol, missing string, message string) {
+			ic.Spec.DCI.Underlay.Protocol = protocol
+			switch missing {
+			case "devices":
+				state.devices = nil
+			case "interfaces":
+				state.interfaces = nil
+			case "loopbacks":
+				state.loopbacks = nil
+			case "device-loopback":
+				state.loopbacks["device-b"] = state.loopbacks["device-a"]
+				delete(state.loopbacks, "device-a")
+			}
+			_, err := r.reconcileUnderlay(ctx, ic, state)
+			Expect(err).To(MatchError(ContainSubstring(message)))
+		},
+			Entry("BGP underlay", nxoverlayv1alpha1.UnderlayProtocolBGP, "", "BGP underlay is not supported"),
+			Entry("no interfaces", nxoverlayv1alpha1.UnderlayProtocolOSPF, "interfaces", "no interfaces resolved"),
+			Entry("no devices", nxoverlayv1alpha1.UnderlayProtocolOSPF, "devices", "no devices resolved"),
+			Entry("no loopbacks", nxoverlayv1alpha1.UnderlayProtocolOSPF, "loopbacks", "no loopback interfaces resolved"),
+			Entry("no loopback for the device", nxoverlayv1alpha1.UnderlayProtocolOSPF, "device-loopback", "no loopback for device device-a"),
+		)
+
+		DescribeTable("creates one OSPF resource per device", func(deviceCount, interfacesPerDevice int) {
+			state.devices = make(map[string]*corev1alpha1.Device)
+			state.interfaces = make(map[string]*corev1alpha1.Interface)
+			state.loopbacks = make(map[string]*corev1alpha1.Interface)
+			for deviceIndex := range deviceCount {
+				deviceName := fmt.Sprintf("device-%d", deviceIndex)
+				state.devices[deviceName] = &corev1alpha1.Device{Name: deviceName, UID: types.UID(deviceName)}
+				state.loopbacks[deviceName] = &corev1alpha1.Interface{Name: deviceName + "-lo0", Namespace: ic.Namespace}
+				for interfaceIndex := range interfacesPerDevice {
+					name := fmt.Sprintf("%s-eth%d", deviceName, interfaceIndex)
+					state.interfaces[name] = newUnderlayInterface(name, deviceName, fmt.Sprintf("10.0.0.%d/31", deviceIndex))
+				}
+			}
+			_, err := r.reconcileUnderlay(ctx, ic, state)
+			Expect(err).NotTo(HaveOccurred())
+			ospfs := &corev1alpha1.OSPFList{}
+			Expect(r.List(ctx, ospfs)).To(Succeed())
+			Expect(ospfs.Items).To(HaveLen(deviceCount))
+			for index := range ospfs.Items {
+				ospf := &ospfs.Items[index]
+				deviceName := ospf.Spec.DeviceRef.Name
+				Expect(ospf.Name).To(Equal("underlay-" + hash(ic, state.devices[deviceName])))
+				Expect(ospf.Spec.Instance).To(Equal("UNDERLAY"))
+				Expect(ospf.Spec.RouterID).To(Equal(state.interfaces[deviceName+"-eth0"].Spec.IPv4.Addresses[0].Addr().String()))
+				Expect(ospf.Labels).To(HaveKeyWithValue(nxoverlayv1alpha1.EVPNInterconnectLabel, ic.Name))
+				Expect(ospf.OwnerReferences).To(ContainElement(SatisfyAll(
+					HaveField("Kind", "EVPNInterconnect"),
+					HaveField("Name", ic.Name),
+					HaveField("UID", ic.UID),
+				)))
+				Expect(ospf.Spec.InterfaceRefs).To(HaveLen(interfacesPerDevice + 1))
+				for interfaceIndex := range interfacesPerDevice {
+					Expect(ospf.Spec.InterfaceRefs).To(ContainElement(HaveField("Name", fmt.Sprintf("%s-eth%d", deviceName, interfaceIndex))))
+				}
+				Expect(ospf.Spec.InterfaceRefs).To(ContainElement(SatisfyAll(
+					HaveField("Name", state.loopbacks[deviceName].Name),
+					HaveField("Passive", HaveValue(BeTrue())),
+				)))
+			}
+		},
+			Entry("one device", 1, 1),
+			Entry("two devices", 2, 1),
+			Entry("multiple interfaces on one device", 1, 2),
+		)
+
+		It("does not patch unchanged OSPF configuration", func() {
+			_, err := r.reconcileUnderlay(ctx, ic, state)
+			Expect(err).NotTo(HaveOccurred())
+			patches := recorded.patches
+			_, err = r.reconcileUnderlay(ctx, ic, state)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(recorded.patches).To(Equal(patches))
+		})
+	})
+
+	Context("When deriving the OSPF router ID", func() {
+		DescribeTable("derives a consistent IPv4 router ID", func(addresses []string, expected, message string) {
+			interfaces := make([]*corev1alpha1.Interface, len(addresses))
+			for index, address := range addresses {
+				name := fmt.Sprintf("eth%d", index)
+				if address == "" {
+					interfaces[index] = &corev1alpha1.Interface{Name: name}
+				} else {
+					interfaces[index] = newUnderlayInterface(name, "device-a", address)
+				}
+			}
+			routerID, err := ospfRouterID(interfaces)
+			if message != "" {
+				Expect(err).To(MatchError(ContainSubstring(message)))
+				return
+			}
+			Expect(err).NotTo(HaveOccurred())
+			Expect(routerID).To(Equal(expected))
+		},
+			Entry("one interface", []string{"10.0.0.1/30"}, "10.0.0.1", ""),
+			Entry("matching addresses", []string{"10.0.0.1/30", "10.0.0.1/30", "10.0.0.1/30"}, "10.0.0.1", ""),
+			Entry("missing IPv4 configuration", []string{""}, "", "eth0"),
+			Entry("different /30 addresses", []string{"10.0.0.1/30", "10.0.0.5/30"}, "", "eth1"),
+			Entry("different /31 addresses", []string{"10.0.0.0/31", "10.0.0.2/31"}, "", "eth1"),
+		)
 	})
 })
 
@@ -402,10 +417,10 @@ func testInterconnect() *nxoverlayv1alpha1.EVPNInterconnect {
 		Name: "interconnect", Namespace: "default", UID: "interconnect-uid",
 		Spec: nxoverlayv1alpha1.EVPNInterconnectSpec{
 			IPAddressPoolRef:        corev1alpha1.LocalObjectReference{Name: "loopbacks"},
-			MultiSiteIDIndexPoolRef: corev1alpha1.TypedLocalObjectReference{APIVersion: poolv1alpha1.GroupVersion.String(), Kind: "IndexPool", Name: "sites"},
+			MultiSiteIDIndexPoolRef: corev1alpha1.LocalObjectReference{Name: "sites"},
 			Interfaces: []nxoverlayv1alpha1.DCIInterface{
-				{InterfaceRef: corev1alpha1.LocalObjectReference{Name: "dci-1"}, Address: corev1alpha1.MustParsePrefix("192.0.2.0/31"), RemoteAddress: corev1alpha1.MustParsePrefix("192.0.2.1/31")},
-				{InterfaceRef: corev1alpha1.LocalObjectReference{Name: "dci-2"}, Address: corev1alpha1.MustParsePrefix("192.0.2.1/31"), RemoteAddress: corev1alpha1.MustParsePrefix("192.0.2.0/31")},
+				{InterfaceRef: corev1alpha1.LocalObjectReference{Name: "dci-1"}, Address: corev1alpha1.MustParsePrefix("192.0.2.0/31")},
+				{InterfaceRef: corev1alpha1.LocalObjectReference{Name: "dci-2"}, Address: corev1alpha1.MustParsePrefix("192.0.2.1/31")},
 			},
 			DCI: nxoverlayv1alpha1.DCI{Underlay: nxoverlayv1alpha1.Underlay{Protocol: nxoverlayv1alpha1.UnderlayProtocolOSPF}, Overlay: nxoverlayv1alpha1.Overlay{Protocol: nxoverlayv1alpha1.OverlayProtocolBGP}},
 		},
@@ -494,22 +509,18 @@ var _ = Describe("EVPNInterconnect Controller", func() {
 				GenerateName: "test-ic-",
 				Namespace:    metav1.NamespaceDefault,
 				Spec: nxoverlayv1alpha1.EVPNInterconnectSpec{
-					MultiSiteIDIndexPoolRef: corev1alpha1.TypedLocalObjectReference{
-						APIVersion: poolv1alpha1.GroupVersion.String(),
-						Kind:       "IndexPool",
-						Name:       pool.Name,
+					MultiSiteIDIndexPoolRef: corev1alpha1.LocalObjectReference{
+						Name: pool.Name,
 					},
 					IPAddressPoolRef: corev1alpha1.LocalObjectReference{Name: "unused-ip-pool"},
 					Interfaces: []nxoverlayv1alpha1.DCIInterface{
 						{
-							InterfaceRef:  corev1alpha1.LocalObjectReference{Name: "eth0"},
-							Address:       corev1alpha1.MustParsePrefix("10.0.0.0/31"),
-							RemoteAddress: corev1alpha1.MustParsePrefix("10.0.0.1/31"),
+							InterfaceRef: corev1alpha1.LocalObjectReference{Name: "eth0"},
+							Address:      corev1alpha1.MustParsePrefix("10.0.0.0/31"),
 						},
 						{
-							InterfaceRef:  corev1alpha1.LocalObjectReference{Name: "eth1"},
-							Address:       corev1alpha1.MustParsePrefix("10.0.1.0/31"),
-							RemoteAddress: corev1alpha1.MustParsePrefix("10.0.1.1/31"),
+							InterfaceRef: corev1alpha1.LocalObjectReference{Name: "eth1"},
+							Address:      corev1alpha1.MustParsePrefix("10.0.1.0/31"),
 						},
 					},
 					DCI: nxoverlayv1alpha1.DCI{
@@ -794,233 +805,3 @@ func newUnderlayInterface(name, deviceName, addr string) *corev1alpha1.Interface
 		},
 	}
 }
-
-// newUnderlayLoopback builds a loopback Interface pointer on the given device.
-func newUnderlayLoopback(deviceName, addr string) *corev1alpha1.Interface {
-	return &corev1alpha1.Interface{
-		Name:      "lo0",
-		Namespace: metav1.NamespaceDefault,
-		Spec: corev1alpha1.InterfaceSpec{
-			DeviceRef: corev1alpha1.LocalObjectReference{Name: deviceName},
-			Type:      corev1alpha1.InterfaceTypeLoopback,
-			IPv4: &corev1alpha1.InterfaceIPv4{
-				Addresses: []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix(addr)},
-			},
-		},
-	}
-}
-
-// newUnderlayFakeReconciler creates an EVPNInterconnectReconciler backed by a fake client
-// seeded with the given objects, using the full scheme from the test suite.
-func newUnderlayFakeReconciler(objects ...client.Object) *EVPNInterconnectReconciler {
-	return &EVPNInterconnectReconciler{
-		Client: fake.NewClientBuilder().WithScheme(k8sClient.Scheme()).WithObjects(objects...).Build(),
-		Scheme: k8sClient.Scheme(),
-	}
-}
-
-var _ = Describe("reconcileUnderlay", func() {
-	It("dispatches to reconcileOSPF for OSPF protocol", func() {
-		ic := testInterconnect()
-		r := newUnderlayFakeReconciler(ic)
-		lb := newUnderlayLoopback("device-a", "192.0.2.1/32")
-		state := &ReconcileState{
-			interfaces: map[string]*corev1alpha1.Interface{
-				"eth0": newUnderlayInterface("eth0", "device-a", "10.0.0.1/30"),
-			},
-			loopbacks: map[string]*corev1alpha1.Interface{"device-a": lb},
-		}
-
-		_, err := r.reconcileUnderlay(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-	})
-
-	It("returns a terminal error for BGP protocol", func() {
-		ic := testInterconnect()
-		ic.Spec.DCI.Underlay.Protocol = nxoverlayv1alpha1.UnderlayProtocolBGP
-		r := newUnderlayFakeReconciler(ic)
-		state := &ReconcileState{interfaces: map[string]*corev1alpha1.Interface{}}
-
-		_, err := r.reconcileUnderlay(ctx, ic, state)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("BGP underlay is not supported"))
-	})
-
-	It("errors when state has no interfaces (OSPF)", func() {
-		ic := testInterconnect()
-		r := newUnderlayFakeReconciler(ic)
-		state := &ReconcileState{interfaces: map[string]*corev1alpha1.Interface{}}
-
-		_, err := r.reconcileUnderlay(ctx, ic, state)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("no interfaces resolved"))
-	})
-})
-
-var _ = Describe("reconcileOSPF", func() {
-	var (
-		ic    *nxoverlayv1alpha1.EVPNInterconnect
-		lb    *corev1alpha1.Interface
-		state *ReconcileState
-	)
-
-	BeforeEach(func() {
-		ic = testInterconnect()
-		lb = newUnderlayLoopback("device-a", "192.0.2.1/32")
-		deviceA := &corev1alpha1.Device{Name: "device-a", Namespace: metav1.NamespaceDefault, Spec: corev1alpha1.DeviceSpec{Provider: "interconnect-test-nxos"}}
-		deviceA.UID = "device-a-uid"
-		state = &ReconcileState{
-			interfaces: map[string]*corev1alpha1.Interface{
-				"eth0": newUnderlayInterface("eth0", "device-a", "10.0.0.1/30"),
-			},
-			loopbacks: map[string]*corev1alpha1.Interface{"device-a": lb},
-			devices:   map[string]*corev1alpha1.Device{"device-a": deviceA},
-		}
-	})
-
-	It("creates one OSPF resource per device", func() {
-		r := newUnderlayFakeReconciler(ic)
-
-		_, err := r.reconcileOSPF(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-
-		ospfList := &corev1alpha1.OSPFList{}
-		Expect(r.List(ctx, ospfList)).To(Succeed())
-		Expect(ospfList.Items).To(HaveLen(1))
-
-		ospf := &ospfList.Items[0]
-		Expect(ospf.Name).To(Equal("underlay-" + hash(ic, state.devices["device-a"])))
-		Expect(ospf.Spec.DeviceRef.Name).To(Equal("device-a"))
-		Expect(ospf.Spec.Instance).To(Equal("UNDERLAY"))
-		Expect(ospf.Spec.RouterID).To(Equal("10.0.0.1"))
-		Expect(ospf.Labels[nxoverlayv1alpha1.EVPNInterconnectLabel]).To(Equal(ic.Name))
-		Expect(ospf.OwnerReferences).To(ContainElement(SatisfyAll(
-			HaveField("Kind", "EVPNInterconnect"),
-			HaveField("Name", ic.Name),
-		)))
-		Expect(ospf.Spec.InterfaceRefs).To(ContainElement(HaveField("Name", "eth0")))
-		Expect(ospf.Spec.InterfaceRefs).To(ContainElement(SatisfyAll(
-			HaveField("Name", "lo0"),
-			HaveField("Passive", Not(BeNil())),
-		)))
-	})
-
-	It("errors when loopbacks is empty in state", func() {
-		r := newUnderlayFakeReconciler(ic)
-		state.loopbacks = map[string]*corev1alpha1.Interface{}
-
-		_, err := r.reconcileOSPF(ctx, ic, state)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("no loopback interfaces resolved"))
-	})
-
-	It("errors when device has no loopback in state.loopbacks", func() {
-		r := newUnderlayFakeReconciler(ic)
-		// Keep a loopback for a different device so the non-empty guard passes
-		state.loopbacks["device-b"] = newUnderlayLoopback("device-b", "192.0.2.2/32")
-		delete(state.loopbacks, "device-a")
-
-		_, err := r.reconcileOSPF(ctx, ic, state)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("no loopback for device device-a"))
-	})
-
-	It("creates one OSPF resource per device when interfaces span two devices", func() {
-		lb2 := newUnderlayLoopback("device-b", "192.0.2.2/32")
-		deviceB := &corev1alpha1.Device{Name: "device-b", Namespace: metav1.NamespaceDefault, Spec: corev1alpha1.DeviceSpec{Provider: "interconnect-test-nxos"}}
-		deviceB.UID = "device-b-uid"
-		state.interfaces["eth1"] = newUnderlayInterface("eth1", "device-b", "10.0.0.2/30")
-		state.loopbacks["device-b"] = lb2
-		state.devices["device-b"] = deviceB
-		r := newUnderlayFakeReconciler(ic)
-
-		_, err := r.reconcileOSPF(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-
-		ospfList := &corev1alpha1.OSPFList{}
-		Expect(r.List(ctx, ospfList)).To(Succeed())
-		Expect(ospfList.Items).To(HaveLen(2))
-
-		names := []string{ospfList.Items[0].Name, ospfList.Items[1].Name}
-		Expect(names).To(ConsistOf(
-			"underlay-"+hash(ic, state.devices["device-a"]),
-			"underlay-"+hash(ic, state.devices["device-b"]),
-		))
-	})
-
-	It("is idempotent: re-running does not change an existing OSPF resource", func() {
-		r := newUnderlayFakeReconciler(ic)
-
-		_, err := r.reconcileOSPF(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-
-		ospf := &corev1alpha1.OSPF{}
-		ospfName := "underlay-" + hash(ic, state.devices["device-a"])
-		Expect(r.Get(ctx, client.ObjectKey{Name: ospfName, Namespace: metav1.NamespaceDefault}, ospf)).To(Succeed())
-		firstRV := ospf.ResourceVersion
-
-		_, err = r.reconcileOSPF(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(r.Get(ctx, client.ObjectKey{Name: ospfName, Namespace: metav1.NamespaceDefault}, ospf)).To(Succeed())
-		Expect(ospf.ResourceVersion).To(Equal(firstRV))
-	})
-
-	It("groups multiple interfaces on the same device into one OSPF resource", func() {
-		state.interfaces["eth2"] = newUnderlayInterface("eth2", "device-a", "10.0.0.1/30")
-		r := newUnderlayFakeReconciler(ic)
-
-		_, err := r.reconcileOSPF(ctx, ic, state)
-		Expect(err).NotTo(HaveOccurred())
-
-		ospfList := &corev1alpha1.OSPFList{}
-		Expect(r.List(ctx, ospfList)).To(Succeed())
-		Expect(ospfList.Items).To(HaveLen(1))
-		// 2 DCI interfaces + 1 loopback
-		Expect(ospfList.Items[0].Spec.InterfaceRefs).To(HaveLen(3))
-	})
-})
-
-var _ = Describe("ospfRouterID", func() {
-	It("returns the IPv4 address of the first interface", func() {
-		intfs := []*corev1alpha1.Interface{
-			newUnderlayInterface("eth0", "device-a", "10.0.0.1/30"),
-		}
-		routerID, err := ospfRouterID(intfs)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(routerID).To(Equal("10.0.0.1"))
-	})
-
-	It("errors when an interface has no IPv4 address", func() {
-		intfs := []*corev1alpha1.Interface{
-			{Name: "eth0", Spec: corev1alpha1.InterfaceSpec{}},
-		}
-		_, err := ospfRouterID(intfs)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("eth0"))
-	})
-
-	DescribeTable("errors when interfaces on the same device disagree on router-id",
-		func(addr1, addr2 string) {
-			intfs := []*corev1alpha1.Interface{
-				newUnderlayInterface("eth0", "device-a", addr1),
-				newUnderlayInterface("eth1", "device-a", addr2),
-			}
-			_, err := ospfRouterID(intfs)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("eth1"))
-		},
-		Entry("different /30 addresses", "10.0.0.1/30", "10.0.0.5/30"),
-		Entry("different /31 addresses", "10.0.0.0/31", "10.0.0.2/31"),
-	)
-
-	It("accepts multiple interfaces that all share the same router-id", func() {
-		intfs := make([]*corev1alpha1.Interface, 3)
-		for i := range intfs {
-			intfs[i] = newUnderlayInterface(fmt.Sprintf("eth%d", i), "device-a", "10.0.0.1/30")
-		}
-		routerID, err := ospfRouterID(intfs)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(routerID).To(Equal("10.0.0.1"))
-	})
-})

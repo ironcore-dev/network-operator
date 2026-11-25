@@ -4907,7 +4907,6 @@ _Appears in:_
 - [DHCPRelaySpec](#dhcprelayspec)
 - [DNSSpec](#dnsspec)
 - [EVPNInstanceSpec](#evpninstancespec)
-- [EVPNInterconnectSpec](#evpninterconnectspec)
 - [EthernetSegmentSpec](#ethernetsegmentspec)
 - [FabricSpec](#fabricspec)
 - [IPAddressSpec](#ipaddressspec)
@@ -6327,7 +6326,6 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `interfaceRef` _[LocalObjectReference](#localobjectreference)_ | interfaces is a list of interfaces facing DCI |  | Required: \{\} <br /> |
 | `address` _[IPPrefix](#ipprefix)_ | ipAddress is the IP address of the interface facing DCI |  | Format: cidr <br />Type: string <br />Required: \{\} <br /> |
-| `remoteAddress` _[IPPrefix](#ipprefix)_ | remoteAddress is the IP address of the remote interface facing DCI |  | Format: cidr <br />Type: string <br />Required: \{\} <br /> |
 | `mtu` _integer_ | mtu is the MTU of the interface facing DCI |  | Maximum: 9216 <br />Minimum: 576 <br />Optional: \{\} <br /> |
 
 
@@ -6365,8 +6363,8 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `interfaces` _[DCIInterface](#dciinterface) array_ | members represents the list of members in the EVPN interconnect. |  | MinItems: 2 <br />Required: \{\} <br /> |
 | `dci` _[DCI](#dci)_ |  |  | Required: \{\} <br /> |
-| `multiSiteIDIndexPoolRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | multiSiteIDPool represents the pool of Multi-Site IDs (VNIs) for the EVPN interconnect. |  | Required: \{\} <br /> |
-| `ipAddressPoolRef` _[LocalObjectReference](#localobjectreference)_ | ipPrefixPoolRef references the IPPrefixPool from which IP addresses for DCI interfaces are allocated. |  | Required: \{\} <br /> |
+| `multiSiteIDIndexPoolRef` _[LocalObjectReference](#localobjectreference)_ | multiSiteIDPool represents the pool of Multi-Site IDs (VNIs) for the EVPN interconnect. |  | Required: \{\} <br /> |
+| `ipAddressPoolRef` _[LocalObjectReference](#localobjectreference)_ | ipAddressPoolRef references the IPAddressPool from which multisite loopback addresses are allocated.<br />Immutable. |  | Required: \{\} <br /> |
 
 
 #### EVPNInterconnectStatus

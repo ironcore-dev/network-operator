@@ -29,7 +29,7 @@ type EVPNInterconnectSpec struct {
 
 	// multiSiteIDPool represents the pool of Multi-Site IDs (VNIs) for the EVPN interconnect.
 	// +required
-	MultiSiteIDIndexPoolRef corev1alpha1.TypedLocalObjectReference `json:"multiSiteIDIndexPoolRef"`
+	MultiSiteIDIndexPoolRef corev1alpha1.LocalObjectReference `json:"multiSiteIDIndexPoolRef"`
 
 	// ipAddressPoolRef references the IPAddressPool from which multisite loopback addresses are allocated.
 	// Immutable.
@@ -47,10 +47,6 @@ type DCIInterface struct {
 	// ipAddress is the IP address of the interface facing DCI
 	// +required
 	Address corev1alpha1.IPPrefix `json:"address"`
-
-	// remoteAddress is the IP address of the remote interface facing DCI
-	// +required
-	RemoteAddress corev1alpha1.IPPrefix `json:"remoteAddress"`
 
 	// mtu is the MTU of the interface facing DCI
 	// +optional

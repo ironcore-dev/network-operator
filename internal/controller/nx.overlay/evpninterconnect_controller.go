@@ -199,7 +199,11 @@ func (r *EVPNInterconnectReconciler) claimMultiSiteID(ctx context.Context, ic *n
 		}
 		claim.Labels[nxoverlayv1alpha1.EVPNInterconnectLabel] = ic.Name
 		claim.Spec = poolv1alpha1.ClaimSpec{
-			PoolRef: ic.Spec.MultiSiteIDIndexPoolRef,
+			PoolRef: v1alpha1.TypedLocalObjectReference{
+				APIVersion: poolv1alpha1.GroupVersion.String(),
+				Kind:       "IndexPool",
+				Name:       ic.Spec.MultiSiteIDIndexPoolRef.Name,
+			},
 		}
 		return controllerutil.SetControllerReference(ic, claim, r.Scheme)
 	})

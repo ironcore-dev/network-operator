@@ -1,0 +1,34 @@
+apiVersion: nx.overlay.networking.metal.ironcore.dev/v1alpha1
+kind: EVPNInterconnect
+metadata:
+  labels:
+    app.kubernetes.io/name: network-operator
+    app.kubernetes.io/managed-by: kustomize
+    nx.overlay.networking.metal.ironcore.dev/interconnect-group: dci
+  name: evpninterconnect-sample
+spec:
+  # Reference DCI-facing Interfaces on two different border gateway Devices.
+  interfaces:
+    - interfaceRef:
+        name: bgw-az1-g1-a
+      address: 192.0.2.0/31
+      mtu: 9216
+    - interfaceRef:
+        name: bgw-az1-g1-b
+      address: 192.0.2.2/31
+      mtu: 9216
+  dci:
+    underlay:
+      protocol: OSPF
+    overlay:
+      protocol: BGP
+      evpnInterconnectSelector:
+        matchLabels: {}
+      bgp:
+        multiHop: 5
+  # Pools and referenced Interfaces must exist in the same namespace.
+  multiSiteIDIndexPoolRef:
+    name: multisite-id-pool
+  # Allocate separate multisite Loopback9 addresses, not Fabric loopbacks.
+  ipAddressPoolRef:
+    name: multisite-loopback-ipaddress-pool
