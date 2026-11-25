@@ -10,10 +10,37 @@ updates:
       interval: "weekly"
       day: "friday"
     groups:
-      go-minor-and-patch:
+      onsi-minor-and-patch:
+        patterns:
+          - "github.com/onsi/*"
         update-types:
           - "minor"
           - "patch"
+      json-minor-and-patch:
+        patterns:
+          - "github.com/tidwall/*"
+        update-types:
+          - "minor"
+          - "patch"
+      openconfig-minor-and-patch:
+        patterns:
+          - "github.com/openconfig/*"
+        update-types:
+          - "minor"
+          - "patch"
+      aws-minor-and-patch:
+        patterns:
+          - "github.com/aws/*"
+        update-types:
+          - "minor"
+          - "patch"
+      golang-minor-and-patch:
+        patterns:
+          - "google.golang.org/*"
+        update-types:
+          - "minor"
+          - "patch"
+
     ignore:
       # Ignore k8s.io/* and controller-runtime dependencies, as they are bumped together manually.
       - dependency-name: "k8s.io/*"
@@ -66,7 +93,8 @@ updates:
       interval: "weekly"
       day: "friday"
 
-  # GitHub Actions
+  # GitHub Actions — keep workflow references SHA-pinned with inline version comments.
+  # Dependabot preserves the SHA pins and updates the version comments in its PRs.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
