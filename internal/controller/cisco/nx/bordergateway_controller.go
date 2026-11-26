@@ -329,6 +329,17 @@ func (r *BorderGatewayReconciler) reconcile(ctx context.Context, s *borderGatewa
 
 	s.BorderGateway.Labels[v1alpha1.DeviceLabel] = s.Device.Name
 
+	if s.Device.Labels[nxv1alpha1.BorderGatewayLabel] != s.BorderGateway.Name {
+		orig := s.Device.DeepCopy()
+		if s.Device.Labels == nil {
+			s.Device.Labels = make(map[string]string)
+		}
+		s.Device.Labels[nxv1alpha1.BorderGatewayLabel] = s.BorderGateway.Name
+		if err := r.Patch(ctx, s.Device, client.MergeFrom(orig)); err != nil {
+			return fmt.Errorf("failed to add BorderGateway label to device: %w", err)
+		}
+	}
+
 	// Ensure the BorderGateway is owned by the Device.
 	if !controllerutil.HasControllerReference(s.BorderGateway) {
 		if err := controllerutil.SetOwnerReference(s.Device, s.BorderGateway, r.Scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
@@ -516,7 +527,21 @@ func (r *BorderGatewayReconciler) finalize(ctx context.Context, s *borderGateway
 		}
 	}()
 
-	return s.Provider.ResetBorderGatewaySettings(ctx)
+	if err := s.Provider.ResetBorderGatewaySettings(ctx); err != nil {
+		return err
+	}
+
+	if err := r.Get(ctx, client.ObjectKeyFromObject(s.Device), s.Device); err != nil {
+		return client.IgnoreNotFound(err)
+	}
+	if s.Device.Labels[nxv1alpha1.BorderGatewayLabel] == s.BorderGateway.Name {
+		orig := s.Device.DeepCopy()
+		delete(s.Device.Labels, nxv1alpha1.BorderGatewayLabel)
+		if err := r.Patch(ctx, s.Device, client.MergeFrom(orig)); err != nil {
+			return fmt.Errorf("failed to remove BorderGateway label from device: %w", err)
+		}
+	}
+	return nil
 }
 
 // sourceInterfaceToBorderGateway is a [handler.MapFunc] to be used to enqueue requests for reconciliation

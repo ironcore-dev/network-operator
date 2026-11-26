@@ -33,6 +33,18 @@ rules:
   - update
   - watch
 - apiGroups:
+  - core.networking.metal.ironcore.dev
+  resources:
+  - ospfs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - events.k8s.io
   resources:
   - events
@@ -227,6 +239,32 @@ rules:
   - bordergateways/status
   - systems/status
   - vpcdomains/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - nx.overlay.networking.metal.ironcore.dev
+  resources:
+  - evpninterconnects
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nx.overlay.networking.metal.ironcore.dev
+  resources:
+  - evpninterconnects/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - nx.overlay.networking.metal.ironcore.dev
+  resources:
+  - evpninterconnects/status
   verbs:
   - get
   - patch

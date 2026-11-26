@@ -22,6 +22,9 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the network-operator itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- nx.overlay_evpninterconnect_admin_role.yaml
+- nx.overlay_evpninterconnect_editor_role.yaml
+- nx.overlay_evpninterconnect_viewer_role.yaml
 - aaa_admin_role.yaml
 - aaa_editor_role.yaml
 - aaa_viewer_role.yaml
@@ -176,3 +179,5 @@ resources:
 - overlay_network_admin_role.yaml
 - overlay_network_editor_role.yaml
 - overlay_network_viewer_role.yaml
+
+

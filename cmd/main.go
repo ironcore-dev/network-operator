@@ -45,11 +45,13 @@ import (
 	nxv1alpha1 "github.com/ironcore-dev/network-operator/api/cisco/nx/v1alpha1"
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	evpnv1alpha1 "github.com/ironcore-dev/network-operator/api/evpn/v1alpha1"
+	nxoverlayv1alpha1 "github.com/ironcore-dev/network-operator/api/nx.overlay/v1alpha1"
 	overlayv1alpha1 "github.com/ironcore-dev/network-operator/api/overlay/v1alpha1"
 	poolv1alpha1 "github.com/ironcore-dev/network-operator/api/pool/v1alpha1"
 	nxcontroller "github.com/ironcore-dev/network-operator/internal/controller/cisco/nx"
 	corecontroller "github.com/ironcore-dev/network-operator/internal/controller/core"
 	evpncontroller "github.com/ironcore-dev/network-operator/internal/controller/evpn"
+	nxoverlaycontroller "github.com/ironcore-dev/network-operator/internal/controller/nx.overlay"
 	overlaycontroller "github.com/ironcore-dev/network-operator/internal/controller/overlay"
 	poolcontroller "github.com/ironcore-dev/network-operator/internal/controller/pool"
 	"github.com/ironcore-dev/network-operator/internal/deviceutil"
@@ -78,6 +80,7 @@ func init() {
 	utilruntime.Must(poolv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(evpnv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(overlayv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(nxoverlayv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -905,6 +908,13 @@ func main() { //nolint:gocyclo
 		WatchFilterValue: watchFilterValue,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "NetworkAttachment")
+		os.Exit(1)
+	}
+	if err := (&nxoverlaycontroller.EVPNInterconnectReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "nx.overlay-evpninterconnect")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

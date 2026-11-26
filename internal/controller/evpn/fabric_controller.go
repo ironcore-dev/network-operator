@@ -51,7 +51,7 @@ type FabricReconciler struct {
 // +kubebuilder:rbac:groups=evpn.networking.metal.ironcore.dev,resources=fabrics,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=evpn.networking.metal.ironcore.dev,resources=fabrics/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=evpn.networking.metal.ironcore.dev,resources=fabrics/finalizers,verbs=update
-// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=devices,verbs=get;list;watch
+// +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=devices,verbs=get;list;watch;patch
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=interfaces,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=ospf,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.metal.ironcore.dev,resources=isis,verbs=get;list;watch;create;update;patch;delete
@@ -205,7 +205,8 @@ func (r *FabricReconciler) reconcile(ctx context.Context, fabric *evpnv1alpha1.F
 		uplinks:   make(map[string][]*v1alpha1.Interface),
 	}
 
-	// The ordering of phases is critical. Each phase may depend on resources
+	// Synchronize membership labels before provisioning resources.
+	// The ordering of provisioning phases is critical. Each phase may depend on resources
 	// provisioned by earlier phases:
 	//
 	//  1. reconcileSystemLoopbacks — provisions lo0 (Router-ID) Claims and Interfaces.
@@ -221,6 +222,7 @@ func (r *FabricReconciler) reconcile(ctx context.Context, fabric *evpnv1alpha1.F
 	// skip the affected device and return without error. The Owns() watches on
 	// Claim and Interface will re-enqueue the Fabric once the dependency appears.
 	phases := []ReconcileFunc{
+		r.reconcileDeviceLabels,
 		r.reconcileSystemLoopbacks,
 		r.reconcileVTEPLoopbacks,
 		r.reconcileAnycastRPLoopbacks,
@@ -234,6 +236,54 @@ func (r *FabricReconciler) reconcile(ctx context.Context, fabric *evpnv1alpha1.F
 		res, err := phase(ctx, fabric, state)
 		if err != nil || !res.IsZero() {
 			return res, err
+		}
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *FabricReconciler) reconcileDeviceLabels(ctx context.Context, fabric *evpnv1alpha1.Fabric, _ *ReconcileState) (ctrl.Result, error) {
+	selector, err := metav1.LabelSelectorAsSelector(&fabric.Spec.DeviceSelector)
+	if err != nil {
+		return ctrl.Result{}, reconcile.TerminalError(fmt.Errorf("invalid deviceSelector: %w", err))
+	}
+	devices := &v1alpha1.DeviceList{}
+	if err := r.List(ctx, devices, client.InNamespace(fabric.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
+		return ctrl.Result{}, fmt.Errorf("listing matching fabric devices: %w", err)
+	}
+	labeled := &v1alpha1.DeviceList{}
+	if err := r.List(ctx, labeled, client.InNamespace(fabric.Namespace), client.MatchingLabels{evpnv1alpha1.FabricLabel: fabric.Name}); err != nil {
+		return ctrl.Result{}, fmt.Errorf("listing labeled fabric devices: %w", err)
+	}
+	names := sets.New[string]()
+	for _, list := range []*v1alpha1.DeviceList{devices, labeled} {
+		for i := range list.Items {
+			names.Insert(list.Items[i].Name)
+		}
+	}
+	for _, name := range sets.List(names) {
+		device := &v1alpha1.Device{}
+		if err := r.Get(ctx, client.ObjectKey{Namespace: fabric.Namespace, Name: name}, device); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			return ctrl.Result{}, fmt.Errorf("getting fabric device %s: %w", name, err)
+		}
+		matches := selector.Matches(labels.Set(device.Labels))
+		label := device.Labels[evpnv1alpha1.FabricLabel]
+		if matches && label == fabric.Name || !matches && label != fabric.Name {
+			continue
+		}
+		orig := device.DeepCopy()
+		if matches {
+			if device.Labels == nil {
+				device.Labels = make(map[string]string)
+			}
+			device.Labels[evpnv1alpha1.FabricLabel] = fabric.Name
+		} else {
+			delete(device.Labels, evpnv1alpha1.FabricLabel)
+		}
+		if err := r.Patch(ctx, device, client.MergeFromWithOptions(orig, client.MergeFromWithOptimisticLock{})); err != nil && !apierrors.IsNotFound(err) {
+			return ctrl.Result{}, fmt.Errorf("patching fabric device %s labels: %w", name, err)
 		}
 	}
 	return ctrl.Result{}, nil
@@ -1125,7 +1175,7 @@ func (r *FabricReconciler) reconcileBGPPeer(ctx context.Context, local, remote *
 }
 
 // reconcileMulticastPIM creates one PIM resource per device participating in any anycast
-// rendezvous point group. RP devices get anycastAddresses (peer lo0 IPs); client devices
+// rendezvous point group. RP devices get all member lo0 IPs, including self; client devices
 // get a static RP address only.
 func (r *FabricReconciler) reconcileMulticastPIM(ctx context.Context, fabric *evpnv1alpha1.Fabric, state *ReconcileState) (ctrl.Result, error) {
 	if fabric.Spec.BUM.PIM == nil {
@@ -1196,6 +1246,11 @@ func (r *FabricReconciler) reconcileMulticastPIM(ctx context.Context, fabric *ev
 
 			rpLo0Addrs = append(rpLo0Addrs, lo0.Spec.IPv4.Addresses[0].Addr().String())
 		}
+		if len(rpLo0Addrs) != len(rpDevices.Items) {
+			ctrl.LoggerFrom(ctx).V(1).Info("Skipping PIM reconciliation: RP lo0 addresses not yet allocated", "group", rpGroup.Name)
+			continue
+		}
+		slices.Sort(rpLo0Addrs)
 
 		// Configure RP devices.
 		for i := range rpDevices.Items {
@@ -1203,27 +1258,11 @@ func (r *FabricReconciler) reconcileMulticastPIM(ctx context.Context, fabric *ev
 
 			lo0Name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, device.Name, LoopbackRouterID)
 			lo100Name := fmt.Sprintf("%s-%s-lo%d", fabric.Name, device.Name, LoopbackAnycastRP)
-			interfaces := state.loopbacks[device.Name]
-
-			idx := slices.IndexFunc(interfaces, func(intf *v1alpha1.Interface) bool { return intf.Name == lo0Name })
-			var selfAddr string
-			if idx >= 0 && interfaces[idx].Spec.IPv4 != nil && len(interfaces[idx].Spec.IPv4.Addresses) > 0 {
-				selfAddr = interfaces[idx].Spec.IPv4.Addresses[0].Addr().String()
-			}
-
-			// Exclude self from anycastAddresses.
-			var peerAddrs []string
-			for _, addr := range rpLo0Addrs {
-				if addr != selfAddr {
-					peerAddrs = append(peerAddrs, addr)
-				}
-			}
-			slices.Sort(peerAddrs)
 
 			rendezvousPoints[device.Name] = append(rendezvousPoints[device.Name], v1alpha1.RendezvousPoint{
 				Address:          anycastIP,
 				MulticastGroups:  rpGroup.MulticastGroups,
-				AnycastAddresses: peerAddrs,
+				AnycastAddresses: rpLo0Addrs,
 			})
 
 			// Interface refs for RP: lo0, lo100, uplinks.
@@ -1401,7 +1440,7 @@ func (r *FabricReconciler) reconcileNVE(ctx context.Context, device *v1alpha1.De
 }
 
 // devicesToFabrics is a [handler.MapFunc] that enqueues all Fabrics whose
-// spec.deviceSelector matches the labels of the changed Device.
+// spec.deviceSelector matches the changed Device or whose FabricLabel it carries.
 func (r *FabricReconciler) devicesToFabrics(ctx context.Context, obj client.Object) []ctrl.Request {
 	device, ok := obj.(*v1alpha1.Device)
 	if !ok {
@@ -1417,16 +1456,17 @@ func (r *FabricReconciler) devicesToFabrics(ctx context.Context, obj client.Obje
 	}
 
 	var requests []ctrl.Request
-	for _, fabric := range fabricList.Items {
+	for i := range fabricList.Items {
+		fabric := &fabricList.Items[i]
 		selector, err := metav1.LabelSelectorAsSelector(&fabric.Spec.DeviceSelector)
 		if err != nil {
 			log.Error(err, "Failed to parse deviceSelector", "fabric", fabric.Name)
 			continue
 		}
-		if selector.Matches(labels.Set(device.Labels)) {
+		if selector.Matches(labels.Set(device.Labels)) || device.Labels[evpnv1alpha1.FabricLabel] == fabric.Name {
 			log.V(2).Info("Enqueuing Fabric for reconciliation", "fabric", fabric.Name)
 			requests = append(requests, ctrl.Request{
-				NamespacedName: client.ObjectKeyFromObject(&fabric),
+				NamespacedName: client.ObjectKeyFromObject(fabric),
 			})
 		}
 	}

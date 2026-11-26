@@ -3864,7 +3864,13 @@ func (p *Provider) EnsureBorderGatewaySettings(ctx context.Context, req *BorderG
 	}
 
 	if sc.EvpnStormControlList.Len() == 0 {
-		sb.Delete(sc)
+		current := new(StormControlItems)
+		if err := p.client.GetConfig(ctx, current); err != nil && !errors.Is(err, gnmiext.ErrNil) {
+			return err
+		}
+		if current.EvpnStormControlList.Len() != 0 {
+			sb.Delete(sc)
+		}
 	} else {
 		sb.Update(sc)
 	}

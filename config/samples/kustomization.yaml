@@ -1,58 +1,59 @@
 ## Append samples of your project ##
 resources:
-- v1alpha1_device.yaml
-- v1alpha1_configbackup.yaml
-- v1alpha1_dhcprelay.yaml
-- v1alpha1_interface.yaml
-- v1alpha1_lldp.yaml
-- v1alpha1_banner.yaml
-- v1alpha1_user.yaml
-- v1alpha1_dns.yaml
-- v1alpha1_ntp.yaml
-- v1alpha1_acl.yaml
-- v1alpha1_certificate.yaml
-- v1alpha1_snmp.yaml
-- v1alpha1_syslog.yaml
-- v1alpha1_managementaccess.yaml
-- v1alpha1_isis.yaml
-- v1alpha1_vrf.yaml
-- v1alpha1_pim.yaml
-- v1alpha1_bgp.yaml
-- v1alpha1_bgppeer.yaml
-- v1alpha1_ospf.yaml
-- v1alpha1_vlan.yaml
-- v1alpha1_evi.yaml
-- v1alpha1_nve.yaml
-- v1alpha1_prefixset.yaml
-- v1alpha1_routingpolicy.yaml
-- v1alpha1_ethernetsegment.yaml
-- v1alpha1_staticroute.yaml
-- v1alpha1_aaa.yaml
-- v1alpha1_indexpool.yaml
-- v1alpha1_ipaddresspool.yaml
-- v1alpha1_ipprefixpool.yaml
-- v1alpha1_index.yaml
-- v1alpha1_ipaddress.yaml
-- v1alpha1_ipprefix.yaml
-- v1alpha1_claim.yaml
-- v1alpha1_fabric.yaml
-- v1alpha1_probe.yaml
-- v1alpha1_communityset.yaml
-- v1alpha1_consoleconnection.yaml
-- v1alpha1_network.yaml
-- v1alpha1_networkattachment.yaml
-- v1alpha1_macsec.yaml
-- cisco/nx/v1alpha1_bordergateway.yaml
-- cisco/nx/v1alpha1_managementaccessconfig.yaml
-- cisco/nx/v1alpha1_nveconfig.yaml
-- cisco/nx/v1alpha1_system.yaml
-- cisco/nx/v1alpha1_vpcdomain.yaml
-- cisco/nx/v1alpha1_interfaceconfig.yaml
-- cisco/nx/v1alpha1_lldpconfig.yaml
-- cisco/nx/v1alpha1_bgpconfig.yaml
-- cisco/nx/v1alpha1_aaaconfig.yaml
-- cisco/nx/v1alpha1_evpninstanceconfig.yaml
-- cisco/nx/v1alpha1_ethernetsegmentconfig.yaml
-- cisco/nx/v1alpha1_pimconfig.yaml
-- cisco/nx/v1alpha1_bgppeerconfig.yaml
+  - v1alpha1_device.yaml
+  - v1alpha1_configbackup.yaml
+  - v1alpha1_dhcprelay.yaml
+  - v1alpha1_interface.yaml
+  - v1alpha1_lldp.yaml
+  - v1alpha1_banner.yaml
+  - v1alpha1_user.yaml
+  - v1alpha1_dns.yaml
+  - v1alpha1_ntp.yaml
+  - v1alpha1_acl.yaml
+  - v1alpha1_certificate.yaml
+  - v1alpha1_snmp.yaml
+  - v1alpha1_syslog.yaml
+  - v1alpha1_managementaccess.yaml
+  - v1alpha1_isis.yaml
+  - v1alpha1_vrf.yaml
+  - v1alpha1_pim.yaml
+  - v1alpha1_bgp.yaml
+  - v1alpha1_bgppeer.yaml
+  - v1alpha1_ospf.yaml
+  - v1alpha1_vlan.yaml
+  - v1alpha1_evi.yaml
+  - v1alpha1_nve.yaml
+  - v1alpha1_prefixset.yaml
+  - v1alpha1_routingpolicy.yaml
+  - v1alpha1_ethernetsegment.yaml
+  - v1alpha1_staticroute.yaml
+  - v1alpha1_aaa.yaml
+  - v1alpha1_indexpool.yaml
+  - v1alpha1_ipaddresspool.yaml
+  - v1alpha1_ipprefixpool.yaml
+  - v1alpha1_index.yaml
+  - v1alpha1_ipaddress.yaml
+  - v1alpha1_ipprefix.yaml
+  - v1alpha1_claim.yaml
+  - v1alpha1_fabric.yaml
+  - v1alpha1_probe.yaml
+  - v1alpha1_communityset.yaml
+  - v1alpha1_consoleconnection.yaml
+  - v1alpha1_network.yaml
+  - v1alpha1_networkattachment.yaml
+  - v1alpha1_macsec.yaml
+  - cisco/nx/v1alpha1_bordergateway.yaml
+  - cisco/nx/v1alpha1_managementaccessconfig.yaml
+  - cisco/nx/v1alpha1_nveconfig.yaml
+  - cisco/nx/v1alpha1_system.yaml
+  - cisco/nx/v1alpha1_vpcdomain.yaml
+  - cisco/nx/v1alpha1_interfaceconfig.yaml
+  - cisco/nx/v1alpha1_lldpconfig.yaml
+  - cisco/nx/v1alpha1_bgpconfig.yaml
+  - cisco/nx/v1alpha1_aaaconfig.yaml
+  - cisco/nx/v1alpha1_evpninstanceconfig.yaml
+  - cisco/nx/v1alpha1_ethernetsegmentconfig.yaml
+  - cisco/nx/v1alpha1_pimconfig.yaml
+  - cisco/nx/v1alpha1_bgppeerconfig.yaml
+  - cisco/nx/overlay/v1alpha1_evpninterconnect.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples
