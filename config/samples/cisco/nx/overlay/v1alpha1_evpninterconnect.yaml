@@ -23,7 +23,8 @@ spec:
     overlay:
       protocol: BGP
       evpnInterconnectSelector:
-        matchLabels: {}
+        matchLabels:
+          nx.overlay.networking.metal.ironcore.dev/interconnect-group: dci
       bgp:
         multiHop: 5
   # Pools and referenced Interfaces must exist in the same namespace.
@@ -32,3 +33,233 @@ spec:
   # Allocate separate multisite Loopback9 addresses, not Fabric loopbacks.
   ipAddressPoolRef:
     name: multisite-loopback-ipaddress-pool
+---
+apiVersion: evpn.networking.metal.ironcore.dev/v1alpha1
+kind: Fabric
+metadata:
+  name: interconnect-fabric
+spec:
+  deviceSelector:
+    matchLabels:
+      nx.overlay.networking.metal.ironcore.dev/fabric: interconnect-fabric
+  loopbacks:
+    ipAddressPoolRef:
+      name: interconnect-fabric-loopbacks
+  underlay:
+    protocol: OSPF
+    interfaceSelector:
+      matchLabels:
+        nx.overlay.networking.metal.ironcore.dev/fabric: interconnect-fabric
+        networking.metal.ironcore.dev/role: fabric
+    addressing:
+      ipPrefixPoolRef:
+        name: interconnect-fabric-p2p
+  overlay:
+    protocol: IBGP
+    ibgp:
+      asNumber: 65000
+      routeReflectors:
+        - name: border-gateways
+          deviceSelector:
+            matchLabels:
+              networking.metal.ironcore.dev/role: interconnect-rr
+          clientDeviceSelector:
+            matchLabels:
+              networking.metal.ironcore.dev/role: interconnect-client
+  bum:
+    type: Multicast
+    defaultMulticastGroup: 239.1.1.0/24
+    pim:
+      anycastRendezvousPoints:
+        - name: border-gateways
+          multicastGroups:
+            - 224.0.0.0/4
+          deviceSelector:
+            matchLabels:
+              networking.metal.ironcore.dev/role: interconnect-rr
+          clientDeviceSelector:
+            matchLabels:
+              networking.metal.ironcore.dev/role: interconnect-client
+  vtep:
+    deviceSelector:
+      matchLabels:
+        nx.overlay.networking.metal.ironcore.dev/fabric: interconnect-fabric
+    anycastGateway:
+      virtualMAC: f0:0c:c1:5c:00:00
+  vniPool:
+    apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+    kind: IndexPool
+    name: interconnect-fabric-vnis
+---
+# Set management endpoints and credentials for the two lab switches before applying.
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Device
+metadata:
+  name: bgw-az1-g1-a
+  labels:
+    nx.overlay.networking.metal.ironcore.dev/fabric: interconnect-fabric
+    networking.metal.ironcore.dev/role: interconnect-rr
+spec:
+  provider: nx.cisco.networking.metal.ironcore.dev
+  endpoint:
+    address: 192.168.5.3:9339
+    secretRef:
+      name: interconnect-basic-auth
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Device
+metadata:
+  name: bgw-az1-g1-b
+  labels:
+    nx.overlay.networking.metal.ironcore.dev/fabric: interconnect-fabric
+    networking.metal.ironcore.dev/role: interconnect-client
+spec:
+  provider: nx.cisco.networking.metal.ironcore.dev
+  endpoint:
+    address: 192.168.5.4:9339
+    secretRef:
+      name: interconnect-basic-auth
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: interconnect-basic-auth
+type: kubernetes.io/basic-auth
+stringData:
+  username: admin
+  password: admin
+---
+# Ethernet1/1 connects the two border gateways inside the Fabric.
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: bgw-az1-g1-a-fabric
+  labels:
+    nx.overlay.networking.metal.ironcore.dev/fabric: interconnect-fabric
+    networking.metal.ironcore.dev/role: fabric
+    networking.metal.ironcore.dev/interface-neighbor: bgw-az1-g1-b-fabric
+spec:
+  deviceRef:
+    name: bgw-az1-g1-a
+  name: Ethernet1/1
+  type: Physical
+  adminState: Up
+  mtu: 9216
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: bgw-az1-g1-b-fabric
+  labels:
+    nx.overlay.networking.metal.ironcore.dev/fabric: interconnect-fabric
+    networking.metal.ironcore.dev/role: fabric
+    networking.metal.ironcore.dev/interface-neighbor: bgw-az1-g1-a-fabric
+spec:
+  deviceRef:
+    name: bgw-az1-g1-b
+  name: Ethernet1/1
+  type: Physical
+  adminState: Up
+  mtu: 9216
+---
+# Ethernet1/2 faces remote DCI peers outside this local Fabric.
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: bgw-az1-g1-a
+spec:
+  deviceRef:
+    name: bgw-az1-g1-a
+  name: Ethernet1/2
+  type: Physical
+  adminState: Up
+  mtu: 9216
+  ipv4:
+    addresses:
+      - 192.0.2.0/31
+---
+apiVersion: networking.metal.ironcore.dev/v1alpha1
+kind: Interface
+metadata:
+  name: bgw-az1-g1-b
+spec:
+  deviceRef:
+    name: bgw-az1-g1-b
+  name: Ethernet1/2
+  type: Physical
+  adminState: Up
+  mtu: 9216
+  ipv4:
+    addresses:
+      - 192.0.2.2/31
+---
+apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+kind: IPAddressPool
+metadata:
+  name: interconnect-fabric-loopbacks
+spec:
+  prefixes:
+    - 10.250.0.1/32
+    - 10.250.0.2/32
+    - 10.250.0.3/32
+    - 10.250.0.4/32
+    - 10.250.0.5/32
+    - 10.250.0.6/32
+    - 10.250.0.7/32
+    - 10.250.0.8/32
+    - 10.250.0.9/32
+    - 10.250.0.10/32
+    - 10.250.0.11/32
+    - 10.250.0.12/32
+    - 10.250.0.13/32
+    - 10.250.0.14/32
+    - 10.250.0.15/32
+    - 10.250.0.16/32
+---
+apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+kind: IPPrefixPool
+metadata:
+  name: interconnect-fabric-p2p
+spec:
+  prefixes:
+    - 10.250.1.0/24
+  allocationPrefixLength: 31
+---
+apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+kind: IndexPool
+metadata:
+  name: interconnect-fabric-vnis
+spec:
+  ranges:
+    - 10000..19999
+---
+apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+kind: IndexPool
+metadata:
+  name: multisite-id-pool
+spec:
+  ranges:
+    - 1..4095
+---
+apiVersion: pool.networking.metal.ironcore.dev/v1alpha1
+kind: IPAddressPool
+metadata:
+  name: multisite-loopback-ipaddress-pool
+spec:
+  prefixes:
+    - 10.250.9.1/32
+    - 10.250.9.2/32
+    - 10.250.9.3/32
+    - 10.250.9.4/32
+    - 10.250.9.5/32
+    - 10.250.9.6/32
+    - 10.250.9.7/32
+    - 10.250.9.8/32
+    - 10.250.9.9/32
+    - 10.250.9.10/32
+    - 10.250.9.11/32
+    - 10.250.9.12/32
+    - 10.250.9.13/32
+    - 10.250.9.14/32
+    - 10.250.9.15/32
+    - 10.250.9.16/32
