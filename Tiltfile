@@ -243,6 +243,31 @@ k8s_resource(new_name='claim-prefix', objects=['claim-prefix:claim'], resource_d
 k8s_yaml('./config/samples/v1alpha1_fabric.yaml')
 k8s_resource(new_name='fabric', objects=['fabric:fabric', 'loopback-pool:ipaddresspool', 'underlay-p2p-pool:ipprefixpool'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 
+k8s_yaml('./config/samples/cisco/nx/overlay/v1alpha1_evpninterconnect.yaml')
+k8s_resource(
+    new_name='evpninterconnect',
+    objects=[
+        'evpninterconnect-sample:evpninterconnect',
+        'interconnect-fabric:fabric',
+        'bgw-az1-g1-a:device',
+        'bgw-az1-g1-b:device',
+        'interconnect-basic-auth:secret',
+        'bgw-az1-g1-a-fabric:interface',
+        'bgw-az1-g1-b-fabric:interface',
+        'bgw-az1-g1-a:interface',
+        'bgw-az1-g1-b:interface',
+        'interconnect-fabric-loopbacks:ipaddresspool',
+        'interconnect-fabric-p2p:ipprefixpool',
+        'interconnect-fabric-vnis:indexpool',
+        'multisite-id-pool:indexpool',
+        'multisite-loopback-ipaddress-pool:ipaddresspool',
+    ],
+    resource_deps=['crds'],
+    trigger_mode=TRIGGER_MODE_MANUAL,
+    auto_init=False,
+    labels=['samples'],
+)
+
 k8s_yaml('./config/samples/v1alpha1_probe.yaml')
 k8s_resource(new_name='ping-peer', objects=['ping-peer:probe'], resource_deps=['lo0'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])
 k8s_resource(new_name='mac-entry', objects=['mac-entry:probe'], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False, labels=['samples'])

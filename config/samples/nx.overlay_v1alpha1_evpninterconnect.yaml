@@ -1,9 +1,0 @@
-apiVersion: nx.overlay.networking.metal.ironcore.dev/v1alpha1
-kind: EVPNInterconnect
-metadata:
-  labels:
-    app.kubernetes.io/name: network-operator
-    app.kubernetes.io/managed-by: kustomize
-  name: evpninterconnect-sample
-spec:
-  # TODO(user): Add fields here

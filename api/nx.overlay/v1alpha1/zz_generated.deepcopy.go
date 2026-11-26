@@ -49,7 +49,6 @@ func (in *DCIInterface) DeepCopyInto(out *DCIInterface) {
 	*out = *in
 	out.InterfaceRef = in.InterfaceRef
 	in.Address.DeepCopyInto(&out.Address)
-	in.RemoteAddress.DeepCopyInto(&out.RemoteAddress)
 	if in.MTU != nil {
 		in, out := &in.MTU, &out.MTU
 		*out = new(int32)
