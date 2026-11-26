@@ -4,8 +4,11 @@
 package evpn
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"slices"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -15,10 +18,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/events"
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	corev1alpha1 "github.com/ironcore-dev/network-operator/api/core/v1alpha1"
 	evpnv1alpha1 "github.com/ironcore-dev/network-operator/api/evpn/v1alpha1"
@@ -27,6 +35,305 @@ import (
 
 // defaultMulticastGroup is the BUM L2 mcast-group shared by the fabric test fixtures.
 var defaultMulticastGroup = corev1alpha1.MustParsePrefix("224.0.0.0/4")
+
+var _ = Describe("Fabric Controller Device membership", func() {
+	var (
+		fabric  *evpnv1alpha1.Fabric
+		device  *corev1alpha1.Device
+		storage client.WithWatch
+		r       *FabricReconciler
+	)
+	BeforeEach(func() {
+		fabric = &evpnv1alpha1.Fabric{
+			Name: "membership", Namespace: metav1.NamespaceDefault,
+			Spec: evpnv1alpha1.FabricSpec{DeviceSelector: metav1.LabelSelector{MatchLabels: map[string]string{"group": "member"}}},
+		}
+		device = &corev1alpha1.Device{
+			Name: "device", Namespace: fabric.Namespace,
+			Labels:      map[string]string{"group": "member", "unrelated": "keep"},
+			Annotations: map[string]string{"unrelated": "keep"},
+			Spec:        corev1alpha1.DeviceSpec{Provider: "test-provider", Endpoint: corev1alpha1.Endpoint{Address: "127.0.0.1:1"}},
+		}
+		storage = fake.NewClientBuilder().WithScheme(k8sClient.Scheme()).WithStatusSubresource(device).WithObjects(device).Build()
+		r = &FabricReconciler{Client: storage}
+	})
+
+	It("Maintains membership without changing unrelated device data or namespaces", func() {
+		device.Labels[evpnv1alpha1.FabricLabel] = "former"
+		device.Finalizers = []string{"test.example.com/keep"}
+		device.OwnerReferences = []metav1.OwnerReference{{APIVersion: "v1", Kind: "ConfigMap", Name: "owner", UID: "owner"}}
+		Expect(storage.Update(ctx, device)).To(Succeed())
+		device.Status.Conditions = []metav1.Condition{{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Testing", LastTransitionTime: metav1.Now()}}
+		Expect(storage.Status().Update(ctx, device)).To(Succeed())
+		stale := device.DeepCopy()
+		stale.Name = "stale"
+		stale.Labels = map[string]string{"unrelated": "keep", evpnv1alpha1.FabricLabel: fabric.Name}
+		otherFabric := stale.DeepCopy()
+		otherFabric.Name = "other-fabric"
+		otherFabric.Labels[evpnv1alpha1.FabricLabel] = "another"
+		otherNamespace := device.DeepCopy()
+		otherNamespace.Namespace = "another"
+		for _, obj := range []*corev1alpha1.Device{stale, otherFabric, otherNamespace} {
+			obj.ResourceVersion = ""
+			Expect(storage.Create(ctx, obj)).To(Succeed())
+		}
+		_, err := r.reconcileDeviceLabels(ctx, fabric, nil)
+		Expect(err).NotTo(HaveOccurred())
+		for _, obj := range []*corev1alpha1.Device{device, stale, otherFabric, otherNamespace} {
+			current := &corev1alpha1.Device{}
+			Expect(storage.Get(ctx, client.ObjectKeyFromObject(obj), current)).To(Succeed())
+			Expect(current.Spec).To(Equal(obj.Spec))
+			Expect(current.Status).To(Equal(obj.Status))
+			Expect(current.Annotations).To(Equal(obj.Annotations))
+			Expect(current.OwnerReferences).To(Equal(obj.OwnerReferences))
+			Expect(current.Finalizers).To(Equal(obj.Finalizers))
+			Expect(current.Labels["unrelated"]).To(Equal("keep"))
+			switch obj {
+			case device:
+				Expect(current.Labels[evpnv1alpha1.FabricLabel]).To(Equal(fabric.Name))
+			case stale:
+				Expect(current.Labels).NotTo(HaveKey(evpnv1alpha1.FabricLabel))
+			default:
+				Expect(current.Labels).To(Equal(obj.Labels))
+			}
+		}
+		fabric.Spec.DeviceSelector.MatchLabels["group"] = "absent"
+		_, err = r.reconcileDeviceLabels(ctx, fabric, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(storage.Get(ctx, client.ObjectKeyFromObject(device), device)).To(Succeed())
+		Expect(device.Labels).NotTo(HaveKey(evpnv1alpha1.FabricLabel))
+	})
+
+	DescribeTable("Preserves selector semantics", func(selector metav1.LabelSelector, deviceLabels map[string]string, matches bool) {
+		fabric.Spec.DeviceSelector = selector
+		device.Labels = deviceLabels
+		Expect(storage.Update(ctx, device)).To(Succeed())
+		_, err := r.reconcileDeviceLabels(ctx, fabric, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(storage.Get(ctx, client.ObjectKeyFromObject(device), device)).To(Succeed())
+		if matches {
+			Expect(device.Labels).To(HaveKeyWithValue(evpnv1alpha1.FabricLabel, fabric.Name))
+		} else {
+			Expect(device.Labels).NotTo(HaveKey(evpnv1alpha1.FabricLabel))
+		}
+	},
+		Entry("empty selector and absent labels", metav1.LabelSelector{}, map[string]string(nil), true),
+		Entry("combined labels and expressions", metav1.LabelSelector{
+			MatchLabels:      map[string]string{"group": "member"},
+			MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "role", Operator: metav1.LabelSelectorOpIn, Values: []string{"leaf"}}},
+		}, map[string]string{"group": "member", "role": "leaf"}, true),
+		Entry("expression excludes a labeled former member", metav1.LabelSelector{
+			MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "role", Operator: metav1.LabelSelectorOpDoesNotExist}},
+		}, map[string]string{"role": "leaf", evpnv1alpha1.FabricLabel: "membership"}, false),
+	)
+
+	It("Recovers after partially applying membership labels", func() {
+		second := device.DeepCopy()
+		second.Name = "second"
+		second.ResourceVersion = ""
+		Expect(storage.Create(ctx, second)).To(Succeed())
+		failure := errors.New("second patch failed")
+		patches := 0
+		r.Client = interceptor.NewClient(storage, interceptor.Funcs{
+			Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+				patches++
+				if patches == 2 {
+					return failure
+				}
+				return c.Patch(ctx, obj, patch, opts...)
+			},
+		})
+		_, err := r.reconcileDeviceLabels(ctx, fabric, nil)
+		Expect(err).To(MatchError(failure))
+		Expect(patches).To(Equal(2))
+		Expect(storage.Get(ctx, client.ObjectKeyFromObject(device), device)).To(Succeed())
+		Expect(device.Labels).To(HaveKeyWithValue(evpnv1alpha1.FabricLabel, fabric.Name))
+		r.Client = storage
+		_, err = r.reconcileDeviceLabels(ctx, fabric, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(storage.Get(ctx, client.ObjectKeyFromObject(second), second)).To(Succeed())
+		Expect(second.Labels).To(HaveKeyWithValue(evpnv1alpha1.FabricLabel, fabric.Name))
+	})
+
+	It("Rejects invalid selectors before discovery or writes", func() {
+		fabric.Spec.DeviceSelector.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: "group", Operator: "invalid"}}
+		r.Client = interceptor.NewClient(storage, interceptor.Funcs{
+			List: func(context.Context, client.WithWatch, client.ObjectList, ...client.ListOption) error {
+				Fail("Invalid selector must not list devices")
+				return nil
+			},
+		})
+		_, err := r.reconcileDeviceLabels(ctx, fabric, nil)
+		Expect(errors.Is(err, reconcile.TerminalError(nil))).To(BeTrue())
+	})
+
+	DescribeTable("Propagates failures and recovers on retry", func(operation string) {
+		failure := errors.New("injected failure")
+		listCalls, patchCalls := 0, 0
+		r.Client = interceptor.NewClient(storage, interceptor.Funcs{
+			List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+				listCalls++
+				if operation == "matching list" || operation == "labeled list" && listCalls == 2 {
+					return failure
+				}
+				return c.List(ctx, list, opts...)
+			},
+			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				if operation == "get" {
+					return failure
+				}
+				return c.Get(ctx, key, obj, opts...)
+			},
+			Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+				patchCalls++
+				if operation == "patch" {
+					return failure
+				}
+				return c.Patch(ctx, obj, patch, opts...)
+			},
+		})
+		_, err := r.reconcileDeviceLabels(ctx, fabric, nil)
+		Expect(err).To(MatchError(failure))
+		if operation != "patch" {
+			Expect(patchCalls).To(BeZero())
+		}
+		r.Client = storage
+		_, err = r.reconcileDeviceLabels(ctx, fabric, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(storage.Get(ctx, client.ObjectKeyFromObject(device), device)).To(Succeed())
+		Expect(device.Labels).To(HaveKeyWithValue(evpnv1alpha1.FabricLabel, fabric.Name))
+	}, Entry("matching list", "matching list"), Entry("labeled list", "labeled list"), Entry("Get", "get"), Entry("Patch", "patch"))
+
+	DescribeTable("Tolerates device disappearance", func(operation string) {
+		r.Client = interceptor.NewClient(storage, interceptor.Funcs{
+			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				if operation == "get" {
+					Expect(c.Delete(ctx, device)).To(Succeed())
+				}
+				return c.Get(ctx, key, obj, opts...)
+			},
+			Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+				Expect(c.Delete(ctx, obj)).To(Succeed())
+				return c.Patch(ctx, obj, patch, opts...)
+			},
+		})
+		_, err := r.reconcileDeviceLabels(ctx, fabric, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(apierrors.IsNotFound(storage.Get(ctx, client.ObjectKeyFromObject(device), device))).To(BeTrue())
+	}, Entry("before Get", "get"), Entry("before Patch", "patch"))
+
+	It("Reevaluates selection labels after discovery", func() {
+		r.Client = interceptor.NewClient(storage, interceptor.Funcs{
+			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				delete(device.Labels, "group")
+				Expect(c.Update(ctx, device)).To(Succeed())
+				return c.Get(ctx, key, obj, opts...)
+			},
+		})
+		_, err := r.reconcileDeviceLabels(ctx, fabric, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(storage.Get(ctx, client.ObjectKeyFromObject(device), device)).To(Succeed())
+		Expect(device.Labels).NotTo(HaveKey(evpnv1alpha1.FabricLabel))
+	})
+
+	It("Routes labeled former members and deduplicates old/new update requests", func() {
+		storage = fake.NewClientBuilder().WithScheme(k8sClient.Scheme()).WithObjects(fabric).Build()
+		r.Client = storage
+		oldDevice := device.DeepCopy()
+		oldDevice.Labels = map[string]string{evpnv1alpha1.FabricLabel: fabric.Name}
+		requests := r.devicesToFabrics(ctx, oldDevice)
+		Expect(requests).To(Equal([]reconcile.Request{{NamespacedName: client.ObjectKeyFromObject(fabric)}}))
+		queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
+		DeferCleanup(queue.ShutDown)
+		handler.EnqueueRequestsFromMapFunc(r.devicesToFabrics).Update(ctx, event.UpdateEvent{ObjectOld: oldDevice, ObjectNew: device}, queue)
+		Expect(queue.Len()).To(Equal(1))
+		device.Namespace = "another"
+		Expect(r.devicesToFabrics(ctx, device)).To(BeEmpty())
+	})
+
+	It("Preserves concurrent labels using a real API resource-version conflict", func() {
+		device.Name = ""
+		device.GenerateName = "membership-conflict-"
+		device.ResourceVersion = ""
+		Expect(k8sClient.Create(ctx, device)).To(Succeed())
+		DeferCleanup(func() { Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, device))).To(Succeed()) })
+		apiClient, err := client.NewWithWatch(testEnv.Config, client.Options{Scheme: k8sClient.Scheme()})
+		Expect(err).NotTo(HaveOccurred())
+		conflict := true
+		r.Client = interceptor.NewClient(apiClient, interceptor.Funcs{
+			Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+				if conflict {
+					conflict = false
+					current := &corev1alpha1.Device{}
+					Expect(c.Get(ctx, client.ObjectKeyFromObject(obj), current)).To(Succeed())
+					current.Labels["concurrent"] = "keep"
+					Expect(c.Update(ctx, current)).To(Succeed())
+				}
+				return c.Patch(ctx, obj, patch, opts...)
+			},
+		})
+		_, err = r.reconcileDeviceLabels(ctx, fabric, nil)
+		Expect(apierrors.IsConflict(err)).To(BeTrue())
+		_, err = r.reconcileDeviceLabels(ctx, fabric, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(device), device)).To(Succeed())
+		Expect(device.Labels).To(HaveKeyWithValue("concurrent", "keep"))
+		Expect(device.Labels).To(HaveKeyWithValue(evpnv1alpha1.FabricLabel, fabric.Name))
+	})
+
+	DescribeTable("Restricts discovery and eliminates stable-state writes", func(unrelatedCount int) {
+		objects := make([]client.Object, 0, unrelatedCount+10)
+		for i := range unrelatedCount + 10 {
+			d := device.DeepCopy()
+			d.Name = fmt.Sprintf("device-%05d", i)
+			if i >= 10 {
+				d.Labels["group"] = "unrelated"
+			} else if i >= 5 {
+				d.Labels = map[string]string{evpnv1alpha1.FabricLabel: fabric.Name}
+			} else {
+				d.Labels[evpnv1alpha1.FabricLabel] = fabric.Name
+			}
+			objects = append(objects, d)
+		}
+		storage = fake.NewClientBuilder().WithScheme(k8sClient.Scheme()).WithObjects(objects...).Build()
+		lists, gets, patches := 0, 0, 0
+		r.Client = interceptor.NewClient(storage, interceptor.Funcs{
+			List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+				options := (&client.ListOptions{}).ApplyOptions(opts)
+				Expect(options.Namespace).To(Equal(fabric.Namespace))
+				Expect(options.LabelSelector).NotTo(BeNil())
+				if lists%2 == 0 {
+					Expect(options.LabelSelector.String()).To(Equal("group=member"))
+				} else {
+					Expect(options.LabelSelector.String()).To(Equal(evpnv1alpha1.FabricLabel + "=" + fabric.Name))
+				}
+				lists++
+				return c.List(ctx, list, opts...)
+			},
+			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				gets++
+				Expect(key.Namespace).To(Equal(fabric.Namespace))
+				Expect(key.Name).To(BeElementOf("device-00000", "device-00001", "device-00002", "device-00003", "device-00004", "device-00005", "device-00006", "device-00007", "device-00008", "device-00009"))
+				return c.Get(ctx, key, obj, opts...)
+			},
+			Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+				patches++
+				return c.Patch(ctx, obj, patch, opts...)
+			},
+		})
+		_, err := r.reconcileDeviceLabels(ctx, fabric, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(lists).To(Equal(2))
+		Expect(gets).To(Equal(10))
+		Expect(patches).To(Equal(5))
+		patches = 0
+		for range 3 {
+			_, err = r.reconcileDeviceLabels(ctx, fabric, nil)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		Expect(patches).To(BeZero())
+	}, Entry("100 unrelated devices", 100), Entry("10,000 unrelated devices", 10000))
+})
 
 // Minimal 2-spine / 2-leaf EVPN/VXLAN topology used by the tests below.
 // All four devices share the "topology.kubernetes.io/zone: test-zone" label;
@@ -323,6 +630,16 @@ var _ = Describe("Fabric Controller", func() {
 				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(fabric), f)).To(Succeed())
 				g.Expect(controllerutil.ContainsFinalizer(f, evpnv1alpha1.FinalizerName)).To(BeTrue())
 			}).Should(Succeed())
+
+			By("Verifying Fabric membership labels are applied automatically")
+			for _, device := range []*corev1alpha1.Device{spine1, spine2, leaf1, leaf2} {
+				Eventually(func(g Gomega) {
+					current := &corev1alpha1.Device{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(device), current)).To(Succeed())
+					g.Expect(current.Labels).To(HaveKeyWithValue(evpnv1alpha1.FabricLabel, fabric.Name))
+					g.Expect(current.Labels["role"]).To(Equal(device.Labels["role"]))
+				}, 5*time.Second).Should(Succeed())
+			}
 
 			By("Verifying lo0 Claims are created for all 4 fabric devices")
 			for _, d := range []*corev1alpha1.Device{spine1, spine2, leaf1, leaf2} {
@@ -669,6 +986,57 @@ var _ = Describe("Fabric Controller", func() {
 					HaveField("Status", metav1.ConditionFalse),
 				)))
 			}).Should(Succeed())
+
+			changeLabel := func(device *corev1alpha1.Device, key, value string) {
+				current := &corev1alpha1.Device{}
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(device), current)).To(Succeed())
+				orig := current.DeepCopy()
+				if value == "" {
+					delete(current.Labels, key)
+				} else {
+					current.Labels[key] = value
+				}
+				Expect(k8sClient.Patch(ctx, current, client.MergeFrom(orig))).To(Succeed())
+			}
+			expectMembership := func(device *corev1alpha1.Device, member bool) {
+				Eventually(func(g Gomega) {
+					current := &corev1alpha1.Device{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(device), current)).To(Succeed())
+					if member {
+						g.Expect(current.Labels).To(HaveKeyWithValue(evpnv1alpha1.FabricLabel, fabric.Name))
+					} else {
+						g.Expect(current.Labels).NotTo(HaveKey(evpnv1alpha1.FabricLabel))
+					}
+				}, 5*time.Second).Should(Succeed())
+			}
+			By("Enrolling a newly matching Device without editing the Fabric")
+			lateDevice := &corev1alpha1.Device{
+				GenerateName: "late-member-", Namespace: fabric.Namespace,
+				Labels: map[string]string{"topology.kubernetes.io/zone": "outside", "role": "leaf"},
+				Spec:   corev1alpha1.DeviceSpec{Provider: "test-provider", Endpoint: corev1alpha1.Endpoint{Address: "127.0.0.1:1"}},
+			}
+			Expect(k8sClient.Create(ctx, lateDevice)).To(Succeed())
+			DeferCleanup(func() { Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, lateDevice))).To(Succeed()) })
+			expectMembership(lateDevice, false)
+			changeLabel(lateDevice, "topology.kubernetes.io/zone", "test-zone")
+			expectMembership(lateDevice, true)
+			By("Restoring a removed membership label without editing the Fabric")
+			changeLabel(lateDevice, evpnv1alpha1.FabricLabel, "")
+			expectMembership(lateDevice, true)
+			By("Removing membership when the Device stops matching")
+			changeLabel(lateDevice, "topology.kubernetes.io/zone", "outside")
+			expectMembership(lateDevice, false)
+			By("Updating membership in both directions after a Fabric selector change")
+			currentFabric := &evpnv1alpha1.Fabric{}
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(fabric), currentFabric)).To(Succeed())
+			origFabric := currentFabric.DeepCopy()
+			currentFabric.Spec.DeviceSelector = metav1.LabelSelector{MatchLabels: map[string]string{"role": "leaf"}}
+			Expect(k8sClient.Patch(ctx, currentFabric, client.MergeFrom(origFabric))).To(Succeed())
+			expectMembership(lateDevice, true)
+			expectMembership(leaf1, true)
+			expectMembership(leaf2, true)
+			expectMembership(spine1, false)
+			expectMembership(spine2, false)
 		})
 
 		It("Should gate the lo2 anycast VTEP loopback on spec.vtep.anycastVTEP and clean it up on a transition to false", func() {
