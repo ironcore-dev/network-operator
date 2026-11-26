@@ -22,3 +22,7 @@ var (
 	// AddToScheme adds the types in this group-version to the given scheme.
 	AddToScheme = SchemeBuilder.AddToScheme
 )
+
+// BorderGatewayLabel is a label applied to Devices to indicate
+// the name of the BorderGateway associated with the device.
+const BorderGatewayLabel = "nx.cisco.networking.metal.ironcore.dev/border-gateway-name"
