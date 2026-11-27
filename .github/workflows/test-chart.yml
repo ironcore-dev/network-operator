@@ -35,7 +35,7 @@ jobs:
         run: |
           helm lint ./charts/network-operator
       - name: Create kind cluster
-        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1
+        uses: helm/kind-action@ea822c7bf1874f08e5a491df991c228edffc3376 # v1.15.2
         with:
           version: v0.31.0
           kubectl_version: v1.35.0
