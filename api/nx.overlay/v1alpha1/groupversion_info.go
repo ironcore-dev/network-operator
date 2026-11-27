@@ -33,6 +33,10 @@ var (
 const (
 	// FinalizerName is the identifier used by EVPNInterconnect controllers to perform cleanup before a resource is deleted.
 	FinalizerName = "nx.overlay.networking.metal.ironcore.dev/finalizer"
+
+	// EVPNInterconnectLabel is applied to all sub-resources created by an EVPNInterconnect controller,
+	// with the value set to the owning EVPNInterconnect's name.
+	EVPNInterconnectLabel = "nx.overlay.networking.metal.ironcore.dev/evpninterconnect"
 )
 
 // EVPNInterconnect condition types.

@@ -5,8 +5,13 @@ package nxoverlay
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -18,6 +23,8 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+
+	poolv1alpha1 "github.com/ironcore-dev/network-operator/api/pool/v1alpha1"
 )
 
 // EVPNInterconnectReconciler reconciles a EVPNInterconnect object
@@ -29,6 +36,7 @@ type EVPNInterconnectReconciler struct {
 // +kubebuilder:rbac:groups=nx.overlay.networking.metal.ironcore.dev,resources=evpninterconnects,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=nx.overlay.networking.metal.ironcore.dev,resources=evpninterconnects/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=nx.overlay.networking.metal.ironcore.dev,resources=evpninterconnects/finalizers,verbs=update
+// +kubebuilder:rbac:groups=pool.networking.metal.ironcore.dev,resources=claims,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -163,6 +171,30 @@ func (r *EVPNInterconnectReconciler) reconcile(ctx context.Context, ic *nxoverla
 }
 
 func (r *EVPNInterconnectReconciler) claimMultiSiteID(ctx context.Context, ic *nxoverlayv1alpha1.EVPNInterconnect, state *ReconcileState) (ctrl.Result, error) {
+	claim := &poolv1alpha1.Claim{
+		Namespace: ic.Namespace,
+		Name:      "multisiteid-" + hash(ic),
+	}
+	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, claim, func() error {
+		if claim.Labels == nil {
+			claim.Labels = make(map[string]string)
+		}
+		claim.Labels[nxoverlayv1alpha1.EVPNInterconnectLabel] = ic.Name
+		claim.Spec = poolv1alpha1.ClaimSpec{
+			PoolRef: ic.Spec.MultiSiteIDIndexPoolRef,
+		}
+		return controllerutil.SetControllerReference(ic, claim, r.Scheme)
+	})
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("reconciling multi-site ID claim: %w", err)
+	}
+
+	cond := conditions.Get(claim, poolv1alpha1.AllocatedCondition)
+	if cond == nil || cond.Status != metav1.ConditionTrue || claim.Status.Value == "" {
+		return ctrl.Result{}, nil
+	}
+
+	state.multiSiteID = claim
 	return ctrl.Result{}, nil
 }
 
@@ -188,13 +220,29 @@ type ReconcileFunc func(context.Context, *nxoverlayv1alpha1.EVPNInterconnect, *R
 
 // ReconcileState accumulates EVPN Interconnect state across reconciliation phases
 type ReconcileState struct {
-	vteps map[string][]v1alpha1.NetworkVirtualizationEdge // DCI-facing VTEPs in the group
+	vteps       map[string][]v1alpha1.NetworkVirtualizationEdge // DCI-facing VTEPs in the group
+	multiSiteID *poolv1alpha1.Claim                             // Multi-Site ID claimed from index pool
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *EVPNInterconnectReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&nxoverlayv1alpha1.EVPNInterconnect{}).
+		Owns(&poolv1alpha1.Claim{}).
 		Named("nx.overlay-evpninterconnect").
 		Complete(r)
+}
+
+// hash returns a deterministic 128-bit hash of the ordered object UIDs,
+// making collisions negligible without collision-recovery state.
+func hash(objects ...client.Object) string {
+	if len(objects) == 0 {
+		panic("hash requires at least one object")
+	}
+	uids := make([]string, len(objects))
+	for i, obj := range objects {
+		uids[i] = string(obj.GetUID())
+	}
+	hash := sha256.Sum256([]byte(strings.Join(uids, "/")))
+	return hex.EncodeToString(hash[:16])
 }
