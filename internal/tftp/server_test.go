@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	tftp "github.com/pin/tftp/v3"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -198,4 +199,21 @@ func TestServer(t *testing.T) {
 
 func init() {
 	utilruntime.Must(v1alpha1.AddToScheme(scheme.Scheme))
+}
+
+func TestResolveBootScriptRejectsCrossNamespaceReferences(t *testing.T) {
+	reader := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(
+		&corev1.Secret{Name: "victim", Namespace: "tenant-b", Data: map[string][]byte{"key": []byte("private-data")}},
+		&corev1.ConfigMap{Name: "victim", Namespace: "tenant-b", Data: map[string]string{"key": "private-data"}},
+	).Build()
+	sources := []v1alpha1.TemplateSource{
+		{SecretRef: &v1alpha1.SecretKeySelector{Name: "victim", Namespace: "tenant-b", Key: "key"}},
+		{ConfigMapRef: &v1alpha1.ConfigMapKeySelector{Name: "victim", Namespace: "tenant-b", Key: "key"}},
+	}
+	for _, source := range sources {
+		data := resolveBootScript(t.Context(), reader, "tenant-a", &v1alpha1.Provisioning{BootScript: source})
+		if len(data) != 0 {
+			t.Fatalf("cross-namespace boot script disclosed data")
+		}
+	}
 }

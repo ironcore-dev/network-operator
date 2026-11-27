@@ -10,6 +10,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-networking-metal-ironcore-dev-v1alpha1-aaa
+  failurePolicy: Fail
+  name: aaa-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - networking.metal.ironcore.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - aaa
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-networking-metal-ironcore-dev-v1alpha1-accesscontrollist
   failurePolicy: Fail
   name: accesscontrollist-v1alpha1.kb.io
@@ -23,6 +43,26 @@ webhooks:
     - UPDATE
     resources:
     - accesscontrollist
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-networking-metal-ironcore-dev-v1alpha1-banner
+  failurePolicy: Fail
+  name: banner-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - networking.metal.ironcore.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - banners
   sideEffects: None
 - admissionReviewVersions:
   - v1
@@ -63,6 +103,86 @@ webhooks:
     - UPDATE
     resources:
     - bgppeers
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-networking-metal-ironcore-dev-v1alpha1-certificate
+  failurePolicy: Fail
+  name: certificate-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - networking.metal.ironcore.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - certificates
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-networking-metal-ironcore-dev-v1alpha1-configbackup
+  failurePolicy: Fail
+  name: configbackup-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - networking.metal.ironcore.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - configbackups
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-networking-metal-ironcore-dev-v1alpha1-consoleconnection
+  failurePolicy: Fail
+  name: consoleconnection-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - networking.metal.ironcore.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - consoleconnections
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-networking-metal-ironcore-dev-v1alpha1-device
+  failurePolicy: Fail
+  name: device-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - networking.metal.ironcore.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - devices
   sideEffects: None
 - admissionReviewVersions:
   - v1
@@ -183,6 +303,26 @@ webhooks:
     - UPDATE
     resources:
     - routingpolicies
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-networking-metal-ironcore-dev-v1alpha1-user
+  failurePolicy: Fail
+  name: user-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - networking.metal.ironcore.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - users
   sideEffects: None
 - admissionReviewVersions:
   - v1

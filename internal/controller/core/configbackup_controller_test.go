@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/ironcore-dev/network-operator/api/core/v1alpha1"
@@ -470,3 +471,33 @@ func (m *mockObjectStorage) DeleteObjects(_ context.Context, _ string, keys ...s
 	}
 	return nil
 }
+
+var _ = DescribeTable("ConfigBackup S3 credential namespace",
+	func(namespace string, allowed bool) {
+		secretNamespace := namespace
+		if secretNamespace == "" {
+			secretNamespace = "tenant-a"
+		}
+		secret := &corev1.Secret{
+			Name: "credentials", Namespace: secretNamespace, Data: map[string][]byte{S3AccessKeyID: []byte("access-key"), S3SecretAccessKey: []byte("secret-key")},
+		}
+		r := &ConfigBackupReconciler{Client: fake.NewClientBuilder().WithScheme(k8sClient.Scheme()).WithObjects(secret).Build()}
+		scope := &configBackupScope{ConfigBackup: &v1alpha1.ConfigBackup{
+			Name: "backup", Namespace: "tenant-a", Spec: v1alpha1.ConfigBackupSpec{S3: &v1alpha1.ConfigBackupS3{
+				Endpoint:             "https://s3.example.com",
+				CredentialsSecretRef: v1alpha1.SecretReference{Name: "credentials", Namespace: namespace},
+			}},
+		}}
+		store, err := r.objectStorageClient(ctx, scope)
+		if allowed {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(store).NotTo(BeNil())
+		} else {
+			Expect(err).To(MatchError(ContainSubstring("cross-namespace reference")))
+			Expect(store).To(BeNil())
+		}
+	},
+	Entry("default namespace", "", true),
+	Entry("explicit local namespace", "tenant-a", true),
+	Entry("cross-namespace reference", "tenant-b", false),
+)

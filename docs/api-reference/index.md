@@ -1838,7 +1838,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `name` _string_ | Name is unique within a namespace to reference a configmap resource. |  | MaxLength: 253 <br />MinLength: 1 <br />Required: \{\} <br /> |
-| `namespace` _string_ | Namespace defines the space within which the configmap name must be unique.<br />If omitted, the namespace of the object being reconciled will be used. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
+| `namespace` _string_ | Namespace defines the space within which the configmap name must be unique.<br />If omitted, the namespace of the object being reconciled will be used.<br />If specified, it must match that object's namespace. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 | `key` _string_ | Key is the of the entry in the configmap resource's `data` or `binaryData`<br />field to be used. |  | MaxLength: 253 <br />MinLength: 1 <br />Required: \{\} <br /> |
 
 
@@ -1847,7 +1847,7 @@ _Appears in:_
 
 
 ConfigMapReference represents a ConfigMap Reference. It has enough information to retrieve a ConfigMap
-in any namespace.
+in the referencing object's namespace.
 
 
 
@@ -1857,7 +1857,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `name` _string_ | Name is unique within a namespace to reference a configmap resource. |  | MaxLength: 253 <br />MinLength: 1 <br />Required: \{\} <br /> |
-| `namespace` _string_ | Namespace defines the space within which the configmap name must be unique.<br />If omitted, the namespace of the object being reconciled will be used. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
+| `namespace` _string_ | Namespace defines the space within which the configmap name must be unique.<br />If omitted, the namespace of the object being reconciled will be used.<br />If specified, it must match that object's namespace. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 
 
 #### ConsoleConnection
@@ -4577,7 +4577,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `name` _string_ | Name is unique within a namespace to reference a secret resource. |  | MaxLength: 253 <br />MinLength: 1 <br />Required: \{\} <br /> |
-| `namespace` _string_ | Namespace defines the space within which the secret name must be unique.<br />If omitted, the namespace of the object being reconciled will be used. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
+| `namespace` _string_ | Namespace defines the space within which the secret name must be unique.<br />If omitted, the namespace of the object being reconciled will be used.<br />If specified, it must match that object's namespace. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 | `key` _string_ | Key is the of the entry in the secret resource's `data` or `stringData`<br />field to be used. |  | MaxLength: 253 <br />MinLength: 1 <br />Required: \{\} <br /> |
 
 
@@ -4586,7 +4586,7 @@ _Appears in:_
 
 
 SecretReference represents a Secret Reference. It has enough information to retrieve a Secret
-in any namespace.
+in the referencing object's namespace.
 
 
 
@@ -4601,7 +4601,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `name` _string_ | Name is unique within a namespace to reference a secret resource. |  | MaxLength: 253 <br />MinLength: 1 <br />Required: \{\} <br /> |
-| `namespace` _string_ | Namespace defines the space within which the secret name must be unique.<br />If omitted, the namespace of the object being reconciled will be used. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
+| `namespace` _string_ | Namespace defines the space within which the secret name must be unique.<br />If omitted, the namespace of the object being reconciled will be used.<br />If specified, it must match that object's namespace. |  | MaxLength: 63 <br />MinLength: 1 <br />Optional: \{\} <br /> |
 
 
 #### SetASPathAction

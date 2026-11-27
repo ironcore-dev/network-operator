@@ -39,10 +39,16 @@ func NewClient(r client.Reader, defaultNamespace string) *Client {
 // Get retrieves an obj for the given object key from the Kubernetes Cluster.
 // obj must be a struct pointer so that obj can be updated with the response
 // returned by the Server. If the key does not contain a namespace, the default
-// namespace is used.
+// namespace is used. Secret and ConfigMap reads are restricted to that namespace.
 func (c *Client) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
 	if key.Namespace == "" {
 		key.Namespace = c.DefaultNamespace
+	}
+	switch obj.(type) {
+	case *corev1.Secret, *corev1.ConfigMap:
+		if key.Namespace != c.DefaultNamespace {
+			return fmt.Errorf("cross-namespace reference to %q is forbidden: references must use namespace %q", key.String(), c.DefaultNamespace)
+		}
 	}
 
 	return c.r.Get(ctx, key, obj, opts...)

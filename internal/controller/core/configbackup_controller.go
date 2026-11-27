@@ -564,7 +564,7 @@ func (r *ConfigBackupReconciler) objectStorageClient(ctx context.Context, s *con
 		ns = s.ConfigBackup.Namespace
 	}
 	var secret corev1.Secret
-	if err := r.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: ns}, &secret); err != nil {
+	if err := clientutil.NewClient(r.Client, s.ConfigBackup.Namespace).Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: ns}, &secret); err != nil {
 		if apierrors.IsNotFound(err) {
 			conditions.Set(s.ConfigBackup, metav1.Condition{
 				Type:    v1alpha1.ReadyCondition,

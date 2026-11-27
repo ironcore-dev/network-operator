@@ -18,6 +18,17 @@ Network-operator is a project built using Kubebuilder and controller-runtime to 
 
 ## Getting Started
 
+Secret and ConfigMap references must resolve within the referencing object's
+namespace. Omit the reference's `namespace` field or set it to the object's
+namespace. Admission validation rejects cross-namespace references, and runtime
+checks also reject references in existing objects when webhooks are disabled.
+Before upgrading, migrate any intentionally shared Secrets or ConfigMaps into
+the namespaces of their consumers and update those references.
+
+Only grant access to network custom resources to users trusted to consume the
+Secrets in those namespaces and configure the associated devices. These checks
+enforce namespace boundaries, not each creator's individual Secret permissions.
+
 ### Prerequisites
 
 - go version v1.27.4+
