@@ -169,6 +169,125 @@ var _ = Describe("Fabric Controller", func() {
 			})
 		})
 
+		It("Should wait for complete Anycast-RP membership when a new RP joins", func() {
+			By("Limiting the loopback pool to the first RP's lo0 and shared lo100 addresses")
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(loopbackPool), loopbackPool)).To(Succeed())
+				loopbackPool.Spec.Prefixes = []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.0.0.0/31")}
+				g.Expect(k8sClient.Update(ctx, loopbackPool)).To(Succeed())
+			}).Should(Succeed())
+
+			By("Selecting only spine-1 as a fabric device and RP")
+			spine1.Labels["rp-group"] = "spine-rp"
+			Expect(k8sClient.Update(ctx, spine1)).To(Succeed())
+			rpSelector := metav1.LabelSelector{MatchLabels: map[string]string{"rp-group": "spine-rp"}}
+			clientSelector := metav1.LabelSelector{MatchLabels: map[string]string{"rp-group": "spine-rp", "role": "leaf"}}
+			fabric := &evpnv1alpha1.Fabric{
+				GenerateName: "pim-fabric-",
+				Namespace:    metav1.NamespaceDefault,
+				Spec: evpnv1alpha1.FabricSpec{
+					DeviceSelector: rpSelector,
+					Loopbacks:      evpnv1alpha1.FabricLoopbacksSpec{IPAddressPoolRef: corev1alpha1.LocalObjectReference{Name: loopbackPool.Name}},
+					Underlay: evpnv1alpha1.FabricUnderlaySpec{
+						Protocol:          evpnv1alpha1.UnderlayProtocolOSPF,
+						InterfaceSelector: rpSelector,
+						Addressing:        evpnv1alpha1.FabricUnderlayAddressingSpec{Unnumbered: true},
+					},
+					Overlay: evpnv1alpha1.FabricOverlaySpec{
+						Protocol: evpnv1alpha1.OverlayProtocolIBGP,
+						IBGP: &evpnv1alpha1.FabricIBGPSpec{
+							ASNumber: intstr.FromInt(65000),
+							RouteReflectors: []evpnv1alpha1.RouteReflectorGroup{{
+								Name:                 "spines",
+								DeviceSelector:       rpSelector,
+								ClientDeviceSelector: clientSelector,
+							}},
+						},
+						RouteTargetAllocation: evpnv1alpha1.FabricRouteTargetAllocationSpec{
+							Strategy: evpnv1alpha1.RouteTargetAllocationStrategyASNDerived,
+						},
+					},
+					BUM: evpnv1alpha1.FabricBUMSpec{
+						Type:                  evpnv1alpha1.BUMTypeMulticast,
+						DefaultMulticastGroup: &defaultMulticastGroup,
+						PIM: &evpnv1alpha1.FabricPIMSpec{
+							AnycastRendezvousPoints: []evpnv1alpha1.AnycastRendezvousPoint{{
+								Name:                 "spine-rp",
+								MulticastGroups:      []corev1alpha1.IPPrefix{defaultMulticastGroup},
+								DeviceSelector:       rpSelector,
+								ClientDeviceSelector: clientSelector,
+							}},
+						},
+					},
+					VTEP:    evpnv1alpha1.FabricVTEPSpec{DeviceSelector: clientSelector},
+					VNIPool: corev1alpha1.TypedLocalObjectReference{APIVersion: poolv1alpha1.GroupVersion.String(), Kind: "IndexPool", Name: indexPool.Name},
+				},
+			}
+			Expect(k8sClient.Create(ctx, fabric)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, fabric))).To(Succeed())
+				Expect(k8sClient.DeleteAllOf(ctx, &poolv1alpha1.Claim{}, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+				Eventually(func(g Gomega) {
+					claims := &poolv1alpha1.ClaimList{}
+					g.Expect(k8sClient.List(ctx, claims, client.InNamespace(metav1.NamespaceDefault))).To(Succeed())
+					g.Expect(claims.Items).To(BeEmpty())
+				}).Should(Succeed())
+			})
+
+			By("Verifying a single RP includes its own lo0 address in AnycastAddresses")
+			spine1Lo0 := &corev1alpha1.Interface{}
+			initialPIM := &corev1alpha1.PIM{}
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + spine1.Name + "-lo0", Namespace: fabric.Namespace}, spine1Lo0)).To(Succeed())
+				g.Expect(spine1Lo0.Spec.IPv4).NotTo(BeNil())
+				g.Expect(spine1Lo0.Spec.IPv4.Addresses).To(HaveLen(1))
+				g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + spine1.Name + "-multicast", Namespace: fabric.Namespace}, initialPIM)).To(Succeed())
+				g.Expect(initialPIM.Spec.RendezvousPoints).To(HaveLen(1))
+				g.Expect(initialPIM.Spec.RendezvousPoints[0].AnycastAddresses).To(Equal([]string{spine1Lo0.Spec.IPv4.Addresses[0].Addr().String()}))
+			}).Should(Succeed())
+
+			By("Adding spine-2 as an RP while the loopback pool is exhausted")
+			spine2.Labels["rp-group"] = "spine-rp"
+			Expect(k8sClient.Update(ctx, spine2)).To(Succeed())
+			Eventually(func(g Gomega) {
+				claim := &poolv1alpha1.Claim{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + spine2.Name + "-lo0", Namespace: fabric.Namespace}, claim)).To(Succeed())
+				g.Expect(claim.Status.Value).To(BeEmpty())
+			}).Should(Succeed())
+
+			By("Verifying no PIM is created for the new RP and existing membership is preserved")
+			Consistently(func(g Gomega) {
+				g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + spine2.Name + "-multicast", Namespace: fabric.Namespace}, &corev1alpha1.PIM{}))).To(BeTrue())
+				pim := &corev1alpha1.PIM{}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(initialPIM), pim)).To(Succeed())
+				g.Expect(pim.ResourceVersion).To(Equal(initialPIM.ResourceVersion))
+			}, "1s").Should(Succeed())
+
+			By("Expanding the loopback pool so spine-2 can receive its lo0 address")
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(loopbackPool), loopbackPool)).To(Succeed())
+				loopbackPool.Spec.Prefixes = []corev1alpha1.IPPrefix{corev1alpha1.MustParsePrefix("10.0.0.0/30")}
+				g.Expect(k8sClient.Update(ctx, loopbackPool)).To(Succeed())
+			}).Should(Succeed())
+			spine2Lo0 := &corev1alpha1.Interface{}
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + spine2.Name + "-lo0", Namespace: fabric.Namespace}, spine2Lo0)).To(Succeed())
+				g.Expect(spine2Lo0.Spec.IPv4).NotTo(BeNil())
+				g.Expect(spine2Lo0.Spec.IPv4.Addresses).To(HaveLen(1))
+			}).Should(Succeed())
+
+			By("Verifying both RPs receive the complete membership without manual reconciliation")
+			memberAddrs := []string{spine1Lo0.Spec.IPv4.Addresses[0].Addr().String(), spine2Lo0.Spec.IPv4.Addresses[0].Addr().String()}
+			for _, spine := range []*corev1alpha1.Device{spine1, spine2} {
+				Eventually(func(g Gomega) {
+					pim := &corev1alpha1.PIM{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + spine.Name + "-multicast", Namespace: fabric.Namespace}, pim)).To(Succeed())
+					g.Expect(pim.Spec.RendezvousPoints).To(HaveLen(1))
+					g.Expect(pim.Spec.RendezvousPoints[0].AnycastAddresses).To(ConsistOf(memberAddrs))
+				}).Should(Succeed())
+			}
+		})
+
 		It("Should create lo0 Claims for all fabric devices, lo1/lo2 Claims for VTEP devices, and one lo100 Claim per RP group", func() {
 			By("Creating the Fabric resource with unnumbered addressing")
 			fabric := &evpnv1alpha1.Fabric{
@@ -481,7 +600,7 @@ var _ = Describe("Fabric Controller", func() {
 					g.Expect(pim.Spec.DeviceRef.Name).To(Equal(spine.Name))
 					g.Expect(pim.Spec.AdminState).To(Equal(corev1alpha1.AdminStateUp))
 
-					// RP must have a rendezvous point entry with anycast addresses (other spine lo0 IPs).
+					// RP must have a rendezvous point entry with the complete member set.
 					g.Expect(pim.Spec.RendezvousPoints).To(HaveLen(1))
 					rp := pim.Spec.RendezvousPoints[0]
 
@@ -494,8 +613,15 @@ var _ = Describe("Fabric Controller", func() {
 					g.Expect(rp.MulticastGroups).To(HaveLen(1))
 					g.Expect(rp.MulticastGroups[0].String()).To(Equal("224.0.0.0/4"))
 
-					// AnycastAddresses should contain the other spine's lo0 IP (not self).
-					g.Expect(rp.AnycastAddresses).To(HaveLen(1))
+					memberAddrs := make([]string, 0, 2)
+					for _, member := range []*corev1alpha1.Device{spine1, spine2} {
+						lo0 := &corev1alpha1.Interface{}
+						g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: fabric.Name + "-" + member.Name + "-lo0", Namespace: metav1.NamespaceDefault}, lo0)).To(Succeed())
+						g.Expect(lo0.Spec.IPv4).NotTo(BeNil())
+						g.Expect(lo0.Spec.IPv4.Addresses).To(HaveLen(1))
+						memberAddrs = append(memberAddrs, lo0.Spec.IPv4.Addresses[0].Addr().String())
+					}
+					g.Expect(rp.AnycastAddresses).To(ConsistOf(memberAddrs))
 
 					// Interface refs should include lo0, lo100, and the uplink.
 					g.Expect(pim.Spec.InterfaceRefs).To(ContainElement(HaveField("Name", fabric.Name+"-"+spine.Name+"-lo0")))

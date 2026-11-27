@@ -37,6 +37,13 @@ spec:
     apiVersion: nx.cisco.networking.metal.ironcore.dev/v1alpha1
     kind: PIMConfig
     name: log-neighbor
+  rendezvousPoints:
+    - address: 10.255.255.100
+      multicastGroups:
+        - 224.0.0.0/4
+      anycastAddresses:
+        - 10.255.255.20
+        - 10.255.255.21
   interfaceRefs:
     - name: lo-pim
       mode: Sparse
@@ -133,6 +140,38 @@ spec:
               "name": "default",
               "adminSt": "enabled",
               "logNbhChng": true,
+              "staticrp-items": {
+                "rp-items": {
+                  "StaticRP-list": [
+                    {
+                      "addr": "10.255.255.100/32",
+                      "rpgrplist-items": {
+                        "RPGrpList-list": [
+                          {
+                            "bidir": false,
+                            "grpListName": "224.0.0.0/4",
+                            "override": false
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              "acastrpfunc-items": {
+                "peer-items": {
+                  "AcastRPPeer-list": [
+                    {
+                      "addr": "10.255.255.100/32",
+                      "rpSetAddr": "10.255.255.20/32"
+                    },
+                    {
+                      "addr": "10.255.255.100/32",
+                      "rpSetAddr": "10.255.255.21/32"
+                    }
+                  ]
+                }
+              },
               "if-items": {
                 "If-list": [
                   {
@@ -208,7 +247,9 @@ spec:
             {
               "name": "default",
               "adminSt": "disabled",
-              "logNbhChng": false
+              "logNbhChng": false,
+              "staticrp-items": {},
+              "acastrpfunc-items": {}
             }
           ]
         }

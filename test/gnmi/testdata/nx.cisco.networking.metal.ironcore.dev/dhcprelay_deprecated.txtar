@@ -102,7 +102,13 @@ spec:
     "inst-items": {
       "Inst-list": [{
         "name": "VRF-PURPLE",
-        "descr": "DME_UNSET_PROPERTY_MARKER"
+        "descr": "DME_UNSET_PROPERTY_MARKER",
+        "dom-items": {
+          "Dom-list": [{
+            "name": "VRF-PURPLE",
+            "rd": "DME_UNSET_PROPERTY_MARKER"
+          }]
+        }
       }]
     },
     "bd-items": {

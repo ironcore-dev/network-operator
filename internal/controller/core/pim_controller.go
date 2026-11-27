@@ -252,7 +252,7 @@ func (r *PIMReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 			}),
 		).
 		// Watches enqueues PIMs for updates in referenced Interface resources.
-		// Only triggers on create, delete and update events when the Configured condition changes.
+		// Include address changes used to resolve the local RP member.
 		Watches(
 			&v1alpha1.Interface{},
 			handler.EnqueueRequestsFromMapFunc(r.interfaceToPIM),
@@ -260,7 +260,8 @@ func (r *PIMReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) 
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					oldInterface := e.ObjectOld.(*v1alpha1.Interface)
 					newInterface := e.ObjectNew.(*v1alpha1.Interface)
-					return conditions.IsConfigured(oldInterface) != conditions.IsConfigured(newInterface)
+					return conditions.IsConfigured(oldInterface) != conditions.IsConfigured(newInterface) ||
+						!equality.Semantic.DeepEqual(oldInterface.Spec.IPv4, newInterface.Spec.IPv4)
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false
@@ -327,6 +328,11 @@ func (r *PIMReconciler) reconcile(ctx context.Context, s *pimScope) (reterr erro
 		})
 	}
 
+	rendezvousPoints, err := resolvePIMRendezvousPoints(s.PIM, interfaces)
+	if err != nil {
+		conditions.Set(s.PIM, conditions.FromError(err))
+		return err
+	}
 	if err := s.Provider.Connect(ctx, s.Connection); err != nil {
 		return fmt.Errorf("failed to connect to provider: %w", err)
 	}
@@ -337,15 +343,48 @@ func (r *PIMReconciler) reconcile(ctx context.Context, s *pimScope) (reterr erro
 	}()
 
 	// Ensure the PIM is realized on the provider.
-	err := s.Provider.EnsurePIM(ctx, &provider.EnsurePIMRequest{
-		PIM:            s.PIM,
-		Interfaces:     interfaces,
-		ProviderConfig: s.ProviderConfig,
+	err = s.Provider.EnsurePIM(ctx, &provider.EnsurePIMRequest{
+		PIM:              s.PIM,
+		Interfaces:       interfaces,
+		RendezvousPoints: rendezvousPoints,
+		ProviderConfig:   s.ProviderConfig,
 	})
 
 	conditions.Set(s.PIM, conditions.FromError(err))
 
 	return err
+}
+
+// resolvePIMRendezvousPoints matches AnycastAddresses to same-device loopbacks by their first IPv4 address.
+// It returns the local interface and sorted peers excluding its address, without modifying the PIM spec.
+// No match preserves all peer addresses; multiple distinct local matches return an error.
+func resolvePIMRendezvousPoints(pim *v1alpha1.PIM, interfaces []provider.PIMInterface) ([]provider.PIMRendezvousPoint, error) {
+	rendezvousPoints := make([]provider.PIMRendezvousPoint, 0, len(pim.Spec.RendezvousPoints))
+	for i := range pim.Spec.RendezvousPoints {
+		rp := &pim.Spec.RendezvousPoints[i]
+		resolved := provider.PIMRendezvousPoint{RendezvousPoint: rp, PeerAddresses: slices.Clone(rp.AnycastAddresses)}
+		for j := range interfaces {
+			iface := interfaces[j].Interface
+			if iface.Spec.Type != v1alpha1.InterfaceTypeLoopback || iface.Spec.DeviceRef.Name != pim.Spec.DeviceRef.Name || iface.Spec.IPv4 == nil || len(iface.Spec.IPv4.Addresses) == 0 {
+				continue
+			}
+			addr := iface.Spec.IPv4.Addresses[0].Addr().String()
+			if !slices.Contains(rp.AnycastAddresses, addr) {
+				continue
+			}
+			if resolved.LocalInterface != nil && resolved.LocalInterface.Name != iface.Name {
+				return nil, reconcile.TerminalError(fmt.Errorf("pim: RP %s matches multiple local loopback interfaces %q and %q", rp.Address, resolved.LocalInterface.Name, iface.Name))
+			}
+			resolved.LocalInterface = iface
+		}
+		if resolved.LocalInterface != nil {
+			localAddress := resolved.LocalInterface.Spec.IPv4.Addresses[0].Addr().String()
+			resolved.PeerAddresses = slices.DeleteFunc(resolved.PeerAddresses, func(addr string) bool { return addr == localAddress })
+		}
+		slices.Sort(resolved.PeerAddresses)
+		rendezvousPoints = append(rendezvousPoints, resolved)
+	}
+	return rendezvousPoints, nil
 }
 
 func (r *PIMReconciler) finalize(ctx context.Context, s *pimScope) (reterr error) {

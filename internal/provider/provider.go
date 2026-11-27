@@ -494,9 +494,20 @@ type PIMProvider interface {
 }
 
 type EnsurePIMRequest struct {
-	PIM            *v1alpha1.PIM
-	Interfaces     []PIMInterface
-	ProviderConfig *ProviderConfig
+	PIM              *v1alpha1.PIM
+	Interfaces       []PIMInterface
+	RendezvousPoints []PIMRendezvousPoint
+	ProviderConfig   *ProviderConfig
+}
+
+type PIMRendezvousPoint struct {
+	RendezvousPoint *v1alpha1.RendezvousPoint
+	// LocalInterface is the referenced loopback whose primary IPv4 address is an RP member.
+	// When non-nil, its IPv4 address list contains the resolved primary address.
+	// It is nil for static RPs or when the supplied membership has no local match.
+	LocalInterface *v1alpha1.Interface
+	// PeerAddresses contains the supplied RP members excluding the resolved local address.
+	PeerAddresses []string
 }
 
 type PIMInterface struct {
