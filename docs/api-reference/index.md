@@ -4,6 +4,7 @@
 - [evpn.networking.metal.ironcore.dev/v1alpha1](#evpnnetworkingmetalironcoredevv1alpha1)
 - [networking.metal.ironcore.dev/v1alpha1](#networking-metal-ironcore-dev-v1alpha1)
 - [nx.cisco.networking.metal.ironcore.dev/v1alpha1](#nx-cisco-networking-metal-ironcore-dev-v1alpha1)
+- [nx.overlay.networking.metal.ironcore.dev/v1alpha1](#nxoverlaynetworkingmetalironcoredevv1alpha1)
 - [overlay.networking.metal.ironcore.dev/v1alpha1](#overlaynetworkingmetalironcoredevv1alpha1)
 - [pool.networking.metal.ironcore.dev/v1alpha1](#pool-networking-metal-ironcore-dev-v1alpha1)
 - [xe.cisco.networking.metal.ironcore.dev/v1alpha1](#xe-cisco-networking-metal-ironcore-dev-v1alpha1)
@@ -2680,6 +2681,7 @@ _Appears in:_
 - [ACLEntry](#aclentry)
 - [AnycastRendezvousPoint](#anycastrendezvouspoint)
 - [BGPAggregateAddress](#bgpaggregateaddress)
+- [DCIInterface](#dciinterface)
 - [FabricBUMSpec](#fabricbumspec)
 - [IPAddressPoolSpec](#ipaddresspoolspec)
 - [IPPrefixPoolSpec](#ipprefixpoolspec)
@@ -3104,10 +3106,12 @@ _Appears in:_
 - [CommunitySetSpec](#communitysetspec)
 - [ConfigBackupSpec](#configbackupspec)
 - [ConsoleConnectionSpec](#consoleconnectionspec)
+- [DCIInterface](#dciinterface)
 - [DHCPRelaySpec](#dhcprelayspec)
 - [DNSSpec](#dnsspec)
 - [DevicePort](#deviceport)
 - [EVPNInstanceSpec](#evpninstancespec)
+- [EVPNInterconnectSpec](#evpninterconnectspec)
 - [EthernetSegmentSpec](#ethernetsegmentspec)
 - [FabricLoopbacksSpec](#fabricloopbacksspec)
 - [FabricUnderlayAddressingSpec](#fabricunderlayaddressingspec)
@@ -4947,6 +4951,7 @@ _Appears in:_
 - [DHCPRelaySpec](#dhcprelayspec)
 - [DNSSpec](#dnsspec)
 - [EVPNInstanceSpec](#evpninstancespec)
+- [EVPNInterconnectSpec](#evpninterconnectspec)
 - [EthernetSegmentSpec](#ethernetsegmentspec)
 - [FabricSpec](#fabricspec)
 - [IPAddressSpec](#ipaddressspec)
@@ -6309,6 +6314,219 @@ _Appears in:_
 | `peerUptime` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#duration-v1-meta)_ | PeerUptime indicates how long the vPC domain peer has been up and reachable via keepalive. |  | Optional: \{\} <br /> |
 | `peerLinkIf` _string_ | PeerLinkIf is the name of the interface used as the vPC domain peer-link. |  | Optional: \{\} <br /> |
 | `peerLinkIfOperStatus` _[Status](#status)_ | PeerLinkIfOperStatus is the Operational status of `PeerLinkIf`. | Unknown | Optional: \{\} <br /> |
+
+
+
+## nx.overlay.networking.metal.ironcore.dev/v1alpha1
+
+Package v1alpha1 contains API Schema definitions for the nx.overlay v1alpha1 API group.
+
+### Resource Types
+- [EVPNInterconnect](#evpninterconnect)
+
+
+
+#### BGP
+
+
+
+
+
+
+
+_Appears in:_
+- [Underlay](#underlay)
+
+
+
+#### DCI
+
+
+
+
+
+
+
+_Appears in:_
+- [EVPNInterconnectSpec](#evpninterconnectspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `underlay` _[Underlay](#underlay)_ |  |  | Required: \{\} <br /> |
+| `overlay` _[Overlay](#overlay)_ |  |  | Required: \{\} <br /> |
+
+
+#### DCIInterface
+
+
+
+Member defines a member of the EVPN interconnect.
+
+
+
+_Appears in:_
+- [EVPNInterconnectSpec](#evpninterconnectspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `interfaceRef` _[LocalObjectReference](#localobjectreference)_ | interfaces is a list of interfaces facing DCI |  | Required: \{\} <br /> |
+| `address` _[IPPrefix](#ipprefix)_ | ipAddress is the IP address of the interface facing DCI |  | Format: cidr <br />Type: string <br />Required: \{\} <br /> |
+| `remoteAddress` _[IPPrefix](#ipprefix)_ | remoteAddress is the IP address of the remote interface facing DCI |  | Format: cidr <br />Type: string <br />Required: \{\} <br /> |
+| `mtu` _integer_ | mtu is the MTU of the interface facing DCI |  | Maximum: 9216 <br />Minimum: 576 <br />Optional: \{\} <br /> |
+
+
+#### EVPNInterconnect
+
+
+
+EVPNInterconnect is the Schema for the evpninterconnects API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `nx.overlay.networking.metal.ironcore.dev/v1alpha1` | | |
+| `kind` _string_ | `EVPNInterconnect` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  | Optional: \{\} <br /> |
+| `spec` _[EVPNInterconnectSpec](#evpninterconnectspec)_ | spec defines the desired state of EVPNInterconnect |  | Required: \{\} <br /> |
+| `status` _[EVPNInterconnectStatus](#evpninterconnectstatus)_ | status defines the observed state of EVPNInterconnect |  | Optional: \{\} <br /> |
+
+
+#### EVPNInterconnectSpec
+
+
+
+EVPNInterconnectSpec defines the desired state of EVPNInterconnect
+
+
+
+_Appears in:_
+- [EVPNInterconnect](#evpninterconnect)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `interfaces` _[DCIInterface](#dciinterface) array_ | members represents the list of members in the EVPN interconnect. |  | MinItems: 2 <br />Required: \{\} <br /> |
+| `dci` _[DCI](#dci)_ |  |  | Required: \{\} <br /> |
+| `multiSiteIDIndexPoolRef` _[TypedLocalObjectReference](#typedlocalobjectreference)_ | multiSiteIDPool represents the pool of Multi-Site IDs (VNIs) for the EVPN interconnect. |  | Required: \{\} <br /> |
+| `ipAddressPoolRef` _[LocalObjectReference](#localobjectreference)_ | ipPrefixPoolRef references the IPPrefixPool from which IP addresses for DCI interfaces are allocated. |  | Required: \{\} <br /> |
+
+
+#### EVPNInterconnectStatus
+
+
+
+EVPNInterconnectStatus defines the observed state of EVPNInterconnect.
+
+
+
+_Appears in:_
+- [EVPNInterconnect](#evpninterconnect)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | conditions represent the current state of the EVPNInterconnect resource.<br />Each condition has a unique type and reflects the status of a specific aspect of the resource.<br />Standard condition types include:<br />- "Available": the resource is fully functional<br />- "Progressing": the resource is being created or updated<br />- "Degraded": the resource failed to reach or maintain its desired state<br />The status of each condition is one of True, False, or Unknown. |  | Optional: \{\} <br /> |
+
+
+#### OSPF
+
+
+
+
+
+
+
+_Appears in:_
+- [Underlay](#underlay)
+
+
+
+#### Overlay
+
+
+
+Overlay represents the overlay network configuration for the DCI.
+
+
+
+_Appears in:_
+- [DCI](#dci)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `protocol` _[OverlayProtocol](#overlayprotocol)_ | protocol represents the overlay routing protocol used for the DCI overlay. |  | Enum: [BGP] <br />Required: \{\} <br /> |
+| `evpnInterconnectSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#labelselector-v1-meta)_ |  |  | Required: \{\} <br /> |
+| `bgp` _[OverlayBGP](#overlaybgp)_ |  |  | Optional: \{\} <br /> |
+
+
+#### OverlayBGP
+
+
+
+
+
+
+
+_Appears in:_
+- [Overlay](#overlay)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `multiHop` _integer_ |  |  |  |
+
+
+#### OverlayProtocol
+
+_Underlying type:_ _string_
+
+
+
+_Validation:_
+- Enum: [BGP]
+
+_Appears in:_
+- [Overlay](#overlay)
+
+| Field | Description |
+| --- | --- |
+| `BGP` |  |
+
+
+#### Underlay
+
+
+
+Underlay represents the underlay network configuration for the DCI.
+
+
+
+_Appears in:_
+- [DCI](#dci)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `protocol` _[UnderlayProtocol](#underlayprotocol)_ | protocol represents the underlay routing protocol used for the DCI underlay. |  | Enum: [OSPF BGP] <br />Required: \{\} <br /> |
+| `ospf` _[OSPF](#ospf)_ |  |  | Optional: \{\} <br /> |
+| `bgp` _[BGP](#bgp)_ |  |  | Optional: \{\} <br /> |
+
+
+#### UnderlayProtocol
+
+_Underlying type:_ _string_
+
+
+
+_Validation:_
+- Enum: [OSPF BGP]
+
+_Appears in:_
+- [Underlay](#underlay)
+
+| Field | Description |
+| --- | --- |
+| `OSPF` |  |
+| `BGP` |  |
 
 
 

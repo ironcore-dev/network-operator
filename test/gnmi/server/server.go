@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -173,7 +174,7 @@ func (s *Server) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, 
 			Op:   gpb.UpdateResult_UPDATE,
 		})
 		// The value will automatically be merged into the existing state.
-		if err := s.state.Set(update.GetPath(), update.GetVal().GetJsonVal()); err != nil {
+		if err := s.state.Update(update.GetPath(), update.GetVal().GetJsonVal()); err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to set path for update: %v", err)
 		}
 	}
@@ -294,6 +295,15 @@ func setKey(buf []byte, path, v string) ([]byte, error) {
 
 // Set sets the value at the specified path in the state.
 func (s *State) Set(path *gpb.Path, raw []byte) (err error) {
+	return s.set(path, raw, false)
+}
+
+// Update merges the value at the specified path without removing existing object fields.
+func (s *State) Update(path *gpb.Path, raw []byte) error {
+	return s.set(path, raw, true)
+}
+
+func (s *State) set(path *gpb.Path, raw []byte, merge bool) (err error) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -332,6 +342,14 @@ func (s *State) Set(path *gpb.Path, raw []byte) (err error) {
 		}
 	}
 
+	if merge {
+		if current := gjson.GetBytes(buf, sb.String()); current.Exists() {
+			raw, err = jsonpatch.MergePatch([]byte(current.Raw), raw)
+			if err != nil {
+				return fmt.Errorf("merging update: %w", err)
+			}
+		}
+	}
 	buf, err = sjson.SetRawBytes(buf, sb.String(), raw)
 	if err != nil {
 		return fmt.Errorf("sjson.SetRawBytes: %w", err)

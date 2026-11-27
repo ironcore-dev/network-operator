@@ -57,6 +57,7 @@ resources:
 - bases/nx.cisco.networking.metal.ironcore.dev_ethernetsegmentconfigs.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_pimconfigs.yaml
 - bases/nx.cisco.networking.metal.ironcore.dev_bgppeerconfigs.yaml
+- bases/nx.overlay.networking.metal.ironcore.dev_evpninterconnects.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches: []
